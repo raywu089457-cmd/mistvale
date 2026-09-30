@@ -1,0 +1,24 @@
+# 依賴
+node_modules/
+
+# 建置產物（build.mjs 輸出到 ../../outputs，或 dist/）
+dist/
+outputs/
+*.log
+
+# 備份／編輯暫存
+*.bak
+*.pre-atlas.bak
+*.pre-*.bak
+
+# 作業系統
+Thumbs.db
+.DS_Store
+
+# Python
+__pycache__/
+*.pyc
+.venv/
+
+# 像素繪圖工作檔
+diag/__pycache__/

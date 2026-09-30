@@ -1,0 +1,30 @@
+<!doctype html>
+<html lang="zh-Hant">
+<head><meta charset="UTF-8"><meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover"><meta name="theme-color" content="#172b29"><title>暮影村 — 獵魔紀事</title><style>/*__STYLE__*/</style></head>
+<body>
+<canvas id="world" aria-label="暮影村 3D 遊戲場景：拖曳旋轉，滾輪縮放，點擊建築管理"></canvas>
+<div class="vignette"></div><div id="world-labels"></div>
+<header class="topbar">
+ <button class="brand" data-action="home" aria-label="返回村莊視角"><span class="brand-sigil">✧</span><span><strong>暮影村</strong><small>MISTVALE · HUNTER'S CHRONICLE</small></span></button>
+ <div class="resources" aria-label="村莊資源"><div class="resource gold" title="金幣：狩獵與農場生產"><i data-icon="gold"></i><span><small>金幣</small><b id="gold">480</b></span></div><div class="resource wood" title="木材：狩獵與農場生產"><i data-icon="wood"></i><span><small>木材</small><b id="wood">140</b></span></div><div class="resource ore" title="礦石：狩獵掉落"><i data-icon="ore"></i><span><small>礦石</small><b id="ore">80</b></span></div><div class="resource gems" title="星晶：完成委託與首領戰獲得"><i data-icon="gem"></i><span><small>星晶</small><b id="gems">12</b></span></div></div>
+ <div class="top-tools"><div class="day-info"><span id="day">第 1 日</span><small><span class="sun-dot"></span><span id="time-label">午後 · 晴朗</span></small></div><button class="icon-button" data-action="sound" aria-label="開啟音效" id="sound-btn" data-icon="soundOff"></button><button class="icon-button" data-action="settings" aria-label="遊戲設定" data-icon="settings"></button></div>
+</header>
+<main id="hud" class="hidden">
+ <aside class="left-column">
+  <section class="panel chapter-panel"><div class="eyebrow"><span>村長的手札</span><span id="chapter-number">CHAPTER 01</span></div><h2 id="quest-title">新的守望者</h2><p id="quest-description">招募一位獵人，讓村莊的燈火繼續明亮。</p><div class="quest-progress"><span id="quest-progress-label">0 / 1</span><span>委託進度</span></div><div class="progress-track"><div id="quest-progress-fill"></div></div><div class="quest-footer"><span id="quest-reward"></span><button id="quest-action" data-action="quest">前往招募 <span>↗</span></button></div></section>
+  <section class="panel hunters-panel"><div class="panel-heading"><h3>村莊獵人 <span id="hunter-count">3 / 5</span></h3><button class="text-button" data-action="hunters" aria-label="查看所有獵人">全部 ↗</button></div><div id="hunter-list"></div><button class="recruit-button" data-action="recruit"><span>＋</span> 招募新獵人</button></section>
+ </aside>
+ <aside class="right-column"><section class="panel building-panel" id="building-panel"></section><button class="wilds-card" data-action="hunt"><div class="wilds-icon" data-icon="swords"></div><div><small>村外探索</small><strong>幽語森林 <span>↗</span></strong><span class="threat"><i></i> 魔物出沒中</span></div></button></aside>
+ <div class="area-name"><span class="area-rule"></span><span><small>THE LAST LIGHT IN THE WILDS</small><strong>一座村莊，無數冒險。</strong></span><span class="area-rule"></span></div>
+ <div class="bottom-left"><button class="minimap" data-action="home" aria-label="重置視角並回到村莊"><canvas id="minimap" width="300" height="180"></canvas><span class="map-north">N</span><span class="map-label">暮影谷地 <small>⊕</small></span></button><div class="save-status"><span></span><span id="save-status">進度會自動儲存</span></div></div>
+ <nav class="dock" aria-label="遊戲功能"><button class="active" data-action="home"><i data-icon="village"></i><span>村莊</span><kbd>1</kbd></button><button data-action="hunters"><i data-icon="shield"></i><span>獵人</span><kbd>2</kbd></button><button data-action="build"><i data-icon="hammer"></i><span>建設</span><kbd>3</kbd></button><button data-action="expedition"><i data-icon="swords"></i><span>遠征</span><kbd>4</kbd></button><button data-action="journal"><i data-icon="book"></i><span>紀事</span><kbd>5</kbd></button></nav>
+ <div class="bottom-right"><div id="event-feed" aria-live="polite"></div><div class="playback"><button class="heal-button" data-action="heal" id="heal-button" title="治癒祝福：恢復全隊生命"><i data-icon="heal"></i><span id="heal-label">治癒祝福</span></button><button class="icon-button" id="pause-button" data-action="pause" aria-label="暫停遊戲" data-icon="pause"></button><button class="speed-button" id="speed-button" data-action="speed" aria-label="改變遊戲速度">1×</button></div></div>
+ <div class="camera-tools"><button class="icon-button" data-action="zoomIn" aria-label="拉近視角">＋</button><button class="icon-button" data-action="zoomOut" aria-label="拉遠視角">−</button><button class="icon-button" data-action="help" aria-label="操作說明" data-icon="help"></button></div>
+ <div class="controls-hint">拖曳旋轉 <b>·</b> 滾輪縮放 <b>·</b> 點擊建築管理</div><div id="paused-banner" class="hidden">遊戲已暫停 <span>按空白鍵繼續</span></div>
+</main>
+<section id="intro"><div class="intro-inner"><div class="eyebrow"><span class="tiny-diamond"></span> THE CHRONICLES OF MISTVALE</div><h1>燈火未熄，<br>獵人將歸。</h1><p>荒野之外，重建一方安身之所。<br>招募你的獵人，守護這座村莊，<br>讓新的故事，從暮影開始。</p><button class="primary start-button" data-action="start" id="start-button">開始你的故事 <span>⟶</span></button><span class="intro-note">3D 村莊經營 × 自動狩獵冒險</span></div><div class="intro-caption"><span></span>暮影谷地 · 秋日午後</div></section>
+<div id="toasts" aria-live="polite"></div>
+<div class="modal-backdrop hidden" id="modal-backdrop"><section id="modal" class="modal" role="dialog" aria-modal="true" aria-labelledby="modal-title"><div class="modal-top"><div><div class="eyebrow" id="modal-eyebrow"></div><h2 id="modal-title"></h2></div><button class="icon-button" data-action="close" aria-label="關閉視窗" data-icon="close"></button></div><div id="modal-content"></div></section></div>
+<div id="loading"><span class="loading-rune">✧</span><h2>暮影村</h2><p>正在點亮村莊的燈火…</p></div>
+<script>/*__SCRIPT__*/</script>
+</body></html>

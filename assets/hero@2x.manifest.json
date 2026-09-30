@@ -1,0 +1,74 @@
+{
+ "version": 1,
+ "kind": "mistvale-hero-atlas",
+ "image": "hero@2x.png",
+ "sheetWidth": 92,
+ "sheetHeight": 74,
+ "cellWidth": 30,
+ "cellHeight": 36,
+ "cols": 3,
+ "rows": 2,
+ "cells": {
+  "berserker": {
+   "x": 2,
+   "y": 2,
+   "w": 25,
+   "h": 34,
+   "anchor": [
+    12.5,
+    34
+   ]
+  },
+  "ranger": {
+   "x": 32,
+   "y": 2,
+   "w": 25,
+   "h": 34,
+   "anchor": [
+    12.5,
+    34
+   ]
+  },
+  "paladin": {
+   "x": 62,
+   "y": 2,
+   "w": 27,
+   "h": 34,
+   "anchor": [
+    13.5,
+    34
+   ]
+  },
+  "sorcerer": {
+   "x": 2,
+   "y": 38,
+   "w": 24,
+   "h": 34,
+   "anchor": [
+    12.0,
+    34
+   ]
+  },
+  "darkknight": {
+   "x": 32,
+   "y": 38,
+   "w": 26,
+   "h": 34,
+   "anchor": [
+    13.0,
+    34
+   ]
+  },
+  "priest": {
+   "x": 62,
+   "y": 38,
+   "w": 28,
+   "h": 34,
+   "anchor": [
+    14.0,
+    34
+   ]
+  }
+ },
+ "scale": 0.28
+}

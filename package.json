@@ -1,0 +1,19 @@
+{
+  "name": "mistvale",
+  "version": "1.4.0",
+  "description": "Mistvale pixel hunter village with a three-times-larger biome overworld",
+  "main": "index.js",
+  "scripts": {
+    "test": "node test-pixel-game.mjs && node test-overworld.mjs && node test-landscape.mjs",
+    "build": "node build.mjs",
+    "serve": "node server.mjs"
+  },
+  "keywords": [],
+  "author": "",
+  "license": "UNLICENSED",
+  "type": "module",
+  "dependencies": {
+    "esbuild": "^0.28.2",
+    "three": "^0.186.1"
+  }
+}
