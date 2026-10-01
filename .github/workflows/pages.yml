@@ -35,10 +35,12 @@ jobs:
         run: npm run build
 
       # build.mjs 會輸出單一 HTML（檔名為中文）。複製成 index.html 當 Pages 首頁。
+      # pwa/ 是 manifest、service worker 與 App 圖示，放到 Pages 根目錄讓遊戲能「加到主畫面」。
       - name: Prepare site
         run: |
           mkdir -p site
           cp dist/*.html site/index.html
+          cp -r pwa/. site/
           echo "Site contents:" && ls -la site
 
       - uses: actions/upload-pages-artifact@v3
