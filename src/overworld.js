@@ -25,6 +25,7 @@ export function biomeAt(x,z){
  if(isBridge(x,z))return 'bridge';
  if(isWater(x,z))return z<-29?'ice':'river';
  if(inVillage(x,z))return 'village';
+ if(x<7&&z>=-32&&z<=-24)return 'forest';
  const nx=x+Math.sin(z*.15)*3.1+Math.sin(z*.49)*.7,nz=z+Math.sin(x*.13)*3.8+Math.cos(x*.37)*.8;
  if(nz<-29)return nx>31?'mountain':'snow';
  if(nx>34&&nz<-13)return 'mountain';
@@ -35,4 +36,4 @@ export function biomeAt(x,z){
  return 'meadow';
 }
 export function regionAt(x,z){const candidates=REGIONS.filter(r=>r.id!=='village');return inVillage(x,z)?REGIONS[0]:candidates.reduce((best,r)=>Math.hypot(x-r.x,z-r.z)<Math.hypot(x-best.x,z-best.z)?r:best,candidates[0]);}
-export const BIOME_PALETTE={village:'#a8a652',meadow:'#b0ac5c',forest:'#416f43',taiga:'#5c8471',snow:'#d9e8df',mountain:'#a09e91',desert:'#e0bb73',birch:'#b3b563',river:'#3d91a6',ice:'#94cbd3',bridge:'#a77b50',ocean:'#3d7488'};
+export const BIOME_PALETTE={village:'#719b55',meadow:'#8caf5d',forest:'#356b3d',taiga:'#527c68',snow:'#d9e8df',mountain:'#a09e91',desert:'#e0bb73',birch:'#9fbd67',river:'#3395bd',ice:'#94cbd3',bridge:'#a77b50',ocean:'#3d7488'};

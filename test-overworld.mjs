@@ -4,19 +4,25 @@ import {createGame} from './src/pixel-game.js';
 assert.equal(WORLD.area,WORLD.oldArea*3,'land area is exactly 3x the previous rectangle');
 assert.equal(WORLD.width*WORLD.height,WORLD.area);
 assert.equal(new Set(REGIONS.map(r=>r.id)).size,8);
+assert.equal(biomeAt(-8,-28),'forest','woodland separates village from the cold northern biomes');
+assert.equal(biomeAt(8,-36),'snow','snow hunting region remains snowy');
+assert.equal(biomeAt(15,-23),'taiga','taiga hunting region remains intact');
 for(const z of BRIDGES)assert.ok(walkable(riverX(z),z),'bridges cross the river');
 assert.ok(!walkable(riverX(13),13),'river is not a walkable shortcut');
 for(const region of REGIONS.slice(1)){
  const game=createGame();assert.equal(game.exploreRegion(region.id).ok,true);assert.equal(game.state.region,region.id);
  assert.ok(game.state.visitedRegions.includes(region.id));assert.equal(game.state.enemies.length,6);
  let nearest=Infinity,reached=false,killed=false;
- for(let step=0;step<1500;step++){
+ // Village placement changes service travel time; require actual arrival and
+ // combat within a bounded five-minute expedition instead of a fixed snapshot.
+ for(let step=0;step<3000;step++){
   game.tick(.1);
   for(const h of game.state.hunters){
    assert.ok(walkable(h.x,h.z),`${region.id}: hunter never crosses unbridged water or world edge (${h.x},${h.z})`);
    nearest=Math.min(nearest,Math.hypot(h.x-region.x,h.z-region.z));if(nearest<6)reached=true;
   }
   if(game.state.totalKills>0)killed=true;
+  if(reached&&killed)break;
  }
  assert.ok(reached,`${region.name} must be reachable; nearest=${nearest}`);
  assert.ok(killed,`${region.name} has real combat`);

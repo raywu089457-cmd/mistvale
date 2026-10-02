@@ -2,8 +2,8 @@ import {BUILDINGS} from './pixel-data.js';
 import {REGIONS,BRIDGES,riverX,walkable,inVillage} from './overworld.js';
 export const ARENAS=REGIONS.filter(r=>r.id!=='village').map(r=>({...r,rx:r.id==='taiga'?5.7:6.6,rz:6.0}));
 export const SOLID_PROPS=[
- {id:'fountain',minX:-9.2,maxX:-6.8,minZ:.8,maxZ:3.2},
- {id:'well',minX:-10.1,maxX:-8.9,minZ:17.2,maxZ:18.4},
+ {id:'fountain',minX:-10,maxX:-6,minZ:0,maxZ:4},
+ {id:'well',minX:-11.1,maxX:-9.9,minZ:21.9,maxZ:23.1},
  {id:'palisade-north',minX:8.7,maxX:9.3,minZ:-23.2,maxZ:-1.1},
  {id:'palisade-south',minX:8.7,maxX:9.3,minZ:5.1,maxZ:16.0},
  {id:'palisade-tail',minX:8.7,maxX:9.3,minZ:20,maxZ:25.2}
@@ -13,12 +13,12 @@ export function arenaContains(id,x,z,padding=0){const a=ARENAS.find(a=>a.id===id
 export function distanceSegment(x,z,a,b){const dx=b.x-a.x,dz=b.z-a.z,t=Math.max(0,Math.min(1,((x-a.x)*dx+(z-a.z)*dz)/(dx*dx+dz*dz||1)));return Math.hypot(x-a.x-t*dx,z-a.z-t*dz);}
 export function getRoads(layout={},levels={}){
  const roads=[];const add=(points,width=1.15,kind='trail')=>{for(let i=1;i<points.length;i++){const a={x:points[i-1][0],z:points[i-1][1]},b={x:points[i][0],z:points[i][1]};roads.push({a,b,width,kind});}};
- // A continuous village street grid and one gate, with front-door connections.
+ // A plaza-led village street, with radial branches and one gate.
  add([[-27,5.5],[-18.5,5.5],[-8,5.5],[-6,5.5],[2.5,5.5],[8,3],[17,3]],1.05,'stone');
  add([[2.5,-22],[6,-24],[16,-24]],.9);add([[2.5,18],[8,18],[16,18]],.9,'stone');
- const circle=Array.from({length:13},(_,i)=>[-8+Math.cos(i*Math.PI/6)*2.6,2+Math.sin(i*Math.PI/6)*2.6]);add(circle,.6,'stone');add([[-8,4.6],[-8,5.5]],.6,'stone');
- for(const x of [-25,-18.5,-6,2.5])add([[x,-22],[x,5.5],[x,24]],.7,'stone');
- add([[-25,-22],[-18.5,-22],[-6,-22],[2.5,-22]],.7,'stone');add([[-18.5,24],[-6,24],[2.5,24]],.7,'stone');
+ const circle=Array.from({length:13},(_,i)=>[-8+Math.cos(i*Math.PI/6)*3.6,2+Math.sin(i*Math.PI/6)*3.6]);add(circle,.6,'stone');add([[-8,5.6],[-8,5.5]],.6,'stone');
+ add([[-8,-22],[-8,5.5],[-8,24]],.7,'stone');
+ add([[-25,5.5],[-8,5.5],[2.5,5.5]],.7,'stone');
  // Main routes meet every bridge rather than stopping at a riverbank.
  add([[17,3],[16,-10],[16,-24],[15,-23],[8,-36]],1.15);
  add([[17,3],[16,18],[16,26],[16,36],[7,43],[16,46]],1.15);
@@ -27,7 +27,19 @@ export function getRoads(layout={},levels={}){
  add([[36,3],[43,2]],1.25);add([[36,-29],[45,-29]],1.25);add([[36,40],[45,40]],1.25);
  // Dungeon entrance is reached along the east bank after crossing an actual bridge.
  add([[36,-10],[29,-10],[26.6,-11]],.9);
- for(const b of BUILDINGS){if(b.id==='dungeon'||levels[b.id]===0)continue;const p=layout[b.id]||b,door={x:p.x,z:p.z+b.d/2+.6};const axis=[-25,-18.5,-6,2.5].sort((a,b)=>Math.abs(a-door.x)-Math.abs(b-door.x))[0];add([[door.x,door.z],[axis,door.z]],.58,'stone');}
+ const mainStreets=roads.filter(r=>r.kind==='stone');
+ for(const b of BUILDINGS){
+  if(b.id==='dungeon'||levels[b.id]===0)continue;
+  const p=layout[b.id]||b,door={x:p.x,z:p.z+b.d/2+.6};
+  let junction=null,nearest=Infinity;
+  for(const r of mainStreets){
+   const dx=r.b.x-r.a.x,dz=r.b.z-r.a.z;
+   const t=Math.max(0,Math.min(1,((door.x-r.a.x)*dx+(door.z-r.a.z)*dz)/(dx*dx+dz*dz||1)));
+   const q={x:r.a.x+t*dx,z:r.a.z+t*dz},distance=Math.hypot(q.x-door.x,q.z-door.z);
+   if(distance<nearest){nearest=distance;junction=q;}
+  }
+  if(junction)add([[door.x,door.z],[junction.x,junction.z]],.58,'stone');
+ }
  return fitRoads(roads,layout,levels);
 }
 export function onRoad(x,z,roads,extra=0){return roads.some(r=>distanceSegment(x,z,r.a,r.b)<=r.width+extra);}

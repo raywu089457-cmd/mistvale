@@ -67,6 +67,8 @@
 .start-content h1{font-size:clamp(29px,3vw,40px);letter-spacing:5px}
 .start-content h1 span{color:#fff0c7}
 .start-tag{color:#ead399}
+body.art-review #left-panel,body.art-review .world-minimap,body.art-review #pause-label,body.art-review #region-badge,body.art-review .notice-feed,body.art-review .skill-buttons,body.art-review .zone-tools,body.art-review .view-tools,body.art-review .world-map-trigger{display:none!important}
 .start-content p{color:#e0d7b7}
 .start-content>small{color:#c9c19c}
 @media(max-width:760px){.start-panel{display:flex;flex-direction:column;width:100%;max-width:410px}.start-content{padding:23px 17px;border-left:0;border-top:3px solid #252619}#title-art{height:auto;aspect-ratio:1;background-size:100% 100%}.start-content h1{font-size:32px}}
+

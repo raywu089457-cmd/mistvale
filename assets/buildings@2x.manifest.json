@@ -1,7 +1,7 @@
 {
  "version": 1,
  "kind": "mistvale-building-atlas",
- "image": "buildings14-alpha.png",
+ "image": "buildings@2x.png",
  "sheetWidth": 1248,
  "sheetHeight": 1212,
  "cellWidth": 312,

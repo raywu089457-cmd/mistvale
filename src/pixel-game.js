@@ -1,6 +1,6 @@
 import {getRoads,roadNodes,onRoad,arenaAt,ARENAS,arenaContains,SOLID_PROPS} from './landscape-layout.js';
 import {WORLD,REGIONS,BRIDGES,riverX,walkable,inVillage,regionAt} from './overworld.js';
-import { BUILDINGS, CLASSES, RARITIES, TRAITS, MATERIALS, PRODUCTS, RECIPES, DIFFICULTIES, CAMP, HUNT_ZONE, LEGACY_LAYOUT_V14 } from './pixel-data.js';
+import { BUILDINGS, CLASSES, RARITIES, TRAITS, MATERIALS, PRODUCTS, RECIPES, DIFFICULTIES, CAMP, HUNT_ZONE, LEGACY_LAYOUT_V14, LEGACY_LAYOUT_V15, LEGACY_LAYOUT_V16, ART_LAYOUT_HISTORY } from './pixel-data.js';
 
 const mapById = list => Object.assign(Object.create(null), Object.fromEntries(list.map(item => [item.id, item])));
 const CLASS = mapById(CLASSES), BUILDING = mapById(BUILDINGS), RARITY = mapById(RARITIES), RECIPE = mapById(RECIPES);
@@ -478,7 +478,8 @@ export function createGame(saved = null) {
     state.buildings.hall = integer(source.buildings?.hall, 1, 1, 5);
     for (const b of BUILDINGS) if (b.id !== 'hall') state.buildings[b.id] = integer(source.buildings?.[b.id], UNBUILT.has(b.id) ? 0 : 1, UNBUILT.has(b.id) ? 0 : 1, Math.min(5, state.buildings.hall + 1));
     state.capacity = 8 + (state.buildings.house - 1) * 2;
-    const migrateDefault=source.layoutRevision!==2&&BUILDINGS.every(b=>{const p=source.layout?.[b.id],old=LEGACY_LAYOUT_V14[b.id];return !p||(p.x===old.x&&p.z===old.z);});
+    const matchesLayout=old=>BUILDINGS.every(b=>{const p=source.layout?.[b.id],previous=old[b.id];return !p||(p.x===previous.x&&p.z===previous.z);});
+    const migrateDefault=(source.layoutRevision!==2&&matchesLayout(LEGACY_LAYOUT_V14))||matchesLayout(LEGACY_LAYOUT_V15)||matchesLayout(LEGACY_LAYOUT_V16)||ART_LAYOUT_HISTORY.some(matchesLayout);
     const inputLayout=migrateDefault?Object.fromEntries(BUILDINGS.map(b=>[b.id,{x:b.x,z:b.z}])):source.layout;
     const layout = Object.fromEntries(BUILDINGS.map(b => [b.id, { x: number(inputLayout?.[b.id]?.x, b.x, -28, 28), z: number(inputLayout?.[b.id]?.z, b.z, -23, 27) }]));
     state.layout = layout;

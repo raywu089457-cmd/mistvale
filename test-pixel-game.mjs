@@ -41,29 +41,31 @@ assert.equal(g.craft('__proto__').ok, false); assert.equal(g.craft('food', -1).o
 assert.equal(g.setTradeRequest('ore', -1).ok, false); assert.equal(g.setTradeRequest('__proto__', 20).ok, false);
 
 const service = createGame(), hungry = isolate(service);
-hungry.x = -12; hungry.z = 2.35; hungry.satiety = 5;
+const restaurant=BUILDINGS.find(b=>b.id==='restaurant');
+const mealDoor={x:restaurant.x,z:restaurant.z+restaurant.d/2+.6};
+Object.assign(hungry,mealDoor); hungry.satiety = 5;
 const serviceTotal = totalMoney(service), serviceGold = service.state.gold, mealStock = service.state.stocks.food;
 run(service, 8, true);
 assert.equal(service.state.stocks.food, mealStock - 1); assert.equal(service.state.gold, serviceGold + PRODUCTS.food.price); assert.equal(totalMoney(service), serviceTotal);
 assert.ok(hungry.satiety > 65); assert.equal(service.state.counts.services, 1);
-const serviceSave = createGame(), diner = isolate(serviceSave); diner.x = -12; diner.z = 2.35; diner.satiety = 5; run(serviceSave, 1, true);
+const serviceSave = createGame(), diner = isolate(serviceSave); Object.assign(diner,mealDoor); diner.satiety = 5; run(serviceSave, 1, true);
 assert.equal(diner.serviceStarted, true); const paidGold = serviceSave.state.gold, paidStock = serviceSave.state.stocks.food;
 const resumedService = createGame(serviceSave.serialize()); run(resumedService, 4, true);
 assert.equal(resumedService.state.gold, paidGold, 'Reload does not double-charge an in-progress meal'); assert.equal(resumedService.state.stocks.food, paidStock); assert.ok(resumedService.state.hunters[0].satiety > 65);
-const basics = createGame(), broke = isolate(basics); broke.x = -12; broke.z = 2.35; broke.satiety = 0; broke.gold = 0;
+const basics = createGame(), broke = isolate(basics); Object.assign(broke,mealDoor); broke.satiety = 0; broke.gold = 0;
 const basicGold = basics.state.gold, basicStock = basics.state.stocks.food; run(basics, 9, true);
 assert.equal(basics.state.gold, basicGold); assert.equal(basics.state.stocks.food, basicStock); assert.ok(broke.satiety > 55); assert.equal(basics.state.counts.basicServices, 1);
-const noStock = createGame(), stranded = isolate(noStock); stranded.x = -12; stranded.z = 2.35; stranded.satiety = 0; noStock.state.stocks.food = 0; run(noStock, 9, true);
+const noStock = createGame(), stranded = isolate(noStock); Object.assign(stranded,mealDoor); stranded.satiety = 0; noStock.state.stocks.food = 0; run(noStock, 9, true);
 assert.ok(stranded.satiety > 55, 'Emergency basics avoid empty-stock deadlock'); assert.equal(noStock.state.stocks.food, 0); assert.equal(noStock.state.gold, 1500);
 
-const trading = createGame(), merchant = isolate(trading); trading.state.time = 100; merchant.x = -12; merchant.z = -4.65; merchant.inventory.ore = 20;
+const trading = createGame(), merchant = isolate(trading),market=BUILDINGS.find(b=>b.id==='trading'); const marketDoor={x:market.x,z:market.z+market.d/2+.6}; trading.state.time = 100; Object.assign(merchant,marketDoor); merchant.inventory.ore = 20;
 assert.equal(trading.setTradeRequest('ore', 10).ok, true); const tradeTotal = totalMoney(trading), townOre = trading.state.ore;
 run(trading, 4, true); assert.equal(merchant.inventory.ore, 10); assert.equal(trading.state.ore, townOre + 10); assert.equal(trading.state.tradeRequests.ore, 0);
 assert.equal(trading.state.gold, 1470); assert.equal(merchant.gold, 130); assert.equal(totalMoney(trading), tradeTotal); assert.equal(trading.state.counts.traded, 10);
-const poorTown = createGame(), seller = isolate(poorTown); poorTown.state.time = 100; poorTown.state.gold = 4; seller.x = -12; seller.z = -4.65; seller.inventory.ore = 20;
+const poorTown = createGame(), seller = isolate(poorTown); poorTown.state.time = 100; poorTown.state.gold = 4; Object.assign(seller,marketDoor); seller.inventory.ore = 20;
 run(poorTown, 4, true); assert.equal(poorTown.state.gold, 1); assert.equal(seller.inventory.ore, 19); assert.equal(seller.gold, 103);
 
-const gear = createGame(), buyer = isolate(gear); gear.state.time = 100; buyer.x = 4; buyer.z = 2.25; buyer.gold = 300;
+const gear = createGame(), buyer = isolate(gear),forge=BUILDINGS.find(b=>b.id==='forge'); gear.state.time = 100; buyer.x = forge.x; buyer.z = forge.z+forge.d/2+.6; buyer.gold = 300;
 assert.equal(gear.craftEquipment('weapon').ok, true); assert.equal(gear.craftEquipment('armor').ok, true);
 const gearMoney = totalMoney(gear), attackBefore = buyer.attack, hpBefore = buyer.maxHp; run(gear, 5, true);
 assert.ok(buyer.equipment.weapon && buyer.equipment.armor); assert.equal(gear.state.gearStock.weapon, 0); assert.equal(gear.state.gearStock.armor, 0);
@@ -81,7 +83,7 @@ assert.equal(buildings.upgrade('forge').ok, true); assert.deepEqual(buildings.ge
 assert.equal(buildings.upgrade('forge').ok, false, 'Hall gates higher building levels'); assert.equal(buildings.upgrade('hall').ok, true); assert.equal(buildings.upgrade('forge').ok, true);
 assert.equal(buildings.upgrade('house').ok, true); assert.equal(buildings.state.capacity, 10); assert.equal(buildings.upgrade('academy').ok, false);
 assert.equal(buildings.construct('academy').ok, true); assert.equal(buildings.construct('academy').ok, false);
-assert.equal(buildings.moveBuilding('bounty', 5, 17).ok, true); assert.equal(buildings.moveBuilding('hall', -12, -7).ok, false); assert.equal(buildings.moveBuilding('hall', -100, 0).ok, false); assert.equal(buildings.moveBuilding('dungeon', 0, 0).ok, false);
+assert.equal(buildings.moveBuilding('bounty', 5, 17).ok, true); assert.equal(buildings.moveBuilding('hall', market.x, market.z).ok, false); assert.equal(buildings.moveBuilding('hall', -100, 0).ok, false); assert.equal(buildings.moveBuilding('dungeon', 0, 0).ok, false);
 const movedSaved = createGame(buildings.serialize()); assert.deepEqual(movedSaved.state.layout.bounty, { x: 5, z: 17 });
 
 const combat = createGame(); run(combat, 60, false, assertFiniteEconomy);

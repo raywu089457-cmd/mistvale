@@ -16,7 +16,7 @@
   p.lead{color:var(--muted);margin:0 0 22px}
   .card{background:var(--panel);border:2px solid var(--line);border-radius:12px;padding:18px 18px;margin:18px 0}
   ol{margin:0;padding-left:22px}
-  ol li{margin:12px 0}
+  ol li{margin:14px 0}
   ol li b{color:var(--gold)}
   .cta{display:block;width:100%;text-align:center;background:var(--gold);color:#241f16;border:0;border-radius:10px;padding:18px;font-size:19px;font-weight:700;text-decoration:none;box-shadow:0 4px 0 #a9822f;margin:8px 0 4px}
   .cta:active{transform:translateY(2px);box-shadow:0 2px 0 #a9822f}
@@ -24,36 +24,35 @@
   .note{font-size:13px;color:var(--muted);border-top:1px solid var(--line);padding-top:14px;margin-top:22px}
   .warn{background:#3a2f22;border:2px solid #8a6d3b;color:#f2d79b;border-radius:10px;padding:12px 14px;font-size:14px;margin:16px 0}
   code{background:#2c2f26;padding:2px 7px;border-radius:5px;font-size:13px}
+  .share{display:inline-block;background:#2c2f26;border:1px solid var(--line);border-radius:6px;padding:1px 8px;margin:0 2px;font-size:14px}
 </style>
 </head>
 <body>
 <div class="wrap">
   <span class="badge">PIXEL HUNTER VILLAGE</span>
   <h1>把<span>暮影村</span><br>加到你的主畫面</h1>
-  <p class="lead">免 App Store、免 Apple 帳號、免付費。裝完桌面會出現「暮影村」圖示，點開就是全螢幕遊戲。</p>
+  <p class="lead">用 iPhone 的 <b>Safari</b>，3 個步驟就能在桌面建立 App 圖示。免 App Store、免 Apple 帳號、免付費。</p>
 
   <div class="card">
     <ol>
-      <li>按下面的 <b>「加入主畫面」</b> 按鈕。</li>
-      <li>如果跳出「要下載設定描述檔嗎」→ 選 <b>允許</b>。<br><small style="color:var(--muted)">如果沒跳出、只是開始下載檔案 → 打開 <b>檔案</b> App → <b>下載項目</b> → 點 <code>mistvale.mobileconfig</code>。</small></li>
-      <li>打開 <b>設定</b>（最上方會出現「已下載描述檔」）→ <b>安裝</b> → 輸入你的手機解鎖密碼 → 再按 <b>安裝</b>。</li>
-      <li>回到桌面，就會看到 <b>「暮影村」</b> 圖示 🎮 點開即可遊玩。</li>
+      <li>按下面的 <b>「開啟遊戲」</b>（會跳到遊戲畫面）。<br><small style="color:var(--muted)">⚠️ 一定要用 <b>Safari</b>，不是 Chrome。</small></li>
+      <li>在遊戲畫面，按底部工具列的 <b><span class="share">分享</span></b>（方框＋↑），選 <b>「加入主畫面」</b>。</li>
+      <li>右上按 <b>「加入」</b> → 桌面就會出現 <b>「暮影村」</b> 圖示 🎮 點開是全螢幕、會自動存檔。</li>
     </ol>
   </div>
 
-  <a class="cta" href="mistvale.mobileconfig">📲 加入主畫面（下載描述檔）</a>
-  <a class="ghost" href="./">只想先在瀏覽器裡玩 →</a>
+  <a class="cta" href="./">🎮 開啟遊戲</a>
 
   <div class="warn">
-    <b>為什麼要到「設定」裡安裝？</b> 這是蘋果對「主畫面捷徑」的規定，免帳號的做法一定要到設定確認一次。裝完就是常駐的圖示。<br><br>
-    <b>注意</b>：因為蘋果對網頁的要求，有時候點按鈕會直接下載一個 <code>.mobileconfig</code> 檔（而不是跳出授權框）——那是正常的，照上面第 2 步去「檔案」App 開它就好。
+    <b>為什麼要自己按「加入主畫面」？</b> 蘋果只把「點一下自動出現圖示」留給付費簽章的真 App；一般網頁一定要使用者手動按一次「加入主畫面」。這是 iOS 的規定，但做完就和 App 一樣好用。
   </div>
 
   <div class="note">
-    • 這是一個「主畫面捷徑」（Web Clip），圖示點開全螢幕執行網頁遊戲，會自動存檔。<br>
-    • 想刪除：長按桌面圖示 → 移除 App；或到 設定 → 一般 → VPN與裝置管理 刪除描述檔。<br>
-    • 免費、免 Apple Developer、不上架、不追蹤。<br>
-    • 存檔在這台裝置的瀏覽器裡，建議偶爾用遊戲內「設定 → 匯出存檔」備份。
+    • Android：用 Chrome 開遊戲 → 選單 → <b>加到主畫面</b>。<br>
+    • 圖示點開是全螢幕遊戲、會自動存檔；想刪除：長按圖示 → 移除 App。<br>
+    • 免費、免帳號、不上架、不追蹤。<br>
+    • 存檔在這台裝置的瀏覽器裡，建議偶爾用遊戲內「設定 → 匯出存檔」備份。<br>
+    • 想試「點一下自動安裝」的描述檔版本（iOS 上不保證成功）：<a href="mistvale.mobileconfig" style="color:var(--gold)">按此下載描述檔</a>。
   </div>
 </div>
 </body>

@@ -2,71 +2,71 @@
  "version": 1,
  "kind": "mistvale-hero-atlas",
  "image": "hero@2x.png",
- "sheetWidth": 92,
- "sheetHeight": 74,
- "cellWidth": 30,
- "cellHeight": 36,
+ "sheetWidth": 184,
+ "sheetHeight": 148,
+ "cellWidth": 60,
+ "cellHeight": 72,
  "cols": 3,
  "rows": 2,
  "cells": {
   "berserker": {
-   "x": 2,
-   "y": 2,
-   "w": 25,
-   "h": 34,
+   "x": 4,
+   "y": 4,
+   "w": 49,
+   "h": 68,
    "anchor": [
-    12.5,
-    34
+    24.5,
+    68
    ]
   },
   "ranger": {
-   "x": 32,
-   "y": 2,
-   "w": 25,
-   "h": 34,
+   "x": 64,
+   "y": 4,
+   "w": 49,
+   "h": 68,
    "anchor": [
-    12.5,
-    34
+    24.5,
+    68
    ]
   },
   "paladin": {
-   "x": 62,
-   "y": 2,
-   "w": 27,
-   "h": 34,
+   "x": 124,
+   "y": 4,
+   "w": 54,
+   "h": 68,
    "anchor": [
-    13.5,
-    34
+    27.0,
+    68
    ]
   },
   "sorcerer": {
-   "x": 2,
-   "y": 38,
-   "w": 24,
-   "h": 34,
+   "x": 4,
+   "y": 76,
+   "w": 49,
+   "h": 68,
    "anchor": [
-    12.0,
-    34
+    24.5,
+    68
    ]
   },
   "darkknight": {
-   "x": 32,
-   "y": 38,
-   "w": 26,
-   "h": 34,
+   "x": 64,
+   "y": 76,
+   "w": 52,
+   "h": 68,
    "anchor": [
-    13.0,
-    34
+    26.0,
+    68
    ]
   },
   "priest": {
-   "x": 62,
-   "y": 38,
-   "w": 28,
-   "h": 34,
+   "x": 124,
+   "y": 76,
+   "w": 56,
+   "h": 68,
    "anchor": [
-    14.0,
-    34
+    28.0,
+    68
    ]
   }
  },
