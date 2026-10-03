@@ -44,6 +44,10 @@ def masks(im):
 DARK = {"stone": (105, .004), "earth": (85, .004), "grass": (30, .03)}   # (亮度門檻, 容許比例)：擋角色描邊、陰影塊；草地本來就有暗草叢
 
 
+# 土路：概念圖乾淨土 (235,180,94) 與整體可見土色 (176,122,66) 的中點，對比加大
+TONE = {"earth": ((205, 150, 80), (18, 18, 14))}
+
+
 def candidates(im, mask, k=260, dark=(0, 0)):
     out = []
     lum = im @ np.array([.299, .587, .114], np.float32)
@@ -112,6 +116,10 @@ def main():
     for name, m in masks(im).items():
         c = candidates(im, m, dark=DARK[name])
         tile = quilt(c)
+        if name in TONE:   # 乾淨樣本都是向陽的亮土；概念圖整體看到的土路較暗（陰影、踩踏）→ 平均/標準差配過去
+            mean, sd = np.array(TONE[name][0], np.float32), np.array(TONE[name][1], np.float32)
+            t = tile.reshape(-1, 3); m0, s0 = t.mean(0), np.maximum(t.std(0), 1)
+            tile = ((tile - m0) / s0 * sd + mean)
         Image.fromarray(np.clip(tile, 0, 255).astype(np.uint8)).save(ROOT / "assets" / f"concept-{name}.png", optimize=True)
         print(f"concept-{name}.png {N}x{N} from {len(c)} samples, mean {tile.reshape(-1, 3).mean(0).round()}")
 
