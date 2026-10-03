@@ -1,0 +1,101 @@
+{
+ "version": 1,
+ "kind": "mistvale-flora-atlas",
+ "image": "flora@2x.png",
+ "sheetWidth": 1134,
+ "sheetHeight": 953,
+ "packing": "shelf",
+ "source": "flora-sheet-v1.jpg",
+ "sourceSheet": [
+  1024,
+  1024
+ ],
+ "chromaKey": "#FF00FF",
+ "generator": "l0veyou.com GPT Image 2",
+ "cells": {
+  "flowerYellow": {
+   "x": 0,
+   "y": 0,
+   "w": 172,
+   "h": 117,
+   "anchor": [
+    86.0,
+    117
+   ]
+  },
+  "flowerPink": {
+   "x": 176,
+   "y": 0,
+   "w": 175,
+   "h": 113,
+   "anchor": [
+    263.5,
+    113
+   ]
+  },
+  "flowerBlue": {
+   "x": 355,
+   "y": 0,
+   "w": 174,
+   "h": 111,
+   "anchor": [
+    442.0,
+    111
+   ]
+  },
+  "flowerWhite": {
+   "x": 533,
+   "y": 0,
+   "w": 181,
+   "h": 115,
+   "anchor": [
+    623.5,
+    115
+   ]
+  },
+  "wheat": {
+   "x": 718,
+   "y": 0,
+   "w": 148,
+   "h": 140,
+   "anchor": [
+    792.0,
+    140
+   ]
+  },
+  "cabbage": {
+   "x": 870,
+   "y": 0,
+   "w": 191,
+   "h": 130,
+   "anchor": [
+    965.5,
+    130
+   ]
+  },
+  "railing": {
+   "x": 0,
+   "y": 144,
+   "w": 1130,
+   "h": 670,
+   "anchor": [
+    565.0,
+    814
+   ],
+   "shear": 0.5,
+   "frontH": 105,
+   "tileW": 271,
+   "postW": 46
+  },
+  "bridgePost": {
+   "x": 0,
+   "y": 818,
+   "w": 90,
+   "h": 131,
+   "anchor": [
+    45.0,
+    949
+   ]
+  }
+ }
+}

@@ -1,0 +1,97 @@
+{
+ "version": 1,
+ "kind": "mistvale-vfx-atlas",
+ "image": "vfx@2x.png",
+ "sheetWidth": 963,
+ "sheetHeight": 433,
+ "packing": "shelf",
+ "source": "vfx-sheet-v1.jpg",
+ "sourceSheet": [
+  1024,
+  1024
+ ],
+ "chromaKey": "#FF00FF",
+ "generator": "l0veyou.com GPT Image 2",
+ "cells": {
+  "fxSlash": {
+   "x": 0,
+   "y": 0,
+   "w": 278,
+   "h": 163,
+   "anchor": [
+    139.0,
+    163
+   ]
+  },
+  "fxOrb": {
+   "x": 282,
+   "y": 0,
+   "w": 165,
+   "h": 146,
+   "anchor": [
+    364.5,
+    146
+   ]
+  },
+  "fxHeal": {
+   "x": 451,
+   "y": 0,
+   "w": 207,
+   "h": 183,
+   "anchor": [
+    554.5,
+    183
+   ]
+  },
+  "fxStar": {
+   "x": 662,
+   "y": 0,
+   "w": 220,
+   "h": 210,
+   "anchor": [
+    772.0,
+    210
+   ]
+  },
+  "fxHit": {
+   "x": 0,
+   "y": 214,
+   "w": 218,
+   "h": 208,
+   "anchor": [
+    109.0,
+    422
+   ]
+  },
+  "plot": {
+   "x": 222,
+   "y": 214,
+   "w": 338,
+   "h": 215,
+   "anchor": [
+    391.0,
+    429
+   ]
+  },
+  "iconLeather": {
+   "x": 564,
+   "y": 214,
+   "w": 182,
+   "h": 175,
+   "anchor": [
+    655.0,
+    389
+   ]
+  },
+  "fxSparkle": {
+   "x": 750,
+   "y": 214,
+   "w": 209,
+   "h": 198,
+   "anchor": [
+    854.5,
+    412
+   ]
+  }
+ }
+}

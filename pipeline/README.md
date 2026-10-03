@@ -16,6 +16,7 @@ AI／工程師，光看這個資料夾就能**完整接手**——知道素材�
 | [`ASSETS.md`](ASSETS.md) | 素材清單：每一張從哪來、狀態、缺口 |
 | [`sprite-gen.md`](sprite-gen.md) | **主管線**：sprite-gen 生圖 → 切格 → 組圖集 → 進遊戲 |
 | [`comfyui.md`](comfyui.md) | **旁支管線**：本機 SD（ComfyUI）生變體／實驗 |
+| [`l0veyou.md`](l0veyou.md) | **替代來源**：l0veyou.com（GPT Image 2）生道具／魔物／材質，額度用完時用 |
 
 報告原文在 [`reports/`](reports/)，可重跑腳本在 [`scripts/`](scripts/)。
 

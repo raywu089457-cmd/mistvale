@@ -1,0 +1,98 @@
+{
+ "version": 1,
+ "kind": "mistvale-monsters-atlas",
+ "image": "monsters@1x.png",
+ "sheetWidth": 512,
+ "sheetHeight": 638,
+ "packing": "shelf",
+ "source": "monsters-sheet-v1.jpg",
+ "sourceSheet": [
+  1254,
+  1254
+ ],
+ "chromaKey": "#FF00FF",
+ "generator": "l0veyou.com GPT Image 2",
+ "cells": {
+  "slime0": {
+   "x": 0,
+   "y": 0,
+   "w": 84,
+   "h": 72,
+   "anchor": [
+    42.0,
+    72
+   ]
+  },
+  "wolf0": {
+   "x": 88,
+   "y": 0,
+   "w": 109,
+   "h": 118,
+   "anchor": [
+    142.5,
+    118
+   ]
+  },
+  "golem0": {
+   "x": 201,
+   "y": 0,
+   "w": 130,
+   "h": 136,
+   "anchor": [
+    266.0,
+    136
+   ]
+  },
+  "boss0": {
+   "x": 335,
+   "y": 0,
+   "w": 173,
+   "h": 230,
+   "anchor": [
+    421.5,
+    230
+   ]
+  },
+  "slime1": {
+   "x": 0,
+   "y": 234,
+   "w": 106,
+   "h": 71,
+   "anchor": [
+    53.0,
+    305
+   ]
+  },
+  "wolf1": {
+   "x": 110,
+   "y": 234,
+   "w": 109,
+   "h": 162,
+   "anchor": [
+    164.5,
+    396
+   ]
+  },
+  "golem1": {
+   "x": 223,
+   "y": 234,
+   "w": 126,
+   "h": 167,
+   "anchor": [
+    286.0,
+    401
+   ]
+  },
+  "boss1": {
+   "x": 0,
+   "y": 405,
+   "w": 194,
+   "h": 229,
+   "anchor": [
+    97.0,
+    634
+   ]
+  }
+ },
+ "scale": 0.5
+}

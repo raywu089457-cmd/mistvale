@@ -10,7 +10,7 @@ let html=await fs.readFile(path.join(root,'src/pixel-index.html'),'utf8');
 let css=await fs.readFile(path.join(root,'src/pixel-style.css'),'utf8');
 css=css.replace("@import url('');",'');
 let assetScript='';
-for(const name of ['title','hall','inn','monument']){try{const p=await fs.readFile(path.join(root,`assets/${name}.png`));assetScript+=`window.PIXEL_ASSETS=window.PIXEL_ASSETS||{};window.PIXEL_ASSETS.${name}='data:image/png;base64,${p.toString('base64')}';`;}catch{}}
+for(const name of ['title','hall','inn','monument','plaza','road','woodui']){try{const p=await fs.readFile(path.join(root,`assets/${name}.png`));assetScript+=`window.PIXEL_ASSETS=window.PIXEL_ASSETS||{};window.PIXEL_ASSETS.${name}='data:image/png;base64,${p.toString('base64')}';`;}catch{}}
 for(const name of ['hall','inn','trading','restaurant','tavern','forge','clinic','academy','training','sanctuary','house','bounty','enhancement']){try{const candidates=name==='bounty'?['assets/concept-clean/noticeboard-web-v1.png',`assets/concept-clean/${name}-concept-v2.png`,`output/imagegen/${name}-concept-v2.png`]:[`assets/concept-clean/${name}-concept-v2.png`,`output/imagegen/${name}-concept-v2.png`];let p;for(const file of candidates){try{p=await fs.readFile(path.join(root,file));break;}catch{}}if(!p)continue;assetScript+=`window.PIXEL_ASSETS=window.PIXEL_ASSETS||{};window.PIXEL_ASSETS.${name}='data:image/png;base64,${p.toString('base64')}';window.PIXEL_ASSETS.alphaAssets=window.PIXEL_ASSETS.alphaAssets||{};window.PIXEL_ASSETS.alphaAssets.${name}=true;`;}catch{}}
 
 // 建築圖集:sprite-gen manifest 契約。兩段 LOD 的 rect 是對齊的,只是差 0.5 倍。
@@ -26,6 +26,15 @@ for(const [tag,file] of [['detailsAtlas','details@1x.png'],['detailsAtlas2x','de
 }
 for(const [tag,file] of [['detailsManifest','details@1x.manifest.json'],['detailsManifest2x','details@2x.manifest.json']]){
   try{const t=await fs.readFile(path.join(root,`assets/${file}`),'utf8');assetScript+=`window.PIXEL_ASSETS=window.PIXEL_ASSETS||{};window.PIXEL_ASSETS.${tag}=${t};`;}catch(e){console.warn('missing detail manifest',file);}
+}
+// l0veyou（GPT Image 2）生的道具／魔物／花草圖集:跟 details 同一個 manifest 契約。
+for(const prefix of ['props','monsters','flora','villagers','icons','vfx']){
+  for(const [suffix,lod] of [['Atlas','1x'],['Atlas2x','2x']]){
+    try{const p=await fs.readFile(path.join(root,`assets/${prefix}@${lod}.png`));assetScript+=`window.PIXEL_ASSETS=window.PIXEL_ASSETS||{};window.PIXEL_ASSETS.${prefix}${suffix}='data:image/png;base64,${p.toString('base64')}';`;}catch(e){console.warn('missing atlas',prefix,lod);}
+  }
+  for(const [suffix,lod] of [['Manifest','1x'],['Manifest2x','2x']]){
+    try{const t=await fs.readFile(path.join(root,`assets/${prefix}@${lod}.manifest.json`),'utf8');assetScript+=`window.PIXEL_ASSETS=window.PIXEL_ASSETS||{};window.PIXEL_ASSETS.${prefix}${suffix}=${t};`;}catch(e){console.warn('missing manifest',prefix,lod);}
+  }
 }
 // 無縫地面材質圖集
 for(const [tag,file,js] of [['terrainAtlas','terrain-atlas.png',false],['terrainManifest','terrain-atlas.manifest.json',true]]){

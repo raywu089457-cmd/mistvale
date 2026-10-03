@@ -1,0 +1,98 @@
+{
+ "version": 1,
+ "kind": "mistvale-villagers-atlas",
+ "image": "villagers@1x.png",
+ "sheetWidth": 448,
+ "sheetHeight": 313,
+ "packing": "shelf",
+ "source": "villagers-sheet-v1.jpg",
+ "sourceSheet": [
+  1024,
+  1024
+ ],
+ "chromaKey": "#FF00FF",
+ "generator": "l0veyou.com GPT Image 2",
+ "cells": {
+  "merchant": {
+   "x": 0,
+   "y": 0,
+   "w": 102,
+   "h": 152,
+   "anchor": [
+    51.0,
+    152
+   ]
+  },
+  "farmer": {
+   "x": 106,
+   "y": 0,
+   "w": 109,
+   "h": 152,
+   "anchor": [
+    160.5,
+    152
+   ]
+  },
+  "child": {
+   "x": 219,
+   "y": 0,
+   "w": 86,
+   "h": 133,
+   "anchor": [
+    262.0,
+    133
+   ]
+  },
+  "elder": {
+   "x": 309,
+   "y": 0,
+   "w": 106,
+   "h": 152,
+   "anchor": [
+    362.0,
+    152
+   ]
+  },
+  "smith": {
+   "x": 0,
+   "y": 156,
+   "w": 111,
+   "h": 152,
+   "anchor": [
+    55.5,
+    308
+   ]
+  },
+  "maid": {
+   "x": 115,
+   "y": 156,
+   "w": 108,
+   "h": 153,
+   "anchor": [
+    169.0,
+    309
+   ]
+  },
+  "cat": {
+   "x": 227,
+   "y": 156,
+   "w": 104,
+   "h": 116,
+   "anchor": [
+    279.0,
+    272
+   ]
+  },
+  "dog": {
+   "x": 335,
+   "y": 156,
+   "w": 109,
+   "h": 110,
+   "anchor": [
+    389.5,
+    266
+   ]
+  }
+ },
+ "scale": 0.5
+}

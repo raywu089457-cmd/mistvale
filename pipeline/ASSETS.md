@@ -25,6 +25,15 @@
 | `details@1x.png` / `@2x` | ✅ | sprite-gen（地圖細節） | ✅ | `detailsAtlas(+2x)` |
 | `terrain-atlas.png` | ✅ | sprite-gen（無縫地面材質） | ✅ | `terrainAtlas` |
 | `hero@1x.png` / `@2x` | ✅ | sprite-gen（獵人六職業） | ✅ | `heroAtlas(+2x)` |
+| `props@1x.png` / `@2x` | ✅ | **l0veyou**（羊／山羊、花圃、灌木、香菇、仙人掌、村旗、戰鬥旗、閘門、攤位、木桶） | ✅ | `propsAtlas(+2x)` |
+| `monsters@1x.png` / `@2x` | ✅ | **l0veyou**（史萊姆／狼／石巨人／森林領主，各 2 格動畫） | ✅ | `monstersAtlas(+2x)` |
+| `plaza.png` | — | **l0veyou**（無縫石板，色調對齊 title 廣場） | ✅ | `plaza` |
+| `road.png` | — | **l0veyou**（無縫土路，色調對齊 title 小路） | ✅ | `road` |
+| `woodui.png` | — | **l0veyou**（UI 木板材質，色調對齊 title 木頭） | ✅ | `woodui`（CSS `--wood-tex`） |
+| `icons@1x.png` / `@2x` | ✅ | **l0veyou**（29 個 UI 圖示：資源、物資、裝備、選單） | ✅ | `iconsAtlas(+2x)` |
+| `vfx@1x.png` / `@2x` | ✅ | **l0veyou**（斬擊、法球、治療、升級星、命中、閃光、施工空地、獸皮圖示） | ✅ | `vfxAtlas(+2x)` |
+| `flora@1x.png` / `@2x` | ✅ | **l0veyou**（四色小花、麥穗、高麗菜、等角橋欄長條、橋柱） | ✅ | `floraAtlas(+2x)` |
+| `villagers@1x.png` / `@2x` | ✅ | **l0veyou**（商人、農婦、小孩、長老、鐵匠學徒、酒館女侍、貓、狗；純裝飾） | ✅ | `villagersAtlas(+2x)` |
 
 每個圖集都配一個 `*.manifest.json`（`frame_layout`，每格座標）。build.mjs 把 PNG＋manifest
 一起 base64 內嵌。**改 manifest 記得 `npm run build`**。
@@ -42,11 +51,10 @@
 
 | 程序繪製 | 備註 |
 |---|---|
-| 仙人掌、香菇、花草 | 尚無專用圖集 |
-| 閘門、花園、橋欄、村莊旗與競技場旗 | 程序像素繪製，仍需風格驗收 |
-| 羊、山羊 | 已增加輪廓與毛色層次，尚無獨立素材 |
-| 史萊姆、狼、石巨人、首領 | 程序 sprite；史萊姆已增加明暗細節 |
-| 圖示與戰鬥特效 | 程序繪製 |
+
+所有地圖裝飾、魔物、戰鬥特效、空地標記與 UI 圖示都已改走圖集：建築／樹／岩石／圍欄（sprite-gen）、道具／魔物／花草／作物／橋欄（l0veyou）、
+廣場石板（l0veyou）、草地（terrain-atlas，色調對齊概念圖草地）。驗收：`__mistvaleDetails().proc` 必須是 `{}`。
+圖集沒載到時仍退回原本的程序繪製。
 
 樹木、岩石、洞穴、廢墟、圍欄、水井、燈柱與路標優先使用 `details@1x/@2x`。
 獵人使用六職業角色圖集；`hero@2x` 已由現成來源恢復成 184×148。
@@ -59,8 +67,7 @@
 
 ## 四、缺口（下一步）
 
-1. **小物件風格斷層**：羊／山羊、閘門、橋欄、花草與魔物 → 尚待素材或視覺細化
-   （照建築那套：生單格 → 洋紅底 → 切格 → manifest → integrate）。
+1. **小物件**：全部改走圖集（見 [`l0veyou.md`](l0veyou.md)）。
 2. **變體**：現有 12 棟的配色／材質／等級外觀 → 走 ComfyUI img2img（離線免費）。
 3. **不烤地面版細節圖集**（雪地／沙漠用）→ 等 Codex 額度回來生。
 4. **全新建築類型** → ImageGen（ComfyUI 角度鎖不住風格，不划算）。

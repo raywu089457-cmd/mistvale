@@ -1,0 +1,137 @@
+{
+ "version": 1,
+ "kind": "mistvale-props-atlas",
+ "image": "props@2x.png",
+ "sheetWidth": 961,
+ "sheetHeight": 598,
+ "packing": "shelf",
+ "source": "props-sheet-v1.jpg",
+ "sourceSheet": [
+  1024,
+  1024
+ ],
+ "chromaKey": "#FF00FF",
+ "generator": "l0veyou.com GPT Image 2",
+ "cells": {
+  "sheep": {
+   "x": 0,
+   "y": 0,
+   "w": 187,
+   "h": 161,
+   "anchor": [
+    93.5,
+    161
+   ]
+  },
+  "goat": {
+   "x": 191,
+   "y": 0,
+   "w": 162,
+   "h": 184,
+   "anchor": [
+    272.0,
+    184
+   ]
+  },
+  "garden": {
+   "x": 357,
+   "y": 0,
+   "w": 214,
+   "h": 108,
+   "anchor": [
+    464.0,
+    108
+   ]
+  },
+  "bush": {
+   "x": 575,
+   "y": 0,
+   "w": 193,
+   "h": 164,
+   "anchor": [
+    671.5,
+    164
+   ]
+  },
+  "mushroom": {
+   "x": 772,
+   "y": 0,
+   "w": 185,
+   "h": 145,
+   "anchor": [
+    864.5,
+    145
+   ]
+  },
+  "cactus": {
+   "x": 0,
+   "y": 188,
+   "w": 153,
+   "h": 186,
+   "anchor": [
+    76.5,
+    374
+   ]
+  },
+  "villageBanner": {
+   "x": 157,
+   "y": 188,
+   "w": 161,
+   "h": 209,
+   "anchor": [
+    237.5,
+    397
+   ]
+  },
+  "arenaFlag": {
+   "x": 322,
+   "y": 188,
+   "w": 151,
+   "h": 211,
+   "anchor": [
+    397.5,
+    399
+   ]
+  },
+  "gate": {
+   "x": 477,
+   "y": 188,
+   "w": 174,
+   "h": 186,
+   "anchor": [
+    564.0,
+    374
+   ]
+  },
+  "bridgeRail": {
+   "x": 655,
+   "y": 188,
+   "w": 223,
+   "h": 142,
+   "anchor": [
+    766.5,
+    330
+   ]
+  },
+  "stall": {
+   "x": 0,
+   "y": 403,
+   "w": 210,
+   "h": 149,
+   "anchor": [
+    105.0,
+    552
+   ]
+  },
+  "barrels": {
+   "x": 214,
+   "y": 403,
+   "w": 214,
+   "h": 191,
+   "anchor": [
+    321.0,
+    594
+   ]
+  }
+ }
+}

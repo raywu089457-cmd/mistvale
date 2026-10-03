@@ -1,5 +1,24 @@
 const cache=new Map();
+// l0veyou 生的圖示圖集(icons@2x,48px 一格)。載入是非同步的:先回傳程序版,圖集好了再把
+// 所有已建立的圖示 canvas 重畫一次,所以 UI 不用等圖集也不會留下程序版。
+const ICON_ALIAS={weapon:'swords',bandage:'heal',flour:'bag',dungeon:'skull',settings:'gear'};
+const made=[];let iconAtlas=null,iconFrames=null;
+function paintAtlas(c,name){const ex=extra[name],f=ex?ex.f:iconFrames?.[ICON_ALIAS[name]||name];if(!f)return false;const g=c.getContext('2d');
+ c.width=c.height=48;g.imageSmoothingEnabled=false;const k=Math.min(46/f.w,46/f.h),w=Math.round(f.w*k),h=Math.round(f.h*k);
+ g.drawImage(ex?ex.img:iconAtlas,f.x,f.y,f.w,f.h,Math.round((48-w)/2),Math.round((48-h)/2),w,h);return true;}
+// 獸皮圖示在 vfx 圖集(iconLeather),其餘在 icons 圖集;兩張都載完才重畫。
+const extra={};
+(()=>{const a=globalThis.PIXEL_ASSETS||{};if(!a.iconsAtlas2x||!a.iconsManifest2x||typeof Image==='undefined')return;
+ const parse=m=>typeof m==='string'?JSON.parse(m):m,m=parse(a.iconsManifest2x),im=new Image();let pending=1;
+ const done=()=>{if(--pending)return;iconAtlas=im;iconFrames=m.cells;for(const r of made.splice(0)){const c=r.c.deref();if(c)paintAtlas(c,r.name);}};
+ if(a.vfxAtlas2x&&a.vfxManifest2x){pending++;const v=new Image(),vm=parse(a.vfxManifest2x);v.onload=()=>{if(vm.cells.iconLeather)extra.leather={img:v,f:vm.cells.iconLeather};done();};v.onerror=done;v.src=a.vfxAtlas2x;}
+ im.onload=done;im.src=a.iconsAtlas2x;})();
+globalThis.__mistvaleIcons=()=>({ready:!!iconAtlas,cells:iconFrames?Object.keys(iconFrames).length:0});
 export function iconCanvas(name){
+ if(iconAtlas){const c=document.createElement('canvas');if(paintAtlas(c,name))return c;}
+ const c0=proceduralIcon(name);if(!iconAtlas&&typeof WeakRef!=='undefined')made.push({c:new WeakRef(c0),name});return c0;
+}
+function proceduralIcon(name){
  if(cache.has(name)){const c=document.createElement('canvas');c.width=c.height=24;c.getContext('2d').drawImage(cache.get(name),0,0);return c;}
  const c=document.createElement('canvas');c.width=c.height=24;const g=c.getContext('2d');g.imageSmoothingEnabled=false;
  const r=(x,y,w,h,col)=>{g.fillStyle=col;g.fillRect(x,y,w,h);};
@@ -27,5 +46,5 @@ export function iconCanvas(name){
  else if(name==='trade'){r(2,6,17,3,'#dfc674');poly([[16,3],[22,7],[16,12]],'#dfc674');r(5,15,17,3,'#94b879');poly([[8,12],[1,16],[8,22]],'#94b879');}
  else if(name==='horn'){poly([[3,3],[8,6],[10,13],[17,16],[22,15],[20,21],[10,20],[5,14]],o);poly([[4,4],[7,7],[9,15],[17,19],[20,18],[17,20],[11,18],[7,13]],'#d3b875');r(3,3,5,3,'#e8d598');r(13,17,3,3,'#aa7f44');}
  else{r(7,2,10,20,'#b6b99a');r(2,7,20,10,'#b6b99a');r(4,4,16,16,'#89977d');r(8,8,8,8,o);r(10,10,4,4,'#dad9b9');}
- cache.set(name,c);return iconCanvas(name);
+ cache.set(name,c);return proceduralIcon(name);
 }
