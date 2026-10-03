@@ -1270,7 +1270,8 @@ export function createWorld(canvas,{onSelect=()=>{},onPlace=()=>{},getState=()=>
     g.globalAlpha=1;if(age>.1&&age<.4)fxSprite('fxStar',p.x,p.y-sz*.4*s,14+(age-.1)*30,{alpha:1-(age-.1)/.3});}
   function damageText(e,age,p){const txt=e.text||String(e.value),hero=e.type==='hit',crit=e.crit,pop=age<.12?1+.7*(1-age/.12):1,rise=ease(Math.min(1,age/.7))*16;
     const col=e.color||(hero?'#ff8a6e':e.type==='heal'?'#c7ffbd':crit?'#ffe066':'#fff3d0'),size=Math.round((crit?10:hero?8:8.5)*pop);
-    const dx=e.type==='loot'?0:((hash(e.id)%9)-4)*1.2*scale;textLabel(crit?txt+'!':txt,p.x+dx,p.y-(27+rise)*scale,{color:col,size,back:false});}
+    const hh=hash(e.id),dx=e.type==='loot'?0:((hh%13)-6)*1.6*scale,dy=e.type==='loot'?0:((hh>>5)%4)*3.5*scale;  // 同一目標連續挨打:數字錯開成一小片,不疊成一團
+    textLabel(crit?txt+'!':txt,p.x+dx,p.y-(27+rise)*scale-dy,{color:col,size,back:false});}
   function drawEffect(e){const age0=e.age||0,delay=e.delay||0,age=age0-delay,p=screenPoint(e.x||0,e.z||0);
     if(age<0){if(e.type==='arrow'||e.type==='spell'||e.type==='holy')drawProjectile(e,Math.min(1,age0/Math.max(.01,delay)),p);return;}
     const fade=Math.max(0,1-age/1.5);if(!fade)return;

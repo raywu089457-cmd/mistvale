@@ -1,5 +1,18 @@
 # 交接：概念圖對齊（2026-10-03）
 
+## 2026-10-03 晚：陰影、戰鬥動畫、村民風格（commit 4959b8d、f6ef8a3、6d7b91e 之後）
+
+- **陰影**：光從右上（概念圖），`shadowFor()` 把每個圖的剪影往左下投影（人物/樹/旗＝整張一個地面；建築/圍籬＝每欄地面），
+  全部畫進 `shadowLayer` 再一次壓上地面（重疊不疊黑），物件畫在 `spriteLayer`。g 是「目前那一層」。拿掉建築腳下大橢圓。
+- **戰鬥**：模擬只記 `atkAt/hitAt/atkX/hitFromX`，`combatPose()` 算蓄力→出手→受擊；`heropose` 圖集（strike/windup/hurt，
+  `make_combat_art.py heropose`）、`monsteratk`（slime2…boss2）。特效時間軸：effect.delay 秒後才命中（箭/法球在飛）。
+  清晰度：目標紅圈、血條/名牌延後到最上層（`overlays`）、被擋住的戰鬥中英雄半透明重畫、每位獵人最多兩隻近身、魔物不上橋、站位分散。
+- **村民**：`villagers-sheet-v2`（英雄表當參考圖重生），跟英雄同像素密度（`make_combat_art.py villagers`）。
+- **地圖**：戰鬥空地 rz 6→7.5；`stream` 圖集（石墩木橋 z=18、瀑布、苔石岸、釣魚人）；草原補花叢/灌木；河岸平滑。
+- 數字：hist_bc 0.920→0.927、conform 0.929→0.932（上限 0.936）；npm test 全過；`proc={}`；手機/桌機 30fps 無錯誤。
+- 驗戰鬥：`globalThis.__mistvaleGame`（新 hook）＋鏡頭對準戰鬥者質心連拍。
+
+
 接手先讀這頁，細節在 [`align.md`](align.md)（量測與做法）、[`l0veyou.md`](l0veyou.md)（生圖管線）。
 
 ## 目前狀態
