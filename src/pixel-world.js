@@ -592,6 +592,7 @@ export function createWorld(canvas,{onSelect=()=>{},onPlace=()=>{},getState=()=>
       // 雪地空地/雪路跟著 GRASS_TONE.snow 的暮光暖白走(踩過的雪暗一階),不用冷灰藍。
       // 土路色:概念圖土路取樣平均 (202,146,69)=#ca9245,明暗點綴跟著同一個色相。
       if(road(x,z)&&biome!=='snow'&&(roadStyle(x,z,roads)==='stone'?plazaPattern:roadPattern)){const st=roadStyle(x,z,roads)==='stone';if(conceptGroundAt(x,z)==='.')(st?stoneCells:roadCells).push(x,z);for(let i=st?4:1;i>0;i--)rand();continue;}  // 概念圖畫框內的路面由概念圖地面圖負責  // 跟原分支吃一樣多的亂數
+      if(road(x,z)&&tiled&&roadPattern&&plazaPattern){if(roadStyle(x,z,roads)==='stone')for(let i=0;i<4;i++)rand();else rand();continue;}  // 有材質時路面由下面的描線道路畫;亂數照吃
       if(road(x,z)){diamond(gc,x,z,.60,.60,roadStyle(x,z,roads)==='stone'?'#d8c0a8':biome==='snow'?'#c3c9d0':'#ca9245');if(roadStyle(x,z,roads)==='stone'){for(let i=0;i<4;i++){const dx=(i%2)*7-6,dy=Math.floor(i/2)*3-2;pixel(gc,p.x+dx,p.y+dy,6,2,rand()>.5?'#e4d0b2':'#b0a184');pixel(gc,p.x+dx,p.y+dy,5,1,'#f0e2c6');}}else{pixel(gc,p.x-5,p.y-1,7,1,biome==='snow'?'#a9b1bb':'#a06c34');pixel(gc,p.x+1,p.y+1,5,1,biome==='snow'?'#e2e7ec':'#e0ae68');if(rand()<.2)pixel(gc,p.x-2,p.y,2,1,'#ecc27e');}continue;}
       // 每格固定位置的小點綴只在「沒有材質」時畫:有材質時放大會排成規則的斜格紋(概念圖沒有)。亂數照吃。
       const dot=tiled?()=>{}:pixel;
@@ -684,8 +685,26 @@ export function createWorld(canvas,{onSelect=()=>{},onPlace=()=>{},getState=()=>
       if(any&&groundPatterns.desert){const land=[];for(let z=WORLD.minZ-EXT;z<WORLD.maxZ+EXT;z++)for(let x=WORLD.minX-EXT;x<WORLD.maxX+EXT;x++){const b=visBiome(x,z);if(b!=='ocean'&&b!=='river'&&b!=='ice'&&b!=='bridge')land.push(x,z);}
         const clip=cellPath(land,.5);for(const p2 of Object.values(coastBlobs))clip.addPath(p2);
         gc.save();gc.clip(clip);fillTerrain(null,0,'desert',beach);gc.globalAlpha=1;fillTerrain(null,0,'mountain',shingle);gc.fillStyle='rgba(255,255,255,.12)';gc.fill(shingle);gc.restore();}}
-    fillCells(roadCells,.6,roadPattern,1,'#7a5a30');
-    fillCells(stoneCells,.6,plazaPattern,1,'#8a7a62');
+    // 道路:在等角世界座標裡直接描線(圓頭、圓角、輕微蜿蜒),再用遮罩填材質——邊緣平滑,不是一格一格的階梯。
+    // 只是畫法;行走用的道路圖(getRoads)不變。概念圖畫框內的路面由村莊高解析地面層蓋上。
+    if(roadPattern&&plazaPattern){const W=ground.width,H=ground.height,iso2=c=>c.setTransform(9*GROUND_RES,4.5*GROUND_RES,-9*GROUND_RES,4.5*GROUND_RES,groundOrigin.x*GROUND_RES,groundOrigin.y*GROUND_RES);
+      const wob=(r,u)=>.22*Math.sin(u*1.7+r.a.x*.9+r.a.z*1.3)+.12*Math.sin(u*4.1+r.b.z);
+      const trace=(c,r,extra)=>{const dx=r.b.x-r.a.x,dz=r.b.z-r.a.z,L=Math.hypot(dx,dz)||1,nx=-dz/L,nz=dx/L,n=Math.max(1,Math.ceil(L/.8));c.lineWidth=2*r.width+extra;c.beginPath();
+        for(let i=0;i<=n;i++){const u=i/n,w=(i===0||i===n)?0:wob(r,u*L),x=r.a.x+dx*u+nx*w,z=r.a.z+dz*u+nz*w;i?c.lineTo(x,z):c.moveTo(x,z);}c.stroke();};
+      const mask=makeCanvas(W,H),mc=mask.getContext('2d'),tex=makeCanvas(W,H),tc=tex.getContext('2d');
+      for(const [kind,pat,edge] of [['trail',roadPattern,'rgba(96,70,36,.8)'],['stone',plazaPattern,'rgba(110,98,80,.85)']]){
+        const list=roads.filter(r=>(r.kind==='stone')===(kind==='stone'));if(!list.length)continue;
+        gc.save();iso2(gc);gc.lineCap=gc.lineJoin='round';gc.strokeStyle=edge;for(const r of list)trace(gc,r,.28);gc.restore();   // 路緣暗邊
+        {const sc=[];for(let z=WORLD.minZ;z<WORLD.maxZ;z++)for(let x=WORLD.minX;x<WORLD.maxX;x++)if(biomeAt(x,z)==='snow')sc.push(x,z);gc.save();gc.clip(cellPath(sc,.5));iso2(gc);gc.lineCap=gc.lineJoin='round';gc.strokeStyle='rgba(176,188,201,1)';for(const r of list)trace(gc,r,.28);gc.restore();}  // 雪地路緣:淡藍灰,不是土色暗邊
+        mc.setTransform(1,0,0,1,0,0);mc.clearRect(0,0,W,H);iso2(mc);mc.lineCap=mc.lineJoin='round';mc.strokeStyle='#000';for(const r of list)trace(mc,r,0);
+        tc.setTransform(1,0,0,1,0,0);tc.globalCompositeOperation='source-over';tc.clearRect(0,0,W,H);tc.setTransform(GROUND_RES*.5,0,0,GROUND_RES*.5,0,0);tc.fillStyle=pat;tc.fillRect(0,0,W*2/GROUND_RES,H*2/GROUND_RES);
+        // 雪地裡的路:踩實的雪(冷灰白),不是黃土
+        tc.setTransform(GROUND_RES,0,0,GROUND_RES,0,0);tc.save();const snowCells=[];for(let z=WORLD.minZ;z<WORLD.maxZ;z++)for(let x=WORLD.minX;x<WORLD.maxX;x++)if(biomeAt(x,z)==='snow')snowCells.push(x,z);
+        tc.clip(cellPath(snowCells,.56));tc.fillStyle='rgba(214,221,229,.9)';tc.fillRect(0,0,W,H);tc.restore();
+        tc.setTransform(1,0,0,1,0,0);tc.globalCompositeOperation='destination-in';tc.drawImage(mask,0,0);
+        gc.save();gc.setTransform(1,0,0,1,0,0);gc.drawImage(tex,0,0);gc.restore();}
+      mask.width=tex.width=0;}   // 釋放暫存畫布
+    else{fillCells(roadCells,.6,roadPattern,1,'#7a5a30');fillCells(stoneCells,.6,plazaPattern,1,'#8a7a62');}
     // Unreachable woodland scenery continues beyond the village's west edge.
     const woodCells=[];
     for(let z=-35;z<35;z++)for(let x=-52;x<WORLD.minX+1;x++){
