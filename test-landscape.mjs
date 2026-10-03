@@ -3,6 +3,7 @@ import {createGame} from './src/pixel-game.js';
 import {BUILDINGS,ART_LAYOUT_HISTORY} from './src/pixel-data.js';
 import {ARENAS,SOLID_PROPS,getRoads,onRoad,arenaAt,arenaContains,keepTallDecoration,canopyObscures} from './src/landscape-layout.js';
 import {walkable,WORLD} from './src/overworld.js';
+import {VILLAGE_BOUNDS,STREET_X,STREET_Z,GRID} from './src/village-grid.js';
 
 const game=createGame(),roads=getRoads(game.state.layout,game.state.buildings);
 const projected=id=>{const p=game.state.layout[id];return{x:(p.x-p.z)*9,y:(p.x+p.z)*4.5};};
@@ -24,7 +25,13 @@ for(const previous of ART_LAYOUT_HISTORY){
 for(let i=0;i<BUILDINGS.length;i++){
  const a=BUILDINGS[i];
  assert.ok(walkable(a.x,a.z),`${a.name} default placement is on land`);
- if(a.id!=='dungeon')assert.ok(a.x-a.w/2>=-28&&a.x+a.w/2<=8&&a.z-a.d/2>=-23&&a.z+a.d/2<=25,`${a.name} remains inside village placement bounds`);
+ if(a.id!=='dungeon')assert.ok(a.x-a.w/2>=VILLAGE_BOUNDS.minX&&a.x+a.w/2<=VILLAGE_BOUNDS.maxX&&a.z-a.d/2>=VILLAGE_BOUNDS.minZ&&a.z+a.d/2<=VILLAGE_BOUNDS.maxZ,`${a.name} remains inside village placement bounds`);
+ // 棋盤格:每棟建築四邊都有石板街(左右兩條南北向、前後兩條東西向),而且建築不壓到街。
+ if(a.id!=='dungeon'){const W=STREET_X.filter(x=>x<a.x-a.w/2),E=STREET_X.filter(x=>x>a.x+a.w/2),N=STREET_Z.filter(z=>z<a.z-a.d/2),S=STREET_Z.filter(z=>z>a.z+a.d/2);
+  for(const [side,list] of [['west',W],['east',E],['north',N],['south',S]])assert.ok(list.length,`${a.name} has a street on its ${side} side`);
+  const ring=[[Math.max(...W),a.z],[Math.min(...E),a.z],[a.x,Math.max(...N)],[a.x,Math.min(...S)]];
+  for(const [x,z] of ring)assert.ok(roads.some(r=>r.kind==='stone'&&Math.hypot(...(()=>{const dx=r.b.x-r.a.x,dz=r.b.z-r.a.z,t=Math.max(0,Math.min(1,((x-r.a.x)*dx+(z-r.a.z)*dz)/(dx*dx+dz*dz||1)));return[x-r.a.x-t*dx,z-r.a.z-t*dz];})())<.2),`${a.name} is enclosed by stone streets (${x},${z})`);
+  assert.ok(Math.max(...W)+GRID.street<a.x-a.w/2&&Math.min(...E)-GRID.street>a.x+a.w/2&&Math.max(...N)+GRID.street<a.z-a.d/2&&Math.min(...S)-GRID.street>a.z+a.d/2,`${a.name} does not sit on a street`);}
  for(let j=i+1;j<BUILDINGS.length;j++){
   const b=BUILDINGS[j];
   assert.ok(Math.abs(a.x-b.x)>=(a.w+b.w)/2+1.05||Math.abs(a.z-b.z)>=(a.d+b.d)/2+1.05,`${a.name} and ${b.name} retain an entrance corridor`);

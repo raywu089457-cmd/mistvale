@@ -2,8 +2,8 @@
  "version": 1,
  "kind": "mistvale-hero-atlas",
  "image": "heropose@1x.png",
- "sheetWidth": 499,
- "sheetHeight": 84,
+ "sheetWidth": 506,
+ "sheetHeight": 123,
  "packing": "shelf",
  "generator": "l0veyou.com GPT Image 2（英雄／魔物表當參考圖）",
  "cells": {
@@ -204,6 +204,204 @@
     79
    ],
    "foot": 16.0
+  },
+  "berserker_walkA": {
+   "x": 178,
+   "y": 45,
+   "w": 29,
+   "h": 34,
+   "anchor": [
+    192.5,
+    79
+   ],
+   "foot": 12.4
+  },
+  "ranger_walkA": {
+   "x": 210,
+   "y": 45,
+   "w": 25,
+   "h": 34,
+   "anchor": [
+    222.5,
+    79
+   ],
+   "foot": 12.3
+  },
+  "paladin_walkA": {
+   "x": 238,
+   "y": 45,
+   "w": 21,
+   "h": 34,
+   "anchor": [
+    248.5,
+    79
+   ],
+   "foot": 9.3
+  },
+  "sorcerer_walkA": {
+   "x": 262,
+   "y": 45,
+   "w": 31,
+   "h": 35,
+   "anchor": [
+    277.5,
+    80
+   ],
+   "foot": 17.8
+  },
+  "darkknight_walkA": {
+   "x": 296,
+   "y": 45,
+   "w": 26,
+   "h": 30,
+   "anchor": [
+    309.0,
+    75
+   ],
+   "foot": 8.7
+  },
+  "priest_walkA": {
+   "x": 325,
+   "y": 45,
+   "w": 26,
+   "h": 34,
+   "anchor": [
+    338.0,
+    79
+   ],
+   "foot": 15.2
+  },
+  "berserker_walkB": {
+   "x": 354,
+   "y": 45,
+   "w": 31,
+   "h": 33,
+   "anchor": [
+    369.5,
+    78
+   ],
+   "foot": 13.7
+  },
+  "ranger_walkB": {
+   "x": 388,
+   "y": 45,
+   "w": 23,
+   "h": 34,
+   "anchor": [
+    399.5,
+    79
+   ],
+   "foot": 10.3
+  },
+  "paladin_walkB": {
+   "x": 414,
+   "y": 45,
+   "w": 21,
+   "h": 34,
+   "anchor": [
+    424.5,
+    79
+   ],
+   "foot": 8.2
+  },
+  "sorcerer_walkB": {
+   "x": 438,
+   "y": 45,
+   "w": 36,
+   "h": 34,
+   "anchor": [
+    456.0,
+    79
+   ],
+   "foot": 19.0
+  },
+  "darkknight_walkB": {
+   "x": 477,
+   "y": 45,
+   "w": 24,
+   "h": 30,
+   "anchor": [
+    489.0,
+    75
+   ],
+   "foot": 7.4
+  },
+  "priest_walkB": {
+   "x": 2,
+   "y": 83,
+   "w": 31,
+   "h": 35,
+   "anchor": [
+    17.5,
+    118
+   ],
+   "foot": 16.6
+  },
+  "berserker_rest": {
+   "x": 36,
+   "y": 83,
+   "w": 38,
+   "h": 33,
+   "anchor": [
+    55.0,
+    116
+   ],
+   "foot": 18.1
+  },
+  "ranger_rest": {
+   "x": 77,
+   "y": 83,
+   "w": 32,
+   "h": 32,
+   "anchor": [
+    93.0,
+    115
+   ],
+   "foot": 14.6
+  },
+  "paladin_rest": {
+   "x": 112,
+   "y": 83,
+   "w": 38,
+   "h": 34,
+   "anchor": [
+    131.0,
+    117
+   ],
+   "foot": 16.9
+  },
+  "sorcerer_rest": {
+   "x": 153,
+   "y": 83,
+   "w": 35,
+   "h": 33,
+   "anchor": [
+    170.5,
+    116
+   ],
+   "foot": 21.0
+  },
+  "darkknight_rest": {
+   "x": 191,
+   "y": 83,
+   "w": 34,
+   "h": 30,
+   "anchor": [
+    208.0,
+    113
+   ],
+   "foot": 16.7
+  },
+  "priest_rest": {
+   "x": 228,
+   "y": 83,
+   "w": 34,
+   "h": 33,
+   "anchor": [
+    245.0,
+    116
+   ],
+   "foot": 16.8
   }
  },
  "scale": 0.14

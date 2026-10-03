@@ -1,3 +1,4 @@
+import {BUILDING_SLOTS} from './village-grid.js';
 export const BUILDINGS = [
  {id:'hall',name:'城鎮大廳',x:-16.5,z:-6.5,w:4.4,d:3.6,type:'hall',roof:'#b9543e',cost:{gold:350,wood:45,ore:25},desc:'村莊的中心。升級後開放更高等級的設施。',effect:'其他建築的等級上限'},
  {id:'trading',name:'交易所',x:-21.7,z:3.9,w:4,d:3.5,type:'trading',roof:'#427dc7',cost:{gold:160,wood:30,ore:10},desc:'發布收購委託，用村莊金幣向獵人購買戰利品，補充生產材料。',effect:'獵人出售材料 → 村莊收購'},
@@ -50,5 +51,8 @@ for(const change of [
 ]){artLayout={...artLayout,...change};ART_LAYOUT_HISTORY.push(artLayout);}
 // 獵人小屋舊預設 (6.2,4.2) 擋在東門路上 → 移到路北 (4.6,0.6),門朝路。舊預設的存檔自動搬。
 ART_LAYOUT_HISTORY.push(Object.fromEntries(BUILDINGS.map(b=>[b.id,b.id==='house'?{x:6.2,z:4.2}:{x:b.x,z:b.z}])));
+// 2026-10-03 棋盤格村莊:前一版(概念圖構圖)預設也記進歷史,再把預設位置改成棋盤街區中心(src/village-grid.js)。
+ART_LAYOUT_HISTORY.push(Object.fromEntries(BUILDINGS.map(b=>[b.id,{x:b.x,z:b.z}])));
+for(const b of BUILDINGS){const slot=BUILDING_SLOTS[b.id];if(slot&&b.id!=='dungeon'){b.x=slot.x;b.z=slot.z;}}
 
 export const LEGACY_LAYOUT_V14={"hall": {"x": -5.0, "z": -8.0}, "trading": {"x": -12.0, "z": -7.0}, "restaurant": {"x": -12.0, "z": 0.0}, "inn": {"x": -12.0, "z": 7.0}, "tavern": {"x": -4.0, "z": 7.0}, "clinic": {"x": 4.0, "z": 7.0}, "forge": {"x": 4.0, "z": 0.0}, "academy": {"x": -4.0, "z": 0.0}, "training": {"x": -3.0, "z": 14.0}, "sanctuary": {"x": 4.0, "z": -8.0}, "house": {"x": -12.0, "z": 14.0}, "bounty": {"x": 5.0, "z": 14.0}, "enhancement": {"x": -12.0, "z": -14.0}, "dungeon": {"x": 24, "z": -11}};

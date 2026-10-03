@@ -70,12 +70,14 @@ def pack(pieces, name, kind, scale_field, extra=None):
     print(f"{name}.png {sheet.size}", {k: (v['w'], v['h']) for k, v in cells.items()})
 
 
-def heropose(strike, windup, hurt):
+def heropose(*specs):
+    """specs: pose=sheet.png（舊用法：strike windup hurt 三個路徑）。"""
+    pairs = [a.split('=', 1) for a in specs] if '=' in specs[0] else list(zip(['strike', 'windup', 'hurt'], specs))
     idle_src = L0 / "heroes-sheet-v1.png"; idle = cut(str(idle_src), "zzidle", "3x2", HEROES)
     hman = json.loads((A / "hero@2x.manifest.json").read_text(encoding="utf-8"))["cells"]
     idle_w = Image.open(idle_src).width
     pieces2, pieces1, extra2, extra1 = {}, {}, {}, {}
-    for pose, src in (("strike", strike), ("windup", windup), ("hurt", hurt)):
+    for pose, src in pairs:
         got = cut(src, "zzpose", "3x2", HEROES); f = idle_w / Image.open(src).width
         for k in HEROES:
             s2 = hman[k]["h"] / idle[k].height * f   # 跟 hero@2x 同倍率
@@ -94,15 +96,18 @@ def villagers(src):
     pack({k: shrink(v, s2 / 2) for k, v in got.items()}, "villagers@1x", "mistvale-villagers-atlas", 0.5)
 
 
-def monsteratk(src):
-    got = cut(src, "zzmatk", "4x1", [m + "2" for m in MONSTERS])
+def monsteratk(*specs):
+    """specs: 格號=sheet（2=攻擊、3=走路、4=受擊）；舊用法只給一張攻擊表。"""
+    pairs = [a.split('=', 1) for a in specs] if '=' in specs[0] else [('2', specs[0])]
+    got = {}
+    for n, src in pairs: got.update(cut(src, "zzmatk", "4x1", [m + n for m in MONSTERS]))
     ms = Image.open(A / "monsters@2x.png").convert("RGBA"); mm = json.loads((A / "monsters@2x.manifest.json").read_text(encoding="utf-8"))["cells"]
     area = lambda im: float((np.asarray(im)[..., 3] > 0).sum())
     p2 = {}
-    for m in MONSTERS:
-        c = mm[m + "0"]; ref = ms.crop((c["x"], c["y"], c["x"] + c["w"], c["y"] + c["h"]))
-        s = float(np.clip((area(ref) / area(got[m + "2"])) ** .5, .5, 2.0)); p2[m + "2"] = shrink(got[m + "2"], s)
-        print(f"  {m}2: raw {got[m + '2'].size} ×{s:.2f} → {p2[m + '2'].size} (idle {ref.size})")
+    for key in got:
+        m = key[:-1]; c = mm[m + "0"]; ref = ms.crop((c["x"], c["y"], c["x"] + c["w"], c["y"] + c["h"]))
+        s = float(np.clip((area(ref) / area(got[key])) ** .5, .5, 2.0)); p2[key] = shrink(got[key], s)
+        print(f"  {key}: raw {got[key].size} x{s:.2f} -> {p2[key].size} (idle {ref.size})")
     pack(p2, "monsteratk@2x", "mistvale-monsteratk-atlas", None)
     pack({k: shrink(v, .5) for k, v in p2.items()}, "monsteratk@1x", "mistvale-monsteratk-atlas", 0.5)
 

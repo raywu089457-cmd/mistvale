@@ -1,6 +1,8 @@
+import {EXIT_Z,inVillageBounds} from './village-grid.js';
 // One shared world contract for drawing, travel, spawning and saved coordinates.
 // The previous land rectangle was 58 × 52 world units. This is 87 × 104 = 3×.
-export const WORLD={minX:-30,maxX:57,minZ:-45,maxZ:59,oldWidth:58,oldHeight:52,width:87,height:104,area:9048,oldArea:3016,seed:349180};
+// 2026-10-03:棋盤格村莊往西擴大,世界西界 -30 → -54(地圖只放大不縮小)。threeXArea 保留原本 3 倍地圖的面積當下限。
+export const WORLD={minX:-54,maxX:57,minZ:-45,maxZ:59,oldWidth:58,oldHeight:52,width:111,height:104,area:11544,threeXArea:9048,oldArea:3016,seed:349180};
 export const REGIONS=[
  {id:'village',name:'暮影村',subtitle:'平原聚落',x:-5,z:3,color:'#bcb79a',description:'石板路、農田與獵人歸來的家。',enemy:'slime',risk:0},
  {id:'meadow',name:'向陽草原',subtitle:'草原 · 初階狩獵',x:17,z:3,color:'#86ad5a',description:'野花與羊群之間，史萊姆正在草叢裡聚集。',enemy:'slime',risk:1},
@@ -12,11 +14,11 @@ export const REGIONS=[
  {id:'birch',name:'白樺花原',subtitle:'白樺林 · 藥草與花海',x:7,z:43,color:'#a9bd68',description:'白樺樹、花海與溪流環繞南方小徑。',enemy:'slime',risk:1.1}
 ];
 export const BRIDGES=[-24,3,26,46];
-export const VILLAGE_BRIDGES=[-24,3,18];
+export const VILLAGE_BRIDGES=EXIT_Z;  // 出村口三條街正對三座溪橋(src/village-grid.js)
 export function creekX(z){return 11.5+Math.sin(z*.13)*.65;}
 export function riverX(z){return 26+Math.sin(z*.095)*4.4;}
 export function inWorld(x,z){return Number.isFinite(x)&&Number.isFinite(z)&&x>=WORLD.minX+1&&x<=WORLD.maxX-1&&z>=WORLD.minZ+1&&z<=WORLD.maxZ-1;}
-export function inVillage(x,z){return x<9&&x>-28&&z>-24&&z<26;}
+export function inVillage(x,z){return inVillageBounds(x,z);}
 export function isBridge(x,z){return (Math.abs(x-riverX(z))<4.3&&BRIDGES.some(b=>Math.abs(z-b)<1.7))||(z>-27&&z<27&&Math.abs(x-creekX(z))<3.3&&VILLAGE_BRIDGES.some(b=>Math.abs(z-b)<1.7));}
 export function isWater(x,z){return !isBridge(x,z)&&(Math.abs(x-riverX(z))<1.75||(z>-27&&z<27&&Math.abs(x-creekX(z))<1.1));}
 export function walkable(x,z){return inWorld(x,z)&&!isWater(x,z);}

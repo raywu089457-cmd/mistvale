@@ -1,27 +1,33 @@
 import {BUILDINGS} from './pixel-data.js';
 import {REGIONS,BRIDGES,riverX,walkable,inVillage} from './overworld.js';
+import {STREET_X,STREET_Z,EXIT_Z,VILLAGE_BOUNDS,PALISADE_X,BUILDING_SLOTS,GRID} from './village-grid.js';
 // 戰鬥空地 z 方向放大(6 → 7.5):魔物 28–33 世界像素寬,原本的空地站不開,戰鬥會疊成一團。x 方向受溪流/河流限制。
 export const ARENAS=REGIONS.filter(r=>r.id!=='village').map(r=>({...r,rx:r.id==='taiga'?5.7:6.6,rz:7.5}));
+// 實心障礙:中央噴水池、水井廣場的井、東側柵欄(三個出村口留門)。
+const WELL=BUILDING_SLOTS.well,GAP=1.7;
+const palisade=[];{let z0=VILLAGE_BOUNDS.minZ;for(const z of [...EXIT_Z,Infinity]){const z1=Math.min(z-GAP,VILLAGE_BOUNDS.maxZ);if(z1>z0)palisade.push({id:'palisade-'+palisade.length,minX:PALISADE_X-.3,maxX:PALISADE_X+.3,minZ:z0,maxZ:z1});z0=z+GAP;}}
+export const PALISADE=palisade;
 export const SOLID_PROPS=[
  {id:'fountain',minX:-10,maxX:-6,minZ:0,maxZ:4},
- {id:'well',minX:-11.1,maxX:-9.9,minZ:21.9,maxZ:23.1},
- {id:'palisade-north',minX:8.7,maxX:9.3,minZ:-23.2,maxZ:-1.1},
- {id:'palisade-south',minX:8.7,maxX:9.3,minZ:5.1,maxZ:16.0},
- {id:'palisade-tail',minX:8.7,maxX:9.3,minZ:20,maxZ:25.2}
+ {id:'well',minX:WELL.x-.6,maxX:WELL.x+.6,minZ:WELL.z-.6,maxZ:WELL.z+.6},
+ ...palisade
 ];
 export function arenaAt(x,z,padding=0){return ARENAS.find(a=>((x-a.x)/(a.rx+padding))**2+((z-a.z)/(a.rz+padding))**2<=1)||null;}
 export function arenaContains(id,x,z,padding=0){const a=ARENAS.find(a=>a.id===id);return !!a&&((x-a.x)/(a.rx+padding))**2+((z-a.z)/(a.rz+padding))**2<=1;}
 export function distanceSegment(x,z,a,b){const dx=b.x-a.x,dz=b.z-a.z,t=Math.max(0,Math.min(1,((x-a.x)*dx+(z-a.z)*dz)/(dx*dx+dz*dz||1)));return Math.hypot(x-a.x-t*dx,z-a.z-t*dz);}
 export function getRoads(layout={},levels={}){
  const roads=[];const add=(points,width=1.15,kind='trail')=>{for(let i=1;i<points.length;i++){const a={x:points[i-1][0],z:points[i-1][1]},b={x:points[i][0],z:points[i][1]};roads.push({a,b,width,kind});}};
- // A plaza-led village street, with radial branches and one gate.
- add([[-27,5.5],[-18.5,5.5],[-8,5.5],[-6,5.5],[2.5,5.5],[8,3],[17,3]],1.05,'stone');
- // 出村的路都要接回村裡的街:北門從南北大街(z=-21.5)出去過 z=-24 的橋;南門的橋路沿酒館門前接回大街(酒館在出村口)。
- add([[-8,-21.5],[1,-21.5]],.7,'stone');add([[1,-21.5],[6,-24],[16,-24]],.9);
- add([[-8,21.6],[3,21.6],[6,18]],.7,'stone');add([[6,18],[16,18]],.9,'stone');
- const circle=Array.from({length:13},(_,i)=>[-8+Math.cos(i*Math.PI/6)*3.6,2+Math.sin(i*Math.PI/6)*3.6]);add(circle,.6,'stone');add([[-8,5.6],[-8,5.5]],.6,'stone');
- add([[-8,-22],[-8,5.5],[-8,24]],.7,'stone');
- add([[-25,5.5],[-8,5.5],[2.5,5.5]],.7,'stone');
+ // 棋盤格村莊:每條街區邊都是石板街(src/village-grid.js),中央廣場一圈環道+四條放射短街接到廣場四邊。
+ const X0=STREET_X[0],X1=STREET_X.at(-1),Z0=STREET_Z[0],Z1=STREET_Z.at(-1);
+ for(const x of STREET_X)add([[x,Z0],[x,Z1]],GRID.street,'stone');
+ for(const z of STREET_Z)add([[X0,z],[X1,z]],GRID.street,'stone');
+ const circle=Array.from({length:13},(_,i)=>[GRID.cx+Math.cos(i*Math.PI/6)*3.6,GRID.cz+Math.sin(i*Math.PI/6)*3.6]);add(circle,.6,'stone');
+ const half=GRID.pitch/2;
+ for(const [dx,dz] of [[1,0],[-1,0],[0,1],[0,-1]])add([[GRID.cx+dx*3.6,GRID.cz+dz*3.6],[GRID.cx+dx*half,GRID.cz+dz*half]],.7,'stone');
+ // 出村:北門、正門、南門三條街直接過溪橋,接到村外幹道。
+ add([[X1,EXIT_Z[0]],[13.5,EXIT_Z[0]],[16,-24]],.95);
+ add([[X1,EXIT_Z[1]],[13,EXIT_Z[1]],[17,3]],1.05);
+ add([[X1,EXIT_Z[2]],[13.5,EXIT_Z[2]],[16,18]],.95);
  // Main routes meet every bridge rather than stopping at a riverbank.
  add([[17,3],[16,-10],[16,-24],[15,-23],[8,-36]],1.15);
  add([[17,3],[16,18],[16,26],[16,36],[7,43],[16,46]],1.15);

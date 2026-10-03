@@ -1,7 +1,7 @@
 import assert from 'node:assert/strict';
 import {WORLD,REGIONS,BRIDGES,riverX,walkable,biomeAt} from './src/overworld.js';
 import {createGame} from './src/pixel-game.js';
-assert.equal(WORLD.area,WORLD.oldArea*3,'land area is exactly 3x the previous rectangle');
+assert.ok(WORLD.area>=WORLD.oldArea*3,'land area is at least 3x the previous rectangle (map only grows)');
 assert.equal(WORLD.width*WORLD.height,WORLD.area);
 assert.equal(new Set(REGIONS.map(r=>r.id)).size,8);
 assert.equal(biomeAt(-8,-28),'forest','woodland separates village from the cold northern biomes');
@@ -11,7 +11,7 @@ for(const z of BRIDGES)assert.ok(walkable(riverX(z),z),'bridges cross the river'
 assert.ok(!walkable(riverX(13),13),'river is not a walkable shortcut');
 for(const region of REGIONS.slice(1)){
  const game=createGame();assert.equal(game.exploreRegion(region.id).ok,true);assert.equal(game.state.region,region.id);
- assert.ok(game.state.visitedRegions.includes(region.id));assert.equal(game.state.enemies.length,6);
+ assert.ok(game.state.visitedRegions.includes(region.id));assert.equal(game.state.enemies.filter(e=>e.regionId===region.id).length,6);
  let nearest=Infinity,reached=false,killed=false;
  // Village placement changes service travel time; require actual arrival and
  // combat within a bounded five-minute expedition instead of a fixed snapshot.
@@ -33,4 +33,8 @@ for(const region of REGIONS.slice(1)){
 }
 const g=createGame();assert.equal(g.exploreRegion('__proto__').ok,false);assert.equal(g.exploreRegion('missing').ok,false);assert.equal(g.setRally(riverX(13),13).ok,false);assert.equal(g.setRally(999,999).ok,false);
 const old=g.serialize();delete old.worldRevision;delete old.region;delete old.visitedRegions;assert.equal(createGame(old).state.region,'meadow','old pixel saves migrate safely');
-console.log('PASS: exact 3x map, 8 regions, walkable bridges, all remote destinations, combat and old-save compatibility.');
+// 每個狩獵區都會自己定時補怪,強度照該區 risk。
+{const g2=createGame();for(let i=0;i<300;i++)g2.tick(.2);const {ARENAS}=await import('./src/landscape-layout.js');
+ for(const a of ARENAS){const list=g2.state.enemies.filter(e=>e.regionId===a.id&&e.type!=='boss');assert.ok(list.length>=2,`${a.name} keeps spawning monsters (${list.length})`);}
+ const mt=g2.state.enemies.find(e=>e.regionId==='mountain'&&e.type==='golem'),me=g2.state.enemies.find(e=>e.regionId==='meadow'&&e.type==='golem');if(mt&&me)assert.ok(mt.maxHp>me.maxHp,'harder regions spawn stronger monsters');}
+console.log('PASS: >=3x map, 8 regions, walkable bridges, all remote destinations, combat and old-save compatibility.');
