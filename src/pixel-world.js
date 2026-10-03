@@ -38,7 +38,8 @@ function heroSprite(classId='berserker',frame=0,facing=1,variant=0,lodScale=hero
   // frame 1 往上 1px 做走路起伏。variant 用一層極淡的染色保留「同職業不同人」的差異。
   // 圖集還沒載完時 heroFrameFor 回 null,自動退回下面的程序繪製。
   if(hf){
-    const cell=hf.cell,resolution=hf.sc===2?2:1,c=makeCanvas(28*resolution,35*resolution),g=c.getContext('2d');
+    // 畫布 40×35:拿大武器的角色以高度對齊,不被寬度壓小(繪製時寬度跟著畫布比例走)。
+    const cell=hf.cell,resolution=hf.sc===2?2:1,c=makeCanvas(40*resolution,35*resolution),g=c.getContext('2d');
     g.imageSmoothingEnabled=false;
     const k=Math.min(c.width/cell.w,(c.height-resolution)/cell.h);
     const dw=Math.max(1,Math.round(cell.w*k)),dh=Math.max(1,Math.round(cell.h*k));
@@ -929,7 +930,7 @@ export function createWorld(canvas,{onSelect=()=>{},onPlace=()=>{},getState=()=>
     if(d.type==='bridgeRail'&&d.u!==undefined&&drawRailSlice(d.u,d.last,p))return;
     // 概念圖街上滿是村民與貓狗:純裝飾(不參與模擬),原地輕微上下呼吸。
     if(d.type==='npc'){const bob=Math.sin(elapsed*2.1+d.phase)>.55?1:0,hf=heroFrameFor(d.cls,heroLodScale);shadow(p,6*CHAR_SCALE,2.4*CHAR_SCALE);
-      drawSprite(heroSprite(d.cls,bob,d.flip?-1:1,Math.floor(d.phase*7)%3),p,16.5*CHAR_SCALE,21*CHAR_SCALE,1.2);if(hf)detailUse.draw1x++;return;}
+      {const sp=heroSprite(d.cls,bob,d.flip?-1:1,Math.floor(d.phase*7)%3);drawSprite(sp,p,21*CHAR_SCALE*sp.width/sp.height,21*CHAR_SCALE,1.2);};if(hf)detailUse.draw1x++;return;}
     if(d.type==='villager'){const pet=d.who==='cat'||d.who==='dog',bob=Math.sin(elapsed*2.2+d.phase)>.4?1:0,k=CHAR_SCALE;shadow(p,(pet?5:6)*k,(pet?1.6:2.2)*k);
       if(drawAtlasDetail(d.who,p,(pet?10:15)*k,(pet?9:20)*k,1.2-bob*.4,1,d.flip))return;
       pixel(g,p.x-3*scale,p.y-14*scale,6*scale,12*scale,'#8a6a48');pixel(g,p.x-2*scale,p.y-18*scale,4*scale,4*scale,'#f0c9a0');return;}
@@ -1040,8 +1041,8 @@ export function createWorld(canvas,{onSelect=()=>{},onPlace=()=>{},getState=()=>
 
   function drawHunter(h){if(!Number.isFinite(h.x)||!Number.isFinite(h.z))return;const p=screenPoint(h.x,h.z),old=previousPositions.get(h.id),moving=old&&Math.hypot(h.x-old.x,h.z-old.z)>.005;let facing=old?.facing||1;if(old&&Math.abs(h.x-old.x-(h.z-old.z))>.002)facing=h.x-old.x-(h.z-old.z)>0?1:-1;previousPositions.set(h.id,{x:h.x,z:h.z,facing});const frame=(moving||h.status==='戰鬥中')?Math.floor(elapsed*7+hash(h.id)%5)%2:0,isSelected=selected===`hunter:${h.id}`;
     shadow(p,6*CHAR_SCALE,2.4*CHAR_SCALE);if(isSelected)ring(p,8,'#fff1b0');
-    if(h.dead||h.hp<=0){g.save();g.translate(p.x,p.y-3*scale);g.rotate(Math.PI/2);g.globalAlpha=.55;g.drawImage(heroSprite(h.classId,0,facing,hash(h.id)%3),-8*scale*CHAR_SCALE,-12*scale*CHAR_SCALE,16*scale*CHAR_SCALE,21*scale*CHAR_SCALE);g.restore();textLabel('✦',p.x,p.y-15*scale,{color:'#e7d8ef',back:false});return;}
-    const sprite=heroSprite(h.classId,frame,facing,hash(h.id)%3),rect=drawSprite(sprite,p,16.5*CHAR_SCALE,21*CHAR_SCALE,1.2);hits.push({id:`hunter:${h.id}`,...padHit(rect,14,18)});  // 圖變小,點擊範圍保底
+    if(h.dead||h.hp<=0){g.save();g.translate(p.x,p.y-3*scale);g.rotate(Math.PI/2);g.globalAlpha=.55;{const sp=heroSprite(h.classId,0,facing,hash(h.id)%3),dw=21*sp.width/sp.height;g.drawImage(sp,-dw/2*scale*CHAR_SCALE,-12*scale*CHAR_SCALE,dw*scale*CHAR_SCALE,21*scale*CHAR_SCALE);}g.restore();textLabel('✦',p.x,p.y-15*scale,{color:'#e7d8ef',back:false});return;}
+    const sprite=heroSprite(h.classId,frame,facing,hash(h.id)%3),rect=drawSprite(sprite,p,21*CHAR_SCALE*sprite.width/sprite.height,21*CHAR_SCALE,1.2);hits.push({id:`hunter:${h.id}`,...padHit(rect,14,18)});  // 圖變小,點擊範圍保底
     const full=(h.hp??1)/(h.maxHp||1);if(full<.99||isSelected||h.status==='戰鬥中')bar(p.x-7*scale,p.y-15*scale,14*scale,full,full<.35?'#df795c':'#84bf6a');
     if(isSelected)textLabel(`${h.name||'獵人'} Lv.${h.level||1}`,p.x,p.y-22*scale,{color:RARITIES.find(r=>r.id===h.rarity)?.color||'#ffe19a'});
     if(!isSelected&&scale>.65){let symbol='';if(h.status?.includes('治療')||h.status?.includes('休養'))symbol='+';else if(h.status?.includes('休息')||h.status?.includes('旅館'))symbol='z';else if(h.status?.includes('用餐'))symbol='♥';else if(h.status?.includes('飲用'))symbol='♪';else if(h.status?.includes('訓練'))symbol='↑';else if(h.status?.includes('交易'))symbol='$';if(symbol)textLabel(symbol,p.x+6*scale,p.y-16*scale-Math.sin(elapsed*3)*1.3,{size:8,color:'#f7e1a0'});}

@@ -2,73 +2,75 @@
  "version": 1,
  "kind": "mistvale-hero-atlas",
  "image": "hero@2x.png",
- "sheetWidth": 184,
+ "sheetWidth": 256,
  "sheetHeight": 148,
- "cellWidth": 60,
+ "cellWidth": 84,
  "cellHeight": 72,
  "cols": 3,
  "rows": 2,
+ "scale": 0.28,
+ "source": "heroes-sheet-v1.png",
+ "generator": "l0veyou.com GPT Image 2（概念圖角色當參考）",
  "cells": {
   "berserker": {
-   "x": 4,
-   "y": 4,
-   "w": 49,
+   "x": 12,
+   "y": 6,
+   "w": 64,
    "h": 68,
    "anchor": [
-    24.5,
-    68
+    44.0,
+    74
    ]
   },
   "ranger": {
-   "x": 64,
-   "y": 4,
-   "w": 49,
-   "h": 68,
-   "anchor": [
-    24.5,
-    68
-   ]
-  },
-  "paladin": {
-   "x": 124,
-   "y": 4,
-   "w": 54,
-   "h": 68,
-   "anchor": [
-    27.0,
-    68
-   ]
-  },
-  "sorcerer": {
-   "x": 4,
-   "y": 76,
-   "w": 49,
-   "h": 68,
-   "anchor": [
-    24.5,
-    68
-   ]
-  },
-  "darkknight": {
-   "x": 64,
-   "y": 76,
-   "w": 52,
-   "h": 68,
-   "anchor": [
-    26.0,
-    68
-   ]
-  },
-  "priest": {
-   "x": 124,
-   "y": 76,
+   "x": 100,
+   "y": 6,
    "w": 56,
    "h": 68,
    "anchor": [
-    28.0,
-    68
+    128.0,
+    74
+   ]
+  },
+  "paladin": {
+   "x": 181,
+   "y": 6,
+   "w": 62,
+   "h": 68,
+   "anchor": [
+    212.0,
+    74
+   ]
+  },
+  "sorcerer": {
+   "x": 11,
+   "y": 78,
+   "w": 66,
+   "h": 68,
+   "anchor": [
+    44.0,
+    146
+   ]
+  },
+  "darkknight": {
+   "x": 89,
+   "y": 86,
+   "w": 78,
+   "h": 60,
+   "anchor": [
+    128.0,
+    146
+   ]
+  },
+  "priest": {
+   "x": 183,
+   "y": 78,
+   "w": 58,
+   "h": 68,
+   "anchor": [
+    212.0,
+    146
    ]
   }
- },
- "scale": 0.28
+ }
 }
