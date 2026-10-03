@@ -1,5 +1,13 @@
 # 交接：概念圖對齊（2026-10-03）
 
+## 2026-10-04：棋盤格村莊、各區生怪、走路/休息圖
+
+- **`src/village-grid.js` 是村莊布局的單一來源**：5×5 街區（10.5 單位），建築預設位置、石板街、柵欄/出村口、街區用途（田、果園、市集、公園池塘、水井廣場、畜欄、牧草地、花園、柴場）都從這裡算。廣場固定 (-8,2)。
+  概念圖的地面分類／道具／人物在村裡已不用（`concept-*.js` 還在，只剩匯入）；村莊地面層 `buildVillageLayer` 改用街區路徑畫。
+- 世界 minX -30 → -54；`WORLD.threeXArea` 保留原 3 倍面積當下限。
+- 生怪：`REGION_MIX` 每區組成、強度＝難度 × region.risk；目前狩獵區上限 7、其他區上限 4；獵人只打目前狩獵區。
+- 姿勢圖：heropose（strike/windup/hurt/walkA/walkB/rest）、monsteratk（2 攻擊、3 走路、4 受擊）。`make_combat_art.py heropose pose=檔 …`、`monsteratk 2=檔 3=檔 4=檔`。
+
 ## 2026-10-03 深夜：地形、道路、文字
 
 - 文字：畫布改裝置解析度（devicePixelRatio，上限 2.5），像素圖照舊最近鄰放大；`textLabel()` 只排隊，最後在 `drawScreenText()` 用高解析畫。
