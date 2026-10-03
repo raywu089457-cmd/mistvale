@@ -1,0 +1,51 @@
+{
+ "version": 1,
+ "kind": "mistvale-monsteratk-atlas",
+ "image": "monsteratk@2x.png",
+ "sheetWidth": 453,
+ "sheetHeight": 1020,
+ "packing": "shelf",
+ "generator": "l0veyou.com GPT Image 2（英雄／魔物表當參考圖）",
+ "cells": {
+  "slime2": {
+   "x": 2,
+   "y": 2,
+   "w": 237,
+   "h": 115,
+   "anchor": [
+    120.5,
+    117
+   ]
+  },
+  "wolf2": {
+   "x": 2,
+   "y": 120,
+   "w": 338,
+   "h": 158,
+   "anchor": [
+    171.0,
+    278
+   ]
+  },
+  "golem2": {
+   "x": 2,
+   "y": 281,
+   "w": 426,
+   "h": 313,
+   "anchor": [
+    215.0,
+    594
+   ]
+  },
+  "boss2": {
+   "x": 2,
+   "y": 597,
+   "w": 446,
+   "h": 418,
+   "anchor": [
+    225.0,
+    1015
+   ]
+  }
+ }
+}

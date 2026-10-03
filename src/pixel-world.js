@@ -1255,8 +1255,9 @@ export function createWorld(canvas,{onSelect=()=>{},onPlace=()=>{},getState=()=>
   }
   function drawAtlasEffect(e,age,p,fade){
     const id=FX_SPRITE[e.type];if(!id)return !!(e.value||e.text);  // 純數字飄字沒有圖,不算退回
-    const w=(e.type==='hit'?18:20)*(.8+Math.min(1,age*2)*.4);
-    return !!drawAtlasDetail(id,{x:p.x,y:p.y-age*10*scale},w,w,0,fade);
+    // 升級/收穫等事件光效:頭頂上方、小、半透明,不蓋住正在打的人。
+    const w=(e.type==='victory'?18:11)*(.8+Math.min(1,age*2)*.3);
+    return !!drawAtlasDetail(id,{x:p.x,y:p.y-(24+age*12)*scale},w,w,0,fade*.75);
   }
   function drawProcEffect(e,age,p,fade){
     procUse['fx:'+e.type]=(procUse['fx:'+e.type]||0)+1;
