@@ -35,6 +35,11 @@
 | `flora@1x.png` / `@2x` | ✅ | **l0veyou**（四色小花、麥穗、高麗菜、等角橋欄長條、橋柱） | ✅ | `floraAtlas(+2x)` |
 | `villagers@1x.png` / `@2x` | ✅ | **l0veyou**（商人、農婦、小孩、長老、鐵匠學徒、酒館女侍、貓、狗；純裝飾） | ✅ | `villagersAtlas(+2x)` |
 | `yard@1x.png` / `@2x` | ✅ | **l0veyou**（寶箱、木箱、草捆、柴堆、水槽、稻草人、燈籠、推車；純裝飾，16:9 生成） | ✅ | `yardAtlas(+2x)` |
+| `town@1x.png` / `@2x` | ✅ | **l0veyou**（箭靶、木人、兵器架、鐵砧、桌椅、長凳、推車、花箱） | ✅ | `townAtlas(+2x)` |
+| `town2@1x.png` / `@2x` | ✅ | **l0veyou**（紫旗、斜向木圍籬、水果攤、麻袋、木桶、水桶、花叢、河石） | ✅ | `town2Atlas(+2x)` |
+| `concept-{stone,earth,grass}.png` | — | **概念圖像素**（image quilting 無縫材質） | ✅ | `conceptStone/Earth/Grass`（村莊高解析地面層） |
+| `concept-clean/*-v3.png` | — | **l0veyou＋概念圖參考圖**（鐵匠鋪、學院、酒館、獵人小屋、餐廳、交易所） | ✅ | 取代 v2（build.mjs 優先） |
+| `hero@1x.png` / `@2x`（v2） | ✅ | **l0veyou＋概念圖參考圖**（六職業 Q 版冒險者，取代 sprite-gen 版） | ✅ | `heroAtlas(+2x)` |
 
 每個圖集都配一個 `*.manifest.json`（`frame_layout`，每格座標）。build.mjs 把 PNG＋manifest
 一起 base64 內嵌。**改 manifest 記得 `npm run build`**。
