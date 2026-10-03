@@ -286,8 +286,8 @@ const GRASS_TONE={village:{mean:[66,124,38],sd:[24,30,14]},meadow:{mean:[72,128,
   river:{mean:[31,140,201],sd:[20,34,34]},taiga:{mean:[63,104,52],sd:[22,26,16]},
   // 概念圖沒有雪地/山地/沙漠:用概念圖裡最接近的顏色延伸——雪＝概念圖的暖白(炊煙、羊毛 230,224,214),
   // 山地＝概念圖石材灰(紀念碑、溪邊石),沙漠＝概念圖土路黃(203,168,72)偏亮一階。
-  // 雪再往概念圖最亮的暖色(羊皮紙 217,187,161)靠:暮光下的雪,48 色票裡沒有冷白,冷白整片都不算數。
-  snow:{mean:[222,201,178],sd:[10,10,12]},mountain:{mean:[124,126,120],sd:[30,28,26]},desert:{mean:[210,172,82],sd:[18,16,13]},ocean:{mean:[26,108,172],sd:[18,28,30]},forest:{mean:[52,90,40],sd:[20,26,14]}};
+  // 雪:曾往概念圖暖白(羊皮紙)靠,結果遠看像沙地。村外不在概念圖畫框內,改回帶淡藍的冷白,一眼看得出是雪。
+  snow:{mean:[228,232,236],sd:[9,9,10]},mountain:{mean:[124,126,120],sd:[30,28,26]},desert:{mean:[210,172,82],sd:[18,16,13]},ocean:{mean:[26,108,172],sd:[18,28,30]},forest:{mean:[52,90,40],sd:[20,26,14]}};
 const groundBase=b=>GRASS_TONE[b]?'#'+GRASS_TONE[b].mean.map(v=>v.toString(16).padStart(2,'0')).join(''):BIOME_PALETTE[b];
 // 小地圖/世界地圖用同一套對齊概念圖的地面色,地圖跟畫面看起來才是同一個世界。
 // 石板/土路色取自 plaza.png、road.png 的取樣平均。
@@ -385,7 +385,7 @@ function ensureDetailAtlas(){
   for(const [sheetKey,manKey] of [['detailsAtlas','detailsManifest'],
                                   ['detailsAtlas2x','detailsManifest2x'],
                                   ['propsAtlas','propsManifest'],['propsAtlas2x','propsManifest2x'],
-                                  ['monstersAtlas','monstersManifest'],['monstersAtlas2x','monstersManifest2x'],['monsteratkAtlas','monsteratkManifest'],['monsteratkAtlas2x','monsteratkManifest2x'],['streamAtlas','streamManifest'],['streamAtlas2x','streamManifest2x'],
+                                  ['monstersAtlas','monstersManifest'],['monstersAtlas2x','monstersManifest2x'],['monsteratkAtlas','monsteratkManifest'],['monsteratkAtlas2x','monsteratkManifest2x'],['streamAtlas','streamManifest'],['streamAtlas2x','streamManifest2x'],['coldAtlas','coldManifest'],['coldAtlas2x','coldManifest2x'],['woodsAtlas','woodsManifest'],['woodsAtlas2x','woodsManifest2x'],
                                   ['floraAtlas','floraManifest'],['floraAtlas2x','floraManifest2x'],
                                   ['villagersAtlas','villagersManifest'],['villagersAtlas2x','villagersManifest2x'],
                                   ['yardAtlas','yardManifest'],['yardAtlas2x','yardManifest2x'],
@@ -588,11 +588,11 @@ export function createWorld(canvas,{onSelect=()=>{},onPlace=()=>{},getState=()=>
         if((x+z)%3===0){pixel(gc,p.x-3,p.y-1,2,1,'#e0b781');pixel(gc,p.x+4,p.y+2,1,1,'#4d392a');}continue;
       }
       const clearing=arenaAt(x,z);
-      if(clearing){const colors={meadow:'#aeb27d',forest:'#a4a77c',taiga:'#99aaa0',snow:'#d6bfa4',mountain:'#b6b6a5',desert:'#e3c28a',birch:'#b9c18a'};const cc=shade(colors[clearing.id]||'#b5b68a',n/2);if(roadPattern&&clearing.id!=='snow'&&clearing.id!=='taiga'){clearCells.push(x,z);rand();continue;}if(tiled){gc.save();gc.globalAlpha=.5;diamond(gc,x,z,.51,.51,cc);gc.restore();}else diamond(gc,x,z,.51,.51,cc);if(rand()<.17)pixel(gc,p.x-2,p.y,3,1,shade(colors[clearing.id]||'#b5b68a',-13));continue;}
+      if(clearing){const colors={meadow:'#aeb27d',forest:'#a4a77c',taiga:'#99aaa0',snow:'#cdd5dc',mountain:'#b6b6a5',desert:'#e3c28a',birch:'#b9c18a'};const cc=shade(colors[clearing.id]||'#b5b68a',n/2);if(roadPattern&&clearing.id!=='snow'&&clearing.id!=='taiga'){clearCells.push(x,z);rand();continue;}if(tiled){gc.save();gc.globalAlpha=.5;diamond(gc,x,z,.51,.51,cc);gc.restore();}else diamond(gc,x,z,.51,.51,cc);if(rand()<.17)pixel(gc,p.x-2,p.y,3,1,shade(colors[clearing.id]||'#b5b68a',-13));continue;}
       // 雪地空地/雪路跟著 GRASS_TONE.snow 的暮光暖白走(踩過的雪暗一階),不用冷灰藍。
       // 土路色:概念圖土路取樣平均 (202,146,69)=#ca9245,明暗點綴跟著同一個色相。
       if(road(x,z)&&biome!=='snow'&&(roadStyle(x,z,roads)==='stone'?plazaPattern:roadPattern)){const st=roadStyle(x,z,roads)==='stone';if(conceptGroundAt(x,z)==='.')(st?stoneCells:roadCells).push(x,z);for(let i=st?4:1;i>0;i--)rand();continue;}  // 概念圖畫框內的路面由概念圖地面圖負責  // 跟原分支吃一樣多的亂數
-      if(road(x,z)){diamond(gc,x,z,.60,.60,roadStyle(x,z,roads)==='stone'?'#d8c0a8':biome==='snow'?'#c4ad94':'#ca9245');if(roadStyle(x,z,roads)==='stone'){for(let i=0;i<4;i++){const dx=(i%2)*7-6,dy=Math.floor(i/2)*3-2;pixel(gc,p.x+dx,p.y+dy,6,2,rand()>.5?'#e4d0b2':'#b0a184');pixel(gc,p.x+dx,p.y+dy,5,1,'#f0e2c6');}}else{pixel(gc,p.x-5,p.y-1,7,1,biome==='snow'?'#a8927c':'#a06c34');pixel(gc,p.x+1,p.y+1,5,1,biome==='snow'?'#dcc6ac':'#e0ae68');if(rand()<.2)pixel(gc,p.x-2,p.y,2,1,'#ecc27e');}continue;}
+      if(road(x,z)){diamond(gc,x,z,.60,.60,roadStyle(x,z,roads)==='stone'?'#d8c0a8':biome==='snow'?'#c3c9d0':'#ca9245');if(roadStyle(x,z,roads)==='stone'){for(let i=0;i<4;i++){const dx=(i%2)*7-6,dy=Math.floor(i/2)*3-2;pixel(gc,p.x+dx,p.y+dy,6,2,rand()>.5?'#e4d0b2':'#b0a184');pixel(gc,p.x+dx,p.y+dy,5,1,'#f0e2c6');}}else{pixel(gc,p.x-5,p.y-1,7,1,biome==='snow'?'#a9b1bb':'#a06c34');pixel(gc,p.x+1,p.y+1,5,1,biome==='snow'?'#e2e7ec':'#e0ae68');if(rand()<.2)pixel(gc,p.x-2,p.y,2,1,'#ecc27e');}continue;}
       // 每格固定位置的小點綴只在「沒有材質」時畫:有材質時放大會排成規則的斜格紋(概念圖沒有)。亂數照吃。
       const dot=tiled?()=>{}:pixel;
       if(biome==='desert'){dot(gc,p.x-5+rand()*7,p.y-2,4,1,'#eed298');if(rand()<.24)dot(gc,p.x,p.y+2,3,1,'#bb935e');}
@@ -634,7 +634,7 @@ export function createWorld(canvas,{onSelect=()=>{},onPlace=()=>{},getState=()=>
       if(edge){gc.save();gc.translate(0,1);gc.fillStyle=edge;gc.fill(path);gc.restore();}
       gc.save();gc.clip(path);gc.globalAlpha=alpha;gc.scale(.5,.5);gc.fillStyle=pat;gc.fillRect(0,0,ground.width*2,ground.height*2);gc.restore();};
     // 戰鬥空地:用「不規則橢圓」取代一格一格的菱形聯集(邊緣不再是直的鋸齒),中央踩得較禿、邊緣淡出到草地。
-    if(roadPattern){for(const a of ARENAS){if(a.id==='snow'||a.id==='taiga'||a.id==='desert')continue;/* 沙地本來就是裸地,疊土反而髒 */const ring=(k,j)=>{const path=new Path2D();
+    if(roadPattern){for(const a of ARENAS){if(a.id==='snow'||a.id==='taiga'||a.id==='desert'||a.id==='mountain')continue;/* 沙地、雪地、碎石山地本來就是裸地,疊土反而髒(山地上一塊棕土很突兀) */const ring=(k,j)=>{const path=new Path2D();
         for(let i=0;i<=48;i++){const t=i/48*Math.PI*2,r=k*(1+.1*Math.sin(3*t+a.x)+.07*Math.sin(7*t+a.z)+j*.05*Math.sin(13*t)),q=worldPos(a.x+Math.cos(t)*a.rx*r,a.z+Math.sin(t)*a.rz*r);i?path.lineTo(q.x,q.y):path.moveTo(q.x,q.y);}
         path.closePath();return path;};
       fillPave(ring(1.02,1),roadPattern,.32);fillPave(ring(.86,1),roadPattern,.38);fillPave(ring(.62,0),roadPattern,.3);}}
@@ -647,14 +647,43 @@ export function createWorld(canvas,{onSelect=()=>{},onPlace=()=>{},getState=()=>
           gc.save();gc.clip(path);gc.lineWidth=1.4;gc.strokeStyle='rgba(206,238,250,.5)';gc.stroke(path);gc.restore();}};
       strip(riverX,2.05,-29,WORLD.maxZ-1,z=>BRIDGES.some(b=>Math.abs(z-b)<1.8));
       strip(creekX,1.4,-26.5,26.5,z=>VILLAGE_BRIDGES.some(b=>Math.abs(z-b)<1.8));}
+    // 海岸線:世界是一個長方形,海岸原本是四條直線。外圍加一圈「不規則的延伸陸地」(只是風景、不能走,
+    // 地圖只會變大),地形接著邊上的生態域;河流一路流進海。visBiome = 畫面上看到的地形(含延伸陸地)。
+    const westWood=(x,z)=>x<WORLD.minX&&x>=-52&&z>=-35&&z<35;
+    const coastOut=(x,z)=>{const dx=Math.max(WORLD.minX-x,x-(WORLD.maxX-1),0),dz=Math.max(WORLD.minZ-z,z-(WORLD.maxZ-1),0),d=Math.hypot(dx,dz);
+      const n=5+3.2*Math.sin(x*.11+z*.05)+2*Math.sin(z*.21-x*.08+1.7)+1.1*Math.sin((x+z)*.41)+.6*Math.sin((x-z)*.83);return d>0&&d<n;};  // 低頻＝海灣與岬角
+    const visBiome=(x,z)=>{if(x>=WORLD.minX&&x<WORLD.maxX&&z>=WORLD.minZ&&z<WORLD.maxZ)return biomeAt(x,z);if(westWood(x,z))return 'forest';if(!coastOut(x,z))return 'ocean';
+      const cx=Math.max(WORLD.minX+1,Math.min(WORLD.maxX-2,x)),cz=Math.max(WORLD.minZ+1,Math.min(WORLD.maxZ-2,z)),b=biomeAt(cx,cz);
+      if(b==='bridge'||b==='river'||b==='ice'){const rx=riverX(z);return Math.abs(x-rx)<1.75&&(z<WORLD.minZ||z>=WORLD.maxZ)?(cz<-29?'ice':'river'):b==='bridge'?'meadow':biomeAt(cx+3,cz);}
+      return b==='village'?'meadow':b;};
+    const EXT=11;let coastBlobs={};
+    if(tiled){const ext=new Map(),er=rnd(8811);
+      for(let z=WORLD.minZ-EXT;z<WORLD.maxZ+EXT;z++)for(let x=WORLD.minX-EXT;x<WORLD.maxX+EXT;x++){if(x>=WORLD.minX&&x<WORLD.maxX&&z>=WORLD.minZ&&z<WORLD.maxZ)continue;if(westWood(x,z))continue;
+        const b=visBiome(x,z);if(b==='ocean')continue;let a=ext.get(b);if(!a)ext.set(b,a=[]);a.push(x,z);
+        const roll=er();if(b==='river'||b==='ice')continue;
+        if(['forest','taiga','birch','snow'].includes(b)&&roll<.55)decorations.push({type:'tree',x:x+(er()-.5)*.8,z:z+(er()-.5)*.8,variant:(b==='snow'?3:b==='taiga'?0:b==='birch'?2:er()<.5?0:1)+Math.floor(er()*4)*4,size:.42+er()*.2});
+        else if(b==='mountain'&&roll<.4)decorations.push(er()<.4?{type:'outcrop',x,z,size:.7+er()*.5}:{type:'rock',x,z,size:.7+er()*.6});
+        else if(b==='desert'&&roll<.12)decorations.push({type:'cactus',x,z,size:.7+er()*.4});
+        else if(roll<.18)decorations.push({type:'flowers',x,z,variant:Math.floor(er()*8),size:1});}
+      for(const [b,cells] of ext)fillTerrain(cells,.56,b);
+      // 圓滑海岸:沿岸每格往海裡長一個圓斑(同地形材質),外圈一道白浪,海岸不再是格子鋸齒。
+      const blobs={},foam=new Path2D(),cr=rnd(3301);
+      for(let z=WORLD.minZ-EXT;z<WORLD.maxZ+EXT;z++)for(let x=WORLD.minX-EXT;x<WORLD.maxX+EXT;x++){const b=visBiome(x,z);if(b==='ocean'||b==='river'||b==='ice'||b==='bridge')continue;
+        for(const [dx,dz] of [[1,0],[-1,0],[0,1],[0,-1]]){if(visBiome(x+dx,z+dz)!=='ocean')continue;const r=.55+cr()*.35,c=worldPos(x+dx*(.3+cr()*.2)+(dz?cr()-.5:0)*.6,z+dz*(.3+cr()*.2)+(dx?cr()-.5:0)*.6);
+          addEllipse(blobs[b]||(blobs[b]=new Path2D()),c.x,c.y,r*12.7,r*6.4);addEllipse(foam,c.x,c.y,r*15.5,r*8);}}
+      gc.save();gc.fillStyle='rgba(214,238,250,.32)';gc.fill(foam);gc.restore();
+      for(const [b,path] of Object.entries(blobs))fillTerrain(null,0,b,path);
+      coastBlobs=blobs;}
     // 海岸:陸地碰到海的地方鋪一條沙岸(沙漠材質,裁在陸地內)再放礁石,不是森林直接切進海裡。
-    {const WET2=['ocean'],beach=new Path2D(),sr=rnd(6627);let any=false;
-      for(let z=WORLD.minZ;z<WORLD.maxZ;z++)for(let x=WORLD.minX;x<WORLD.maxX;x++){const b=biomeAt(x,z);if(b==='ocean'||b==='river'||b==='ice'||b==='bridge')continue;
-        for(const [dx,dz] of [[1,0],[-1,0],[0,1],[0,-1]]){if(!WET2.includes(biomeAt(x+dx,z+dz)))continue;any=true;
-          for(let k=0;k<3;k++){const c=worldPos(x+dx*(.25+sr()*.3)+(dz?sr()-.5:0),z+dz*(.25+sr()*.3)+(dx?sr()-.5:0)),r=.3+sr()*.35;addEllipse(beach,c.x,c.y,r*12.7,r*6.4);}
+    // 岸的材質跟著地形:草地/林地/沙漠是沙灘,山地是灰碎石岸,雪地直接接到水邊(不鋪黃沙)。
+    {const WET2=['ocean'],beach=new Path2D(),shingle=new Path2D(),sr=rnd(6627);let any=false;
+      for(let z=WORLD.minZ-EXT;z<WORLD.maxZ+EXT;z++)for(let x=WORLD.minX-EXT;x<WORLD.maxX+EXT;x++){if(westWood(x,z))continue;const b=visBiome(x,z);if(b==='ocean'||b==='river'||b==='ice'||b==='bridge')continue;
+        for(const [dx,dz] of [[1,0],[-1,0],[0,1],[0,-1]]){if(!WET2.includes(visBiome(x+dx,z+dz))||westWood(x+dx,z+dz))continue;any=true;
+          for(let k=0;k<3;k++){const c=worldPos(x+dx*(.25+sr()*.3)+(dz?sr()-.5:0),z+dz*(.25+sr()*.3)+(dx?sr()-.5:0)),r=.3+sr()*.35;if(b==='snow'||b==='taiga')continue;addEllipse(b==='mountain'?shingle:beach,c.x,c.y,r*12.7,r*6.4);}
           if(sr()<.16&&b!=='snow')decorations.push({type:'rock',x:x+dx*.45+(sr()-.5)*.6,z:z+dz*.45+(sr()-.5)*.6,size:.5+sr()*.6});}}
-      if(any&&groundPatterns.desert){const land=[];for(let z=WORLD.minZ;z<WORLD.maxZ;z++)for(let x=WORLD.minX;x<WORLD.maxX;x++){const b=biomeAt(x,z);if(b!=='ocean'&&b!=='river'&&b!=='ice'&&b!=='bridge')land.push(x,z);}
-        gc.save();gc.clip(cellPath(land,.5));fillTerrain(null,0,'desert',beach);gc.restore();}}
+      if(any&&groundPatterns.desert){const land=[];for(let z=WORLD.minZ-EXT;z<WORLD.maxZ+EXT;z++)for(let x=WORLD.minX-EXT;x<WORLD.maxX+EXT;x++){const b=visBiome(x,z);if(b!=='ocean'&&b!=='river'&&b!=='ice'&&b!=='bridge')land.push(x,z);}
+        const clip=cellPath(land,.5);for(const p2 of Object.values(coastBlobs))clip.addPath(p2);
+        gc.save();gc.clip(clip);fillTerrain(null,0,'desert',beach);gc.globalAlpha=1;fillTerrain(null,0,'mountain',shingle);gc.fillStyle='rgba(255,255,255,.12)';gc.fill(shingle);gc.restore();}}
     fillCells(roadCells,.6,roadPattern,1,'#7a5a30');
     fillCells(stoneCells,.6,plazaPattern,1,'#8a7a62');
     // Unreachable woodland scenery continues beyond the village's west edge.
@@ -751,6 +780,17 @@ export function createWorld(canvas,{onSelect=()=>{},onPlace=()=>{},getState=()=>
       else if(pick<.88)decorations.push({type:'rock',x:xx,z:zz,size:.45+sz*.35});
       else if(!arenaAt(xx,zz,4)){const n=2+Math.floor(sz*3),v=bio==='birch'?2:1;for(let k=0;k<n;k++)decorations.push({type:'tree',x:xx+(r3()-.5)*2.2,z:zz+(r3()-.5)*2.2,variant:(k%2?0:v)+Math.floor(r3()*4)*4,size:.42+r3()*.18});}
     }}
+    // 地貌:雪原有雪堆/冰湖/冰晶岩,山地有崖壁,林地有倒木/樹樁/苔石/蕨叢——不再是一整片平的材質(獨立亂數)。
+    {const r4=rnd(60811),FEAT={snow:[['snowDrift',.5],['iceRocks',.25],['frozenPond',.08]],taiga:[['snowDrift',.25],['stump',.2],['mossRock',.15],['fallenLog',.12]],
+        mountain:[['cliffLedge',.3],['iceRocks',.08]],forest:[['ferns',.35],['mossRock',.2],['stump',.18],['fallenLog',.14]],birch:[['ferns',.25],['stump',.15],['fallenLog',.08]]};
+      for(let z=WORLD.minZ+1;z<WORLD.maxZ-1;z+=2.3)for(let x=WORLD.minX+1;x<WORLD.maxX-1;x+=2.4){
+        const xx=x+r4()*1.6,zz=z+r4()*1.6,bio=biomeAt(xx,zz),roll=r4(),list=FEAT[bio];if(!list)continue;
+        let acc=0,pick=null;for(const [t,pr] of list){acc+=pr*(bio==='snow'||bio==='mountain'?.85:.65);if(roll<acc){pick=t;break;}}if(!pick)continue;
+        const big=pick==='frozenPond'||pick==='cliffLedge';
+        if(road(xx,zz)||onRoad(xx,zz,roads,big?2.2:1)||inVillage(xx,zz)||arenaAt(xx,zz,big?2.5:1.2))continue;
+        if([[0,0],[1.6,0],[-1.6,0],[0,1.6],[0,-1.6]].some(([a,b])=>['ocean','river','ice','bridge'].includes(biomeAt(xx+a,zz+b))))continue;
+        if(BUILDINGS.some(b=>{const q=state.layout?.[b.id]||b;return Math.abs(xx-q.x)<4.5&&Math.abs(zz-q.z)<5;}))continue;
+        decorations.push({type:pick,x:xx,z:zz,variant:Math.floor(r4()*4),size:.85+r4()*.35});}}
     for(const [x,z,v]of[[-17,-9,1],[-17,0,5],[-15,19,1],[-6,20,2],[7,19,6],[10,-14,0],[12,11,1],[-21,13,2]])decorations.push({type:'tree',x,z,variant:v,size:.5});  // 概念圖松樹約 120px → 30 單位
     // A mixed woodland rim frames the village without occupying its streets.
     for(let i=0;i<12;i++){
@@ -907,8 +947,8 @@ export function createWorld(canvas,{onSelect=()=>{},onPlace=()=>{},getState=()=>
   // 把圖集物件 contain 進「世界單位外框」並畫出。回傳 true = 畫成功。
   // contain 而不是拉伸:保持出土物件的等比,尺寸由外框決定(版面才不會跑掉)。
   // 平貼地面的不投影;寬的(圍籬、攤位、桌椅)每欄自己的地面;其他(人、樹、旗、燈)整張一個地面。
-  const FLAT_DETAIL=new Set(['flowerYellow','flowerPink','flowerBlue','flowerWhite','plot','wheat','cabbage','garden']);
-  const WIDE_DETAIL=new Set(['streamBridge','bankRocks','waterfall','fenceRail','fence','stall','fruitStand','tableSet','bench','handCart','well','flowerBox','riverRocks','boulders','outcrop','cave','ruin','trough','crates','barrels','hayBale','firewood','sacks','railing','signpost']);
+  const FLAT_DETAIL=new Set(['frozenPond','flowerYellow','flowerPink','flowerBlue','flowerWhite','plot','wheat','cabbage','garden']);
+  const WIDE_DETAIL=new Set(['cliffLedge','snowDrift','fallenLog','streamBridge','bankRocks','waterfall','fenceRail','fence','stall','fruitStand','tableSet','bench','handCart','well','flowerBox','riverRocks','boulders','outcrop','cave','ruin','trough','crates','barrels','hayBale','firewood','sacks','railing','signpost']);
   const CHAR_DETAIL=new Set(['merchant','farmer','child','elder','smith','maid','cat','dog','sheep','goat']);
   function drawAtlasDetail(id,p,bw,bh,offset=0,alpha=1,flip=false){
     const lod=detailFrameFor(id,scale>=2.2);
@@ -997,6 +1037,9 @@ export function createWorld(canvas,{onSelect=()=>{},onPlace=()=>{},getState=()=>
     archeryTarget:['archeryTarget',15,19,1],dummy:['dummy',10,15,1],weaponRack:['weaponRack',14,18,1],anvilStump:['anvilStump',10,9,1],
     tableSet:['tableSet',20,16,1],bench:['bench',16,10,1],handCart:['handCart',16,13,1],flowerBox:['flowerBox',12,10,1],
     purpleBanner:['purpleBanner',9,30,1],fenceRail:['fenceRail',18,18,4.5],fruitStand:['fruitStand',22,26,1],sacks:['sacks',11,11,1],
+    // 各地形的地貌(l0veyou cold/woods 圖集):雪堆、冰湖、冰晶岩、山崖,倒木、樹樁、苔石、蕨叢。
+    snowDrift:['snowDrift',26,14,2],frozenPond:['frozenPond',30,17,3],iceRocks:['iceRocks',22,15,1],cliffLedge:['cliffLedge',40,23,2],
+    fallenLog:['fallenLog',22,18,1],stump:['stump',13,11,1],mossRock:['mossRock',15,13,1],ferns:['ferns',13,12,1],
     barrel:['barrel',6,8,1],bucket:['bucket',5,6,1],flowerBush:['flowerBush',12,11,1],riverRocks:['riverRocks',14,11,1]};
   // 驗收用:每一個畫面上的裝飾都該來自圖集/概念圖素材。退回程序繪製就記在 procUse,
   // __mistvaleDetails().proc 應該是空物件。
@@ -1311,7 +1354,7 @@ export function createWorld(canvas,{onSelect=()=>{},onPlace=()=>{},getState=()=>
     if(villageReady)g.drawImage(villageLayer,Math.round(width/2+(VBOX.x0-cam.x)*scale),Math.round(height/2+50+(VBOX.y0-cam.y)*scale),Math.round(VBOX.w*scale),Math.round(VBOX.h*scale));
     if(quality){for(let z=WORLD.minZ+3;z<WORLD.maxZ-2;z+=4){if(isBridge(riverX(z),z))continue;const p=screenPoint(riverX(z)+Math.sin(elapsed*.45+z)*.6,z+Math.sin(elapsed*.3+z)*.4);if(p.x>0&&p.x<width&&p.y>0&&p.y<height){pixel(g,p.x-3*scale,p.y,6*scale,Math.max(1,scale),'#a8ddf7');pixel(g,p.x+1*scale,p.y+2*scale,3*scale,Math.max(1,scale),'#5fb0e6');}}}
     const all=[];
-    for(const d of decorations){const p=screenPoint(d.x,d.z);if(p.x>-100&&p.x<width+100&&p.y>-40&&p.y<height+260)all.push({sort:d.type==='streamBridge'?-1e9:d.x+d.z,type:'decor',data:d});}  // 橋面是地面:過橋的人永遠畫在上面
+    for(const d of decorations){const p=screenPoint(d.x,d.z);if(p.x>-100&&p.x<width+100&&p.y>-40&&p.y<height+260)all.push({sort:d.type==='streamBridge'||d.type==='frozenPond'?-1e9:d.x+d.z,type:'decor',data:d});}  // 橋面是地面:過橋的人永遠畫在上面
     for(const b of BUILDINGS){const p=state.layout?.[b.id]||b;all.push({sort:p.x+p.z+.2,type:'building',data:b});}
     for(const h of state.hunters||[])all.push({sort:h.x+h.z+.3,type:'hunter',data:h});
     for(const e of state.enemies||[])all.push({sort:e.x+e.z+.3,type:'enemy',data:e});

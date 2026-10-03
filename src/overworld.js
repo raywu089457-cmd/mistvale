@@ -26,7 +26,8 @@ export function biomeAt(x,z){
  if(isWater(x,z))return z<-29?'ice':'river';
  if(inVillage(x,z))return 'village';
  if(x<7&&z>=-32&&z<=-24)return 'forest';
- const nx=x+Math.sin(z*.15)*3.1+Math.sin(z*.49)*.7,nz=z+Math.sin(x*.13)*3.8+Math.cos(x*.37)*.8;
+ // 生態域邊界加中頻起伏:原本只有低頻正弦,遠看是長直線(雪原三角、沙漠斜帶)。
+ const nx=x+Math.sin(z*.15)*3.1+Math.sin(z*.49)*.7+Math.sin(z*.27+x*.19)*2.2+Math.sin(x*.61-z*.23)*.9,nz=z+Math.sin(x*.13)*3.8+Math.cos(x*.37)*.8+Math.sin(x*.29-z*.17+2)*2.4+Math.cos(z*.57+x*.21)*1;
  if(nz<-29)return nx>31?'mountain':'snow';
  if(nx>34&&nz<-13)return 'mountain';
  if(nz<-17)return 'taiga';

@@ -1,0 +1,58 @@
+{
+ "version": 1,
+ "kind": "mistvale-cold-atlas",
+ "image": "cold@1x.png",
+ "sheetWidth": 470,
+ "sheetHeight": 205,
+ "packing": "shelf",
+ "source": "terrain-cold-v1.png",
+ "sourceSheet": [
+  1536,
+  864
+ ],
+ "chromaKey": "#FF00FF",
+ "generator": "l0veyou.com GPT Image 2",
+ "cells": {
+  "snowDrift": {
+   "x": 0,
+   "y": 0,
+   "w": 154,
+   "h": 80,
+   "anchor": [
+    77.0,
+    80
+   ]
+  },
+  "frozenPond": {
+   "x": 158,
+   "y": 0,
+   "w": 156,
+   "h": 87,
+   "anchor": [
+    236.0,
+    87
+   ]
+  },
+  "iceRocks": {
+   "x": 318,
+   "y": 0,
+   "w": 148,
+   "h": 94,
+   "anchor": [
+    392.0,
+    94
+   ]
+  },
+  "cliffLedge": {
+   "x": 0,
+   "y": 98,
+   "w": 186,
+   "h": 103,
+   "anchor": [
+    93.0,
+    201
+   ]
+  }
+ },
+ "scale": 0.5
+}

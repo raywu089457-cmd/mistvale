@@ -1,0 +1,58 @@
+{
+ "version": 1,
+ "kind": "mistvale-woods-atlas",
+ "image": "woods@1x.png",
+ "sheetWidth": 441,
+ "sheetHeight": 260,
+ "packing": "shelf",
+ "source": "terrain-forest-v1.png",
+ "sourceSheet": [
+  1360,
+  768
+ ],
+ "chromaKey": "#FF00FF",
+ "generator": "l0veyou.com GPT Image 2",
+ "cells": {
+  "fallenLog": {
+   "x": 0,
+   "y": 0,
+   "w": 153,
+   "h": 124,
+   "anchor": [
+    76.5,
+    124
+   ]
+  },
+  "stump": {
+   "x": 157,
+   "y": 0,
+   "w": 132,
+   "h": 114,
+   "anchor": [
+    223.0,
+    114
+   ]
+  },
+  "mossRock": {
+   "x": 293,
+   "y": 0,
+   "w": 144,
+   "h": 128,
+   "anchor": [
+    365.0,
+    128
+   ]
+  },
+  "ferns": {
+   "x": 0,
+   "y": 132,
+   "w": 134,
+   "h": 124,
+   "anchor": [
+    67.0,
+    256
+   ]
+  }
+ },
+ "scale": 0.5
+}
