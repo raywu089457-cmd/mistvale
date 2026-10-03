@@ -383,7 +383,8 @@ const atlasLod=[];
 // 世界寬度 71 換算成「每來源像素多少世界單位」,畫面大小才跟改之前一致。
 const ATLAS_REF_WIDTH_1X=145.5;
 const BUILDING_WORLD_WIDTH=71;
-const conceptBuildingWidth=id=>({hall:112,inn:94,tavern:94,bounty:48,dungeon:77}[id]||86);
+// v3(概念圖參考重生)的酒館連露台,概念圖量約 560px+ → 140 單位。
+const conceptBuildingWidth=id=>({hall:112,inn:94,tavern:140,bounty:48,dungeon:77}[id]||86);
 // 大廳與地下城要比店鋪大。舊版是 hall:79 / dungeon:77,換算成倍率。
 const BUILDING_SCALE={hall:1.11,dungeon:1.08};
 // 除錯用:console 打 __mistvaleAtlas() 看圖集載入狀況
