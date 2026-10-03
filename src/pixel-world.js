@@ -385,7 +385,7 @@ const atlasLod=[];
 const ATLAS_REF_WIDTH_1X=145.5;
 const BUILDING_WORLD_WIDTH=71;
 // v3(概念圖參考重生)的酒館連露台,概念圖量約 560px+ → 140 單位。
-const conceptBuildingWidth=id=>({hall:112,inn:94,tavern:140,bounty:48,dungeon:77}[id]||86);
+const conceptBuildingWidth=id=>({hall:112,inn:94,tavern:165,house:100,bounty:48,dungeon:77}[id]||86);
 // 大廳與地下城要比店鋪大。舊版是 hall:79 / dungeon:77,換算成倍率。
 const BUILDING_SCALE={hall:1.11,dungeon:1.08};
 // 除錯用:console 打 __mistvaleAtlas() 看圖集載入狀況
@@ -873,7 +873,8 @@ export function createWorld(canvas,{onSelect=()=>{},onPlace=()=>{},getState=()=>
   function bar(x,y,w,frac,color){pixel(g,x-1,y-1,w+2,6,'#1c0e06dd');pixel(g,x,y,w,4,'#5a2f14');pixel(g,x,y,Math.max(0,w*Math.min(1,frac)),4,color);pixel(g,x,y,Math.max(0,w*Math.min(1,frac)),2,shade(color,25));}
   function getLevel(id){const level=state.buildings?.[id];return typeof level==='number'?level:level?.level??1;}
 
-  function drawBuilding(b){const layout=state.layout?.[b.id]||b,p=screenPoint(layout.x,layout.z),level=getLevel(b.id),s=selected===b.id;
+  const SPRITE_SHIFT={tavern:[10,18]};
+  function drawBuilding(b){const layout=state.layout?.[b.id]||b;let p=screenPoint(layout.x,layout.z);const level=getLevel(b.id),s=selected===b.id;
     if(s)ring(p,31,'#ffdc7b');
     if(!level){
       // 空地:l0veyou 的施工地基(石基、木樁、繩子、木板堆),取代虛線菱形。
@@ -883,8 +884,9 @@ export function createWorld(canvas,{onSelect=()=>{},onPlace=()=>{},getState=()=>
     }
     const conceptSprite=atlasCell(b.id);
     const conceptWidth=conceptBuildingWidth(b.id);
-    // 概念圖的建築腳下有一圈深色接地陰影(畫面「暗部」比例 14.9%,遊戲原本 9.1%)。
-    shadow({x:p.x,y:p.y+4*scale},conceptWidth*.5,conceptWidth*.2,'#1a261c70');
+    // 酒館 v3 連露台:圖往右下畫(露台在佔地前方),對齊概念圖左下的酒館;佔地與道路不變。
+    const sh=SPRITE_SHIFT[b.id];if(sh)p={x:p.x+sh[0]*scale,y:p.y+sh[1]*scale};
+    shadow({x:p.x,y:p.y+4*scale},conceptWidth*.36,conceptWidth*.13,'#1a261c48');  // 概念圖只有貼地的一圈暗,不是大片橢圓
     let rect=conceptSprite?drawSprite(conceptSprite,p,conceptWidth,conceptWidth*conceptSprite.height/conceptSprite.width,9):drawAtlasBuilding(b.id,p,9);
     if(!rect){const sprite=atlasCell(b.id)||buildingSprite(b.id),w=conceptBuildingWidth(b.id);rect=drawSprite(sprite,p,w,w*sprite.height/sprite.width,9);}
     // 下面冒煙那段用的是「世界單位」的高度(會再乘 scale),照舊版語意換算回去。
