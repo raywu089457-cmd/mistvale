@@ -39,7 +39,7 @@ export const CONCEPT_PEOPLE=[
   {cls:'ranger',u:256,v:112},{cls:'ranger',u:312,v:192},{who:'cat',u:380,v:140},{who:'dog',u:272,v:468},{who:'dog',u:405,v:405},
   {who:'merchant',u:352,v:418},{cls:'berserker',u:478,v:352},{cls:'darkknight',u:520,v:336},{cls:'paladin',u:566,v:338},
   {cls:'sorcerer',u:506,v:446},{who:'elder',u:338,v:512},{who:'child',u:420,v:530},{cls:'paladin',u:662,v:325},
-  {cls:'sorcerer',u:722,v:372},{who:'smith',u:962,v:340},{who:'smith',u:1008,v:352},{cls:'sorcerer',u:878,v:508},
+  {cls:'sorcerer',u:722,v:372},{who:'smith',u:962,v:340},{cls:'paladin',u:1008,v:352,flip:true},{cls:'sorcerer',u:878,v:508},
   {cls:'sorcerer',u:1150,v:510},{who:'merchant',u:305,v:712},{cls:'berserker',u:602,v:665},{cls:'darkknight',u:692,v:770},
   {cls:'ranger',u:772,v:728},{cls:'berserker',u:804,v:835},{cls:'paladin',u:872,v:818},{cls:'ranger',u:952,v:708},
   {cls:'priest',u:962,v:898},{who:'child',u:1002,v:948},{cls:'darkknight',u:722,v:1018},{who:'farmer',u:1062,v:1192},

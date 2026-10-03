@@ -28,7 +28,7 @@ for(const [tag,file] of [['detailsManifest','details@1x.manifest.json'],['detail
   try{const t=await fs.readFile(path.join(root,`assets/${file}`),'utf8');assetScript+=`window.PIXEL_ASSETS=window.PIXEL_ASSETS||{};window.PIXEL_ASSETS.${tag}=${t};`;}catch(e){console.warn('missing detail manifest',file);}
 }
 // l0veyou（GPT Image 2）生的道具／魔物／花草圖集:跟 details 同一個 manifest 契約。
-for(const prefix of ['props','monsters','flora','villagers','icons','vfx','yard','town','town2']){
+for(const prefix of ['props','monsters','monsteratk','flora','villagers','icons','vfx','yard','town','town2']){
   for(const [suffix,lod] of [['Atlas','1x'],['Atlas2x','2x']]){
     try{const p=await fs.readFile(path.join(root,`assets/${prefix}@${lod}.png`));assetScript+=`window.PIXEL_ASSETS=window.PIXEL_ASSETS||{};window.PIXEL_ASSETS.${prefix}${suffix}='data:image/png;base64,${p.toString('base64')}';`;}catch(e){console.warn('missing atlas',prefix,lod);}
   }
@@ -49,7 +49,9 @@ for(const [tag,file,js] of [['terrainAtlas','terrain-atlas.png',false],['terrain
 }
 // 角色圖集(獵人六職業)
 for(const [tag,file,js] of [['heroAtlas','hero@1x.png',false],['heroManifest','hero@1x.manifest.json',true],
-                            ['heroAtlas2x','hero@2x.png',false],['heroManifest2x','hero@2x.manifest.json',true]]){
+                            ['heroAtlas2x','hero@2x.png',false],['heroManifest2x','hero@2x.manifest.json',true],
+                            ['heroposeAtlas','heropose@1x.png',false],['heroposeManifest','heropose@1x.manifest.json',true],
+                            ['heroposeAtlas2x','heropose@2x.png',false],['heroposeManifest2x','heropose@2x.manifest.json',true]]){
   try{const raw=await fs.readFile(path.join(root,`assets/${file}`));
     assetScript+=`window.PIXEL_ASSETS=window.PIXEL_ASSETS||{};window.PIXEL_ASSETS.${tag}=`
       +(js?raw.toString('utf8'):`'data:image/png;base64,${raw.toString('base64')}'`)+';';

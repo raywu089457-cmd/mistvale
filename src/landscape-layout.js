@@ -1,6 +1,7 @@
 import {BUILDINGS} from './pixel-data.js';
 import {REGIONS,BRIDGES,riverX,walkable,inVillage} from './overworld.js';
-export const ARENAS=REGIONS.filter(r=>r.id!=='village').map(r=>({...r,rx:r.id==='taiga'?5.7:6.6,rz:6.0}));
+// 戰鬥空地 z 方向放大(6 → 7.5):魔物 28–33 世界像素寬,原本的空地站不開,戰鬥會疊成一團。x 方向受溪流/河流限制。
+export const ARENAS=REGIONS.filter(r=>r.id!=='village').map(r=>({...r,rx:r.id==='taiga'?5.7:6.6,rz:7.5}));
 export const SOLID_PROPS=[
  {id:'fountain',minX:-10,maxX:-6,minZ:0,maxZ:4},
  {id:'well',minX:-11.1,maxX:-9.9,minZ:21.9,maxZ:23.1},

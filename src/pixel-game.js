@@ -1,5 +1,5 @@
 import {getRoads,roadNodes,onRoad,arenaAt,ARENAS,arenaContains,SOLID_PROPS} from './landscape-layout.js';
-import {WORLD,REGIONS,BRIDGES,riverX,walkable,inVillage,regionAt} from './overworld.js';
+import {WORLD,REGIONS,BRIDGES,riverX,walkable,inVillage,regionAt,isBridge} from './overworld.js';
 import { BUILDINGS, CLASSES, RARITIES, TRAITS, MATERIALS, PRODUCTS, RECIPES, DIFFICULTIES, CAMP, HUNT_ZONE, LEGACY_LAYOUT_V14, LEGACY_LAYOUT_V15, LEGACY_LAYOUT_V16, ART_LAYOUT_HISTORY } from './pixel-data.js';
 
 const mapById = list => Object.assign(Object.create(null), Object.fromEntries(list.map(item => [item.id, item])));
@@ -139,7 +139,7 @@ export function createGame(saved = null) {
     h.maxHp = Math.round((c.hp + (h.equipment.armor ? 28 : 0)) * (1 + (h.level - 1) * 0.075) * rarity * rebirth * (h.trait === 'stout' ? 1.15 : 1));
     h.attack = Math.round((c.attack + (h.equipment.weapon ? 7 : 0)) * (1 + (h.level - 1) * 0.065) * rarity * rebirth * (1 + h.skillLevel * 0.1) * (1 + h.weaponLevel * 0.07) * (h.trait === 'brave' ? 1.1 : 1));
     h.defense = c.defense + (h.equipment.armor ? 4 : 0) + Math.floor(h.level / 8) + h.rebirths * 2;
-    h.range = c.range; h.speed = c.speed;
+    h.range = Math.max(c.range, 1.75); h.speed = c.speed;  // 近戰距離配合角色圖寬(21/28–33 世界像素),不然兩邊疊成一團
     h.hp = preserveRatio ? Math.round(h.maxHp * ratio) : clamp(h.hp ?? h.maxHp, 0, h.maxHp);
   }
 
@@ -253,7 +253,9 @@ export function createGame(saved = null) {
 
   function spawn(type, position = null) {
     const region=REGIONS.find(r=>r.id===state.region)||REGIONS[1];
-    const proposed=position??{x:region.x-4+random()*8,z:region.z-4+random()*8};
+    // 出生點取 6 個候選裡離其他魔物最遠的:場上的魔物分散,戰鬥時才不會一出生就疊在一起。
+    let proposed=position;
+    if(!proposed){let best=-1;for(let i=0;i<6;i++){const c={x:region.x-5+random()*10,z:region.z-5.5+random()*11},gap=Math.min(99,...state.enemies.filter(e=>e.hp>0).map(e=>Math.hypot(e.x-c.x,e.z-c.z)));if(gap>best){best=gap;proposed=c;}}}
     const anchor=ARENAS.find(a=>a.id===regionAt(proposed.x,proposed.z).id)||ARENAS.find(a=>a.id===region.id)||ARENAS[0];
     const dx=proposed.x-anchor.x,dz=proposed.z-anchor.z,norm=Math.hypot(dx/anchor.rx,dz/anchor.rz),factor=norm>.82?.82/norm:1;
     const p=safePoint({x:anchor.x+dx*factor,z:anchor.z+dz*factor}),data=ENEMIES[type],multiplier=DIFFICULTIES[state.difficulty].mult*(region.risk||1);
@@ -267,7 +269,8 @@ export function createGame(saved = null) {
     const data = ENEMIES[enemy.type], multiplier = DIFFICULTIES[state.difficulty].mult;
     const gold = Math.round(data.gold * Math.sqrt(multiplier)); hunter.gold += gold;
     for (const [key, amount] of Object.entries(data.drops)) hunter.inventory[key] += amount;
-    effect('loot', enemy, { text: `+${gold}`, color: '#efcd82' });
+    effect('death', enemy, { enemyType: enemy.type, flipHint: (enemy.hitFromX ?? enemy.x) - (enemy.hitFromZ ?? enemy.z) > enemy.x - enemy.z });
+    effect('loot', enemy, { text: `+${gold}`, color: '#efcd82', delay: 0.35 });
     for (const h of state.hunters) if (h.hp > 0 && h.task !== 'dungeon' && h.task !== 'arena' && (distance(h, enemy) < 12 || h === hunter)) gainXp(h, Math.round(data.xp * Math.sqrt(multiplier)));
     if (enemy.type === 'boss') {
       state.bossKills++; state.gems += 5; Object.assign(state.expedition, { active: false, bossHp: 0, cooldown: 55, elapsed: 0 });
@@ -390,12 +393,16 @@ export function createGame(saved = null) {
         target = state.expedition.active ? available.find(e => e.type === 'boss') : null;
         target ??= available.sort((a, b) => distance(h, a) - distance(h, b))[0]; h.targetId = target?.id ?? null;
       }
-      if (target && !inVillage(h.x,h.z) && distance(h, target) <= h.range) {
+      // 先走進戰鬥空地再開打(不在橋上、柵欄邊遠遠放箭),戰鬥才會在開闊處、看得清楚。
+      if (target && !inVillage(h.x,h.z) && distance(h, target) <= h.range && ((arenaAt(h.x, h.z, -0.6) && !isBridge(h.x, h.z) && !isBridge(h.x - 1.2, h.z)) || distance(h, target) <= 1.9)) {
         h.status = '戰鬥中'; h.route = [];
         if (h.attackTimer === 0) {
           h.attackTimer = (h.classId === 'sorcerer' ? 1.65 : h.classId === 'ranger' ? 1.2 : 1.1) * (h.trait === 'swift' ? 0.9 : 1);
           const damage = Math.max(1, Math.round(h.attack * (h.satiety < 15 || h.stamina < 15 ? 0.6 : 1)));
-          target.hp -= damage; effect(h.classId === 'sorcerer' ? 'spell' : h.classId === 'ranger' ? 'arrow' : 'slash', target, { sourceX: h.x, sourceZ: h.z, value: damage, targetId: target.id });
+          // 動畫用時間戳(只給畫面看,不影響結算):出手瞬間、命中時刻(遠程要等箭/法球飛到)、攻擊方向。
+          const kind = h.classId === 'sorcerer' ? 'spell' : h.classId === 'ranger' ? 'arrow' : h.classId === 'priest' ? 'holy' : 'slash', delay = kind === 'arrow' ? 0.2 : kind === 'spell' ? 0.25 : kind === 'holy' ? 0.16 : 0.07;
+          h.atkAt = state.time; h.atkX = target.x; h.atkZ = target.z; target.hitAt = state.time + delay; target.hitFromX = h.x; target.hitFromZ = h.z;
+          target.hp -= damage; effect(kind, target, { sourceX: h.x, sourceZ: h.z, value: damage, targetId: target.id, delay, cls: h.classId, crit: damage >= h.attack * 1.25 });
           if (h.classId === 'darkknight') h.hp = Math.min(h.maxHp, h.hp + damage * 0.08);
           if (target.hp <= 0) rewardEnemy(target, h);
         }
@@ -407,25 +414,46 @@ export function createGame(saved = null) {
         walk(h, dt); if (!target && !h.route.length) h.status = '待命';
       }
     }
+    // 每位獵人同時最多兩隻魔物近身(首領不佔名額),其他在 3.4 格外等空位:一對一、一對二,誰打誰看得清楚。
+    const slots = new Map();
+    for (const e of state.enemies) if (e.hp > 0 && e.engaged && e.slotFor) slots.set(e.slotFor, (slots.get(e.slotFor) || 0) + 1);
+    const fieldOk = p => arenaContains(p.regionId, p.x, p.z, .2) && !inVillage(p.x, p.z) && !isBridge(p.x, p.z) && !isBridge(p.x + 1, p.z) && !blocked(p);
     for (const enemy of state.enemies) {
       if (enemy.hp <= 0) continue;
       enemy.age += dt; enemy.attackTimer = Math.max(0, enemy.attackTimer - dt);
       const target = state.hunters.filter(h => h.hp > 0 && !inVillage(h.x,h.z) && h.task !== 'dungeon' && h.task !== 'arena').sort((a, b) => distance(enemy, a) - distance(enemy, b))[0];
-      if(!target || !arenaContains(enemy.regionId||state.region,target.x,target.z,.8)){
+      if(!target || !arenaContains(enemy.regionId||state.region,target.x,target.z,.8)){enemy.engaged=false;
         const home={x:enemy.homeX??enemy.x,z:enemy.homeZ??enemy.z},dd=distance(enemy,home);if(dd>.7){const step=Math.min(ENEMIES[enemy.type].speed*dt,dd),p={x:enemy.x+(home.x-enemy.x)/dd*step,z:enemy.z+(home.z-enemy.z)/dd*step};if(!blocked(p)&&lineClear(enemy,p))Object.assign(enemy,p);}continue;
       }
       if (distance(enemy, target) > (enemy.type === 'boss' ? 18 : 10)) continue;
-      const reach = enemy.type === 'boss' ? 2.2 : 1.25, d = distance(enemy, target);
+      const reach = enemy.type === 'boss' ? 2.8 : 1.7, d = distance(enemy, target);
+      enemy.facingX = target.x; enemy.facingZ = target.z;
+      const mine = enemy.engaged && enemy.slotFor === target.id, free = mine || enemy.type === 'boss' || (slots.get(target.id) || 0) < 2;
+      if (!free) {
+        enemy.engaged = false; const want = d > 3.7 ? Math.min(ENEMIES[enemy.type].speed * dt, d - 3.4) : d < 3.0 ? -Math.min(ENEMIES[enemy.type].speed * 0.5 * dt, 3.2 - d) : 0;
+        if (want) { const p = { x: enemy.x + (target.x - enemy.x) / d * want, z: enemy.z + (target.z - enemy.z) / d * want, regionId: enemy.regionId || state.region }; if (fieldOk(p) && lineClear(enemy, p)) { enemy.x = p.x; enemy.z = p.z; } }
+        continue;
+      }
+      enemy.engaged = d <= reach; if (enemy.engaged && !mine) { enemy.slotFor = target.id; if (enemy.type !== 'boss') slots.set(target.id, (slots.get(target.id) || 0) + 1); }
       if (d > reach) {
         const delta = Math.min(ENEMIES[enemy.type].speed * dt, d - reach * 0.8), p = { x: clamp(enemy.x + (target.x - enemy.x) / d * delta,WORLD.minX+1,WORLD.maxX-1), z: enemy.z + (target.z - enemy.z) / d * delta };
-        if (arenaContains(enemy.regionId||state.region,p.x,p.z,.2) && !inVillage(p.x,p.z) && !blocked(p) && lineClear(enemy, p)) Object.assign(enemy, p);
+        if (arenaContains(enemy.regionId||state.region,p.x,p.z,.2) && !inVillage(p.x,p.z) && !isBridge(p.x,p.z) && !isBridge(p.x+1,p.z) && !blocked(p) && lineClear(enemy, p)) Object.assign(enemy, p);  // 魔物不上橋:戰鬥留在開闊的空地
       } else if (enemy.attackTimer === 0) {
         enemy.attackTimer = enemy.type === 'boss' ? 1.5 : 1.8;
         const damage = Math.max(2, Math.round(enemy.attack - target.defense * 0.7));
-        target.hp = Math.max(0, target.hp - damage); effect('hit', target, { value: damage }); if (target.hp === 0) died(target);
+        enemy.atkAt = state.time; enemy.atkX = target.x; enemy.atkZ = target.z; target.hitAt = state.time + 0.1; target.hitFromX = enemy.x; target.hitFromZ = enemy.z;
+        target.hp = Math.max(0, target.hp - damage); effect('hit', target, { value: damage, sourceX: enemy.x, sourceZ: enemy.z, delay: 0.1, by: enemy.type }); if (target.hp === 0) died(target);
       }
     }
     state.enemies = state.enemies.filter(e => e.hp > 0);
+    // 分散站位:同一場戰鬥的魔物、獵人不疊在同一點(畫面才看得清誰在打誰)。只推開、不改目標。
+    const spread = (list, minD) => { for (let i = 0; i < list.length; i++) for (let j = i + 1; j < list.length; j++) {
+      const a = list[i], b = list[j], dx = b.x - a.x, dz = b.z - a.z, d = Math.hypot(dx, dz); if (d >= minD) continue;
+      const ux = d > 1e-4 ? dx / d : Math.cos(i * 2.4 + j), uz = d > 1e-4 ? dz / d : Math.sin(i * 2.4 + j), push = Math.min(2.4 * dt, (minD - d) / 2);
+      for (const [o, sign] of [[a, -1], [b, 1]]) { const q = { x: o.x + ux * push * sign, z: o.z + uz * push * sign };
+        if (!blocked(q) && !inVillage(q.x, q.z) && (!o.regionId || (arenaContains(o.regionId, q.x, q.z, .2) && !isBridge(q.x, q.z)))) Object.assign(o, q); } } };
+    spread(state.enemies, 2.6);
+    spread(state.hunters.filter(h => h.hp > 0 && h.status === '戰鬥中'), 2.0);
     if (state.expedition.active) {
       state.expedition.elapsed += dt; const boss = state.enemies.find(e => e.type === 'boss');
       state.expedition.bossHp = boss?.hp ?? 0; state.expedition.bossMaxHp = boss?.maxHp ?? 1150;
