@@ -34,6 +34,7 @@
 | `vfx@1x.png` / `@2x` | ✅ | **l0veyou**（斬擊、法球、治療、升級星、命中、閃光、施工空地、獸皮圖示） | ✅ | `vfxAtlas(+2x)` |
 | `flora@1x.png` / `@2x` | ✅ | **l0veyou**（四色小花、麥穗、高麗菜、等角橋欄長條、橋柱） | ✅ | `floraAtlas(+2x)` |
 | `villagers@1x.png` / `@2x` | ✅ | **l0veyou**（商人、農婦、小孩、長老、鐵匠學徒、酒館女侍、貓、狗；純裝飾） | ✅ | `villagersAtlas(+2x)` |
+| `yard@1x.png` / `@2x` | ✅ | **l0veyou**（寶箱、木箱、草捆、柴堆、水槽、稻草人、燈籠、推車；純裝飾，16:9 生成） | ✅ | `yardAtlas(+2x)` |
 
 每個圖集都配一個 `*.manifest.json`（`frame_layout`，每格座標）。build.mjs 把 PNG＋manifest
 一起 base64 內嵌。**改 manifest 記得 `npm run build`**。

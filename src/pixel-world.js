@@ -1,6 +1,8 @@
 import {getRoads,roadStyle,onRoad,ARENAS,arenaAt,keepTallDecoration,canopyObscures} from './landscape-layout.js';
 import { BUILDINGS, CLASSES, RARITIES } from './pixel-data.js';
 import {WORLD,REGIONS,BRIDGES,VILLAGE_BRIDGES,creekX,riverX,biomeAt,BIOME_PALETTE,inVillage,isBridge} from './overworld.js';
+import {conceptGroundAt,inConceptFrame,CONCEPT_TREES} from './concept-ground.js';
+import {conceptToWorld,CONCEPT_PROPS,CONCEPT_FENCES,CONCEPT_PEOPLE} from './concept-props.js';
 
 // All artwork is rendered to a small integer pixel buffer and enlarged without
 // interpolation. World coordinates are shared with the village simulation.
@@ -246,12 +248,14 @@ const groundPatterns={};
 // 鋪面(石板/土路)垂直壓扁:概念圖是 3/4 俯視,石塊看起來比較扁寬,不是正上方的圓石。
 const PAVE_SQUASH=.36;
 // 概念圖草地取樣(pipeline/l0veyou.md 有量測方法)。meadow/birch 比村莊亮一階,保留生態域差異。
-const GRASS_TONE={village:{mean:[66,124,38],sd:[24,30,14]},meadow:{mean:[72,128,41],sd:[24,30,14]},birch:{mean:[96,144,56],sd:[24,30,14]},
+// birch 往概念圖亮草綠 (83,156,61) 靠、收窄標準差:原本亮端 (124,179,75) 跑出色票。
+const GRASS_TONE={village:{mean:[66,124,38],sd:[24,30,14]},meadow:{mean:[72,128,41],sd:[24,30,14]},birch:{mean:[86,148,56],sd:[18,22,12]},
   // 村莊外的延伸:水取樣自概念圖右下溪流 (31,140,201);海再深一階。森林地面取概念圖左下松林的暗綠 (58,88,44)。
   river:{mean:[31,140,201],sd:[20,34,34]},taiga:{mean:[63,104,52],sd:[22,26,16]},
   // 概念圖沒有雪地/山地/沙漠:用概念圖裡最接近的顏色延伸——雪＝概念圖的暖白(炊煙、羊毛 230,224,214),
   // 山地＝概念圖石材灰(紀念碑、溪邊石),沙漠＝概念圖土路黃(203,168,72)偏亮一階。
-  snow:{mean:[226,222,212],sd:[16,16,20]},mountain:{mean:[124,126,120],sd:[30,28,26]},desert:{mean:[210,172,82],sd:[18,16,13]},ocean:{mean:[26,108,172],sd:[18,28,30]},forest:{mean:[52,90,40],sd:[20,26,14]}};
+  // 雪再往概念圖最亮的暖色(羊皮紙 217,187,161)靠:暮光下的雪,48 色票裡沒有冷白,冷白整片都不算數。
+  snow:{mean:[222,201,178],sd:[10,10,12]},mountain:{mean:[124,126,120],sd:[30,28,26]},desert:{mean:[210,172,82],sd:[18,16,13]},ocean:{mean:[26,108,172],sd:[18,28,30]},forest:{mean:[52,90,40],sd:[20,26,14]}};
 const groundBase=b=>GRASS_TONE[b]?'#'+GRASS_TONE[b].mean.map(v=>v.toString(16).padStart(2,'0')).join(''):BIOME_PALETTE[b];
 // 小地圖/世界地圖用同一套對齊概念圖的地面色,地圖跟畫面看起來才是同一個世界。
 // 石板/土路色取自 plaza.png、road.png 的取樣平均。
@@ -290,6 +294,16 @@ function ensureTerrainAtlas(){
 // 廣場石板(l0veyou 生,色調已離線對齊概念圖廣場)。載入後 terrainPatternRev++ 讓地面重畫。
 // 土路(road.png)同理:色調對齊概念圖小路取樣 (205,158,78)。
 let plazaPattern=null,roadPattern=null;
+// 概念圖像素材質(石板/土路/草):原生解析度 3.93 px/世界單位,畫在村莊高解析地面層。
+const conceptTex={};
+function ensureConceptTextures(){
+  const assets=globalThis.PIXEL_ASSETS||{};
+  for(const [key,name] of [['conceptStone','stone'],['conceptEarth','earth'],['conceptGrass','grass']]){
+    if(!assets[key]||loadedAssetKeys.has(key))continue;loadedAssetKeys.add(key);
+    const im=new Image();im.onload=()=>{conceptTex[name]=im;terrainPatternRev++;globalThis.dispatchEvent(new CustomEvent('pixel-assets-ready'));};
+    im.onerror=()=>loadedAssetKeys.delete(key);im.src=assets[key];
+  }
+}
 function ensurePlazaTile(){
   const assets=globalThis.PIXEL_ASSETS||{};
   for(const key of ['plaza','road']){
@@ -342,6 +356,8 @@ function ensureDetailAtlas(){
                                   ['monstersAtlas','monstersManifest'],['monstersAtlas2x','monstersManifest2x'],
                                   ['floraAtlas','floraManifest'],['floraAtlas2x','floraManifest2x'],
                                   ['villagersAtlas','villagersManifest'],['villagersAtlas2x','villagersManifest2x'],
+                                  ['yardAtlas','yardManifest'],['yardAtlas2x','yardManifest2x'],
+                                  ['townAtlas','townManifest'],['townAtlas2x','townManifest2x'],['town2Atlas','town2Manifest'],['town2Atlas2x','town2Manifest2x'],
                                   ['iconsAtlas','iconsManifest'],['iconsAtlas2x','iconsManifest2x'],
                                   ['vfxAtlas','vfxManifest'],['vfxAtlas2x','vfxManifest2x']]){
     if(!assets[sheetKey]||!assets[manKey]||loadedAssetKeys.has(sheetKey))continue;
@@ -410,7 +426,7 @@ function ensureAtlas() {
   ensureAtlasManifest();
   ensureDetailAtlas();
   ensureTerrainAtlas();
-  ensurePlazaTile();
+  ensurePlazaTile();ensureConceptTextures();
   ensureHeroAtlas();
   const assets=globalThis.PIXEL_ASSETS||{};
   // 舊的硬切格圖集載入已由上面的 manifest 圖集取代(列切線原本是猜的)。
@@ -536,10 +552,11 @@ export function createWorld(canvas,{onSelect=()=>{},onPlace=()=>{},getState=()=>
         if((x+z)%3===0){pixel(gc,p.x-3,p.y-1,2,1,'#e0b781');pixel(gc,p.x+4,p.y+2,1,1,'#4d392a');}continue;
       }
       const clearing=arenaAt(x,z);
-      if(clearing){const colors={meadow:'#aeb27d',forest:'#a4a77c',taiga:'#99aaa0',snow:'#e5eee7',mountain:'#b6b6a5',desert:'#e3c28a',birch:'#b9c18a'};const cc=shade(colors[clearing.id]||'#b5b68a',n/2);if(roadPattern&&clearing.id!=='snow'&&clearing.id!=='taiga'){clearCells.push(x,z);rand();continue;}if(tiled){gc.save();gc.globalAlpha=.5;diamond(gc,x,z,.51,.51,cc);gc.restore();}else diamond(gc,x,z,.51,.51,cc);if(rand()<.17)pixel(gc,p.x-2,p.y,3,1,shade(colors[clearing.id]||'#b5b68a',-13));continue;}
+      if(clearing){const colors={meadow:'#aeb27d',forest:'#a4a77c',taiga:'#99aaa0',snow:'#d6bfa4',mountain:'#b6b6a5',desert:'#e3c28a',birch:'#b9c18a'};const cc=shade(colors[clearing.id]||'#b5b68a',n/2);if(roadPattern&&clearing.id!=='snow'&&clearing.id!=='taiga'){clearCells.push(x,z);rand();continue;}if(tiled){gc.save();gc.globalAlpha=.5;diamond(gc,x,z,.51,.51,cc);gc.restore();}else diamond(gc,x,z,.51,.51,cc);if(rand()<.17)pixel(gc,p.x-2,p.y,3,1,shade(colors[clearing.id]||'#b5b68a',-13));continue;}
+      // 雪地空地/雪路跟著 GRASS_TONE.snow 的暮光暖白走(踩過的雪暗一階),不用冷灰藍。
       // 土路色:概念圖土路取樣平均 (202,146,69)=#ca9245,明暗點綴跟著同一個色相。
-      if(road(x,z)&&biome!=='snow'&&(roadStyle(x,z,roads)==='stone'?plazaPattern:roadPattern)){const st=roadStyle(x,z,roads)==='stone';(st?stoneCells:roadCells).push(x,z);for(let i=st?4:1;i>0;i--)rand();continue;}  // 跟原分支吃一樣多的亂數
-      if(road(x,z)){diamond(gc,x,z,.60,.60,roadStyle(x,z,roads)==='stone'?'#d8c0a8':biome==='snow'?'#b8c5bf':'#ca9245');if(roadStyle(x,z,roads)==='stone'){for(let i=0;i<4;i++){const dx=(i%2)*7-6,dy=Math.floor(i/2)*3-2;pixel(gc,p.x+dx,p.y+dy,6,2,rand()>.5?'#e4d0b2':'#b0a184');pixel(gc,p.x+dx,p.y+dy,5,1,'#f0e2c6');}}else{pixel(gc,p.x-5,p.y-1,7,1,biome==='snow'?'#97afad':'#a06c34');pixel(gc,p.x+1,p.y+1,5,1,biome==='snow'?'#d4dfd7':'#e0ae68');if(rand()<.2)pixel(gc,p.x-2,p.y,2,1,'#ecc27e');}continue;}
+      if(road(x,z)&&biome!=='snow'&&(roadStyle(x,z,roads)==='stone'?plazaPattern:roadPattern)){const st=roadStyle(x,z,roads)==='stone';if(conceptGroundAt(x,z)==='.')(st?stoneCells:roadCells).push(x,z);for(let i=st?4:1;i>0;i--)rand();continue;}  // 概念圖畫框內的路面由概念圖地面圖負責  // 跟原分支吃一樣多的亂數
+      if(road(x,z)){diamond(gc,x,z,.60,.60,roadStyle(x,z,roads)==='stone'?'#d8c0a8':biome==='snow'?'#c4ad94':'#ca9245');if(roadStyle(x,z,roads)==='stone'){for(let i=0;i<4;i++){const dx=(i%2)*7-6,dy=Math.floor(i/2)*3-2;pixel(gc,p.x+dx,p.y+dy,6,2,rand()>.5?'#e4d0b2':'#b0a184');pixel(gc,p.x+dx,p.y+dy,5,1,'#f0e2c6');}}else{pixel(gc,p.x-5,p.y-1,7,1,biome==='snow'?'#a8927c':'#a06c34');pixel(gc,p.x+1,p.y+1,5,1,biome==='snow'?'#dcc6ac':'#e0ae68');if(rand()<.2)pixel(gc,p.x-2,p.y,2,1,'#ecc27e');}continue;}
       // 每格固定位置的小點綴只在「沒有材質」時畫:有材質時放大會排成規則的斜格紋(概念圖沒有)。亂數照吃。
       const dot=tiled?()=>{}:pixel;
       if(biome==='desert'){dot(gc,p.x-5+rand()*7,p.y-2,4,1,'#eed298');if(rand()<.24)dot(gc,p.x,p.y+2,3,1,'#bb935e');}
@@ -609,7 +626,12 @@ export function createWorld(canvas,{onSelect=()=>{},onPlace=()=>{},getState=()=>
     {const r3=rnd(51177);for(let z=-34;z<34;z+=1.3)for(let x=-50;x<WORLD.minX-.5;x+=1.3){if(r3()<.62)decorations.push({type:'tree',x:x+r3()*.9,z:z+r3()*.9,variant:r3()<.6?0:1,size:.42+r3()*.18});}}
     // Central monument plaza and aprons, based on the original concept composition.
     const plazaCells=[];
-    for(let z=-20;z<23;z+=.5)for(let x=-25;x<7;x+=.5){
+    const earthCells=[];
+    for(let z=-24;z<26;z+=.5)for(let x=-28;x<9;x+=.5){
+      // 概念圖畫框內:地面直接照概念圖分類(pipeline/scripts/align/concept_ground.py)。
+      const cg=conceptGroundAt(x,z),wet=['ocean','river','ice','bridge'].includes(biomeAt(x,z));
+      if(cg!=='.'){if(!wet&&cg==='s')plazaCells.push(x,z);else if(!wet&&cg==='e')earthCells.push(x,z);continue;}
+      if(z<-20||z>=23||x<-25||x>=7)continue;
       const plaza=((x+8)/12.5)**2+((z-2)/10.5)**2<=1;
       const hallApproach=Math.abs((x-z)+10)<3.2&&x+z>=-30&&x+z<=-7;
       const southStreet=Math.abs((x-z)+10)<3.8&&x+z>8&&x+z<23;
@@ -626,6 +648,13 @@ export function createWorld(canvas,{onSelect=()=>{},onPlace=()=>{},getState=()=>
       if(rand()<.18)pixel(gc,p.x-2,p.y-1,3,1,'#f0dfbd');
     }
     // 概念圖的廣場是一整片石板:先描邊(深色路緣)再整片填 pattern,石塊不會被格子切碎。
+    if(earthCells.length&&roadPattern){
+      const path=new Path2D();
+      for(let i=0;i<earthCells.length;i+=2){const x0=earthCells[i],z0=earthCells[i+1];
+        const q=worldPos(x0-.27,z0-.27),r=worldPos(x0+.27,z0-.27),t=worldPos(x0+.27,z0+.27),u=worldPos(x0-.27,z0+.27);
+        path.moveTo(q.x,q.y);path.lineTo(r.x,r.y);path.lineTo(t.x,t.y);path.lineTo(u.x,u.y);path.closePath();}
+      gc.save();gc.clip(path);gc.scale(.5,.5);gc.fillStyle=roadPattern;gc.fillRect(0,0,ground.width*2,ground.height*2);gc.restore();
+    }
     if(plazaCells.length){
       const path=new Path2D();
       for(let i=0;i<plazaCells.length;i+=2){const x0=plazaCells[i],z0=plazaCells[i+1];
@@ -715,9 +744,52 @@ export function createWorld(canvas,{onSelect=()=>{},onPlace=()=>{},getState=()=>
      const spots=[['merchant',front('trading',-1.2,1.4)],['farmer',front('restaurant',1,1.3)],['maid',front('tavern',1.4,1.2)],['smith',front('forge',-1.3,1.3)],
        ['elder',{x:-12.2,z:5.6}],['child',{x:-4.8,z:-1.4}],['farmer',{x:-3.6,z:6.2}],['merchant',{x:-12.6,z:-.8}],['cat',front('inn',1.6,.8)],['dog',front('house',-1.5,1.1)],['dog',{x:-5.2,z:6.8}]];
      spots.forEach(([who,pt],i)=>{if(pt)decorations.push({type:'villager',who,x:pt.x,z:pt.z,phase:i*1.7,flip:i%2===1,size:1});});}
+    // l0veyou yard 圖集:田邊稻草人/推車、牧場水槽/草捆、鐵匠鋪柴堆、酒館木箱、委託所寶箱、水井燈籠。
+    // 位置用「看得到」求出來:不在路上、不壓建築、不被後畫的建築/樹冠/名牌蓋住(預設布局)。
+    // 交易所四周全被旅館/治療所擋住,木箱改放酒館前。依建築的偏移會跟著搬屋走;落在路上或壓到建築就不放。
+    {const rel=(id,dx,dz)=>{const b=BUILDINGS.find(q=>q.id===id);if(!b||state.buildings?.[id]===0)return null;const q=state.layout?.[id]||b;return{x:q.x+dx,z:q.z+dz};};
+     const free=pt=>pt&&!onRoad(pt.x,pt.z,roads,.5)&&!BUILDINGS.some(b=>{const q=state.layout?.[b.id]||b;return Math.abs(pt.x-q.x)<b.w/2+.6&&Math.abs(pt.z-q.z)<b.d/2+.6;});
+     for(const[type,pt,variant]of[['scarecrow',{x:-27.65,z:16.85},0],['wheelbarrow',{x:-24.5,z:19.95},1],['trough',{x:14.5,z:11},0],['hayBale',{x:19.8,z:11.6},0],
+       ['firewood',rel('forge',4.65,1.3),0],['crates',rel('tavern',-.5,3.6),1],['chest',rel('bounty',3.45,-1.15),0],['lantern',{x:-9.75,z:21.1},0]])
+       if(free(pt))decorations.push({type,x:pt.x,z:pt.z,variant,size:1});}
     // 概念圖:紀念碑本身已帶旗;另在南街入口兩側立藍底金邊村旗。
     for(const[x,z]of[[4.1,9.9],[-.1,14.1]])decorations.push({type:'villageBanner',x,z,size:.9});
+    // 概念圖畫框內的樹照概念圖樹冠種(pipeline/scripts/align/concept_ground.py):先拿掉程序撒的樹,再放概念圖的。
+    for(let i=decorations.length-1;i>=0;i--){const d=decorations[i];if(d.type==='tree'&&inConceptFrame(d.x,d.z))decorations.splice(i,1);}
+    for(const[x,z,variant,size]of CONCEPT_TREES){
+      if(onRoad(x,z,roads,.4)||arenaAt(x,z,1)||['ocean','river','ice','bridge'].includes(biomeAt(x,z)))continue;
+      if(BUILDINGS.some(b=>{const q=state.layout?.[b.id]||b;return Math.abs(x-q.x)<b.w/2+.8&&Math.abs(z-q.z)<b.d/2+.8;}))continue;
+      decorations.push({type:'tree',x,z,variant,size});}
+    // 概念圖畫框內的家具、角色照概念圖擺(src/concept-props.js):先清掉程序擺的,再放概念圖的。結構物(柵欄、閘門、橋欄、紀念碑、岩石)不動。
+    {const FURNITURE=new Set(['garden','lamp','villageBanner','villager','stall','barrels','chest','crates','hayBale','firewood','trough','scarecrow','lantern','wheelbarrow','animal','flowers','mushroom','bush']);
+     for(let i=decorations.length-1;i>=0;i--){const d=decorations[i];if(FURNITURE.has(d.type)&&inConceptFrame(d.x,d.z))decorations.splice(i,1);}
+     const blocked=(x,z)=>['ocean','river','ice','bridge'].includes(biomeAt(x,z))||BUILDINGS.some(b=>{const q=state.layout?.[b.id]||b;return Math.abs(x-q.x)<b.w/2+.2&&Math.abs(z-q.z)<b.d/2+.2;});
+     for(const[type,u,v,o={}]of CONCEPT_PROPS){const{x,z}=conceptToWorld(u,v);if(!blocked(x,z))decorations.push({type,x,z,variant:o.f?1:0,size:o.s||1});}
+     for(const[u1,v1,u2,v2]of CONCEPT_FENCES){const a=conceptToWorld(u1,v1),b=conceptToWorld(u2,v2),dx=b.x-a.x,dz=b.z-a.z,n=Math.max(1,Math.round(Math.hypot(dx,dz)/2));
+       for(let i=0;i<n;i++){const t=(i+.5)/n,x=a.x+dx*t,z=a.z+dz*t;if(!blocked(x,z))decorations.push({type:'fenceRail',x,z,variant:Math.abs(dx)>Math.abs(dz)?1:0,size:1});}}
+     CONCEPT_PEOPLE.forEach((q,i)=>{const{x,z}=conceptToWorld(q.u,q.v);if(blocked(x,z))return;
+       decorations.push(q.cls?{type:'npc',cls:q.cls,x,z,phase:i*1.3,flip:i%2===1,size:1}:{type:'villager',who:q.who,x,z,phase:i*1.7,flip:i%2===1,size:1});});}
     decorations.sort((a,b)=>a.x+a.z-b.x-b.z);
+    buildVillageLayer();
+  }
+  // 村莊高解析地面層:概念圖畫框(x-z∈[-28.1,7.36]、x+z∈[-40.7,30.2])以 VRES px/單位重畫草/土路/石板,
+  // 材質是概念圖像素(1 材質 px = 1/3.93 單位,跟概念圖同尺度)。大地面畫布只有 GROUND_RES,放大會糊。
+  const VRES=GROUND_RES*2,VBOX={x0:-28.1*9,y0:-40.7*4.5,w:35.5*9,h:70.95*4.5};
+  const villageLayer=makeCanvas(Math.ceil(VBOX.w*VRES),Math.ceil(VBOX.h*VRES)),vc=villageLayer.getContext('2d');let villageReady=false;
+  function buildVillageLayer(){
+    villageReady=false;if(!conceptTex.grass||!conceptTex.earth||!conceptTex.stone)return;
+    vc.setTransform(1,0,0,1,0,0);vc.clearRect(0,0,villageLayer.width,villageLayer.height);
+    vc.setTransform(VRES,0,0,VRES,-VBOX.x0*VRES,-VBOX.y0*VRES);vc.imageSmoothingEnabled=false;
+    const cells={land:new Path2D(),e:new Path2D(),s:new Path2D()},h=.27;
+    const add=(path,x,z)=>{const q=iso(x-h,z-h),r=iso(x+h,z-h),t=iso(x+h,z+h),u=iso(x-h,z+h);path.moveTo(q.x,q.y);path.lineTo(r.x,r.y);path.lineTo(t.x,t.y);path.lineTo(u.x,u.y);path.closePath();};
+    for(let z=-24;z<26;z+=.5)for(let x=-28;x<9;x+=.5){const c=conceptGroundAt(x,z);if(c==='.'||!inConceptFrame(x,z))continue;
+      if(['ocean','river','ice','bridge'].includes(biomeAt(x,z))||arenaAt(x,z))continue;
+      add(cells.land,x,z);if(c==='e')add(cells.e,x,z);else if(c==='s')add(cells.s,x,z);}
+    const fill=(path,img)=>{vc.save();vc.clip(path);const pat=vc.createPattern(img,'repeat');vc.scale(1/3.93,1/3.93);vc.fillStyle=pat;vc.fillRect(VBOX.x0*3.93,VBOX.y0*3.93,VBOX.w*3.93,VBOX.h*3.93);vc.restore();};
+    fill(cells.land,conceptTex.grass);fill(cells.e,conceptTex.earth);
+    vc.save();vc.translate(0,1.2);vc.fillStyle='rgba(120,95,80,.75)';vc.fill(cells.s);vc.restore();   // 石板外緣一圈灰縫色(概念圖廣場邊)
+    fill(cells.s,conceptTex.stone);
+    villageReady=true;
   }
 
   generateGround();
@@ -825,12 +897,20 @@ export function createWorld(canvas,{onSelect=()=>{},onPlace=()=>{},getState=()=>
     if(pid&&stock===0){textLabel('!',p.x+27*scale,p.y-45*scale,{size:9,color:'#ffda87'});}
   }
   // 比例對齊概念圖:以大廳為尺(概念圖大廳約 440px = 遊戲 112 世界單位,1px≈0.255 單位)。
-  // 概念圖人物約 45–50px → 12.5 單位;舊版獵人 21 單位,大了 1.7 倍。人物/動物/魔物一律乘這個倍率。
-  const CHAR_SCALE=.6;
+  // 人物/魔物用這個倍率。曾設 .6(概念圖人物約 12.5 單位),使用者要求維持原本大小 → 1(獵人 21、魔物 28–33、首領 50)。
+  const CHAR_SCALE=1;  // 人物/魔物維持原本大小(使用者指定;曾縮成 .6 對齊概念圖比例)
   const padHit=(r,minW,minH)=>{const w=Math.max(r.w,minW),h=Math.max(r.h,minH);return{x:r.x+r.w/2-w/2,y:r.y+r.h-h,w,h};};
   // l0veyou 道具圖集:[cell id, 外框寬, 外框高, 底部偏移]。尺寸照概念圖比例(旗約 75px→19、木桶堆約 45px→11)。
   const PROP_ATLAS={garden:['garden',20,11,1],bush:['bush',12,11,1],mushroom:['mushroom',9,8,1],cactus:['cactus',16,22,2],
-    villageBanner:['villageBanner',12,20,1],arenaFlag:['arenaFlag',11,19,1],gate:['gate',12,19,1],stall:['stall',30,22,2],barrels:['barrels',12,11,1]};
+    villageBanner:['villageBanner',12,20,1],arenaFlag:['arenaFlag',11,19,1],gate:['gate',12,19,1],stall:['stall',30,22,2],barrels:['barrels',12,11,1],
+    // yard 圖集:以人物 12.6、木桶堆 11、路燈 15 為尺。
+    chest:['chest',8,7,1],crates:['crates',8,10,1],hayBale:['hayBale',9,9,1],firewood:['firewood',9,8,1],
+    trough:['trough',11,9,1],scarecrow:['scarecrow',11,14,1],lantern:['lantern',8,15,1],wheelbarrow:['wheelbarrow',11,9,1],
+    // town/town2 圖集(概念圖道具):尺寸照概念圖量(K=3.93 px/單位)。圍籬一段 2 格,底部偏移 4.5(下端柱腳在中點下方)。
+    archeryTarget:['archeryTarget',15,19,1],dummy:['dummy',10,15,1],weaponRack:['weaponRack',14,18,1],anvilStump:['anvilStump',10,9,1],
+    tableSet:['tableSet',20,16,1],bench:['bench',16,10,1],handCart:['handCart',16,13,1],flowerBox:['flowerBox',12,10,1],
+    purpleBanner:['purpleBanner',9,30,1],fenceRail:['fenceRail',18,18,4.5],fruitStand:['fruitStand',22,26,1],sacks:['sacks',11,11,1],
+    barrel:['barrel',6,8,1],bucket:['bucket',5,6,1],flowerBush:['flowerBush',12,11,1],riverRocks:['riverRocks',14,11,1]};
   // 驗收用:每一個畫面上的裝飾都該來自圖集/概念圖素材。退回程序繪製就記在 procUse,
   // __mistvaleDetails().proc 應該是空物件。
   function drawDecoration(d){const p=screenPoint(d.x,d.z);if(p.x<-100||p.x>width+100||p.y<-70||p.y>height+260)return;
@@ -847,6 +927,8 @@ export function createWorld(canvas,{onSelect=()=>{},onPlace=()=>{},getState=()=>
     if(d.type==='cabbage'){pixel(g,p.x-3*scale,p.y-4*scale,7*scale,4*scale,'#4f8a3c');pixel(g,p.x-2*scale,p.y-5*scale,5*scale,3*scale,'#9cc964');return;}
     if(d.type==='bridgeRail'&&d.u!==undefined&&drawRailSlice(d.u,d.last,p))return;
     // 概念圖街上滿是村民與貓狗:純裝飾(不參與模擬),原地輕微上下呼吸。
+    if(d.type==='npc'){const bob=Math.sin(elapsed*2.1+d.phase)>.55?1:0,hf=heroFrameFor(d.cls,heroLodScale);shadow(p,6*CHAR_SCALE,2.4*CHAR_SCALE);
+      drawSprite(heroSprite(d.cls,bob,d.flip?-1:1,Math.floor(d.phase*7)%3),p,16.5*CHAR_SCALE,21*CHAR_SCALE,1.2);if(hf)detailUse.draw1x++;return;}
     if(d.type==='villager'){const pet=d.who==='cat'||d.who==='dog',bob=Math.sin(elapsed*2.2+d.phase)>.4?1:0,k=CHAR_SCALE;shadow(p,(pet?5:6)*k,(pet?1.6:2.2)*k);
       if(drawAtlasDetail(d.who,p,(pet?10:15)*k,(pet?9:20)*k,1.2-bob*.4,1,d.flip))return;
       pixel(g,p.x-3*scale,p.y-14*scale,6*scale,12*scale,'#8a6a48');pixel(g,p.x-2*scale,p.y-18*scale,4*scale,4*scale,'#f0c9a0');return;}
@@ -983,7 +1065,7 @@ export function createWorld(canvas,{onSelect=()=>{},onPlace=()=>{},getState=()=>
     if(flip){g.save();g.translate(dx+dw,dy);g.scale(-1,1);g.drawImage(lod.img,c.x,c.y,c.w,c.h,0,0,dw,dh);g.restore();}else g.drawImage(lod.img,c.x,c.y,c.w,c.h,dx,dy,dw,dh);
     return {x:dx,y:dy,w:dw,h:dh};
   }
-  function drawEnemy(e){if(!Number.isFinite(e.x)||!Number.isFinite(e.z)||e.hp<=0)return;const p=screenPoint(e.x,e.z),boss=e.type==='boss',sz=(boss?50:e.type==='golem'?33:e.type==='wolf'?31:28)*(boss?.72:CHAR_SCALE),frame=Math.floor(elapsed*3+hash(e.id)%3)%2;shadow(p,(boss?17:10)*CHAR_SCALE,(boss?5:3)*CHAR_SCALE);
+  function drawEnemy(e){if(!Number.isFinite(e.x)||!Number.isFinite(e.z)||e.hp<=0)return;const p=screenPoint(e.x,e.z),boss=e.type==='boss',sz=(boss?50:e.type==='golem'?33:e.type==='wolf'?31:28)*(boss?1:CHAR_SCALE),frame=Math.floor(elapsed*3+hash(e.id)%3)%2;shadow(p,(boss?17:10)*CHAR_SCALE,(boss?5:3)*CHAR_SCALE);
     const old=previousPositions.get('enemy:'+e.id),flip=old?(e.x-old.x-(e.z-old.z)<-.002?true:e.x-old.x-(e.z-old.z)>.002?false:old.flip):false;previousPositions.set('enemy:'+e.id,{x:e.x,z:e.z,flip});
     if(!drawAtlasMonster(e.type,frame,p,sz,flip)){procUse['enemy:'+e.type]=(procUse['enemy:'+e.type]||0)+1;drawSprite(enemySprite(e.type,frame),p,sz,sz,2);}if(e.hp<e.maxHp||boss||(state.hunters||[]).some(h=>h.targetId===e.id)){bar(p.x-(boss?17:10)*scale,p.y-(sz-4)*scale,(boss?34:20)*scale,e.hp/(e.maxHp||1),boss?'#d27967':'#c68764');if(boss)textLabel('森林領主',p.x,p.y-(sz+5)*scale,{color:'#ffcc97'});}}
   // 戰鬥/事件特效:l0veyou vfx 圖集(斬擊、法球、治療、升級星、命中、閃光)與 icons 的箭。
@@ -1020,6 +1102,7 @@ export function createWorld(canvas,{onSelect=()=>{},onPlace=()=>{},getState=()=>
     if(groundPatterns.ocean){g.save();g.globalAlpha=TERRAIN_TEX_ALPHA;g.translate(gx,gy);g.scale(scale*TERRAIN_TEX_SCALE,scale*TERRAIN_TEX_SCALE*TERRAIN_TEX_SQUASH);g.fillStyle=groundPatterns.ocean;
       const k=scale*TERRAIN_TEX_SCALE;g.fillRect(-gx/k,-gy/(k*TERRAIN_TEX_SQUASH),width/k,height/(k*TERRAIN_TEX_SQUASH));g.restore();}
     g.drawImage(ground,gx,gy,Math.round(ground.width/GROUND_RES*scale),Math.round(ground.height/GROUND_RES*scale));
+    if(villageReady)g.drawImage(villageLayer,Math.round(width/2+(VBOX.x0-cam.x)*scale),Math.round(height/2+50+(VBOX.y0-cam.y)*scale),Math.round(VBOX.w*scale),Math.round(VBOX.h*scale));
     if(quality){for(let z=WORLD.minZ+3;z<WORLD.maxZ-2;z+=4){if(isBridge(riverX(z),z))continue;const p=screenPoint(riverX(z)+Math.sin(elapsed*.45+z)*.6,z+Math.sin(elapsed*.3+z)*.4);if(p.x>0&&p.x<width&&p.y>0&&p.y<height){pixel(g,p.x-3*scale,p.y,6*scale,Math.max(1,scale),'#a8ddf7');pixel(g,p.x+1*scale,p.y+2*scale,3*scale,Math.max(1,scale),'#5fb0e6');}}}
     const all=[];
     for(const d of decorations){const p=screenPoint(d.x,d.z);if(p.x>-100&&p.x<width+100&&p.y>-40&&p.y<height+260)all.push({sort:d.x+d.z,type:'decor',data:d});}
@@ -1046,7 +1129,8 @@ export function createWorld(canvas,{onSelect=()=>{},onPlace=()=>{},getState=()=>
   const responsiveResize=()=>{resize();if(homeFraming)focusHome();render();};
   function stopHomeFraming(){homeFraming=false;}
   canvas.addEventListener('pointerdown',stopHomeFraming);
-  resize();render();return{update,resize:responsiveResize,project,focus:(id)=>{homeFraming=false;focus(id);},zoomTo:(v)=>{homeFraming=false;scale=Math.max(.48,Math.min(5.4,v));},getScale:()=>scale,setSelected,zoomBy,placeMode,setTime,setQuality,dispose,landscapeStats:()=>({trees:decorations.filter(d=>d.type==='tree').length,arenas:ARENAS.length,roads:roads.length,terrainRevision})};
+  resize();render();return{update,resize:responsiveResize,project,focus:(id)=>{homeFraming=false;focus(id);},hitRects:()=>hits.filter(h=>BUILDINGS.some(b=>b.id===h.id)).map(h=>({id:h.id,x:h.x,y:h.y,w:h.w,h:h.h})),lookAt:(x,z,v)=>{homeFraming=false;if(v)scale=Math.max(.48,Math.min(5.4,v));target=iso(x,z);cam={...target};},zoomTo:(v)=>{homeFraming=false;scale=Math.max(.48,Math.min(5.4,v));},getScale:()=>scale,setSelected,zoomBy,placeMode,setTime,setQuality,dispose,landscapeStats:()=>({trees:decorations.filter(d=>d.type==='tree').length,arenas:ARENAS.length,roads:roads.length,terrainRevision,
+    decor:decorations.map(d=>({type:d.type,x:d.x,z:d.z}))})};
 }
 
 export const createPixelWorld = createWorld;

@@ -1,0 +1,97 @@
+{
+ "version": 1,
+ "kind": "mistvale-town2-atlas",
+ "image": "town2@2x.png",
+ "sheetWidth": 936,
+ "sheetHeight": 895,
+ "packing": "shelf",
+ "source": "town2-sheet-v1.png",
+ "sourceSheet": [
+  1536,
+  864
+ ],
+ "chromaKey": "#FF00FF",
+ "generator": "l0veyou.com GPT Image 2",
+ "cells": {
+  "purpleBanner": {
+   "x": 0,
+   "y": 0,
+   "w": 180,
+   "h": 397,
+   "anchor": [
+    90.0,
+    397
+   ]
+  },
+  "fenceRail": {
+   "x": 184,
+   "y": 0,
+   "w": 308,
+   "h": 310,
+   "anchor": [
+    338.0,
+    310
+   ]
+  },
+  "fruitStand": {
+   "x": 496,
+   "y": 0,
+   "w": 286,
+   "h": 385,
+   "anchor": [
+    639.0,
+    385
+   ]
+  },
+  "sacks": {
+   "x": 0,
+   "y": 401,
+   "w": 269,
+   "h": 269,
+   "anchor": [
+    134.5,
+    670
+   ]
+  },
+  "barrel": {
+   "x": 273,
+   "y": 401,
+   "w": 198,
+   "h": 250,
+   "anchor": [
+    372.0,
+    651
+   ]
+  },
+  "bucket": {
+   "x": 475,
+   "y": 401,
+   "w": 178,
+   "h": 251,
+   "anchor": [
+    564.0,
+    652
+   ]
+  },
+  "flowerBush": {
+   "x": 657,
+   "y": 401,
+   "w": 275,
+   "h": 260,
+   "anchor": [
+    794.5,
+    661
+   ]
+  },
+  "riverRocks": {
+   "x": 0,
+   "y": 674,
+   "w": 275,
+   "h": 217,
+   "anchor": [
+    137.5,
+    891
+   ]
+  }
+ }
+}

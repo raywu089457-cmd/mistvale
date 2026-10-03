@@ -96,6 +96,7 @@ def main(argv: list[str]) -> int:
 
     rgba = np.dstack([rgb, alpha])
     crops: dict[str, Image.Image] = {}
+    clipped: list[str] = []
     for idx, name in enumerate(ids):
         if name == "-":
             continue
@@ -106,9 +107,17 @@ def main(argv: list[str]) -> int:
         m = np.isin(lab, comps)
         ys, xs = np.nonzero(m)
         y0, y1, x0, x1 = ys.min(), ys.max() + 1, xs.min(), xs.max() + 1
+        # 物件碰到圖邊 = 被模型畫出畫布外、切平了（實測 1:1 的 4x2 表，寬物件常被切）。
+        # key_out 最後內收 1px（圖邊那一圈也會被收掉），所以「碰邊」是距邊 ≤1px。
+        if x0 <= 1 or y0 <= 1 or x1 >= W - 1 or y1 >= H - 1:
+            clipped.append(name)
         piece = rgba[y0:y1, x0:x1].copy()
         piece[..., 3] = np.where(m[y0:y1, x0:x1], piece[..., 3], 0)
         crops[name] = Image.fromarray(piece, "RGBA")
+    # 被切到的物件不能用：直接中止、不寫圖集，換比例（4 欄用 16:9）重生。ALLOW_EDGE=1 可略過。
+    if clipped and not os.environ.get("ALLOW_EDGE"):
+        print(f"FAIL 物件碰到圖邊（被切掉）：{','.join(clipped)}——重生這張表，未寫入任何檔案")
+        return 3
 
     # STRIP_IDS=name:N：把「正面、可水平拼接」的欄杆段（左柱＋往右的橫桿）接成 N 段長條，
     # 再剪切成等角斜向（往右每 1px 下降 0.5px，對上 iso 的 9:4.5）。遊戲每個欄杆裝飾

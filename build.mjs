@@ -28,13 +28,17 @@ for(const [tag,file] of [['detailsManifest','details@1x.manifest.json'],['detail
   try{const t=await fs.readFile(path.join(root,`assets/${file}`),'utf8');assetScript+=`window.PIXEL_ASSETS=window.PIXEL_ASSETS||{};window.PIXEL_ASSETS.${tag}=${t};`;}catch(e){console.warn('missing detail manifest',file);}
 }
 // l0veyou（GPT Image 2）生的道具／魔物／花草圖集:跟 details 同一個 manifest 契約。
-for(const prefix of ['props','monsters','flora','villagers','icons','vfx']){
+for(const prefix of ['props','monsters','flora','villagers','icons','vfx','yard','town','town2']){
   for(const [suffix,lod] of [['Atlas','1x'],['Atlas2x','2x']]){
     try{const p=await fs.readFile(path.join(root,`assets/${prefix}@${lod}.png`));assetScript+=`window.PIXEL_ASSETS=window.PIXEL_ASSETS||{};window.PIXEL_ASSETS.${prefix}${suffix}='data:image/png;base64,${p.toString('base64')}';`;}catch(e){console.warn('missing atlas',prefix,lod);}
   }
   for(const [suffix,lod] of [['Manifest','1x'],['Manifest2x','2x']]){
     try{const t=await fs.readFile(path.join(root,`assets/${prefix}@${lod}.manifest.json`),'utf8');assetScript+=`window.PIXEL_ASSETS=window.PIXEL_ASSETS||{};window.PIXEL_ASSETS.${prefix}${suffix}=${t};`;}catch(e){console.warn('missing manifest',prefix,lod);}
   }
+}
+// 概念圖像素合成的地面材質(pipeline/scripts/align/concept_textures.py),村莊高解析地面層用。
+for(const [tag,file] of [['conceptStone','concept-stone.png'],['conceptEarth','concept-earth.png'],['conceptGrass','concept-grass.png']]){
+  try{const p=await fs.readFile(path.join(root,`assets/${file}`));assetScript+=`window.PIXEL_ASSETS=window.PIXEL_ASSETS||{};window.PIXEL_ASSETS.${tag}='data:image/png;base64,${p.toString('base64')}';`;}catch(e){console.warn('missing concept texture',file);}
 }
 // 無縫地面材質圖集
 for(const [tag,file,js] of [['terrainAtlas','terrain-atlas.png',false],['terrainManifest','terrain-atlas.manifest.json',true]]){

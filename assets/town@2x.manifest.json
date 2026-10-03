@@ -1,0 +1,97 @@
+{
+ "version": 1,
+ "kind": "mistvale-town-atlas",
+ "image": "town@2x.png",
+ "sheetWidth": 905,
+ "sheetHeight": 898,
+ "packing": "shelf",
+ "source": "town-sheet-v1.png",
+ "sourceSheet": [
+  1536,
+  864
+ ],
+ "chromaKey": "#FF00FF",
+ "generator": "l0veyou.com GPT Image 2",
+ "cells": {
+  "archeryTarget": {
+   "x": 0,
+   "y": 0,
+   "w": 244,
+   "h": 335,
+   "anchor": [
+    122.0,
+    335
+   ]
+  },
+  "dummy": {
+   "x": 248,
+   "y": 0,
+   "w": 254,
+   "h": 343,
+   "anchor": [
+    375.0,
+    343
+   ]
+  },
+  "weaponRack": {
+   "x": 506,
+   "y": 0,
+   "w": 293,
+   "h": 343,
+   "anchor": [
+    652.5,
+    343
+   ]
+  },
+  "anvilStump": {
+   "x": 0,
+   "y": 347,
+   "w": 270,
+   "h": 274,
+   "anchor": [
+    135.0,
+    621
+   ]
+  },
+  "tableSet": {
+   "x": 274,
+   "y": 347,
+   "w": 337,
+   "h": 271,
+   "anchor": [
+    442.5,
+    618
+   ]
+  },
+  "bench": {
+   "x": 615,
+   "y": 347,
+   "w": 286,
+   "h": 200,
+   "anchor": [
+    758.0,
+    547
+   ]
+  },
+  "handCart": {
+   "x": 0,
+   "y": 625,
+   "w": 341,
+   "h": 269,
+   "anchor": [
+    170.5,
+    894
+   ]
+  },
+  "flowerBox": {
+   "x": 345,
+   "y": 625,
+   "w": 295,
+   "h": 250,
+   "anchor": [
+    492.5,
+    875
+   ]
+  }
+ }
+}

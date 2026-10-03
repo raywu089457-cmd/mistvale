@@ -1,0 +1,97 @@
+{
+ "version": 1,
+ "kind": "mistvale-yard-atlas",
+ "image": "yard@2x.png",
+ "sheetWidth": 875,
+ "sheetHeight": 996,
+ "packing": "shelf",
+ "source": "yard-sheet-v1.png",
+ "sourceSheet": [
+  1536,
+  864
+ ],
+ "chromaKey": "#FF00FF",
+ "generator": "l0veyou.com GPT Image 2",
+ "cells": {
+  "chest": {
+   "x": 0,
+   "y": 0,
+   "w": 256,
+   "h": 253,
+   "anchor": [
+    128.0,
+    253
+   ]
+  },
+  "crates": {
+   "x": 260,
+   "y": 0,
+   "w": 233,
+   "h": 314,
+   "anchor": [
+    376.5,
+    314
+   ]
+  },
+  "hayBale": {
+   "x": 497,
+   "y": 0,
+   "w": 271,
+   "h": 269,
+   "anchor": [
+    632.5,
+    269
+   ]
+  },
+  "firewood": {
+   "x": 0,
+   "y": 318,
+   "w": 287,
+   "h": 244,
+   "anchor": [
+    143.5,
+    562
+   ]
+  },
+  "trough": {
+   "x": 291,
+   "y": 318,
+   "w": 311,
+   "h": 253,
+   "anchor": [
+    446.5,
+    571
+   ]
+  },
+  "scarecrow": {
+   "x": 606,
+   "y": 318,
+   "w": 265,
+   "h": 342,
+   "anchor": [
+    738.5,
+    660
+   ]
+  },
+  "lantern": {
+   "x": 0,
+   "y": 664,
+   "w": 175,
+   "h": 328,
+   "anchor": [
+    87.5,
+    992
+   ]
+  },
+  "wheelbarrow": {
+   "x": 179,
+   "y": 664,
+   "w": 343,
+   "h": 287,
+   "anchor": [
+    350.5,
+    951
+   ]
+  }
+ }
+}

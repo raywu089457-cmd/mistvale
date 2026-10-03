@@ -8,7 +8,8 @@ Codex ImageGen 額度用完時的替代：<https://l0veyou.com/chat>（需登入
 | 項目 | 結果 |
 |---|---|
 | 出圖時間 | 約 30 秒 |
-| 尺寸／格式 | 1024² 或 1254²，**JPEG**（不是 PNG） |
+| 尺寸／格式 | 1:1 → 1024² 或 1254²，**JPEG**；16:9 → 1536×864，**PNG**（洋紅底乾淨，實測 248,7,248） |
+| 比例與切邊 | 1:1 排 4 欄時每格只有 256×512，寶箱／水槽／推車這種寬物件會畫出畫布、被切平（2026-10-03 連兩張都 4 個被切）；prompt 寫「離邊 80px」沒用，物件還變小。**4 欄的表用 16:9**（格子近正方，同 prompt 一次就全在畫面內） |
 | 洋紅底 | 不是純 `#FF00FF`（實測約 247,12,227），還會畫淡淡的影子 → 去背要用容差＋色相 |
 | 格線 | 聽得懂「4 columns x 3 rows」，但不會排滿整張（下方常留白）→ 用內容外框切格 |
 | 兩格動畫 | 同一張圖裡要求「row 2 is the SAME creatures in attack frame」一致性很好 |
@@ -29,7 +30,12 @@ Codex ImageGen 額度用完時的替代：<https://l0veyou.com/chat>（需登入
    HUE_TOL=12 python pipeline/scripts/l0veyou/sheet_to_atlas.py output/l0veyou/icons-sheet-v1.jpg icons 5x6 gold,gems,wood,ore,herb,drink,bed,heal,cloth,food,armor,swords,hammer,anvil,bag,skull,hunter,hall,scroll,map,up,boss,trade,horn,gear,-,arrow,star,heart,shield
    NO_HOLES=1 NO_SHADOW=1 HUE_TOL=12 python pipeline/scripts/l0veyou/sheet_to_atlas.py output/l0veyou/vfx-sheet-v1.jpg vfx 4x2 fxSlash,fxOrb,fxHeal,fxStar,fxHit,plot,iconLeather,fxSparkle
    HUE_TOL=12 STRIP_IDS=railing:4 python pipeline/scripts/l0veyou/sheet_to_atlas.py output/l0veyou/flora-sheet-v1.jpg flora 4x2 flowerYellow,flowerPink,flowerBlue,flowerWhite,wheat,cabbage,railing,bridgePost
+   python pipeline/scripts/l0veyou/sheet_to_atlas.py output/l0veyou/yard-sheet-v1.png yard 4x2 chest,crates,hayBale,firewood,trough,scarecrow,lantern,wheelbarrow
    ```
+
+   - **碰邊檢查**：任何物件距圖邊 ≤1px（＝被模型畫出畫布、切掉了）就印 `FAIL 物件碰到圖邊（被切掉）：<id>` 並 exit 3，
+     **不寫任何檔案** → 重生那張表。`ALLOW_EDGE=1` 可略過。前 6 行（既有圖集）重跑都通過檢查，產出跟 repo 裡的圖集逐像素相同。
+   - vfx 那行會印 `magenta殘留=1097`：幾乎全在 fxOrb（紫色法球本體），不是去背殘留。
 
    - `HUE_TOL`：表裡有粉紅色時調窄（12），不然粉花瓣會被當成洋紅底吃掉。
    - `STRIP_IDS=name:N`：正面、可水平拼接的欄杆段 → 接 N 段 → 剪切成等角斜向長條（manifest 記 frontH／tileW／postW）。
@@ -52,6 +58,13 @@ Codex ImageGen 額度用完時的替代：<https://l0veyou.com/chat>（需登入
   - flora：`FLOWER_ATLAS` 四色小花；田改成 wheat／cabbage 裝飾；`drawRailSlice()` 每個橋欄只畫長條上自己那一格，最後一根只畫柱子。
   - 草地：`GRASS_TONE` 把 village／meadow／birch 材質與底色的平均／標準差配到概念圖草地取樣。
   - 驗收鉤子：`__mistvaleDetails().proc`（退回程序繪製的計數）、`__mistvaleResetProc()`。
+  - yard（2026-10-03）：`build.mjs` 前綴清單加 `yard`、`ensureDetailAtlas()` 加 `yardAtlas(+2x)`、`PROP_ATLAS` 加 8 個型別，
+    村莊裝飾區塊放 8 個位置。`__mistvaleView.landscapeStats().decor` 列出所有裝飾的型別與座標（驗收用）。
+- **新道具的擺放：要「看得到」，不是「不在路上」就好。** 畫面依 x+z 排序繪製（建築 +0.2）：x+z 比建築小、
+  又落在建築精靈的螢幕範圍內，就會被整棟蓋住（第一版稻草人在治療所後面、木箱在交易所側牆後、柴堆在鐵匠鋪側牆後，全看不到）；
+  建築名牌畫在最上層，貼著門口放也會被蓋（寶箱）。預設布局下田地大半、交易所四周都被前面的建築擋住。
+  做法：用 `getRoads()`／建築外框／建築精靈尺寸（concept-clean 的寬高比）／名牌（縮放 1.25／1.6／2.6）／樹冠／其他裝飾
+  算出可見的候選點，再截圖確認。
 
 ## 對齊驗收（量測，不靠目測）
 
@@ -70,6 +83,10 @@ Codex ImageGen 額度用完時的替代：<https://l0veyou.com/chat>（需登入
 （範圍是不同幀：角色在走動。）
 
 （上表最後一列：比例對齊後構圖更接近概念圖，分數才突破原本 0.83 的平台。）
+
+2026-10-03 重量（Playwright Chromium、視窗 1440×900、按「村莊」再按 3 次「＋」→ 縮放 3.11，各取 3 幀）：
+線上版（commit 7544514）Bhattacharyya 0.777／交集 0.486；加入 yard 道具後 0.778／0.486，`proc` 都是 `{}`。
+上表的 0.87 在這個條件下沒有重現——量的是畫布中央區，數字跟視窗大小有關，**前後比較要用同一個條件**。
 
 **天花板在構圖，不在顏色。** 同構圖下分色群比例已接近概念圖（綠 26% vs 19%、米色 37% vs 31%、藍 7% vs 11%），
 剩下的差距來自概念圖是一張手繪構圖（建築更密、角色更多、沒有 UI 與小地圖），遊戲是可操作的地圖。
