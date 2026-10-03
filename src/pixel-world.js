@@ -3,7 +3,7 @@ import { BUILDINGS, CLASSES, RARITIES } from './pixel-data.js';
 import {WORLD,REGIONS,BRIDGES,VILLAGE_BRIDGES,creekX,riverX,biomeAt,BIOME_PALETTE,inVillage,isBridge} from './overworld.js';
 import {conceptGroundAt,inConceptFrame,CONCEPT_TREES} from './concept-ground.js';
 import {conceptToWorld,CONCEPT_PROPS,CONCEPT_FENCES,CONCEPT_PEOPLE} from './concept-props.js';
-import {GRID,STREET_X,STREET_Z,BLOCKS,BUILDING_SLOTS,VILLAGE_BOUNDS,EXIT_Z,PALISADE_X} from './village-grid.js';
+import {GRID,STREET_X,STREET_Z,BLOCKS,BUILDING_SLOTS,VILLAGE_BOUNDS,EXIT_Z,PALISADE_X,blockAt} from './village-grid.js';
 
 // All artwork is rendered to a small integer pixel buffer and enlarged without
 // interpolation. World coordinates are shared with the village simulation.
@@ -270,7 +270,7 @@ function ensureHeroAtlas(){
 
 // ── 無縫地面材質(整片 pattern,不是逐格貼圖) ─────────────────────────
 // 地面材質縮放:1.0 = 一比一。0.5 讓草葉落在 1~3px(跟建築細節同一個量級)。
-const TERRAIN_TEX_SCALE=.5;
+const TERRAIN_TEX_SCALE=.25;  // 材質像素＝1/4 單位:跟建築圖(約 3.5 px/單位)同一個細緻度
 // 垂直壓扁比例。等角理論上是 0.5,但實測草葉會被壓成橫向斑點、看起來像雜訊,
 // 所以先用 1(不壓)。要試等角感就把 TERRAIN_TEX_SQUASH 改成 .5。
 const TERRAIN_TEX_SQUASH=1;
@@ -534,10 +534,11 @@ export function createWorld(canvas,{onSelect=()=>{},onPlace=()=>{},getState=()=>
   let cam={x:-90,y:-27},target={x:-90,y:-27},pointer=null,hover=null,lastSource=null,pinchDistance=0,homeFraming=false;
   const uiLabels=[],hits=[],pointers=new Map(),previousPositions=new Map(),treeCanvases=Array.from({length:16},(_,i)=>treeSprite(i*782+19,i%4));
   const decorations=[];let roads=getRoads(),landscapeKey='',terrainRevision=0,lastPatternRev=-1;
-  // 地面畫布解析度:桌機 2 倍(放大時材質細節跟 2x 精靈一致,不會一塊一塊),手機 1 倍省記憶體。繪圖座標仍是 2400x1450 邏輯單位。
-  const GROUND_RES=((globalThis.screen?.width||0)>=1024&&!globalThis.matchMedia?.('(pointer:coarse)').matches)?2:1;
-  const ground=makeCanvas(2400*GROUND_RES,1450*GROUND_RES),gc=ground.getContext('2d');gc.imageSmoothingEnabled=false;
-  const groundOrigin={x:1100,y:560};
+  // 地面畫布解析度:桌機 4 px/單位、手機 2(跟建築圖集同一個清晰度)。繪圖座標是 2345x1180 邏輯單位。
+  const GROUND_RES=((globalThis.screen?.width||0)>=1024&&!globalThis.matchMedia?.('(pointer:coarse)').matches)?4:2;
+  // 2026-10-04:只涵蓋陸地(含延伸海岸)的範圍,解析度提高到跟建築圖同級(桌機 4 px/單位、手機 2)。
+  const ground=makeCanvas(2345*GROUND_RES,1180*GROUND_RES),gc=ground.getContext('2d');gc.imageSmoothingEnabled=false;
+  const groundOrigin={x:1222,y:552};
   const worldPos=(x,z)=>{const p=iso(x,z);return{x:p.x+groundOrigin.x,y:p.y+groundOrigin.y};};
 
   function diamond(ctx,x,z,rx,rz,color){const a=worldPos(x-rx,z-rz),b=worldPos(x+rx,z-rz),c=worldPos(x+rx,z+rz),d=worldPos(x-rx,z+rz);polygon(ctx,[[a.x,a.y],[b.x,b.y],[c.x,c.y],[d.x,d.y]],color);}
@@ -610,7 +611,7 @@ export function createWorld(canvas,{onSelect=()=>{},onPlace=()=>{},getState=()=>
     // Path2D.ellipse 會從上一個子路徑的終點拉一條直線過來;每個橢圓先 moveTo 起點,才是獨立的一塊。
     const addEllipse=(path,cx,cy,rx,ry)=>{path.moveTo(cx+rx,cy);path.ellipse(cx,cy,rx,ry,0,0,Math.PI*2);};
     const diamondPath=(x,z,rx,rz)=>{const a=worldPos(x-rx,z-rz),b=worldPos(x+rx,z-rz),c=worldPos(x+rx,z+rz),d=worldPos(x-rx,z+rz),path=new Path2D();path.moveTo(a.x,a.y);path.lineTo(b.x,b.y);path.lineTo(c.x,c.y);path.lineTo(d.x,d.y);path.closePath();return path;};
-    const fillPave=(path,pat,alpha=1,tint=null)=>{if(!pat)return false;gc.save();gc.clip(path);gc.globalAlpha=alpha;gc.save();gc.scale(.5,.5);gc.fillStyle=pat;gc.fillRect(0,0,ground.width*2,ground.height*2);gc.restore();if(tint){gc.globalAlpha=1;gc.fillStyle=tint;gc.fillRect(0,0,ground.width,ground.height);}gc.restore();return true;};
+    const fillPave=(path,pat,alpha=1,tint=null)=>{if(!pat)return false;gc.save();gc.clip(path);gc.globalAlpha=alpha;gc.save();gc.scale(TERRAIN_TEX_SCALE,TERRAIN_TEX_SCALE);gc.fillStyle=pat;gc.fillRect(0,0,ground.width/TERRAIN_TEX_SCALE,ground.height*2);gc.restore();if(tint){gc.globalAlpha=1;gc.fillStyle=tint;gc.fillRect(0,0,ground.width,ground.height);}gc.restore();return true;};
     // 生態域交界:格子邊界是一階一階的鋸齒。沿交界撒不規則的「鄰區材質斑塊」,邊緣變成自然交錯
     // (概念圖裡草地、土路、石板都是不規則邊)。水域邊界不撒,改在岸邊放岩石。獨立亂數,不動到既有擺放。
     if(tiled){const br=rnd(4242),WET=['ocean','river','ice','bridge'],GRASSY=['village','meadow','birch'],paths={};
@@ -634,7 +635,7 @@ export function createWorld(canvas,{onSelect=()=>{},onPlace=()=>{},getState=()=>
       for(let i=0;i<cells.length;i+=2){const x0=cells[i],z0=cells[i+1],q=worldPos(x0-half,z0-half),r=worldPos(x0+half,z0-half),t=worldPos(x0+half,z0+half),u=worldPos(x0-half,z0+half);
         path.moveTo(q.x,q.y);path.lineTo(r.x,r.y);path.lineTo(t.x,t.y);path.lineTo(u.x,u.y);path.closePath();}
       if(edge){gc.save();gc.translate(0,1);gc.fillStyle=edge;gc.fill(path);gc.restore();}
-      gc.save();gc.clip(path);gc.globalAlpha=alpha;gc.scale(.5,.5);gc.fillStyle=pat;gc.fillRect(0,0,ground.width*2,ground.height*2);gc.restore();};
+      gc.save();gc.clip(path);gc.globalAlpha=alpha;gc.scale(TERRAIN_TEX_SCALE,TERRAIN_TEX_SCALE);gc.fillStyle=pat;gc.fillRect(0,0,ground.width/TERRAIN_TEX_SCALE,ground.height/TERRAIN_TEX_SCALE);gc.restore();};
     // 戰鬥空地:用「不規則橢圓」取代一格一格的菱形聯集(邊緣不再是直的鋸齒),中央踩得較禿、邊緣淡出到草地。
     if(roadPattern){for(const a of ARENAS){if(a.id==='snow'||a.id==='taiga'||a.id==='desert'||a.id==='mountain')continue;/* 沙地、雪地、碎石山地本來就是裸地,疊土反而髒(山地上一塊棕土很突兀) */const ring=(k,j)=>{const path=new Path2D();
         for(let i=0;i<=48;i++){const t=i/48*Math.PI*2,r=k*(1+.1*Math.sin(3*t+a.x)+.07*Math.sin(7*t+a.z)+j*.05*Math.sin(13*t)),q=worldPos(a.x+Math.cos(t)*a.rx*r,a.z+Math.sin(t)*a.rz*r);i?path.lineTo(q.x,q.y):path.moveTo(q.x,q.y);}
@@ -698,7 +699,7 @@ export function createWorld(canvas,{onSelect=()=>{},onPlace=()=>{},getState=()=>
         gc.save();iso2(gc);gc.lineCap=gc.lineJoin='round';gc.strokeStyle=edge;for(const r of list)trace(gc,r,.28);gc.restore();   // 路緣暗邊
         {const sc=[];for(let z=WORLD.minZ;z<WORLD.maxZ;z++)for(let x=WORLD.minX;x<WORLD.maxX;x++)if(biomeAt(x,z)==='snow')sc.push(x,z);gc.save();gc.clip(cellPath(sc,.5));iso2(gc);gc.lineCap=gc.lineJoin='round';gc.strokeStyle='rgba(176,188,201,1)';for(const r of list)trace(gc,r,.28);gc.restore();}  // 雪地路緣:淡藍灰,不是土色暗邊
         mc.setTransform(1,0,0,1,0,0);mc.clearRect(0,0,W,H);iso2(mc);mc.lineCap=mc.lineJoin='round';mc.strokeStyle='#000';for(const r of list)trace(mc,r,0);
-        tc.setTransform(1,0,0,1,0,0);tc.globalCompositeOperation='source-over';tc.clearRect(0,0,W,H);tc.setTransform(GROUND_RES*.5,0,0,GROUND_RES*.5,0,0);tc.fillStyle=pat;tc.fillRect(0,0,W*2/GROUND_RES,H*2/GROUND_RES);
+        tc.setTransform(1,0,0,1,0,0);tc.globalCompositeOperation='source-over';tc.clearRect(0,0,W,H);tc.setTransform(GROUND_RES*TERRAIN_TEX_SCALE,0,0,GROUND_RES*TERRAIN_TEX_SCALE,0,0);tc.fillStyle=pat;tc.fillRect(0,0,W/TERRAIN_TEX_SCALE/GROUND_RES,H/TERRAIN_TEX_SCALE/GROUND_RES);
         // 雪地裡的路:踩實的雪(冷灰白),不是黃土
         tc.setTransform(GROUND_RES,0,0,GROUND_RES,0,0);tc.save();const snowCells=[];for(let z=WORLD.minZ;z<WORLD.maxZ;z++)for(let x=WORLD.minX;x<WORLD.maxX;x++)if(biomeAt(x,z)==='snow')snowCells.push(x,z);
         tc.clip(cellPath(snowCells,.56));tc.fillStyle='rgba(214,221,229,.9)';tc.fillRect(0,0,W,H);tc.restore();
@@ -763,7 +764,7 @@ export function createWorld(canvas,{onSelect=()=>{},onPlace=()=>{},getState=()=>
         if(BUILDINGS.some(b=>{const q=state.layout?.[b.id]||b;return Math.abs(xx-q.x)<4.5&&Math.abs(zz-q.z)<5;}))continue;
         decorations.push({type:pick,x:xx,z:zz,variant:Math.floor(r4()*4),size:.85+r4()*.35});}}
     // 概念圖右下:z=18 的溪橋換成石墩木橋整張圖;溪邊苔石岸、z≈7 小瀑布、東岸釣魚人(位置照概念圖換算)。
-    decorations.push({type:'streamBridge',x:creekX(VILLAGE_BRIDGES[2]),z:VILLAGE_BRIDGES[2],size:1},{type:'waterfall',x:creekX(7.1),z:7.1,size:1},{type:'fisher',x:13.8,z:12.2,size:1});
+    decorations.push({type:'streamBridge',x:creekX(VILLAGE_BRIDGES[2]),z:VILLAGE_BRIDGES[2],size:1},{type:'waterfall',x:creekX(7.1),z:7.1,size:1});
     for(const [dx,z] of [[-1.7,4.5],[-1.7,10.5],[-1.6,13.6],[1.7,4],[1.75,9.6],[1.7,15.2]])decorations.push({type:'bankRocks',x:creekX(z)+dx,z,size:dx<0?.95:1.05});
     for(const z of VILLAGE_BRIDGES)if(z!==VILLAGE_BRIDGES[2])for(let i=-3;i<=3;i++){const u=i+3,last=i===3;decorations.push({type:'bridgeRail',x:creekX(z)+i,z:z-1.5,u,last,size:1},{type:'bridgeRail',x:creekX(z)+i,z:z+1.5,u,last,size:1});}
     for(let z=-22;z<25;z+=2.4){
@@ -793,9 +794,8 @@ export function createWorld(canvas,{onSelect=()=>{},onPlace=()=>{},getState=()=>
         decorations.push({type,x,z,variant:o.v??0,size:o.s??1});return true;};
       decorations.push({type:'monument',x:GRID.cx,z:GRID.cz,size:1});
       for(const x of STREET_X)for(const z of STREET_Z)put('lamp',x+GRID.street+.35,z+GRID.street+.35,{road:.1,pad:.2});
-      for(const [dx,dz] of [[1,1],[1,-1],[-1,1],[-1,-1]]){put('garden',GRID.cx+dx*3.7,GRID.cz+dz*3.7,{s:.85,road:.2});put('flowerBush',GRID.cx+dx*1.9,GRID.cz+dz*4.2,{s:.8,road:.15});}
-      for(const [dx,dz] of [[1,0],[-1,0],[0,1],[0,-1]])for(const sgn of [-1,1])put('villageBanner',GRID.cx+dx*4.4+(dz?sgn*1.05:0),GRID.cz+dz*4.4+(dx?sgn*1.05:0),{s:.85,road:.05,pad:.2});
-      for(const [dx,dz] of [[1,1],[-1,-1]])put('bench',GRID.cx+dx*4.3,GRID.cz+dz*1.9,{v:dx>0?1:0,road:.15});
+      for(const [dx,dz] of [[1,1],[1,-1],[-1,1],[-1,-1]])put('garden',GRID.cx+dx*3.8,GRID.cz+dz*3.8,{s:.8,road:.2});
+      // 廣場保持開闊:只在四個角落放矮花圃,雕像四周不擺高的東西(旗、長椅拿掉)。
       const BUILD_PROPS={hall:[['flowerBox',-1,1],['flowerBox',1,1],['lantern',1,-1],['villageBanner',-1,-1]],trading:[['stall',-1,1],['fruitStand',1,1],['sacks',1,-1],['crates',-1,-1]],
         restaurant:[['tableSet',-1,1],['sacks',1,1],['barrels',1,-1]],inn:[['bench',-1,1],['flowerBox',1,1],['barrel',1,-1],['hayBale',-1,-1]],tavern:[['tableSet',-1,1],['tableSet',1,1],['barrels',-1,-1],['crates',1,-1]],
         clinic:[['garden',-1,1],['flowerBush',1,1],['bucket',1,-1]],forge:[['anvilStump',-1,1],['firewood',1,1],['weaponRack',-1,-1],['crates',1,-1]],
@@ -805,7 +805,9 @@ export function createWorld(canvas,{onSelect=()=>{},onPlace=()=>{},getState=()=>
       for(const b of BUILDINGS){if(b.id==='dungeon'||state.buildings?.[b.id]===0)continue;const q=state.layout?.[b.id]||b;
         for(const [type,sx,sz] of BUILD_PROPS[b.id]||[])put(type,q.x+sx*(b.w/2+1.15),q.z+sz*(b.d/2+(sz>0?.95:.8)),{v:sx<0?0:1,pad:.25});
         for(let k=0;k<3;k++){const x=q.x+(vr()-.5)*2*H,z=q.z+(vr()-.5)*2*H;put(vr()<.5?'flowerBush':'flowers',x,z,{s:.7+vr()*.3,v:Math.floor(vr()*8),pad:.9});}}
-      for(const blk of BLOCKS){const cx=blk.x,cz=blk.z;
+      const takenBy=blk=>BUILDINGS.some(b=>b.id!=='dungeon'&&state.buildings?.[b.id]!==0&&blockAt((state.layout?.[b.id]||b).x,(state.layout?.[b.id]||b).z)===blk);
+      PONDS.length=0;for(const blk of BLOCKS)if(blk.use==='park'&&!takenBy(blk))PONDS.push({x:blk.x,z:blk.z+.4,rx:2.5,rz:1.9});
+      for(const blk of BLOCKS){const cx=blk.x,cz=blk.z;if(takenBy(blk))continue;  // 建築搬進來的街區不再擺田、果園等
         if(blk.use==='farm'){for(let z=cz-H+.4;z<cz+H-.2;z+=.95)for(let x=cx-H+.4;x<cx+H-.2;x+=.85){if(Math.abs(x-cx)<.9&&Math.abs(z-cz)<.9)continue;decorations.push({type:x<cx?'wheat':'cabbage',x,z,variant:Math.round(x*7+z*13)&1,size:1});}
           put('scarecrow',cx,cz,{pad:0,road:0});put('wheelbarrow',cx+H-.3,cz+H+.15,{road:.1});}
         else if(blk.use==='orchard'){for(const ox of [-2.7,0,2.7])for(const oz of [-2.7,0,2.7])decorations.push({type:'tree',x:cx+ox+(vr()-.5)*.4,z:cz+oz+(vr()-.5)*.4,variant:1+Math.floor(vr()*4)*4,size:.4+vr()*.06});
@@ -829,14 +831,11 @@ export function createWorld(canvas,{onSelect=()=>{},onPlace=()=>{},getState=()=>
       for(const z of EXIT_Z)for(const sg of [-1,1])decorations.push({type:'gate',x:PALISADE_X+.1,z:z+sg*1.75,size:1});
       // 街上的人:沿一條街來回走
       const WHO=['merchant','farmer','child','elder','smith','maid','cat','dog'],CLS=['berserker','ranger','paladin','sorcerer','darkknight','priest'];
-      for(let k=0;k<34;k++){const alongX=vr()<.5,line=alongX?STREET_Z[Math.floor(vr()*STREET_Z.length)]:STREET_X[Math.floor(vr()*STREET_X.length)];
+      for(let k=0;k<22;k++){const alongX=vr()<.5,line=alongX?STREET_Z[Math.floor(vr()*STREET_Z.length)]:STREET_X[Math.floor(vr()*STREET_X.length)];
         const lo=alongX?STREET_X[0]:STREET_Z[0],hi=alongX?STREET_X.at(-1):STREET_Z.at(-1),c=lo+vr()*(hi-lo),span=3+vr()*6,a=Math.max(lo,c-span),b2=Math.min(hi,c+span),off=(vr()-.5)*.8;
         const walk=alongX?{ax:a,az:line+off,bx:b2,bz:line+off}:{ax:line+off,az:a,bx:line+off,bz:b2};walk.len=Math.hypot(walk.bx-walk.ax,walk.bz-walk.az)||1;walk.speed=.55+vr()*.5;walk.t0=vr()*20;
-        const hero=vr()<.35,who=WHO[Math.floor(vr()*WHO.length)];if(!hero&&(who==='cat'||who==='dog'))walk.speed*=.7;
-        decorations.push(hero?{type:'npc',cls:CLS[Math.floor(vr()*CLS.length)],x:walk.ax,z:walk.az,phase:vr()*6,size:1,walk}:{type:'villager',who,x:walk.ax,z:walk.az,phase:vr()*6,size:1,walk});}
-      // 店門口站著聊天的人
-      for(const [id,who] of [['trading','merchant'],['tavern','maid'],['forge','smith'],['restaurant','farmer'],['hall','elder'],['inn','child']]){const b=BUILDINGS.find(q=>q.id===id);if(!b||state.buildings?.[id]===0)continue;const q=state.layout?.[id]||b;
-        decorations.push({type:'villager',who,x:q.x+1.2,z:q.z+b.d/2+1.25,phase:vr()*6,flip:vr()<.5,size:1});}
+        vr();vr();  // 村民拿掉,只留英雄(亂數照吃,街上的人位置不變)
+        decorations.push({type:'npc',cls:CLS[Math.floor(vr()*CLS.length)],x:walk.ax,z:walk.az,phase:vr()*6,size:1,walk});}
     }
     villageDecor();
     decorations.sort((a,b)=>a.x+a.z-b.x-b.z);
@@ -846,10 +845,10 @@ export function createWorld(canvas,{onSelect=()=>{},onPlace=()=>{},getState=()=>
   // 材質是概念圖像素(1 材質 px = 1/3.93 單位,跟概念圖同尺度)。大地面畫布只有 GROUND_RES,放大會糊。
   // 棋盤格村莊的高解析地面層:整個村莊範圍(VILLAGE_BOUNDS)以 VRES px/單位重畫,材質用概念圖像素(草/土/石板)。
   // 街道、廣場、建築地坪是石板;田、柴場、畜欄是翻土;公園挖一個池塘(露出底下大地面上畫好的水)。
-  const VRES=GROUND_RES*2,VBOX=(()=>{const B=VILLAGE_BOUNDS,c=[iso(B.minX,B.minZ),iso(B.maxX,B.minZ),iso(B.maxX,B.maxZ),iso(B.minX,B.maxZ)];
+  const VRES=GROUND_RES,VBOX=(()=>{const B=VILLAGE_BOUNDS,c=[iso(B.minX,B.minZ),iso(B.maxX,B.minZ),iso(B.maxX,B.maxZ),iso(B.minX,B.maxZ)];
     const x0=Math.min(...c.map(p=>p.x)),y0=Math.min(...c.map(p=>p.y));return{x0,y0,w:Math.max(...c.map(p=>p.x))-x0,h:Math.max(...c.map(p=>p.y))-y0};})();
   const villageLayer=makeCanvas(Math.ceil(VBOX.w*VRES),Math.ceil(VBOX.h*VRES)),vc=villageLayer.getContext('2d');let villageReady=false;
-  const PONDS=BLOCKS.filter(b=>b.use==='park').map(b=>({x:b.x,z:b.z+.4,rx:2.5,rz:1.9}));
+  const PONDS=[];  // 沒被建築佔用的公園街區才有池塘(villageDecor 重算)
   const pondPath=(path,p,grow=0)=>{for(let i=0;i<=40;i++){const t=i/40*Math.PI*2,r=1+.08*Math.sin(3*t+1),q=iso(p.x+Math.cos(t)*(p.rx+grow)*r,p.z+Math.sin(t)*(p.rz+grow)*r);i?path.lineTo(q.x,q.y):path.moveTo(q.x,q.y);}path.closePath();};
   function buildVillageLayer(){
     villageReady=false;if(!conceptTex.grass||!conceptTex.earth||!conceptTex.stone)return;
@@ -864,7 +863,8 @@ export function createWorld(canvas,{onSelect=()=>{},onPlace=()=>{},getState=()=>
     for(const r of roads){if(!inVillage(r.a.x,r.a.z)&&!inVillage(r.b.x,r.b.z))continue;seg(r.kind==='stone'?stone:earth,r,r.width);}
     const P=GRID.pitch/2-w;quad(stone,GRID.cx-P,GRID.cz-P,GRID.cx+P,GRID.cz+P);
     for(const b of BUILDINGS){if(b.id==='dungeon'||state.buildings?.[b.id]===0)continue;const q=state.layout?.[b.id]||b;quad(stone,q.x-b.w/2-.55,q.z-b.d/2-.55,q.x+b.w/2+.55,q.z+b.d/2+.55);}
-    for(const blk of BLOCKS){const h=GRID.pitch/2-w-.45;
+    const taken=blk=>BUILDINGS.some(b=>b.id!=='dungeon'&&state.buildings?.[b.id]!==0&&blockAt((state.layout?.[b.id]||b).x,(state.layout?.[b.id]||b).z)===blk);
+    for(const blk of BLOCKS){if(taken(blk))continue;const h=GRID.pitch/2-w-.45;
       if(['farm','lumber','pen'].includes(blk.use))quad(earth,blk.x-h,blk.z-h,blk.x+h,blk.z+h);
       if(['well','market'].includes(blk.use))quad(stone,blk.x-h+.4,blk.z-h+.4,blk.x+h-.4,blk.z+h-.4);}
     const fill=(path,img,rule='nonzero')=>{vc.save();vc.clip(path,rule);const pat=vc.createPattern(img,'repeat');vc.scale(1/3.93,1/3.93);vc.fillStyle=pat;vc.fillRect(VBOX.x0*3.93,VBOX.y0*3.93,VBOX.w*3.93,VBOX.h*3.93);vc.restore();};
@@ -953,7 +953,7 @@ export function createWorld(canvas,{onSelect=()=>{},onPlace=()=>{},getState=()=>
     return {x:dx,y:dy,w:dw,h:dh};
   }
   // 用「每來源像素」的統一倍率畫。不把寬度硬塞成固定值,所以寬一點的建築就真的寬一點。
-  function drawAtlasBuilding(id,p,offset=0){
+  function drawAtlasBuilding(id,p,offset=0,mult=1){
     const prefer2x=scale>=2.2;
     atlasUse.lastScale=scale;
     const lod=atlasFrameFor(id,prefer2x);
@@ -962,7 +962,7 @@ export function createWorld(canvas,{onSelect=()=>{},onPlace=()=>{},getState=()=>
     const c=lod.frames[id];
     // lod.k 是「每來源像素多少世界單位」的倒數基準,要再乘回舊版的世界寬度 71,
   // 否則會畫成 1px 寬(漏乘就等於隱形 —— 踩過一次)。
-  const k=BUILDING_WORLD_WIDTH*lod.k*(BUILDING_SCALE[id]||1);
+  const k=BUILDING_WORLD_WIDTH*lod.k*(BUILDING_SCALE[id]||1)*mult;
     const dw=Math.max(1,Math.round(c.w*k*scale)),dh=Math.max(1,Math.round(c.h*k*scale));
     const dx=Math.round(p.x-dw/2),dy=Math.round(p.y-dh+offset*scale);
     cast(lod.img,c.x,c.y,c.w,c.h,dx,dy,dw,dh,false,false,'building');
@@ -983,7 +983,24 @@ export function createWorld(canvas,{onSelect=()=>{},onPlace=()=>{},getState=()=>
   function bar(x,y,w,frac,color){if(casting){overlays.push(()=>bar(x,y,w,frac,color));return;}pixel(g,x-1,y-1,w+2,6,'#1c0e06dd');pixel(g,x,y,w,4,'#5a2f14');pixel(g,x,y,Math.max(0,w*Math.min(1,frac)),4,color);pixel(g,x,y,Math.max(0,w*Math.min(1,frac)),2,shade(color,25));}
   function getLevel(id){const level=state.buildings?.[id];return typeof level==='number'?level:level?.level??1;}
 
-  const SPRITE_SHIFT={};  // 棋盤格:每棟建築畫在自己街區正中
+  const SPRITE_SHIFT={};
+  // 建築不能壓到四周的街:用圖的實際像素算出「在這個街區裡最大能畫多大」。
+  // 地面那一段(錨點以下)要落在街區內的菱形裡;整張圖左右不超過菱形的左右角。結果快取(圖、街區、尺寸)。
+  const fitCache=new Map();
+  function blockHalf(x,z){const w=STREET_X.filter(v=>v<x).at(-1),e=STREET_X.find(v=>v>x),n=STREET_Z.filter(v=>v<z).at(-1),sv=STREET_Z.find(v=>v>z);
+    if(w==null||e==null||n==null||sv==null)return null;const m=GRID.street+.15;return{w:x-w-m,e:e-x-m,n:z-n-m,s:sv-z-m};}
+  function fitScaleFor(key,img,sx,sy,sw,sh,W,H,pos){
+    const half=blockHalf(pos.x,pos.z);if(!half)return 1.6;const k0=`${key}:${W}:${pos.x},${pos.z}`;if(fitCache.has(k0))return fitCache.get(k0);
+    const cw=Math.min(160,sw),ch=Math.max(1,Math.round(sh*cw/sw)),c=makeCanvas(cw,ch),cx=c.getContext('2d',{willReadFrequently:true});cx.drawImage(img,sx,sy,sw,sh,0,0,cw,ch);
+    const a=cx.getImageData(0,0,cw,ch).data,pts=[];for(let y=0;y<ch;y++)for(let x=0;x<cw;x++)if(a[(y*cw+x)*4+3]>100)pts.push([(x+.5)/cw*W-W/2,9-H+(y+.5)/ch*H]);
+    const ok=k=>pts.every(([X,Y])=>{const x=k*X,y=9-k*(9-Y);if(x>(half.e+half.n)*9||x<-(half.w+half.s)*9)return false;if(y<=0)return true;
+      const dx=(x/9+y/4.5)/2,dz=(y/4.5-x/9)/2;return dx<=half.e&&dx>=-half.w&&dz<=half.s&&dz>=-half.n;});
+    let lo=.3,hi=1.6;if(ok(hi))lo=hi;else for(let i=0;i<18;i++){const m=(lo+hi)/2;if(ok(m))lo=m;else hi=m;}
+    fitCache.set(k0,lo);return lo;}
+  // 畫面上的實際倍率 = min(玩家設定的大小, 街區容得下的最大尺寸)
+  function effectiveScale(id){const b=BUILDINGS.find(q=>q.id===id);if(!b)return 1;const pos=state.layout?.[id]||b,want=pos.s??1,sp=atlasCell(id);
+    if(sp){const W=conceptBuildingWidth(id);return Math.min(want,fitScaleFor(id,sp,0,0,sp.width,sp.height,W,W*sp.height/sp.width,pos));}
+    const lod=atlasFrameFor(id,false),c=lod?.frames[id];if(!c)return want;const k=BUILDING_WORLD_WIDTH*lod.k*(BUILDING_SCALE[id]||1);return Math.min(want,fitScaleFor(id+'@a',lod.img,c.x,c.y,c.w,c.h,c.w*k,c.h*k,pos));}  // 棋盤格:每棟建築畫在自己街區正中
   function drawBuilding(b){const layout=state.layout?.[b.id]||b;let p=screenPoint(layout.x,layout.z);const level=getLevel(b.id),s=selected===b.id;
     if(s)ring(p,31,'#ffdc7b');
     if(!level){
@@ -997,7 +1014,8 @@ export function createWorld(canvas,{onSelect=()=>{},onPlace=()=>{},getState=()=>
     // 酒館 v3 連露台:圖往右下畫(露台在佔地前方),對齊概念圖左下的酒館;佔地與道路不變。
     const sh=SPRITE_SHIFT[b.id];if(sh)p={x:p.x+sh[0]*scale,y:p.y+sh[1]*scale};
     // 影子:剪影投影(往左下),取代舊的腳下大橢圓——概念圖沒有大片暗橢圓。
-    let rect=conceptSprite?drawSprite(conceptSprite,p,conceptWidth,conceptWidth*conceptSprite.height/conceptSprite.width,9,1,'building'):drawAtlasBuilding(b.id,p,9);
+    const es=b.id==='dungeon'?1:effectiveScale(b.id);
+    let rect=conceptSprite?drawSprite(conceptSprite,p,conceptWidth*es,conceptWidth*es*conceptSprite.height/conceptSprite.width,9,1,'building'):drawAtlasBuilding(b.id,p,9,es);
     if(!rect){const sprite=atlasCell(b.id)||buildingSprite(b.id),w=conceptBuildingWidth(b.id);rect=drawSprite(sprite,p,w,w*sprite.height/sprite.width,9,1,'building');}
     // 下面冒煙那段用的是「世界單位」的高度(會再乘 scale),照舊版語意換算回去。
     const h=rect.h/scale;hits.push({id:b.id,...rect});
@@ -1368,7 +1386,7 @@ export function createWorld(canvas,{onSelect=()=>{},onPlace=()=>{},getState=()=>
     const cb=biomeAt((cam.x/PX+cam.y/PY)/2,(cam.y/PY-cam.x/PX)/2);if(quality&&cb==='snow'&&!globalThis.matchMedia?.('(prefers-reduced-motion: reduce)').matches){for(let i=0;i<34;i++){const x=(i*59+Math.sin(elapsed*.4+i)*12+width)%width,y=(i*41+elapsed*(6+i%4))%height;pixel(g,x,y,i%4===0?2:1,1,'#eff5e7');}}
     const night=phase>.5?Math.sin((phase-.5)*Math.PI*2)*.15:0;if(night>0){g.fillStyle=`rgba(32,43,79,${night})`;g.fillRect(0,0,width,height);}
     // Placement preview projects to the same coordinate system as simulation.
-    if(placing&&hover){const p=screenPoint(hover.x,hover.z),sp=atlasCell(placing)||buildingSprite(placing),w=conceptBuildingWidth(placing);ring(p,30,'#d8ebac');drawSprite(sp,p,w,w*sp.height/sp.width,9,.55);textLabel('點擊放置 · ESC 取消',p.x,p.y+22,{color:'#e6edbf'});}
+    if(placing&&hover){const blk=blockAt(hover.x,hover.z),snap=blk&&blk.use!=='plaza'?blk:hover,p=screenPoint(snap.x,snap.z),sp=atlasCell(placing)||buildingSprite(placing),w=conceptBuildingWidth(placing);ring(p,30,'#d8ebac');drawSprite(sp,p,w,w*sp.height/sp.width,9,.55);textLabel('點擊放置 · ESC 取消',p.x,p.y+22,{color:'#e6edbf'});}
     // 地名:拉遠才顯示,畫在戰鬥空地外緣(北邊)而不是空地中央。
     if(scale<1.2){for(const r of REGIONS){const a=ARENAS.find(a=>a.id===r.id),p=a?screenPoint(a.x-a.rx-1.2,a.z-a.rz-1.2):screenPoint(r.x,r.z);textLabel(r.name,p.x,p.y-6,{color:'#ffe6a6',size:8});}}
     screen.imageSmoothingEnabled=false;screen.drawImage(buffer,0,0,canvas.width,canvas.height);const k=canvas.width/width;screen.save();screen.textAlign='center';screen.textBaseline='middle';
@@ -1382,7 +1400,7 @@ export function createWorld(canvas,{onSelect=()=>{},onPlace=()=>{},getState=()=>
   const responsiveResize=()=>{resize();if(homeFraming)focusHome();render();};
   function stopHomeFraming(){homeFraming=false;}
   canvas.addEventListener('pointerdown',stopHomeFraming);
-  resize();render();return{update,resize:responsiveResize,project,focus:(id)=>{homeFraming=false;focus(id);},hitRects:()=>hits.filter(h=>BUILDINGS.some(b=>b.id===h.id)).map(h=>({id:h.id,x:h.x,y:h.y,w:h.w,h:h.h})),lookAt:(x,z,v)=>{homeFraming=false;if(v)scale=Math.max(.48,Math.min(5.4,v));target=iso(x,z);cam={...target};},zoomTo:(v)=>{homeFraming=false;scale=Math.max(.48,Math.min(5.4,v));},getScale:()=>scale,setSelected,zoomBy,placeMode,setTime,setQuality,dispose,landscapeStats:()=>({trees:decorations.filter(d=>d.type==='tree').length,arenas:ARENAS.length,roads:roads.length,terrainRevision,
+  resize();render();return{update,resize:responsiveResize,project,focus:(id)=>{homeFraming=false;focus(id);},hitRects:()=>hits.filter(h=>BUILDINGS.some(b=>b.id===h.id)).map(h=>({id:h.id,x:h.x,y:h.y,w:h.w,h:h.h})),buildingScale:id=>effectiveScale(id),lookAt:(x,z,v)=>{homeFraming=false;if(v)scale=Math.max(.48,Math.min(5.4,v));target=iso(x,z);cam={...target};},zoomTo:(v)=>{homeFraming=false;scale=Math.max(.48,Math.min(5.4,v));},getScale:()=>scale,setSelected,zoomBy,placeMode,setTime,setQuality,dispose,landscapeStats:()=>({trees:decorations.filter(d=>d.type==='tree').length,arenas:ARENAS.length,roads:roads.length,terrainRevision,
     decor:decorations.map(d=>({type:d.type,x:d.x,z:d.z}))})};
 }
 

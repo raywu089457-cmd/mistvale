@@ -23,7 +23,7 @@ export const BLOCK_PLAN={
   '-3,2':'pen',      '-2,2':'garden',      '-1,2':'well',       '0,2':'orchard',    '1,2':'pasture'
 };
 // 建築在街區裡的微調(委託所往南一點,靠正門那條街)。
-const NUDGE={bounty:{x:0,z:.6}};
+export const BUILDING_NUDGE={bounty:{x:0,z:.6}};const NUDGE=BUILDING_NUDGE;
 export const BUILDING_SLOTS=Object.fromEntries(Object.entries(BLOCK_PLAN).map(([k,use])=>{const [i,j]=k.split(',').map(Number),c=blockCenter(i,j),n=NUDGE[use]||{x:0,z:0};return [use,{x:c.x+n.x,z:c.z+n.z,i,j}];}));
 export const BLOCKS=Object.entries(BLOCK_PLAN).map(([k,use])=>{const [i,j]=k.split(',').map(Number);return {i,j,use,...blockCenter(i,j)};});
 export const blockAt=(x,z)=>{const i=Math.round((x-GRID.cx)/GRID.pitch),j=Math.round((z-GRID.cz)/GRID.pitch);return BLOCKS.find(b=>b.i===i&&b.j===j)||null;};

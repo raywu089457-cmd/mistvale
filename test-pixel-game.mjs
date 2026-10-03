@@ -83,8 +83,8 @@ assert.equal(buildings.upgrade('forge').ok, true); assert.deepEqual(buildings.ge
 assert.equal(buildings.upgrade('forge').ok, false, 'Hall gates higher building levels'); assert.equal(buildings.upgrade('hall').ok, true); assert.equal(buildings.upgrade('forge').ok, true);
 assert.equal(buildings.upgrade('house').ok, true); assert.equal(buildings.state.capacity, 10); assert.equal(buildings.upgrade('academy').ok, false);
 assert.equal(buildings.construct('academy').ok, true); assert.equal(buildings.construct('academy').ok, false);
-assert.equal(buildings.moveBuilding('bounty', 5, 17).ok, true); assert.equal(buildings.moveBuilding('hall', market.x, market.z).ok, false); assert.equal(buildings.moveBuilding('hall', -100, 0).ok, false); assert.equal(buildings.moveBuilding('dungeon', 0, 0).ok, false);
-const movedSaved = createGame(buildings.serialize()); assert.deepEqual(movedSaved.state.layout.bounty, { x: 5, z: 17 });
+assert.equal(buildings.moveBuilding('bounty', 5, 17).ok, true); assert.equal(buildings.moveBuilding('hall', -8, 2).ok, false, 'plaza stays open'); assert.equal(buildings.moveBuilding('hall', -100, 0).ok, false); assert.equal(buildings.moveBuilding('dungeon', 0, 0).ok, false);
+const movedSaved = createGame(buildings.serialize()); assert.deepEqual(movedSaved.state.layout.bounty, { x: 2.5, z: 13.1 }, 'moves snap to the nearest block (bounty keeps its street-side nudge)');
 
 const combat = createGame(); run(combat, 60, false, assertFiniteEconomy);
 assert.ok(combat.state.totalKills >= 5, 'The five starter hunters autonomously hunt'); assert.ok(combat.state.counts.services > 0, 'Hunters visibly use town services within 60 seconds'); assert.ok(combat.state.counts.traded > 0);

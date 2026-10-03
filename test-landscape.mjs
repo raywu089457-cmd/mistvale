@@ -62,6 +62,12 @@ for(let i=0;i<1800;i++){
  for(const e of game.state.enemies)assert.ok(arenaContains(e.regionId,e.x,e.z,.25),'monsters stay within cleared combat spaces');
 }
 assert.ok(travel>500);assert.ok(roadTravel/travel>.9,`outside combat, hunters should use streets (${roadTravel}/${travel})`);
-const moved=createGame();assert.equal(moved.moveBuilding('bounty',5,17).ok,true);const updated=getRoads(moved.state.layout,moved.state.buildings);assert.ok(onRoad(5,19.1,updated),'moving a facility rebuilds its entrance path');
+const moved=createGame();assert.equal(moved.moveBuilding('bounty',5,17).ok,true);const updated=getRoads(moved.state.layout,moved.state.buildings);{const q=moved.state.layout.bounty,b=BUILDINGS.find(v=>v.id==='bounty');assert.ok(onRoad(q.x,q.z+b.d/2+.6,updated),'moving a facility rebuilds its entrance path');}
+// 搬家吸附到街區正中;搬到別棟建築的街區就互換;廣場不能蓋;大小可調
+{const g=createGame(),hall={...g.state.layout.hall},forge={...g.state.layout.forge};assert.equal(g.moveBuilding('hall',forge.x+1,forge.z-1).ok,true);
+ assert.deepEqual([g.state.layout.hall.x,g.state.layout.hall.z],[forge.x,forge.z],'move snaps to the block center');assert.deepEqual([g.state.layout.forge.x,g.state.layout.forge.z],[hall.x,hall.z],'occupied block swaps buildings');
+ assert.equal(g.moveBuilding('inn',-8,2).ok,false,'plaza stays open');
+ assert.equal(g.scaleBuilding('inn',1.2).ok,true);assert.equal(g.state.layout.inn.s,1.2);assert.equal(createGame(g.serialize()).state.layout.inn.s,1.2,'size survives save');
+ assert.equal(g.scaleBuilding('inn',.1).ok,true);assert.equal(g.state.layout.inn.s,.6);}
 const saved=createGame(game.serialize());assert.equal(saved.state.gold,game.state.gold);assert.deepEqual(saved.state.layout,game.state.layout);
 console.log(`PASS: all facility entrances and 7 arenas connected, projected canopy clearance, fountain/well/fence collision, monster leash, moved-building paths; ${(roadTravel/travel*100).toFixed(1)}% of sampled noncombat travel on roads.`);

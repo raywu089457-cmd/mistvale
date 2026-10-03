@@ -1,6 +1,6 @@
 import {getRoads,roadNodes,onRoad,arenaAt,ARENAS,arenaContains,SOLID_PROPS} from './landscape-layout.js';
 import {WORLD,REGIONS,BRIDGES,riverX,walkable,inVillage,regionAt,isBridge} from './overworld.js';
-import {VILLAGE_BOUNDS,STREET_X,EXIT_Z} from './village-grid.js';
+import {VILLAGE_BOUNDS,STREET_X,EXIT_Z,blockAt,BUILDING_NUDGE} from './village-grid.js';
 import { BUILDINGS, CLASSES, RARITIES, TRAITS, MATERIALS, PRODUCTS, RECIPES, DIFFICULTIES, CAMP, HUNT_ZONE, LEGACY_LAYOUT_V14, LEGACY_LAYOUT_V15, LEGACY_LAYOUT_V16, ART_LAYOUT_HISTORY } from './pixel-data.js';
 
 const mapById = list => Object.assign(Object.create(null), Object.fromEntries(list.map(item => [item.id, item])));
@@ -521,7 +521,7 @@ export function createGame(saved = null) {
     const matchesLayout=old=>BUILDINGS.every(b=>{const p=source.layout?.[b.id],previous=old[b.id];return !p||(p.x===previous.x&&p.z===previous.z);});
     const migrateDefault=(source.layoutRevision!==2&&matchesLayout(LEGACY_LAYOUT_V14))||matchesLayout(LEGACY_LAYOUT_V15)||matchesLayout(LEGACY_LAYOUT_V16)||ART_LAYOUT_HISTORY.some(matchesLayout);
     const inputLayout=migrateDefault?Object.fromEntries(BUILDINGS.map(b=>[b.id,{x:b.x,z:b.z}])):source.layout;
-    const layout = Object.fromEntries(BUILDINGS.map(b => [b.id, { x: number(inputLayout?.[b.id]?.x, b.x, WORLD.minX + 1, 28), z: number(inputLayout?.[b.id]?.z, b.z, VILLAGE_BOUNDS.minZ, VILLAGE_BOUNDS.maxZ) }]));
+    const layout = Object.fromEntries(BUILDINGS.map(b => { const sc = number(inputLayout?.[b.id]?.s, 1, .6, 1.6); return [b.id, { x: number(inputLayout?.[b.id]?.x, b.x, WORLD.minX + 1, 28), z: number(inputLayout?.[b.id]?.z, b.z, VILLAGE_BOUNDS.minZ, VILLAGE_BOUNDS.maxZ), ...(sc !== 1 ? { s: sc } : {}) }]; }));
     state.layout = layout;
     rebuildNavigation();
     for (const key of PRODUCT_KEYS) state.stocks[key] = integer(source.stocks?.[key], 30, 0, 1e5);
@@ -637,10 +637,26 @@ export function createGame(saved = null) {
       const b = BUILDING[buildingId]; if (!b) return result(false, '找不到這棟建築。');
       if (buildingId === 'dungeon') return result(false, '地下城入口的位置固定。');
       if (!Number.isFinite(x) || !Number.isFinite(z)) return result(false, '請選擇有效的位置。');
-      x = Math.round(x * 2) / 2; z = Math.round(z * 2) / 2;
+      // 棋盤格:建築一律落在最近的街區正中(四周都是石板街)。目標街區有別的建築就兩棟互換;中央廣場不能蓋。
+      const block = blockAt(x, z);
+      if (!block) return result(false, '請把建築放在村莊的街區裡。');
+      if (block.use === 'plaza') return result(false, '中央雕像廣場要保持開闊，不能蓋建築。');
       if (state.hunters.some(h => h.destination === buildingId && h.serviceStarted)) return result(false, '獵人正在使用這棟設施，請服務結束後再移動。');
-      const error = validPlacement(buildingId, x, z, state.layout, true); if (error) return result(false, error);
-      state.layout[buildingId] = { x, z }; rebuildNavigation(); rerouteHunters(); log(`${b.name}已搬到新位置。`); return result(true, `${b.name}移動完成。`);
+      const slot = { x: block.x + (BUILDING_NUDGE[buildingId]?.x || 0), z: block.z + (BUILDING_NUDGE[buildingId]?.z || 0) }, here = state.layout[buildingId];
+      const other = BUILDINGS.find(o => o.id !== buildingId && o.id !== 'dungeon' && blockAt(state.layout[o.id].x, state.layout[o.id].z) === block);
+      if (other && state.hunters.some(h => h.destination === other.id && h.serviceStarted)) return result(false, `獵人正在使用${other.name}，請稍後再交換位置。`);
+      if (other) { const ob = blockAt(here.x, here.z); state.layout[other.id] = { ...state.layout[other.id], x: ob ? ob.x + (BUILDING_NUDGE[other.id]?.x || 0) : here.x, z: ob ? ob.z + (BUILDING_NUDGE[other.id]?.z || 0) : here.z }; }
+      state.layout[buildingId] = { ...here, x: slot.x, z: slot.z }; rebuildNavigation(); rerouteHunters();
+      log(other ? `${b.name}和${other.name}交換了位置。` : `${b.name}已搬到新街區。`); return result(true, other ? `${b.name}與${other.name}互換位置。` : `${b.name}移動完成。`);
+    },
+    // 建築大小(只影響外觀):0.6～1.6 倍;畫面上還會再限制在街區能容納的最大尺寸(不壓到街道)。
+    scaleBuilding(buildingId, factor) {
+      const b = BUILDING[buildingId]; if (!b || buildingId === 'dungeon') return result(false, '這棟建築不能調整大小。');
+      if (!Number.isFinite(factor) || factor <= 0) return result(false, '無效的倍率。');
+      const cur = state.layout[buildingId].s ?? 1, next = Math.round(Math.max(.6, Math.min(1.6, cur * factor)) * 20) / 20;
+      if (next === cur) return result(false, next >= 1.6 ? '已經是最大尺寸。' : '已經是最小尺寸。');
+      if (next === 1) { const { s: _drop, ...rest } = state.layout[buildingId]; state.layout[buildingId] = rest; } else state.layout[buildingId] = { ...state.layout[buildingId], s: next };
+      return result(true, `${b.name}大小 ${Math.round(next * 100)}%`);
     },
     craft(productId, batches = 1) {
       if (!own(PRODUCTS, productId)) return result(false, '找不到這項商品。');
