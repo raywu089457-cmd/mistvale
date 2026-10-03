@@ -385,7 +385,7 @@ function ensureDetailAtlas(){
   for(const [sheetKey,manKey] of [['detailsAtlas','detailsManifest'],
                                   ['detailsAtlas2x','detailsManifest2x'],
                                   ['propsAtlas','propsManifest'],['propsAtlas2x','propsManifest2x'],
-                                  ['monstersAtlas','monstersManifest'],['monstersAtlas2x','monstersManifest2x'],['monsteratkAtlas','monsteratkManifest'],['monsteratkAtlas2x','monsteratkManifest2x'],
+                                  ['monstersAtlas','monstersManifest'],['monstersAtlas2x','monstersManifest2x'],['monsteratkAtlas','monsteratkManifest'],['monsteratkAtlas2x','monsteratkManifest2x'],['streamAtlas','streamManifest'],['streamAtlas2x','streamManifest2x'],
                                   ['floraAtlas','floraManifest'],['floraAtlas2x','floraManifest2x'],
                                   ['villagersAtlas','villagersManifest'],['villagersAtlas2x','villagersManifest2x'],
                                   ['yardAtlas','yardManifest'],['yardAtlas2x','yardManifest2x'],
@@ -639,6 +639,14 @@ export function createWorld(canvas,{onSelect=()=>{},onPlace=()=>{},getState=()=>
         path.closePath();return path;};
       fillPave(ring(1.02,1),roadPattern,.32);fillPave(ring(.86,1),roadPattern,.38);fillPave(ring(.62,0),roadPattern,.3);}}
     else fillCells(clearCells,.51,roadPattern,.6,null);
+    // 河岸平滑:河/溪本來是一格一格菱形,邊緣是階梯。沿 riverX/creekX 曲線畫一條平滑水面蓋上去(橋段跳過),外圈濕岸、內圈白浪線。
+    if(groundPatterns.river){const strip=(fx,w,z0,z1,skip)=>{const segs=[];let cur=[];for(let z=z0;z<=z1+1e-6;z+=.25){if(skip(z)){if(cur.length>1)segs.push(cur);cur=[];continue;}cur.push(z);}if(cur.length>1)segs.push(cur);
+        for(const seg of segs){const path=new Path2D(),pts=[...seg.map(z=>worldPos(fx(z)-w+Math.sin(z*1.7)*.12,z)),...seg.slice().reverse().map(z=>worldPos(fx(z)+w+Math.sin(z*1.3+1)*.12,z))];
+          pts.forEach((q,i)=>i?path.lineTo(q.x,q.y):path.moveTo(q.x,q.y));path.closePath();
+          gc.save();gc.lineWidth=3.2;gc.lineJoin='round';gc.strokeStyle='rgba(66,70,44,.9)';gc.stroke(path);gc.restore();fillTerrain(null,0,'river',path);
+          gc.save();gc.clip(path);gc.lineWidth=1.4;gc.strokeStyle='rgba(206,238,250,.5)';gc.stroke(path);gc.restore();}};
+      strip(riverX,2.05,-29,WORLD.maxZ-1,z=>BRIDGES.some(b=>Math.abs(z-b)<1.8));
+      strip(creekX,1.4,-26.5,26.5,z=>VILLAGE_BRIDGES.some(b=>Math.abs(z-b)<1.8));}
     // 海岸:陸地碰到海的地方鋪一條沙岸(沙漠材質,裁在陸地內)再放礁石,不是森林直接切進海裡。
     {const WET2=['ocean'],beach=new Path2D(),sr=rnd(6627);let any=false;
       for(let z=WORLD.minZ;z<WORLD.maxZ;z++)for(let x=WORLD.minX;x<WORLD.maxX;x++){const b=biomeAt(x,z);if(b==='ocean'||b==='river'||b==='ice'||b==='bridge')continue;
@@ -730,6 +738,19 @@ export function createWorld(canvas,{onSelect=()=>{},onPlace=()=>{},getState=()=>
       if(BUILDINGS.some(b=>{const q=state.layout?.[b.id]||b;return Math.abs(xx-q.x)<4.5&&Math.abs(zz-q.z)<5;}))continue;
       const type=bio==='snow'?3:bio==='taiga'?(r2()<.35?3:0):bio==='birch'?(r2()<.6?2:1):(r2()<.55?0:1);
       decorations.push({type:'tree',x:xx,z:zz,variant:type+Math.floor(r2()*4)*4,size:.42+r2()*.2});}}
+    // 草原、白樺花原:概念圖的草地上滿是花叢、灌木、石頭與成簇小樹,不是一片平草(獨立亂數,不動到上面的擺放)。
+    {const r3=rnd(51917);for(let z=WORLD.minZ+1;z<WORLD.maxZ-1;z+=1.6)for(let x=WORLD.minX+1;x<WORLD.maxX-1;x+=1.7){
+      const xx=x+r3()*1.3,zz=z+r3()*1.3,bio=biomeAt(xx,zz),roll=r3(),pick=r3(),sz=r3();
+      if((bio!=='meadow'&&bio!=='birch'&&bio!=='forest')||roll>(bio==='meadow'?.34:bio==='birch'?.3:.14))continue;
+      if(road(xx,zz)||onRoad(xx,zz,roads,.9)||inVillage(xx,zz)||arenaAt(xx,zz,1.2)||isBridge(xx,zz)||isBridge(xx+1,zz)||isBridge(xx-1,zz))continue;
+      if(['ocean','river','ice','bridge'].includes(biomeAt(xx+.8,zz))||['ocean','river','ice','bridge'].includes(biomeAt(xx-.8,zz)))continue;
+      if(BUILDINGS.some(b=>{const q=state.layout?.[b.id]||b;return Math.abs(xx-q.x)<4.5&&Math.abs(zz-q.z)<5;}))continue;
+      if(pick<.3)decorations.push({type:'flowerBush',x:xx,z:zz,variant:Math.floor(sz*4),size:.8+sz*.4});
+      else if(pick<.52)decorations.push({type:'bush',x:xx,z:zz,variant:Math.floor(sz*4),size:.8+sz*.4});
+      else if(pick<.78)decorations.push({type:'flowers',x:xx,z:zz,variant:Math.floor(sz*8),size:.9+sz*.3});
+      else if(pick<.88)decorations.push({type:'rock',x:xx,z:zz,size:.45+sz*.35});
+      else if(!arenaAt(xx,zz,4)){const n=2+Math.floor(sz*3),v=bio==='birch'?2:1;for(let k=0;k<n;k++)decorations.push({type:'tree',x:xx+(r3()-.5)*2.2,z:zz+(r3()-.5)*2.2,variant:(k%2?0:v)+Math.floor(r3()*4)*4,size:.42+r3()*.18});}
+    }}
     for(const [x,z,v]of[[-17,-9,1],[-17,0,5],[-15,19,1],[-6,20,2],[7,19,6],[10,-14,0],[12,11,1],[-21,13,2]])decorations.push({type:'tree',x,z,variant:v,size:.5});  // 概念圖松樹約 120px → 30 單位
     // A mixed woodland rim frames the village without occupying its streets.
     for(let i=0;i<12;i++){
@@ -753,7 +774,10 @@ export function createWorld(canvas,{onSelect=()=>{},onPlace=()=>{},getState=()=>
     for(let z=-23;z<25;z+=.85){if((z>-1&&z<5)||(z>16&&z<20))continue;decorations.push({type:'fence',x:9,z,size:1});}
     for(const z of[-1,5,16,20])decorations.push({type:'gate',x:9.1,z,size:1});
     for(const[x,z]of[[-7,4],[-7,-5],[1,4],[1,11],[-7,12],[7,2],[13,2]])decorations.push({type:'lamp',x,z,size:1});
-    for(const z of VILLAGE_BRIDGES)for(let i=-3;i<=3;i++){const u=i+3,last=i===3;decorations.push({type:'bridgeRail',x:creekX(z)+i,z:z-1.5,u,last,size:1},{type:'bridgeRail',x:creekX(z)+i,z:z+1.5,u,last,size:1});}
+    // 概念圖右下:z=18 的溪橋換成石墩木橋整張圖;溪邊苔石岸、z≈7 小瀑布、東岸釣魚人(位置照概念圖換算)。
+    decorations.push({type:'streamBridge',x:creekX(18),z:18,size:1},{type:'waterfall',x:creekX(7.1),z:7.1,size:1},{type:'fisher',x:13.8,z:12.2,size:1});
+    for(const [dx,z] of [[-1.7,4.5],[-1.7,10.5],[-1.6,13.6],[1.7,4],[1.75,9.6],[1.7,15.2]])decorations.push({type:'bankRocks',x:creekX(z)+dx,z,size:dx<0?.95:1.05});
+    for(const z of VILLAGE_BRIDGES)if(z!==18)for(let i=-3;i<=3;i++){const u=i+3,last=i===3;decorations.push({type:'bridgeRail',x:creekX(z)+i,z:z-1.5,u,last,size:1},{type:'bridgeRail',x:creekX(z)+i,z:z+1.5,u,last,size:1});}
     for(let z=-22;z<25;z+=2.4){
       if(VILLAGE_BRIDGES.some(bridge=>Math.abs(z-bridge)<2.5))continue;
       for(const side of[-1,1]){
@@ -884,7 +908,7 @@ export function createWorld(canvas,{onSelect=()=>{},onPlace=()=>{},getState=()=>
   // contain 而不是拉伸:保持出土物件的等比,尺寸由外框決定(版面才不會跑掉)。
   // 平貼地面的不投影;寬的(圍籬、攤位、桌椅)每欄自己的地面;其他(人、樹、旗、燈)整張一個地面。
   const FLAT_DETAIL=new Set(['flowerYellow','flowerPink','flowerBlue','flowerWhite','plot','wheat','cabbage','garden']);
-  const WIDE_DETAIL=new Set(['fenceRail','fence','stall','fruitStand','tableSet','bench','handCart','well','flowerBox','riverRocks','boulders','outcrop','cave','ruin','trough','crates','barrels','hayBale','firewood','sacks','railing','signpost']);
+  const WIDE_DETAIL=new Set(['streamBridge','bankRocks','waterfall','fenceRail','fence','stall','fruitStand','tableSet','bench','handCart','well','flowerBox','riverRocks','boulders','outcrop','cave','ruin','trough','crates','barrels','hayBale','firewood','sacks','railing','signpost']);
   const CHAR_DETAIL=new Set(['merchant','farmer','child','elder','smith','maid','cat','dog','sheep','goat']);
   function drawAtlasDetail(id,p,bw,bh,offset=0,alpha=1,flip=false){
     const lod=detailFrameFor(id,scale>=2.2);
@@ -982,6 +1006,10 @@ export function createWorld(canvas,{onSelect=()=>{},onPlace=()=>{},getState=()=>
     if(d.type==='wheat'){for(let i=-1;i<=1;i++){const xx=p.x+i*2*scale;pixel(g,xx,p.y-5*scale,scale,6*scale,'#ba973d');pixel(g,xx-scale,p.y-5*scale,3*scale,scale,'#eac665');pixel(g,xx,p.y-7*scale,scale,2*scale,'#f1dc8e');}return;}
     if(d.type==='cabbage'){pixel(g,p.x-3*scale,p.y-4*scale,7*scale,4*scale,'#4f8a3c');pixel(g,p.x-2*scale,p.y-5*scale,5*scale,3*scale,'#9cc964');return;}
     if(d.type==='bridgeRail'&&d.u!==undefined&&drawRailSlice(d.u,d.last,p))return;
+    if(d.type==='streamBridge'&&drawAtlasDetail('streamBridge',p,76,74,30))return;
+    if(d.type==='waterfall'&&drawAtlasDetail('waterfall',p,30,38,6)){if(quality){g.globalAlpha=.55;for(let i=0;i<5;i++){const t=(elapsed*1.6+i*.2)%1;pixel(g,p.x+(i-2)*2.5*scale,p.y-(3-t*3)*scale,Math.max(1,scale),Math.max(1,scale),'#e8f6ff');}g.globalAlpha=1;}return;}
+    if(d.type==='bankRocks'&&drawAtlasDetail('bankRocks',p,24*d.size,23*d.size,3,1,true))return;
+    if(d.type==='fisher'){contact(p,5);if(drawAtlasDetail('fisher',p,28,20,1,1,true)){const s=scale,t=Math.sin(elapsed*1.3);g.globalAlpha=.7;pixel(g,p.x-15*s,p.y+(3+t*.6)*s,4*s,Math.max(1,s*.6),'#cfeeff');g.globalAlpha=1;return;}}
     // 概念圖街上滿是村民與貓狗:純裝飾(不參與模擬),原地輕微上下呼吸。
     if(d.type==='npc'){const bob=Math.sin(elapsed*2.1+d.phase)>.55?1:0,hf=heroFrameFor(d.cls,heroLodScale);contact(p,5);
       {const sp=heroSprite(d.cls,bob,d.flip?-1:1,Math.floor(d.phase*7)%3);drawSprite(sp,p,21*CHAR_SCALE*sp.width/sp.height,21*CHAR_SCALE,1.2,1,'char');};if(hf)detailUse.draw1x++;return;}
@@ -1276,7 +1304,7 @@ export function createWorld(canvas,{onSelect=()=>{},onPlace=()=>{},getState=()=>
     if(villageReady)g.drawImage(villageLayer,Math.round(width/2+(VBOX.x0-cam.x)*scale),Math.round(height/2+50+(VBOX.y0-cam.y)*scale),Math.round(VBOX.w*scale),Math.round(VBOX.h*scale));
     if(quality){for(let z=WORLD.minZ+3;z<WORLD.maxZ-2;z+=4){if(isBridge(riverX(z),z))continue;const p=screenPoint(riverX(z)+Math.sin(elapsed*.45+z)*.6,z+Math.sin(elapsed*.3+z)*.4);if(p.x>0&&p.x<width&&p.y>0&&p.y<height){pixel(g,p.x-3*scale,p.y,6*scale,Math.max(1,scale),'#a8ddf7');pixel(g,p.x+1*scale,p.y+2*scale,3*scale,Math.max(1,scale),'#5fb0e6');}}}
     const all=[];
-    for(const d of decorations){const p=screenPoint(d.x,d.z);if(p.x>-100&&p.x<width+100&&p.y>-40&&p.y<height+260)all.push({sort:d.x+d.z,type:'decor',data:d});}
+    for(const d of decorations){const p=screenPoint(d.x,d.z);if(p.x>-100&&p.x<width+100&&p.y>-40&&p.y<height+260)all.push({sort:d.type==='streamBridge'?-1e9:d.x+d.z,type:'decor',data:d});}  // 橋面是地面:過橋的人永遠畫在上面
     for(const b of BUILDINGS){const p=state.layout?.[b.id]||b;all.push({sort:p.x+p.z+.2,type:'building',data:b});}
     for(const h of state.hunters||[])all.push({sort:h.x+h.z+.3,type:'hunter',data:h});
     for(const e of state.enemies||[])all.push({sort:e.x+e.z+.3,type:'enemy',data:e});

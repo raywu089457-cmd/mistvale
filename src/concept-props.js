@@ -42,6 +42,6 @@ export const CONCEPT_PEOPLE=[
   {cls:'sorcerer',u:722,v:372},{who:'smith',u:962,v:340},{cls:'paladin',u:1008,v:352,flip:true},{cls:'sorcerer',u:878,v:508},
   {cls:'sorcerer',u:1150,v:510},{who:'merchant',u:305,v:712},{cls:'berserker',u:602,v:665},{cls:'darkknight',u:692,v:770},
   {cls:'ranger',u:772,v:728},{cls:'berserker',u:804,v:835},{cls:'paladin',u:872,v:818},{cls:'ranger',u:952,v:708},
-  {cls:'priest',u:962,v:898},{who:'child',u:1002,v:948},{cls:'darkknight',u:722,v:1018},{who:'farmer',u:1062,v:1192},
+  {cls:'priest',u:962,v:898},{who:'child',u:1002,v:948},{cls:'darkknight',u:722,v:1018},
   {who:'maid',u:168,v:968},{who:'farmer',u:212,v:1028},{cls:'berserker',u:282,v:970},{cls:'priest',u:372,v:1000},{who:'elder',u:492,v:940},
 ];
