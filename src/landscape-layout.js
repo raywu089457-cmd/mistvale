@@ -16,7 +16,9 @@ export function getRoads(layout={},levels={}){
  const roads=[];const add=(points,width=1.15,kind='trail')=>{for(let i=1;i<points.length;i++){const a={x:points[i-1][0],z:points[i-1][1]},b={x:points[i][0],z:points[i][1]};roads.push({a,b,width,kind});}};
  // A plaza-led village street, with radial branches and one gate.
  add([[-27,5.5],[-18.5,5.5],[-8,5.5],[-6,5.5],[2.5,5.5],[8,3],[17,3]],1.05,'stone');
- add([[2.5,-22],[6,-24],[16,-24]],.9);add([[2.5,18],[8,18],[16,18]],.9,'stone');
+ // 出村的路都要接回村裡的街:北門從南北大街(z=-21.5)出去過 z=-24 的橋;南門的橋路沿酒館門前接回大街(酒館在出村口)。
+ add([[-8,-21.5],[1,-21.5]],.7,'stone');add([[1,-21.5],[6,-24],[16,-24]],.9);
+ add([[-8,21.6],[3,21.6],[6,18]],.7,'stone');add([[6,18],[16,18]],.9,'stone');
  const circle=Array.from({length:13},(_,i)=>[-8+Math.cos(i*Math.PI/6)*3.6,2+Math.sin(i*Math.PI/6)*3.6]);add(circle,.6,'stone');add([[-8,5.6],[-8,5.5]],.6,'stone');
  add([[-8,-22],[-8,5.5],[-8,24]],.7,'stone');
  add([[-25,5.5],[-8,5.5],[2.5,5.5]],.7,'stone');

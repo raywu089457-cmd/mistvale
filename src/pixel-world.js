@@ -1,4 +1,4 @@
-import {getRoads,roadStyle,onRoad,ARENAS,arenaAt,keepTallDecoration,canopyObscures} from './landscape-layout.js';
+import {getRoads,roadStyle,onRoad,ARENAS,arenaAt,keepTallDecoration,canopyObscures,distanceSegment as distanceSeg} from './landscape-layout.js';
 import { BUILDINGS, CLASSES, RARITIES } from './pixel-data.js';
 import {WORLD,REGIONS,BRIDGES,VILLAGE_BRIDGES,creekX,riverX,biomeAt,BIOME_PALETTE,inVillage,isBridge} from './overworld.js';
 import {conceptGroundAt,inConceptFrame,CONCEPT_TREES} from './concept-ground.js';
@@ -876,16 +876,18 @@ export function createWorld(canvas,{onSelect=()=>{},onPlace=()=>{},getState=()=>
     // 概念圖畫框內的樹照概念圖樹冠種(pipeline/scripts/align/concept_ground.py):先拿掉程序撒的樹,再放概念圖的。
     for(let i=decorations.length-1;i>=0;i--){const d=decorations[i];if(d.type==='tree'&&inConceptFrame(d.x,d.z))decorations.splice(i,1);}
     for(const[x,z,variant,size]of CONCEPT_TREES){
-      if(onRoad(x,z,roads,.4)||arenaAt(x,z,1)||['ocean','river','ice','bridge'].includes(biomeAt(x,z)))continue;
+      if(onRoad(x,z,roads,1.1)||arenaAt(x,z,1)||['ocean','river','ice','bridge'].includes(biomeAt(x,z)))continue;
+      if(roads.some(r=>{const n=Math.ceil(Math.hypot(r.b.x-r.a.x,r.b.z-r.a.z)/1.2);for(let i=0;i<=n;i++){const u=i/(n||1);if(canopyObscures(x,z,size,r.a.x+(r.b.x-r.a.x)*u,r.a.z+(r.b.z-r.a.z)*u,2))return true;}return false;}))continue;  // 樹冠不蓋住路
       if(BUILDINGS.some(b=>{const q=state.layout?.[b.id]||b;return Math.abs(x-q.x)<b.w/2+.8&&Math.abs(z-q.z)<b.d/2+.8;}))continue;
       decorations.push({type:'tree',x,z,variant,size});}
     // 概念圖畫框內的家具、角色照概念圖擺(src/concept-props.js):先清掉程序擺的,再放概念圖的。結構物(柵欄、閘門、橋欄、紀念碑、岩石)不動。
     {const FURNITURE=new Set(['garden','lamp','villageBanner','villager','stall','barrels','chest','crates','hayBale','firewood','trough','scarecrow','lantern','wheelbarrow','animal','flowers','mushroom','bush']);
      for(let i=decorations.length-1;i>=0;i--){const d=decorations[i];if(FURNITURE.has(d.type)&&inConceptFrame(d.x,d.z))decorations.splice(i,1);}
      const blocked=(x,z)=>['ocean','river','ice','bridge'].includes(biomeAt(x,z))||BUILDINGS.some(b=>{const q=state.layout?.[b.id]||b;return Math.abs(x-q.x)<b.w/2+.2&&Math.abs(z-q.z)<b.d/2+.2;});
-     for(const[type,u,v,o={}]of CONCEPT_PROPS){const{x,z}=conceptToWorld(u,v);if(!blocked(x,z))decorations.push({type,x,z,variant:o.f?1:0,size:o.s||1});}
+     const onPath=(x,z)=>roads.some(r=>distanceSeg(x,z,r.a,r.b)<=r.width-.15);  // 道具、柵欄不擋在路中間
+     for(const[type,u,v,o={}]of CONCEPT_PROPS){const{x,z}=conceptToWorld(u,v);if(!blocked(x,z)&&(type==='lamp'||type==='villageBanner'||!onPath(x,z)))decorations.push({type,x,z,variant:o.f?1:0,size:o.s||1});}
      for(const[u1,v1,u2,v2]of CONCEPT_FENCES){const a=conceptToWorld(u1,v1),b=conceptToWorld(u2,v2),dx=b.x-a.x,dz=b.z-a.z,n=Math.max(1,Math.round(Math.hypot(dx,dz)/2));
-       for(let i=0;i<n;i++){const t=(i+.5)/n,x=a.x+dx*t,z=a.z+dz*t;if(!blocked(x,z))decorations.push({type:'fenceRail',x,z,variant:Math.abs(dx)>Math.abs(dz)?1:0,size:1});}}
+       for(let i=0;i<n;i++){const t=(i+.5)/n,x=a.x+dx*t,z=a.z+dz*t;if(!blocked(x,z)&&!onPath(x,z))decorations.push({type:'fenceRail',x,z,variant:Math.abs(dx)>Math.abs(dz)?1:0,size:1});}}
      CONCEPT_PEOPLE.forEach((q,i)=>{const{x,z}=conceptToWorld(q.u,q.v);if(blocked(x,z))return;
        const flip=q.flip??i%2===1;decorations.push(q.cls?{type:'npc',cls:q.cls,x,z,phase:i*1.3,flip,size:1}:{type:'villager',who:q.who,x,z,phase:i*1.7,flip,size:1});});}
     decorations.sort((a,b)=>a.x+a.z-b.x-b.z);
@@ -903,7 +905,9 @@ export function createWorld(canvas,{onSelect=()=>{},onPlace=()=>{},getState=()=>
     const add=(path,x,z)=>{const q=iso(x-h,z-h),r=iso(x+h,z-h),t=iso(x+h,z+h),u=iso(x-h,z+h);path.moveTo(q.x,q.y);path.lineTo(r.x,r.y);path.lineTo(t.x,t.y);path.lineTo(u.x,u.y);path.closePath();};
     for(let z=-24;z<26;z+=.5)for(let x=-28;x<9;x+=.5){const c=conceptGroundAt(x,z);if(c==='.'||!inConceptFrame(x,z))continue;
       if(['ocean','river','ice','bridge'].includes(biomeAt(x,z))||arenaAt(x,z))continue;
-      add(cells.land,x,z);if(c==='e')add(cells.e,x,z);else if(c==='s')add(cells.s,x,z);}
+      // 遊戲的路落在概念圖草地上(出村口、移過的建築門前):照路的種類補土路/石板,路不會在村裡斷掉。
+      const rk=c==='g'?roadStyle(x,z,roads):null;
+      add(cells.land,x,z);if(c==='e'||rk==='trail')add(cells.e,x,z);else if(c==='s'||rk==='stone')add(cells.s,x,z);}
     const fill=(path,img)=>{vc.save();vc.clip(path);const pat=vc.createPattern(img,'repeat');vc.scale(1/3.93,1/3.93);vc.fillStyle=pat;vc.fillRect(VBOX.x0*3.93,VBOX.y0*3.93,VBOX.w*3.93,VBOX.h*3.93);vc.restore();};
     fill(cells.land,conceptTex.grass);fill(cells.e,conceptTex.earth);
     vc.save();vc.translate(0,1.2);vc.fillStyle='rgba(120,95,80,.75)';vc.fill(cells.s);vc.restore();   // 石板外緣一圈灰縫色(概念圖廣場邊)

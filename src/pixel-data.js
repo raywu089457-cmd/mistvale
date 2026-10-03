@@ -9,7 +9,7 @@ export const BUILDINGS = [
  {id:'academy',name:'學院',x:-2.5,z:-10.5,w:3.5,d:3.2,type:'academy',roof:'#6555ad',cost:{gold:240,wood:30,ore:25},desc:'教授戰鬥技能與轉世特性。每位獵人都可以走出不同的成長路線。',effect:'技能提高攻擊力'},
  {id:'training',name:'修煉地',x:-25.6,z:-4.6,w:4,d:3.5,type:'training',roof:'#91704b',cost:{gold:220,wood:35,ore:15},desc:'支付訓練費用，讓指定獵人快速獲得經驗。',effect:'獵人訓練獲得經驗'},
  {id:'sanctuary',name:'復活聖所',x:5,z:-18,w:3.4,d:3.2,type:'sanctuary',roof:'#a7b4cc',cost:{gold:260,wood:20,ore:35},desc:'復活倒下的獵人，也見證滿百級獵人的轉世。',effect:'死亡復活／100 級轉世'},
- {id:'house',name:'獵人小屋',x:6.2,z:4.2,w:3.6,d:3.2,type:'house',roof:'#438eba',cost:{gold:180,wood:40,ore:10},desc:'為前來村莊的冒險者提供居所。升級可增加獵人上限。',effect:'每級增加 2 位獵人名額'},
+ {id:'house',name:'獵人小屋',x:4.6,z:0.6,w:3.6,d:3.2,type:'house',roof:'#438eba',cost:{gold:180,wood:40,ore:10},desc:'為前來村莊的冒險者提供居所。升級可增加獵人上限。',effect:'每級增加 2 位獵人名額'},
  {id:'bounty',name:'委託所',x:-1.2,z:-0.5,w:3.2,d:3,type:'bounty',roof:'#cc9c39',cost:{gold:170,wood:25,ore:10},desc:'追蹤獵魔委託並領取完成獎勵。',effect:'討伐委託與章節目標'},
  {id:'enhancement',name:'強化精煉所',x:-16,z:20,w:4,d:3.2,type:'enhancement',roof:'#bd5c43',cost:{gold:300,wood:30,ore:45},desc:'消耗村莊資源，強化獵人武器；最高可達 +10。',effect:'裝備每次強化提升攻擊'},
  {id:'dungeon',name:'地下城入口',x:24,z:-11,w:4,d:3.5,type:'dungeon',roof:'#756577',cost:{gold:380,wood:25,ore:60},desc:'派遣獵人挑戰地下城，逐層取得稀有資源。',effect:'三人小隊闖關探險'}
@@ -48,5 +48,7 @@ for(const change of [
  {training:{x:-26,z:-6},trading:{x:-24,z:0}},
  {enhancement:{x:-16,z:20}}
 ]){artLayout={...artLayout,...change};ART_LAYOUT_HISTORY.push(artLayout);}
+// 獵人小屋舊預設 (6.2,4.2) 擋在東門路上 → 移到路北 (4.6,0.6),門朝路。舊預設的存檔自動搬。
+ART_LAYOUT_HISTORY.push(Object.fromEntries(BUILDINGS.map(b=>[b.id,b.id==='house'?{x:6.2,z:4.2}:{x:b.x,z:b.z}])));
 
 export const LEGACY_LAYOUT_V14={"hall": {"x": -5.0, "z": -8.0}, "trading": {"x": -12.0, "z": -7.0}, "restaurant": {"x": -12.0, "z": 0.0}, "inn": {"x": -12.0, "z": 7.0}, "tavern": {"x": -4.0, "z": 7.0}, "clinic": {"x": 4.0, "z": 7.0}, "forge": {"x": 4.0, "z": 0.0}, "academy": {"x": -4.0, "z": 0.0}, "training": {"x": -3.0, "z": 14.0}, "sanctuary": {"x": 4.0, "z": -8.0}, "house": {"x": -12.0, "z": 14.0}, "bounty": {"x": 5.0, "z": 14.0}, "enhancement": {"x": -12.0, "z": -14.0}, "dungeon": {"x": 24, "z": -11}};
