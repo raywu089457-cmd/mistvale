@@ -1,0 +1,72 @@
+{
+ "version": 1,
+ "kind": "mistvale-hero-atlas",
+ "image": "hero@4x.png",
+ "sheetWidth": 429,
+ "sheetHeight": 282,
+ "packing": "shelf",
+ "scale": 0.56,
+ "generator": "l0veyou.com GPT Image 2（Q 版 2 頭身英雄）",
+ "cells": {
+  "berserker": {
+   "x": 2,
+   "y": 2,
+   "w": 138,
+   "h": 136,
+   "anchor": [
+    71.0,
+    138
+   ]
+  },
+  "ranger": {
+   "x": 143,
+   "y": 2,
+   "w": 115,
+   "h": 136,
+   "anchor": [
+    200.5,
+    138
+   ]
+  },
+  "paladin": {
+   "x": 261,
+   "y": 2,
+   "w": 126,
+   "h": 136,
+   "anchor": [
+    324.0,
+    138
+   ]
+  },
+  "sorcerer": {
+   "x": 2,
+   "y": 141,
+   "w": 122,
+   "h": 136,
+   "anchor": [
+    63.0,
+    277
+   ]
+  },
+  "darkknight": {
+   "x": 127,
+   "y": 141,
+   "w": 175,
+   "h": 136,
+   "anchor": [
+    214.5,
+    277
+   ]
+  },
+  "priest": {
+   "x": 305,
+   "y": 141,
+   "w": 119,
+   "h": 136,
+   "anchor": [
+    364.5,
+    277
+   ]
+  }
+ }
+}

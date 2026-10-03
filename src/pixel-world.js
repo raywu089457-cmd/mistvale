@@ -58,7 +58,7 @@ function heroSprite(classId='berserker',frame=0,facing=1,variant=0,lodScale=hero
   // 武器往外伸就把畫布加寬,人不會因為姿勢不同而忽大忽小。沒有姿勢圖就用待機圖。
   const pf=pose!=='idle'&&hf?heroFrameFor(`${classId}_${pose}`,lodScale):null;
   if(pf&&pf.sc===hf.sc){const key=`${classId}:${pose}:${facing}:${variant%3}:${pf.sc}`;if(spriteCache.has(key))return spriteCache.get(key);
-    const cell=pf.cell,res=pf.sc===2?2:1,H=35*res,k=(H-res)/hf.cell.h,dw=Math.max(1,Math.round(cell.w*k)),dh=Math.max(1,Math.round(cell.h*k)),fx=(cell.foot??cell.w/2)*k;
+    const cell=pf.cell,res=pf.sc,H=35*res,k=(H-res)/hf.cell.h,dw=Math.max(1,Math.round(cell.w*k)),dh=Math.max(1,Math.round(cell.h*k)),fx=(cell.foot??cell.w/2)*k;
     const half=Math.ceil(Math.max(20*res,fx,dw-fx)),c=makeCanvas(half*2,H),g=c.getContext('2d');g.imageSmoothingEnabled=false;g.save();if(facing<0){g.translate(c.width,0);g.scale(-1,1);}
     g.drawImage(pf.img,cell.x,cell.y,cell.w,cell.h,Math.round(half-fx),H-dh,dw,dh);g.restore();
     g.globalCompositeOperation='source-atop';g.fillStyle=HERO_TINT[variant%3];g.fillRect(0,0,c.width,c.height);heroUse.atlas++;spriteCache.set(key,c);return c;}
@@ -71,7 +71,7 @@ function heroSprite(classId='berserker',frame=0,facing=1,variant=0,lodScale=hero
   // 圖集還沒載完時 heroFrameFor 回 null,自動退回下面的程序繪製。
   if(hf){
     // 畫布 40×35:拿大武器的角色以高度對齊,不被寬度壓小(繪製時寬度跟著畫布比例走)。
-    const cell=hf.cell,resolution=hf.sc===2?2:1,c=makeCanvas(40*resolution,35*resolution),g=c.getContext('2d');
+    const cell=hf.cell,resolution=hf.sc,c=makeCanvas(40*resolution,35*resolution),g=c.getContext('2d');
     g.imageSmoothingEnabled=false;
     const k=Math.min(c.width/cell.w,(c.height-resolution)/cell.h);
     const dw=Math.max(1,Math.round(cell.w*k)),dh=Math.max(1,Math.round(cell.h*k));
@@ -241,7 +241,7 @@ let heroLodScale=1;
 const heroUse={calls:0,atlas:0,proc:0};
 const HERO_TINT=['rgba(255,225,190,.10)','rgba(190,215,255,.10)','rgba(255,200,215,.10)'];
 function heroFrameFor(classId,sc){
-  const pick=sc>=2.2?2:1;
+  const pick=sc>=4.4?4:sc>=2.2?2:1;  // 每邏輯像素的裝置像素數 → 1x/2x/4x
   let alt=null;
   for(const lod of heroAtlasLod){
     const cell=lod.frames[classId];
@@ -253,12 +253,12 @@ function heroFrameFor(classId,sc){
 }
 function ensureHeroAtlas(){
   const assets=globalThis.PIXEL_ASSETS||{};
-  for(const [sheetKey,manKey] of [['heroAtlas','heroManifest'],['heroAtlas2x','heroManifest2x'],['heroposeAtlas','heroposeManifest'],['heroposeAtlas2x','heroposeManifest2x']]){
+  for(const [sheetKey,manKey] of [['heroAtlas','heroManifest'],['heroAtlas2x','heroManifest2x'],['heroposeAtlas','heroposeManifest'],['heroposeAtlas2x','heroposeManifest2x'],['heroAtlas4x','heroManifest4x'],['heroposeAtlas4x','heroposeManifest4x']]){
     if(!assets[sheetKey]||!assets[manKey]||loadedAssetKeys.has(sheetKey))continue;
     loadedAssetKeys.add(sheetKey);
     const m=(typeof assets[manKey]==='string')?JSON.parse(assets[manKey]):assets[manKey];
     const im=new Image();
-    im.onload=()=>{heroAtlasLod.push({img:im,scale:m.scale>=0.2?2:1,frames:m.cells});
+    im.onload=()=>{heroAtlasLod.push({img:im,scale:m.scale>=0.5?4:m.scale>=0.2?2:1,frames:m.cells});
       // spriteCache 只存角色圖。圖集載入前建的程序版會被快取住永遠不換,
       // 所以圖集一到就整批清掉,下一幀全部改用圖集重建。
       spriteCache.clear();heroUse.atlas=heroUse.proc=0;
@@ -528,7 +528,7 @@ export function createWorld(canvas,{onSelect=()=>{},onPlace=()=>{},getState=()=>
   const screen=canvas.getContext('2d',{alpha:false}),buffer=makeCanvas(800,500),bg=buffer.getContext('2d',{alpha:false});
   // 物件先畫到 spriteLayer、影子畫到 shadowLayer;地面 → 整層影子 → 物件。g 指向「目前在畫的那一層」。
   const shadowLayer=makeCanvas(800,500),sg=shadowLayer.getContext('2d'),spriteLayer=makeCanvas(800,500),spg=spriteLayer.getContext('2d');
-  let g=bg,casting=false;
+  let g=bg,casting=false,DPRK=1;  // DPRK = 裝置像素 / 邏輯像素(選圖集解析度用)
   canvas.style.imageRendering='pixelated';canvas.style.touchAction='none';screen.imageSmoothingEnabled=false;bg.imageSmoothingEnabled=false;
   let width=800,height=500,scale=.9,elapsed=0,phase=.15,selected=null,placing=null,state={buildings:{},hunters:[],enemies:[],effects:[]},disposed=false,quality=true,baseScale=1.95;
   let cam={x:-90,y:-27},target={x:-90,y:-27},pointer=null,hover=null,lastSource=null,pinchDistance=0,homeFraming=false;
@@ -881,7 +881,7 @@ export function createWorld(canvas,{onSelect=()=>{},onPlace=()=>{},getState=()=>
 
   generateGround();
 
-  function resize(){const r=canvas.getBoundingClientRect();const actualWidth=Math.max(320,Math.round(r.width||innerWidth)),actualHeight=Math.max(260,Math.round(r.height||innerHeight));const dpr=Math.max(1,Math.min(2.5,globalThis.devicePixelRatio||1));canvas.width=Math.round(actualWidth*dpr);canvas.height=Math.round(actualHeight*dpr);width=actualWidth;height=actualHeight;/* 畫布用裝置解析度:像素圖一樣最近鄰放大,文字直接用高解析畫 */buffer.width=width;buffer.height=height;for(const c of [shadowLayer,spriteLayer]){c.width=width;c.height=height;}screen.imageSmoothingEnabled=false;bg.imageSmoothingEnabled=false;sg.imageSmoothingEnabled=false;spg.imageSmoothingEnabled=false;const n=2*Math.max(.62,Math.min(1.18,width/1140,(height/2-56)/300));scale*=n/baseScale;baseScale=n;if(!lastSource){scale=n;lastSource=true;}}
+  function resize(){const r=canvas.getBoundingClientRect();const actualWidth=Math.max(320,Math.round(r.width||innerWidth)),actualHeight=Math.max(260,Math.round(r.height||innerHeight));const dpr=Math.max(1,Math.min(2.5,globalThis.devicePixelRatio||1));canvas.width=Math.round(actualWidth*dpr);canvas.height=Math.round(actualHeight*dpr);width=actualWidth;height=actualHeight;/* 畫布用裝置解析度:像素圖一樣最近鄰放大,文字直接用高解析畫 */for(const c of [buffer,shadowLayer,spriteLayer]){c.width=canvas.width;c.height=canvas.height;}  /* 全部用裝置解析度畫(高 DPI 螢幕上像素圖也清楚) */screen.imageSmoothingEnabled=false;bg.imageSmoothingEnabled=false;sg.imageSmoothingEnabled=false;spg.imageSmoothingEnabled=false;const n=2*Math.max(.62,Math.min(1.18,width/1140,(height/2-56)/300));scale*=n/baseScale;baseScale=n;if(!lastSource){scale=n;lastSource=true;}}
   function screenPoint(x,z,y=0){const p=iso(x,z);return{x:Math.round(width/2+(p.x-cam.x)*scale),y:Math.round(height/2+50+(p.y-cam.y-y*8)*scale)};}
   function project(x,y=0,z=0){const p=screenPoint(x,z,y);return{x:p.x,y:p.y,visible:p.x>=0&&p.x<=width&&p.y>=0&&p.y<=height};}
   function unproject(clientX,clientY){const r=canvas.getBoundingClientRect(),sx=(clientX-r.left)*width/r.width,sy=(clientY-r.top)*height/r.height,ix=(sx-width/2)/scale+cam.x,iy=(sy-height/2-50)/scale+cam.y;return{x:(ix/PX+iy/PY)/2,z:(iy/PY-ix/PX)/2,sx,sy};}
@@ -938,7 +938,7 @@ export function createWorld(canvas,{onSelect=()=>{},onPlace=()=>{},getState=()=>
   const WIDE_DETAIL=new Set(['cliffLedge','snowDrift','fallenLog','streamBridge','bankRocks','waterfall','fenceRail','fence','stall','fruitStand','tableSet','bench','handCart','well','flowerBox','riverRocks','boulders','outcrop','cave','ruin','trough','crates','barrels','hayBale','firewood','sacks','railing','signpost']);
   const CHAR_DETAIL=new Set(['merchant','farmer','child','elder','smith','maid','cat','dog','sheep','goat']);
   function drawAtlasDetail(id,p,bw,bh,offset=0,alpha=1,flip=false){
-    const lod=detailFrameFor(id,scale>=2.2);
+    const lod=detailFrameFor(id,scale*DPRK>=2.2);
     if(!lod)return false;
     const c=lod.frames[id];
     const rs=Math.min(bw*scale/c.w,bh*scale/c.h);
@@ -954,7 +954,7 @@ export function createWorld(canvas,{onSelect=()=>{},onPlace=()=>{},getState=()=>
   }
   // 用「每來源像素」的統一倍率畫。不把寬度硬塞成固定值,所以寬一點的建築就真的寬一點。
   function drawAtlasBuilding(id,p,offset=0,mult=1){
-    const prefer2x=scale>=2.2;
+    const prefer2x=scale*DPRK>=2.2;
     atlasUse.lastScale=scale;
     const lod=atlasFrameFor(id,prefer2x);
     if(!lod)return null;
@@ -992,9 +992,14 @@ export function createWorld(canvas,{onSelect=()=>{},onPlace=()=>{},getState=()=>
   function fitScaleFor(key,img,sx,sy,sw,sh,W,H,pos){
     const half=blockHalf(pos.x,pos.z);if(!half)return 1.6;const k0=`${key}:${W}:${pos.x},${pos.z}`;if(fitCache.has(k0))return fitCache.get(k0);
     const cw=Math.min(160,sw),ch=Math.max(1,Math.round(sh*cw/sw)),c=makeCanvas(cw,ch),cx=c.getContext('2d',{willReadFrequently:true});cx.drawImage(img,sx,sy,sw,sh,0,0,cw,ch);
-    const a=cx.getImageData(0,0,cw,ch).data,pts=[];for(let y=0;y<ch;y++)for(let x=0;x<cw;x++)if(a[(y*cw+x)*4+3]>100)pts.push([(x+.5)/cw*W-W/2,9-H+(y+.5)/ch*H]);
-    const ok=k=>pts.every(([X,Y])=>{const x=k*X,y=9-k*(9-Y);if(x>(half.e+half.n)*9||x<-(half.w+half.s)*9)return false;if(y<=0)return true;
-      const dx=(x/9+y/4.5)/2,dz=(y/4.5-x/9)/2;return dx<=half.e&&dx>=-half.w&&dz<=half.s&&dz>=-half.n;});
+    // 每一欄最低的不透明像素＝貼地點(牆腳、露台邊、台階):不管在錨點上方或下方,都要落在街區內。
+    // 整張圖的左右也不能超過街區菱形的左右角。
+    const a=cx.getImageData(0,0,cw,ch).data,ground=[],xs=[];
+    for(let x=0;x<cw;x++){let yb=-1;for(let y=ch-1;y>=0;y--)if(a[(y*cw+x)*4+3]>100){yb=y;break;}if(yb<0)continue;const X=(x+.5)/cw*W-W/2;ground.push([X,9-H+(yb+.5)/ch*H]);xs.push(X);}
+    // 屋簷懸空的欄不算貼地:等角地面線從最低點往兩側以 1:2 上升,只收離地面線 12% 圖寬以內的點。
+    {const yMax=Math.max(...ground.map(g=>g[1])),xMid=ground.find(g=>g[1]===yMax)?.[0]??0,T=.12*W;for(let i=ground.length-1;i>=0;i--){const [X,Y]=ground[i];if(Y<yMax-Math.abs(X-xMid)*.5-T)ground.splice(i,1);}}
+    const ok=k=>{for(const X of xs){const x=k*X;if(x>(half.e+half.n)*9||x<-(half.w+half.s)*9)return false;}
+      return ground.every(([X,Y])=>{const x=k*X,y=9-k*(9-Y),dx=(x/9+y/4.5)/2,dz=(y/4.5-x/9)/2;return dx<=half.e&&dx>=-half.w&&dz<=half.s&&dz>=-half.n;});};
     let lo=.3,hi=1.6;if(ok(hi))lo=hi;else for(let i=0;i<18;i++){const m=(lo+hi)/2;if(ok(m))lo=m;else hi=m;}
     fitCache.set(k0,lo);return lo;}
   // 畫面上的實際倍率 = min(玩家設定的大小, 街區容得下的最大尺寸)
@@ -1239,7 +1244,7 @@ export function createWorld(canvas,{onSelect=()=>{},onPlace=()=>{},getState=()=>
   // 每個 bridgeRail 裝飾只畫長條上屬於自己那一格(u)的切片;最後一根(last)只畫柱子。
   // 欄杆高 12 世界像素;切片寬 = 一格世界單位(螢幕 9:4.5),剛好對上剪切斜率 0.5。
   function drawRailSlice(u,last,p){
-    const lod=detailFrameFor('railing',scale>=2.2),c=lod?.frames.railing;if(!c?.frontH)return false;
+    const lod=detailFrameFor('railing',scale*DPRK>=2.2),c=lod?.frames.railing;if(!c?.frontH)return false;
     const k=12*scale/c.frontH,uw=9*scale/k,half=c.postW/2;
     const a=last?0:u*uw,w=last?c.postW:Math.min(uw+1,c.w-u*uw);if(w<=0)return false;
     const anchor=a+half;
@@ -1250,7 +1255,7 @@ export function createWorld(canvas,{onSelect=()=>{},onPlace=()=>{},getState=()=>
   // 魔物圖集(l0veyou 生):各格大小不同,倍率一律以第 0 格算,動畫才不會忽大忽小。
   // frame:0 待機、1 蓄力(狼伏低、魔像舉拳、領主怒吼)、2 出手(有攻擊圖集才有,沒有退回 1)。
   function drawAtlasMonster(type,frame,p,sz,flip,alpha=1){
-    let id=type+frame,lod=detailFrameFor(id,scale>=2.2);if(!lod&&frame===2){id=type+'1';lod=detailFrameFor(id,scale>=2.2);}if(!lod){id=type+'0';lod=detailFrameFor(id,scale>=2.2);}
+    let id=type+frame,lod=detailFrameFor(id,scale*DPRK>=2.2);if(!lod&&frame===2){id=type+'1';lod=detailFrameFor(id,scale*DPRK>=2.2);}if(!lod){id=type+'0';lod=detailFrameFor(id,scale*DPRK>=2.2);}
     // 倍率基準＝待機圖(第 0 格)。0 格在 monsters 圖集、其他姿勢在 monsteratk 圖集 → 用「同解析度」的那份 0 格,不然會縮放錯或退回程序圖。
     const refLod=lod&&(detailLod.find(l=>l.scale===lod.scale&&l.frames[type+'0'])||detailFrameFor(type+'0',lod.scale===2)),ref=refLod?.frames[type+'0'];if(!lod||!ref)return null;
     const c=lod.frames[id],rs=sz*scale/Math.max(ref.w,ref.h),dw=Math.max(1,Math.round(c.w*rs)),dh=Math.max(1,Math.round(c.h*rs));
@@ -1354,6 +1359,7 @@ export function createWorld(canvas,{onSelect=()=>{},onPlace=()=>{},getState=()=>
     g.globalAlpha=1;
   }
   function render(){
+    DPRK=canvas.width/width;for(const c of [bg,sg,spg]){c.setTransform(DPRK,0,0,DPRK,0,0);c.imageSmoothingEnabled=false;}
     screen.imageSmoothingEnabled=false;g.imageSmoothingEnabled=false;hits.length=0;uiLabels.length=0;screenTexts.length=0;
     const gx=Math.round(width/2+(-groundOrigin.x-cam.x)*scale),gy=Math.round(height/2+50+(-groundOrigin.y-cam.y)*scale);
     // 地面畫布外也是同一片海:底色+海材質,材質原點對齊地面畫布,拉遠時不會露出一條平塗色帶。
@@ -1375,7 +1381,7 @@ export function createWorld(canvas,{onSelect=()=>{},onPlace=()=>{},getState=()=>
     try{for(const item of all){if(item.type==='decor')drawDecoration(item.data);else if(item.type==='building')drawBuilding(item.data);else if(item.type==='hunter')drawHunter(item.data);else drawEnemy(item.data);}}
     finally{casting=false;g=bg;}
     // 影子整層一次壓上地面(重疊處不會疊黑),再蓋上所有物件。
-    g.save();g.globalAlpha=SHADOW_ALPHA;g.drawImage(shadowLayer,0,0);g.restore();g.drawImage(spriteLayer,0,0);
+    g.save();g.setTransform(1,0,0,1,0,0);g.globalAlpha=SHADOW_ALPHA;g.drawImage(shadowLayer,0,0);g.globalAlpha=1;g.drawImage(spriteLayer,0,0);g.restore();
     // 戰鬥中的獵人被前面的大魔物/樹擋住時,疊一層半透明的自己(沒被擋的地方疊上去看不出差別)。
     for(const h of state.hunters||[])ghostHunter(h);
     for(const f of overlays.splice(0))f();
@@ -1389,11 +1395,11 @@ export function createWorld(canvas,{onSelect=()=>{},onPlace=()=>{},getState=()=>
     if(placing&&hover){const blk=blockAt(hover.x,hover.z),snap=blk&&blk.use!=='plaza'?blk:hover,p=screenPoint(snap.x,snap.z),sp=atlasCell(placing)||buildingSprite(placing),w=conceptBuildingWidth(placing);ring(p,30,'#d8ebac');drawSprite(sp,p,w,w*sp.height/sp.width,9,.55);textLabel('點擊放置 · ESC 取消',p.x,p.y+22,{color:'#e6edbf'});}
     // 地名:拉遠才顯示,畫在戰鬥空地外緣(北邊)而不是空地中央。
     if(scale<1.2){for(const r of REGIONS){const a=ARENAS.find(a=>a.id===r.id),p=a?screenPoint(a.x-a.rx-1.2,a.z-a.rz-1.2):screenPoint(r.x,r.z);textLabel(r.name,p.x,p.y-6,{color:'#ffe6a6',size:8});}}
-    screen.imageSmoothingEnabled=false;screen.drawImage(buffer,0,0,canvas.width,canvas.height);const k=canvas.width/width;screen.save();screen.textAlign='center';screen.textBaseline='middle';
+    screen.imageSmoothingEnabled=false;screen.drawImage(buffer,0,0);const k=canvas.width/width;screen.save();screen.textAlign='center';screen.textBaseline='middle';
     for(const t of screenTexts)drawScreenText(t,k);
     screen.font=`bold ${Math.round(11*k)}px "Microsoft JhengHei", "Noto Sans TC", sans-serif`;for(const l of uiLabels){const x=Math.round(l.x*k),y=Math.round(l.y*k),tw=screen.measureText(l.text).width;screen.fillStyle='#1c0e06cc';screen.fillRect(x-tw/2-6*k,y-9*k,tw+12*k,19*k);screen.fillStyle='#4a2611e6';screen.fillRect(x-tw/2-5*k,y-8*k,tw+10*k,17*k);screen.fillStyle='#8a5530e6';screen.fillRect(x-tw/2-5*k,y-8*k,tw+10*k,2*k);screen.fillStyle='#dab247aa';screen.fillRect(x-tw/2-4*k,y+8*k,tw+8*k,k);screen.fillStyle=l.color;screen.fillText(l.text,x,y);}screen.restore();
   }
-  function update(dt,nextState){if(disposed)return;if(nextState){state=nextState;const key=BUILDINGS.map(b=>`${b.id}:${state.buildings?.[b.id]>0}:${state.layout?.[b.id]?.x??b.x}:${state.layout?.[b.id]?.z??b.z}`).join('|');if(key!==landscapeKey||terrainPatternRev!==lastPatternRev){lastPatternRev=terrainPatternRev;landscapeKey=key;generateGround();}}elapsed+=Math.min(dt||0,.1);heroLodScale=scale;ensureAtlas();const t=1-Math.exp(-Math.max(.016,dt||.016)*7);cam.x+=(target.x-cam.x)*t;cam.y+=(target.y-cam.y)*t;render();}
+  function update(dt,nextState){if(disposed)return;if(nextState){state=nextState;const key=BUILDINGS.map(b=>`${b.id}:${state.buildings?.[b.id]>0}:${state.layout?.[b.id]?.x??b.x}:${state.layout?.[b.id]?.z??b.z}`).join('|');if(key!==landscapeKey||terrainPatternRev!==lastPatternRev){lastPatternRev=terrainPatternRev;landscapeKey=key;generateGround();}}elapsed+=Math.min(dt||0,.1);heroLodScale=scale*DPRK;ensureAtlas();const t=1-Math.exp(-Math.max(.016,dt||.016)*7);cam.x+=(target.x-cam.x)*t;cam.y+=(target.y-cam.y)*t;render();}
   function setTime(p){phase=typeof p==='number'?((p%1)+1)%1:.15;}
   function setQuality(v){quality=v!==false&&v!=='low';}
   function dispose(){disposed=true;for(const[type,fn]of[['pointerdown',down],['pointermove',move],['pointerup',up],['pointercancel',up],['wheel',wheel],['pointerdown',stopHomeFraming]])canvas.removeEventListener(type,fn);spriteCache.clear();enemyCache.clear();}

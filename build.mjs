@@ -51,7 +51,8 @@ for(const [tag,file,js] of [['terrainAtlas','terrain-atlas.png',false],['terrain
 for(const [tag,file,js] of [['heroAtlas','hero@1x.png',false],['heroManifest','hero@1x.manifest.json',true],
                             ['heroAtlas2x','hero@2x.png',false],['heroManifest2x','hero@2x.manifest.json',true],
                             ['heroposeAtlas','heropose@1x.png',false],['heroposeManifest','heropose@1x.manifest.json',true],
-                            ['heroposeAtlas2x','heropose@2x.png',false],['heroposeManifest2x','heropose@2x.manifest.json',true]]){
+                            ['heroposeAtlas2x','heropose@2x.png',false],['heroposeManifest2x','heropose@2x.manifest.json',true],
+                            ['heroAtlas4x','hero@4x.png',false],['heroManifest4x','hero@4x.manifest.json',true],['heroposeAtlas4x','heropose@4x.png',false],['heroposeManifest4x','heropose@4x.manifest.json',true]]){
   try{const raw=await fs.readFile(path.join(root,`assets/${file}`));
     assetScript+=`window.PIXEL_ASSETS=window.PIXEL_ASSETS||{};window.PIXEL_ASSETS.${tag}=`
       +(js?raw.toString('utf8'):`'data:image/png;base64,${raw.toString('base64')}'`)+';';
