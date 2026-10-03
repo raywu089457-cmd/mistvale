@@ -854,9 +854,9 @@ export function createWorld(canvas,{onSelect=()=>{},onPlace=()=>{},getState=()=>
 
   generateGround();
 
-  function resize(){const r=canvas.getBoundingClientRect();const actualWidth=Math.max(320,Math.round(r.width||innerWidth)),actualHeight=Math.max(260,Math.round(r.height||innerHeight));canvas.width=actualWidth;canvas.height=actualHeight;width=actualWidth;height=actualHeight;buffer.width=width;buffer.height=height;for(const c of [shadowLayer,spriteLayer]){c.width=width;c.height=height;}screen.imageSmoothingEnabled=false;bg.imageSmoothingEnabled=false;sg.imageSmoothingEnabled=false;spg.imageSmoothingEnabled=false;const n=2*Math.max(.62,Math.min(1.18,width/1140,(height/2-56)/300));scale*=n/baseScale;baseScale=n;if(!lastSource){scale=n;lastSource=true;}}
+  function resize(){const r=canvas.getBoundingClientRect();const actualWidth=Math.max(320,Math.round(r.width||innerWidth)),actualHeight=Math.max(260,Math.round(r.height||innerHeight));const dpr=Math.max(1,Math.min(2.5,globalThis.devicePixelRatio||1));canvas.width=Math.round(actualWidth*dpr);canvas.height=Math.round(actualHeight*dpr);width=actualWidth;height=actualHeight;/* 畫布用裝置解析度:像素圖一樣最近鄰放大,文字直接用高解析畫 */buffer.width=width;buffer.height=height;for(const c of [shadowLayer,spriteLayer]){c.width=width;c.height=height;}screen.imageSmoothingEnabled=false;bg.imageSmoothingEnabled=false;sg.imageSmoothingEnabled=false;spg.imageSmoothingEnabled=false;const n=2*Math.max(.62,Math.min(1.18,width/1140,(height/2-56)/300));scale*=n/baseScale;baseScale=n;if(!lastSource){scale=n;lastSource=true;}}
   function screenPoint(x,z,y=0){const p=iso(x,z);return{x:Math.round(width/2+(p.x-cam.x)*scale),y:Math.round(height/2+50+(p.y-cam.y-y*8)*scale)};}
-  function project(x,y=0,z=0){const p=screenPoint(x,z,y);return{x:p.x*canvas.width/width,y:p.y*canvas.height/height,visible:p.x>=0&&p.x<=width&&p.y>=0&&p.y<=height};}
+  function project(x,y=0,z=0){const p=screenPoint(x,z,y);return{x:p.x,y:p.y,visible:p.x>=0&&p.x<=width&&p.y>=0&&p.y<=height};}
   function unproject(clientX,clientY){const r=canvas.getBoundingClientRect(),sx=(clientX-r.left)*width/r.width,sy=(clientY-r.top)*height/r.height,ix=(sx-width/2)/scale+cam.x,iy=(sy-height/2-50)/scale+cam.y;return{x:(ix/PX+iy/PY)/2,z:(iy/PY-ix/PX)/2,sx,sy};}
   function focusHome(){
     homeFraming=true;
@@ -943,7 +943,14 @@ export function createWorld(canvas,{onSelect=()=>{},onPlace=()=>{},getState=()=>
     return {x:dx,y:dy,w:dw,h:dh};
   }
   function ring(p,w=18,color='#ffe795'){g.strokeStyle='#435041';g.lineWidth=3;g.beginPath();g.ellipse(p.x,p.y,w*scale,w*.43*scale,0,0,Math.PI*2);g.stroke();g.strokeStyle=color;g.lineWidth=1;g.stroke();}
-  function textLabel(text,x,y,opts={}){if(casting){overlays.push(()=>textLabel(text,x,y,opts));return;}const {color='#fff7d9',size=7,back=true}=opts;if(document.body.dataset.artReview==='1')return;g.font=`bold ${size*2}px "Microsoft JhengHei", "Noto Sans TC", sans-serif`;g.textAlign='center';g.textBaseline='middle';const tw=Math.ceil(g.measureText(text).width);if(back){pixel(g,x-tw/2-5,y-10,tw+10,21,'#1c0e06cc');pixel(g,x-tw/2-4,y-9,tw+8,19,'#4a2611e6');pixel(g,x-tw/2-4,y-9,tw+8,2,'#8a5530e6');pixel(g,x-tw/2-3,y+9,tw+6,1,'#dab247aa');}g.fillStyle='#1c0e06';g.fillText(text,Math.round(x),Math.round(y+1));g.fillStyle=color;g.fillText(text,Math.round(x),Math.round(y));}
+  // 文字一律排進 screenTexts,最後在裝置解析度的畫布上畫(高清、永遠在最上層)。
+  const screenTexts=[];
+  function textLabel(text,x,y,opts={}){if(document.body.dataset.artReview==='1')return;screenTexts.push({text,x,y,alpha:g.globalAlpha,...opts});}
+  function drawScreenText(t,k){const {text,x:x0,y:y0,color='#fff7d9',size=7,back=true,alpha=1}=t,x=Math.round(x0*k),y=Math.round(y0*k);screen.globalAlpha=alpha;
+    screen.font=`bold ${Math.round(size*2*k)}px "Microsoft JhengHei", "Noto Sans TC", sans-serif`;const tw=Math.ceil(screen.measureText(text).width);
+    if(back){screen.fillStyle='#1c0e06cc';screen.fillRect(x-tw/2-5*k,y-10*k,tw+10*k,21*k);screen.fillStyle='#4a2611e6';screen.fillRect(x-tw/2-4*k,y-9*k,tw+8*k,19*k);screen.fillStyle='#8a5530e6';screen.fillRect(x-tw/2-4*k,y-9*k,tw+8*k,2*k);screen.fillStyle='#dab247aa';screen.fillRect(x-tw/2-3*k,y+9*k,tw+6*k,k);}
+    else{screen.lineWidth=Math.max(2,2.6*k);screen.strokeStyle='#1c0e06';screen.lineJoin='round';screen.strokeText(text,x,y);}
+    screen.fillStyle=color;screen.fillText(text,x,y);screen.globalAlpha=1;}
   // 物件那一輪(casting)裡畫的血條、名牌延後到最上層:不會被後畫的魔物、樹蓋住。
   const overlays=[];
   function bar(x,y,w,frac,color){if(casting){overlays.push(()=>bar(x,y,w,frac,color));return;}pixel(g,x-1,y-1,w+2,6,'#1c0e06dd');pixel(g,x,y,w,4,'#5a2f14');pixel(g,x,y,Math.max(0,w*Math.min(1,frac)),4,color);pixel(g,x,y,Math.max(0,w*Math.min(1,frac)),2,shade(color,25));}
@@ -999,7 +1006,6 @@ export function createWorld(canvas,{onSelect=()=>{},onPlace=()=>{},getState=()=>
   function drawDecorationArt(d,p){
     const prop=PROP_ATLAS[d.type];
     if(prop){const k=d.size||1;if(drawAtlasDetail(prop[0],p,prop[1]*k,prop[2]*k,prop[3],1,(d.variant||0)%2===1&&d.type!=='gate')){
-      if(d.type==='arenaFlag'&&scale>.6)uiLabels.push({text:d.region.name+' · 戰鬥空地',x:p.x,y:p.y-26*scale,color:'#f1dd9e'});
       return;}}
     if(d.type==='flowers'&&drawAtlasDetail(FLOWER_ATLAS[(d.variant||0)%4],p,9*(d.size||1),7*(d.size||1),1,1,(d.variant||0)>=4))return;
     if((d.type==='wheat'||d.type==='cabbage')&&drawAtlasDetail(d.type,p,d.type==='wheat'?9:10,d.type==='wheat'?9:7,1,1,(d.variant||0)%2===1))return;
@@ -1046,7 +1052,7 @@ export function createWorld(canvas,{onSelect=()=>{},onPlace=()=>{},getState=()=>
       }return;
     }
     if(d.type==='tree'&&!drawAtlasDetail(TREE_ATLAS[(d.variant||0)%4],p,50*d.size,72*d.size,4,([...(state.hunters||[]),...(state.enemies||[])].some(a=>a.hp>0&&a.x+a.z<d.x+d.z+.2&&canopyObscures(d.x,d.z,d.size,a.x,a.z,4))?.18:1))){drawSprite(treeCanvases[d.variant],p,50*d.size,72*d.size,4,1,'tree');return;}
-    if(d.type==='arenaFlag'){const ss=scale;pixel(g,p.x,p.y-26*ss,2*ss,28*ss,'#664b31');pixel(g,p.x+2*ss,p.y-25*ss,12*ss,12*ss,'#954f45');pixel(g,p.x+4*ss,p.y-22*ss,7*ss,2*ss,'#ead08c');if(scale>.6)uiLabels.push({text:d.region.name+' · 戰鬥空地',x:p.x,y:p.y-35*ss,color:'#f1dd9e'});return;}
+    if(d.type==='arenaFlag'){const ss=scale;pixel(g,p.x,p.y-26*ss,2*ss,28*ss,'#664b31');pixel(g,p.x+2*ss,p.y-25*ss,12*ss,12*ss,'#954f45');pixel(g,p.x+4*ss,p.y-22*ss,7*ss,2*ss,'#ead08c');return;}
     if(d.type==='mushroom'){
       const s=scale*(d.size||1);shadow(p,4,1.5);
       pixel(g,p.x-s,p.y-6*s,4*s,7*s,'#4d4032');pixel(g,p.x,p.y-5*s,2*s,5*s,'#e2d6b0');pixel(g,p.x+s,p.y-3*s,s,3*s,'#bca880');
@@ -1063,7 +1069,7 @@ export function createWorld(canvas,{onSelect=()=>{},onPlace=()=>{},getState=()=>
       const hh0=d.type==='cave'?38:d.type==='ruins'?28:17;
       // 外框高度放寬:圖集裡的岩峰/洞穴/遺跡是高的,舊的程序版高度會把它們壓成小石頭。
       if(drawAtlasDetail(d.type==='ruins'?'ruin':d.type,p,46*d.size,(d.type==='cave'?50:d.type==='ruins'?46:44)*d.size)){
-        if(d.type==='cave')textLabel('鐵脊礦坑',p.x,p.y+16*scale,{color:'#e3d5b0'});
+        
         return;}
       const s=scale*d.size,hh=hh0;polygon(g,[[p.x-19*s,p.y],[p.x-17*s,p.y-hh*s],[p.x+8*s,p.y-(hh+5)*s],[p.x+22*s,p.y-12*s],[p.x+20*s,p.y+7*s],[p.x-6*s,p.y+10*s]],'#565e5e');polygon(g,[[p.x-17*s,p.y-hh*s],[p.x+8*s,p.y-(hh+5)*s],[p.x+19*s,p.y-12*s],[p.x-5*s,p.y-4*s]],'#a5aba1');for(let i=0;i<5;i++)pixel(g,p.x-(12-i*5)*s,p.y-(hh-5-i%2*4)*s,4*s,2*s,i%2?'#c2bcb0':'#8f958c');if(d.type==='cave'){pixel(g,p.x-9*s,p.y-24*s,19*s,25*s,'#343e40');pixel(g,p.x-6*s,p.y-21*s,13*s,23*s,'#1d2930');pixel(g,p.x-15*s,p.y-16*s,3*s,5*s,'#e6a94c');pixel(g,p.x+15*s,p.y-15*s,3*s,5*s,'#ffd574');textLabel('鐵脊礦坑',p.x,p.y+16*s,{color:'#e3d5b0'});}else if(d.type==='ruins'){pixel(g,p.x-13*s,p.y-31*s,6*s,28*s,'#c3b489');pixel(g,p.x+8*s,p.y-26*s,6*s,29*s,'#a7a780');pixel(g,p.x-5*s,p.y-15*s,8*s,2*s,'#617b53');}else{pixel(g,p.x+4*s,p.y-11*s,3*s,3*s,'#ba8c66');pixel(g,p.x-8*s,p.y-9*s,3*s,2*s,'#d3a47a');}return;}
     if(d.type==='bridgeRail'){
@@ -1074,7 +1080,7 @@ export function createWorld(canvas,{onSelect=()=>{},onPlace=()=>{},getState=()=>
     }
     if(d.type==='signpost'){
       if(!drawAtlasDetail('signpost',p,13,16)){const s=scale;pixel(g,p.x,p.y-18*s,2*s,19*s,'#624a31');pixel(g,p.x-7*s,p.y-21*s,17*s,8*s,'#48392b');pixel(g,p.x-6*s,p.y-20*s,15*s,6*s,'#c4a66c');pixel(g,p.x-3*s,p.y-18*s,9*s,s,'#79613c');}
-      if(scale>1.3)textLabel(d.region.name,p.x,p.y-22*scale,{color:'#f7e6b2',size:7});return;
+      return;  // 戰鬥區不顯示文字(地名改在世界地圖縮小時、空地外緣顯示)
     }
     if(d.type==='animal'){
       const s=scale,bob=Math.sin(elapsed*2+d.phase)>0?1:0,goat=d.variant===1;
@@ -1221,7 +1227,7 @@ export function createWorld(canvas,{onSelect=()=>{},onPlace=()=>{},getState=()=>
     contact(p,boss?12:7);
     const rect=posed(p,pose,q=>drawAtlasMonster(e.type,frame,q,sz,flip));
     if(!rect){procUse['enemy:'+e.type]=(procUse['enemy:'+e.type]||0)+1;posed(p,pose,q=>drawSprite(enemySprite(e.type,frame%2),q,sz,sz,2,1,'char'));}
-    if(e.hp<e.maxHp||boss||targeted){bar(p.x-(boss?17:10)*scale,p.y-(sz+3)*scale,(boss?34:20)*scale,e.hp/(e.maxHp||1),boss?'#d27967':'#c68764');if(boss)textLabel('森林領主',p.x,p.y-(sz+11)*scale,{color:'#ffcc97'});}}
+    if(e.hp<e.maxHp||boss||targeted){bar(p.x-(boss?17:10)*scale,p.y-(sz+3)*scale,(boss?34:20)*scale,e.hp/(e.maxHp||1),boss?'#d27967':'#c68764');}}
 
   // ── 戰鬥特效 ──────────────────────────────────────────────────────────
   // 時間軸:effect 生出來就是「出手」;e.delay 秒後才「命中」(箭/法球飛行中),命中後才有斬痕、火花、數字。
@@ -1295,7 +1301,7 @@ export function createWorld(canvas,{onSelect=()=>{},onPlace=()=>{},getState=()=>
     g.globalAlpha=1;
   }
   function render(){
-    screen.imageSmoothingEnabled=false;g.imageSmoothingEnabled=false;hits.length=0;uiLabels.length=0;
+    screen.imageSmoothingEnabled=false;g.imageSmoothingEnabled=false;hits.length=0;uiLabels.length=0;screenTexts.length=0;
     const gx=Math.round(width/2+(-groundOrigin.x-cam.x)*scale),gy=Math.round(height/2+50+(-groundOrigin.y-cam.y)*scale);
     // 地面畫布外也是同一片海:底色+海材質,材質原點對齊地面畫布,拉遠時不會露出一條平塗色帶。
     g.fillStyle=groundBase('ocean')||'#407b86';g.fillRect(0,0,width,height);
@@ -1326,8 +1332,11 @@ export function createWorld(canvas,{onSelect=()=>{},onPlace=()=>{},getState=()=>
     const night=phase>.5?Math.sin((phase-.5)*Math.PI*2)*.15:0;if(night>0){g.fillStyle=`rgba(32,43,79,${night})`;g.fillRect(0,0,width,height);}
     // Placement preview projects to the same coordinate system as simulation.
     if(placing&&hover){const p=screenPoint(hover.x,hover.z),sp=atlasCell(placing)||buildingSprite(placing),w=conceptBuildingWidth(placing);ring(p,30,'#d8ebac');drawSprite(sp,p,w,w*sp.height/sp.width,9,.55);textLabel('點擊放置 · ESC 取消',p.x,p.y+22,{color:'#e6edbf'});}
-    if(scale<1.2){for(const r of REGIONS){const p=screenPoint(r.x,r.z);textLabel(r.name,p.x,p.y+14,{color:'#ffe6a6',size:8});}}
-    screen.drawImage(buffer,0,0,canvas.width,canvas.height);screen.save();screen.font='bold 11px Microsoft JhengHei';screen.textAlign='center';screen.textBaseline='middle';for(const l of uiLabels){const x=Math.round(l.x*canvas.width/width),y=Math.round(l.y*canvas.height/height),tw=screen.measureText(l.text).width;screen.fillStyle='#1c0e06cc';screen.fillRect(x-tw/2-6,y-9,tw+12,19);screen.fillStyle='#4a2611e6';screen.fillRect(x-tw/2-5,y-8,tw+10,17);screen.fillStyle='#8a5530e6';screen.fillRect(x-tw/2-5,y-8,tw+10,2);screen.fillStyle='#dab247aa';screen.fillRect(x-tw/2-4,y+8,tw+8,1);screen.fillStyle=l.color;screen.fillText(l.text,x,y);}screen.restore();
+    // 地名:拉遠才顯示,畫在戰鬥空地外緣(北邊)而不是空地中央。
+    if(scale<1.2){for(const r of REGIONS){const a=ARENAS.find(a=>a.id===r.id),p=a?screenPoint(a.x-a.rx-1.2,a.z-a.rz-1.2):screenPoint(r.x,r.z);textLabel(r.name,p.x,p.y-6,{color:'#ffe6a6',size:8});}}
+    screen.imageSmoothingEnabled=false;screen.drawImage(buffer,0,0,canvas.width,canvas.height);const k=canvas.width/width;screen.save();screen.textAlign='center';screen.textBaseline='middle';
+    for(const t of screenTexts)drawScreenText(t,k);
+    screen.font=`bold ${Math.round(11*k)}px "Microsoft JhengHei", "Noto Sans TC", sans-serif`;for(const l of uiLabels){const x=Math.round(l.x*k),y=Math.round(l.y*k),tw=screen.measureText(l.text).width;screen.fillStyle='#1c0e06cc';screen.fillRect(x-tw/2-6*k,y-9*k,tw+12*k,19*k);screen.fillStyle='#4a2611e6';screen.fillRect(x-tw/2-5*k,y-8*k,tw+10*k,17*k);screen.fillStyle='#8a5530e6';screen.fillRect(x-tw/2-5*k,y-8*k,tw+10*k,2*k);screen.fillStyle='#dab247aa';screen.fillRect(x-tw/2-4*k,y+8*k,tw+8*k,k);screen.fillStyle=l.color;screen.fillText(l.text,x,y);}screen.restore();
   }
   function update(dt,nextState){if(disposed)return;if(nextState){state=nextState;const key=BUILDINGS.map(b=>`${b.id}:${state.buildings?.[b.id]>0}:${state.layout?.[b.id]?.x??b.x}:${state.layout?.[b.id]?.z??b.z}`).join('|');if(key!==landscapeKey||terrainPatternRev!==lastPatternRev){lastPatternRev=terrainPatternRev;landscapeKey=key;generateGround();}}elapsed+=Math.min(dt||0,.1);heroLodScale=scale;ensureAtlas();const t=1-Math.exp(-Math.max(.016,dt||.016)*7);cam.x+=(target.x-cam.x)*t;cam.y+=(target.y-cam.y)*t;render();}
   function setTime(p){phase=typeof p==='number'?((p%1)+1)%1:.15;}
