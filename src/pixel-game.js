@@ -261,7 +261,7 @@ export function createGame(saved = null) {
     let proposed=position;
     if(!proposed){let best=-1;for(let i=0;i<6;i++){const c={x:region.x-5+random()*10,z:region.z-5.5+random()*11},gap=Math.min(99,...state.enemies.filter(e=>e.hp>0).map(e=>Math.hypot(e.x-c.x,e.z-c.z)));if(gap>best){best=gap;proposed=c;}}}
     const anchor=(regionId&&ARENAS.find(a=>a.id===regionId))||ARENAS.find(a=>a.id===regionAt(proposed.x,proposed.z).id)||ARENAS.find(a=>a.id===region.id)||ARENAS[0];
-    const dx=proposed.x-anchor.x,dz=proposed.z-anchor.z,norm=Math.hypot(dx/anchor.rx,dz/anchor.rz),factor=norm>.82?.82/norm:1;
+    const dx=proposed.x-anchor.x,dz=proposed.z-anchor.z,norm=Math.hypot(dx/anchor.rx,dz/anchor.rz),factor=norm>.7?.7/norm:1;  // 出生在空地內圈 70%
     const p=safePoint({x:anchor.x+dx*factor,z:anchor.z+dz*factor}),data=ENEMIES[type],multiplier=DIFFICULTIES[state.difficulty].mult*(region.risk||1);
     const e = { id: id('e'), type, x: p.x, z: p.z, hp: Math.round(data.hp * multiplier), maxHp: Math.round(data.hp * multiplier), attack: Math.round(data.attack * multiplier), attackTimer: 0.6 + random(), age: 0 };
     const home=ARENAS.find(a=>a.id===anchor.id)||arenaAt(p.x,p.z,3)||ARENAS[0];e.regionId=home.id;e.homeX=home.x;e.homeZ=home.z;state.enemies.push(e); return e;
@@ -366,9 +366,9 @@ export function createGame(saved = null) {
   function step(dt) {
     state.time += dt; state.day = Math.floor(state.time / 240) + 1;
     state.healCooldown = Math.max(0, state.healCooldown - dt); state.expedition.cooldown = Math.max(0, state.expedition.cooldown - dt); state.dungeon.cooldown = Math.max(0, state.dungeon.cooldown - dt); state.arena.cooldown = Math.max(0, state.arena.cooldown - dt);
-    // 定時生怪:每個狩獵區都有自己的族群。目前狩獵區 4.5 秒補一隻、上限 7;其他區 8 秒補一隻、上限 4。
+    // 定時生怪:每個狩獵區都有自己的族群。目前狩獵區 4.5 秒補一隻、上限 5;其他區 8 秒補一隻、上限 4。
     state.spawnTimer += dt;
-    if (state.spawnTimer >= 4.5) { state.spawnTimer -= 4.5; const n = state.enemies.filter(e => e.hp > 0 && e.type !== 'boss' && e.regionId === state.region).length; if (n < 7) { const mix = REGION_MIX[state.region] || REGION_MIX.meadow; spawn(mix[Math.floor(random() * mix.length)], null, state.region); } }
+    if (state.spawnTimer >= 4.5) { state.spawnTimer -= 4.5; const n = state.enemies.filter(e => e.hp > 0 && e.type !== 'boss' && e.regionId === state.region).length; if (n < 5) { const mix = REGION_MIX[state.region] || REGION_MIX.meadow; spawn(mix[Math.floor(random() * mix.length)], null, state.region); } }
     state.regionSpawn ??= {};
     for (const a of ARENAS) { if (a.id === state.region) continue; state.regionSpawn[a.id] = (state.regionSpawn[a.id] || 0) + dt; if (state.regionSpawn[a.id] < 8) continue; state.regionSpawn[a.id] = 0;
       if (state.enemies.filter(e => e.hp > 0 && e.type !== 'boss' && e.regionId === a.id).length < 4) { const mix = REGION_MIX[a.id]; spawn(mix[Math.floor(random() * mix.length)], null, a.id); } }
@@ -422,7 +422,7 @@ export function createGame(saved = null) {
         walk(h, dt); if (!target && !h.route.length) h.status = '待命';
       }
     }
-    // 每位獵人同時最多兩隻魔物近身(首領不佔名額),其他在 3.4 格外等空位:一對一、一對二,誰打誰看得清楚。
+    // 每位獵人同時最多兩隻魔物近身(首領不佔名額),其他在 4 格外等空位:一對一、一對二,誰打誰看得清楚。
     const slots = new Map();
     for (const e of state.enemies) if (e.hp > 0 && e.engaged && e.slotFor) slots.set(e.slotFor, (slots.get(e.slotFor) || 0) + 1);
     const fieldOk = p => arenaContains(p.regionId, p.x, p.z, .2) && !inVillage(p.x, p.z) && !isBridge(p.x, p.z) && !isBridge(p.x + 1, p.z) && !blocked(p);
@@ -441,14 +441,17 @@ export function createGame(saved = null) {
       enemy.facingX = target.x; enemy.facingZ = target.z;
       const mine = enemy.engaged && enemy.slotFor === target.id, free = mine || enemy.type === 'boss' || (slots.get(target.id) || 0) < 2;
       if (!free) {
-        enemy.engaged = false; const want = d > 3.7 ? Math.min(ENEMIES[enemy.type].speed * dt, d - 3.4) : d < 3.0 ? -Math.min(ENEMIES[enemy.type].speed * 0.5 * dt, 3.2 - d) : 0;
-        if (want) { const p = { x: enemy.x + (target.x - enemy.x) / d * want, z: enemy.z + (target.z - enemy.z) / d * want, regionId: enemy.regionId || state.region }; if (fieldOk(p) && lineClear(enemy, p)) { enemy.x = p.x; enemy.z = p.z; } }
+        // 等空位:站到「獵人往空地中心的方向」4 格外(戰鬥另一側、空地深處),不在獵人前面圍一圈擋住畫面。
+        enemy.engaged = false; const ar = ARENAS.find(a => a.id === (enemy.regionId || state.region)) || target, vx = ar.x - target.x, vz = ar.z - target.z, vl = Math.hypot(vx, vz) || 1;
+        const k = (enemy.id.charCodeAt(enemy.id.length - 1) % 5 - 2) * .45, wx = target.x + (vx / vl) * 4.2 - (vz / vl) * k * 2.2, wz = target.z + (vz / vl) * 4.2 + (vx / vl) * k * 2.2;
+        const wd = Math.hypot(wx - enemy.x, wz - enemy.z);
+        if (wd > .3) { const st = Math.min(ENEMIES[enemy.type].speed * .8 * dt, wd), p = { x: enemy.x + (wx - enemy.x) / wd * st, z: enemy.z + (wz - enemy.z) / wd * st, regionId: enemy.regionId || state.region }; if (fieldOk(p) && lineClear(enemy, p)) { enemy.x = p.x; enemy.z = p.z; } }
         continue;
       }
       enemy.engaged = d <= reach; if (enemy.engaged && !mine) { enemy.slotFor = target.id; if (enemy.type !== 'boss') slots.set(target.id, (slots.get(target.id) || 0) + 1); }
       if (d > reach) {
         const delta = Math.min(ENEMIES[enemy.type].speed * dt, d - reach * 0.8), p = { x: clamp(enemy.x + (target.x - enemy.x) / d * delta,WORLD.minX+1,WORLD.maxX-1), z: enemy.z + (target.z - enemy.z) / d * delta };
-        if (arenaContains(enemy.regionId||state.region,p.x,p.z,.2) && !inVillage(p.x,p.z) && !isBridge(p.x,p.z) && !isBridge(p.x+1,p.z) && !blocked(p) && lineClear(enemy, p)) Object.assign(enemy, p);  // 魔物不上橋:戰鬥留在開闊的空地
+        if (arenaContains(enemy.regionId||state.region,p.x,p.z,-1.2) && !inVillage(p.x,p.z) && !isBridge(p.x,p.z) && !isBridge(p.x+1,p.z) && !blocked(p) && lineClear(enemy, p)) Object.assign(enemy, p);  // 魔物只在空地內圈追(離邊緣 1.2 格):獵人要走進空地才開打,不會擠在橋頭/柵欄邊;魔物不上橋:戰鬥留在開闊的空地
       } else if (enemy.attackTimer === 0) {
         enemy.attackTimer = enemy.type === 'boss' ? 1.5 : 1.8;
         const damage = Math.max(2, Math.round(enemy.attack - target.defense * 0.7));
@@ -486,7 +489,7 @@ export function createGame(saved = null) {
     state.arena = { active: false, wins: 0, losses: 0, enemyHp: 0, enemyMaxHp: 0, time: 0, hunterIds: [], cooldown: 0, phase: '待命', attackTimer: 1, opponent: '暮林訓練隊', reward: 0 };
     for (let i = 0; i < 5; i++) newHunter(CLASSES[i % CLASSES.length].id, {x:CAMP.x+i*.6-1.2,z:CAMP.z+i*.2}, i);
     for (let i = 0; i < 3; i++) state.visitors.push(newVisitor());
-    spawn('slime', { x: 12, z: -2 }); spawn('slime', { x: 15, z: -4 }); spawn('wolf', { x: 19, z: -6 }); spawn('slime', { x: 18, z: 3 }); spawn('golem', { x: 23, z: -3 });
+    for (const t of ['slime', 'slime', 'wolf', 'slime', 'golem']) spawn(t, null, 'meadow');  // 開局草原魔物也在空地內圈出生(原本固定座標,有的在橋頭)
     for (const a of ARENAS) if (a.id !== 'meadow') for (let i = 0; i < 3; i++) spawn(REGION_MIX[a.id][i], null, a.id);  // 每個狩獵區一開始就有魔物
     log('五位獵人抵達暮影村。準備餐點、收購戰利品，讓小鎮繁盛起來。', 'success'); refreshQuest();
   }

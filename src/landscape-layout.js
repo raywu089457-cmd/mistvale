@@ -2,7 +2,8 @@ import {BUILDINGS} from './pixel-data.js';
 import {REGIONS,BRIDGES,riverX,walkable,inVillage} from './overworld.js';
 import {STREET_X,STREET_Z,EXIT_Z,VILLAGE_BOUNDS,PALISADE_X,BUILDING_SLOTS,GRID} from './village-grid.js';
 // 戰鬥空地 z 方向放大(6 → 7.5):魔物 28–33 世界像素寬,原本的空地站不開,戰鬥會疊成一團。x 方向受溪流/河流限制。
-export const ARENAS=REGIONS.filter(r=>r.id!=='village').map(r=>({...r,rx:r.id==='taiga'?5.7:6.6,rz:7.5}));
+// 草原空地往東移到 x=19、半徑 5.8:原本中心 17、半徑 6.6 一路延伸到溪橋頭,戰鬥都擠在橋邊柵欄。
+export const ARENAS=REGIONS.filter(r=>r.id!=='village').map(r=>r.id==='meadow'?{...r,x:19,rx:5.8,rz:7.5}:({...r,rx:r.id==='taiga'?5.7:6.6,rz:7.5}));
 // 實心障礙:中央噴水池、水井廣場的井、東側柵欄(三個出村口留門)。
 const WELL=BUILDING_SLOTS.well,GAP=1.7;
 const palisade=[];{let z0=VILLAGE_BOUNDS.minZ;for(const z of [...EXIT_Z,Infinity]){const z1=Math.min(z-GAP,VILLAGE_BOUNDS.maxZ);if(z1>z0)palisade.push({id:'palisade-'+palisade.length,minX:PALISADE_X-.3,maxX:PALISADE_X+.3,minZ:z0,maxZ:z1});z0=z+GAP;}}
