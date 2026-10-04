@@ -2,8 +2,8 @@
  "version": 1,
  "kind": "mistvale-hero-atlas",
  "image": "heropose@1x.png",
- "sheetWidth": 502,
- "sheetHeight": 118,
+ "sheetWidth": 484,
+ "sheetHeight": 120,
  "packing": "shelf",
  "scale": 0.14,
  "generator": "l0veyou.com GPT Image 2（Q 版 2 頭身英雄）",
@@ -17,7 +17,7 @@
     17.0,
     36
    ],
-   "foot": 12.3
+   "foot": 12.1
   },
   "berserker_walkB": {
    "x": 35,
@@ -28,379 +28,379 @@
     51.5,
     35
    ],
-   "foot": 20.5
+   "foot": 20.6
   },
   "berserker_strike": {
    "x": 71,
    "y": 2,
    "w": 35,
-   "h": 34,
+   "h": 35,
    "anchor": [
     88.5,
-    36
+    37
    ],
    "foot": 18.5
   },
   "berserker_windup": {
    "x": 109,
    "y": 2,
-   "w": 31,
+   "w": 32,
    "h": 34,
    "anchor": [
-    124.5,
+    125.0,
     36
    ],
-   "foot": 16.8
+   "foot": 17.1
   },
   "berserker_hurt": {
-   "x": 143,
+   "x": 144,
    "y": 2,
    "w": 38,
    "h": 33,
    "anchor": [
-    162.0,
+    163.0,
     35
    ],
-   "foot": 25.9
+   "foot": 23.6
   },
   "berserker_rest": {
-   "x": 184,
+   "x": 185,
    "y": 2,
    "w": 37,
-   "h": 31,
+   "h": 32,
    "anchor": [
-    202.5,
-    33
+    203.5,
+    34
    ],
-   "foot": 18.9
+   "foot": 19.0
   },
   "ranger_walkA": {
-   "x": 224,
+   "x": 225,
    "y": 2,
    "w": 27,
    "h": 34,
    "anchor": [
-    237.5,
+    238.5,
     36
    ],
-   "foot": 12.8
+   "foot": 12.7
   },
   "ranger_walkB": {
-   "x": 254,
+   "x": 255,
    "y": 2,
    "w": 29,
    "h": 33,
    "anchor": [
-    268.5,
+    269.5,
     35
    ],
    "foot": 13.3
   },
   "ranger_strike": {
-   "x": 286,
+   "x": 287,
    "y": 2,
    "w": 34,
    "h": 33,
    "anchor": [
-    303.0,
+    304.0,
     35
    ],
-   "foot": 12.0
+   "foot": 12.4
   },
   "ranger_windup": {
-   "x": 323,
+   "x": 324,
    "y": 2,
    "w": 30,
    "h": 33,
    "anchor": [
-    338.0,
+    339.0,
     35
    ],
-   "foot": 11.7
+   "foot": 11.8
   },
   "ranger_hurt": {
-   "x": 356,
+   "x": 357,
    "y": 2,
    "w": 30,
    "h": 33,
    "anchor": [
-    371.0,
+    372.0,
     35
    ],
-   "foot": 14.4
+   "foot": 14.3
   },
   "ranger_rest": {
-   "x": 389,
+   "x": 390,
    "y": 2,
    "w": 28,
    "h": 32,
    "anchor": [
-    403.0,
+    404.0,
     34
    ],
-   "foot": 11.4
+   "foot": 11.5
   },
   "paladin_walkA": {
-   "x": 420,
+   "x": 421,
    "y": 2,
    "w": 25,
    "h": 34,
    "anchor": [
-    432.5,
+    433.5,
     36
    ],
-   "foot": 12.1
+   "foot": 12.0
   },
   "paladin_walkB": {
-   "x": 448,
+   "x": 449,
    "y": 2,
    "w": 26,
    "h": 34,
    "anchor": [
-    461.0,
+    462.0,
     36
    ],
-   "foot": 11.7
+   "foot": 11.9
   },
   "paladin_strike": {
    "x": 2,
-   "y": 39,
+   "y": 40,
    "w": 43,
    "h": 32,
    "anchor": [
     23.5,
-    71
+    72
    ],
    "foot": 10.3
   },
   "paladin_windup": {
    "x": 48,
-   "y": 39,
+   "y": 40,
    "w": 34,
    "h": 31,
    "anchor": [
     65.0,
-    70
+    71
    ],
    "foot": 15.9
   },
   "paladin_hurt": {
    "x": 85,
-   "y": 39,
+   "y": 40,
    "w": 30,
    "h": 32,
    "anchor": [
     100.0,
-    71
+    72
    ],
-   "foot": 17.1
+   "foot": 17.3
   },
   "paladin_rest": {
    "x": 118,
-   "y": 39,
+   "y": 40,
    "w": 45,
    "h": 33,
    "anchor": [
     140.5,
-    72
+    73
    ],
    "foot": 24.1
   },
   "sorcerer_walkA": {
    "x": 166,
-   "y": 39,
+   "y": 40,
+   "w": 29,
+   "h": 34,
+   "anchor": [
+    180.5,
+    74
+   ],
+   "foot": 15.8
+  },
+  "sorcerer_walkB": {
+   "x": 198,
+   "y": 40,
+   "w": 29,
+   "h": 34,
+   "anchor": [
+    212.5,
+    74
+   ],
+   "foot": 14.8
+  },
+  "sorcerer_windup": {
+   "x": 230,
+   "y": 40,
    "w": 30,
    "h": 33,
    "anchor": [
-    181.0,
-    72
+    245.0,
+    73
    ],
-   "foot": 16.5
+   "foot": 9.5
   },
-  "sorcerer_walkB": {
-   "x": 199,
-   "y": 39,
-   "w": 28,
+  "sorcerer_strike": {
+   "x": 263,
+   "y": 40,
+   "w": 35,
+   "h": 33,
+   "anchor": [
+    280.5,
+    73
+   ],
+   "foot": 11.2
+  },
+  "sorcerer_hurt": {
+   "x": 301,
+   "y": 40,
+   "w": 33,
    "h": 32,
    "anchor": [
-    213.0,
-    71
+    317.5,
+    72
    ],
    "foot": 16.2
   },
-  "sorcerer_strike": {
-   "x": 230,
-   "y": 39,
-   "w": 41,
-   "h": 32,
-   "anchor": [
-    250.5,
-    71
-   ],
-   "foot": 11.5
-  },
-  "sorcerer_windup": {
-   "x": 274,
-   "y": 39,
-   "w": 34,
-   "h": 33,
-   "anchor": [
-    291.0,
-    72
-   ],
-   "foot": 19.8
-  },
-  "sorcerer_hurt": {
-   "x": 311,
-   "y": 39,
-   "w": 37,
-   "h": 32,
-   "anchor": [
-    329.5,
-    71
-   ],
-   "foot": 19.1
-  },
   "sorcerer_rest": {
-   "x": 351,
-   "y": 39,
-   "w": 31,
-   "h": 32,
+   "x": 337,
+   "y": 40,
+   "w": 27,
+   "h": 29,
    "anchor": [
-    366.5,
-    71
+    350.5,
+    69
    ],
-   "foot": 18.0
+   "foot": 13.5
   },
   "darkknight_walkA": {
-   "x": 385,
-   "y": 39,
+   "x": 367,
+   "y": 40,
    "w": 28,
    "h": 33,
    "anchor": [
-    399.0,
-    72
+    381.0,
+    73
    ],
-   "foot": 10.1
+   "foot": 9.9
   },
   "darkknight_walkB": {
-   "x": 416,
-   "y": 39,
+   "x": 398,
+   "y": 40,
    "w": 29,
    "h": 33,
    "anchor": [
-    430.5,
-    72
+    412.5,
+    73
    ],
-   "foot": 17.1
+   "foot": 17.4
   },
   "darkknight_strike": {
-   "x": 448,
-   "y": 39,
+   "x": 430,
+   "y": 40,
    "w": 49,
    "h": 32,
    "anchor": [
-    472.5,
-    71
+    454.5,
+    72
    ],
    "foot": 15.6
   },
   "darkknight_windup": {
    "x": 2,
-   "y": 75,
+   "y": 77,
    "w": 40,
    "h": 33,
    "anchor": [
     22.0,
-    108
+    110
    ],
-   "foot": 22.4
+   "foot": 23.0
   },
   "darkknight_hurt": {
    "x": 45,
-   "y": 75,
+   "y": 77,
    "w": 40,
    "h": 34,
    "anchor": [
     65.0,
-    109
+    111
    ],
-   "foot": 25.9
+   "foot": 25.6
   },
   "darkknight_rest": {
    "x": 88,
-   "y": 75,
+   "y": 77,
    "w": 39,
    "h": 33,
    "anchor": [
     107.5,
-    108
+    110
    ],
-   "foot": 19.1
+   "foot": 18.9
   },
   "priest_walkA": {
    "x": 130,
-   "y": 75,
+   "y": 77,
    "w": 26,
    "h": 33,
    "anchor": [
     143.0,
-    108
+    110
    ],
-   "foot": 14.7
+   "foot": 14.9
   },
   "priest_walkB": {
    "x": 159,
-   "y": 75,
+   "y": 77,
    "w": 27,
    "h": 33,
    "anchor": [
     172.5,
-    108
+    110
    ],
-   "foot": 15.6
+   "foot": 15.4
   },
   "priest_strike": {
    "x": 189,
-   "y": 75,
+   "y": 77,
    "w": 31,
    "h": 38,
    "anchor": [
     204.5,
-    113
+    115
    ],
-   "foot": 13.2
+   "foot": 13.3
   },
   "priest_windup": {
    "x": 223,
-   "y": 75,
+   "y": 77,
    "w": 21,
    "h": 36,
    "anchor": [
     233.5,
-    111
+    113
    ],
-   "foot": 9.2
+   "foot": 9.3
   },
   "priest_hurt": {
    "x": 247,
-   "y": 75,
+   "y": 77,
    "w": 32,
    "h": 33,
    "anchor": [
     263.0,
-    108
+    110
    ],
-   "foot": 16.1
+   "foot": 16.3
   },
   "priest_rest": {
    "x": 282,
-   "y": 75,
+   "y": 77,
    "w": 35,
    "h": 32,
    "anchor": [
     299.5,
-    107
+    109
    ],
    "foot": 21.6
   }

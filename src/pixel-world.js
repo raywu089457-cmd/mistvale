@@ -417,7 +417,7 @@ const atlasLod=[];
 const ATLAS_REF_WIDTH_1X=145.5;
 const BUILDING_WORLD_WIDTH=71;
 // v3(概念圖參考重生)的酒館連露台,概念圖量約 560px+ → 140 單位。
-const conceptBuildingWidth=id=>({hall:112,inn:94,tavern:118,house:100,bounty:48,dungeon:77}[id]||86);
+const conceptBuildingWidth=id=>({hall:112,inn:94,tavern:118,house:100,bounty:70,dungeon:77}[id]||86);
 // 大廳與地下城要比店鋪大。舊版是 hall:79 / dungeon:77,換算成倍率。
 const BUILDING_SCALE={hall:1.11,dungeon:1.08};
 // 除錯用:console 打 __mistvaleAtlas() 看圖集載入狀況
@@ -990,7 +990,7 @@ export function createWorld(canvas,{onSelect=()=>{},onPlace=()=>{},getState=()=>
   function blockHalf(x,z){const w=STREET_X.filter(v=>v<x).at(-1),e=STREET_X.find(v=>v>x),n=STREET_Z.filter(v=>v<z).at(-1),sv=STREET_Z.find(v=>v>z);
     if(w==null||e==null||n==null||sv==null)return null;const m=GRID.street+.15;return{w:x-w-m,e:e-x-m,n:z-n-m,s:sv-z-m};}
   function fitScaleFor(key,img,sx,sy,sw,sh,W,H,pos){
-    const half=blockHalf(pos.x,pos.z);if(!half)return 1.6;const k0=`${key}:${W}:${pos.x},${pos.z}`;if(fitCache.has(k0))return fitCache.get(k0);
+    const half=blockHalf(pos.x,pos.z);if(!half)return {k:1.6,c:{x:0,z:0}};const k0=`${key}:${W}:${pos.x},${pos.z}`;if(fitCache.has(k0))return fitCache.get(k0);
     const cw=Math.min(160,sw),ch=Math.max(1,Math.round(sh*cw/sw)),c=makeCanvas(cw,ch),cx=c.getContext('2d',{willReadFrequently:true});cx.drawImage(img,sx,sy,sw,sh,0,0,cw,ch);
     // 每一欄最低的不透明像素＝貼地點(牆腳、露台邊、台階):不管在錨點上方或下方,都要落在街區內。
     // 整張圖的左右也不能超過街區菱形的左右角。
@@ -998,14 +998,20 @@ export function createWorld(canvas,{onSelect=()=>{},onPlace=()=>{},getState=()=>
     for(let x=0;x<cw;x++){let yb=-1;for(let y=ch-1;y>=0;y--)if(a[(y*cw+x)*4+3]>100){yb=y;break;}if(yb<0)continue;const X=(x+.5)/cw*W-W/2;ground.push([X,9-H+(yb+.5)/ch*H]);xs.push(X);}
     // 屋簷懸空的欄不算貼地:等角地面線從最低點往兩側以 1:2 上升,只收離地面線 12% 圖寬以內的點。
     {const yMax=Math.max(...ground.map(g=>g[1])),xMid=ground.find(g=>g[1]===yMax)?.[0]??0,T=.12*W;for(let i=ground.length-1;i>=0;i--){const [X,Y]=ground[i];if(Y<yMax-Math.abs(X-xMid)*.5-T)ground.splice(i,1);}}
-    const ok=k=>{for(const X of xs){const x=k*X;if(x>(half.e+half.n)*9||x<-(half.w+half.s)*9)return false;}
-      return ground.every(([X,Y])=>{const x=k*X,y=9-k*(9-Y),dx=(x/9+y/4.5)/2,dz=(y/4.5-x/9)/2;return dx<=half.e&&dx>=-half.w&&dz<=half.s&&dz>=-half.n;});};
+    // 置中:貼地輪廓(左角→前角→右角)涵蓋整個佔地的 x、z 範圍,外框中心＝佔地中心 → 移到街區正中。
+    const center=k=>{let a0=1e9,a1=-1e9,b0=1e9,b1=-1e9;for(const [X,Y] of ground){const x=k*X,y=9-k*(9-Y),dx=(x/9+y/4.5)/2,dz=(y/4.5-x/9)/2;a0=Math.min(a0,dx);a1=Math.max(a1,dx);b0=Math.min(b0,dz);b1=Math.max(b1,dz);}
+      const c=ground.length?{x:(a0+a1)/2,z:(b0+b1)/2}:{x:0,z:0},cx=Math.max(-2.5,Math.min(2.5,c.x)),cz=Math.max(-2.5,Math.min(2.5,c.z));return {x:cx,z:cz};};
+    const ok=k=>{const c=center(k),sx=(c.x-c.z)*9;for(const X of xs){const x=k*X-sx;if(x>(half.e+half.n)*9||x<-(half.w+half.s)*9)return false;}
+      return ground.every(([X,Y])=>{const x=k*X,y=9-k*(9-Y),dx=(x/9+y/4.5)/2-c.x,dz=(y/4.5-x/9)/2-c.z;return dx<=half.e&&dx>=-half.w&&dz<=half.s&&dz>=-half.n;});};
     let lo=.3,hi=1.6;if(ok(hi))lo=hi;else for(let i=0;i<18;i++){const m=(lo+hi)/2;if(ok(m))lo=m;else hi=m;}
-    fitCache.set(k0,lo);return lo;}
+    const r={k:lo,c:center(lo)};fitCache.set(k0,r);return r;}
   // 畫面上的實際倍率 = min(玩家設定的大小, 街區容得下的最大尺寸)
-  function effectiveScale(id){const b=BUILDINGS.find(q=>q.id===id);if(!b)return 1;const pos=state.layout?.[id]||b,want=pos.s??1,sp=atlasCell(id);
-    if(sp){const W=conceptBuildingWidth(id);return Math.min(want,fitScaleFor(id,sp,0,0,sp.width,sp.height,W,W*sp.height/sp.width,pos));}
-    const lod=atlasFrameFor(id,false),c=lod?.frames[id];if(!c)return want;const k=BUILDING_WORLD_WIDTH*lod.k*(BUILDING_SCALE[id]||1);return Math.min(want,fitScaleFor(id+'@a',lod.img,c.x,c.y,c.w,c.h,c.w*k,c.h*k,pos));}  // 棋盤格:每棟建築畫在自己街區正中
+  // 回傳 {k: 實際倍率, c: 置中位移(世界單位)}。玩家縮小時位移照比例縮。
+  function buildingFit(id){const b=BUILDINGS.find(q=>q.id===id);if(!b)return {k:1,c:{x:0,z:0}};const pos=state.layout?.[id]||b,want=pos.s??1,sp=atlasCell(id);let f;
+    if(sp){const W=conceptBuildingWidth(id);f=fitScaleFor(id,sp,0,0,sp.width,sp.height,W,W*sp.height/sp.width,pos);}
+    else{const lod=atlasFrameFor(id,false),c=lod?.frames[id];if(!c)return {k:want,c:{x:0,z:0}};const k=BUILDING_WORLD_WIDTH*lod.k*(BUILDING_SCALE[id]||1);f=fitScaleFor(id+'@a',lod.img,c.x,c.y,c.w,c.h,c.w*k,c.h*k,pos);}
+    const k=Math.min(want,f.k),r=k/f.k;return {k,c:{x:f.c.x*r,z:f.c.z*r}};}
+  function effectiveScale(id){return buildingFit(id).k;}  // 棋盤格:每棟建築畫在自己街區正中
   function drawBuilding(b){const layout=state.layout?.[b.id]||b;let p=screenPoint(layout.x,layout.z);const level=getLevel(b.id),s=selected===b.id;
     if(s)ring(p,31,'#ffdc7b');
     if(!level){
@@ -1019,7 +1025,7 @@ export function createWorld(canvas,{onSelect=()=>{},onPlace=()=>{},getState=()=>
     // 酒館 v3 連露台:圖往右下畫(露台在佔地前方),對齊概念圖左下的酒館;佔地與道路不變。
     const sh=SPRITE_SHIFT[b.id];if(sh)p={x:p.x+sh[0]*scale,y:p.y+sh[1]*scale};
     // 影子:剪影投影(往左下),取代舊的腳下大橢圓——概念圖沒有大片暗橢圓。
-    const es=b.id==='dungeon'?1:effectiveScale(b.id);
+    const fit=b.id==='dungeon'?{k:1,c:{x:0,z:0}}:buildingFit(b.id),es=fit.k;p={x:p.x-(fit.c.x-fit.c.z)*9*scale,y:p.y-(fit.c.x+fit.c.z)*4.5*scale};  // 佔地置中到街區
     let rect=conceptSprite?drawSprite(conceptSprite,p,conceptWidth*es,conceptWidth*es*conceptSprite.height/conceptSprite.width,9,1,'building'):drawAtlasBuilding(b.id,p,9,es);
     if(!rect){const sprite=atlasCell(b.id)||buildingSprite(b.id),w=conceptBuildingWidth(b.id);rect=drawSprite(sprite,p,w,w*sprite.height/sprite.width,9,1,'building');}
     // 下面冒煙那段用的是「世界單位」的高度(會再乘 scale),照舊版語意換算回去。

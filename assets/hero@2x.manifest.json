@@ -2,7 +2,7 @@
  "version": 1,
  "kind": "mistvale-hero-atlas",
  "image": "hero@2x.png",
- "sheetWidth": 420,
+ "sheetWidth": 419,
  "sheetHeight": 75,
  "packing": "shelf",
  "scale": 0.28,
@@ -41,30 +41,30 @@
   "sorcerer": {
    "x": 201,
    "y": 2,
-   "w": 61,
+   "w": 59,
    "h": 68,
    "anchor": [
-    231.5,
+    230.5,
     70
    ]
   },
   "darkknight": {
-   "x": 265,
+   "x": 263,
    "y": 2,
    "w": 88,
    "h": 68,
    "anchor": [
-    309.0,
+    307.0,
     70
    ]
   },
   "priest": {
-   "x": 356,
+   "x": 354,
    "y": 2,
-   "w": 59,
+   "w": 60,
    "h": 68,
    "anchor": [
-    385.5,
+    384.0,
     70
    ]
   }
