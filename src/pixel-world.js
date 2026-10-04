@@ -61,10 +61,13 @@ function heroSprite(classId='berserker',frame=0,facing=1,variant=0,lodScale=hero
   // 武器往外伸就把畫布加寬,人不會因為姿勢不同而忽大忽小。沒有姿勢圖就用待機圖。
   const pf=pose!=='idle'&&hf?heroFrameFor(`${classId}_${pose}`,lodScale):null;
   if(pf&&pf.sc===hf.sc){const key=`${classId}:${pose}:${facing}:${variant%3}:${pf.sc}`;if(spriteCache.has(key))return spriteCache.get(key);
-    const cell=pf.cell,res=pf.sc,H=35*res,k=(H-res)/hf.cell.h,dw=Math.max(1,Math.round(cell.w*k)),dh=Math.max(1,Math.round(cell.h*k)),fx=(cell.foot??cell.w/2)*k;
+    const cell=pf.cell,res=pf.sc,H0=35*res,k=(H0-res)/hf.cell.h,dw=Math.max(1,Math.round(cell.w*k)),dh=Math.max(1,Math.round(cell.h*k)),fx=(cell.foot??cell.w/2)*k;
+    // 畫布高要放得下最高的姿勢(歡呼舉手/舉劍比站姿高 2–10px),不然頭頂被畫布切掉;
+    // 倍率不變(跟站姿同像素密度),只是畫布比較高,所以角色不會忽大忽小。
+    const H=Math.max(H0,dh+res);
     const half=Math.ceil(Math.max(20*res,fx,dw-fx)),c=makeCanvas(half*2,H),g=c.getContext('2d');g.imageSmoothingEnabled=false;g.save();if(facing<0){g.translate(c.width,0);g.scale(-1,1);}
     g.drawImage(pf.img,cell.x,cell.y,cell.w,cell.h,Math.round(half-fx),H-dh,dw,dh);g.restore();
-    g.globalCompositeOperation='source-atop';g.fillStyle=HERO_TINT[variant%3];g.fillRect(0,0,c.width,c.height);heroUse.atlas++;spriteCache.set(key,c);return c;}
+    g.globalCompositeOperation='source-atop';g.fillStyle=HERO_TINT[variant%3];g.fillRect(0,0,c.width,c.height);c.baseH=H0;heroUse.atlas++;spriteCache.set(key,c);return c;}
   // key 要帶 LOD —— 不然放大後快取裡還是 1x 的圖,2x 永遠用不到。
   const key=`${classId}:${frame}:${facing}:${variant%3}:${hf?hf.sc:0}`;
   if(spriteCache.has(key))return spriteCache.get(key);
@@ -86,7 +89,7 @@ function heroSprite(classId='berserker',frame=0,facing=1,variant=0,lodScale=hero
     g.globalCompositeOperation='source-atop';
     g.fillStyle=HERO_TINT[variant%3];g.fillRect(0,0,c.width,c.height);
     g.globalCompositeOperation='source-over';
-    heroUse.atlas++;spriteCache.set(key,c);return c;
+    c.baseH=35*resolution;heroUse.atlas++;spriteCache.set(key,c);return c;
   }
   heroUse.proc++;
   const c=makeCanvas(28,35),g=c.getContext('2d');g.imageSmoothingEnabled=false;
@@ -1056,7 +1059,7 @@ export function createWorld(canvas,{onSelect=()=>{},onPlace=()=>{},getState=()=>
     if(d.type==='fisher'){contact(p,5);if(drawAtlasDetail('fisher',p,28,20,1,1,true)){const s=scale,t=Math.sin(elapsed*1.3);g.globalAlpha=.7;pixel(g,p.x-15*s,p.y+(3+t*.6)*s,4*s,Math.max(1,s*.6),'#cfeeff');g.globalAlpha=1;return;}}
     // 概念圖街上滿是村民與貓狗:純裝飾(不參與模擬),原地輕微上下呼吸。
     if(d.type==='npc'){const bob=Math.sin(elapsed*2.1+d.phase)>.55?1:0,hf=heroFrameFor(d.cls,heroLodScale);contact(p,5);
-      {const sp=heroSprite(d.cls,bob,d.flip?-1:1,Math.floor(d.phase*7)%3,heroLodScale,d.walk?walkFrame(elapsed,d.phase*7):'idle');drawSprite(sp,p,21*CHAR_SCALE*sp.width/sp.height,21*CHAR_SCALE,1.2,1,'char');};if(hf)detailUse.draw1x++;return;}
+      {const sp=heroSprite(d.cls,bob,d.flip?-1:1,Math.floor(d.phase*7)%3,heroLodScale,d.walk?walkFrame(elapsed,d.phase*7):'idle');drawSprite(sp,p,21*CHAR_SCALE*sp.width/(sp.baseH||sp.height),21*CHAR_SCALE*sp.height/(sp.baseH||sp.height),1.2,1,'char');};if(hf)detailUse.draw1x++;return;}
     if(d.type==='villager'){const pet=d.who==='cat'||d.who==='dog',bob=d.walk?(Math.floor(elapsed*6+d.phase)%2):Math.sin(elapsed*2.2+d.phase)>.4?1:0,k=CHAR_SCALE;contact(p,pet?4:5);
       const kid=d.who==='child';if(drawAtlasDetail(d.who,p,(pet?10:kid?13:15)*k,(pet?9:kid?16.5:20)*k,1.2-bob*.4,1,d.flip))return;  // 村民跟英雄同一批風格、同像素密度;小孩矮一截
       pixel(g,p.x-3*scale,p.y-14*scale,6*scale,12*scale,'#8a6a48');pixel(g,p.x-2*scale,p.y-18*scale,4*scale,4*scale,'#f0c9a0');return;}
@@ -1213,7 +1216,7 @@ export function createWorld(canvas,{onSelect=()=>{},onPlace=()=>{},getState=()=>
 
   function ghostHunter(h){if(!(h.hp>0)||h.status!=='戰鬥中'||!Number.isFinite(h.x))return;const p=screenPoint(h.x,h.z);if(p.x<-40||p.x>width+40||p.y<-40||p.y>height+60)return;
     const target=h.targetId?(state.enemies||[]).find(e=>e.id===h.targetId&&e.hp>0):null,pose={...combatPose(h,false,target),flash:0},facing=previousPositions.get(h.id)?.facing||1;
-    const sprite=heroSprite(h.classId,0,facing,hash(h.id)%3,heroLodScale,pose.pose);posed(p,pose,q=>drawSprite(sprite,q,21*CHAR_SCALE*sprite.width/sprite.height,21*CHAR_SCALE,1.2,.38));}
+    const sprite=heroSprite(h.classId,0,facing,hash(h.id)%3,heroLodScale,pose.pose);posed(p,pose,q=>drawSprite(sprite,q,21*CHAR_SCALE*sprite.width/(sprite.baseH||sprite.height),21*CHAR_SCALE*sprite.height/(sprite.baseH||sprite.height),1.2,.38));}
   // 驗收用:每一隻最後一次畫出來的朝向/姿勢(__mistvaleFacing())。
   globalThis.__mistvaleDecor=()=>decorations.map(d=>({type:d.type,x:d.x,z:d.z,size:d.size||1,walk:!!d.walk}));  // 驗收用:擺設清單(check_placement.mjs)
   const drawnFacing=new Map();globalThis.__mistvaleFacing=()=>Object.fromEntries(drawnFacing);
@@ -1223,7 +1226,7 @@ export function createWorld(canvas,{onSelect=()=>{},onPlace=()=>{},getState=()=>
     contact(p,5);if(isSelected)ring(p,8,'#fff1b0');if(wanderer)ring(p,6,'#7fc4ff');  // 藍圈＝流浪英雄(自己打怪,不是我方單位)
     // 倒下:用倒地圖(<職業>_dead),半透明等復活;沒有倒地圖才退回把待機圖轉 90°。
     if(h.dead||h.hp<=0){previousPositions.set(h.id,{x:h.x,z:h.z,facing});drawnFacing.set(h.id,{f:facing,pose:'dead',x:h.x,z:h.z,t:state.time});
-      if(heroFrameFor(`${h.classId}_dead`,heroLodScale)){const sp=heroSprite(h.classId,0,facing,hash(h.id)%3,heroLodScale,'dead');drawSprite(sp,p,21*CHAR_SCALE*sp.width/sp.height,21*CHAR_SCALE,1.2,.75);}
+      if(heroFrameFor(`${h.classId}_dead`,heroLodScale)){const sp=heroSprite(h.classId,0,facing,hash(h.id)%3,heroLodScale,'dead');drawSprite(sp,p,21*CHAR_SCALE*sp.width/(sp.baseH||sp.height),21*CHAR_SCALE*sp.height/(sp.baseH||sp.height),1.2,.75);}
       else{g.save();g.translate(p.x,p.y-3*scale);g.rotate(Math.PI/2);g.globalAlpha=.55;{const sp=heroSprite(h.classId,0,facing,hash(h.id)%3),dw=21*sp.width/sp.height;g.drawImage(sp,-dw/2*scale*CHAR_SCALE,-12*scale*CHAR_SCALE,dw*scale*CHAR_SCALE,21*scale*CHAR_SCALE);}g.restore();}
       textLabel('✦',p.x,p.y-15*scale,{color:'#e7d8ef',back:false});return;}
     const target=h.status==='戰鬥中'&&h.targetId?(state.enemies||[]).find(e=>e.id===h.targetId&&e.hp>0):null,pose=combatPose(h,false,target);
@@ -1241,7 +1244,7 @@ export function createWorld(canvas,{onSelect=()=>{},onPlace=()=>{},getState=()=>
     const combatPoseName=pose.pose==='strike'&&pose.atk>.2&&!['ranger','sorcerer'].includes(h.classId)?'strike2':pose.pose;
     const drawPose=pose.pose!=='idle'?combatPoseName:walking?walkFrame(elapsed,hash(h.id)):cheering?'victory':still&&servicePose?servicePose:breathe;
     drawnFacing.set(h.id,{f:facing,pose:drawPose,x:h.x,z:h.z,t:state.time});
-    const sprite=heroSprite(h.classId,frame,facing,hash(h.id)%3,heroLodScale,drawPose),rect=posed(p,pose,q=>drawSprite(sprite,q,21*CHAR_SCALE*sprite.width/sprite.height,21*CHAR_SCALE,1.2,1,'char'));hits.push({id:`hunter:${h.id}`,...padHit(rect,14,18)});  // 圖變小,點擊範圍保底
+    const sprite=heroSprite(h.classId,frame,facing,hash(h.id)%3,heroLodScale,drawPose),rect=posed(p,pose,q=>drawSprite(sprite,q,21*CHAR_SCALE*sprite.width/(sprite.baseH||sprite.height),21*CHAR_SCALE*sprite.height/(sprite.baseH||sprite.height),1.2,1,'char'));hits.push({id:`hunter:${h.id}`,...padHit(rect,14,18)});  // 圖變小,點擊範圍保底
     chargeGlow(h,p,pose,facing);
     const full=(h.hp??1)/(h.maxHp||1);if(full<.99||isSelected||h.status==='戰鬥中')bar(p.x-7*scale,p.y-24*scale,14*scale,full,full<.35?'#df795c':'#84bf6a');
     if(isSelected)textLabel(`${h.name||'獵人'} Lv.${h.level||1}`,p.x,p.y-31*scale,{color:RARITIES.find(r=>r.id===h.rarity)?.color||'#ffe19a'});
@@ -1329,8 +1332,10 @@ export function createWorld(canvas,{onSelect=()=>{},onPlace=()=>{},getState=()=>
     const cx=p.x+(fromRight?3:-3)*s,cy=p.y-11*s,k=Math.min(1,age/.12),alpha=age<.12?1:Math.max(0,1-(age-.12)/.3);
     // 斬痕:新月從攻擊方掃過目標(放大+淡出),中心白色閃光。
     // fxSlash 圖(Xilurus)＝白色刀弧在左、橙色拖尾在右 → 原圖是「由右往左揮」;攻擊者在左邊(往右揮)才翻面。
-    if(alpha>0)fxSprite('fxSlash',cx,cy,(20+10*k)*(e.cls==='berserker'?1.15:1),{rot:tilt+(fromRight?.3:-.3),flip:!fromRight,alpha,sy:.85});
-    if(age<.16)fxSprite('fxHit',p.x,cy,10+age*60,{alpha:1-age/.16});
+    // 特效尺寸跟角色同級(英雄 21 單位):原本斬痕 30 單位、命中白閃 20 單位會把攻擊者整隻蓋住,
+    // 縮到 20/11 單位、白閃快一點淡出,人才看得見自己在打什麼。
+    if(alpha>0)fxSprite('fxSlash',cx,cy,(13+7*k)*(e.cls==='berserker'?1.15:1),{rot:tilt+(fromRight?.3:-.3),flip:!fromRight,alpha:alpha*.92,sy:.85});
+    if(age<.12)fxSprite('fxHit',p.x,cy,7+age*34,{alpha:.85*(1-age/.12)});
     sparks(p.x,cy,age,hash(e.id),9,['#fff7d0','#ffd56a','#ff9c4a']);
     if(e.cls==='paladin'&&age<.3){g.save();g.globalAlpha=.6*(1-age/.3);g.strokeStyle='#fff2b0';g.lineWidth=Math.max(1,s);g.beginPath();g.ellipse(p.x,p.y,(6+age*40)*s,(2.5+age*16)*s,0,0,Math.PI*2);g.stroke();g.restore();}}
   function drawImpact(e,age,p){const s=scale,cy=p.y-11*s;
@@ -1341,7 +1346,7 @@ export function createWorld(canvas,{onSelect=()=>{},onPlace=()=>{},getState=()=>
     if(e.type==='hit'){const boss=e.by==='boss',src=screenPoint(e.sourceX??e.x,e.sourceZ??e.z),dir=src.x>p.x?-1:1,t=Math.min(1,age/.08),a=age<.08?1:Math.max(0,1-(age-.08)/.3);
       // 爪痕:三道斜線由打來的方向劃過,白芯紅邊
       if(a>0){g.save();g.globalAlpha=a;for(let i=-1;i<=1;i++){const x0=p.x+(i*3-dir*5)*s,y0=cy-(6+i)*s,x1=x0+dir*10*t*s*(boss?1.5:1),y1=y0+9*t*s*(boss?1.5:1);line(g,x0,y0,x1,y1,'#c8322a',Math.max(2,2*s));line(g,x0,y0,x1,y1,'#fff0e0',Math.max(1,s*.8));}g.restore();}
-      if(age<.14)fxSprite('fxHit',p.x,cy,(boss?14:9)+age*40,{alpha:1-age/.14});sparks(p.x,cy,age,hash(e.id),7,['#ffd0b8','#e8584a']);}
+      if(age<.12)fxSprite('fxHit',p.x,cy,(boss?10:7)+age*30,{alpha:.85*(1-age/.12)});sparks(p.x,cy,age,hash(e.id),7,['#ffd0b8','#e8584a']);}
   }
   function drawDeath(e,age,p){const type=e.enemyType||'slime',sz=ENEMY_SIZE(type),s=scale,t=Math.max(0,(age-.1)/.6);
     // 倒下:先第二受擊格(8)一下,再倒地屍體圖(9)躺著淡出;朝向沿用受擊時(面向打倒牠的獵人)。沒有 8/9 格才退回壓扁受擊圖。

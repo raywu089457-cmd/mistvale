@@ -191,6 +191,23 @@ POSE_FIX = {"darkknight_walk4": "darkknight_walk2"}
 POSES_B = ["idle2", "strike2", "dead", "victory", "eat", "drink", "sleep", "bandaged", "trade", "train"]
 
 
+def normalize_outline(im: Image.Image, dark=(43, 27, 18)) -> Image.Image:
+    """描邊一致性:剪影外緣的亮色邊(白/淺灰)統一改成風格的深棕描邊。
+
+    l0veyou 生的聖騎士/祭司是白銀/白袍+淺色輪廓,outline 比例 0.28–0.51,
+    其他職業/魔物都是深色描邊(0.6–0.95),同一場景裡看起來像兩套風格。
+    只改最外圈的亮像素(內縮不動),其他顏色不受影響。"""
+    a = np.array(im.convert("RGBA"))
+    al = a[..., 3] > 40
+    inner = np.zeros_like(al)
+    inner[1:-1, 1:-1] = al[1:-1, 1:-1] & al[:-2, 1:-1] & al[2:, 1:-1] & al[1:-1, :-2] & al[1:-1, 2:]
+    edge = al & ~inner
+    lum = 0.299 * a[..., 0] + 0.587 * a[..., 1] + 0.114 * a[..., 2]
+    fix = edge & (lum > 118)
+    a[fix, 0], a[fix, 1], a[fix, 2] = dark
+    return Image.fromarray(a, "RGBA")
+
+
 def heroes():
     from make_sd_heroes import LODS, pack, shrink, foot_x  # 同一套 LOD 高度與打包格式
     got = {}
@@ -214,10 +231,10 @@ def heroes():
         for cls in CLASSES:
             g = got[cls]
             s = h / g[cls].height   # 待機高度 → 34/68/136;同一張表的姿勢用同一個倍率,換姿勢不會忽大忽小
-            hero[cls] = shrink(g[cls], s, False)
+            hero[cls] = normalize_outline(shrink(normalize_outline(g[cls]), s, False))
             for p in POSES + POSES_B:
                 key = f"{cls}_{p}"
-                q = shrink(g[key], s, False)
+                q = normalize_outline(shrink(normalize_outline(g[key]), s, False))
                 pose[key] = q
                 extra[key] = {"foot": round(foot_x(q), 1)}
         pack(hero, f"hero@{tag}", sc, {})
