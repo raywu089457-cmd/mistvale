@@ -1,4 +1,4 @@
-import {WORLD,REGIONS,BIOME_PALETTE,biomeAt,riverX} from './overworld.js';
+import {WORLD,REGIONS,BIOME_PALETTE,biomeAt} from './overworld.js';
 import {iconCanvas} from './pixel-icons.js';
 import {createGame} from './pixel-game.js';
 import {createPixelWorld,drawPortrait,buildingDataURL,MAP_PALETTE,MAP_ACCENT} from './pixel-world.js';

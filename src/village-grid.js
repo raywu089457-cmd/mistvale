@@ -7,14 +7,20 @@ export const blockCenter=(i,j)=>({x:GRID.cx+GRID.pitch*i,z:GRID.cz+GRID.pitch*j}
 // 街道中心線:每個街區的四邊。
 export const STREET_X=[...GRID.cols.map(i=>GRID.cx+GRID.pitch*(i-.5)),GRID.cx+GRID.pitch*(GRID.cols.at(-1)+.5)];  // -44.75 … 7.75
 export const STREET_Z=[...GRID.rows.map(j=>GRID.cz+GRID.pitch*(j-.5)),GRID.cz+GRID.pitch*(GRID.rows.at(-1)+.5)];  // -24.25 … 28.25
-// 村莊範圍 = 最外圈街道再往外一點;東邊是柵欄(x≈9)與小溪。
-export const VILLAGE_BOUNDS={minX:STREET_X[0]-1.4,maxX:9.4,minZ:STREET_Z[0]-1.4,maxZ:STREET_Z.at(-1)+1.4};
-// 出村口:東側三條東西向街道直通過溪的橋(北門、正門、南門)。
-export const EXIT_Z=[STREET_Z[0],STREET_Z[2],STREET_Z[4]];
-export const PALISADE_X=9;
+// 村莊範圍 = 最外圈街道再往外一點;四周一圈木柵欄(FENCE,離街緣 0.45)。
+export const VILLAGE_BOUNDS={minX:STREET_X[0]-1.4,maxX:STREET_X.at(-1)+1.65,minZ:STREET_Z[0]-1.4,maxZ:STREET_Z.at(-1)+1.4};
+export const FENCE={minX:STREET_X[0]-1.25,maxX:STREET_X.at(-1)+1.25,minZ:STREET_Z[0]-1.25,maxZ:STREET_Z.at(-1)+1.25};  // -46, 9, -25.5, 29.5
+export const PALISADE_X=FENCE.maxX;
+// 出村口只有兩個:畫面右下(東側柵欄)與左下(南側柵欄),各接一條街;兩個口到村子最下方角落距離相同。
+// 道路只鋪到出入口外一點(out),村外沒有路、自由走。
+export const EXIT_GAP=1.7;
+export const EXITS=[
+  {id:'east',side:'east',x:FENCE.maxX,z:STREET_Z[3],out:{x:FENCE.maxX+1.2,z:STREET_Z[3]},street:{x:STREET_X.at(-1),z:STREET_Z[3]}},
+  {id:'south',side:'south',x:STREET_X[3],z:FENCE.maxZ,out:{x:STREET_X[3],z:FENCE.maxZ+1.2},street:{x:STREET_X[3],z:STREET_Z.at(-1)}}
+];
 // 街區用途。建築 id 對應 pixel-data 的 BUILDINGS;其他是村莊用地(畫地面與擺設用)。
 // 交易所/市集在廣場西側,酒館、餐廳、旅館在南邊一排,鐵匠/強化/學院在北邊工坊區,
-// 復活聖所、治療所靠北門;獵人小屋、委託所靠正門。
+// 復活聖所、治療所在東北角;獵人小屋、委託所靠東門。
 export const BLOCK_PLAN={
   '-3,-2':'lumber',  '-2,-2':'enhancement','-1,-2':'forge',     '0,-2':'academy',   '1,-2':'sanctuary',
   '-3,-1':'training','-2,-1':'farm',       '-1,-1':'hall',      '0,-1':'clinic',    '1,-1':'bounty',
@@ -22,7 +28,7 @@ export const BLOCK_PLAN={
   '-3,1':'farm',     '-2,1':'inn',         '-1,1':'restaurant', '0,1':'tavern',     '1,1':'park',
   '-3,2':'pen',      '-2,2':'garden',      '-1,2':'well',       '0,2':'orchard',    '1,2':'pasture'
 };
-// 建築在街區裡的微調(委託所往南一點,靠正門那條街)。
+// 建築在街區裡的微調(委託所往南一點)。
 export const BUILDING_NUDGE={bounty:{x:0,z:.6}};const NUDGE=BUILDING_NUDGE;
 export const BUILDING_SLOTS=Object.fromEntries(Object.entries(BLOCK_PLAN).map(([k,use])=>{const [i,j]=k.split(',').map(Number),c=blockCenter(i,j),n=NUDGE[use]||{x:0,z:0};return [use,{x:c.x+n.x,z:c.z+n.z,i,j}];}));
 export const BLOCKS=Object.entries(BLOCK_PLAN).map(([k,use])=>{const [i,j]=k.split(',').map(Number);return {i,j,use,...blockCenter(i,j)};});

@@ -1,12 +1,17 @@
 import {BUILDINGS} from './pixel-data.js';
-import {REGIONS,BRIDGES,riverX,walkable,inVillage} from './overworld.js';
-import {STREET_X,STREET_Z,EXIT_Z,VILLAGE_BOUNDS,PALISADE_X,BUILDING_SLOTS,GRID} from './village-grid.js';
-// 戰鬥空地 z 方向放大(6 → 7.5):魔物 28–33 世界像素寬,原本的空地站不開,戰鬥會疊成一團。x 方向受溪流/河流限制。
-// 草原空地往東移到 x=19、半徑 5.8:原本中心 17、半徑 6.6 一路延伸到溪橋頭,戰鬥都擠在橋邊柵欄。
+import {REGIONS,walkable} from './overworld.js';
+import {STREET_X,STREET_Z,EXITS,EXIT_GAP,FENCE,BUILDING_SLOTS,GRID} from './village-grid.js';
+// 戰鬥空地 z 方向放大(6 → 7.5):魔物 28–33 世界像素寬,原本的空地站不開,戰鬥會疊成一團。
+// 草原空地在 x=19、半徑 5.8:離村莊東柵欄與東門 4 格以上,戰鬥不會擠在門口。
 export const ARENAS=REGIONS.filter(r=>r.id!=='village').map(r=>r.id==='meadow'?{...r,x:19,rx:5.8,rz:7.5}:({...r,rx:r.id==='taiga'?5.7:6.6,rz:7.5}));
-// 實心障礙:中央噴水池、水井廣場的井、東側柵欄(三個出村口留門)。
-const WELL=BUILDING_SLOTS.well,GAP=1.7;
-const palisade=[];{let z0=VILLAGE_BOUNDS.minZ;for(const z of [...EXIT_Z,Infinity]){const z1=Math.min(z-GAP,VILLAGE_BOUNDS.maxZ);if(z1>z0)palisade.push({id:'palisade-'+palisade.length,minX:PALISADE_X-.3,maxX:PALISADE_X+.3,minZ:z0,maxZ:z1});z0=z+GAP;}}
+// 實心障礙:中央噴水池、水井廣場的井、村莊四周木柵欄(東、南各留一個出村口)。
+const WELL=BUILDING_SLOTS.well,T=.3;
+const palisade=[];{
+ // 一條邊 = 一段長方形;有出口的邊從出口切成兩段(口寬 2×EXIT_GAP)。
+ const side=(id,axis,at,lo,hi)=>{const gaps=EXITS.filter(e=>e.side===id).map(e=>axis==='x'?e.z:e.x).sort((a,b)=>a-b);let a=lo;
+  for(const g of [...gaps,Infinity]){const b=Math.min(g-EXIT_GAP,hi);if(b>a)palisade.push(axis==='x'?{id:`palisade-${id}-${palisade.length}`,side:id,minX:at-T,maxX:at+T,minZ:a,maxZ:b}:{id:`palisade-${id}-${palisade.length}`,side:id,minX:a,maxX:b,minZ:at-T,maxZ:at+T});a=g+EXIT_GAP;}};
+ side('north','z',FENCE.minZ,FENCE.minX-T,FENCE.maxX+T);side('south','z',FENCE.maxZ,FENCE.minX-T,FENCE.maxX+T);
+ side('west','x',FENCE.minX,FENCE.minZ-T,FENCE.maxZ+T);side('east','x',FENCE.maxX,FENCE.minZ-T,FENCE.maxZ+T);}
 export const PALISADE=palisade;
 export const SOLID_PROPS=[
  {id:'fountain',minX:-10,maxX:-6,minZ:0,maxZ:4},
@@ -25,18 +30,8 @@ export function getRoads(layout={},levels={}){
  const circle=Array.from({length:13},(_,i)=>[GRID.cx+Math.cos(i*Math.PI/6)*3.6,GRID.cz+Math.sin(i*Math.PI/6)*3.6]);add(circle,.6,'stone');
  const half=GRID.pitch/2;
  for(const [dx,dz] of [[1,0],[-1,0],[0,1],[0,-1]])add([[GRID.cx+dx*3.6,GRID.cz+dz*3.6],[GRID.cx+dx*half,GRID.cz+dz*half]],.7,'stone');
- // 出村:北門、正門、南門三條街直接過溪橋,接到村外幹道。
- add([[X1,EXIT_Z[0]],[13.5,EXIT_Z[0]],[16,-24]],.95);
- add([[X1,EXIT_Z[1]],[13,EXIT_Z[1]],[17,3]],1.05);
- add([[X1,EXIT_Z[2]],[13.5,EXIT_Z[2]],[16,18]],.95);
- // Main routes meet every bridge rather than stopping at a riverbank.
- add([[17,3],[16,-10],[16,-24],[15,-23],[8,-36]],1.15);
- add([[17,3],[16,18],[16,26],[16,36],[7,43],[16,46]],1.15);
- add([[36,-29],[36,-24],[36,-10],[36,3],[36,26],[36,40],[36,46]],1.15);
- for(const z of BRIDGES)add([[16,z],[riverX(z)-4,z],[riverX(z),z],[riverX(z)+4,z],[36,z]],1.25);
- add([[36,3],[43,2]],1.25);add([[36,-29],[45,-29]],1.25);add([[36,40],[45,40]],1.25);
- // Dungeon entrance is reached along the east bank after crossing an actual bridge.
- add([[36,-10],[29,-10],[26.6,-11]],.9);
+ // 出村:兩條街穿過柵欄口,路只鋪到門外一點;村外沒有路,自由走。
+ for(const e of EXITS)add([[e.street.x,e.street.z],[e.out.x,e.out.z]],GRID.street,'stone');
  const mainStreets=roads.filter(r=>r.kind==='stone');
  for(const b of BUILDINGS){
   if(b.id==='dungeon'||levels[b.id]===0)continue;
@@ -51,6 +46,22 @@ export function getRoads(layout={},levels={}){
   if(junction)add([[door.x,door.z],[junction.x,junction.z]],.58,'stone');
  }
  return fitRoads(roads,layout,levels);
+}
+// 道路圖:把所有路段在交叉點/端點切開,變成「節點 + 邊」。村裡的獵人只沿這張圖走(不穿街區)。
+export function roadGraph(roads){
+ const segs=roads.map(r=>({a:r.a,b:r.b,ts:[0,1]}));
+ const cross=(p,q,r,s2)=>{const d1x=q.x-p.x,d1z=q.z-p.z,d2x=s2.x-r.x,d2z=s2.z-r.z,den=d1x*d2z-d1z*d2x;if(Math.abs(den)<1e-9)return null;
+  const t=((r.x-p.x)*d2z-(r.z-p.z)*d2x)/den,u=((r.x-p.x)*d1z-(r.z-p.z)*d1x)/den;return t>-1e-6&&t<1+1e-6&&u>-1e-6&&u<1+1e-6?[t,u]:null;};
+ const onSeg=(p,s)=>{const dx=s.b.x-s.a.x,dz=s.b.z-s.a.z,l=dx*dx+dz*dz;if(!l)return null;const t=((p.x-s.a.x)*dx+(p.z-s.a.z)*dz)/l;return t>1e-6&&t<1-1e-6&&distanceSegment(p.x,p.z,s.a,s.b)<.02?t:null;};
+ for(let i=0;i<segs.length;i++)for(let j=i+1;j<segs.length;j++){const A=segs[i],B=segs[j],c=cross(A.a,A.b,B.a,B.b);if(c){A.ts.push(c[0]);B.ts.push(c[1]);}
+  for(const p of [B.a,B.b]){const t=onSeg(p,A);if(t!=null)A.ts.push(t);}for(const p of [A.a,A.b]){const t=onSeg(p,B);if(t!=null)B.ts.push(t);}}
+ const nodes=[],index=new Map(),edges=[],key=p=>`${Math.round(p.x*50)},${Math.round(p.z*50)}`;
+ const node=p=>{const k=key(p);let i=index.get(k);if(i==null){i=nodes.length;index.set(k,i);nodes.push({x:p.x,z:p.z});edges.push([]);}return i;};
+ const links=[];
+ for(const s of segs){const ts=[...new Set(s.ts.map(t=>Math.round(Math.max(0,Math.min(1,t))*1e6)/1e6))].sort((a,b)=>a-b);
+  for(let k=1;k<ts.length;k++){const p=n=>({x:s.a.x+(s.b.x-s.a.x)*n,z:s.a.z+(s.b.z-s.a.z)*n}),i=node(p(ts[k-1])),j=node(p(ts[k]));if(i===j)continue;
+   const d=Math.hypot(nodes[i].x-nodes[j].x,nodes[i].z-nodes[j].z);edges[i].push([j,d]);edges[j].push([i,d]);links.push([i,j]);}}
+ return {nodes,edges,links};
 }
 export function onRoad(x,z,roads,extra=0){return roads.some(r=>distanceSegment(x,z,r.a,r.b)<=r.width+extra);}
 export function roadStyle(x,z,roads){return roads.find(r=>distanceSegment(x,z,r.a,r.b)<=r.width)?.kind||null;}
