@@ -59,14 +59,15 @@ function heroSprite(classId='berserker',frame=0,facing=1,variant=0,lodScale=hero
   const hf=heroFrameFor(classId,lodScale);
   // 戰鬥姿勢圖(heropose 圖集,<職業>_windup/_strike/_hurt):倍率跟待機圖同一個,腳底(foot)對齊畫布中線,
   // 武器往外伸就把畫布加寬,人不會因為姿勢不同而忽大忽小。沒有姿勢圖就用待機圖。
-  const pf=pose!=='idle'&&hf?heroFrameFor(`${classId}_${pose}`,lodScale):null;
-  if(pf&&pf.sc===hf.sc){const key=`${classId}:${pose}:${facing}:${variant%3}:${pf.sc}`;if(spriteCache.has(key))return spriteCache.get(key);
+  // 待機也走同一條路(同一個倍率、同一個軀幹錨點):以前待機是「塞進 40 寬畫布置中」,寬武器職業的待機會被縮小、換姿勢時身體左右跳。
+  const pf=hf?(pose!=='idle'&&heroFrameFor(`${classId}_${pose}`,lodScale))||(hf.cell.foot!=null?hf:null):null,idleBob=pose==='idle'&&frame?1:0;
+  if(pf&&pf.sc===hf.sc){const key=`${classId}:${pose}:${facing}:${variant%3}:${pf.sc}:${idleBob}`;if(spriteCache.has(key))return spriteCache.get(key);
     const cell=pf.cell,res=pf.sc,H0=35*res,k=(H0-res)/hf.cell.h,dw=Math.max(1,Math.round(cell.w*k)),dh=Math.max(1,Math.round(cell.h*k)),fx=(cell.foot??cell.w/2)*k;
     // 畫布高要放得下最高的姿勢(歡呼舉手/舉劍比站姿高 2–10px),不然頭頂被畫布切掉;
     // 倍率不變(跟站姿同像素密度),只是畫布比較高,所以角色不會忽大忽小。
     const H=Math.max(H0,dh+res);
     const half=Math.ceil(Math.max(20*res,fx,dw-fx)),c=makeCanvas(half*2,H),g=c.getContext('2d');g.imageSmoothingEnabled=false;g.save();if(facing<0){g.translate(c.width,0);g.scale(-1,1);}
-    g.drawImage(pf.img,cell.x,cell.y,cell.w,cell.h,Math.round(half-fx),H-dh,dw,dh);g.restore();
+    g.drawImage(pf.img,cell.x,cell.y,cell.w,cell.h,Math.round(half-fx),H-dh-idleBob*res,dw,dh);g.restore();
     g.globalCompositeOperation='source-atop';g.fillStyle=HERO_TINT[variant%3];g.fillRect(0,0,c.width,c.height);c.baseH=H0;heroUse.atlas++;spriteCache.set(key,c);return c;}
   // key 要帶 LOD —— 不然放大後快取裡還是 1x 的圖,2x 永遠用不到。
   const key=`${classId}:${frame}:${facing}:${variant%3}:${hf?hf.sc:0}`;
@@ -276,7 +277,7 @@ function ensureHeroAtlas(){
 
 // ── 無縫地面材質(整片 pattern,不是逐格貼圖) ─────────────────────────
 // 地面材質縮放:1.0 = 一比一。0.5 讓草葉落在 1~3px(跟建築細節同一個量級)。
-const TERRAIN_TEX_SCALE=.25;  // 材質像素＝1/4 單位:跟建築圖(約 3.5 px/單位)同一個細緻度
+const TERRAIN_TEX_SCALE=.5;  // 1 材質像素 = 0.5 邏輯單位:地面美術像素跟英雄(0.62)、建築同一級(pipeline/scripts/check/audit_density.py)
 // 垂直壓扁比例。等角理論上是 0.5,但實測草葉會被壓成橫向斑點、看起來像雜訊,
 // 所以先用 1(不壓)。要試等角感就把 TERRAIN_TEX_SQUASH 改成 .5。
 const TERRAIN_TEX_SQUASH=1;
@@ -288,12 +289,12 @@ const groundPatterns={};
 const PAVE_SQUASH=.36;
 // 概念圖草地取樣(pipeline/l0veyou.md 有量測方法)。meadow/birch 比村莊亮一階,保留生態域差異。
 // birch 往概念圖亮草綠 (83,156,61) 靠、收窄標準差:原本亮端 (124,179,75) 跑出色票。
-const GRASS_TONE={village:{mean:[87,140,50],sd:[24,22,10]},meadow:{mean:[138,194,53],sd:[32,23,25]},birch:{mean:[150,202,48],sd:[33,23,22]},forest:{mean:[59,69,30],sd:[35,21,10]},taiga:{mean:[54,132,114],sd:[34,30,21]},snow:{mean:[240,245,250],sd:[20,17,14]},mountain:{mean:[128,128,130],sd:[31,30,29]},desert:{mean:[241,181,79],sd:[14,21,19]},river:{mean:[30,105,178],sd:[15,15,8]},ocean:{mean:[30,105,178],sd:[15,15,8]},ice:{mean:[176,223,246],sd:[28,16,7]}};  // Xilurus 材質量測(pipeline/scripts/xilurus/assemble.py tones)
+const GRASS_TONE={village:{mean:[87,141,50],sd:[17,16,5]},meadow:{mean:[139,195,53],sd:[23,15,16]},birch:{mean:[151,203,48],sd:[24,16,15]},forest:{mean:[59,69,30],sd:[28,16,6]},taiga:{mean:[54,132,114],sd:[26,23,13]},snow:{mean:[241,245,251],sd:[17,14,11]},mountain:{mean:[128,129,131],sd:[24,23,23]},desert:{mean:[242,182,80],sd:[9,15,13]},river:{mean:[31,105,179],sd:[12,12,6]},ocean:{mean:[31,105,179],sd:[12,12,6]},ice:{mean:[177,224,246],sd:[23,13,4]}};  // Xilurus 材質量測(pipeline/scripts/xilurus/assemble.py tones)
 const groundBase=b=>GRASS_TONE[b]?'#'+GRASS_TONE[b].mean.map(v=>v.toString(16).padStart(2,'0')).join(''):BIOME_PALETTE[b];
 // 小地圖/世界地圖用同一套對齊概念圖的地面色,地圖跟畫面看起來才是同一個世界。
 // 石板/土路色取自 plaza.png、road.png 的取樣平均。
 export const MAP_PALETTE=Object.fromEntries(Object.keys(BIOME_PALETTE).map(b=>[b,groundBase(b)]));
-export const MAP_ACCENT={grass:'#9bd93b',snow:'#f7fcff',desert:'#ffc355',mountain:'#8f8f92',road:'#cc8e48',sea:'#1a5997'};
+export const MAP_ACCENT={grass:'#9cda3b',snow:'#f8fcff',desert:'#ffc556',mountain:'#8f9093',road:'#cd8e48',sea:'#1a5998'};
 let terrainPatternRev=0;
 function ensureTerrainAtlas(){
   const assets=globalThis.PIXEL_ASSETS||{};
@@ -848,7 +849,7 @@ export function createWorld(canvas,{onSelect=()=>{},onPlace=()=>{},getState=()=>
     for(const blk of BLOCKS){if(taken(blk))continue;const h=GRID.pitch/2-w-.45;
       if(['farm','lumber','pen'].includes(blk.use))quad(earth,blk.x-h,blk.z-h,blk.x+h,blk.z+h);
       if(['well','market'].includes(blk.use))quad(stone,blk.x-h+.4,blk.z-h+.4,blk.x+h-.4,blk.z+h-.4);}
-    const fill=(path,img,rule='nonzero')=>{vc.save();vc.clip(path,rule);const pat=vc.createPattern(img,'repeat');vc.scale(1/3.93,1/3.93);vc.fillStyle=pat;vc.fillRect(VBOX.x0*3.93,VBOX.y0*3.93,VBOX.w*3.93,VBOX.h*3.93);vc.restore();};
+    const VT=1/TERRAIN_TEX_SCALE,fill=(path,img,rule='nonzero')=>{vc.save();vc.clip(path,rule);const pat=vc.createPattern(img,'repeat');vc.scale(1/VT,1/VT);vc.fillStyle=pat;vc.fillRect(VBOX.x0*VT,VBOX.y0*VT,VBOX.w*VT,VBOX.h*VT);vc.restore();};  // 跟村外地面同一個材質密度
     fill(land,conceptTex.grass,'evenodd');
     vc.save();vc.clip(land,'evenodd');
     vc.save();vc.translate(0,.8);vc.fillStyle='rgba(70,48,24,.55)';vc.fill(earth);vc.restore();fill(earth,conceptTex.earth);vc.fillStyle='rgba(60,35,15,.12)';vc.fill(earth);
@@ -1218,6 +1219,9 @@ export function createWorld(canvas,{onSelect=()=>{},onPlace=()=>{},getState=()=>
     const target=h.targetId?(state.enemies||[]).find(e=>e.id===h.targetId&&e.hp>0):null,pose={...combatPose(h,false,target),flash:0},facing=previousPositions.get(h.id)?.facing||1;
     const sprite=heroSprite(h.classId,0,facing,hash(h.id)%3,heroLodScale,pose.pose);posed(p,pose,q=>drawSprite(sprite,q,21*CHAR_SCALE*sprite.width/(sprite.baseH||sprite.height),21*CHAR_SCALE*sprite.height/(sprite.baseH||sprite.height),1.2,.38));}
   // 驗收用:每一隻最後一次畫出來的朝向/姿勢(__mistvaleFacing())。
+  globalThis.__mistvaleBuildingSize=id=>{const b=BUILDINGS.find(q=>q.id===id);return b?{w:b.w,d:b.d}:null;};
+  let drawOrder=[];globalThis.__mistvaleOrder=()=>drawOrder;  // 驗收用:這一幀實際的畫圖先後
+  globalThis.__mistvaleHits=()=>hits.map(h=>({id:h.id,x:h.x,y:h.y,w:h.w,h:h.h}));  // 驗收用:畫出來的點擊框(check_zorder.mjs)
   globalThis.__mistvaleDecor=()=>decorations.map(d=>({type:d.type,x:d.x,z:d.z,size:d.size||1,walk:!!d.walk}));  // 驗收用:擺設清單(check_placement.mjs)
   const drawnFacing=new Map();globalThis.__mistvaleFacing=()=>Object.fromEntries(drawnFacing);
   const heroMemo=new Map();  // 獵人上一幀的目標(打倒目標 → 歡呼)
@@ -1269,7 +1273,8 @@ export function createWorld(canvas,{onSelect=()=>{},onPlace=()=>{},getState=()=>
     // 倍率基準＝待機圖(第 0 格)。0 格在 monsters 圖集、其他姿勢在 monsteratk 圖集 → 用「同解析度」的那份 0 格,不然會縮放錯或退回程序圖。
     const refLod=lod&&(detailLod.find(l=>l.scale===lod.scale&&l.frames[type+'0'])||detailFrameFor(type+'0',lod.scale===2)),ref=refLod?.frames[type+'0'];if(!lod||!ref)return null;
     const c=lod.frames[id],rs=sz*scale/Math.max(ref.w,ref.h),dw=Math.max(1,Math.round(c.w*rs)),dh=Math.max(1,Math.round(c.h*rs));
-    const dx=Math.round(p.x-dw/2),dy=Math.round(p.y-dh+2*scale);
+    // 軀幹錨點(ax)對齊站位點;沒有 ax 才用格寬置中。翻面時錨點跟著鏡像。
+    const ax=c.ax!=null?c.ax*dw/c.w:dw/2,dx=Math.round(p.x-(flip?dw-ax:ax)),dy=Math.round(p.y-dh+2*scale);
     cast(lod.img,c.x,c.y,c.w,c.h,dx,dy,dw,dh,flip,true,'char');
     const fl=flashNext,ga=g.globalAlpha;g.globalAlpha=ga*alpha;
     const put=(img,sx,sy,sw,sh)=>{if(flip){g.save();g.translate(dx+dw,dy);g.scale(-1,1);g.drawImage(img,sx,sy,sw,sh,0,0,dw,dh);g.restore();}else g.drawImage(img,sx,sy,sw,sh,dx,dy,dw,dh);};
@@ -1396,14 +1401,22 @@ export function createWorld(canvas,{onSelect=()=>{},onPlace=()=>{},getState=()=>
     g.drawImage(ground,gx,gy,Math.round(ground.width/GROUND_RES*scale),Math.round(ground.height/GROUND_RES*scale));
     if(villageReady)g.drawImage(villageLayer,Math.round(width/2+(VBOX.x0-cam.x)*scale),Math.round(height/2+50+(VBOX.y0-cam.y)*scale),Math.round(VBOX.w*scale),Math.round(VBOX.h*scale));
     const all=[];
+    // 會動的單位跟建築的前後:單一 x+z 排序鍵對「點 vs 長方形佔地」會錯(站在建築西南側、已經在南牆前面的人被屋子蓋住)。
+    // 正確判定:從單位往鏡頭方向(+x,+z 對角)射出,射線穿過佔地 → 在建築後面;否則在前面。只調整畫面上可能重疊的建築。
+    const bkeys=BUILDINGS.filter(b=>getLevel(b.id)>0&&b.id!=='dungeon').map(b=>{const p=state.layout?.[b.id]||b;return{x0:p.x-b.w/2,x1:p.x+b.w/2,z0:p.z-b.d/2,z1:p.z+b.d/2,key:p.x+p.z+.2,sx:p.x-p.z,half:(conceptBuildingWidth(b.id)/2+30)/9};});
+    globalThis.__mistvaleDecorKey=q=>depth(q.x,q.z,q.x+q.z);
+    const depth=(x,z,key)=>{for(const B of bkeys){if(Math.abs((x-z)-B.sx)>B.half)continue;
+      // 往鏡頭(+t)穿過佔地 → 在建築後面;往反方向(−t)穿過 → 在建築前面;都沒穿過(在旁邊)→ 不限制。
+      const lo=Math.max(B.x0-x,B.z0-z),hi=Math.min(B.x1-x,B.z1-z);if(lo>hi)continue;if(hi>=0&&lo>=0)key=Math.min(key,B.key-.001);else if(lo<=0&&hi<=0)key=Math.max(key,B.key+.001);}return key;};
     // 街上走的村民/獵人:沿自己那條街來回(三角波),面向跟著走的方向。
     for(const d of decorations)if(d.walk){const w=d.walk,t=((elapsed*w.speed+w.t0)/w.len)%2,u=t<1?t:2-t,nx=w.ax+(w.bx-w.ax)*u,nz=w.az+(w.bz-w.az)*u,sd=(nx-d.x)-(nz-d.z);if(Math.abs(sd)>1e-5)d.flip=sd<0;d.x=nx;d.z=nz;}
-    for(const d of decorations){const p=screenPoint(d.x,d.z);if(p.x>-100&&p.x<width+100&&p.y>-40&&p.y<height+260)all.push({sort:d.type==='streamBridge'||d.type==='frozenPond'?-1e9:d.x+d.z,type:'decor',data:d});}  // 橋面是地面:過橋的人永遠畫在上面
+    for(const d of decorations){const p=screenPoint(d.x,d.z);if(p.x>-100&&p.x<width+100&&p.y>-40&&p.y<height+260)all.push({sort:d.type==='streamBridge'||d.type==='frozenPond'?-1e9:depth(d.x,d.z,d.x+d.z),type:'decor',data:d});}  // 橋面是地面:過橋的人永遠畫在上面
     for(const b of BUILDINGS){const p=state.layout?.[b.id]||b;all.push({sort:p.x+p.z+.2,type:'building',data:b});}
-    for(const h of state.hunters||[])all.push({sort:h.x+h.z+.32,type:'hunter',data:h});  // 跟魔物同深度時獵人畫在前面
-    for(const w of state.wanderers||[])all.push({sort:w.x+w.z+.32,type:'wanderer',data:w});  // 流浪英雄:野外自己打怪,不是我方單位
-    for(const e of state.enemies||[])all.push({sort:e.x+e.z+.3,type:'enemy',data:e});
+    for(const h of state.hunters||[])all.push({sort:depth(h.x,h.z,h.x+h.z+.32),type:'hunter',data:h});  // 跟魔物同深度時獵人畫在前面
+    for(const w of state.wanderers||[])all.push({sort:depth(w.x,w.z,w.x+w.z+.32),type:'wanderer',data:w});  // 流浪英雄:野外自己打怪,不是我方單位
+    for(const e of state.enemies||[])all.push({sort:depth(e.x,e.z,e.x+e.z+.3),type:'enemy',data:e});
     all.sort((a,b)=>a.sort-b.sort);
+    drawOrder=all.map(i=>i.type==='building'?i.data.id:i.type==='hunter'?'hunter:'+i.data.id:i.type);
     sg.clearRect(0,0,width,height);spg.clearRect(0,0,width,height);g=spg;casting=true;
     try{for(const item of all){if(item.type==='decor')drawDecoration(item.data);else if(item.type==='building')drawBuilding(item.data);else if(item.type==='hunter')drawHunter(item.data);else if(item.type==='wanderer')drawHunter(item.data,true);else drawEnemy(item.data);}}
     finally{casting=false;g=bg;}

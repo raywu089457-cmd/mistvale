@@ -66,6 +66,35 @@ def resize_sprite(im: Image.Image, f: float) -> Image.Image:
     return Image.fromarray(a)
 
 
+# ── 道具像素密度(audit_density.py):道具原圖 250px 左右,但畫面上只畫 8–30 邏輯單位 → 美術像素比英雄細 3 倍。
+# 每個道具依「遊戲畫它的外框」縮成真像素畫(0.62 邏輯單位/美術像素,跟英雄一樣),圖集裡存最近鄰放大版(2x ×4、1x ×2)。
+ART_DENSITY = 0.62
+EXTRA_BOX = {"boulders": (10, 8), "signpost": (13, 16), "lamppost": (7, 15), "plot": (52, 40), "well": (50, 51), "flowerYellow": (9, 7), "flowerPink": (9, 7),
+             "flowerBlue": (9, 7), "flowerWhite": (9, 7), "wheat": (9, 9), "cabbage": (10, 7), "cave": (55, 60), "ruin": (46, 46), "outcrop": (42, 40), "sheep": (10, 8.5), "goat": (9.5, 10),
+             "pine": (42.5, 61), "oak": (42.5, 61), "birch": (42.5, 61), "snowpine": (42.5, 61), "autumnOak": (42.5, 61)}
+# 特效:fxSprite 以最長邊 = size 畫(drawSlash 20–34、fxHit 8–24、fxSparkle 14–30、fxOrb 11、箭 13),取典型大小
+EXTRA_BOX.update({"fxSlash": (26, 26), "fxOrb": (11, 11), "fxHeal": (14, 14), "fxStar": (12, 12), "fxHit": (12, 12), "fxSparkle": (18, 18), "arrowFx": (13, 13)})
+# UI 圖示:48px 圖示框(46px 內容),像素化成 24 美術像素 → 畫面上 ×≈2 的整齊像素(跟世界一樣是像素畫,不是高解析縮圖)
+ICON_ART = 24
+MONSTER_SIZE = {"slime": 28, "wolf": 31, "golem": 33, "boss": 50}   # pixel-world.js ENEMY_SIZE(以待機格最長邊為準)
+
+
+def prop_boxes():
+    import re
+    src = (ROOT / "src" / "pixel-world.js").read_text(encoding="utf-8"); i = src.index("const PROP_ATLAS=")
+    box = {k: (float(w), float(h)) for k, w, h in re.findall(r"(\w+):\['\w+',([\d.]+),([\d.]+),[\d.]+\]", src[i:i + 4000])}
+    box.update(EXTRA_BOX)
+    return box
+
+
+def pixelize_prop(crop: Image.Image, bw: float, bh: float, n: int, k: float | None = None, pal=None) -> Image.Image:
+    k = k or min(bw / crop.width, bh / crop.height)     # 原圖 px → 邏輯單位
+    s = k / ART_DENSITY                                  # 原圖 px → 美術像素
+    if s >= .8: return crop                              # 已經夠粗(大物件),不動
+    art = pixelize(crop, s, pal or palette_of([crop], 32), thr=105)   # 小道具外緣淺色多,描邊門檻放低一點(專案風格:每個物件都有深色描邊)
+    return art.resize((art.width * n, art.height * n), Image.NEAREST)
+
+
 def merge(name: str, parts: list[tuple[str, list[str] | None]]):
     """把多個暫存圖集(只取指定 id,None=全部)合併成 assets/<name>@1x/@2x(shelf packing,manifest 契約同 sheet_to_atlas)。"""
     for lod in ("1x", "2x"):
@@ -77,6 +106,27 @@ def merge(name: str, parts: list[tuple[str, list[str] | None]]):
                 if keep is not None and k not in keep:
                     continue
                 crop = im.crop((c["x"], c["y"], c["x"] + c["w"], c["y"] + c["h"]))
+                if name == "monsters":   # 同一種魔物所有格用待機格的倍率(遊戲也是以待機格為準縮放),像素化後格與格不會忽大忽小
+                    t = k.rstrip("0123456789"); i2, c2, _ = load_atlas(prefix, "2x"); cc = c2[k]
+                    src2 = i2.crop((cc["x"], cc["y"], cc["x"] + cc["w"], cc["y"] + cc["h"]))
+                    ia, ca, _ = load_atlas(f"zx-{t}", "2x"); c0 = ca[f"{t}0"]; idle = ia.crop((c0["x"], c0["y"], c0["x"] + c0["w"], c0["y"] + c0["h"]))
+                    kk = MONSTER_SIZE[t] / max(idle.width, idle.height) * SCALE.get(prefix, 1)
+                    crop = pixelize_prop(src2, 0, 0, 4 if lod == "2x" else 2, k=kk, pal=MON_PAL.setdefault(t, palette_of([idle], 40)))
+                    c = {**c, "x": 0, "y": 0, "w": crop.width, "h": crop.height, **({"anchor": [crop.width / 2, crop.height]} if "anchor" in c else {})}
+                    pieces[k] = (crop, c); continue
+                if name == "icons" or k == "iconLeather":
+                    i2, c2, _ = load_atlas(prefix, "2x"); cc = c2[k]
+                    src2 = i2.crop((cc["x"], cc["y"], cc["x"] + cc["w"], cc["y"] + cc["h"]))
+                    crop = pixelize_prop(src2, ICON_ART * ART_DENSITY, ICON_ART * ART_DENSITY, 4 if lod == "2x" else 2)
+                    c = {**c, "x": 0, "y": 0, "w": crop.width, "h": crop.height, **({"anchor": [crop.width / 2, crop.height]} if "anchor" in c else {})}
+                    pieces[k] = (crop, c); continue
+                if k in BOXES and name not in ("monsters", "icons"):
+                    i2, c2, _ = load_atlas(prefix, "2x"); cc = c2[k]
+                    src2 = i2.crop((cc["x"], cc["y"], cc["x"] + cc["w"], cc["y"] + cc["h"]))
+                    if k in MIRROR_CELLS: src2 = ImageOps.mirror(src2)
+                    crop = pixelize_prop(src2, *BOXES[k], 4 if lod == "2x" else 2)
+                    if k in MIRROR_CELLS: crop = ImageOps.mirror(crop)   # 下面會再鏡像一次
+                    c = {**c, "x": 0, "y": 0, "w": crop.width, "h": crop.height, **({"anchor": [crop.width / 2, crop.height]} if "anchor" in c else {})}
                 f = SCALE.get(prefix, 1)
                 if f != 1:   # 第二張表縮到跟第一張同尺寸(錨點跟著縮)
                     crop = resize_sprite(crop, f)
@@ -160,7 +210,12 @@ MERGES = {
 }
 
 
+BOXES: dict = {}
+MON_PAL: dict = {}
+
+
 def atlases():
+    BOXES.update(prop_boxes())
     for sheet, prefix, grid, ids, mirror in SHEETS:
         env = {"HUE_TOL": "16"} if prefix in ("zx-wild", "zx-farm", "zx-misc", "zx-yard") else None   # 粉花/紫旗:色鍵收窄
         if prefix == "zx-vfx":
@@ -176,6 +231,12 @@ def atlases():
         merge(name, parts)
     for prefix in {p for _, p, *_ in SHEETS}:
         drop(prefix)
+    # 魔物每格記軀幹錨點 ax(格內 px):畫的時候軀幹對齊站位點,不用格寬置中 → 出手/受擊格變寬時身體不會前後跳
+    for lod in ("1x", "2x"):
+        mp = A / f"monsters@{lod}.manifest.json"; m = json.loads(mp.read_text(encoding="utf-8")); im = Image.open(A / m["image"]).convert("RGBA")
+        for k, c in m["cells"].items():
+            c["ax"] = round(torso_x(im.crop((c["x"], c["y"], c["x"] + c["w"], c["y"] + c["h"]))), 1)
+        mp.write_text(json.dumps(m, ensure_ascii=False, indent=1), encoding="utf-8")
     # 魔物全部在 monsters 圖集(0–4 格);monsteratk 不再需要 → 刪掉,build.mjs 也不再載。
     for lod in ("1x", "2x"):
         for ext in ("png", "manifest.json"):
@@ -191,7 +252,7 @@ POSE_FIX = {"darkknight_walk4": "darkknight_walk2"}
 POSES_B = ["idle2", "strike2", "dead", "victory", "eat", "drink", "sleep", "bandaged", "trade", "train"]
 
 
-def normalize_outline(im: Image.Image, dark=(43, 27, 18)) -> Image.Image:
+def normalize_outline(im: Image.Image, dark=(43, 27, 18), thr=118) -> Image.Image:
     """描邊一致性:剪影外緣的亮色邊(白/淺灰)統一改成風格的深棕描邊。
 
     l0veyou 生的聖騎士/祭司是白銀/白袍+淺色輪廓,outline 比例 0.28–0.51,
@@ -203,9 +264,51 @@ def normalize_outline(im: Image.Image, dark=(43, 27, 18)) -> Image.Image:
     inner[1:-1, 1:-1] = al[1:-1, 1:-1] & al[:-2, 1:-1] & al[2:, 1:-1] & al[1:-1, :-2] & al[1:-1, 2:]
     edge = al & ~inner
     lum = 0.299 * a[..., 0] + 0.587 * a[..., 1] + 0.114 * a[..., 2]
-    fix = edge & (lum > 118)
+    fix = edge & (lum > thr)
     a[fix, 0], a[fix, 1], a[fix, 2] = dark
     return Image.fromarray(a, "RGBA")
+
+
+def torso_x(im: Image.Image) -> float:
+    """軀幹中心 x:40–75% 高度每列取最長連續不透明段的中心,取中位數(武器、盾、伸出去的手不會拉偏)。
+    所有姿勢(含待機)都用它當對齊錨點 → 換姿勢時身體不會左右跳(check/audit_pose_jump.py 驗)。"""
+    m = np.asarray(im)[..., 3] > 127
+    ys = np.nonzero(m.any(1))[0]
+    top, bot = ys.min(), ys.max(); H = bot - top + 1; xs = []
+    for y in range(int(top + H * .4), int(top + H * .75)):
+        row = m[y].astype(np.int8)
+        d = np.diff(np.concatenate([[0], row, [0]]))
+        st, en = np.nonzero(d == 1)[0], np.nonzero(d == -1)[0]
+        if len(st):
+            i = int(np.argmax(en - st)); xs.append((st[i] + en[i]) / 2)
+    return float(np.median(xs))
+
+
+STANDING_B = ("idle2", "drink", "trade")
+
+
+def palette_of(ims, n=40):
+    """職業色盤:幾張代表姿勢的不透明像素做 median-cut n 色。"""
+    px = np.concatenate([np.asarray(im.convert("RGBA")).reshape(-1, 4) for im in ims]); px = px[px[:, 3] > 127][:, :3]
+    side = int(np.ceil(np.sqrt(len(px)))); buf = np.zeros((side * side, 3), np.uint8); buf[:len(px)] = px
+    return Image.fromarray(buf.reshape(side, side, 3)).quantize(n, method=Image.Quantize.MEDIANCUT)
+
+
+def pixelize(im: Image.Image, s: float, pal: Image.Image, thr=118) -> Image.Image:
+    """高解析生圖 → 真像素畫:LANCZOS 縮 s 倍、alpha 二值化、套職業色盤(不抖動)、最外圈亮色改深棕描邊。"""
+    w, h = max(1, round(im.width * s)), max(1, round(im.height * s))
+    a = np.asarray(normalize_outline(im).resize((w, h), Image.LANCZOS)).copy()
+    alpha = np.where(a[..., 3] >= 110, 255, 0).astype(np.uint8)
+    rgb = Image.fromarray(a[..., :3]).quantize(palette=pal, dither=Image.Dither.NONE).convert("RGB")
+    out = np.dstack([np.asarray(rgb), alpha])
+    return normalize_outline(Image.fromarray(out, "RGBA"), thr=thr)
+
+
+def body_h(im: Image.Image) -> int:
+    m = np.asarray(im)[..., 3] > 127; w = m.shape[1]; t = torso_x(im)
+    lo, hi = int(max(0, t - .15 * w)), int(min(w, t + .15 * w) + 1)
+    ys = np.nonzero(m[:, lo:hi].any(1))[0]
+    return int(ys.max() - ys.min() + 1)
 
 
 def heroes():
@@ -224,20 +327,38 @@ def heroes():
         bb = {k: im.crop((c["x"], c["y"], c["x"] + c["w"], c["y"] + c["h"])) for k, c in cells.items()}
         f = got[cls][cls].height / bb[f"{cls}_idle2"].height
         got[cls].update({k: resize_sprite(v, f) for k, v in bb.items()})
+        # 同一張表裡模型每格畫的大小不一定一樣(黑騎士/法師的飲用、交易小了 13–18%):
+        # 站姿類逐格再校一次,讓「軀幹錨點 ±15% 寬欄位的身高」等於待機(audit_art.py 同一個量法)。
+        bh = body_h(got[cls][cls])
+        for p in STANDING_B:
+            k = f"{cls}_{p}"; r = bh / body_h(got[cls][k])
+            if abs(r - 1) > .04: got[cls][k] = resize_sprite(got[cls][k], r)
         drop("zx-hero")
         drop("zx-hero")
+    # 像素密度一致(audit_density.py):英雄美術像素＝1x 圖集像素(待機高 34 美術像素、畫 21 邏輯單位 → 0.62 單位/美術像素,
+    # 跟建築/魔物/地面同一級)。先縮成 1x 真像素畫(縮小 + 職業色盤 + 深色描邊),2x/4x 是它的整數倍最近鄰放大,不再各自平滑縮放。
+    art = {}
+    for cls in CLASSES:
+        g = got[cls]; s1 = LODS["1x"][0] / g[cls].height
+        pal = palette_of([g[cls]] + [g[f"{cls}_{p}"] for p in ("walk1", "strike", "hurt")])
+        art[cls] = {k: pixelize(v, s1, pal) for k, v in g.items()}
     for tag, (h, sc) in LODS.items():
         hero, pose, extra = {}, {}, {}
+        n = h // LODS["1x"][0]
         for cls in CLASSES:
-            g = got[cls]
-            s = h / g[cls].height   # 待機高度 → 34/68/136;同一張表的姿勢用同一個倍率,換姿勢不會忽大忽小
-            hero[cls] = normalize_outline(shrink(normalize_outline(g[cls]), s, False))
+            g = art[cls]
+            up = lambda im: im.resize((im.width * n, im.height * n), Image.NEAREST)
+            hero[cls] = up(g[cls])
             for p in POSES + POSES_B:
                 key = f"{cls}_{p}"
-                q = normalize_outline(shrink(normalize_outline(g[key]), s, False))
+                q = up(g[key])
                 pose[key] = q
                 extra[key] = {"foot": round(foot_x(q), 1)}
-        pack(hero, f"hero@{tag}", sc, {})
+        for cls in CLASSES:   # 錨點一律用軀幹中心(待機也是),不用腳底(腳底會被落地的斧頭、盾、法杖拉偏)
+            for key in [f"{cls}_{p}" for p in POSES + POSES_B]:
+                extra[key] = {"foot": round(torso_x(pose[key]), 1)}
+        hero_extra = {cls: {"foot": round(torso_x(hero[cls]), 1)} for cls in CLASSES}
+        pack(hero, f"hero@{tag}", sc, hero_extra)
         pack(pose, f"heropose@{tag}", sc, extra)
         for name in (f"hero@{tag}", f"heropose@{tag}"):
             mp = A / f"{name}.manifest.json"
@@ -252,18 +373,28 @@ BUILDING_SHEETS = [("bld-iso-game-a-v1.png", ["hall", "trading", "restaurant", "
 
 
 def buildings():
+    """建築:第六批單張高細節重繪(bldhd-<id>,以第一批建築圖當 REF)→ 去背 → 像素化到跟英雄同一個美術像素密度
+    (畫寬 ≈ conceptBuildingWidth×0.85 邏輯單位,0.62 單位/美術像素),存 ×4 最近鄰。沒有 bldhd 的退回第一批 4x1 表。"""
+    import re
     XD.mkdir(exist_ok=True)
+    src = (ROOT / "src" / "pixel-world.js").read_text(encoding="utf-8")
+    CW = {k: float(v) for k, v in re.findall(r"(\w+):(\d+)", re.search(r"conceptBuildingWidth=id=>\(\{([^}]*)\}", src).group(1))}
     widths = {}
     for sheet, ids in BUILDING_SHEETS:
-        cut(sheet, "zx-bld", "4x1", ids)
-        im, cells, _ = load_atlas("zx-bld", "2x")
-        for k, c in cells.items():
-            crop = im.crop((c["x"], c["y"], c["x"] + c["w"], c["y"] + c["h"]))
-            crop.save(XD / f"{k}.png", optimize=True)
-            widths[k] = c["w"]
-        drop("zx-bld")
+        for k in ids:
+            if k == "-": continue
+            hd = SRC / f"bldhd-{k}-v1.png"
+            if not (hd.exists() or hd.with_suffix(".jpg").exists()):
+                continue
+            cut(hd.name if hd.exists() else hd.with_suffix(".jpg").name, "zx-bld", "1x1", [k])
+            im, cells, _ = load_atlas("zx-bld", "2x"); c = cells[k]
+            crop = im.crop((c["x"], c["y"], c["x"] + c["w"], c["y"] + c["h"])); drop("zx-bld")
+            art_w = CW.get(k, 106) * .85 / ART_DENSITY
+            art = pixelize(crop, art_w / crop.width, palette_of([crop], 48))
+            out = art.resize((art.width * 4, art.height * 4), Image.NEAREST)
+            out.save(XD / f"{k}.png", optimize=True); widths[k] = out.width
+            print(f"  {k}: {crop.width}px → art {art.width}×{art.height}")
     (XD / "buildings.json").write_text(json.dumps(widths, indent=1), encoding="utf-8")
-    print("buildings:", widths)
 
 
 # ── 5. 地面材質 ─────────────────────────────────────────────────────────
@@ -347,6 +478,9 @@ def textures():
         if key == "water":   # 海往 Xilurus 色票的柔和青藍拉
             arr = np.asarray(t).astype(float)
             t = Image.fromarray(np.clip(arr * .55 + np.array([48, 128, 150]) * .45, 0, 255).astype(np.uint8))
+        # 像素密度一致:512 大格縮成 256(1 原生像素 = 0.5 邏輯單位,跟英雄 0.62、建築同一級;audit_density.py),
+        # BOX 縮小後減到 48 色,不留半色調糊邊。
+        t = t.resize((MACRO // 2, MACRO // 2), Image.BOX).quantize(48, method=Image.Quantize.MEDIANCUT, dither=Image.Dither.NONE).convert("RGB")
         t.save(XD / f"tex-{key}.png")
         tex[key] = t
         print(f"  {key}: {'tex2 256→512' if hi.exists() or hi.with_suffix('.jpg').exists() else 'v1 64×8'}")
@@ -354,23 +488,24 @@ def textures():
     source = {"village": "grass", "meadow": "meadow", "birch": "meadow", "forest": "forest", "taiga": "taiga", "snow": "snow", "mountain": "mountain",
               "desert": "desert", "river": "water", "ocean": "water", "ice": "ice", "bridge": "dirt"}
     birchify = lambda arr: np.clip(arr * [1.03, 1.02, .9] + [8, 4, 0], 0, 255)
-    sheet = Image.new("RGB", (4 * MACRO, 3 * MACRO))
+    T = MACRO // 2
+    sheet = Image.new("RGB", (4 * T, 3 * T))
     cells = {}
     for r, row in enumerate(layout):
         for c, b in enumerate(row):
             t = tex[source[b]]
             if b == "birch":   # 白樺花原:比向陽草原亮一階、偏黃綠
                 t = Image.fromarray(birchify(np.asarray(t).astype(float)).astype(np.uint8))
-            sheet.paste(t, (c * MACRO, r * MACRO))
-            cells[b] = {"x": c * MACRO, "y": r * MACRO, "w": MACRO, "h": MACRO}
+            sheet.paste(t, (c * T, r * T))
+            cells[b] = {"x": c * T, "y": r * T, "w": T, "h": T}
     sheet.save(A / "terrain-atlas.png", optimize=True)
     (A / "terrain-atlas.manifest.json").write_text(json.dumps({"version": 1, "kind": "mistvale-terrain-atlas", "image": "terrain-atlas.png", "sheetWidth": sheet.width,
-        "sheetHeight": sheet.height, "tile": MACRO, "generator": "l0veyou GPT Image 2(Xilurus 風格,高細節材質)→ pipeline/scripts/xilurus/assemble.py textures", "cells": cells}, indent=1), encoding="utf-8")
+        "sheetHeight": sheet.height, "tile": T, "generator": "l0veyou GPT Image 2(Xilurus 風格,高細節材質)→ pipeline/scripts/xilurus/assemble.py textures", "cells": cells}, indent=1), encoding="utf-8")
     wood, up = native(SRC / "tex-woodui-v1.png")   # UI 木紋
     seamless(wood, seed=3).resize((256, 256), Image.NEAREST).save(A / "woodui.png")
     tex["stone"].save(A / "plaza.png")
     tex["dirt"].save(A / "road.png")
-    for key, src in [("stone", "stone"), ("earth", "dirt"), ("grass", "grass")]:   # 村莊高解析地面層(畫的時候 1 原生像素 = 0.254 畫面單位)
+    for key, src in [("stone", "stone"), ("earth", "dirt"), ("grass", "grass")]:   # 村莊地面層(畫的時候 1 原生像素 = 0.5 邏輯單位)
         tex[src].save(A / f"concept-{key}.png")
     stats = {}
     for b, s_ in source.items():

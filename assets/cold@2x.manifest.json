@@ -2,49 +2,49 @@
  "version": 1,
  "kind": "mistvale-xilurus-cold-atlas",
  "image": "cold@2x.png",
- "sheetWidth": 894,
- "sheetHeight": 481,
+ "sheetWidth": 584,
+ "sheetHeight": 148,
  "packing": "shelf",
  "generator": "l0veyou.com GPT Image 2(Xilurus 風格)→ pipeline/scripts/xilurus/assemble.py",
  "cells": {
   "snowDrift": {
-   "x": 0,
-   "y": 312,
-   "w": 286,
-   "h": 169,
+   "x": 430,
+   "y": 0,
+   "w": 152,
+   "h": 92,
    "anchor": [
-    143.0,
-    481
+    506.0,
+    92
    ]
   },
   "frozenPond": {
-   "x": 588,
+   "x": 166,
    "y": 0,
-   "w": 304,
-   "h": 191,
+   "w": 176,
+   "h": 108,
    "anchor": [
-    740.0,
-    191
+    254.0,
+    108
    ]
   },
   "cliffLedge": {
    "x": 0,
    "y": 0,
-   "w": 340,
-   "h": 310,
+   "w": 164,
+   "h": 148,
    "anchor": [
-    170.0,
-    310
+    82.0,
+    148
    ]
   },
   "iceRocks": {
-   "x": 342,
+   "x": 344,
    "y": 0,
-   "w": 244,
-   "h": 283,
+   "w": 84,
+   "h": 96,
    "anchor": [
-    464.0,
-    283
+    386.0,
+    96
    ]
   }
  }

@@ -2,69 +2,69 @@
  "version": 1,
  "kind": "mistvale-xilurus-flora-atlas",
  "image": "flora@2x.png",
- "sheetWidth": 829,
- "sheetHeight": 437,
+ "sheetWidth": 304,
+ "sheetHeight": 60,
  "packing": "shelf",
  "generator": "l0veyou.com GPT Image 2(Xilurus 風格)→ pipeline/scripts/xilurus/assemble.py",
  "cells": {
   "flowerYellow": {
-   "x": 235,
+   "x": 58,
    "y": 0,
-   "w": 203,
-   "h": 221,
+   "w": 40,
+   "h": 44,
    "anchor": [
-    336.5,
-    221
+    78.0,
+    44
    ]
   },
   "flowerPink": {
-   "x": 440,
+   "x": 100,
    "y": 0,
-   "w": 197,
-   "h": 218,
+   "w": 40,
+   "h": 44,
    "anchor": [
-    538.5,
-    218
+    120.0,
+    44
    ]
   },
   "flowerBlue": {
-   "x": 639,
+   "x": 142,
    "y": 0,
-   "w": 188,
-   "h": 217,
+   "w": 40,
+   "h": 44,
    "anchor": [
-    733.0,
-    217
+    162.0,
+    44
    ]
   },
   "flowerWhite": {
-   "x": 277,
-   "y": 250,
-   "w": 206,
-   "h": 181,
+   "x": 184,
+   "y": 0,
+   "w": 52,
+   "h": 44,
    "anchor": [
-    380.0,
-    431
+    210.0,
+    44
    ]
   },
   "wheat": {
    "x": 0,
    "y": 0,
-   "w": 233,
-   "h": 248,
+   "w": 56,
+   "h": 60,
    "anchor": [
-    116.5,
-    248
+    28.0,
+    60
    ]
   },
   "cabbage": {
-   "x": 0,
-   "y": 250,
-   "w": 275,
-   "h": 187,
+   "x": 238,
+   "y": 0,
+   "w": 64,
+   "h": 44,
    "anchor": [
-    137.5,
-    437
+    270.0,
+    44
    ]
   }
  }
