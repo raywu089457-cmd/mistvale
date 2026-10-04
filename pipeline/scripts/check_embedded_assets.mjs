@@ -7,7 +7,7 @@ import vm from 'node:vm';
 import {fileURLToPath} from 'node:url';
 
 const root=path.resolve(path.dirname(fileURLToPath(import.meta.url)),'../..');
-const html=await fs.readFile(path.resolve(root,'../../outputs/暮影村.html'),'utf8');
+const html=await fs.readFile(process.env.HTML||path.resolve(root,'../../outputs/暮影村.html'),'utf8');
 const sandbox={window:{}};
 const block=[...html.matchAll(/<script>([\s\S]*?)<\/script>/g)].find(b=>b[1].includes('window.PIXEL_ASSETS.title='));
 assert.ok(block,'asset injection script exists');
@@ -45,8 +45,8 @@ const REQUIRED=['pine','oak','birch','snowpine','boulders','outcrop','cave','rui
  'archeryTarget','dummy','weaponRack','anvilStump','tableSet','bench','handCart','flowerBox',
  'purpleBanner','fruitStand','sacks','barrel','bucket','flowerBush',
  'fxSlash','fxOrb','fxHeal','fxStar','fxHit','fxSparkle','iconLeather','arrowFx','plot',
- ...['slime','wolf','golem','boss'].flatMap(t=>[0,1,2,3,4].map(i=>t+i)),
- ...['berserker','ranger','paladin','sorcerer','darkknight','priest'].flatMap(c=>[c,...['walk1','walk2','walk3','walk4','windup','strike','hurt','rest'].map(p=>`${c}_${p}`)]),
+ ...['slime','wolf','golem','boss'].flatMap(t=>[0,1,2,3,4,5,6,7,8,9].map(i=>t+i)),  // 0 待機 1 蓄力 2 出手 3 走路 4 受擊 5 呼吸 6 走路2 7 收招 8 受擊2 9 倒下
+ ...['berserker','ranger','paladin','sorcerer','darkknight','priest'].flatMap(c=>[c,...['walk1','walk2','walk3','walk4','windup','strike','hurt','rest','idle2','strike2','dead','victory','eat','drink','sleep','bandaged','trade','train'].map(p=>`${c}_${p}`)]),
  'gold','gems','wood','ore','herb','drink','bed','heal','cloth','food','armor','swords','hammer','anvil','bag','skull','hunter','hall','scroll','map','up','boss','trade','horn','gear','arrow','star','heart','shield'];
 const missing=REQUIRED.filter(id=>!cells.has(id));
 assert.deepEqual(missing,[],'every id the renderer draws exists in the embedded atlases');

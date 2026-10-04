@@ -2,82 +2,82 @@
  "version": 1,
  "kind": "mistvale-terrain-atlas",
  "image": "terrain-atlas.png",
- "sheetWidth": 1024,
- "sheetHeight": 768,
- "tile": 256,
- "generator": "l0veyou GPT Image 2(Xilurus \u98a8\u683c)\u2192 pipeline/scripts/xilurus/assemble.py textures",
+ "sheetWidth": 2048,
+ "sheetHeight": 1536,
+ "tile": 512,
+ "generator": "l0veyou GPT Image 2(Xilurus \u98a8\u683c,\u9ad8\u7d30\u7bc0\u6750\u8cea)\u2192 pipeline/scripts/xilurus/assemble.py textures",
  "cells": {
   "village": {
    "x": 0,
    "y": 0,
-   "w": 256,
-   "h": 256
+   "w": 512,
+   "h": 512
   },
   "meadow": {
-   "x": 256,
-   "y": 0,
-   "w": 256,
-   "h": 256
-  },
-  "birch": {
    "x": 512,
    "y": 0,
-   "w": 256,
-   "h": 256
+   "w": 512,
+   "h": 512
+  },
+  "birch": {
+   "x": 1024,
+   "y": 0,
+   "w": 512,
+   "h": 512
   },
   "forest": {
-   "x": 768,
+   "x": 1536,
    "y": 0,
-   "w": 256,
-   "h": 256
+   "w": 512,
+   "h": 512
   },
   "taiga": {
    "x": 0,
-   "y": 256,
-   "w": 256,
-   "h": 256
+   "y": 512,
+   "w": 512,
+   "h": 512
   },
   "snow": {
-   "x": 256,
-   "y": 256,
-   "w": 256,
-   "h": 256
+   "x": 512,
+   "y": 512,
+   "w": 512,
+   "h": 512
   },
   "mountain": {
-   "x": 512,
-   "y": 256,
-   "w": 256,
-   "h": 256
+   "x": 1024,
+   "y": 512,
+   "w": 512,
+   "h": 512
   },
   "desert": {
-   "x": 768,
-   "y": 256,
-   "w": 256,
-   "h": 256
+   "x": 1536,
+   "y": 512,
+   "w": 512,
+   "h": 512
   },
   "river": {
    "x": 0,
-   "y": 512,
-   "w": 256,
-   "h": 256
+   "y": 1024,
+   "w": 512,
+   "h": 512
   },
   "ocean": {
-   "x": 256,
-   "y": 512,
-   "w": 256,
-   "h": 256
+   "x": 512,
+   "y": 1024,
+   "w": 512,
+   "h": 512
   },
   "ice": {
-   "x": 512,
-   "y": 512,
-   "w": 256,
-   "h": 256
+   "x": 1024,
+   "y": 1024,
+   "w": 512,
+   "h": 512
   },
   "bridge": {
-   "x": 768,
-   "y": 512,
-   "w": 256,
-   "h": 256
+   "x": 1536,
+   "y": 1024,
+   "w": 512,
+   "h": 512
   }
  }
 }

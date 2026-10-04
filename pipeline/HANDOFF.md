@@ -1,3 +1,17 @@
+## 2026-10-05:素材擺放檢查、地面高細節、英雄/魔物更多狀態、特效方向(branch art-polish,最新)
+
+- **英雄每職業 +10 個狀態**(第四批,第一張待機圖當 REF 生,依 idle2 高度縮成同尺寸):`idle2` 呼吸、`strike2` 收招、`dead` 倒地、`victory` 歡呼、`eat` 用餐、`drink` 飲用、`sleep` 睡覺、`bandaged` 包紮、`trade` 交易、`train` 訓練。
+  畫面:待機 idle↔idle2 交替;近戰出手 0.2 秒後換 strike2;狀態文字 → 用餐/飲用/休息/休養/交易/訓練圖;打倒目標歡呼 0.9 秒;倒下用 dead 圖(原本是待機圖轉 90°)。
+- **魔物每種 +5 格**(monsters 圖集 5–9):5 呼吸待機、6 第二走路格(史萊姆著地壓扁)、7 出手收招、8 第二受擊格、9 倒下屍體(死亡特效 8→9 躺 1.1 秒再淡出)。
+- **地面高細節**:`tex2-*` 生圖要求小像素(1254² 約 5px 一格)→ 縮到 256 原生 → 色調逐通道配回第一版(已確認的 Xilurus 色票)→ 無縫化 → 512 大格(第二層旋轉/位移、週期雜訊遮罩切換,不混色)。
+  1 原生像素＝0.25 畫面單位,跟建築 2x 圖集同密度(原本村莊地面 1 原生像素＝1.4 單位,粗 5 倍)。手機地面 2px/單位時開平滑避免摩爾紋。建置 20→34 MB。
+- **特效方向**:fxSlash 原圖是「由右往左揮」,原本翻面反了 → 攻擊者在左才翻面。擺拍 `stage.mjs`(scratchpad)驗:斬擊、箭、法球、聖光、受擊爪痕左右兩側都對。
+- **擺放**:新 `pipeline/scripts/check/check_placement.mjs`(實心擺設不壓建築/路/柵欄/出村口、不在空地、彼此不疊)→ 只抓到霜杉林地空地旗插在村裡街上 → 改插空地四側第一個不在村內、不在路上的位置。
+  建築名牌改放在自己屋頂上(原本放地基前緣,被前排建築蓋住,看起來像別棟的名字)。
+- **全畫面掃描**:8 區 × 3 縮放 + 世界圖 `proc={}`、英雄無程序圖;所有 UI 面板(建設、獵人、交易、製作、地下城、競技場、委託、倉庫、世界圖、說明、設定、建築面板)圖示/立繪/縮圖都是新圖。
+- 驗收:npm test 全過、check_embedded_assets 251 個 id、check_atlases 全過、check_placement 0、check_gates 東 375/南 83/穿 0、check_facing 全 0;FPS GPU 30/30、軟體算繪桌機 24 手機 30。
+- `HTML=<建置檔>` 環境變數可讓 check_embedded_assets / check_placement / check_facing 指定建置檔。
+
 ## 2026-10-04 晚:全部美術換成 Xilurus 風格(commit d7d8e24、5e5e90a,最新)
 
 **遊戲原本的美術已全部取代**:`assets/` 裡每個檔案都是 Xilurus 風格新圖(舊 concept-clean、buildings/stream/villagers/monsteratk 圖集、hall/inn/monument.png 已刪,git 歷史裡有)。
