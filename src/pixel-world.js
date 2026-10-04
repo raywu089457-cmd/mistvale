@@ -1199,7 +1199,7 @@ export function createWorld(canvas,{onSelect=()=>{},onPlace=()=>{},getState=()=>
     const tx=target?.x??(isEnemy?a.facingX:null),tz=target?.z??(isEnemy?a.facingZ:null);
     if(atk>=0&&atk<.36&&a.atkX!=null){const d=screenDir(a.x,a.z,a.atkX,a.atkZ);out.face=d.x;out.pose='strike';
       if(ranged){const k=atk<.06?atk/.06:Math.max(0,1-(atk-.06)/.3);out.k=k;out.ox=-d.x*1.8*k;out.oy=-d.y*.9*k;out.lean=-d.x*.1*k;}
-      else{const reach=isEnemy?(a.type==='boss'?8:a.type==='wolf'?7:5):5.5,k=atk<.07?ease(atk/.07):Math.max(0,1-(atk-.07)/.29);out.k=k;
+      else{const reach=isEnemy?(a.type==='boss'?4:a.type==='wolf'?3.5:a.type==='slime'?4:2):5.5,  /* 魔物的出手圖本身已往前伸,位移只補一點,不然整隻蓋住獵人 */k=atk<.07?ease(atk/.07):Math.max(0,1-(atk-.07)/.29);out.k=k;
         out.ox=d.x*reach*k;out.oy=d.y*reach*.7*k;out.lean=d.x*.24*k;out.sx=1+.07*k;out.sy=1-.06*k;
         if(isEnemy&&a.type==='slime')out.oy-=7*Math.sin(Math.min(1,atk/.22)*Math.PI);
         if(isEnemy&&a.type==='wolf')out.oy-=3.5*Math.sin(Math.min(1,atk/.2)*Math.PI);}
@@ -1207,7 +1207,9 @@ export function createWorld(canvas,{onSelect=()=>{},onPlace=()=>{},getState=()=>
       out.ox=-d.x*2*k;out.oy=-d.y*k;out.lean=-d.x*.16*k;out.sx=1+.05*k;out.sy=1-.08*k;}
     else if(engaged&&tx!=null)out.face=screenDir(a.x,a.z,tx,tz).x;
     if(hit>=0&&hit<.32&&a.hitFromX!=null){const d=screenDir(a.hitFromX,a.hitFromZ,a.x,a.z),k=hit<.05?hit/.05:Math.max(0,1-(hit-.05)/.27);
-      out.ox+=d.x*3.2*k+Math.sin(hit*95)*.9*k;out.oy+=d.y*1.6*k;out.lean+=d.x*.14*k;if(out.pose!=='strike')out.pose='hurt';
+      out.ox+=d.x*3.2*k+Math.sin(hit*95)*.9*k;out.oy+=d.y*1.6*k;out.lean+=d.x*.14*k;
+      // 受擊圖是「被右邊打到、往左退」:受擊時一律面向打來的那一側(不然從背後被打會朝攻擊者縮)。
+      if(out.pose!=='strike'){out.pose='hurt';if(Math.abs(d.x)>.15)out.face=-d.x;}
       out.flash=hit<.14?1-hit/.14:0;out.flashColor=isEnemy?'#ffffff':'#ff6a52';}
     return out;
   }
@@ -1281,9 +1283,11 @@ export function createWorld(canvas,{onSelect=()=>{},onPlace=()=>{},getState=()=>
     previousPositions.set('enemy:'+e.id,{x:e.x,z:e.z,flip});
     // 待機呼吸(史萊姆 Q 彈)、移動時跳步;攻擊/受擊的位移疊在上面。
     const breathe=Math.sin(elapsed*(e.type==='slime'?5:3)+seed),amp=e.type==='slime'?.07:.025;pose.sy*=1+amp*breathe;pose.sx*=1-amp*.6*breathe;
-    if(moving&&pose.pose==='idle')pose.oy-=Math.abs(Math.sin(elapsed*(e.type==='wolf'?11:7)+seed))*(e.type==='slime'?3:e.type==='wolf'?1.8:1);
+    // 走路:狼/魔像/領主一直用側面走路圖(3),配步伐上下起伏;史萊姆是跳躍——著地時用壓扁圖(3),騰空時用圓圖(0)。
+    const stride=Math.sin(elapsed*(e.type==='wolf'?11:e.type==='slime'?6:7)+seed);
+    if(moving&&pose.pose==='idle'){pose.oy-=Math.abs(stride)*(e.type==='slime'?4:e.type==='wolf'?1.8:1);if(e.type!=='slime'){pose.sy*=1-.03*Math.abs(stride);pose.lean+=(flip?-1:1)*.04;}}
     // 0 待機、1 蓄力、2 出手、3 走路、4 受擊(l0veyou monsteratk 圖集)
-    const frame=pose.pose==='strike'?2:pose.pose==='windup'?1:pose.pose==='hurt'?4:moving?(Math.floor(elapsed*(e.type==='slime'?4:5)+seed)%2?3:0):0;
+    const frame=pose.pose==='strike'?2:pose.pose==='windup'?1:pose.pose==='hurt'?4:moving?(e.type==='slime'?(Math.abs(stride)<.4?3:0):3):0;
     // 被獵人鎖定:腳下紅色目標圈(誰在打誰一眼看得出來)。
     const targeted=(state.hunters||[]).some(h=>h.targetId===e.id&&h.status==='戰鬥中');
     if(targeted){const r=(boss?15:9)*scale,pulse=1+.06*Math.sin(elapsed*6);g.save();g.strokeStyle='#2a0d0a99';g.lineWidth=Math.max(2,scale*1.4);g.beginPath();g.ellipse(p.x,p.y+scale,r*pulse,r*.42*pulse,0,0,Math.PI*2);g.stroke();
@@ -1380,7 +1384,7 @@ export function createWorld(canvas,{onSelect=()=>{},onPlace=()=>{},getState=()=>
     for(const d of decorations)if(d.walk){const w=d.walk,t=((elapsed*w.speed+w.t0)/w.len)%2,u=t<1?t:2-t,nx=w.ax+(w.bx-w.ax)*u,nz=w.az+(w.bz-w.az)*u,sd=(nx-d.x)-(nz-d.z);if(Math.abs(sd)>1e-5)d.flip=sd<0;d.x=nx;d.z=nz;}
     for(const d of decorations){const p=screenPoint(d.x,d.z);if(p.x>-100&&p.x<width+100&&p.y>-40&&p.y<height+260)all.push({sort:d.type==='streamBridge'||d.type==='frozenPond'?-1e9:d.x+d.z,type:'decor',data:d});}  // 橋面是地面:過橋的人永遠畫在上面
     for(const b of BUILDINGS){const p=state.layout?.[b.id]||b;all.push({sort:p.x+p.z+.2,type:'building',data:b});}
-    for(const h of state.hunters||[])all.push({sort:h.x+h.z+.3,type:'hunter',data:h});
+    for(const h of state.hunters||[])all.push({sort:h.x+h.z+.32,type:'hunter',data:h});  // 跟魔物同深度時獵人畫在前面
     for(const e of state.enemies||[])all.push({sort:e.x+e.z+.3,type:'enemy',data:e});
     all.sort((a,b)=>a.sort-b.sort);
     sg.clearRect(0,0,width,height);spg.clearRect(0,0,width,height);g=spg;casting=true;
