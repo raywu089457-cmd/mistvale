@@ -1,3 +1,21 @@
+## 2026-10-04 晚:全部美術換成 Xilurus 風格(commit d7d8e24、5e5e90a,最新)
+
+**遊戲原本的美術已全部取代**:`assets/` 裡每個檔案都是 Xilurus 風格新圖(舊 concept-clean、buildings/stream/villagers/monsteratk 圖集、hall/inn/monument.png 已刪,git 歷史裡有)。
+- 一鍵重組:`python pipeline/scripts/xilurus/assemble.py [atlases|heroes|buildings|textures|tones|title|all]`
+  來源是 `output/l0veyou/<表>-v1.(png|jpg)`(prompt 在 `output/l0veyou/prompts/`,`make_batch2.py`/`make_batch3.py` 產 prompt,`run_batch*.sh` 依序生圖)。
+  **檔名與 cell id 跟舊版一樣**(details/props/cold/woods/flora/yard/town/town2/vfx/icons/monsters + hero/heropose + terrain-atlas/plaza/road/concept-*/woodui/title),所以 pixel-world.js 幾乎不用改。
+- 第三批生圖(27 張):地貌/農作/庭院道具/特效/UI 圖示 2 張/六職業英雄(每職業一張 5x2:待機、走路 1–4、蓄力、出手、受擊、休息、勝利)/標題圖/12 種地面材質/UI 木紋。
+  英雄全部朝右;法師用綠底(紫水晶)。黑騎士 walk4 沒拿劍 → `POSE_FIX` 用 walk2 代。狼表整張朝左 → 鏡像再切。柵欄段生成方向相反 → `MIRROR_CELLS` 鏡像。
+- 地面材質:1024² 生圖 → 去外圈 5% → BOX 縮到 64² 原生像素 → 無縫化(半格位移 + 有機抖動遮罩,不混色) → 最近鄰放大 256。海往青藍拉;土路重生成「無車轍」版(車轍在空地上變條紋)。
+  生態域底色/小地圖色由 `tones` 步驟從新材質量測寫進 `GRASS_TONE`/`MAP_ACCENT`(不再對齊舊概念圖)。
+- 程式改動:build.mjs 改嵌 `assets/xilurus/<建築>.png`(去背)、不嵌舊圖集;pixel-world.js:新建築畫寬、出村口改一座村門(南門翻面)、柵欄段尺寸 22.6×22、投射物改 `arrowFx`、標題圖 16:9;
+  影子改用最長邊 ≤128px 的縮小版計算(新圖一格 250–350px,原尺寸影子讓軟體算繪 30→23fps)。
+- 驗收:`node pipeline/scripts/check_embedded_assets.mjs`(49 個嵌入檔＝Xilurus 來源、171 個遊戲用到的 id 都在、舊圖集沒嵌)、`check_atlases.py` 29/29、`npm test` 全過、
+  `check_facing.mjs` 全 0 錯、`check_gates.mjs` 東 375/南 83/穿柵欄 0、各視角 `proc={}`、無 pageerror。
+  FPS:GPU 算繪桌機/手機都 30(上限);純軟體(headless SwiftShader)桌機 30→24(影子層蓋的面積變大,新樹比較茂密),手機 30。
+- 已知:標題圖左下角有一小段溪(只是插畫,地圖上沒有河);地形磚(isoterrain)沒用到,地面用的是無縫材質。
+- 注意:同一時間有另一個代理在改 `src/pixel-game.js`/`pixel-ui.js`/`pixel-world.js`(流浪英雄、英雄待機等指令),那些改動不是這次美術工作的一部分。
+
 # 交接：概念圖對齊（2026-10-03）
 
 ## 2026-10-04 15:30:Xilurus 風格第二批(46 件,補齊遊戲要用的整套)
@@ -24,7 +42,7 @@
   `mon-wolf-iso-v2-v1-mirror.png`(整張左右翻)再切,id 順序反過來(`wolf4,wolf3,wolf2,wolf1,wolf0`)。之後每張魔物表都要先看朝向再切。
   魔像走路格(golem3)前腳往左下踏,朝向有點曖昧,可接受;要更乾淨就重生那張。
 - 小瑕疵:餐廳煙囪的煙帶一點淡紫(洋紅去背殘色,不算 magenta 殘留);地形磚是「有厚度的方塊」不是純平面菱形(第一批也是),接進遊戲要嘛裁掉側面、要嘛當高台用。
-- **都還沒接進遊戲、也還沒 commit**。還缺的(要整套換才不突兀):英雄/村民(目前是 Q 版 2 頭身,風格不同)、柵欄(第一批 isoprops 有 fence)、地面接縫材質(遊戲地面是材質填色,不是磚)。
+- 已接進遊戲(見上一節「全部美術換成 Xilurus 風格」);中間產物 isobld-*/isomon-* 等圖集已刪,由 assemble.py 直接從原圖重組。
 
 ## 2026-10-04 15:00：Xilurus 風格批次生圖（l0veyou 管線，一次 36 件）
 
