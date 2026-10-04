@@ -1,5 +1,90 @@
 # 交接：概念圖對齊（2026-10-03）
 
+## 2026-10-04 15:30:Xilurus 風格第二批(46 件,補齊遊戲要用的整套)
+
+接續上一節第一批(36 件風格樣品),這批照遊戲實際要用的東西一對一生:
+- prompt 產生器 `output/l0veyou/prompts/make_batch2.py`(規則同第一批)、批次腳本 `run_batch2.sh`(已存在的圖會跳過)、總覽 `overview_batch2.py` → `output/l0veyou/batch2-overview.png`。
+- 全部 `magenta殘留=0`。原圖 `output/l0veyou/<名>-v1.png`。
+
+| prefix | 格 | 內容(id 跟遊戲一致) |
+|---|---|---|
+| `isobld-a` | 4x1 | hall／trading／restaurant／inn |
+| `isobld-b` | 4x1 | tavern／clinic／forge／academy |
+| `isobld-c` | 4x1 | training／sanctuary／house／bounty |
+| `isobld-d` | 4x1 | enhancement／dungeon／monument(廣場騎士像)／gate(村門,配新的東南出村口) |
+| `isomon-slime/-wolf/-golem/-boss` | 5x1 | `<type>0..4` ＝ 待機／蓄力／出手／走路／受擊,跟 `monsters`+`monsteratk` 的格號一樣,可直接換 |
+| `isoterrain2` | 4x2 | forestFloor／taigaMoss／mountainRock／desertSand／meadowFlowers／dirtRoad／plazaStone／ice |
+| `isoprops2` | 4x2 | stall／fruitStand／handCart／bench／anvilStump／weaponRack／dummy／archeryTarget(id 同現有道具) |
+| `isonature` | 4x2 | snowPine／birch／cactus／boulder／mossRock／iceRocks／outcrop／wildflowers |
+
+- 魔物 slime/wolf/golem 帶第一批待機圖當 REF(`output/l0veyou/ref-iso-*.png`),外型跟第一批一致。
+- **首領改成暮林領主(樹人)**:第一批 `isomonsters` 的 boss 是紅色有翼惡魔,跟遊戲的「暮林領主」不符 → 以 `isomon-boss` 為準。
+  第一批 `isomonsters` 的狼也是朝左。**第一批 `isomonsters` 整份作廢,用 `isomon-*`**。
+- **朝向**:遊戲規則是「所有圖朝右、往左才鏡像;受擊＝被右邊打往左退」。prompt 寫了 facing RIGHT,狼還是整排朝左 →
+  `mon-wolf-iso-v2-v1-mirror.png`(整張左右翻)再切,id 順序反過來(`wolf4,wolf3,wolf2,wolf1,wolf0`)。之後每張魔物表都要先看朝向再切。
+  魔像走路格(golem3)前腳往左下踏,朝向有點曖昧,可接受;要更乾淨就重生那張。
+- 小瑕疵:餐廳煙囪的煙帶一點淡紫(洋紅去背殘色,不算 magenta 殘留);地形磚是「有厚度的方塊」不是純平面菱形(第一批也是),接進遊戲要嘛裁掉側面、要嘛當高台用。
+- **都還沒接進遊戲、也還沒 commit**。還缺的(要整套換才不突兀):英雄/村民(目前是 Q 版 2 頭身,風格不同)、柵欄(第一批 isoprops 有 fence)、地面接縫材質(遊戲地面是材質填色,不是磚)。
+
+## 2026-10-04 15:00：Xilurus 風格批次生圖（l0veyou 管線，一次 36 件）
+
+目標：補一批「等角村莊素材」，風格對齊 Xilurus（16-bit 等角、乾燥暖色、厚實深棕描邊、茅草頂）。
+做法是**生圖為主、程式管線負責後製**。純 PIL 程式畫的版本風格語彙正確但精緻度追不上手工像素（見下「結論」），生出來的品質跟目標同級。
+
+### 流程（三步，可重複）
+
+1. **寫 prompt** → `output/l0veyou/prompts/<名>.txt`。規則：
+   - 開頭固定 `Pixel art sprite sheet, 2:1 isometric view, 16-bit retro JRPG style...`
+   - 明講格數與排列：`Exactly N separate ... arranged in a clean 4 columns x R rows grid`，
+     再**逐格描述**每一格要什麼，不然模型會自己亂排。
+   - 結尾固定：純 magenta 背景、無地面、無投影、無文字、只出一張圖。
+   - **寫死色票（hex）**才會貼近目標風格，這批用的是：
+     `salmon pink #d29c8a / dark red-brown #642726 / golden straw #c49459 和 #bb863d / dark brown outline #0a0706 / blue-gray stone #5b5e6e`
+   - **4 欄的表一律用 16:9**（格子近正方，物件才不會被切邊，詳見 l0veyou.md）。
+   - 魔物動作格：同一張圖寫「row 2 is the SAME four monsters in their attack frame」，同一張出待機＋出手，一致性很好。
+2. **生圖**：`node pipeline/scripts/l0veyou/generate.mjs <prompt> output/l0veyou/<名>.png "" 16:9`（約 25–30 秒）。
+3. **切圖集**：`python pipeline/scripts/l0veyou/sheet_to_atlas.py <原圖> <prefix> 4x2 <id1,id2,...>`
+   產出 `assets/<prefix>@1x/@2x.png` + manifest。**`magenta殘留=0` 才算過**。
+
+### 這一輪產出（36 件，全部 magenta 殘留 0）
+
+| prefix | 格數 | 內容 |
+|---|---|---|
+| `bldiso` | 4（4x1） | cottage／farmhouse／tower／well（茅草屋、二層農舍、石塔、水井） |
+| `isoterrain` | 8（4x2） | dirt／grass／cobble／water／sand／snow／soil／gravel |
+| `isotree` | 8（4x2） | autumnOak／greenOak／pine／deadTree／bush／stump／sapling／flowerBush |
+| `isoprops` | 8（4x2） | crates／barrels／logs／fence／lantern／signpost／tent／hayBale |
+| `isomonsters` | 8（4x2） | slime0/1、wolf0/1、golem0/1、boss0/1（0 待機、1 出手格） |
+
+原圖在 `output/l0veyou/*-iso-v1.png`（+ `bld-iso-houses-v1.png`），prompt 在 `output/l0veyou/prompts/`。
+**都還沒接進遊戲、也還沒 commit**（`git status` 顯示 `??`）。要接進遊戲時記得：
+這批是等角村莊風，跟現有 `buildings@*`（3/4 俯視高解析）**不是同一套**，不要混在同一個場景；
+要用就整套換（地形＋建築＋樹＋道具一起）。
+
+### 啟動生圖瀏覽器的坑（照舊寫法會失敗）
+
+- **要用 `chromium-1243/chrome-win64/chrome.exe`**（Playwright 新版目錄是 `chrome-win64`，不是 `chrome-win`）。
+  舊的 `chromium-1181/chrome-win/` 起不來：profile 的 `FormFieldData pickle version 10` 比它新，
+  症狀很詭異 —— log 寫了 `DevTools listening on ws://127.0.0.1:9447` 但**行程馬上死掉**、
+  `/json/version` 不回應、`netstat` 看不到監聽。別在這種症狀上打轉，直接換新 chromium。
+- **`curl 127.0.0.1:9447` 要加 `--noproxy '*'`**，不然被環境的 proxy 吃掉，會誤判成「瀏覽器沒開」。
+- **分頁空白時 `generate.mjs` 會印 `NO_LOGGED_IN_TAB`，不代表真的沒登入**：
+  先 `p.goto('https://l0veyou.com/chat')` 讓分頁載入完再跑就好。登入狀態存在 `work/.l0veyou-profile`，
+  重開瀏覽器不會掉。判斷登入：頁面文字有「登录 / 注册」才是沒登入；有「最近对话」就是登入了。
+- 每張新圖都開新對話（`generate.mjs` 自動按 `button.new-chat`），避免「多参考图」把前一張當參考、污染風格。
+- 啟動：`powershell Start-Process -FilePath '<chromium-1243>/chrome-win64/chrome.exe' -ArgumentList '--remote-debugging-port=9447','--user-data-dir=C:\...\work\.l0veyou-profile','--no-first-run','--no-default-browser-check','https://l0veyou.com/chat'`。
+  （git-bash 直接背景啟動會被鎖在前景，用 `Start-Process` 分離。）
+
+### 結論：純程式畫 vs 生圖（兩邊都試過，省得重做）
+
+- `output/xilurus-style-demo/remake.py` —— 純 PIL（value noise + fBm 有機紋理、葉團演算法、人字形茅草頂、
+  4x4 Bayer 抖動、暖深棕描邊），**風格語彙對但精緻度明顯差一截**：地面太規則、樹太圓、建築太簡。
+- 同風格的生圖素材**已經在目標等級**（茅草紋、木樑、石造煙囪都到位）。
+- 所以這類美術一律：**生圖為主，`sheet_to_atlas.py` 負責去背／切格／圖集**。
+  程式畫只留給「要無縫、要參數化、要能重生」的東西（例如地形材質 `concept_textures.py`）。
+- 如果你還是想用程式畫：`remake.py` 已經把色盤（從 Xilurus 預覽圖量化）、fBm、葉團、等角磚都寫好了，
+  可以直接當起點，但別期待一輪就追上手工像素。
+
 ## 2026-10-04 夜:拿掉河流橋梁、木柵欄兩出口、村內嚴格走路、朝向檢查(最新)
 
 - 狀態:main 本機 commit,**未 push**(push = 部署 Pages,先問使用者)。
@@ -117,9 +202,9 @@
 
 ## 環境與工具（不在 repo 的東西）
 
-- **l0veyou 生圖**：專用瀏覽器設定檔 `work/.l0veyou-profile`（已登入，在 repo 外）。啟動：
-  `"%LOCALAPPDATA%/ms-playwright/chromium-1217/chrome-win64/chrome.exe" --remote-debugging-port=9447 --user-data-dir="<work>/.l0veyou-profile" https://l0veyou.com/chat`
-  （9333 被別的程式佔用。）登入失效就請使用者在那個視窗登入，不要要密碼。
+- **l0veyou 生圖**：專用瀏覽器設定檔 `work/.l0veyou-profile`（已登入，在 repo 外）。啟動（**用 chromium-1243**，見上面「啟動生圖瀏覽器的坑」）：
+  `"%LOCALAPPDATA%/ms-playwright/chromium-1243/chrome-win64/chrome.exe" --remote-debugging-port=9447 --user-data-dir="<work>/.l0veyou-profile" https://l0veyou.com/chat`
+  （9333 被別的程式佔用；舊文件寫的 `chromium-1217` 未驗證，`chromium-1181` 確認會崩。）登入失效就請使用者在那個視窗登入，不要要密碼。
 - 生圖：`[REF=參考圖] node pipeline/scripts/l0veyou/generate.mjs prompt.txt output/l0veyou/<名>-v1.png "" 16:9`
 - 處理：物件表 `sheet_to_atlas.py`（有碰邊檢查）、單棟建築 `align/make_building.py`、獵人 `align/make_heroes.py`。
   **紫色主體**一律 `NO_SHADOW=1 NO_HOLES=1 HUE_TOL=12`。

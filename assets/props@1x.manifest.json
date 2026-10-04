@@ -1,136 +1,120 @@
 {
  "version": 1,
- "kind": "mistvale-props-atlas",
+ "kind": "mistvale-xilurus-props-atlas",
  "image": "props@1x.png",
- "sheetWidth": 490,
- "sheetHeight": 306,
+ "sheetWidth": 469,
+ "sheetHeight": 445,
  "packing": "shelf",
- "source": "props-sheet-v1.jpg",
- "sourceSheet": [
-  1024,
-  1024
- ],
- "chromaKey": "#FF00FF",
- "generator": "l0veyou.com GPT Image 2",
+ "generator": "l0veyou.com GPT Image 2(Xilurus 風格)→ pipeline/scripts/xilurus/assemble.py",
  "cells": {
   "sheep": {
-   "x": 0,
-   "y": 0,
-   "w": 94,
-   "h": 80,
+   "x": 138,
+   "y": 340,
+   "w": 116,
+   "h": 96,
    "anchor": [
-    47.0,
-    80
+    196.0,
+    436
    ]
   },
   "goat": {
-   "x": 98,
-   "y": 0,
-   "w": 81,
-   "h": 92,
+   "x": 111,
+   "y": 188,
+   "w": 102,
+   "h": 121,
    "anchor": [
-    138.5,
-    92
+    162.0,
+    309
    ]
   },
   "garden": {
-   "x": 183,
-   "y": 0,
-   "w": 107,
-   "h": 54,
+   "x": 0,
+   "y": 340,
+   "w": 136,
+   "h": 105,
    "anchor": [
-    236.5,
-    54
-   ]
-  },
-  "bush": {
-   "x": 294,
-   "y": 0,
-   "w": 96,
-   "h": 82,
-   "anchor": [
-    342.0,
-    82
+    68.0,
+    445
    ]
   },
   "mushroom": {
-   "x": 394,
-   "y": 0,
-   "w": 92,
-   "h": 72,
+   "x": 256,
+   "y": 340,
+   "w": 112,
+   "h": 96,
    "anchor": [
-    440.0,
-    72
+    312.0,
+    436
+   ]
+  },
+  "villageBanner": {
+   "x": 327,
+   "y": 0,
+   "w": 84,
+   "h": 154,
+   "anchor": [
+    369.0,
+    154
+   ]
+  },
+  "arenaFlag": {
+   "x": 347,
+   "y": 188,
+   "w": 88,
+   "h": 109,
+   "anchor": [
+    391.0,
+    297
+   ]
+  },
+  "bush": {
+   "x": 370,
+   "y": 340,
+   "w": 97,
+   "h": 86,
+   "anchor": [
+    418.5,
+    426
    ]
   },
   "cactus": {
    "x": 0,
-   "y": 96,
-   "w": 76,
-   "h": 93,
+   "y": 188,
+   "w": 109,
+   "h": 150,
    "anchor": [
-    38.0,
-    189
-   ]
-  },
-  "villageBanner": {
-   "x": 80,
-   "y": 96,
-   "w": 80,
-   "h": 104,
-   "anchor": [
-    120.0,
-    200
-   ]
-  },
-  "arenaFlag": {
-   "x": 164,
-   "y": 96,
-   "w": 76,
-   "h": 106,
-   "anchor": [
-    202.0,
-    202
+    54.5,
+    338
    ]
   },
   "gate": {
-   "x": 244,
-   "y": 96,
-   "w": 87,
-   "h": 93,
+   "x": 0,
+   "y": 0,
+   "w": 185,
+   "h": 186,
    "anchor": [
-    287.5,
-    189
-   ]
-  },
-  "bridgeRail": {
-   "x": 335,
-   "y": 96,
-   "w": 112,
-   "h": 71,
-   "anchor": [
-    391.0,
-    167
+    92.5,
+    186
    ]
   },
   "stall": {
-   "x": 0,
-   "y": 206,
-   "w": 105,
-   "h": 74,
+   "x": 187,
+   "y": 0,
+   "w": 138,
+   "h": 178,
    "anchor": [
-    52.5,
-    280
+    256.0,
+    178
    ]
   },
   "barrels": {
-   "x": 109,
-   "y": 206,
-   "w": 107,
-   "h": 96,
+   "x": 215,
+   "y": 188,
+   "w": 130,
+   "h": 120,
    "anchor": [
-    162.5,
-    302
+    280.0,
+    308
    ]
   }
  },

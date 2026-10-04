@@ -62,7 +62,7 @@
 #loading{background:#26382a;color:#f2d48d}
 #world-map-canvas{border-color:#39291d;box-shadow:0 0 0 1px #d0a665}
 .start-panel{display:grid;grid-template-columns:minmax(0,1fr) minmax(330px,1fr);width:min(860px,95vw);max-height:94vh;border:4px solid #352619;background:#38452f;box-shadow:0 0 0 2px #d1ac69,8px 10px 0 #101a1599}
-#title-art{height:auto;aspect-ratio:1;background-size:100% 100%;background-position:center}
+#title-art{height:auto;aspect-ratio:16/9;background-size:100% 100%;background-position:center}
 .start-content{display:flex;flex-direction:column;align-items:center;justify-content:center;padding:32px 28px;border-top:0;border-left:3px solid #252619;background:linear-gradient(145deg,#667647,#34452f)}
 .start-content h1{font-size:clamp(29px,3vw,40px);letter-spacing:5px}
 .start-content h1 span{color:#fff0c7}
@@ -70,7 +70,7 @@
 body.art-review #left-panel,body.art-review .world-minimap,body.art-review #pause-label,body.art-review #region-badge,body.art-review .notice-feed,body.art-review .skill-buttons,body.art-review .zone-tools,body.art-review .view-tools,body.art-review .world-map-trigger{display:none!important}
 .start-content p{color:#e0d7b7}
 .start-content>small{color:#c9c19c}
-@media(max-width:760px){.start-panel{display:flex;flex-direction:column;width:100%;max-width:410px}.start-content{padding:23px 17px;border-left:0;border-top:3px solid #252619}#title-art{height:auto;aspect-ratio:1;background-size:100% 100%}.start-content h1{font-size:32px}}
+@media(max-width:760px){.start-panel{display:flex;flex-direction:column;width:100%;max-width:410px}.start-content{padding:23px 17px;border-left:0;border-top:3px solid #252619}#title-art{height:auto;aspect-ratio:16/9;background-size:100% 100%}.start-content h1{font-size:32px}}
 
 
 /* ── 概念圖對齊 UI 皮膚(取樣自 title.png):木頭 #572a0e/#834822/#b96b45、旗布藍 #062551/#103c7f/#325b9d、

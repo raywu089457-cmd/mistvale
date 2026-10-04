@@ -10,16 +10,11 @@ let html=await fs.readFile(path.join(root,'src/pixel-index.html'),'utf8');
 let css=await fs.readFile(path.join(root,'src/pixel-style.css'),'utf8');
 css=css.replace("@import url('');",'');
 let assetScript='';
-for(const name of ['title','hall','inn','monument','plaza','road','woodui']){try{const p=await fs.readFile(path.join(root,`assets/${name}.png`));assetScript+=`window.PIXEL_ASSETS=window.PIXEL_ASSETS||{};window.PIXEL_ASSETS.${name}='data:image/png;base64,${p.toString('base64')}';`;}catch{}}
-for(const name of ['hall','inn','trading','restaurant','tavern','forge','clinic','academy','training','sanctuary','house','bounty','enhancement']){try{const candidates=name==='bounty'?['assets/concept-clean/bounty-concept-v3.png','assets/concept-clean/noticeboard-web-v1.png',`assets/concept-clean/${name}-concept-v2.png`,`output/imagegen/${name}-concept-v2.png`]:[`assets/concept-clean/${name}-concept-v3.png`,`assets/concept-clean/${name}-concept-v2.png`,`output/imagegen/${name}-concept-v2.png`];let p;for(const file of candidates){try{p=await fs.readFile(path.join(root,file));break;}catch{}}if(!p)continue;assetScript+=`window.PIXEL_ASSETS=window.PIXEL_ASSETS||{};window.PIXEL_ASSETS.${name}='data:image/png;base64,${p.toString('base64')}';window.PIXEL_ASSETS.alphaAssets=window.PIXEL_ASSETS.alphaAssets||{};window.PIXEL_ASSETS.alphaAssets.${name}=true;`;}catch{}}
+for(const name of ['title','plaza','road','woodui']){try{const p=await fs.readFile(path.join(root,`assets/${name}.png`));assetScript+=`window.PIXEL_ASSETS=window.PIXEL_ASSETS||{};window.PIXEL_ASSETS.${name}='data:image/png;base64,${p.toString('base64')}';`;}catch{}}
+// 建築與廣場雕像:Xilurus 風格(pipeline/scripts/xilurus/assemble.py buildings → assets/xilurus/<id>.png,已去背)。
+for(const name of ['hall','inn','trading','restaurant','tavern','forge','clinic','academy','training','sanctuary','house','bounty','enhancement','dungeon','monument']){const p=await fs.readFile(path.join(root,`assets/xilurus/${name}.png`));assetScript+=`window.PIXEL_ASSETS=window.PIXEL_ASSETS||{};window.PIXEL_ASSETS.${name}='data:image/png;base64,${p.toString('base64')}';window.PIXEL_ASSETS.alphaAssets=window.PIXEL_ASSETS.alphaAssets||{};window.PIXEL_ASSETS.alphaAssets.${name}=true;`;}
 
-// 建築圖集:sprite-gen manifest 契約。兩段 LOD 的 rect 是對齊的,只是差 0.5 倍。
-for(const [tag,file] of [['buildingsAtlas','buildings@1x.png'],['buildingsAtlas2x','buildings@2x.png']]){
-  try{const p=await fs.readFile(path.join(root,`assets/${file}`));assetScript+=`window.PIXEL_ASSETS=window.PIXEL_ASSETS||{};window.PIXEL_ASSETS.${tag}='data:image/png;base64,${p.toString('base64')}';`;}catch(e){console.warn('missing atlas',file);}
-}
-for(const [tag,file] of [['buildingsManifest','buildings@1x.manifest.json'],['buildingsManifest2x','buildings@2x.manifest.json']]){
-  try{const t=await fs.readFile(path.join(root,`assets/${file}`),'utf8');assetScript+=`window.PIXEL_ASSETS=window.PIXEL_ASSETS||{};window.PIXEL_ASSETS.${tag}=${t};`;}catch(e){console.warn('missing manifest',file);}
-}
+// 舊建築圖集(buildings@*)不再嵌入:全部建築改用 Xilurus 單張圖(上面)。
 // 地圖細節圖集:同一個 manifest 契約,只是 key 是裝飾型別。
 for(const [tag,file] of [['detailsAtlas','details@1x.png'],['detailsAtlas2x','details@2x.png']]){
   try{const p=await fs.readFile(path.join(root,`assets/${file}`));assetScript+=`window.PIXEL_ASSETS=window.PIXEL_ASSETS||{};window.PIXEL_ASSETS.${tag}='data:image/png;base64,${p.toString('base64')}';`;}catch(e){console.warn('missing detail atlas',file);}
@@ -28,7 +23,8 @@ for(const [tag,file] of [['detailsManifest','details@1x.manifest.json'],['detail
   try{const t=await fs.readFile(path.join(root,`assets/${file}`),'utf8');assetScript+=`window.PIXEL_ASSETS=window.PIXEL_ASSETS||{};window.PIXEL_ASSETS.${tag}=${t};`;}catch(e){console.warn('missing detail manifest',file);}
 }
 // l0veyou（GPT Image 2）生的道具／魔物／花草圖集:跟 details 同一個 manifest 契約。
-for(const prefix of ['props','monsters','monsteratk','stream','cold','woods','flora','villagers','icons','vfx','yard','town','town2']){
+// Xilurus 風格圖集(pipeline/scripts/xilurus/assemble.py atlases):舊名保留;monsteratk 併入 monsters,stream/villagers 不再使用。
+for(const prefix of ['props','monsters','cold','woods','flora','icons','vfx','yard','town','town2']){
   for(const [suffix,lod] of [['Atlas','1x'],['Atlas2x','2x']]){
     try{const p=await fs.readFile(path.join(root,`assets/${prefix}@${lod}.png`));assetScript+=`window.PIXEL_ASSETS=window.PIXEL_ASSETS||{};window.PIXEL_ASSETS.${prefix}${suffix}='data:image/png;base64,${p.toString('base64')}';`;}catch(e){console.warn('missing atlas',prefix,lod);}
   }

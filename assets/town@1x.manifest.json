@@ -1,96 +1,90 @@
 {
  "version": 1,
- "kind": "mistvale-town-atlas",
+ "kind": "mistvale-xilurus-town-atlas",
  "image": "town@1x.png",
- "sheetWidth": 458,
- "sheetHeight": 455,
+ "sheetWidth": 423,
+ "sheetHeight": 418,
  "packing": "shelf",
- "source": "town-sheet-v1.png",
- "sourceSheet": [
-  1536,
-  864
- ],
- "chromaKey": "#FF00FF",
- "generator": "l0veyou.com GPT Image 2",
+ "generator": "l0veyou.com GPT Image 2(Xilurus 風格)→ pipeline/scripts/xilurus/assemble.py",
  "cells": {
-  "archeryTarget": {
+  "handCart": {
    "x": 0,
-   "y": 0,
-   "w": 122,
-   "h": 168,
+   "y": 168,
+   "w": 151,
+   "h": 132,
    "anchor": [
-    61.0,
-    168
+    75.5,
+    300
    ]
   },
-  "dummy": {
-   "x": 126,
-   "y": 0,
-   "w": 127,
-   "h": 172,
+  "bench": {
+   "x": 153,
+   "y": 168,
+   "w": 128,
+   "h": 130,
    "anchor": [
-    189.5,
-    172
-   ]
-  },
-  "weaponRack": {
-   "x": 257,
-   "y": 0,
-   "w": 146,
-   "h": 172,
-   "anchor": [
-    330.0,
-    172
+    217.0,
+    298
    ]
   },
   "anvilStump": {
    "x": 0,
-   "y": 176,
+   "y": 302,
+   "w": 114,
+   "h": 116,
+   "anchor": [
+    57.0,
+    418
+   ]
+  },
+  "weaponRack": {
+   "x": 0,
+   "y": 0,
    "w": 135,
-   "h": 137,
+   "h": 166,
    "anchor": [
     67.5,
-    313
+    166
+   ]
+  },
+  "dummy": {
+   "x": 137,
+   "y": 0,
+   "w": 98,
+   "h": 159,
+   "anchor": [
+    186.0,
+    159
+   ]
+  },
+  "archeryTarget": {
+   "x": 237,
+   "y": 0,
+   "w": 134,
+   "h": 150,
+   "anchor": [
+    304.0,
+    150
    ]
   },
   "tableSet": {
-   "x": 139,
-   "y": 176,
-   "w": 168,
-   "h": 136,
-   "anchor": [
-    223.0,
-    312
-   ]
-  },
-  "bench": {
-   "x": 311,
-   "y": 176,
-   "w": 143,
-   "h": 100,
-   "anchor": [
-    382.5,
-    276
-   ]
-  },
-  "handCart": {
-   "x": 0,
-   "y": 317,
+   "x": 116,
+   "y": 302,
    "w": 170,
-   "h": 134,
+   "h": 106,
    "anchor": [
-    85.0,
-    451
+    201.0,
+    408
    ]
   },
   "flowerBox": {
-   "x": 174,
-   "y": 317,
-   "w": 148,
-   "h": 125,
+   "x": 283,
+   "y": 168,
+   "w": 138,
+   "h": 130,
    "anchor": [
-    248.0,
-    442
+    352.0,
+    298
    ]
   }
  },

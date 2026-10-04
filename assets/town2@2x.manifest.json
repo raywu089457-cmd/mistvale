@@ -1,96 +1,70 @@
 {
  "version": 1,
- "kind": "mistvale-town2-atlas",
+ "kind": "mistvale-xilurus-town2-atlas",
  "image": "town2@2x.png",
- "sheetWidth": 936,
- "sheetHeight": 895,
+ "sheetWidth": 933,
+ "sheetHeight": 621,
  "packing": "shelf",
- "source": "town2-sheet-v1.png",
- "sourceSheet": [
-  1536,
-  864
- ],
- "chromaKey": "#FF00FF",
- "generator": "l0veyou.com GPT Image 2",
+ "generator": "l0veyou.com GPT Image 2(Xilurus 風格)→ pipeline/scripts/xilurus/assemble.py",
  "cells": {
   "purpleBanner": {
    "x": 0,
    "y": 0,
-   "w": 180,
-   "h": 397,
+   "w": 164,
+   "h": 398,
    "anchor": [
-    90.0,
-    397
-   ]
-  },
-  "fenceRail": {
-   "x": 184,
-   "y": 0,
-   "w": 308,
-   "h": 310,
-   "anchor": [
-    338.0,
-    310
-   ]
-  },
-  "fruitStand": {
-   "x": 496,
-   "y": 0,
-   "w": 286,
-   "h": 385,
-   "anchor": [
-    639.0,
-    385
+    82.0,
+    398
    ]
   },
   "sacks": {
-   "x": 0,
-   "y": 401,
-   "w": 269,
-   "h": 269,
+   "x": 166,
+   "y": 0,
+   "w": 270,
+   "h": 271,
    "anchor": [
-    134.5,
-    670
+    301.0,
+    271
    ]
   },
   "barrel": {
-   "x": 273,
-   "y": 401,
-   "w": 198,
-   "h": 250,
+   "x": 438,
+   "y": 0,
+   "w": 185,
+   "h": 267,
    "anchor": [
-    372.0,
-    651
+    530.5,
+    267
    ]
   },
   "bucket": {
-   "x": 475,
-   "y": 401,
-   "w": 178,
-   "h": 251,
+   "x": 0,
+   "y": 400,
+   "w": 144,
+   "h": 221,
    "anchor": [
-    564.0,
-    652
+    72.0,
+    621
+   ]
+  },
+  "fruitStand": {
+   "x": 625,
+   "y": 0,
+   "w": 306,
+   "h": 252,
+   "anchor": [
+    778.0,
+    252
    ]
   },
   "flowerBush": {
-   "x": 657,
-   "y": 401,
-   "w": 275,
-   "h": 260,
+   "x": 146,
+   "y": 400,
+   "w": 212,
+   "h": 193,
    "anchor": [
-    794.5,
-    661
-   ]
-  },
-  "riverRocks": {
-   "x": 0,
-   "y": 674,
-   "w": 275,
-   "h": 217,
-   "anchor": [
-    137.5,
-    891
+    252.0,
+    593
    ]
   }
  }

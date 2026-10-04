@@ -1,0 +1,10 @@
+Pixel art game UI icon sheet, 16-bit retro JRPG style matching a warm isometric village tileset. Exactly 16 separate item icons arranged in a clean 4 columns x 4 rows grid, each icon fully visible and centered in its cell, all icons the same size, wide empty gaps between them, none touching each other or the canvas edge.
+
+Row 1: (1) hunter in green hood portrait; (2) town hall building; (3) rolled paper scroll; (4) folded treasure map.
+Row 2: (5) green up arrow; (6) angry treant boss face with antler branches and red eyes; (7) two hands shaking for trade; (8) curved war horn.
+Row 3: (9) bronze gear cog; (10) wooden arrow; (11) golden star; (12) red heart.
+Row 4: (13) round blue shield with gold cross; (14) golden crown; (15) hourglass; (16) red potion bottle.
+
+Art rules: bold readable silhouettes, dark brown outlines #0a0706, warm saturated colors, chunky hard pixels with no anti-aliasing, light from the upper right.
+
+Background: perfectly flat solid pure magenta #FF00FF everywhere, no ground plane, no cast shadows on the background, no text, no numbers, no letters, no labels, no grid lines. One sprite sheet image only.

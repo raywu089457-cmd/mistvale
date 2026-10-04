@@ -1,0 +1,8 @@
+Pixel art sprite sheet, 2:1 isometric view, 16-bit retro JRPG style like a high-quality isometric village tileset. Exactly 8 separate game effect sprites arranged in a clean 4 columns x 2 rows grid, each fully visible and centered in its cell, wide empty gaps between them, none touching each other or the canvas edge, no overlap. These are flat game effect and item sprites, not isometric objects.
+
+Row 1: (1) white curved sword slash arc with an orange trail; (2) glowing purple magic orb with sparkles; (3) green healing plus sign with soft glow; (4) golden four-pointed star sparkle.
+Row 2: (5) orange-white impact burst star; (6) small cluster of white and yellow twinkling sparkles; (7) folded brown leather hide material icon; (8) single wooden arrow with gray fletching pointing to the upper right.
+
+Art rules: warm saturated colors, dark brown outlines around every object, chunky hard pixels with no anti-aliasing, lighting from the upper right, subtle pixel shading using dithering. Palette anchors: salmon pink #d29c8a, dark red-brown #642726, golden straw #c49459 and #bb863d, dark brown outline #0a0706, blue-gray stone #5b5e6e, grass green #4a6e2a, sand #d4a690, snow #e2e9e9.
+
+Background: perfectly flat solid pure magenta #FF00FF everywhere, no ground plane, no cast shadows on the background, no text, no numbers, no letters, no labels, no grid lines. One sprite sheet image only.

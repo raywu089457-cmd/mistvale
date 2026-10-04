@@ -1,96 +1,90 @@
 {
  "version": 1,
- "kind": "mistvale-yard-atlas",
+ "kind": "mistvale-xilurus-yard-atlas",
  "image": "yard@1x.png",
- "sheetWidth": 444,
- "sheetHeight": 504,
+ "sheetWidth": 512,
+ "sheetHeight": 395,
  "packing": "shelf",
- "source": "yard-sheet-v1.png",
- "sourceSheet": [
-  1536,
-  864
- ],
- "chromaKey": "#FF00FF",
- "generator": "l0veyou.com GPT Image 2",
+ "generator": "l0veyou.com GPT Image 2(Xilurus 風格)→ pipeline/scripts/xilurus/assemble.py",
  "cells": {
   "chest": {
-   "x": 0,
-   "y": 0,
-   "w": 128,
-   "h": 126,
+   "x": 273,
+   "y": 156,
+   "w": 115,
+   "h": 114,
    "anchor": [
-    64.0,
-    126
-   ]
-  },
-  "crates": {
-   "x": 132,
-   "y": 0,
-   "w": 116,
-   "h": 157,
-   "anchor": [
-    190.0,
-    157
-   ]
-  },
-  "hayBale": {
-   "x": 252,
-   "y": 0,
-   "w": 136,
-   "h": 134,
-   "anchor": [
-    320.0,
-    134
-   ]
-  },
-  "firewood": {
-   "x": 0,
-   "y": 161,
-   "w": 144,
-   "h": 122,
-   "anchor": [
-    72.0,
-    283
+    330.5,
+    270
    ]
   },
   "trough": {
-   "x": 148,
-   "y": 161,
-   "w": 156,
-   "h": 126,
+   "x": 0,
+   "y": 288,
+   "w": 140,
+   "h": 107,
    "anchor": [
-    226.0,
-    287
+    70.0,
+    395
    ]
   },
   "scarecrow": {
-   "x": 308,
-   "y": 161,
-   "w": 132,
-   "h": 171,
+   "x": 232,
+   "y": 0,
+   "w": 112,
+   "h": 132,
    "anchor": [
-    374.0,
-    332
+    288.0,
+    132
+   ]
+  },
+  "wheelbarrow": {
+   "x": 127,
+   "y": 156,
+   "w": 144,
+   "h": 118,
+   "anchor": [
+    199.0,
+    274
+   ]
+  },
+  "crates": {
+   "x": 84,
+   "y": 0,
+   "w": 146,
+   "h": 138,
+   "anchor": [
+    157.0,
+    138
+   ]
+  },
+  "firewood": {
+   "x": 346,
+   "y": 0,
+   "w": 164,
+   "h": 131,
+   "anchor": [
+    428.0,
+    131
    ]
   },
   "lantern": {
    "x": 0,
-   "y": 336,
-   "w": 88,
-   "h": 164,
+   "y": 0,
+   "w": 82,
+   "h": 154,
    "anchor": [
-    44.0,
-    500
+    41.0,
+    154
    ]
   },
-  "wheelbarrow": {
-   "x": 92,
-   "y": 336,
-   "w": 172,
-   "h": 144,
+  "hayBale": {
+   "x": 0,
+   "y": 156,
+   "w": 125,
+   "h": 130,
    "anchor": [
-    178.0,
-    480
+    62.5,
+    286
    ]
   }
  },

@@ -1,0 +1,7 @@
+Pixel art sprite sheet, 2:1 isometric view, 16-bit retro JRPG style like a high-quality isometric village tileset. Exactly 5 animation frames of ONE monster arranged in a clean 5 columns x 1 row grid, each frame fully visible and centered in its cell, wide empty gaps between them, none touching each other or the canvas edge, no overlap. The monster is: a gray-brown wolf (match the wolf in the reference image).
+
+Frames left to right: (1) idle: standing on four legs, alert; (2) windup: crouched low with head down and hackles raised, growling; (3) attack: leaping forward to the right with jaws open and claws out; (4) walk: trotting side view with one front leg and the opposite hind leg forward; (5) hurt: recoiling backward to the left with eyes squeezed shut and ears flat.
+
+Art rules: warm saturated colors, dark brown outlines around every creature, chunky hard pixels with no anti-aliasing, lighting from the upper right, subtle pixel shading using dithering, expressive silhouettes that read clearly at small size. Every frame shows the SAME creature with the same colors, same size and same 2:1 isometric camera angle, facing to the RIGHT in every frame. Palette: wolf gray-brown #985750 and #b9a493, dark brown outline #0a0706.
+
+Background: perfectly flat solid pure magenta #FF00FF everywhere, no ground plane, no cast shadows on the background, no text, no numbers, no letters, no labels, no grid lines. One sprite sheet image only.

@@ -2,69 +2,69 @@
  "version": 1,
  "kind": "mistvale-hero-atlas",
  "image": "hero@4x.png",
- "sheetWidth": 511,
+ "sheetWidth": 439,
  "sheetHeight": 282,
  "packing": "shelf",
  "scale": 0.56,
- "generator": "l0veyou.com GPT Image 2（Q 版 2 頭身英雄）",
+ "generator": "l0veyou.com GPT Image 2(Xilurus 風格 Q 版英雄,每職業一張 5x2 表)→ pipeline/scripts/xilurus/assemble.py heroes",
  "cells": {
   "berserker": {
    "x": 2,
    "y": 2,
-   "w": 138,
+   "w": 112,
    "h": 136,
    "anchor": [
-    71.0,
+    58.0,
     138
    ]
   },
   "ranger": {
-   "x": 143,
+   "x": 117,
    "y": 2,
-   "w": 115,
+   "w": 103,
    "h": 136,
    "anchor": [
-    200.5,
+    168.5,
     138
    ]
   },
   "paladin": {
-   "x": 261,
+   "x": 223,
    "y": 2,
-   "w": 125,
+   "w": 112,
    "h": 136,
    "anchor": [
-    323.5,
+    279.0,
     138
    ]
   },
   "sorcerer": {
-   "x": 389,
+   "x": 338,
    "y": 2,
-   "w": 117,
+   "w": 96,
    "h": 136,
    "anchor": [
-    447.5,
+    386.0,
     138
    ]
   },
   "darkknight": {
    "x": 2,
    "y": 141,
-   "w": 175,
+   "w": 106,
    "h": 136,
    "anchor": [
-    89.5,
+    55.0,
     277
    ]
   },
   "priest": {
-   "x": 180,
+   "x": 111,
    "y": 141,
-   "w": 119,
+   "w": 87,
    "h": 136,
    "anchor": [
-    239.5,
+    154.5,
     277
    ]
   }

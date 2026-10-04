@@ -1,0 +1,8 @@
+Pixel art sprite sheet, 2:1 isometric view, 16-bit retro JRPG style like a high-quality isometric village tileset. Exactly 8 separate village props arranged in a clean 4 columns x 2 rows grid, each fully visible and centered in its cell, wide empty gaps between them, none touching each other or the canvas edge, no overlap.
+
+Row 1: (1) stack of three wooden crates; (2) two wooden barrels with iron bands; (3) pile of cut logs stacked with a red berry bush beside it; (4) short wooden fence section with two posts and two rails.
+Row 2: (5) iron lantern on a wooden post, glowing warm yellow; (6) wooden signpost with two arrow-shaped planks; (7) small canvas tent with wooden poles; (8) round hay bale with a pitchfork leaning on it.
+
+Art rules: warm saturated colors, dark brown outlines around every object, chunky hard pixels with no anti-aliasing, lighting from the upper right, subtle pixel shading using dithering, visible wood grain and plank lines, metal parts slightly cooler in color. Palette: wood #a95d2c and #642726, tan straw #c49459, dark brown outline #0a0706, iron gray #5b5e6e, red berries #933525, canvas #d4a690.
+
+Background: perfectly flat solid pure magenta #FF00FF everywhere, no ground plane, no cast shadows on the background, no text, no numbers, no labels, no grid lines. One sprite sheet image only.

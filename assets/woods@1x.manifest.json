@@ -1,56 +1,50 @@
 {
  "version": 1,
- "kind": "mistvale-woods-atlas",
+ "kind": "mistvale-xilurus-woods-atlas",
  "image": "woods@1x.png",
- "sheetWidth": 441,
- "sheetHeight": 260,
+ "sheetWidth": 451,
+ "sheetHeight": 195,
  "packing": "shelf",
- "source": "terrain-forest-v1.png",
- "sourceSheet": [
-  1360,
-  768
- ],
- "chromaKey": "#FF00FF",
- "generator": "l0veyou.com GPT Image 2",
+ "generator": "l0veyou.com GPT Image 2(Xilurus 風格)→ pipeline/scripts/xilurus/assemble.py",
  "cells": {
   "fallenLog": {
-   "x": 0,
+   "x": 295,
    "y": 0,
-   "w": 153,
-   "h": 124,
+   "w": 154,
+   "h": 104,
    "anchor": [
-    76.5,
-    124
-   ]
-  },
-  "stump": {
-   "x": 157,
-   "y": 0,
-   "w": 132,
-   "h": 114,
-   "anchor": [
-    223.0,
-    114
-   ]
-  },
-  "mossRock": {
-   "x": 293,
-   "y": 0,
-   "w": 144,
-   "h": 128,
-   "anchor": [
-    365.0,
-    128
+    372.0,
+    104
    ]
   },
   "ferns": {
    "x": 0,
-   "y": 132,
-   "w": 134,
-   "h": 124,
+   "y": 0,
+   "w": 147,
+   "h": 116,
    "anchor": [
-    67.0,
-    256
+    73.5,
+    116
+   ]
+  },
+  "stump": {
+   "x": 0,
+   "y": 118,
+   "w": 95,
+   "h": 77,
+   "anchor": [
+    47.5,
+    195
+   ]
+  },
+  "mossRock": {
+   "x": 149,
+   "y": 0,
+   "w": 144,
+   "h": 107,
+   "anchor": [
+    221.0,
+    107
    ]
   }
  },

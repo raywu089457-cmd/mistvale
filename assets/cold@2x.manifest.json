@@ -1,56 +1,50 @@
 {
  "version": 1,
- "kind": "mistvale-cold-atlas",
+ "kind": "mistvale-xilurus-cold-atlas",
  "image": "cold@2x.png",
- "sheetWidth": 928,
- "sheetHeight": 402,
+ "sheetWidth": 894,
+ "sheetHeight": 481,
  "packing": "shelf",
- "source": "terrain-cold-v1.png",
- "sourceSheet": [
-  1536,
-  864
- ],
- "chromaKey": "#FF00FF",
- "generator": "l0veyou.com GPT Image 2",
+ "generator": "l0veyou.com GPT Image 2(Xilurus 風格)→ pipeline/scripts/xilurus/assemble.py",
  "cells": {
   "snowDrift": {
    "x": 0,
-   "y": 0,
-   "w": 307,
-   "h": 161,
+   "y": 312,
+   "w": 286,
+   "h": 169,
    "anchor": [
-    153.5,
-    161
+    143.0,
+    481
    ]
   },
   "frozenPond": {
-   "x": 311,
+   "x": 588,
    "y": 0,
-   "w": 313,
-   "h": 174,
+   "w": 304,
+   "h": 191,
    "anchor": [
-    467.5,
-    174
-   ]
-  },
-  "iceRocks": {
-   "x": 628,
-   "y": 0,
-   "w": 296,
-   "h": 188,
-   "anchor": [
-    776.0,
-    188
+    740.0,
+    191
    ]
   },
   "cliffLedge": {
    "x": 0,
-   "y": 192,
-   "w": 372,
-   "h": 206,
+   "y": 0,
+   "w": 340,
+   "h": 310,
    "anchor": [
-    186.0,
-    398
+    170.0,
+    310
+   ]
+  },
+  "iceRocks": {
+   "x": 342,
+   "y": 0,
+   "w": 244,
+   "h": 283,
+   "anchor": [
+    464.0,
+    283
    ]
   }
  }

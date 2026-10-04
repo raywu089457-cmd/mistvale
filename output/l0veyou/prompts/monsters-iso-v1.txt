@@ -1,0 +1,8 @@
+Pixel art sprite sheet, 2:1 isometric view, 16-bit retro JRPG style like a high-quality isometric village tileset. Exactly 8 creature sprites arranged in a clean 4 columns x 2 rows grid, each fully visible and centered in its cell, wide empty gaps between them, none touching each other or the canvas edge, no overlap. Row 1 is the idle stance of four monsters. Row 2 is the SAME four monsters in their attack frame, same size and same camera angle, with a clear attacking pose.
+
+Row 1 (idle): (1) round green slime with glossy highlight and two small eyes; (2) gray-brown wolf standing on four legs; (3) mossy stone golem with blocky limbs; (4) large horned demon lord with dark red skin and wings.
+Row 2 (attack frame of the same four monsters, same order): (1) slime lunging forward with its body stretched; (2) wolf leaping with jaws open and claws out; (3) golem raising both fists overhead; (4) demon lord spreading its wings wide with a roar.
+
+Art rules: warm saturated colors, dark brown outlines around every creature, chunky hard pixels with no anti-aliasing, lighting from the upper right, subtle pixel shading using dithering, expressive silhouettes that read clearly at small size. Palette: slime green #6b8c3a, wolf gray-brown #985750, golem stone #8d969c, demon red #933525, dark brown outline #0a0706.
+
+Background: perfectly flat solid pure magenta #FF00FF everywhere, no ground plane, no cast shadows on the background, no text, no numbers, no labels, no grid lines. One sprite sheet image only.

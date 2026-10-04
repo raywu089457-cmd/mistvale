@@ -1,0 +1,7 @@
+Pixel art sprite sheet, 2:1 isometric view, 16-bit retro JRPG style like a high-quality isometric village tileset. Exactly 5 animation frames of ONE monster arranged in a clean 5 columns x 1 row grid, each frame fully visible and centered in its cell, wide empty gaps between them, none touching each other or the canvas edge, no overlap. The monster is: a mossy stone golem with blocky limbs (match the golem in the reference image).
+
+Frames left to right: (1) idle: standing heavy with arms hanging; (2) windup: rearing back with one fist raised behind its head; (3) attack: punching forward to the right with a huge stone fist; (4) walk: mid-stride side view with one heavy leg forward; (5) hurt: staggering backward to the left with cracks and small flying stone chips.
+
+Art rules: warm saturated colors, dark brown outlines around every creature, chunky hard pixels with no anti-aliasing, lighting from the upper right, subtle pixel shading using dithering, expressive silhouettes that read clearly at small size. Every frame shows the SAME creature with the same colors, same size and same 2:1 isometric camera angle, facing to the RIGHT in every frame. Palette: golem stone #8d969c, moss green #6b8c3a, dark brown outline #0a0706.
+
+Background: perfectly flat solid pure magenta #FF00FF everywhere, no ground plane, no cast shadows on the background, no text, no numbers, no letters, no labels, no grid lines. One sprite sheet image only.

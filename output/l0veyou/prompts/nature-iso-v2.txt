@@ -1,0 +1,8 @@
+Pixel art sprite sheet, 2:1 isometric view, 16-bit retro JRPG style like a high-quality isometric village tileset. Exactly 8 separate nature sprites arranged in a clean 4 columns x 2 rows grid, each fully visible and centered in its cell, wide empty gaps between them, none touching each other or the canvas edge, no overlap.
+
+Row 1: (1) snow-covered pine tree; (2) white birch tree with light green leaves; (3) green desert cactus with two arms; (4) large gray boulder.
+Row 2: (5) mossy rock with small ferns; (6) pale blue ice crystal rocks; (7) tall layered gray cliff rock outcrop; (8) small cluster of colorful wildflowers.
+
+Art rules: warm saturated colors, dark brown outlines, chunky hard pixels with no anti-aliasing, lighting from the upper right, subtle pixel shading using dithering. Palette anchors: tan #c49459, dark brown outline #0a0706, green #4a6e2a, cobble gray #8d969c, sand #d4a690, snow #e2e9e9.
+
+Background: perfectly flat solid pure magenta #FF00FF everywhere, no ground plane, no cast shadows on the background, no text, no numbers, no letters, no labels, no grid lines. One sprite sheet image only.

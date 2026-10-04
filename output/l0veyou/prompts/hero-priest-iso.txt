@@ -1,0 +1,8 @@
+Pixel art character sprite sheet, 16-bit retro JRPG style matching a warm isometric village tileset: a cute chibi hero about 2.5 heads tall, dark brown outline #0a0706, chunky hard pixels with no anti-aliasing, light from the upper right. Exactly 10 animation frames of the SAME character arranged in a clean 5 columns x 2 rows grid, each frame fully visible and centered in its cell, same size and same outfit in every frame, wide empty gaps between them, none touching each other or the canvas edge. The character is seen from a 3/4 side view and FACES TO THE RIGHT in every frame.
+
+The character: priest in a white hooded robe with gold trim holding a golden cross-topped staff.
+
+Row 1: (1) idle standing pose; (2) walk frame 1: left foot forward on the ground; (3) walk frame 2: passing pose, feet together; (4) walk frame 3: right foot forward on the ground; (5) walk frame 4: passing pose, feet together, slightly raised.
+Row 2: (6) attack windup: weapon pulled back, body coiled; (7) attack strike: weapon swung or fired forward to the right; (8) hurt: recoiling backward to the left with eyes squeezed shut, still facing right; (9) resting: sitting on the ground with the weapon beside them; (10) victory: weapon raised high.
+
+Background: perfectly flat solid pure magenta #FF00FF everywhere, no ground plane, no cast shadows on the background, no text, no numbers, no letters, no labels, no grid lines. One sprite sheet image only.

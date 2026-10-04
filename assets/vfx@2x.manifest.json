@@ -1,96 +1,100 @@
 {
  "version": 1,
- "kind": "mistvale-vfx-atlas",
+ "kind": "mistvale-xilurus-vfx-atlas",
  "image": "vfx@2x.png",
- "sheetWidth": 963,
- "sheetHeight": 433,
+ "sheetWidth": 982,
+ "sheetHeight": 723,
  "packing": "shelf",
- "source": "vfx-sheet-v1.jpg",
- "sourceSheet": [
-  1024,
-  1024
- ],
- "chromaKey": "#FF00FF",
- "generator": "l0veyou.com GPT Image 2",
+ "generator": "l0veyou.com GPT Image 2(Xilurus 風格)→ pipeline/scripts/xilurus/assemble.py",
  "cells": {
   "fxSlash": {
    "x": 0,
-   "y": 0,
-   "w": 278,
-   "h": 163,
+   "y": 275,
+   "w": 256,
+   "h": 241,
    "anchor": [
-    139.0,
-    163
+    128.0,
+    516
    ]
   },
   "fxOrb": {
-   "x": 282,
-   "y": 0,
-   "w": 165,
-   "h": 146,
+   "x": 747,
+   "y": 275,
+   "w": 233,
+   "h": 224,
    "anchor": [
-    364.5,
-    146
+    863.5,
+    499
    ]
   },
   "fxHeal": {
-   "x": 451,
-   "y": 0,
-   "w": 207,
-   "h": 183,
+   "x": 0,
+   "y": 518,
+   "w": 212,
+   "h": 205,
    "anchor": [
-    554.5,
-    183
+    106.0,
+    723
    ]
   },
   "fxStar": {
-   "x": 662,
-   "y": 0,
-   "w": 220,
-   "h": 210,
+   "x": 258,
+   "y": 275,
+   "w": 230,
+   "h": 240,
    "anchor": [
-    772.0,
-    210
+    373.0,
+    515
    ]
   },
   "fxHit": {
-   "x": 0,
-   "y": 214,
-   "w": 218,
-   "h": 208,
+   "x": 635,
+   "y": 0,
+   "w": 245,
+   "h": 244,
    "anchor": [
-    109.0,
-    422
-   ]
-  },
-  "plot": {
-   "x": 222,
-   "y": 214,
-   "w": 338,
-   "h": 215,
-   "anchor": [
-    391.0,
-    429
-   ]
-  },
-  "iconLeather": {
-   "x": 564,
-   "y": 214,
-   "w": 182,
-   "h": 175,
-   "anchor": [
-    655.0,
-    389
+    757.5,
+    244
    ]
   },
   "fxSparkle": {
-   "x": 750,
-   "y": 214,
-   "w": 209,
-   "h": 198,
+   "x": 214,
+   "y": 518,
+   "w": 197,
+   "h": 203,
    "anchor": [
-    854.5,
-    412
+    312.5,
+    721
+   ]
+  },
+  "iconLeather": {
+   "x": 490,
+   "y": 275,
+   "w": 255,
+   "h": 239,
+   "anchor": [
+    617.5,
+    514
+   ]
+  },
+  "arrowFx": {
+   "x": 383,
+   "y": 0,
+   "w": 250,
+   "h": 251,
+   "anchor": [
+    508.0,
+    251
+   ]
+  },
+  "plot": {
+   "x": 0,
+   "y": 0,
+   "w": 381,
+   "h": 273,
+   "anchor": [
+    190.5,
+    273
    ]
   }
  }

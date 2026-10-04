@@ -1,0 +1,8 @@
+Pixel art sprite sheet, 2:1 isometric view, 16-bit retro JRPG style like a high-quality isometric village tileset. Exactly 8 separate isometric ground tiles arranged in a clean 4 columns x 2 rows grid, each fully visible and centered in its cell, wide empty gaps between them, none touching each other or the canvas edge, no overlap. Each tile is a flat 2:1 diamond-shaped isometric ground patch viewed from above at 30 degrees, seamless organic texture inside each tile, dark brown outline.
+
+Row 1: (1) dark green forest floor with fallen leaves and small ferns; (2) cool blue-green taiga moss ground with pine needles; (3) gray mountain rock ground with cracks and small stones; (4) warm desert sand with wind ripples.
+Row 2: (5) light green meadow with tiny white and yellow flowers; (6) packed brown dirt road with wheel ruts; (7) light gray cut-stone plaza paving in a neat pattern; (8) pale blue cracked ice.
+
+Art rules: warm saturated colors, dark brown outlines, chunky hard pixels with no anti-aliasing, lighting from the upper right, subtle pixel shading using dithering. Palette anchors: tan #c49459, dark brown outline #0a0706, green #4a6e2a, cobble gray #8d969c, sand #d4a690, snow #e2e9e9.
+
+Background: perfectly flat solid pure magenta #FF00FF everywhere, no ground plane, no cast shadows on the background, no text, no numbers, no letters, no labels, no grid lines. One sprite sheet image only.

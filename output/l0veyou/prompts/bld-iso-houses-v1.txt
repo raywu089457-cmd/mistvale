@@ -1,0 +1,7 @@
+Pixel art sprite sheet, 2:1 isometric view, 16-bit retro JRPG style like a high-quality isometric village tileset. Exactly 4 separate medieval fantasy buildings arranged in a clean 4 columns x 1 row grid, each building fully visible and centered in its cell, wide empty gaps between them, none touching each other or the canvas edge, no overlap.
+
+Row 1: (1) small cottage with a steep golden thatched roof, salmon-pink plaster walls with dark red wooden beams, wooden door and one small window; (2) larger two-story farmhouse with a golden thatched roof and a blue-gray stone chimney, salmon walls with timber framing and two windows; (3) tall narrow stone watchtower with a conical golden thatched roof and blue-gray stone walls; (4) a village well with a small golden thatched canopy roof, wooden bucket and stone base.
+
+Art rules: warm saturated colors, dark brown outlines around every object, chunky hard pixels with no anti-aliasing, soft lighting from the upper right, subtle pixel shading using dithering, straw texture strokes on the roofs, stone texture on chimneys and foundations. Palette: salmon pink #d29c8a, dark red-brown #642726, golden straw #c49459 and #bb863d, dark brown outline #0a0706, blue-gray stone #5b5e6e.
+
+Background: perfectly flat solid pure magenta #FF00FF everywhere, no ground plane, no cast shadows on the background, no text, no numbers, no labels, no grid lines. One sprite sheet image only.

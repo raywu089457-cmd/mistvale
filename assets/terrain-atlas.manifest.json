@@ -5,6 +5,7 @@
  "sheetWidth": 1024,
  "sheetHeight": 768,
  "tile": 256,
+ "generator": "l0veyou GPT Image 2(Xilurus \u98a8\u683c)\u2192 pipeline/scripts/xilurus/assemble.py textures",
  "cells": {
   "village": {
    "x": 0,

@@ -282,18 +282,12 @@ const groundPatterns={};
 const PAVE_SQUASH=.36;
 // 概念圖草地取樣(pipeline/l0veyou.md 有量測方法)。meadow/birch 比村莊亮一階,保留生態域差異。
 // birch 往概念圖亮草綠 (83,156,61) 靠、收窄標準差:原本亮端 (124,179,75) 跑出色票。
-const GRASS_TONE={village:{mean:[66,124,38],sd:[24,30,14]},meadow:{mean:[72,128,41],sd:[24,30,14]},birch:{mean:[86,148,56],sd:[18,22,12]},
-  // 村莊外的延伸:水取樣自概念圖右下溪流 (31,140,201);海再深一階。森林地面取概念圖左下松林的暗綠 (58,88,44)。
-  river:{mean:[31,140,201],sd:[20,34,34]},taiga:{mean:[63,104,52],sd:[22,26,16]},
-  // 概念圖沒有雪地/山地/沙漠:用概念圖裡最接近的顏色延伸——雪＝概念圖的暖白(炊煙、羊毛 230,224,214),
-  // 山地＝概念圖石材灰(紀念碑、溪邊石),沙漠＝概念圖土路黃(203,168,72)偏亮一階。
-  // 雪:曾往概念圖暖白(羊皮紙)靠,結果遠看像沙地。村外不在概念圖畫框內,改回帶淡藍的冷白,一眼看得出是雪。
-  snow:{mean:[228,232,236],sd:[9,9,10]},mountain:{mean:[124,126,120],sd:[30,28,26]},desert:{mean:[210,172,82],sd:[18,16,13]},ocean:{mean:[26,108,172],sd:[18,28,30]},forest:{mean:[52,90,40],sd:[20,26,14]}};
+const GRASS_TONE={village:{mean:[89,141,51],sd:[24,19,7]},meadow:{mean:[138,195,53],sd:[26,14,14]},birch:{mean:[151,203,48],sd:[27,14,13]},forest:{mean:[59,69,30],sd:[25,14,4]},taiga:{mean:[54,133,115],sd:[32,27,18]},snow:{mean:[243,246,252],sd:[13,8,1]},mountain:{mean:[129,129,131],sd:[28,27,26]},desert:{mean:[241,181,79],sd:[7,12,9]},river:{mean:[29,105,179],sd:[12,18,10]},ocean:{mean:[29,105,179],sd:[12,18,10]},ice:{mean:[178,225,247],sd:[23,12,3]}};  // Xilurus 材質量測(pipeline/scripts/xilurus/assemble.py tones)
 const groundBase=b=>GRASS_TONE[b]?'#'+GRASS_TONE[b].mean.map(v=>v.toString(16).padStart(2,'0')).join(''):BIOME_PALETTE[b];
 // 小地圖/世界地圖用同一套對齊概念圖的地面色,地圖跟畫面看起來才是同一個世界。
 // 石板/土路色取自 plaza.png、road.png 的取樣平均。
 export const MAP_PALETTE=Object.fromEntries(Object.keys(BIOME_PALETTE).map(b=>[b,groundBase(b)]));
-export const MAP_ACCENT={grass:'#86b04a',snow:'#f1f4e4',desert:'#e9c993',mountain:'#bfc3b6',road:'#cd9e4e',sea:'#1a6cac'};
+export const MAP_ACCENT={grass:'#9bda3b',snow:'#fafdff',desert:'#ffc355',mountain:'#909093',road:'#cc8e48',sea:'#195998'};
 let terrainPatternRev=0;
 function ensureTerrainAtlas(){
   const assets=globalThis.PIXEL_ASSETS||{};
@@ -417,7 +411,8 @@ const atlasLod=[];
 const ATLAS_REF_WIDTH_1X=145.5;
 const BUILDING_WORLD_WIDTH=71;
 // v3(概念圖參考重生)的酒館連露台,概念圖量約 560px+ → 140 單位。
-const conceptBuildingWidth=id=>({hall:112,inn:94,tavern:118,house:100,bounty:70,dungeon:77}[id]||86);
+// Xilurus 風格等角建築(assets/xilurus/<id>.png):畫寬上限(世界像素);實際大小再由 fitScaleFor 限制在街區內。
+const conceptBuildingWidth=id=>({hall:132,inn:116,tavern:116,forge:116,trading:116,training:116,academy:110,sanctuary:110,enhancement:110,clinic:106,house:106,bounty:98,restaurant:96,dungeon:88}[id]||106);
 // 大廳與地下城要比店鋪大。舊版是 hall:79 / dungeon:77,換算成倍率。
 const BUILDING_SCALE={hall:1.11,dungeon:1.08};
 // 除錯用:console 打 __mistvaleAtlas() 看圖集載入狀況
@@ -806,7 +801,8 @@ export function createWorld(canvas,{onSelect=()=>{},onPlace=()=>{},getState=()=>
       // 出村口兩側立門柱旗。
       for(const seg of PALISADE){const alongX=seg.side==='north'||seg.side==='south',lo=alongX?seg.minX+.3:seg.minZ+.3,hi=alongX?seg.maxX-.3:seg.maxZ-.3,n=Math.max(1,Math.round((hi-lo)/2)),step=(hi-lo)/n;
         for(let k=0;k<n;k++){const c=lo+step*(k+.5),at=alongX?(seg.minZ+seg.maxZ)/2:(seg.minX+seg.maxX)/2;decorations.push(alongX?{type:'fenceRail',x:c,z:at,variant:1,size:step/2}:{type:'fenceRail',x:at,z:c,variant:0,size:step/2});}}
-      for(const e of EXITS)for(const sg of [-1,1])decorations.push(e.side==='east'?{type:'gate',x:e.x+.1,z:e.z+sg*(EXIT_GAP+.05),size:1}:{type:'gate',x:e.x+sg*(EXIT_GAP+.05),z:e.z+.1,size:1});
+      // 出村口:一座村門(木柱+茅草頂門楣)跨在路上。圖是「路沿 x 走」的方向,南門(路沿 z 走)左右翻面。
+      for(const e of EXITS)decorations.push({type:'gate',x:e.x+(e.side==='east'?.15:0),z:e.z+(e.side==='south'?.15:0),variant:e.side==='east'?0:1,size:1});
       // 街上的人:沿一條街來回走
       const WHO=['merchant','farmer','child','elder','smith','maid','cat','dog'],CLS=['berserker','ranger','paladin','sorcerer','darkknight','priest'];
       for(let k=0;k<22;k++){const alongX=vr()<.5,line=alongX?STREET_Z[Math.floor(vr()*STREET_Z.length)]:STREET_X[Math.floor(vr()*STREET_X.length)];
@@ -1023,14 +1019,14 @@ export function createWorld(canvas,{onSelect=()=>{},onPlace=()=>{},getState=()=>
   const padHit=(r,minW,minH)=>{const w=Math.max(r.w,minW),h=Math.max(r.h,minH);return{x:r.x+r.w/2-w/2,y:r.y+r.h-h,w,h};};
   // l0veyou 道具圖集:[cell id, 外框寬, 外框高, 底部偏移]。尺寸照概念圖比例(旗約 75px→19、木桶堆約 45px→11)。
   const PROP_ATLAS={garden:['garden',20,11,1],bush:['bush',12,11,1],mushroom:['mushroom',9,8,1],cactus:['cactus',16,22,2],
-    villageBanner:['villageBanner',12,20,1],arenaFlag:['arenaFlag',11,19,1],gate:['gate',12,19,1],stall:['stall',30,22,2],barrels:['barrels',12,11,1],
+    villageBanner:['villageBanner',12,20,1],arenaFlag:['arenaFlag',11,19,1],gate:['gate',56,56,4],stall:['stall',30,22,2],barrels:['barrels',12,11,1],
     // yard 圖集:以人物 12.6、木桶堆 11、路燈 15 為尺。
     chest:['chest',8,7,1],crates:['crates',8,10,1],hayBale:['hayBale',9,9,1],firewood:['firewood',9,8,1],
     trough:['trough',11,9,1],scarecrow:['scarecrow',11,14,1],lantern:['lantern',8,15,1],wheelbarrow:['wheelbarrow',11,9,1],
     // town/town2 圖集(概念圖道具):尺寸照概念圖量(K=3.93 px/單位)。圍籬一段 2 格,底部偏移 4.5(下端柱腳在中點下方)。
     archeryTarget:['archeryTarget',15,19,1],dummy:['dummy',10,15,1],weaponRack:['weaponRack',14,18,1],anvilStump:['anvilStump',10,9,1],
     tableSet:['tableSet',20,16,1],bench:['bench',16,10,1],handCart:['handCart',16,13,1],flowerBox:['flowerBox',12,10,1],
-    purpleBanner:['purpleBanner',9,30,1],fenceRail:['fenceRail',18,18,4.5],fruitStand:['fruitStand',22,26,1],sacks:['sacks',11,11,1],
+    purpleBanner:['purpleBanner',9,30,1],fenceRail:['fenceRail',22.6,22,4.6],fruitStand:['fruitStand',22,26,1],sacks:['sacks',11,11,1],
     // 各地形的地貌(l0veyou cold/woods 圖集):雪堆、冰湖、冰晶岩、山崖,倒木、樹樁、苔石、蕨叢。
     snowDrift:['snowDrift',26,14,2],frozenPond:['frozenPond',30,17,3],iceRocks:['iceRocks',22,15,1],cliffLedge:['cliffLedge',40,23,2],
     fallenLog:['fallenLog',22,18,1],stump:['stump',13,11,1],mossRock:['mossRock',15,13,1],ferns:['ferns',13,12,1],
@@ -1042,7 +1038,7 @@ export function createWorld(canvas,{onSelect=()=>{},onPlace=()=>{},getState=()=>
     if(detailUse.draw1x+detailUse.draw2x===before&&!(d.type==='monument'&&atlasCell('monument')))procUse[d.type]=(procUse[d.type]||0)+1;}
   function drawDecorationArt(d,p){
     const prop=PROP_ATLAS[d.type];
-    if(prop){const k=d.size||1;if(drawAtlasDetail(prop[0],p,prop[1]*k,prop[2]*k,prop[3],1,(d.variant||0)%2===1&&d.type!=='gate')){
+    if(prop){const k=d.size||1;if(drawAtlasDetail(prop[0],p,prop[1]*k,prop[2]*k,prop[3],1,(d.variant||0)%2===1)){
       return;}}
     if(d.type==='flowers'&&drawAtlasDetail(FLOWER_ATLAS[(d.variant||0)%4],p,9*(d.size||1),7*(d.size||1),1,1,(d.variant||0)>=4))return;
     if((d.type==='wheat'||d.type==='cabbage')&&drawAtlasDetail(d.type,p,d.type==='wheat'?9:10,d.type==='wheat'?9:7,1,1,(d.variant||0)%2===1))return;
@@ -1301,7 +1297,7 @@ export function createWorld(canvas,{onSelect=()=>{},onPlace=()=>{},getState=()=>
     const at=v=>({x:a.x+(p.x-a.x)*v,y:a.y+(p.y-a.y)*v-(12+(e.type==='arrow'?lob:lob))*s});const q=at(u);
     if(e.type==='arrow'){const prev=at(Math.max(0,u-.12)),ang=Math.atan2(q.y-prev.y,q.x-prev.x);
       g.save();g.globalAlpha=.55;g.strokeStyle='#fff6d8';g.lineWidth=Math.max(1,s*.8);g.beginPath();g.moveTo(prev.x,prev.y);g.lineTo(q.x,q.y);g.stroke();g.restore();
-      if(!fxSprite('arrow',q.x,q.y,13,{rot:ang+Math.PI/4})){line(g,q.x-Math.cos(ang)*6*s,q.y-Math.sin(ang)*6*s,q.x,q.y,'#513e2e',2*s);}return;}
+      if(!fxSprite('arrowFx',q.x,q.y,13,{rot:ang+Math.PI/4})){line(g,q.x-Math.cos(ang)*6*s,q.y-Math.sin(ang)*6*s,q.x,q.y,'#513e2e',2*s);}return;}
     if(e.type==='spell'){for(let i=4;i>=1;i--){const t=at(Math.max(0,u-i*.06));g.globalAlpha=.12*(5-i);g.fillStyle='#c79cff';g.beginPath();g.arc(t.x,t.y,(2+(4-i)*.6)*s,0,Math.PI*2);g.fill();}g.globalAlpha=1;
       g.save();g.globalAlpha=.35;g.fillStyle='#e7cfff';g.beginPath();g.arc(q.x,q.y,7*s,0,Math.PI*2);g.fill();g.restore();
       if(!fxSprite('fxOrb',q.x,q.y,11,{rot:elapsed*6})){pixel(g,q.x-3*s,q.y-3*s,6*s,6*s,'#8a68b9');}return;}

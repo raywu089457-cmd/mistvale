@@ -1,0 +1,8 @@
+Pixel art sprite sheet, 2:1 isometric view, 16-bit retro JRPG style like a high-quality isometric village tileset. Exactly 8 separate farm and yard objects arranged in a clean 4 columns x 2 rows grid, each fully visible and centered in its cell, wide empty gaps between them, none touching each other or the canvas edge, no overlap.
+
+Row 1: (1) small cluster of white daisy flowers; (2) small patch of ripe golden wheat stalks; (3) two green cabbages growing in soil; (4) wooden treasure chest with iron bands, closed.
+Row 2: (5) long wooden water trough; (6) straw scarecrow with a hat on a wooden cross; (7) wooden wheelbarrow; (8) round wooden table with two stools and a mug on top.
+
+Art rules: warm saturated colors, dark brown outlines around every object, chunky hard pixels with no anti-aliasing, lighting from the upper right, subtle pixel shading using dithering. Palette anchors: salmon pink #d29c8a, dark red-brown #642726, golden straw #c49459 and #bb863d, dark brown outline #0a0706, blue-gray stone #5b5e6e, grass green #4a6e2a, sand #d4a690, snow #e2e9e9.
+
+Background: perfectly flat solid pure magenta #FF00FF everywhere, no ground plane, no cast shadows on the background, no text, no numbers, no letters, no labels, no grid lines. One sprite sheet image only.

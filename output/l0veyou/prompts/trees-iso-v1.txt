@@ -1,0 +1,8 @@
+Pixel art sprite sheet, 2:1 isometric view, 16-bit retro JRPG style like a high-quality isometric village tileset. Exactly 8 separate trees and bushes arranged in a clean 4 columns x 2 rows grid, each fully visible and centered in its cell, wide empty gaps between them, none touching each other or the canvas edge, no overlap. Each object stands on its own with no ground plane.
+
+Row 1: (1) large round golden autumn tree with puffy clustered foliage; (2) large round green oak tree with dense canopy; (3) tall dark green pine tree with layered branches; (4) bare dead tree with twisted gray-brown branches.
+Row 2: (5) round green bush with tiny leaves; (6) cut tree stump with visible rings; (7) small young sapling tree; (8) flowering bush with pink blossoms.
+
+Art rules: warm saturated colors, dark brown outlines around every object, chunky hard pixels with no anti-aliasing, lighting from the upper right so the upper-right side of each canopy is lighter and the lower-left is darker, subtle pixel shading using dithering, organic irregular foliage clumps not perfect circles, visible dark brown trunks. Palette: golden straw #c49459 and #bb863d, green #4a6e2a and #6b8c3a, dark brown outline #0a0706, trunk #642726.
+
+Background: perfectly flat solid pure magenta #FF00FF everywhere, no ground plane, no cast shadows on the background, no text, no numbers, no labels, no grid lines. One sprite sheet image only.
