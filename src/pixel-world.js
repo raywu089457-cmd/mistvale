@@ -285,12 +285,12 @@ const groundPatterns={};
 const PAVE_SQUASH=.36;
 // 概念圖草地取樣(pipeline/l0veyou.md 有量測方法)。meadow/birch 比村莊亮一階,保留生態域差異。
 // birch 往概念圖亮草綠 (83,156,61) 靠、收窄標準差:原本亮端 (124,179,75) 跑出色票。
-const GRASS_TONE={village:{mean:[89,141,51],sd:[24,19,7]},meadow:{mean:[138,195,53],sd:[26,14,14]},birch:{mean:[151,203,48],sd:[27,14,13]},forest:{mean:[59,69,30],sd:[25,14,4]},taiga:{mean:[54,133,115],sd:[32,27,18]},snow:{mean:[243,246,252],sd:[13,8,1]},mountain:{mean:[129,129,131],sd:[28,27,26]},desert:{mean:[241,181,79],sd:[7,12,9]},river:{mean:[29,105,179],sd:[12,18,10]},ocean:{mean:[29,105,179],sd:[12,18,10]},ice:{mean:[178,225,247],sd:[23,12,3]}};  // Xilurus 材質量測(pipeline/scripts/xilurus/assemble.py tones)
+const GRASS_TONE={village:{mean:[87,140,50],sd:[24,22,10]},meadow:{mean:[138,194,53],sd:[32,23,25]},birch:{mean:[150,202,48],sd:[33,23,22]},forest:{mean:[59,69,30],sd:[35,21,10]},taiga:{mean:[54,132,114],sd:[34,30,21]},snow:{mean:[240,245,250],sd:[20,17,14]},mountain:{mean:[128,128,130],sd:[31,30,29]},desert:{mean:[241,181,79],sd:[14,21,19]},river:{mean:[30,105,178],sd:[15,15,8]},ocean:{mean:[30,105,178],sd:[15,15,8]},ice:{mean:[176,223,246],sd:[28,16,7]}};  // Xilurus 材質量測(pipeline/scripts/xilurus/assemble.py tones)
 const groundBase=b=>GRASS_TONE[b]?'#'+GRASS_TONE[b].mean.map(v=>v.toString(16).padStart(2,'0')).join(''):BIOME_PALETTE[b];
 // 小地圖/世界地圖用同一套對齊概念圖的地面色,地圖跟畫面看起來才是同一個世界。
 // 石板/土路色取自 plaza.png、road.png 的取樣平均。
 export const MAP_PALETTE=Object.fromEntries(Object.keys(BIOME_PALETTE).map(b=>[b,groundBase(b)]));
-export const MAP_ACCENT={grass:'#9bda3b',snow:'#fafdff',desert:'#ffc355',mountain:'#909093',road:'#cc8e48',sea:'#195998'};
+export const MAP_ACCENT={grass:'#9bd93b',snow:'#f7fcff',desert:'#ffc355',mountain:'#8f8f92',road:'#cc8e48',sea:'#1a5997'};
 let terrainPatternRev=0;
 function ensureTerrainAtlas(){
   const assets=globalThis.PIXEL_ASSETS||{};
@@ -541,7 +541,8 @@ export function createWorld(canvas,{onSelect=()=>{},onPlace=()=>{},getState=()=>
 
   function diamond(ctx,x,z,rx,rz,color){const a=worldPos(x-rx,z-rz),b=worldPos(x+rx,z-rz),c=worldPos(x+rx,z+rz),d=worldPos(x-rx,z+rz);polygon(ctx,[[a.x,a.y],[b.x,b.y],[c.x,c.y],[d.x,d.y]],color);}
   function generateGround(){
-    gc.setTransform(GROUND_RES,0,0,GROUND_RES,0,0);gc.imageSmoothingEnabled=false;
+    // 高細節材質 1 原生像素 = 0.25 畫面單位:桌機地面 4px/單位剛好一比一(關平滑、像素銳利);手機 2px/單位是縮小一半,開平滑才不會閃爍摩爾紋。
+    gc.setTransform(GROUND_RES,0,0,GROUND_RES,0,0);gc.imageSmoothingEnabled=GROUND_RES<4;gc.imageSmoothingQuality='high';
     const rand=rnd(349180);decorations.length=0;roads=getRoads(state.layout||{},state.buildings||{});terrainRevision++;
     // 世界外圍的海:用對齊概念圖水色的 ocean 材質鋪滿,不再是一片平塗青色。
     gc.fillStyle=groundBase('ocean')||'#417d90';gc.fillRect(0,0,ground.width,ground.height);
@@ -756,7 +757,7 @@ export function createWorld(canvas,{onSelect=()=>{},onPlace=()=>{},getState=()=>
     decorations.push({type:'cave',x:52,z:-40,size:1.2},{type:'ruins',x:54,z:30,size:1},{type:'ruins',x:-17,z:39,size:1});
     for(let i=0;i<10;i++)decorations.push({type:'animal',x:13+rand()*8,z:12+rand()*7,variant:i%3,phase:rand()*6,size:1});
     for(let i=decorations.length-1;i>=0;i--){const d=decorations[i];if(['tree','cactus','outcrop','ruins','cave'].includes(d.type)&&!keepTallDecoration(d,roads,state.layout||{}))decorations.splice(i,1);}
-    for(const a of ARENAS){for(let i=0;i<16;i++){const t=i*Math.PI/8;decorations.push({type:'rock',x:a.x+Math.cos(t)*a.rx,z:a.z+Math.sin(t)*a.rz,size:.42});}/* 空地外圈石頭改用岩石圖集 */decorations.push({type:'arenaFlag',x:a.x-a.rx-1,z:a.z,region:a,size:1});}
+    for(const a of ARENAS){for(let i=0;i<16;i++){const t=i*Math.PI/8;decorations.push({type:'rock',x:a.x+Math.cos(t)*a.rx,z:a.z+Math.sin(t)*a.rz,size:.42});}/* 空地外圈石頭改用岩石圖集 *//* 空地旗:預設插在空地西側;西側是村莊(霜杉林地緊貼東北角柵欄)或路就換到南/北/東側 */const fp=[[a.x-a.rx-1,a.z],[a.x,a.z+a.rz+1],[a.x,a.z-a.rz-1],[a.x+a.rx+1,a.z]].find(([x,z])=>!inVillage(x,z)&&!onRoad(x,z,roads,.6))||[a.x-a.rx-1,a.z];decorations.push({type:'arenaFlag',x:fp[0],z:fp[1],region:a,size:1});}
     // ── 棋盤格村莊擺設 ─────────────────────────────────────────────────
     // 每個街區照用途擺:建築門前兩側與屋後擺該設施的道具;田/果園/市集/公園/水井廣場/畜欄/花園/柴場/牧草地各有自己的內容。
     // 街口立路燈,廣場四角花圃、長椅、四條放射街兩側村旗。村民與獵人在街上來回走(walk 欄位,render 時更新位置)。
@@ -830,7 +831,7 @@ export function createWorld(canvas,{onSelect=()=>{},onPlace=()=>{},getState=()=>
   function buildVillageLayer(){
     villageReady=false;if(!conceptTex.grass||!conceptTex.earth||!conceptTex.stone)return;
     vc.setTransform(1,0,0,1,0,0);vc.clearRect(0,0,villageLayer.width,villageLayer.height);
-    vc.setTransform(VRES,0,0,VRES,-VBOX.x0*VRES,-VBOX.y0*VRES);vc.imageSmoothingEnabled=false;
+    vc.setTransform(VRES,0,0,VRES,-VBOX.x0*VRES,-VBOX.y0*VRES);vc.imageSmoothingEnabled=VRES<4;vc.imageSmoothingQuality='high';
     const quad=(path,x0,z0,x1,z1)=>{const a=iso(x0,z0),b=iso(x1,z0),c=iso(x1,z1),d=iso(x0,z1);path.moveTo(a.x,a.y);path.lineTo(b.x,b.y);path.lineTo(c.x,c.y);path.lineTo(d.x,d.y);path.closePath();};
     const seg=(path,r,w)=>{const dx=r.b.x-r.a.x,dz=r.b.z-r.a.z,L=Math.hypot(dx,dz)||1,nx=-dz/L*w,nz=dx/L*w,ex=dx/L*w*.6,ez=dz/L*w*.6;
       const pts=[[r.a.x+nx-ex,r.a.z+nz-ez],[r.b.x+nx+ex,r.b.z+nz+ez],[r.b.x-nx+ex,r.b.z-nz+ez],[r.a.x-nx-ex,r.a.z-nz-ez]].map(([x,z])=>iso(x,z));
@@ -1011,7 +1012,8 @@ export function createWorld(canvas,{onSelect=()=>{},onPlace=()=>{},getState=()=>
     if(!conceptSprite&&['forge','enhancement','restaurant','inn','hall'].includes(b.id)){
       for(let i=0;i<3;i++){const t=(elapsed*.3+i*.33)%1,xx=p.x+(18+t*5)*scale,yy=p.y+(-h+12-t*22)*scale;g.globalAlpha=(1-t)*.4;pixel(g,xx,yy,Math.max(2,4*scale),Math.max(2,3*scale),'#e5dfc8');pixel(g,xx+1,yy-1,Math.max(2,2*scale),1,'#f7ecd5');g.globalAlpha=1;}
     }
-    if(scale>1.12||s)uiLabels.push({text:`${b.name} Lv.${level}`,x:p.x,y:p.y+10*scale,color:s?'#ffe195':'#fff5d1'});
+    // 名牌放在自己屋頂上(圖頂往下 18%):放在地基前緣會被前一排建築蓋住、看起來像別棟的名字。
+    if(scale>1.12||s)uiLabels.push({text:`${b.name} Lv.${level}`,x:rect.x+rect.w/2,y:rect.y+rect.h*.18,color:s?'#ffe195':'#fff5d1'});
     const products={restaurant:'food',inn:'bed',tavern:'drink',clinic:'bandage'},pid=products[b.id];
     const stock=pid?(state.stocks?.[pid]??state.stock?.[pid]??state.products?.[pid]??state.inventory?.[pid]):null;
     if(pid&&stock===0){textLabel('!',p.x+27*scale,p.y-45*scale,{size:9,color:'#ffda87'});}
@@ -1172,8 +1174,9 @@ export function createWorld(canvas,{onSelect=()=>{},onPlace=()=>{},getState=()=>
   // 四格走路循環(左腳著地 → 經過 → 右腳著地 → 經過),每秒 8 格;每格的武器握法一致(l0veyou walk4 表)。
   const walkFrame=(t,seed)=>'walk'+(1+Math.floor(t*8+(seed%4))%4);
   function combatPose(a,isEnemy,target){
-    const t=state.time||0,out={pose:'idle',ox:0,oy:0,lean:0,sx:1,sy:1,flash:0,flashColor:'#ffffff',face:0,k:0};
+    const t=state.time||0,out={pose:'idle',ox:0,oy:0,lean:0,sx:1,sy:1,flash:0,flashColor:'#ffffff',face:0,k:0,atk:0,hit:0};
     const atk=t-(a.atkAt??-99),hit=t-(a.hitAt??-99),engaged=isEnemy?a.engaged:a.status==='戰鬥中';
+    out.atk=atk;out.hit=hit;  // 給畫面挑收招格(strike2/7)與第二受擊格(8)
     const ranged=!isEnemy&&(a.classId==='ranger'||a.classId==='sorcerer'||a.classId==='priest');
     const tx=target?.x??(isEnemy?a.facingX:null),tz=target?.z??(isEnemy?a.facingZ:null);
     if(atk>=0&&atk<.36&&a.atkX!=null){const d=screenDir(a.x,a.z,a.atkX,a.atkZ);out.face=d.x;out.pose='strike';
@@ -1212,19 +1215,31 @@ export function createWorld(canvas,{onSelect=()=>{},onPlace=()=>{},getState=()=>
     const target=h.targetId?(state.enemies||[]).find(e=>e.id===h.targetId&&e.hp>0):null,pose={...combatPose(h,false,target),flash:0},facing=previousPositions.get(h.id)?.facing||1;
     const sprite=heroSprite(h.classId,0,facing,hash(h.id)%3,heroLodScale,pose.pose);posed(p,pose,q=>drawSprite(sprite,q,21*CHAR_SCALE*sprite.width/sprite.height,21*CHAR_SCALE,1.2,.38));}
   // 驗收用:每一隻最後一次畫出來的朝向/姿勢(__mistvaleFacing())。
+  globalThis.__mistvaleDecor=()=>decorations.map(d=>({type:d.type,x:d.x,z:d.z,size:d.size||1,walk:!!d.walk}));  // 驗收用:擺設清單(check_placement.mjs)
   const drawnFacing=new Map();globalThis.__mistvaleFacing=()=>Object.fromEntries(drawnFacing);
+  const heroMemo=new Map();  // 獵人上一幀的目標(打倒目標 → 歡呼)
   function drawHunter(h){if(!Number.isFinite(h.x)||!Number.isFinite(h.z))return;const p=screenPoint(h.x,h.z),old=previousPositions.get(h.id),moving=old&&Math.hypot(h.x-old.x,h.z-old.z)>.005;let facing=old?.facing||1;if(old&&Math.abs(h.x-old.x-(h.z-old.z))>.002)facing=h.x-old.x-(h.z-old.z)>0?1:-1;
     const isSelected=selected===`hunter:${h.id}`;
     contact(p,5);if(isSelected)ring(p,8,'#fff1b0');
-    if(h.dead||h.hp<=0){previousPositions.set(h.id,{x:h.x,z:h.z,facing});g.save();g.translate(p.x,p.y-3*scale);g.rotate(Math.PI/2);g.globalAlpha=.55;{const sp=heroSprite(h.classId,0,facing,hash(h.id)%3),dw=21*sp.width/sp.height;g.drawImage(sp,-dw/2*scale*CHAR_SCALE,-12*scale*CHAR_SCALE,dw*scale*CHAR_SCALE,21*scale*CHAR_SCALE);}g.restore();textLabel('✦',p.x,p.y-15*scale,{color:'#e7d8ef',back:false});return;}
+    // 倒下:用倒地圖(<職業>_dead),半透明等復活;沒有倒地圖才退回把待機圖轉 90°。
+    if(h.dead||h.hp<=0){previousPositions.set(h.id,{x:h.x,z:h.z,facing});drawnFacing.set(h.id,{f:facing,pose:'dead',x:h.x,z:h.z,t:state.time});
+      if(heroFrameFor(`${h.classId}_dead`,heroLodScale)){const sp=heroSprite(h.classId,0,facing,hash(h.id)%3,heroLodScale,'dead');drawSprite(sp,p,21*CHAR_SCALE*sp.width/sp.height,21*CHAR_SCALE,1.2,.75);}
+      else{g.save();g.translate(p.x,p.y-3*scale);g.rotate(Math.PI/2);g.globalAlpha=.55;{const sp=heroSprite(h.classId,0,facing,hash(h.id)%3),dw=21*sp.width/sp.height;g.drawImage(sp,-dw/2*scale*CHAR_SCALE,-12*scale*CHAR_SCALE,dw*scale*CHAR_SCALE,21*scale*CHAR_SCALE);}g.restore();}
+      textLabel('✦',p.x,p.y-15*scale,{color:'#e7d8ef',back:false});return;}
     const target=h.status==='戰鬥中'&&h.targetId?(state.enemies||[]).find(e=>e.id===h.targetId&&e.hp>0):null,pose=combatPose(h,false,target);
     if(pose.face)facing=pose.face>0?1:-1;previousPositions.set(h.id,{x:h.x,z:h.z,facing});
     // 戰鬥中的位移只是「分散站位」被推開(面向目標),不播走路,不然會像倒退走。
     const walking=moving&&h.status!=='戰鬥中';
     const frame=walking&&pose.pose==='idle'?Math.floor(elapsed*7+hash(h.id)%5)%2:0;
-    // 走路:左右腳兩張走路圖交替;停著休息/待命/治療:坐下休息圖;戰鬥:蓄力/出手/受擊。
-    const restful=!walking&&!moving&&pose.pose==='idle'&&/休息|休養|待命|治療|旅館/.test(h.status||'');
-    const drawPose=pose.pose!=='idle'?pose.pose:walking?walkFrame(elapsed,hash(h.id)):restful?'rest':'idle';
+    // 走路:四格走路;戰鬥:蓄力 → 出手 → 收招(strike2)、受擊;停著時依狀態:用餐/飲用/睡覺/包紮/交易/訓練;
+    // 打倒目標後短暫歡呼(victory);其他待機時待機圖與呼吸圖(idle2)慢慢交替。
+    const st=h.status||'',still=!walking&&!moving&&pose.pose==='idle';
+    {const tg=h.targetId,prev=heroMemo.get(h.id);if(prev&&prev.tg&&prev.tg!==tg&&!(state.enemies||[]).some(e=>e.id===prev.tg&&e.hp>0)&&(state.time||0)-(h.atkAt??-99)<.8)heroMemo.set(h.id,{tg,cheer:(state.time||0)+.9});else heroMemo.set(h.id,{tg,cheer:prev?.cheer??-1});}
+    const cheering=(state.time||0)<(heroMemo.get(h.id)?.cheer??-1)&&pose.pose==='idle'&&!walking;
+    const servicePose=/用餐/.test(st)?'eat':/飲用/.test(st)?'drink':/休息|旅館/.test(st)?'sleep':/休養|治療/.test(st)?'bandaged':/交易|購買/.test(st)?'trade':/訓練/.test(st)?(Math.floor(elapsed*2.5+hash(h.id))%2?'train':'windup'):null;
+    const breathe=Math.floor(elapsed*1.6+hash(h.id)%7*.37)%2?'idle2':'idle';
+    const combatPoseName=pose.pose==='strike'&&pose.atk>.2&&!['ranger','sorcerer'].includes(h.classId)?'strike2':pose.pose;
+    const drawPose=pose.pose!=='idle'?combatPoseName:walking?walkFrame(elapsed,hash(h.id)):cheering?'victory':still&&servicePose?servicePose:breathe;
     drawnFacing.set(h.id,{f:facing,pose:drawPose,x:h.x,z:h.z,t:state.time});
     const sprite=heroSprite(h.classId,frame,facing,hash(h.id)%3,heroLodScale,drawPose),rect=posed(p,pose,q=>drawSprite(sprite,q,21*CHAR_SCALE*sprite.width/sprite.height,21*CHAR_SCALE,1.2,1,'char'));hits.push({id:`hunter:${h.id}`,...padHit(rect,14,18)});  // 圖變小,點擊範圍保底
     chargeGlow(h,p,pose,facing);
@@ -1275,7 +1290,11 @@ export function createWorld(canvas,{onSelect=()=>{},onPlace=()=>{},getState=()=>
     const walking=moving&&!e.engaged;  // 近身交戰時的位移是被推開,不播走路
     if(walking&&pose.pose==='idle'){pose.oy-=Math.abs(stride)*(e.type==='slime'?4:e.type==='wolf'?1.8:1);if(e.type!=='slime'){pose.sy*=1-.03*Math.abs(stride);pose.lean+=(flip?-1:1)*.04;}}
     // 0 待機、1 蓄力、2 出手、3 走路、4 受擊(l0veyou monsteratk 圖集)
-    const frame=pose.pose==='strike'?2:pose.pose==='windup'?1:pose.pose==='hurt'?4:walking?(e.type==='slime'?(Math.abs(stride)<.4?3:0):3):0;
+    // 0 待機/5 呼吸、1 蓄力、2 出手/7 收招、3·6 走路兩格(史萊姆:騰空 0、著地 3、壓扁 6)、4/8 受擊兩格(第四批 monsters 圖集 5–9)
+    const has=i=>!!detailFrameFor(e.type+i);
+    const frame=pose.pose==='strike'?(pose.atk>.2&&has(7)?7:2):pose.pose==='windup'?1:pose.pose==='hurt'?(pose.hit>.16&&has(8)?8:4)
+      :walking?(e.type==='slime'?(Math.abs(stride)<.25?(has(6)?6:3):Math.abs(stride)<.5?3:0):(stride>0||!has(6)?3:6))
+      :(Math.floor(elapsed*1.4+seed*.13)%2&&has(5)?5:0);
     // 被獵人鎖定:腳下紅色目標圈(誰在打誰一眼看得出來)。
     const targeted=(state.hunters||[]).some(h=>h.targetId===e.id&&h.status==='戰鬥中');
     if(targeted){const r=(boss?15:9)*scale,pulse=1+.06*Math.sin(elapsed*6);g.save();g.strokeStyle='#2a0d0a99';g.lineWidth=Math.max(2,scale*1.4);g.beginPath();g.ellipse(p.x,p.y+scale,r*pulse,r*.42*pulse,0,0,Math.PI*2);g.stroke();
@@ -1308,8 +1327,9 @@ export function createWorld(canvas,{onSelect=()=>{},onPlace=()=>{},getState=()=>
   }
   function drawSlash(e,age,p){const s=scale,src=screenPoint(e.sourceX??e.x,e.sourceZ??e.z),fromRight=src.x>p.x,r=rnd(hash(e.id)),tilt=(r()-.5)*.8;
     const cx=p.x+(fromRight?3:-3)*s,cy=p.y-11*s,k=Math.min(1,age/.12),alpha=age<.12?1:Math.max(0,1-(age-.12)/.3);
-    // 斬痕:新月從攻擊方掃過目標(放大+淡出),中心白色閃光
-    if(alpha>0)fxSprite('fxSlash',cx,cy,(20+10*k)*(e.cls==='berserker'?1.15:1),{rot:tilt+(fromRight?.3:-.3),flip:fromRight,alpha,sy:.85});
+    // 斬痕:新月從攻擊方掃過目標(放大+淡出),中心白色閃光。
+    // fxSlash 圖(Xilurus)＝白色刀弧在左、橙色拖尾在右 → 原圖是「由右往左揮」;攻擊者在左邊(往右揮)才翻面。
+    if(alpha>0)fxSprite('fxSlash',cx,cy,(20+10*k)*(e.cls==='berserker'?1.15:1),{rot:tilt+(fromRight?.3:-.3),flip:!fromRight,alpha,sy:.85});
     if(age<.16)fxSprite('fxHit',p.x,cy,10+age*60,{alpha:1-age/.16});
     sparks(p.x,cy,age,hash(e.id),9,['#fff7d0','#ffd56a','#ff9c4a']);
     if(e.cls==='paladin'&&age<.3){g.save();g.globalAlpha=.6*(1-age/.3);g.strokeStyle='#fff2b0';g.lineWidth=Math.max(1,s);g.beginPath();g.ellipse(p.x,p.y,(6+age*40)*s,(2.5+age*16)*s,0,0,Math.PI*2);g.stroke();g.restore();}}
@@ -1324,8 +1344,11 @@ export function createWorld(canvas,{onSelect=()=>{},onPlace=()=>{},getState=()=>
       if(age<.14)fxSprite('fxHit',p.x,cy,(boss?14:9)+age*40,{alpha:1-age/.14});sparks(p.x,cy,age,hash(e.id),7,['#ffd0b8','#e8584a']);}
   }
   function drawDeath(e,age,p){const type=e.enemyType||'slime',sz=ENEMY_SIZE(type),s=scale,t=Math.max(0,(age-.1)/.6);
-    if(t<1){const pose={pose:'hurt',ox:0,oy:0,lean:0,sx:1+.25*t,sy:Math.max(.08,1-ease(t)*.92),flash:age<.18?1:0,flashColor:'#ffffff'};
-      posed(p,pose,q=>drawAtlasMonster(type,4,q,sz,!!e.flipHint,1-t*t));}  // 倒下:沿用受擊圖與受擊時的朝向(面向打倒牠的獵人),不會在死掉瞬間翻面
+    // 倒下:先第二受擊格(8)一下,再倒地屍體圖(9)躺著淡出;朝向沿用受擊時(面向打倒牠的獵人)。沒有 8/9 格才退回壓扁受擊圖。
+    if(detailFrameFor(type+'9')){const fade=age<1.1?1:Math.max(0,1-(age-1.1)/.5),pose={pose:'hurt',ox:0,oy:0,lean:0,sx:1,sy:1,flash:age<.12?1:0,flashColor:'#ffffff'};
+      if(fade>0)posed(p,pose,q=>drawAtlasMonster(type,age<.18?8:9,q,sz,!!e.flipHint,fade));}
+    else if(t<1){const pose={pose:'hurt',ox:0,oy:0,lean:0,sx:1+.25*t,sy:Math.max(.08,1-ease(t)*.92),flash:age<.18?1:0,flashColor:'#ffffff'};
+      posed(p,pose,q=>drawAtlasMonster(type,4,q,sz,!!e.flipHint,1-t*t));}
     // 煙塵往外擴、魂火往上飄
     const r=rnd(hash(e.id)+7);for(let i=0;i<10;i++){const an=r()*Math.PI*2,d=(6+r()*10)*Math.min(1,age/.5),x=p.x+Math.cos(an)*d*s,y=p.y-2*s+Math.sin(an)*d*.4*s,a=Math.max(0,1-age/1.1);
       g.globalAlpha=a*.7;const sz2=Math.max(2,Math.round((2+r()*2)*s));pixel(g,x-sz2/2,y-sz2/2,sz2,sz2,i%2?'#d8ccb4':'#a89c88');}

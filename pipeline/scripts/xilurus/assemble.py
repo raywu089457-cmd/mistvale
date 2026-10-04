@@ -58,6 +58,14 @@ def load_atlas(prefix: str, lod: str):
 MIRROR_CELLS = {"fenceRail"}
 
 
+def resize_sprite(im: Image.Image, f: float) -> Image.Image:
+    """等比縮放去背圖:LANCZOS 後 alpha 二值化(≥128 不透明),邊緣不會出現半透明髒邊。"""
+    w, h = max(1, round(im.width * f)), max(1, round(im.height * f))
+    a = np.asarray(im.resize((w, h), Image.LANCZOS)).copy()
+    a[..., 3] = np.where(a[..., 3] >= 128, 255, 0)
+    return Image.fromarray(a)
+
+
 def merge(name: str, parts: list[tuple[str, list[str] | None]]):
     """把多個暫存圖集(只取指定 id,None=全部)合併成 assets/<name>@1x/@2x(shelf packing,manifest 契約同 sheet_to_atlas)。"""
     for lod in ("1x", "2x"):
@@ -69,6 +77,10 @@ def merge(name: str, parts: list[tuple[str, list[str] | None]]):
                 if keep is not None and k not in keep:
                     continue
                 crop = im.crop((c["x"], c["y"], c["x"] + c["w"], c["y"] + c["h"]))
+                f = SCALE.get(prefix, 1)
+                if f != 1:   # 第二張表縮到跟第一張同尺寸(錨點跟著縮)
+                    crop = resize_sprite(crop, f)
+                    c = {**c, "x": 0, "y": 0, "w": crop.width, "h": crop.height, **({"anchor": [crop.width / 2, crop.height]} if "anchor" in c else {})}
                 pieces[k] = (ImageOps.mirror(crop) if k in MIRROR_CELLS else crop, c)
         pad, x, y, shelf, W = 2, 0, 0, 0, 0
         row_w = max(1024 if lod == "2x" else 512, max(p.width for p, _ in pieces.values()) + 4)
@@ -122,7 +134,13 @@ SHEETS = [  # (表, 暫存 prefix, grid, ids, mirror)
     ("mon-wolf-iso-v2-v1.png", "zx-wolf", "5x1", [f"wolf{i}" for i in range(5)], True),   # 生出來整排朝左
     ("mon-golem-iso-v2-v1.png", "zx-golem", "5x1", [f"golem{i}" for i in range(5)], False),
     ("mon-treant-iso-v2-v1.png", "zx-boss", "5x1", [f"boss{i}" for i in range(5)], False),
+    # 第四批:每種魔物第二張(5 呼吸待機、6 第二走路格、7 出手收招、8 第二受擊格、9 倒下)。以第一張的待機圖當 REF 生,
+    # 合併前依「5 號高度 = 0 號高度」縮放,同一隻魔物換格時大小不跳。
+    *[(f"mon-{t if t != 'boss' else 'treant'}-iso-b-v1.png", f"zx-{t}-b", "5x1", [f"{t}{i}" for i in range(5, 10)], False) for t in ("slime", "wolf", "golem", "boss")],
 ]
+# 第二張表的縮放基準:(第二張 prefix, 第二張的基準 id, 第一張 prefix, 第一張的基準 id)
+NORM = [(f"zx-{t}-b", f"{t}5", f"zx-{t}", f"{t}0") for t in ("slime", "wolf", "golem", "boss")]
+SCALE: dict[str, float] = {}
 # 舊圖集名 → 內容。舊名保留,build.mjs / pixel-world.js 的載入清單不用改。
 MERGES = {
     "details": [("zx-trees", ["oak", "pine", "autumnOak"]), ("zx-nature", ["snowpine", "birch", "boulders", "outcrop"]), ("zx-misc", ["cave", "ruin"]),
@@ -137,7 +155,8 @@ MERGES = {
     "town2": [("zx-yard", ["purpleBanner", "sacks", "barrel", "bucket"]), ("zx-props2", ["fruitStand"]), ("zx-trees", ["flowerBush"])],
     "vfx": [("zx-vfx", ["fxSlash", "fxOrb", "fxHeal", "fxStar", "fxHit", "fxSparkle", "iconLeather", "arrowFx"]), ("zx-yard", ["plot"])],
     "icons": [("zx-icons-a", None), ("zx-icons-b", None)],
-    "monsters": [("zx-slime", None), ("zx-wolf", None), ("zx-golem", None), ("zx-boss", None)],
+    "monsters": [("zx-slime", None), ("zx-wolf", None), ("zx-golem", None), ("zx-boss", None),
+                 ("zx-slime-b", None), ("zx-wolf-b", None), ("zx-golem-b", None), ("zx-boss-b", None)],
 }
 
 
@@ -147,6 +166,12 @@ def atlases():
         if prefix == "zx-vfx":
             env = {"HUE_TOL": "12", "NO_SHADOW": "1", "NO_HOLES": "1"}   # 紫法球(HANDOFF:紫色主體一律這組)
         cut(sheet, prefix, grid, ids, mirror, env=env)
+    for b_prefix, b_id, a_prefix, a_id in NORM:
+        for lod in ("2x",):
+            _, cb, _ = load_atlas(b_prefix, lod)
+            _, ca, _ = load_atlas(a_prefix, lod)
+            SCALE[b_prefix] = ca[a_id]["h"] / cb[b_id]["h"]
+    print("second-sheet scale:", {k: round(v, 3) for k, v in SCALE.items()})
     for name, parts in MERGES.items():
         merge(name, parts)
     for prefix in {p for _, p, *_ in SHEETS}:
@@ -162,6 +187,8 @@ CLASSES = ["berserker", "ranger", "paladin", "sorcerer", "darkknight", "priest"]
 POSES = ["walk1", "walk2", "walk3", "walk4", "windup", "strike", "hurt", "rest"]
 # 生成瑕疵修正:黑騎士 walk4(經過姿勢)手上沒有大劍 → 用同為經過姿勢的 walk2,走路時劍不會閃掉。
 POSE_FIX = {"darkknight_walk4": "darkknight_walk2"}
+# 第四批:每職業第二張 5x2 表(以第一張的待機圖當 REF)。依「idle2 高度 = 待機高度」縮放到同一個大小。
+POSES_B = ["idle2", "strike2", "dead", "victory", "eat", "drink", "sleep", "bandaged", "trade", "train"]
 
 
 def heroes():
@@ -175,6 +202,12 @@ def heroes():
         for dst, src in POSE_FIX.items():
             if dst in got[cls]:
                 got[cls][dst] = got[cls][src].copy()
+        cut(f"hero-{cls}-iso-b-v1.png", "zx-hero", "5x2", [f"{cls}_{p}" for p in POSES_B], env={"HUE_TOL": "16"})
+        im, cells, _ = load_atlas("zx-hero", "2x")
+        bb = {k: im.crop((c["x"], c["y"], c["x"] + c["w"], c["y"] + c["h"])) for k, c in cells.items()}
+        f = got[cls][cls].height / bb[f"{cls}_idle2"].height
+        got[cls].update({k: resize_sprite(v, f) for k, v in bb.items()})
+        drop("zx-hero")
         drop("zx-hero")
     for tag, (h, sc) in LODS.items():
         hero, pose, extra = {}, {}, {}
@@ -182,7 +215,7 @@ def heroes():
             g = got[cls]
             s = h / g[cls].height   # 待機高度 → 34/68/136;同一張表的姿勢用同一個倍率,換姿勢不會忽大忽小
             hero[cls] = shrink(g[cls], s, False)
-            for p in POSES:
+            for p in POSES + POSES_B:
                 key = f"{cls}_{p}"
                 q = shrink(g[key], s, False)
                 pose[key] = q
@@ -244,61 +277,92 @@ def seamless(im: Image.Image, seed=7):
 
 TEXTURES = {"grass": "tex-grass", "meadow": "tex-meadow", "forest": "tex-forest", "taiga": "tex-taiga", "snow": "tex-snow", "mountain": "tex-mountain",
             "desert": "tex-desert", "water": "tex-water", "ice": "tex-ice", "dirt": "tex-dirt", "stone": "tex-stone", "soil": "tex-soil"}
+# 有方向性的材質(沙紋、浪、田壟)不能旋轉,第二層改用位移。
+DIRECTIONAL = {"desert", "water", "soil"}
+MACRO = 512   # 圖集一格 = 512 原生像素(高細節材質原生 256,組成 2×2 不重複大格)
+
+
+def periodic_noise(n, cells, seed):
+    """n×n、週期 n 的平滑雜訊(0..1):cells×cells 隨機格,環狀雙線性內插。"""
+    rng = np.random.default_rng(seed)
+    g = rng.random((cells, cells))
+    u = np.arange(n) * cells / n
+    i0 = np.floor(u).astype(int) % cells
+    i1 = (i0 + 1) % cells
+    f = u - np.floor(u)
+    f = f * f * (3 - 2 * f)
+    a = g[np.ix_(i0, i0)] * (1 - f)[:, None] * (1 - f)[None, :] + g[np.ix_(i1, i0)] * f[:, None] * (1 - f)[None, :]         + g[np.ix_(i0, i1)] * (1 - f)[:, None] * f[None, :] + g[np.ix_(i1, i1)] * f[:, None] * f[None, :]
+    return a
+
+
+def macro(tile: Image.Image, key: str, seed: int) -> Image.Image:
+    """256 無縫磚 → 512 大格:底層 2×2 平鋪,第二層(旋轉 90°/有方向的用位移)依週期雜訊遮罩逐像素切換,
+    像素不混色(保持銳利),而且 512 一個週期 → 畫面上看不出 256 的重複。"""
+    a = np.asarray(tile.convert("RGB"))
+    base = np.tile(a, (2, 2, 1))
+    if key in DIRECTIONAL:
+        b = np.roll(np.roll(base, 173, 1), 97, 0)
+    else:
+        b = np.tile(np.rot90(a, 1 + seed % 3), (2, 2, 1))
+        b = np.roll(np.roll(b, 131, 0), 59, 1)
+    n = periodic_noise(MACRO, 6, seed) * .75 + periodic_noise(MACRO, 23, seed + 1) * .25
+    rng = np.random.default_rng(seed + 2)
+    m = (n + (rng.random(n.shape) - .5) * .12) > .5   # 交界一點抖動,邊不會是平滑曲線
+    return Image.fromarray(np.where(m[..., None], b, base).astype(np.uint8))
 
 
 def textures():
+    """高細節材質(tex2-*,256 原生像素)→ 512 大格。沒有 tex2 的退回第一版低細節材質(64 原生 ×4)。"""
     XD.mkdir(exist_ok=True)
     tex = {}
-    for key, name in TEXTURES.items():
-        small, up = native(SRC / f"{name}-v1.png")
-        if key == "water":   # 生成的海是飽和寶藍;Xilurus 色票的水是柔和青藍(#7dc7d6)→ 往深青拉近
-            arr = np.asarray(small).astype(float)
-            small = Image.fromarray(np.clip(arr * .55 + np.array([48, 128, 150]) * .45, 0, 255).astype(np.uint8))
-        t = seamless(small, seed=len(key) * 31).resize((256, 256), Image.NEAREST)
+    for i, (key, name) in enumerate(TEXTURES.items()):
+        hi = SRC / f"tex2-{key}-v1.png"
+        if hi.exists() or hi.with_suffix(".jpg").exists():
+            small, _ = native(hi, k=256)
+            ref, _ = native(SRC / f"{name}-v1.png")   # 色調以第一版(已確認的 Xilurus 色票)為準:逐通道配平均,對比取兩者之間
+            a, r = np.asarray(small).astype(float), np.asarray(ref).astype(float).reshape(-1, 3)
+            am, asd, rm, rsd = a.reshape(-1, 3).mean(0), a.reshape(-1, 3).std(0) + 1e-6, r.mean(0), r.std(0)
+            small = Image.fromarray(np.clip((a - am) / asd * (asd * .5 + rsd * .5) + rm, 0, 255).astype(np.uint8))
+            t = macro(seamless(small, seed=len(key) * 31), key, seed=11 + i * 7)
+        else:
+            small, up = native(SRC / f"{name}-v1.png")
+            t = seamless(small, seed=len(key) * 31).resize((MACRO, MACRO), Image.NEAREST)
+        if key == "water":   # 海往 Xilurus 色票的柔和青藍拉
+            arr = np.asarray(t).astype(float)
+            t = Image.fromarray(np.clip(arr * .55 + np.array([48, 128, 150]) * .45, 0, 255).astype(np.uint8))
         t.save(XD / f"tex-{key}.png")
-        print(f"  {key}: native {small.size[0]}px ×{up}")
         tex[key] = t
-    # terrain-atlas:同舊版 1024×768、每格 256(cell 名 = 生態域)
+        print(f"  {key}: {'tex2 256→512' if hi.exists() or hi.with_suffix('.jpg').exists() else 'v1 64×8'}")
     layout = [["village", "meadow", "birch", "forest"], ["taiga", "snow", "mountain", "desert"], ["river", "ocean", "ice", "bridge"]]
     source = {"village": "grass", "meadow": "meadow", "birch": "meadow", "forest": "forest", "taiga": "taiga", "snow": "snow", "mountain": "mountain",
               "desert": "desert", "river": "water", "ocean": "water", "ice": "ice", "bridge": "dirt"}
-    sheet = Image.new("RGB", (1024, 768))
+    birchify = lambda arr: np.clip(arr * [1.03, 1.02, .9] + [8, 4, 0], 0, 255)
+    sheet = Image.new("RGB", (4 * MACRO, 3 * MACRO))
     cells = {}
     for r, row in enumerate(layout):
         for c, b in enumerate(row):
             t = tex[source[b]]
             if b == "birch":   # 白樺花原:比向陽草原亮一階、偏黃綠
-                arr = np.asarray(t).astype(float)
-                arr = np.clip(arr * [1.03, 1.02, .9] + [8, 4, 0], 0, 255)
-                t = Image.fromarray(arr.astype(np.uint8))
-            sheet.paste(t, (c * 256, r * 256))
-            cells[b] = {"x": c * 256, "y": r * 256, "w": 256, "h": 256}
+                t = Image.fromarray(birchify(np.asarray(t).astype(float)).astype(np.uint8))
+            sheet.paste(t, (c * MACRO, r * MACRO))
+            cells[b] = {"x": c * MACRO, "y": r * MACRO, "w": MACRO, "h": MACRO}
     sheet.save(A / "terrain-atlas.png", optimize=True)
-    (A / "terrain-atlas.manifest.json").write_text(json.dumps({"version": 1, "kind": "mistvale-terrain-atlas", "image": "terrain-atlas.png", "sheetWidth": 1024,
-        "sheetHeight": 768, "tile": 256, "generator": "l0veyou GPT Image 2(Xilurus 風格)→ pipeline/scripts/xilurus/assemble.py textures", "cells": cells}, indent=1), encoding="utf-8")
+    (A / "terrain-atlas.manifest.json").write_text(json.dumps({"version": 1, "kind": "mistvale-terrain-atlas", "image": "terrain-atlas.png", "sheetWidth": sheet.width,
+        "sheetHeight": sheet.height, "tile": MACRO, "generator": "l0veyou GPT Image 2(Xilurus 風格,高細節材質)→ pipeline/scripts/xilurus/assemble.py textures", "cells": cells}, indent=1), encoding="utf-8")
     wood, up = native(SRC / "tex-woodui-v1.png")   # UI 木紋
     seamless(wood, seed=3).resize((256, 256), Image.NEAREST).save(A / "woodui.png")
     tex["stone"].save(A / "plaza.png")
     tex["dirt"].save(A / "road.png")
-    for key, src in [("stone", "stone"), ("earth", "dirt"), ("grass", "grass")]:   # 村莊高解析地面層
-        tex[src].resize((360, 360), Image.NEAREST).save(A / f"concept-{key}.png")
-    # 地面底色(生態域平均色):寫成 JSON,pixel-world.js 的 GRASS_TONE 照這份填。
+    for key, src in [("stone", "stone"), ("earth", "dirt"), ("grass", "grass")]:   # 村莊高解析地面層(畫的時候 1 原生像素 = 0.254 畫面單位)
+        tex[src].save(A / f"concept-{key}.png")
     stats = {}
-    for b, s in source.items():
-        arr = np.asarray(tex[s]).reshape(-1, 3).astype(float)
+    for b, s_ in source.items():
+        arr = np.asarray(tex[s_]).reshape(-1, 3).astype(float)
         if b == "birch":
-            arr = np.clip(arr * [1.03, 1.02, .9] + [8, 4, 0], 0, 255)
+            arr = birchify(arr)
         stats[b] = {"mean": [round(v) for v in arr.mean(0)], "sd": [round(v) for v in arr.std(0)]}
     (XD / "ground-tones.json").write_text(json.dumps(stats, indent=1), encoding="utf-8")
     print("textures:", {k: v["mean"] for k, v in stats.items()})
-
-
-def title():
-    im = Image.open(SRC / "title-iso-v1.png").convert("RGB")
-    im.save(A / "title.png", optimize=True)
-    print("title:", im.size)
-
-
 
 
 def tones():
