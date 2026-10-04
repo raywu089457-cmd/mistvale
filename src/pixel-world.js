@@ -38,7 +38,10 @@ const shadowCache=new WeakMap();
 function shadowFor(img,sx,sy,sw,sh,flip,wpp,grounded,capWorld){
   let m=shadowCache.get(img);if(!m){m=new Map();shadowCache.set(img,m);}
   const key=`${sx},${sy},${sw},${sh},${flip?1:0},${wpp},${grounded?1:0},${capWorld}`;let r=m.get(key);if(r)return r;
-  const src=makeCanvas(sw,sh),sc=src.getContext('2d',{willReadFrequently:true});sc.drawImage(img,sx,sy,sw,sh,0,0,sw,sh);
+  // 影子用最長邊 ≤128px 的縮小版算(Xilurus 圖集一格 250–350px,畫面上只有 40–60px):
+  // 原尺寸影子每幀被大幅縮小重畫,桌機 30→23fps;影子本來就是半透明剪影,縮小看不出差別。
+  const f=Math.min(1,128/Math.max(sw,sh)),SW=sw,SH=sh;sw=Math.max(2,Math.round(sw*f));sh=Math.max(2,Math.round(sh*f));wpp/=sw/SW;
+  const src=makeCanvas(sw,sh),sc=src.getContext('2d',{willReadFrequently:true});sc.drawImage(img,sx,sy,SW,SH,0,0,sw,sh);
   const a=sc.getImageData(0,0,sw,sh).data,cap=capWorld/wpp,ex=Math.ceil(cap*SHADOW_SX)+2,ey=Math.ceil(cap*SHADOW_SY)+2,W=sw+ex,H=sh+ey,out=new Uint8ClampedArray(W*H);
   const base=new Int32Array(sw).fill(-1);let bottom=-1;
   for(let x=0;x<sw;x++)for(let y=sh-1;y>=0;y--)if(a[(y*sw+x)*4+3]>40){base[x]=y;if(y>bottom)bottom=y;break;}
@@ -48,7 +51,7 @@ function shadowFor(img,sx,sy,sw,sh,flip,wpp,grounded,capWorld){
       if(dy>=0&&dy<H&&dx>=0&&dx<W-1){if(v>out[i])out[i]=v;if(v>out[i+1])out[i+1]=v;}}}
   const cv=makeCanvas(W,H),cx=cv.getContext('2d'),id=cx.createImageData(W,H);
   for(let i=0;i<out.length;i++){if(!out[i])continue;id.data[i*4]=SHADOW_RGB[0];id.data[i*4+1]=SHADOW_RGB[1];id.data[i*4+2]=SHADOW_RGB[2];id.data[i*4+3]=out[i];}
-  cx.putImageData(id,0,0);r={cv,ex,W,H};m.set(key,r);return r;
+  cx.putImageData(id,0,0);r={cv,ex,W,H,sw};m.set(key,r);return r;
 }
 
 function heroSprite(classId='berserker',frame=0,facing=1,variant=0,lodScale=heroLodScale,pose='idle') {
@@ -900,7 +903,7 @@ export function createWorld(canvas,{onSelect=()=>{},onPlace=()=>{},getState=()=>
   const SHADOW_CAP={building:32,tree:58,char:40,prop:30},SHADOW_ALPHA=.56;
   function cast(img,sx,sy,sw,sh,dx,dy,dw,dh,flip=false,grounded=true,kind='prop'){
     if(!casting||!img||sw<2||sh<2||dw<2||dh<2)return;
-    const wpp=2**(Math.round(Math.log2(dh/scale/sh)*8)/8),s=shadowFor(img,sx,sy,sw,sh,flip,wpp,grounded,SHADOW_CAP[kind]||30),k=dw/sw;
+    const wpp=2**(Math.round(Math.log2(dh/scale/sh)*8)/8),s=shadowFor(img,sx,sy,sw,sh,flip,wpp,grounded,SHADOW_CAP[kind]||30),k=dw/s.sw;
     sg.drawImage(s.cv,Math.round(dx-s.ex*k),Math.round(dy),Math.round(s.W*k),Math.round(s.H*k));
   }
   function drawSprite(sprite,p,w,h,offset=0,alpha=1,kind=null){const ww=Math.round(w*scale),hh=Math.round(h*scale);if(kind)cast(sprite,0,0,sprite.width,sprite.height,Math.round(p.x-ww/2),Math.round(p.y-hh+offset*scale),ww,hh,false,kind!=='building',kind);g.globalAlpha=alpha;g.drawImage(sprite,Math.round(p.x-ww/2),Math.round(p.y-hh+offset*scale),ww,hh);
