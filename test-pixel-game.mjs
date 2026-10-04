@@ -86,10 +86,25 @@ assert.equal(buildings.construct('academy').ok, true); assert.equal(buildings.co
 assert.equal(buildings.moveBuilding('bounty', 5, 17).ok, true); assert.equal(buildings.moveBuilding('hall', -8, 2).ok, false, 'plaza stays open'); assert.equal(buildings.moveBuilding('hall', -100, 0).ok, false); assert.equal(buildings.moveBuilding('dungeon', 0, 0).ok, false);
 const movedSaved = createGame(buildings.serialize()); assert.deepEqual(movedSaved.state.layout.bounty, { x: 2.5, z: 13.1 }, 'moves snap to the nearest block (bounty keeps its street-side nudge)');
 
-const combat = createGame(); run(combat, 60, false, assertFiniteEconomy);
-assert.ok(combat.state.totalKills >= 5, 'The five starter hunters autonomously hunt'); assert.ok(combat.state.counts.services > 0, 'Hunters visibly use town services within 60 seconds'); assert.ok(combat.state.counts.traded > 0);
+// 新玩法:招募英雄不自己出村打怪,待機在村內等玩家派指令。
+const idle = createGame(); run(idle, 60, false, assertFiniteEconomy);
+assert.equal(idle.state.totalKills, 0, 'Recruited hunters idle in town and never hunt on their own');
+assert.ok(idle.state.hunters.every(h => h.inTown || h.task), 'Recruited hunters wait in town for orders');
+assert.ok(idle.state.counts.services > 0, 'Hunters visibly use town services within 60 seconds');
+assert.ok(Array.isArray(idle.state.wanderers) && idle.state.wanderers.length >= 1, 'Wandering heroes roam the field');
+assert.ok(idle.state.wanderKills > 0, 'Wandering heroes hunt monsters on their own');
+
+// 玩家派指令去哪個區,英雄才會出村打怪。
+const combat = createGame();
+assert.equal(combat.exploreRegion('meadow').ok, true, 'Player dispatches hunters to a region');
+run(combat, 120, false, assertFiniteEconomy);
+assert.ok(combat.state.totalKills >= 5, 'Dispatched hunters hunt the ordered region');
+assert.ok(combat.state.counts.traded > 0, 'Hunters trade the materials they gather');
 assert.ok(combat.state.hunters.some(h => h.gold > 100), 'Monster gold belongs to hunters');
-assert.equal(combat.expedition().ok, true); assert.equal(combat.expedition().ok, false); run(combat, 200, false, assertFiniteEconomy); assert.ok(combat.state.bossKills >= 1, 'Starter hunters can defeat the field boss');
+assert.equal(combat.expedition().ok, true); assert.equal(combat.expedition().ok, false); run(combat, 200, false, assertFiniteEconomy); assert.ok(combat.state.bossKills >= 1, 'Dispatched hunters can defeat the field boss');
+// 召回:狩獵指令清掉,英雄回村待機等下一次派令。
+assert.equal(combat.recallHunters().ok, true); assert.ok(combat.state.hunters.every(h => !h.huntRegion), 'Recalled hunters wait for the next order');
+assert.equal(combat.recallHunters().ok, false);
 const healer = combat.state.hunters.find(h => h.hp > 0); healer.hp = healer.maxHp * 0.1; assert.equal(combat.heal().ok, true); assert.ok(healer.hp >= healer.maxHp * 0.54); assert.equal(combat.heal().ok, false);
 const dead = createGame(), fallen = isolate(dead); fallen.hp = 0; run(dead, 0.2, true); assert.equal(fallen.status, '復活中'); assert.equal(dead.state.counts.deaths, 1); run(dead, 10, true); assert.ok(fallen.hp > 0 && fallen.reviveTimer === 0);
 

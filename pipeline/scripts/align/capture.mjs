@@ -15,7 +15,18 @@ const b=await chromium.launch();const p=await b.newPage({viewport:{width:size,he
 const errs=[];p.on('pageerror',e=>errs.push(e.message));
 await p.goto(pathToFileURL(html).href+'?preview=art-complete',{waitUntil:'load',timeout:180000});
 await p.waitForTimeout(1500);await p.click('#start-button');
-await p.waitForFunction(()=>globalThis.__mistvaleDetails?.().ready&&globalThis.__mistvaleAtlas?.().ready,null,{timeout:60000});
+// 建築已改走 sharedAtlas（單張圖 PIXEL_ASSETS.hall/inn/…，由 build.mjs 嵌入），
+// 舊的 buildingsAtlas 不存在 → __mistvaleAtlas().ready 會永遠 false，所以不能拿它當就緒條件。
+// 改成：基礎 hook 都 ready，且畫面真的畫出東西（取樣像素的色數夠多＝地形＋建築都上了）。
+await p.waitForFunction(()=>{
+  if(!(globalThis.__mistvaleDetails?.().ready&&globalThis.__mistvaleHero?.().ready&&globalThis.__mistvaleIcons?.().ready))return false;
+  const cv=[...document.querySelectorAll('canvas')].sort((a,b)=>b.width*b.height-a.width*a.height)[0];
+  if(!cv||!cv.width)return false;
+  try{const d=cv.getContext('2d').getImageData(0,0,cv.width,cv.height).data,seen=new Set();
+    for(let i=0;i<d.length;i+=16004){seen.add((d[i]<<16)|(d[i+1]<<8)|d[i+2]);if(seen.size>140)return true;}
+    return seen.size>140;
+  }catch{return false;}
+},null,{timeout:120000});
 const info=await p.evaluate(()=>{const cv=[...document.querySelectorAll('canvas')].sort((a,b)=>b.width*b.height-a.width*a.height)[0];
   const s=.35*cv.width/112;__mistvaleView.lookAt(-6.1,3.9,s);return{w:cv.width,h:cv.height,s};});
 await p.waitForTimeout(2500);

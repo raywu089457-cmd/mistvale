@@ -1213,9 +1213,9 @@ export function createWorld(canvas,{onSelect=()=>{},onPlace=()=>{},getState=()=>
     const sprite=heroSprite(h.classId,0,facing,hash(h.id)%3,heroLodScale,pose.pose);posed(p,pose,q=>drawSprite(sprite,q,21*CHAR_SCALE*sprite.width/sprite.height,21*CHAR_SCALE,1.2,.38));}
   // 驗收用:每一隻最後一次畫出來的朝向/姿勢(__mistvaleFacing())。
   const drawnFacing=new Map();globalThis.__mistvaleFacing=()=>Object.fromEntries(drawnFacing);
-  function drawHunter(h){if(!Number.isFinite(h.x)||!Number.isFinite(h.z))return;const p=screenPoint(h.x,h.z),old=previousPositions.get(h.id),moving=old&&Math.hypot(h.x-old.x,h.z-old.z)>.005;let facing=old?.facing||1;if(old&&Math.abs(h.x-old.x-(h.z-old.z))>.002)facing=h.x-old.x-(h.z-old.z)>0?1:-1;
+  function drawHunter(h,wanderer){if(!Number.isFinite(h.x)||!Number.isFinite(h.z))return;const p=screenPoint(h.x,h.z),old=previousPositions.get(h.id),moving=old&&Math.hypot(h.x-old.x,h.z-old.z)>.005;let facing=old?.facing||1;if(old&&Math.abs(h.x-old.x-(h.z-old.z))>.002)facing=h.x-old.x-(h.z-old.z)>0?1:-1;
     const isSelected=selected===`hunter:${h.id}`;
-    contact(p,5);if(isSelected)ring(p,8,'#fff1b0');
+    contact(p,5);if(isSelected)ring(p,8,'#fff1b0');if(wanderer)ring(p,6,'#7fc4ff');  // 藍圈＝流浪英雄(自己打怪,不是我方單位)
     if(h.dead||h.hp<=0){previousPositions.set(h.id,{x:h.x,z:h.z,facing});g.save();g.translate(p.x,p.y-3*scale);g.rotate(Math.PI/2);g.globalAlpha=.55;{const sp=heroSprite(h.classId,0,facing,hash(h.id)%3),dw=21*sp.width/sp.height;g.drawImage(sp,-dw/2*scale*CHAR_SCALE,-12*scale*CHAR_SCALE,dw*scale*CHAR_SCALE,21*scale*CHAR_SCALE);}g.restore();textLabel('✦',p.x,p.y-15*scale,{color:'#e7d8ef',back:false});return;}
     const target=h.status==='戰鬥中'&&h.targetId?(state.enemies||[]).find(e=>e.id===h.targetId&&e.hp>0):null,pose=combatPose(h,false,target);
     if(pose.face)facing=pose.face>0?1:-1;previousPositions.set(h.id,{x:h.x,z:h.z,facing});
@@ -1373,10 +1373,11 @@ export function createWorld(canvas,{onSelect=()=>{},onPlace=()=>{},getState=()=>
     for(const d of decorations){const p=screenPoint(d.x,d.z);if(p.x>-100&&p.x<width+100&&p.y>-40&&p.y<height+260)all.push({sort:d.type==='streamBridge'||d.type==='frozenPond'?-1e9:d.x+d.z,type:'decor',data:d});}  // 橋面是地面:過橋的人永遠畫在上面
     for(const b of BUILDINGS){const p=state.layout?.[b.id]||b;all.push({sort:p.x+p.z+.2,type:'building',data:b});}
     for(const h of state.hunters||[])all.push({sort:h.x+h.z+.32,type:'hunter',data:h});  // 跟魔物同深度時獵人畫在前面
+    for(const w of state.wanderers||[])all.push({sort:w.x+w.z+.32,type:'wanderer',data:w});  // 流浪英雄:野外自己打怪,不是我方單位
     for(const e of state.enemies||[])all.push({sort:e.x+e.z+.3,type:'enemy',data:e});
     all.sort((a,b)=>a.sort-b.sort);
     sg.clearRect(0,0,width,height);spg.clearRect(0,0,width,height);g=spg;casting=true;
-    try{for(const item of all){if(item.type==='decor')drawDecoration(item.data);else if(item.type==='building')drawBuilding(item.data);else if(item.type==='hunter')drawHunter(item.data);else drawEnemy(item.data);}}
+    try{for(const item of all){if(item.type==='decor')drawDecoration(item.data);else if(item.type==='building')drawBuilding(item.data);else if(item.type==='hunter')drawHunter(item.data);else if(item.type==='wanderer')drawHunter(item.data,true);else drawEnemy(item.data);}}
     finally{casting=false;g=bg;}
     // 影子整層一次壓上地面(重疊處不會疊黑),再蓋上所有物件。
     g.save();g.setTransform(1,0,0,1,0,0);g.globalAlpha=SHADOW_ALPHA;g.drawImage(shadowLayer,0,0);g.globalAlpha=1;g.drawImage(spriteLayer,0,0);g.restore();

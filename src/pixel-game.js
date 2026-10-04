@@ -173,23 +173,43 @@ export function createGame(saved = null) {
     if (h.level !== before) { updateStats(h, true); effect('level', h); if (h.level % 5 === 0 || h.level === 100) log(`${h.name} 成長至 Lv.${h.level}。`, 'success'); }
   }
 
+  function idleInTown(h) {
+    // 招募英雄待機:留在村內等玩家派指令,不自己出村打怪。
+    h.task = null; h.serviceProduct = null; h.serviceStarted = false; h.destination = null; h.inTown = true;
+    h.targetId = null; h.rallying = false; h.route = []; h.status = '待機';
+  }
+
   function depart(h) {
+    // 只有玩家下過狩獵指令(h.huntRegion)才出村;否則留在村內待機。
+    if (!h.huntRegion) { idleInTown(h); return; }
     h.task = null; h.serviceProduct = null; h.serviceStarted = false; h.destination = null; h.inTown = false; h.targetId = null; h.rallying = false; h.status = '出征中'; h.lastTownVisit = state.time;
-    const target = state.rally ?? { x: 12 + random() * 6, z: -5 + random() * 8 };
+    const region = REGIONS.find(r => r.id === h.huntRegion);
+    const target = state.rally ?? (region ? safePoint(region) : { x: 12 + random() * 6, z: -5 + random() * 8 });
     route(h,[target]);
   }
 
   function newHunter(classId, position = CAMP, initialIndex = -1) {
     const roll = random(), rarity = initialIndex >= 0 ? ['normal', 'rare', 'normal', 'superior', 'rare'][initialIndex] : roll < 0.55 ? 'normal' : roll < 0.82 ? 'rare' : roll < 0.94 ? 'superior' : roll < 0.99 ? 'heroic' : 'legendary';
     const p = onRoadPoint(safePoint(position));
-    const h = { id: id('h'), name: NAMES[state.hunters.length % NAMES.length], classId, rarity, trait: TRAITS[Math.floor(random() * TRAITS.length)].id, level: initialIndex >= 0 ? 3 + initialIndex % 3 : 1, xp: 0, rebirths: 0, skillLevel: 0, weaponLevel: 0, equipment: { weapon: false, armor: false }, gold: 100, inventory: Object.fromEntries(MATERIAL_KEYS.map(key => [key, 0])), satiety: initialIndex >= 0 ? 70 + initialIndex * 4 : 90, mood: initialIndex >= 0 ? 88 - initialIndex * 4 : 90, stamina: initialIndex >= 0 ? 78 + initialIndex * 2 : 90, x: p.x, z: p.z, hp: CLASS[classId].hp, maxHp: CLASS[classId].hp, status: '出征中', targetId: null, attackTimer: random() * 0.5, route: [], task: null, serviceProduct: null, actionTimer: 0, trainCooldown: 0, reviveTimer: 0, lastTownVisit: state.time, tradedVisit: false, shoppedVisit: false, servedVisit: [], inTown: false };
-    updateStats(h); h.hp = h.maxHp; state.hunters.push(h); depart(h); return h;
+    const h = { id: id('h'), name: NAMES[state.hunters.length % NAMES.length], classId, rarity, trait: TRAITS[Math.floor(random() * TRAITS.length)].id, level: initialIndex >= 0 ? 3 + initialIndex % 3 : 1, xp: 0, rebirths: 0, skillLevel: 0, weaponLevel: 0, equipment: { weapon: false, armor: false }, gold: 100, inventory: Object.fromEntries(MATERIAL_KEYS.map(key => [key, 0])), satiety: initialIndex >= 0 ? 70 + initialIndex * 4 : 90, mood: initialIndex >= 0 ? 88 - initialIndex * 4 : 90, stamina: initialIndex >= 0 ? 78 + initialIndex * 2 : 90, x: p.x, z: p.z, hp: CLASS[classId].hp, maxHp: CLASS[classId].hp, status: '待機', targetId: null, attackTimer: random() * 0.5, route: [], task: null, serviceProduct: null, actionTimer: 0, trainCooldown: 0, reviveTimer: 0, lastTownVisit: state.time, tradedVisit: false, shoppedVisit: false, servedVisit: [], inTown: true, huntRegion: null };
+    updateStats(h); h.hp = h.maxHp; state.hunters.push(h); idleInTown(h); return h;
   }
 
   function newVisitor() {
     const c = CLASSES[Math.floor(random() * CLASSES.length)], roll = random();
     const rarity = roll < 0.55 ? 'normal' : roll < 0.82 ? 'rare' : roll < 0.94 ? 'superior' : roll < 0.99 ? 'heroic' : 'legendary';
     return { id: id('v'), classId: c.id, rarity, trait: TRAITS[Math.floor(random() * TRAITS.length)].id, cost: Math.round(c.cost * RARITY[rarity].mult) };
+  }
+
+  // 流浪英雄:自己在野外打怪,不聽玩家指揮。招募後變成 hunters,才會等玩家派指令。
+  function newWanderer() {
+    const c = CLASSES[Math.floor(random() * CLASSES.length)], roll = random();
+    const rarity = roll < 0.6 ? 'normal' : roll < 0.9 ? 'rare' : 'superior';
+    const region = REGIONS[1 + Math.floor(random() * Math.max(1, REGIONS.length - 1))] || REGIONS[1];
+    const p = safePoint({ x: region.x - 4 + random() * 8, z: region.z - 4 + random() * 8 });
+    return { id: id('w'), name: NAMES[Math.floor(random() * NAMES.length)], classId: c.id, rarity, trait: 'brave', level: 3 + Math.floor(random() * 6), xp: 0,
+      regionId: region.id, x: p.x, z: p.z, hp: c.hp, maxHp: c.hp, attack: Math.round(c.attack * 1.1), defense: c.defense, range: Math.max(c.range, 1.75), speed: c.speed,
+      status: '遊蕩中', targetId: null, attackTimer: random() * 0.6, route: [], reviveTimer: 0, facingX: 0, facingZ: 0, facingAt: 0 };
   }
 
   function needProduct(h, inTown = false) {
@@ -415,6 +435,15 @@ export function createGame(saved = null) {
       }
       const bagSize = MATERIAL_KEYS.reduce((sum, key) => sum + h.inventory[key], 0);
       if (needProduct(h) || (bagSize >= 14 && tradeAvailable(h) && state.time - h.lastTownVisit > 12) || (state.time - h.lastTownVisit > 60 && gearAvailable(h))) { returnToTown(h); continue; }
+      // 沒有狩獵指令就待機在村內(只自衢打到眼前的魔物),不自己跑出去打怪。
+      if (!h.huntRegion && !h.targetId) {
+        const near = state.enemies.find(e => e.hp > 0 && distance(h, e) < 5);
+        if (!near) {
+          if (!h.inTown && !h.route.length) returnToTown(h);
+          else { h.status = '待機'; if (h.inTown && !h.route.length && random() < 0.004) route(h, [onRoadPoint(safePoint({ x: -2 + random() * 8, z: -2 + random() * 10 }))]); walk(h, dt); }
+          continue;
+        }
+      }
       if (h.rallying) { walk(h, dt); if (!h.route.length) h.rallying = false; continue; }
       const available = state.enemies.filter(e => e.hp > 0 && (e.regionId === state.region || e.type === 'boss' || distance(h, e) < 4));  // 只打目前狩獵區的魔物(路上被攔截也會還手)
       let target = available.find(e => e.id === h.targetId);
@@ -489,6 +518,32 @@ export function createGame(saved = null) {
         if (!blocked(q) && !inVillage(q.x, q.z) && (!o.regionId || arenaContains(o.regionId, q.x, q.z, .2))) Object.assign(o, q); } } };
     spread(state.enemies, 2.6);
     spread(state.hunters.filter(h => h.hp > 0 && h.status === '戰鬥中'), 2.0);
+    // 流浪英雄:還沒加入村莊的英雄,自己在野外遊走打怪。招募後的英雄才會等玩家派指令。
+    for (const w of state.wanderers) {
+      if (w.hp <= 0) { w.reviveTimer = Math.max(0, w.reviveTimer - dt); if (w.reviveTimer === 0) Object.assign(w, newWanderer(), { id: w.id }); continue; }
+      w.attackTimer = Math.max(0, w.attackTimer - dt);
+      const target = state.enemies.filter(e => e.hp > 0 && e.type !== 'boss').sort((a, b) => distance(w, a) - distance(w, b))[0];
+      if (!target) {
+        if (!w.route.length && random() < 0.012) { const r = REGIONS.find(r => r.id === w.regionId) || REGIONS[1]; w.route = [safePoint({ x: r.x - 4 + random() * 8, z: r.z - 4 + random() * 8 })]; }
+        w.status = '遊蕩中'; walk(w, dt); continue;
+      }
+      const d = distance(w, target); w.facingX = target.x; w.facingZ = target.z; w.facingAt = state.time;
+      if (d <= w.range) {
+        w.status = '戰鬥中'; w.route = [];
+        if (w.attackTimer === 0) {
+          w.attackTimer = 1.2 * (w.trait === 'swift' ? 0.9 : 1);
+          const damage = Math.max(1, Math.round(w.attack * 0.9));
+          w.atkAt = state.time; w.atkX = target.x; w.atkZ = target.z;
+          target.hitAt = state.time + 0.12; target.hitFromX = w.x; target.hitFromZ = w.z;
+          target.hp -= damage; effect('slash', target, { sourceX: w.x, sourceZ: w.z, value: damage, targetId: target.id, delay: 0.12 });
+          if (target.hp <= 0) { w.xp += 12; state.wanderKills = (state.wanderKills || 0) + 1; while (w.xp >= 40 && w.level < 60) { w.xp -= 40; w.level++; } }
+        }
+      } else {
+        w.status = '追擊中';
+        const delta = Math.min(w.speed * dt, d - w.range * 0.8), p = { x: w.x + (target.x - w.x) / d * delta, z: w.z + (target.z - w.z) / d * delta, regionId: target.regionId || w.regionId };
+        if (!blocked(p) && lineClear(w, p)) Object.assign(w, p);
+      }
+    }
     if (state.expedition.active) {
       state.expedition.elapsed += dt; const boss = state.enemies.find(e => e.type === 'boss');
       state.expedition.bossHp = boss?.hp ?? 0; state.expedition.bossMaxHp = boss?.maxHp ?? 1150;
@@ -510,6 +565,8 @@ export function createGame(saved = null) {
     state.arena = { active: false, wins: 0, losses: 0, enemyHp: 0, enemyMaxHp: 0, time: 0, hunterIds: [], cooldown: 0, phase: '待命', attackTimer: 1, opponent: '暮林訓練隊', reward: 0 };
     for (let i = 0; i < 5; i++) newHunter(CLASSES[i % CLASSES.length].id, {x:CAMP.x+i*.6-1.2,z:CAMP.z+i*.2}, i);
     for (let i = 0; i < 3; i++) state.visitors.push(newVisitor());
+    state.wanderers = []; for (let i = 0; i < 4; i++) state.wanderers.push(newWanderer());
+    state.wanderKills = 0;
     for (const t of ['slime', 'slime', 'wolf', 'slime', 'golem']) spawn(t, null, 'meadow');  // 開局草原魔物也在空地內圈出生(原本固定座標,有的在橋頭)
     for (const a of ARENAS) if (a.id !== 'meadow') for (let i = 0; i < 3; i++) spawn(REGION_MIX[a.id][i], null, a.id);  // 每個狩獵區一開始就有魔物
     log('五位獵人抵達暮影村。準備餐點、收購戰利品，讓小鎮繁盛起來。', 'success'); refreshQuest();
@@ -585,6 +642,9 @@ export function createGame(saved = null) {
       const visitors = source.visitors.filter(v => v && own(CLASS, v.classId) && own(RARITY, v.rarity)).slice(0, 3).map(v => ({ id: id('v'), classId: v.classId, rarity: v.rarity, trait: TRAITS.some(t => t.id === v.trait) ? v.trait : 'brave', cost: Math.round(CLASS[v.classId].cost * RARITY[v.rarity].mult) }));
       while (visitors.length < 3) visitors.push(newVisitor()); state.visitors = visitors;
     }
+    // 流浪英雄:舊存檔沒有這個欄位就補上(不影響既有獵人與進度)。
+    state.wanderers = Array.isArray(source.wanderers) ? source.wanderers.filter(w => w && own(CLASS, w.classId)).map(w => ({ ...newWanderer(), ...w, route: [] })) : [];
+    while (state.wanderers.length < 4) state.wanderers.push(newWanderer());
     state.quest = { index: integer(source.quest?.index, 0, 0, QUESTS.length - 1), claimed: source.quest?.claimed === true && source.quest?.index === QUESTS.length - 1 };
     state.enemies = [];
     if (Array.isArray(source.enemies)) for (const raw of source.enemies.filter(e => e && own(ENEMIES, e.type) && e.type !== 'boss').slice(0, 40)) {
@@ -792,7 +852,7 @@ export function createGame(saved = null) {
     setRally(x, z) {
       if (!walkable(x,z) || inVillage(x,z) || blocked({ x, z })) return result(false, '請在村外空地設定集結點。');
       state.rally = { x, z }; effect('rally', state.rally);
-      for (const h of state.hunters) if (!h.task && h.hp > 0) { h.targetId = null; h.status = '出征中'; h.rallying = true; route(h,[state.rally]); }
+      for (const h of state.hunters) if (h.hp > 0) { h.huntRegion = h.huntRegion ?? state.region; h.targetId = null; if (!h.task) { h.status = '出征中'; h.rallying = true; route(h,[state.rally]); } }
       return result(true, '已設定獵人集結點。');
     },
     exploreRegion(regionId) {
@@ -800,8 +860,16 @@ export function createGame(saved = null) {
       if(state.expedition.active)return result(false,'請先結束目前的首領討伐。');
       state.region=region.id;state.rally=safePoint(region);if(!state.visitedRegions.includes(region.id))state.visitedRegions.push(region.id);
       state.enemies=state.enemies.filter(e=>e.type==='boss'||e.regionId!==region.id);for(let i=0;i<6;i++)spawn(i<4?region.enemy:i===4?'slime':'wolf',null,region.id);
-      for(const h of state.hunters)if(!h.task&&h.hp>0){h.targetId=null;h.rallying=true;h.status='出征中';route(h,[state.rally]);}
+      // 給「所有」存活獵人下指令(正在村內辦事的也先記下,辦完就出發),不要漏掉。
+      for(const h of state.hunters)if(h.hp>0){h.huntRegion=region.id;h.targetId=null;if(!h.task){h.rallying=true;h.status='出征中';route(h,[state.rally]);}}
       log(`已派遣獵人前往${region.name}。隊伍會經由橋樑穿越河流。`,'success');return result(true,`出發探索${region.name}！`);
+    },
+    recallHunters(regionId=null) {
+      // 收回狩獵指令:沒有指令的獵人會回到村內待機,等下一次派令。
+      let n=0;
+      for(const h of state.hunters){ if(regionId&&h.huntRegion!==regionId)continue; if(h.huntRegion){h.huntRegion=null;h.targetId=null;h.rallying=false;if(!h.task)idleInTown(h);n++;} }
+      if(!n)return result(false,'目前沒有正在出征的獵人。');
+      log(`已召回 ${n} 位獵人回村待機。`,'success');return result(true,`${n} 位獵人回村待機。`);
     },
     serialize() { return JSON.parse(JSON.stringify({ ...state, effects: [], log: [], hunters: state.hunters.map(({ route, ...h }) => h) })); },
     reset() { fresh(); return result(true, '新村莊已建立，五位獵人準備出發。'); },
