@@ -1229,8 +1229,11 @@ export function createWorld(canvas,{onSelect=()=>{},onPlace=()=>{},getState=()=>
     const isSelected=selected===`hunter:${h.id}`;
     contact(p,5);if(isSelected)ring(p,8,'#fff1b0');if(wanderer)ring(p,6,'#7fc4ff');  // 藍圈＝流浪英雄(自己打怪,不是我方單位)
     // 倒下:用倒地圖(<職業>_dead),半透明等復活;沒有倒地圖才退回把待機圖轉 90°。
-    if(h.dead||h.hp<=0){previousPositions.set(h.id,{x:h.x,z:h.z,facing});drawnFacing.set(h.id,{f:facing,pose:'dead',x:h.x,z:h.z,t:state.time});
-      if(heroFrameFor(`${h.classId}_dead`,heroLodScale)){const sp=heroSprite(h.classId,0,facing,hash(h.id)%3,heroLodScale,'dead');drawSprite(sp,p,21*CHAR_SCALE*sp.width/(sp.baseH||sp.height),21*CHAR_SCALE*sp.height/(sp.baseH||sp.height),1.2,.75);}
+    if(h.dead||h.hp<=0){previousPositions.set(h.id,{x:h.x,z:h.z,facing});drawnFacing.set(h.id,{f:facing,pose:(h.reviveTimer??0)>7.55?'falling':'dead',x:h.x,z:h.z,t:state.time});
+      heroMemo.set(h.id,{...(heroMemo.get(h.id)||{}),wasDead:true});
+      // 倒下過程:剛倒下的 0.45 秒先畫「跪倒」(falling),再躺平(dead)。reviveTimer 從 8 倒數。
+      const deadPose=(h.reviveTimer??0)>7.55&&heroFrameFor(`${h.classId}_falling`,heroLodScale)?'falling':'dead';
+      if(heroFrameFor(`${h.classId}_dead`,heroLodScale)){const sp=heroSprite(h.classId,0,facing,hash(h.id)%3,heroLodScale,deadPose);drawSprite(sp,p,21*CHAR_SCALE*sp.width/(sp.baseH||sp.height),21*CHAR_SCALE*sp.height/(sp.baseH||sp.height),1.2,.75);}
       else{g.save();g.translate(p.x,p.y-3*scale);g.rotate(Math.PI/2);g.globalAlpha=.55;{const sp=heroSprite(h.classId,0,facing,hash(h.id)%3),dw=21*sp.width/sp.height;g.drawImage(sp,-dw/2*scale*CHAR_SCALE,-12*scale*CHAR_SCALE,dw*scale*CHAR_SCALE,21*scale*CHAR_SCALE);}g.restore();}
       textLabel('✦',p.x,p.y-15*scale,{color:'#e7d8ef',back:false});return;}
     const target=h.status==='戰鬥中'&&h.targetId?(state.enemies||[]).find(e=>e.id===h.targetId&&e.hp>0):null,pose=combatPose(h,false,target);
@@ -1241,12 +1244,16 @@ export function createWorld(canvas,{onSelect=()=>{},onPlace=()=>{},getState=()=>
     // 走路:四格走路;戰鬥:蓄力 → 出手 → 收招(strike2)、受擊;停著時依狀態:用餐/飲用/睡覺/包紮/交易/訓練;
     // 打倒目標後短暫歡呼(victory);其他待機時待機圖與呼吸圖(idle2)慢慢交替。
     const st=h.status||'',still=!walking&&!moving&&pose.pose==='idle';
-    {const tg=h.targetId,prev=heroMemo.get(h.id);if(prev&&prev.tg&&prev.tg!==tg&&!(state.enemies||[]).some(e=>e.id===prev.tg&&e.hp>0)&&(state.time||0)-(h.atkAt??-99)<.8)heroMemo.set(h.id,{tg,cheer:(state.time||0)+.9});else heroMemo.set(h.id,{tg,cheer:prev?.cheer??-1});}
+    {const tg=h.targetId,prev=heroMemo.get(h.id);if(prev&&prev.tg&&prev.tg!==tg&&!(state.enemies||[]).some(e=>e.id===prev.tg&&e.hp>0)&&(state.time||0)-(h.atkAt??-99)<.8)heroMemo.set(h.id,{...prev,tg,cheer:(state.time||0)+.9});else heroMemo.set(h.id,{...prev,tg,cheer:prev?.cheer??-1});}
     const cheering=(state.time||0)<(heroMemo.get(h.id)?.cheer??-1)&&pose.pose==='idle'&&!walking;
     const servicePose=/用餐/.test(st)?'eat':/飲用/.test(st)?'drink':/休息|旅館/.test(st)?'sleep':/休養|治療/.test(st)?'bandaged':/交易|購買/.test(st)?'trade':/訓練/.test(st)?(Math.floor(elapsed*2.5+hash(h.id))%2?'train':'windup'):null;
-    const breathe=Math.floor(elapsed*1.6+hash(h.id)%7*.37)%2?'idle2':'idle';
-    const combatPoseName=pose.pose==='strike'&&pose.atk>.2&&!['ranger','sorcerer'].includes(h.classId)?'strike2':pose.pose;
-    const drawPose=pose.pose!=='idle'?combatPoseName:walking?walkFrame(elapsed,hash(h.id)):cheering?'victory':still&&servicePose?servicePose:breathe;
+    // 待機:待機/呼吸兩格交替,約每 3.2 秒眨一次眼(0.14 秒)
+    const blinkT=(elapsed+hash(h.id)%17*.19)%3.2,breathe=blinkT<.14?'blink':Math.floor(elapsed*1.6+hash(h.id)%7*.37)%2?'idle2':'idle';
+    // 復活:剛從倒地回來的 0.6 秒畫「起身」
+    {const m=heroMemo.get(h.id)||{};if(m.wasDead){heroMemo.set(h.id,{...m,wasDead:false,getupUntil:(state.time||0)+.6});}}
+    const gettingUp=(state.time||0)<(heroMemo.get(h.id)?.getupUntil??-1)&&!walking;
+    const combatPoseName=pose.pose==='strike'&&pose.atk>.2&&!['ranger','sorcerer'].includes(h.classId)?'strike2':pose.pose==='hurt'&&pose.hit>.16?'hurt2':pose.pose;
+    const drawPose=pose.pose!=='idle'?combatPoseName:walking?walkFrame(elapsed,hash(h.id)):gettingUp?'getup':cheering?'victory':still&&servicePose?servicePose:breathe;
     drawnFacing.set(h.id,{f:facing,pose:drawPose,x:h.x,z:h.z,t:state.time});
     const sprite=heroSprite(h.classId,frame,facing,hash(h.id)%3,heroLodScale,drawPose),rect=posed(p,pose,q=>drawSprite(sprite,q,21*CHAR_SCALE*sprite.width/(sprite.baseH||sprite.height),21*CHAR_SCALE*sprite.height/(sprite.baseH||sprite.height),1.2,1,'char'));hits.push({id:`hunter:${h.id}`,...padHit(rect,14,18)});  // 圖變小,點擊範圍保底
     chargeGlow(h,p,pose,facing);
@@ -1301,7 +1308,8 @@ export function createWorld(canvas,{onSelect=()=>{},onPlace=()=>{},getState=()=>
     // 0 待機/5 呼吸、1 蓄力、2 出手/7 收招、3·6 走路兩格(史萊姆:騰空 0、著地 3、壓扁 6)、4/8 受擊兩格(第四批 monsters 圖集 5–9)
     const has=i=>!!detailFrameFor(e.type+i);
     const frame=pose.pose==='strike'?(pose.atk>.2&&has(7)?7:2):pose.pose==='windup'?1:pose.pose==='hurt'?(pose.hit>.16&&has(8)?8:4)
-      :walking?(e.type==='slime'?(Math.abs(stride)<.25?(has(6)?6:3):Math.abs(stride)<.5?3:0):(stride>0||!has(6)?3:6))
+      // 走路:四格循環 3 → 6 → 10 → 11(接地/經過/另一腳接地/經過;史萊姆是壓扁/伸長/騰空/落地),每種魔物自己的步頻
+      :walking?(has(11)?[3,6,10,11][Math.floor(elapsed*({wolf:10,slime:6,golem:6,boss:5}[e.type]||7)+seed)%4]:e.type==='slime'?(Math.abs(stride)<.25?(has(6)?6:3):Math.abs(stride)<.5?3:0):(stride>0||!has(6)?3:6))
       :(Math.floor(elapsed*1.4+seed*.13)%2&&has(5)?5:0);
     // 被獵人鎖定:腳下紅色目標圈(誰在打誰一眼看得出來)。
     const targeted=(state.hunters||[]).some(h=>h.targetId===e.id&&h.status==='戰鬥中');

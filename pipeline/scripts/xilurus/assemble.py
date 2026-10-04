@@ -166,6 +166,7 @@ def drop(prefix: str):
 
 
 # ── 1+2. 道具/地貌/魔物/特效/圖示 ───────────────────────────────────────
+WALK_MIRROR: set = set()   # 生出來朝左的走路表(看過原圖後填)
 SHEETS = [  # (表, 暫存 prefix, grid, ids, mirror)
     ("trees-iso-v1.png", "zx-trees", "4x2", ["autumnOak", "oak", "pine", "-", "bush", "stump", "-", "flowerBush"], False),
     ("nature-iso-v2-v1.png", "zx-nature", "4x2", ["snowpine", "birch", "cactus", "boulders", "mossRock", "iceRocks", "outcrop", "wildflowers"], False),
@@ -187,10 +188,13 @@ SHEETS = [  # (表, 暫存 prefix, grid, ids, mirror)
     # 第四批:每種魔物第二張(5 呼吸待機、6 第二走路格、7 出手收招、8 第二受擊格、9 倒下)。以第一張的待機圖當 REF 生,
     # 合併前依「5 號高度 = 0 號高度」縮放,同一隻魔物換格時大小不跳。
     *[(f"mon-{t if t != 'boss' else 'treant'}-iso-b-v1.png", f"zx-{t}-b", "5x1", [f"{t}{i}" for i in range(5, 10)], False) for t in ("slime", "wolf", "golem", "boss")],
+    # 第七批:四格走路循環(取代 3/6,另加 10/11);順序＝接地 → 經過 → 另一腳接地 → 經過
+    *[(f"mon-{t if t != 'boss' else 'treant'}-walk4-v1.png", f"zx-{t}-w", "4x1", [f"{t}3", f"{t}6", f"{t}10", f"{t}11"], t in WALK_MIRROR) for t in ("slime", "wolf", "golem", "boss")],
 ]
 # 第二張表的縮放基準:(第二張 prefix, 第二張的基準 id, 第一張 prefix, 第一張的基準 id)
 NORM = [(f"zx-{t}-b", f"{t}5", f"zx-{t}", f"{t}0") for t in ("slime", "wolf", "golem", "boss")]
 SCALE: dict[str, float] = {}
+WALK_SCALE = {f"zx-{t}-w": t for t in ("slime", "wolf", "golem", "boss")}   # 走路表:四格最長邊中位數 = 舊走路格(3、6)最長邊中位數
 # 舊圖集名 → 內容。舊名保留,build.mjs / pixel-world.js 的載入清單不用改。
 MERGES = {
     "details": [("zx-trees", ["oak", "pine", "autumnOak"]), ("zx-nature", ["snowpine", "birch", "boulders", "outcrop"]), ("zx-misc", ["cave", "ruin"]),
@@ -206,7 +210,8 @@ MERGES = {
     "vfx": [("zx-vfx", ["fxSlash", "fxOrb", "fxHeal", "fxStar", "fxHit", "fxSparkle", "iconLeather", "arrowFx"]), ("zx-yard", ["plot"])],
     "icons": [("zx-icons-a", None), ("zx-icons-b", None)],
     "monsters": [("zx-slime", None), ("zx-wolf", None), ("zx-golem", None), ("zx-boss", None),
-                 ("zx-slime-b", None), ("zx-wolf-b", None), ("zx-golem-b", None), ("zx-boss-b", None)],
+                 ("zx-slime-b", None), ("zx-wolf-b", None), ("zx-golem-b", None), ("zx-boss-b", None),
+                 ("zx-slime-w", None), ("zx-wolf-w", None), ("zx-golem-w", None), ("zx-boss-w", None)],   # 後面的同 id 蓋前面(走路 3/6 換新的)
 }
 
 
@@ -226,6 +231,11 @@ def atlases():
             _, cb, _ = load_atlas(b_prefix, lod)
             _, ca, _ = load_atlas(a_prefix, lod)
             SCALE[b_prefix] = ca[a_id]["h"] / cb[b_id]["h"]
+    for wp, t in WALK_SCALE.items():
+        _, cw, _ = load_atlas(wp, "2x"); _, ca, _ = load_atlas(f"zx-{t}", "2x"); _, cb, _ = load_atlas(f"zx-{t}-b", "2x")
+        old = [max(ca[f"{t}3"]["w"], ca[f"{t}3"]["h"]), max(cb[f"{t}6"]["w"], cb[f"{t}6"]["h"]) * SCALE[f"zx-{t}-b"]]
+        new = [max(c["w"], c["h"]) for c in cw.values()]
+        SCALE[wp] = float(np.median(old) / np.median(new))
     print("second-sheet scale:", {k: round(v, 3) for k, v in SCALE.items()})
     for name, parts in MERGES.items():
         merge(name, parts)
@@ -250,6 +260,8 @@ POSES = ["walk1", "walk2", "walk3", "walk4", "windup", "strike", "hurt", "rest"]
 POSE_FIX = {"darkknight_walk4": "darkknight_walk2"}
 # 第四批:每職業第二張 5x2 表(以第一張的待機圖當 REF)。依「idle2 高度 = 待機高度」縮放到同一個大小。
 POSES_B = ["idle2", "strike2", "dead", "victory", "eat", "drink", "sleep", "bandaged", "trade", "train"]
+# 第七批:每職業第三張 4x1(受擊第二格、倒下過程、起身、眨眼),以 blink 身高對齊待機
+POSES_C = ["hurt2", "falling", "getup", "blink"]
 
 
 def normalize_outline(im: Image.Image, dark=(43, 27, 18), thr=118) -> Image.Image:
@@ -322,6 +334,13 @@ def heroes():
         for dst, src in POSE_FIX.items():
             if dst in got[cls]:
                 got[cls][dst] = got[cls][src].copy()
+        cc = SRC / f"hero-{cls}-iso-c-v1.png"
+        if cc.exists():
+            cut(cc.name, "zx-hero", "4x1", [f"{cls}_{p}" for p in POSES_C], env={"HUE_TOL": "16"})
+            im, cells, _ = load_atlas("zx-hero", "2x"); drop("zx-hero")
+            cs = {k: im.crop((c["x"], c["y"], c["x"] + c["w"], c["y"] + c["h"])) for k, c in cells.items()}
+            fc = body_h(got[cls][cls]) / body_h(cs[f"{cls}_blink"])
+            got[cls].update({k: resize_sprite(v, fc) for k, v in cs.items()})
         cut(f"hero-{cls}-iso-b-v1.png", "zx-hero", "5x2", [f"{cls}_{p}" for p in POSES_B], env={"HUE_TOL": "16"})
         im, cells, _ = load_atlas("zx-hero", "2x")
         bb = {k: im.crop((c["x"], c["y"], c["x"] + c["w"], c["y"] + c["h"])) for k, c in cells.items()}
@@ -349,13 +368,14 @@ def heroes():
             g = art[cls]
             up = lambda im: im.resize((im.width * n, im.height * n), Image.NEAREST)
             hero[cls] = up(g[cls])
-            for p in POSES + POSES_B:
+            for p in POSES + POSES_B + POSES_C:
                 key = f"{cls}_{p}"
+                if key not in g: continue
                 q = up(g[key])
                 pose[key] = q
                 extra[key] = {"foot": round(foot_x(q), 1)}
         for cls in CLASSES:   # 錨點一律用軀幹中心(待機也是),不用腳底(腳底會被落地的斧頭、盾、法杖拉偏)
-            for key in [f"{cls}_{p}" for p in POSES + POSES_B]:
+            for key in [f"{cls}_{p}" for p in POSES + POSES_B + POSES_C if f"{cls}_{p}" in pose]:
                 extra[key] = {"foot": round(torso_x(pose[key]), 1)}
         hero_extra = {cls: {"foot": round(torso_x(hero[cls]), 1)} for cls in CLASSES}
         pack(hero, f"hero@{tag}", sc, hero_extra)

@@ -1,0 +1,7 @@
+Pixel art sprite sheet, 2:1 isometric view, 16-bit retro JRPG style matching a warm isometric village tileset. Use the attached reference image as the exact creature design: SAME monster, same colors, same size, same camera angle. Exactly 4 frames of ONE smooth looping WALK CYCLE of this monster arranged in a clean 4 columns x 1 row grid, each frame fully visible and centered in its cell, all frames the same scale, wide empty gaps, none touching each other or the canvas edge. The monster walks TO THE RIGHT in every frame. Dark brown outline #0a0706, chunky hard pixels, no anti-aliasing, light from the upper right.
+
+The monster: mossy stone golem with blocky limbs.
+
+Frames left to right: (1) contact: right leg forward, heavy step; (2) passing: legs together, body lifted; (3) contact: left leg forward, heavy step; (4) passing: legs together, small dust puff.
+
+Background: perfectly flat solid pure magenta #FF00FF everywhere, no ground plane, no cast shadows on the background, no text, no numbers, no letters, no labels, no grid lines. One sprite sheet image only.

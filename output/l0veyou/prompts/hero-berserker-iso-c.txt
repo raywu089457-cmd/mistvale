@@ -1,0 +1,7 @@
+Pixel art character sprite sheet, 16-bit retro JRPG style matching a warm isometric village tileset. Use the attached reference image as the exact character design: SAME character, same face, hair, outfit, colors, weapon and proportions (cute chibi about 2.5 heads tall), dark brown outline #0a0706, chunky hard pixels, no anti-aliasing, light from the upper right. Exactly 4 NEW animation frames of this character arranged in a clean 4 columns x 1 row grid, each frame fully visible and centered in its cell, all frames the same scale as the reference, wide empty gaps, none touching each other or the canvas edge. 3/4 side view, the character FACES TO THE RIGHT in every frame.
+
+The character: berserker with spiky brown hair, fur-collared leather armor, red sash and a huge double-bladed battle axe.
+
+Frames left to right: (1) hurt second frame: knocked further back toward the left, staggering on one foot, eyes squeezed shut, still facing right; (2) collapsing: falling to the knees, body slumping forward, weapon slipping from the hand; (3) getting up: kneeling on one knee and pushing up with the weapon, determined face; (4) idle blink: same standing idle pose as the reference with eyes closed for a blink.
+
+Background: perfectly flat solid pure magenta #FF00FF everywhere, no ground plane, no cast shadows on the background, no text, no numbers, no letters, no labels, no grid lines. One sprite sheet image only.
