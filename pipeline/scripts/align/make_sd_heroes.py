@@ -40,6 +40,20 @@ def regreen(src):
     path = Path(src).with_name(Path(src).stem + "-greenbg.png"); Image.fromarray(out.astype(np.uint8)).save(path); return str(path)
 
 
+def spread(src, n):
+    """一排 n 個角色、彼此碰到(斧頭碰到下一格)時:在每兩格之間「最少前景像素」的欄切開,插入 80px 底色間隔。"""
+    rgb = np.asarray(Image.open(src).convert("RGB")).astype(int); bgc = np.median(np.concatenate([rgb[0], rgb[-1]]), 0)
+    fg = np.sqrt(((rgb - bgc) ** 2).sum(2)) > 60; cols = fg.sum(0); xs = np.nonzero(cols)[0]; x0, x1 = xs.min(), xs.max()
+    cuts = []
+    for i in range(1, n):
+        c = int(x0 + (x1 - x0) * i / n); lo, hi = max(x0, c - 70), min(x1, c + 70); cuts.append(lo + int(np.argmin(cols[lo:hi])))
+    parts, prev = [], 0
+    for c in cuts + [rgb.shape[1]]: parts.append(rgb[:, prev:c]); prev = c
+    gap = np.tile(bgc.astype(int), (rgb.shape[0], 80, 1))
+    out = np.concatenate(sum([[pp, gap] for pp in parts[:-1]], []) + [parts[-1]], 1)
+    path = Path(src).with_name(Path(src).stem + "-spread.png"); Image.fromarray(out.astype(np.uint8)).save(path); return str(path)
+
+
 def cut(src, prefix, grid="3x2", ids=IDS, green=False):
     src = src if green else regreen(src)
     r = subprocess.run([sys.executable, str(ROOT / "pipeline/scripts/l0veyou/sheet_to_atlas.py"), src, prefix, grid, ",".join(ids)],
@@ -105,11 +119,18 @@ def main(idle_src, *specs):
         got = cut(path, "zzsolo", "4x2", [f"{cls}_{p}" for p in POSES] + ["-"], green=True)
         got[f"{cls}_strike"] = got[f"{cls}_strike"].transpose(Image.FLIP_LEFT_RIGHT)   # 生成時朝左,遊戲統一朝右
         solo[cls] = got
-    specs = [x for x in specs if not x.startswith("solo=")]
+    # walk4=<職業>:<綠底 1×4 走路表>：四格走路循環(左腳著地、經過、右腳著地、經過),倍率＝四格高度中位數對齊待機高度。
+    walk4 = {}
+    for sp in [x for x in specs if x.startswith("walk4=")]:
+        cls, path = sp[6:].split(":", 1); sp4 = spread(path, 4); walk4[cls] = cut(sp4, "zzwalk4", "4x1", [f"{cls}_walk{i}" for i in range(1, 5)], green=True); Path(sp4).unlink()
+    specs = [x for x in specs if not x.startswith(("solo=", "walk4="))]
     idle = cut(idle_src, "zzsdidle"); iw = Image.open(idle_src).width
     poses = [(p, cut(f, "zzsdpose"), Image.open(f).width) for p, f in (s.split("=", 1) for s in specs)]
     for tag, (h, sc) in LODS.items():
         hero, pose, extra = {}, {}, {}
+        for k, frames in walk4.items():
+            mh = sorted(f.height for f in frames.values())[1:3]; s4 = h / (sum(mh) / 2)
+            for key, f in frames.items(): p = shrink(f, s4, False); pose[key] = p; extra[key] = {"foot": round(foot_x(p), 1)}
         for k in IDS:
             if k in solo:
                 g = solo[k]; s = h / g[f"{k}_idle"].height; hero[k] = shrink(g[f"{k}_idle"], s, False)

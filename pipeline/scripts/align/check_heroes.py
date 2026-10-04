@@ -9,7 +9,7 @@ from PIL import Image
 from scipy import ndimage
 A = Path(__file__).resolve().parents[3] / "assets"
 GREEN_BG = 'sorcerer'
-IDS = ['berserker', 'ranger', 'paladin', 'sorcerer', 'darkknight', 'priest']; POSES = ['idle', 'walkA', 'walkB', 'windup', 'strike', 'hurt', 'rest']
+IDS = ['berserker', 'ranger', 'paladin', 'sorcerer', 'darkknight', 'priest']; POSES = ['idle', 'walk1', 'walk2', 'walk3', 'walk4', 'windup', 'strike', 'hurt', 'rest']
 def load(tag):
     out = {}
     for name in ('hero', 'heropose'):
@@ -30,14 +30,14 @@ for tag in ('1x', '2x', '4x'):
             lab, n = ndimage.label(al); sizes = ndimage.sum(al, lab, range(1, n + 1)) if n else []
             frag = int(sum(1 for s in sizes if s < max(6, al.sum() * .004)))
             green = int((rim & (g > 180) & (r < 110) & (b < 110)).sum())   # 綠底表(法師)去背殘邊
-            if k == GREEN_BG: mag = 0   # 法師用綠底表:外緣的洋紅是水晶光芒,不是去背殘留
+            if k == GREEN_BG or po.startswith('walk'): mag = 0   # 綠底表:洋紅是水晶光芒   # 法師用綠底表:外緣的洋紅是水晶光芒,不是去背殘留
             if mag: probs.append(f'{tag} {key} 洋紅殘留 {mag}px')
             if green: probs.append(f'{tag} {key} 綠色殘留 {green}px')
             if frag > 6: probs.append(f'{tag} {key} 碎片 {frag}')
             if base is not None and po != 'rest' and not (.78 <= im.height / base.height <= 1.3): probs.append(f'{tag} {key} 高度 {im.height} vs 待機 {base.height}')
     if tag == '4x': sheet4 = cells
 if len(sys.argv) > 1:
-    cw, ch = 200, 190; sh = Image.new('RGBA', (cw * 7, ch * 6), (96, 140, 72, 255))
+    cw, ch = 200, 190; sh = Image.new('RGBA', (cw * len(POSES), ch * 6), (96, 140, 72, 255))
     for i, k in enumerate(IDS):
         for j, po in enumerate(POSES):
             p = sheet4[k if po == 'idle' else f'{k}_{po}']; sh.alpha_composite(p, (j * cw + (cw - p.width) // 2, i * ch + ch - 8 - p.height))
