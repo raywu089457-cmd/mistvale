@@ -8,7 +8,6 @@
   `MODEL` 環境變數選模型,`generate.mjs` 內建 6 分鐘 watchdog — Windows 的 `timeout` 殺不掉卡住的 CDP 連線)。l0veyou 要在 **Chrome for Testing**(CDP 9447、`work/.l0veyou-profile`)登入,不是一般 Chrome。
   使用者試過 2.5 满血版 / 极速版後決定用 GPT Image 2(全部同一模型,風格一致)。
 - build_hero.py:走路格模型常把踩低格整隻畫小 12–15% → 縮完用 audit 同一量法(軀幹 ±10px)把偏離中位數 >6% 的格縮放回來;格大小最大到 384(樹人背面普攻伸手)。
-- 素材總檢(2026-10-05):9 角色 × 每列逐格看過;樹人右上普攻原本畫成側面 → 重生。已知小瑕疵(可接受):弓箭手右上勝利姿勢轉頭露臉、史萊姆背面眼睛在側邊。尺寸逐列實量都在待機 ±15% 內(預覽圖把大格縮小會看起來變小,別誤判)。
 - 全部通過:audit_hero_sheet(9/9)、npm test、check_facing(0 bad)、check_anim(flicker 0)、check_zorder、check_placement、check_embedded_assets、check_gates。總覽圖:四方向 × 待機/走路 9 角色。
 
 ## 2026-10-05:四方向(上下左右)— 全部英雄與魔物(最新)

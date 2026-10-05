@@ -49,36 +49,36 @@
   },
   "attackUp": {
    "y": 1504,
-   "cell": 256,
+   "cell": 384,
    "frames": 8,
    "frameTime": 0.075
   },
   "hurtUp": {
-   "y": 1760,
+   "y": 1888,
    "cell": 224,
    "frames": 3,
    "frameTime": 0.1
   },
   "deathUp": {
-   "y": 1984,
+   "y": 2112,
    "cell": 224,
    "frames": 6,
    "frameTime": 0.12
   },
   "idleLeft": {
-   "y": 2208,
+   "y": 2336,
    "cell": 224,
    "frames": 4,
    "frameTime": 0.2
   },
   "walkLeft": {
-   "y": 2432,
+   "y": 2560,
    "cell": 192,
    "frames": 6,
    "frameTime": 0.1
   },
   "attackLeft": {
-   "y": 2624,
+   "y": 2752,
    "cell": 224,
    "frames": 8,
    "frameTime": 0.075,
@@ -86,43 +86,43 @@
    "impact": 5
   },
   "hurtLeft": {
-   "y": 2848,
+   "y": 2976,
    "cell": 224,
    "frames": 3,
    "frameTime": 0.1
   },
   "deathLeft": {
-   "y": 3072,
+   "y": 3200,
    "cell": 224,
    "frames": 6,
    "frameTime": 0.12
   },
   "idleUpLeft": {
-   "y": 3296,
+   "y": 3424,
    "cell": 224,
    "frames": 4,
    "frameTime": 0.2
   },
   "walkUpLeft": {
-   "y": 3520,
+   "y": 3648,
    "cell": 192,
    "frames": 6,
    "frameTime": 0.1
   },
   "attackUpLeft": {
-   "y": 3712,
-   "cell": 256,
+   "y": 3840,
+   "cell": 384,
    "frames": 8,
    "frameTime": 0.075
   },
   "hurtUpLeft": {
-   "y": 3968,
+   "y": 4224,
    "cell": 224,
    "frames": 3,
    "frameTime": 0.1
   },
   "deathUpLeft": {
-   "y": 4192,
+   "y": 4448,
    "cell": 224,
    "frames": 6,
    "frameTime": 0.12
