@@ -14,7 +14,7 @@ ROOT = Path(__file__).resolve().parents[3]
 H = ROOT / "assets" / "heroes"
 M = ROOT / "assets" / "monsters3"
 SPEC = {"idle": (4, 6), "walk": (4, 6), "attack": (6, 10), "skill": (8, 16), "hurt": (2, 4), "death": (5, 8), "victory": (4, 8)}
-STANDING = ("idle", "walk", "hurt", "idleBack", "walkBack")   # 勝利:舉弓過頭、跳起來是姿勢本身,不算比例改變
+STANDING = ("idle", "walk", "hurt", "idleDown", "walkDown", "idleUp", "walkUp")   # 勝利:舉弓過頭、跳起來是姿勢本身,不算比例改變
 
 
 def frames(img, act):
@@ -28,6 +28,19 @@ def body_h(f, cx):
 
 
 MON_SPEC = {"idle": (4, 6), "walk": (4, 6), "attack": (6, 10), "hurt": (2, 4), "death": (5, 8)}
+
+
+def four_dir(meta, img):
+    """四方向(上下左右):Down/Up 各有待機 4、走路 6;Left 列存在且是右邊同一格的鏡像(逐像素相等)。"""
+    out = []
+    for name, n in (("idleDown", 4), ("walkDown", 6), ("idleUp", 4), ("walkUp", 6), ("idleLeft", 4), ("walkLeft", 6)):
+        if meta["actions"].get(name, {}).get("frames") != n: out.append(f"{name}: expected {n} frames")
+    for name in ("idle", "walk"):
+        a, l = meta["actions"].get(name), meta["actions"].get(name + "Left")
+        if not a or not l: continue
+        for i, (fr, fl) in enumerate(zip(frames(img, a), frames(img, l))):
+            if not np.array_equal(fr[:, ::-1], fl): out.append(f"{name}Left{i}: not a mirror of {name}{i}")
+    return out
 
 
 def audit(hero, d=H):
@@ -62,6 +75,7 @@ def audit(hero, d=H):
                 if abs(yy.max() + 1 - foot) > 3: bad.append(f"{name}{i}: foot at {yy.max() + 1}, expected {foot}")
         m = f0[..., 3] > 0; edge = m & ~ndimage.binary_erosion(m); lum = (0.299 * f0[..., 0] + 0.587 * f0[..., 1] + 0.114 * f0[..., 2])[edge]; info["outline"] = round(float((lum < 95).mean()), 2)
         if info["outline"] < .55: bad.append(f"outline dark ratio {info['outline']}")
+        bad += four_dir(meta, img)
         return bad, info
     # 5. 角色高 64–90(待機第 1 格,軀幹欄)、站姿類各格 ±12%
     idle = meta["actions"]["idle"]; c = idle["cell"]
@@ -81,8 +95,7 @@ def audit(hero, d=H):
             ys = np.nonzero((f[..., 3] > 0).any(1))[0]; foot = a["cell"] - meta["footFromBottom"]
             if abs(ys.max() + 1 - foot) > 3: bad.append(f"{name}{i}: foot at {ys.max() + 1}, expected {foot}")
     # 4 方向:背面待機/走路格數(正面右/左 + 背面右/左,左邊鏡像)
-    for name, n in (("idleBack", 4), ("walkBack", 6)):
-        if meta["actions"].get(name, {}).get("frames") != n: bad.append(f"{name}: expected {n} frames")
+    bad += four_dir(meta, img)
     # 模組化:至少要有一組可換色材質(outfit)
     if not meta.get("groups", {}).get("outfit"): bad.append("no swappable outfit color group")
     info["groups"] = {k: len(v) for k, v in meta.get("groups", {}).items()}

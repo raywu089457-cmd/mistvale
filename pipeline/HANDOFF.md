@@ -1,3 +1,12 @@
+## 2026-10-05:四方向(上下左右)— 全部英雄與魔物(最新)
+
+- 每個英雄(5)與魔物(4)都有 **右(側面)/左(鏡像烘進 sheet)/下(正面)/上(正背面)** 的待機 4 + 走路 6;
+  sheet 動作列:`idle walk … idleDown walkDown idleUp walkUp idleLeft walkLeft`。原本的 3/4 背面(`<職業>-back`)不再使用。戰鬥(普攻/技能/受擊/倒下/勝利)維持側面左右(規格:戰鬥只需側面)。
+- 遊戲(pixel-world.js `moveDir`):畫面上移動量哪個軸大 → 上/下 或 側面,停下沿用最後方向;面向左時直接用 Left 列(`leftRow`)。街上英雄、魔物同一套。
+  道路方向(等角 x/z 軸,畫面斜 26.6°)屬於側面;往畫面正上/正下(村外自由走斜向)才換正背/正面。
+- build_hero.py:`BACK` 改成 Down/Up 兩張表;Left 列在 sheet 組好後整格鏡像(逐像素對稱);配件頭頂錨點也鏡像。魔物正/背面用高度對齊(正面的狼本來就窄:106 寬 → 41 寬,高度一樣 74)。
+- 驗收:audit_hero_sheet 九個角色全 PASS(含 Down/Up 格數、Left 是逐像素鏡像、站姿身高、腳底);check_facing 0、check_anim 閃格 0 受擊 118/118、zorder 0、npm test 全過。
+
 ## 2026-10-05:規格補完 — 魔物新規格、頭部配件槽、材質層級量測(最新)
 
 - **魔物**:史萊姆/狼/魔像/暮林領主照英雄規格重做(idle 4 / walk 6 / attack 8 / hurt 3 / death 6,16 色,1:1 像素),`assets/monsters3/`。

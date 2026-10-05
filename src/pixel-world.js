@@ -481,6 +481,11 @@ function heroAccessory(h){const l=ACC_BY_RARITY[h.rarity];return l?l[hash(h.id||
 const monsterSheets={};function ensureMonsterSheets(){const A=globalThis.PIXEL_ASSETS?.monsterSheets||{};
   for(const [id,v] of Object.entries(A)){if(loadedAssetKeys.has('ms:'+id))continue;loadedAssetKeys.add('ms:'+id);const im=new Image();im.onload=()=>{monsterSheets[id]={img:im,meta:v.meta};};im.src=v.img;}}
 const MON_SHEET=t=>monsterSheets[t==='boss'?'treant':t];
+// 四方向:畫面上的移動量(等角 x 9、y 4.5)哪個軸大 → 上/下 或 左右(側面);沒移動就沿用上一個方向。
+function moveDir(dx,dz,prev){const Sx=(dx-dz)*9,Sy=(dx+dz)*4.5;if(Math.hypot(Sx,Sy)<.01)return prev||'side';return Math.abs(Sy)>Math.abs(Sx)?(Sy<0?'up':'down'):'side';}
+const DIR_ACT={up:'Up',down:'Down',side:''};
+// 有烘好的左向列(<動作>Left)就直接用,不用即時鏡像
+function leftRow(meta,act,facing){return facing<0&&meta.actions[act+'Left']?[act+'Left',false]:[act,facing<0];}
 globalThis.__mistvaleHeroSheets=()=>Object.fromEntries(Object.entries(heroSheets).map(([k,v])=>[k,{w:v.img.width,h:v.img.height,actions:Object.keys(v.meta.actions)}]));
 // 模組化換色(ART_BIBLE「模組化」):每職業 meta.groups = outfit(職業代表色布料)/metal(鎧甲、刀刃)。
 // 每位英雄依 id 挑一個布料色相(5 選 1)→ 同職業不同人;買了鎧甲 → 布料更飽和;買了武器 → 金屬變金色。結果整張 sheet 快取。
@@ -1098,7 +1103,7 @@ export function createWorld(canvas,{onSelect=()=>{},onPlace=()=>{},getState=()=>
     if(d.type==='bankRocks'&&drawAtlasDetail('bankRocks',p,24*d.size,23*d.size,3,1,true))return;
     if(d.type==='fisher'){contact(p,5);if(drawAtlasDetail('fisher',p,28,20,1,1,true)){const s=scale,t=Math.sin(elapsed*1.3);g.globalAlpha=.7;pixel(g,p.x-15*s,p.y+(3+t*.6)*s,4*s,Math.max(1,s*.6),'#cfeeff');g.globalAlpha=1;return;}}
     // 概念圖街上滿是村民與貓狗:純裝飾(不參與模擬),原地輕微上下呼吸。
-    if(d.type==='npc'&&heroSheets[d.cls]){const m=heroSheets[d.cls].meta.actions,t=elapsed+d.phase,up=d.walk&&d.walkUp&&m.walkBack,w=up?'walkBack':'walk',sp=d.walk?{act:w,i:Math.floor(t/m[w].frameTime)%m[w].frames}:{act:'idle',i:Math.floor(t/m.idle.frameTime)%m.idle.frames};
+    if(d.type==='npc'&&heroSheets[d.cls]){const m=heroSheets[d.cls].meta.actions,t=elapsed+d.phase,w=d.walk&&d.vdir&&m['walk'+DIR_ACT[d.vdir]]?'walk'+DIR_ACT[d.vdir]:'walk',sp=d.walk?{act:w,i:Math.floor(t/m[w].frameTime)%m[w].frames}:{act:'idle',i:Math.floor(t/m.idle.frameTime)%m.idle.frames};
       contact(p,5);drawSheetHero({classId:d.cls},p,d.flip?-1:1,sp);detailUse.draw1x++;return;}
     if(d.type==='npc'){const bob=Math.sin(elapsed*2.1+d.phase)>.55?1:0,hf=heroFrameFor(d.cls,heroLodScale);contact(p,5);
       {const sp=heroSprite(d.cls,bob,d.flip?-1:1,Math.floor(d.phase*7)%3,heroLodScale,d.walk?walkFrame(elapsed,d.phase*7):'idle');drawSprite(sp,p,21*CHAR_SCALE*sp.width/(sp.baseH||sp.height),21*CHAR_SCALE*sp.height/(sp.baseH||sp.height),1.2,1,'char');};if(hf)detailUse.draw1x++;return;}
@@ -1268,18 +1273,19 @@ export function createWorld(canvas,{onSelect=()=>{},onPlace=()=>{},getState=()=>
   const drawnFacing=new Map();globalThis.__mistvaleFacing=()=>Object.fromEntries(drawnFacing);
   const heroMemo=new Map();  // 獵人上一幀的目標(打倒目標 → 歡呼)
   // 新規格英雄:依動作時間軸挑格(ART_BIBLE 動畫時間表)。回傳 {act,i,pose}(pose 給驗收 hook)。
-  // back:最後一次移動是往畫面上方(遠離鏡頭)→ 走路/待機用背面 3/4 圖(4 方向:正面右/左 + 背面右/左,左邊是鏡像)
-  function sheetPose(h,pose,walking,cheering,back=false){const t=state.time||0,m=heroSheets[h.classId].meta.actions;
+  // vdir:四方向(上 Up 正背面、下 Down 正面、左右 = 側面;左用烘好的 Left 列)。戰鬥一律側面。
+  function sheetPose(h,pose,walking,cheering,vdir='side'){const t=state.time||0,m=heroSheets[h.classId].meta.actions;
     if(h.hp<=0){const dt=8-(h.reviveTimer??8);return{act:'death',i:Math.floor(dt/m.death.frameTime),pose:'dead'};}
     const sk=t-(h.skillAt??-99),skLen=m.skill.frames*m.skill.frameTime;if(sk>=0&&sk<skLen)return{act:'skill',i:Math.floor(sk/m.skill.frameTime),pose:'skill'};
     if(pose.pose==='hurt'||(pose.hit>=0&&pose.hit<m.hurt.frames*m.hurt.frameTime&&pose.pose!=='strike'))return{act:'hurt',i:Math.floor(Math.max(0,pose.hit)/m.hurt.frameTime),pose:'hurt'};
     const atk=t-(h.atkAt??-99),rel=m.attack.release;
     if(atk>=0&&atk<(m.attack.frames-rel)*m.attack.frameTime)return{act:'attack',i:rel+Math.floor(atk/m.attack.frameTime),pose:'strike'};
     if(pose.pose==='windup')return{act:'attack',i:Math.min(rel-1,Math.floor(pose.k*rel)),pose:'windup'};
-    if(walking){const w=back&&m.walkBack?'walkBack':'walk',i=Math.floor(elapsed/m[w].frameTime+hash(h.id))%m[w].frames;return{act:w,i,pose:'walk'+(1+i)};}
+    if(walking){const w=m['walk'+DIR_ACT[vdir]]?'walk'+DIR_ACT[vdir]:'walk',i=Math.floor(elapsed/m[w].frameTime+hash(h.id))%m[w].frames;return{act:w,i,pose:'walk'+(1+i),vdir};}
     if(cheering)return{act:'victory',i:Math.floor((t-(heroMemo.get(h.id).cheer-.9))/m.victory.frameTime),pose:'victory'};
-    const id=back&&m.idleBack&&h.status!=='戰鬥中'?'idleBack':'idle';return{act:id,i:Math.floor(elapsed/m[id].frameTime+hash(h.id))%m[id].frames,pose:'idle'};}
-  function drawSheetHero(h,p,facing,sp,alpha=1,pose=null){const f=sheetFrame(h.classId,sp.act,sp.i,h.id?heroLook(h):null);if(!f)return null;const k=heroArt(h.classId)*scale,dw=Math.round(f.c*k),dh=dw;
+    const id=h.status!=='戰鬥中'&&m['idle'+DIR_ACT[vdir]]?'idle'+DIR_ACT[vdir]:'idle';return{act:id,i:Math.floor(elapsed/m[id].frameTime+hash(h.id))%m[id].frames,pose:'idle',vdir};}
+  function drawSheetHero(h,p,facing,sp,alpha=1,pose=null){{const [a2,fl]=leftRow(heroSheets[h.classId].meta,sp.act,facing);if(a2!==sp.act){sp={...sp,act:a2};facing=1;}}
+    const f=sheetFrame(h.classId,sp.act,sp.i,h.id?heroLook(h):null);if(!f)return null;const k=heroArt(h.classId)*scale,dw=Math.round(f.c*k),dh=dw;
     const q=pose?{x:p.x+Math.round((pose.flash?Math.sin((state.time||0)*95)*.8:0)*scale),y:p.y}:p,dx=Math.round(q.x-f.c/2*k),dy=Math.round(q.y-f.foot*k);
     cast(f.img,f.sx,f.sy,f.c,f.c,dx,dy,dw,dh,facing<0,true,'char');g.save();g.globalAlpha=alpha;
     if(facing<0){g.translate(dx+dw,dy);g.scale(-1,1);g.drawImage(f.img,f.sx,f.sy,f.c,f.c,0,0,dw,dh);}else g.drawImage(f.img,f.sx,f.sy,f.c,f.c,dx,dy,dw,dh);
@@ -1361,34 +1367,34 @@ export function createWorld(canvas,{onSelect=()=>{},onPlace=()=>{},getState=()=>
     if(old&&Math.abs(h.x-old.x-(h.z-old.z))>.002)facing=h.x-old.x-(h.z-old.z)>0?1:-1;
     const isSelected=selected===`hunter:${h.id}`,top=HERO_H;contact(p,5);if(isSelected)ring(p,8,'#fff1b0');if(wanderer)ring(p,6,'#7fc4ff');
     const target=h.status==='戰鬥中'&&h.targetId?(state.enemies||[]).find(e=>e.id===h.targetId&&e.hp>0):null,pose=h.hp>0?combatPose(h,false,target):{pose:'idle',face:0,flash:0,hit:-1};
-    let back=old?.back||false;if(old&&moving){const sy=(h.x-old.x)+(h.z-old.z),sx=(h.x-old.x)-(h.z-old.z);if(Math.abs(sy)>.002&&Math.abs(sy)>=Math.abs(sx)*.25)back=sy<0;}
-    if(h.status==='戰鬥中'||pose.pose!=='idle')back=false;
+    let vdir=old?.vdir||'side';if(old&&moving)vdir=moveDir(h.x-old.x,h.z-old.z,vdir);
+    if(h.status==='戰鬥中'||pose.pose!=='idle')vdir='side';
     const walking=moving&&h.status!=='戰鬥中'&&h.hp>0;
     {const tg=h.targetId,prev=heroMemo.get(h.id);if(prev&&prev.tg&&prev.tg!==tg&&!(state.enemies||[]).some(e=>e.id===prev.tg&&e.hp>0)&&(state.time||0)-(h.atkAt??-99)<.8)heroMemo.set(h.id,{...prev,tg,cheer:(state.time||0)+.9});else heroMemo.set(h.id,{...prev,tg,cheer:prev?.cheer??-1});}
     const cheering=(state.time||0)<(heroMemo.get(h.id)?.cheer??-1)&&!walking;
-    const sp=sheetPose(h,pose,walking,cheering,back);
+    const sp=sheetPose(h,pose,walking,cheering,vdir);
     // 朝向:畫的是戰鬥格(普攻/受擊/技能)才用戰鬥朝向(面向目標/打來的一側);走路/待機一律照移動方向 —— 出手後 0.3–0.36 秒換追下一個目標時,不會倒退走
     if(['attack','hurt','skill','death'].includes(sp.act)){if(pose.face)facing=pose.face>0?1:-1;
       {const t=state.time||0,sk=t-(h.skillAt??-99);if(sp.act==='skill'&&sk>=0&&h.atkX!=null){const d=screenDir(h.x,h.z,h.atkX,h.atkZ).x;if(Math.abs(d)>.1)facing=d>0?1:-1;}}}
-    previousPositions.set(h.id,{x:h.x,z:h.z,facing,back});sp.i=Math.max(0,Math.min(heroSheets[h.classId].meta.actions[sp.act].frames-1,sp.i));  // 時間超過最後一格就停在最後一格
+    previousPositions.set(h.id,{x:h.x,z:h.z,facing,vdir});sp.i=Math.max(0,Math.min(heroSheets[h.classId].meta.actions[sp.act].frames-1,sp.i));  // 時間超過最後一格就停在最後一格
     drawnFacing.set(h.id,{f:facing,pose:sp.pose,act:sp.act,i:sp.i,x:h.x,z:h.z,t:state.time});
     const rect=drawSheetHero(h,p,facing,sp,h.hp>0?1:.85,pose);if(rect)hits.push({id:`hunter:${h.id}`,...padHit(rect,16,22)});
     if(h.hp<=0){textLabel('✦',p.x,p.y-(top*.4)*scale,{color:'#e7d8ef',back:false});return;}
     const full=(h.hp??1)/(h.maxHp||1);if(full<.99||isSelected||h.status==='戰鬥中')bar(p.x-7*scale,p.y-(top+3)*scale,14*scale,full,full<.35?'#df795c':'#84bf6a');
     if(isSelected)textLabel(`${h.name||'獵人'} Lv.${h.level||1}`,p.x,p.y-(top+11)*scale,{color:RARITIES.find(r=>r.id===h.rarity)?.color||'#ffe19a'});}
   // 魔物 sheet 繪製:回傳畫面框(點擊/血條用)
-  function drawMonsterSheet(type,p,flip,act,i,alpha=1,pose=null){const ms=MON_SHEET(type),a=ms?.meta.actions[act];if(!a)return null;const f=Math.max(0,Math.min(a.frames-1,i)),c=a.cell,k=21/72*scale,foot=c-ms.meta.footFromBottom;
+  function drawMonsterSheet(type,p,flip,act,i,alpha=1,pose=null){{const ms0=MON_SHEET(type);if(ms0){const [a2,fl]=leftRow(ms0.meta,act,flip?-1:1);act=a2;flip=fl;}}const ms=MON_SHEET(type),a=ms?.meta.actions[act];if(!a)return null;const f=Math.max(0,Math.min(a.frames-1,i)),c=a.cell,k=21/72*scale,foot=c-ms.meta.footFromBottom;
     const q=pose?{x:p.x+Math.round((pose.flash?Math.sin((state.time||0)*95)*.8:0)*scale),y:p.y}:p,dw=Math.round(c*k),dx=Math.round(q.x-c/2*k),dy=Math.round(q.y-foot*k);
     cast(ms.img,f*c,a.y,c,c,dx,dy,dw,dw,flip,true,'char');g.save();g.globalAlpha=alpha;
     const put=img=>{if(flip){g.save();g.translate(dx+dw,dy);g.scale(-1,1);g.drawImage(img,img===ms.img?f*c:0,img===ms.img?a.y:0,c,c,0,0,dw,dw);g.restore();}else g.drawImage(img,img===ms.img?f*c:0,img===ms.img?a.y:0,c,c,dx,dy,dw,dw);};
     put(ms.img);if(pose?.flash>0){g.globalAlpha=alpha*pose.flash*.8;put(tinted(ms.img,f*c,a.y,c,c,pose.flashColor));}g.restore();
     const hh=ms.meta.artSize*k;return{x:q.x-hh/2,y:q.y-hh,w:hh,h:hh};}
-  function monsterSheetPose(e,pose,walking){const m=MON_SHEET(e.type).meta.actions,t=state.time||0;
+  function monsterSheetPose(e,pose,walking,vdir='side'){const m=MON_SHEET(e.type).meta.actions,t=state.time||0,D=DIR_ACT[vdir]||'';
     if(pose.pose==='strike')return['attack',4+Math.floor(Math.max(0,pose.atk)/m.attack.frameTime)];
     if(pose.pose==='windup')return['attack',Math.min(3,Math.floor(pose.k*4))];
     if(pose.pose==='hurt')return['hurt',Math.floor(Math.max(0,pose.hit)/m.hurt.frameTime)];
-    if(walking)return['walk',Math.floor(elapsed/m.walk.frameTime+hash(e.id))%m.walk.frames];
-    return['idle',Math.floor(elapsed/m.idle.frameTime+hash(e.id))%m.idle.frames];}
+    if(walking){const w=m['walk'+D]?'walk'+D:'walk';return[w,Math.floor(elapsed/m[w].frameTime+hash(e.id))%m[w].frames];}
+    const id=m['idle'+D]&&!e.engaged?'idle'+D:'idle';return[id,Math.floor(elapsed/m[id].frameTime+hash(e.id))%m[id].frames];}
   function drawEnemy(e){if(!Number.isFinite(e.x)||!Number.isFinite(e.z)||e.hp<=0)return;const p=screenPoint(e.x,e.z),boss=e.type==='boss',sz=ENEMY_SIZE(e.type),seed=hash(e.id)%97;
     const old=previousPositions.get('enemy:'+e.id),moving=old&&Math.hypot(e.x-old.x,e.z-old.z)>.003,pose=combatPose(e,true,null);
     let flip=old?(e.x-old.x-(e.z-old.z)<-.002?true:e.x-old.x-(e.z-old.z)>.002?false:old.flip):false;
@@ -1416,7 +1422,8 @@ export function createWorld(canvas,{onSelect=()=>{},onPlace=()=>{},getState=()=>
     contact(p,boss?12:7);
     drawnFacing.set('enemy:'+e.id,{f:flip?-1:1,frame,x:e.x,z:e.z,t:state.time});
     let rect;
-    if(MON_SHEET(e.type)){const [act,i]=monsterSheetPose(e,pose,walking);drawnFacing.set('enemy:'+e.id,{f:flip?-1:1,frame,act,i,x:e.x,z:e.z,t:state.time});rect=drawMonsterSheet(e.type,p,flip,act,i,1,pose);}  // 新規格 sheet:動作自帶位移/壓扁,不再疊 posed 變形
+    if(MON_SHEET(e.type)){let vdir=old?.vdir||'side';if(old&&moving)vdir=moveDir(e.x-old.x,e.z-old.z,vdir);if(pose.pose!=='idle'||e.engaged)vdir='side';previousPositions.set('enemy:'+e.id,{x:e.x,z:e.z,flip,vdir});
+      const [act,i]=monsterSheetPose(e,pose,walking,vdir);drawnFacing.set('enemy:'+e.id,{f:flip?-1:1,frame,act,i,x:e.x,z:e.z,t:state.time});rect=drawMonsterSheet(e.type,p,flip,act,i,1,pose);}  // 新規格 sheet:動作自帶位移/壓扁,不再疊 posed 變形
     else rect=posed(p,pose,q=>drawAtlasMonster(e.type,frame,q,sz,flip));
     if(!rect){procUse['enemy:'+e.type]=(procUse['enemy:'+e.type]||0)+1;posed(p,pose,q=>drawSprite(enemySprite(e.type,frame%2),q,sz,sz,2,1,'char'));}
     if(e.hp<e.maxHp||boss||targeted){bar(p.x-(boss?17:10)*scale,p.y-(sz+3)*scale,(boss?34:20)*scale,e.hp/(e.maxHp||1),boss?'#d27967':'#c68764');}}
@@ -1537,7 +1544,7 @@ export function createWorld(canvas,{onSelect=()=>{},onPlace=()=>{},getState=()=>
       // 往鏡頭(+t)穿過佔地 → 在建築後面;往反方向(−t)穿過 → 在建築前面;都沒穿過(在旁邊)→ 不限制。
       const lo=Math.max(B.x0-x,B.z0-z),hi=Math.min(B.x1-x,B.z1-z);if(lo>hi)continue;if(hi>=0&&lo>=0)key=Math.min(key,B.key-.001);else if(lo<=0&&hi<=0)key=Math.max(key,B.key+.001);}return key;};
     // 街上走的村民/獵人:沿自己那條街來回(三角波),面向跟著走的方向。
-    for(const d of decorations)if(d.walk){const w=d.walk,t=((elapsed*w.speed+w.t0)/w.len)%2,u=t<1?t:2-t,nx=w.ax+(w.bx-w.ax)*u,nz=w.az+(w.bz-w.az)*u,sd=(nx-d.x)-(nz-d.z),sy=(nx-d.x)+(nz-d.z);if(Math.abs(sd)>1e-5)d.flip=sd<0;if(Math.abs(sy)>1e-5)d.walkUp=sy<0;d.x=nx;d.z=nz;}
+    for(const d of decorations)if(d.walk){const w=d.walk,t=((elapsed*w.speed+w.t0)/w.len)%2,u=t<1?t:2-t,nx=w.ax+(w.bx-w.ax)*u,nz=w.az+(w.bz-w.az)*u,sd=(nx-d.x)-(nz-d.z),sy=(nx-d.x)+(nz-d.z);if(Math.abs(sd)>1e-5)d.flip=sd<0;d.vdir=moveDir(nx-d.x,nz-d.z,d.vdir);d.x=nx;d.z=nz;}
     for(const d of decorations){const p=screenPoint(d.x,d.z);if(p.x>-100&&p.x<width+100&&p.y>-40&&p.y<height+260)all.push({sort:d.type==='streamBridge'||d.type==='frozenPond'?-1e9:depth(d.x,d.z,d.x+d.z),type:'decor',data:d});}  // 橋面是地面:過橋的人永遠畫在上面
     for(const b of BUILDINGS){const p=state.layout?.[b.id]||b;all.push({sort:p.x+p.z+.2,type:'building',data:b});}
     for(const h of state.hunters||[])all.push({sort:depth(h.x,h.z,h.x+h.z+.32),type:'hunter',data:h});  // 跟魔物同深度時獵人畫在前面

@@ -34,6 +34,42 @@
    "cell": 160,
    "frames": 6,
    "frameTime": 0.12
+  },
+  "idleDown": {
+   "y": 864,
+   "cell": 128,
+   "frames": 4,
+   "frameTime": 0.22
+  },
+  "walkDown": {
+   "y": 992,
+   "cell": 128,
+   "frames": 6,
+   "frameTime": 0.1
+  },
+  "idleUp": {
+   "y": 1120,
+   "cell": 128,
+   "frames": 4,
+   "frameTime": 0.22
+  },
+  "walkUp": {
+   "y": 1248,
+   "cell": 128,
+   "frames": 6,
+   "frameTime": 0.1
+  },
+  "idleLeft": {
+   "y": 1376,
+   "cell": 160,
+   "frames": 4,
+   "frameTime": 0.2
+  },
+  "walkLeft": {
+   "y": 1536,
+   "cell": 160,
+   "frames": 6,
+   "frameTime": 0.1
   }
  },
  "palette": [

@@ -18,7 +18,7 @@ import sys
 from pathlib import Path
 
 import numpy as np
-from PIL import Image
+from PIL import Image, ImageOps
 from scipy import ndimage
 
 ROOT = Path(__file__).resolve().parents[3]
@@ -41,7 +41,11 @@ ACTIONS = {
     "victory": ((4, 1), 4, 3, .15),
 }
 # 背面 3/4(往右上走):一張 5x2 表 = 待機 4 + 走路 6。(來源檔後綴, 格線, 起始格, 格數, 基準格, 每格秒數)
-BACK = {"idleBack": ("back", (5, 2), 0, 4, 0, .22), "walkBack": ("back", (5, 2), 4, 6, 2, .1)}
+# 四方向(上下左右):右 = 側面動作列;下 = 正面(面向鏡頭)、上 = 正背面,各一張 5x2(待機 4 + 走路 6,來源 dir-<名>-down/up);
+# 左 = 右的鏡像,直接烘成 idleLeft/walkLeft 列(素材本身就有四個方向)。(來源後綴, 格線, 起始格, 格數, 基準格, 每格秒數)
+BACK = {"idleDown": ("down", (5, 2), 0, 4, 0, .22), "walkDown": ("down", (5, 2), 4, 6, 2, .1),
+        "idleUp": ("up", (5, 2), 0, 4, 0, .22), "walkUp": ("up", (5, 2), 4, 6, 2, .1)}
+LEFT = ("idle", "walk")
 # 魔物(同一套規格,動作少一點):來源檔 output/l0veyou/mon3-<魔物>-<動作>-v1.png。
 # 美術大小跟英雄同一個像素密度:英雄 72 px = 遊戲 21 單位 → 魔物待機最長邊 = ENEMY_SIZE(遊戲單位)× 72/21。
 MON_ACTIONS = {"idle": ((4, 1), 4, 0, .2), "walk": ((6, 1), 6, 0, .1), "attack": ((4, 2), 8, 7, .075), "hurt": ((3, 1), 3, 2, .1), "death": ((3, 2), 6, 0, .12)}
@@ -136,10 +140,12 @@ def build(hero: str, monster: bool = False):
     acts, src = (MON_ACTIONS, f"mon3-{hero}") if monster else (ACTIONS, hero)
     raw = {a: cut(SRC / f"{src}-{a}-v1.png", g) for a, (g, n, base, fps) in acts.items()}
     plan = [(a, g, n, base, fps, raw[a][:n]) for a, (g, n, base, fps) in acts.items()]
-    if not monster and (SRC / f"{hero}-back-v1.png").exists():
-        braw = cut(SRC / f"{hero}-back-v1.png", (5, 2))
-        for a, (_, g, st, n, base, fps) in BACK.items():
-            plan.append((a, g, n, base, fps, braw[st:st + n]))
+    dcache = {}
+    for a, (d, g, st, n, base, fps) in BACK.items():
+        f = SRC / f"dir-{hero}-{d}-v1.png"
+        if not f.exists(): continue
+        if d not in dcache: dcache[d] = cut(f, (5, 2))
+        plan.append((a, g, n, base, fps, dcache[d][st:st + n]))
     idle0 = raw["idle"][0][0]
     s_idle = HERO_H / idle0.height if not monster else MON_SIZE[hero] * 72 / 21 / max(idle0.size)
     pal = palette([f[0] for f in raw["idle"] if f])
@@ -149,12 +155,13 @@ def build(hero: str, monster: bool = False):
         if any(f is None for f in fr): sys.exit(f"{act}: empty cell")
         # 整張表同一個倍率(模型每張畫的大小不同):用「軀幹欄身高」(軀幹中心 ±12% 寬的欄,舉過頭的武器、伸出去的弓不算)對齊待機
         # 魔物(四足、矮胖):用外框最長邊對齊(軀幹欄身高對狼蹲低的格會量小、整列被放大 1.5 倍)
-        s = s_idle * ((max(idle0.size) / max(fr[base][0].size)) if monster else body_h(idle0) / body_h(fr[base][0])) if act != "idle" else s_idle
+        # 正/背面的魔物用高度對齊(正面的狼比側面窄,最長邊會量小)
+        s = s_idle * ((idle0.height / fr[base][0].height if act in BACK else max(idle0.size) / max(fr[base][0].size)) if monster else body_h(idle0) / body_h(fr[base][0])) if act != "idle" else s_idle
         # 地面線:同一個格線列(row band)裡最低的腳 —— bottom 是相對該列上緣量的,不同列不能比
         cols_ = grid[0] if act not in BACK else n + 1   # 背面表:待機/走路各自一段,地面線不用分列(腳一律貼地)
         ground = {r: max(b for _, b in fr[r * cols_:(r + 1) * cols_]) for r in range(max(1, len(fr) // cols_ + 1)) if fr[r * cols_:(r + 1) * cols_]}
         # 走路/待機/受擊:腳一律貼地(模型把經過格整隻畫高 5–9px,會變成浮空滑步;身體起伏由腿長自然產生)。跳躍只留給技能/勝利。
-        grounded = act in ("idle", "walk", "hurt", "attack", "idleBack", "walkBack") and not (monster and hero == "slime" and act == "walk")   # 史萊姆走路是跳躍
+        grounded = act in ("idle", "walk", "hurt", "attack", *BACK) and not (monster and hero == "slime" and act.startswith("walk"))   # 史萊姆走路是跳躍
         pix = [(pixelize(im, s, pal), 0 if grounded else round((ground[i // cols_] - bottom) * s)) for i, (im, bottom) in enumerate(fr)]
         # 格大小:預設 128;這一列有格放不下(跳躍、技能特效、長弓)就整列用 160 —— 錨點(軀幹中心、腳底離格底 10px)不變,不裁切也不位移身體
         def fits(c):
@@ -162,6 +169,12 @@ def build(hero: str, monster: bool = False):
         cell = next((c for c in (CELL, 160, 192, 224, 256) if fits(c)), 256)
         rows.append((act, cell, y_off, pix)); meta["actions"][act] = {"y": y_off, "cell": cell, "frames": n, "frameTime": fps, **KEY.get(act, {})}
         y_off += cell
+    # 左:側面待機/走路的鏡像列(以格中線為軸,軀幹錨點不動)
+    left_rows = []
+    for act in LEFT:
+        a0 = next(r for r in rows if r[0] == act); _, cell, y_src, pix = a0
+        left_rows.append((act, cell, y_src, y_off, len(pix)))
+        meta["actions"][act + "Left"] = {**meta["actions"][act], "y": y_off}; y_off += cell
     sheet = Image.new("RGBA", (max(c * len(p) for _, c, _, p in rows), y_off), (0, 0, 0, 0))
     for act, cell, y0, pix in rows:
         foot = cell - (CELL - FOOT_Y)
@@ -170,6 +183,9 @@ def build(hero: str, monster: bool = False):
             if x < 2 or y < 2 or x + px.width > cell - 2: print(f"  WARN {act}{i}: does not fit {cell} cell")
             sheet.alpha_composite(px, (i * cell + max(0, x), y0 + max(0, y)))
         if cell != CELL: print(f"  {act}: cell {cell}")
+    for act, cell, y_src, y_dst, n in left_rows:   # 左向列 = 右向那格整格鏡像(逐像素對稱)
+        for i in range(n):
+            sheet.paste(ImageOps.mirror(sheet.crop((i * cell, y_src, (i + 1) * cell, y_src + cell))), (i * cell, y_dst))
     # 模組化配件:每格的頭頂錨點(格內座標)= 軀幹中線 ±12% 欄裡最上面一列不透明像素的中心。倒地/技能翻滾這類頭不在上面的格記 null(不戴配件)。
     if not monster:
         arr = np.asarray(sheet)
@@ -184,6 +200,8 @@ def build(hero: str, monster: bool = False):
                 foot = cell - (CELL - FOOT_Y); upright = foot - top >= HERO_H * .8   # 頭頂離腳底至少 0.8 身高才算站著
                 heads.append([round(float(xs.mean()), 1), top] if upright and act not in ("death", "skill") else None)
             meta["actions"][act]["head"] = heads
+            if act in LEFT:   # 左向列是整格鏡像 → 錨點 x 也鏡像
+                meta["actions"][act + "Left"]["head"] = [[round(cell - h[0], 1), h[1]] if h else None for h in heads]
     meta["palette"] = ["#%02x%02x%02x" % tuple(c) for c in np.asarray(pal.getpalette()[:COLORS * 3]).reshape(-1, 3)]
     if not monster: meta["groups"] = material_groups(hero, np.asarray(pal.getpalette()[:COLORS * 3]).reshape(-1, 3))
     else: meta["monster"] = True; meta["size"] = MON_SIZE[hero]; meta["artSize"] = round(max(rows[0][3][0][0].size))
