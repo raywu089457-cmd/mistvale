@@ -1,0 +1,70 @@
+{
+ "hero": "ranger",
+ "heroHeight": 72,
+ "footFromBottom": 10,
+ "actions": {
+  "idle": {
+   "y": 0,
+   "cell": 128,
+   "frames": 4,
+   "frameTime": 0.22
+  },
+  "walk": {
+   "y": 128,
+   "cell": 128,
+   "frames": 6,
+   "frameTime": 0.1
+  },
+  "attack": {
+   "y": 256,
+   "cell": 128,
+   "frames": 8,
+   "frameTime": 0.075,
+   "release": 4,
+   "impact": 5
+  },
+  "skill": {
+   "y": 384,
+   "cell": 128,
+   "frames": 10,
+   "frameTime": 0.08,
+   "release": 4
+  },
+  "hurt": {
+   "y": 512,
+   "cell": 128,
+   "frames": 3,
+   "frameTime": 0.1
+  },
+  "death": {
+   "y": 640,
+   "cell": 128,
+   "frames": 6,
+   "frameTime": 0.12
+  },
+  "victory": {
+   "y": 768,
+   "cell": 128,
+   "frames": 4,
+   "frameTime": 0.15
+  }
+ },
+ "palette": [
+  "#fbcf9b",
+  "#eaae6b",
+  "#999f3a",
+  "#657b14",
+  "#df7c3b",
+  "#906648",
+  "#67452e",
+  "#556511",
+  "#b65b21",
+  "#98461a",
+  "#415010",
+  "#753313",
+  "#30390d",
+  "#4e2210",
+  "#271308",
+  "#140904"
+ ]
+}

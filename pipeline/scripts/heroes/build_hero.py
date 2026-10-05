@@ -35,7 +35,7 @@ ACTIONS = {
     "idle": ((4, 1), 4, 0, .22),
     "walk": ((6, 1), 6, 2, .1),
     "attack": ((4, 2), 8, 0, .075),
-    "skill": ((5, 2), 10, 8, .08),
+    "skill": ((5, 2), 10, 9, .08),   # 基準格:最後的備戰站姿
     "hurt": ((3, 1), 3, 2, .1),
     "death": ((3, 2), 6, 0, .12),
     "victory": ((4, 1), 4, 3, .15),
@@ -84,6 +84,12 @@ def cut(path: Path, grid):
     return frames
 
 
+def body_h(im: Image.Image) -> float:
+    m = np.asarray(im)[..., 3] > 127; w = m.shape[1]; t = torso_x(im); lo, hi = int(max(0, t - .12 * w)), int(min(w, t + .12 * w) + 1)
+    ys = np.nonzero(m[:, lo:hi].any(1))[0]
+    return float(ys.max() - ys.min() + 1)
+
+
 def palette(ims, n=COLORS):
     px = np.concatenate([np.asarray(i).reshape(-1, 4) for i in ims]); px = px[px[:, 3] > 127][:, :3]
     side = int(np.ceil(np.sqrt(len(px)))); buf = np.zeros((side * side, 3), np.uint8); buf[:len(px)] = px
@@ -114,7 +120,8 @@ def build(hero: str):
     for act, (grid, n, base, fps) in ACTIONS.items():
         fr = raw[act][:n]
         if any(f is None for f in fr): sys.exit(f"{act}: empty cell")
-        s = s_idle * idle0.height / fr[base][0].height if act != "idle" else s_idle   # 整張表同一個倍率(模型每張畫的大小不同)
+        # 整張表同一個倍率(模型每張畫的大小不同):用「軀幹欄身高」(軀幹中心 ±12% 寬的欄,舉過頭的武器、伸出去的弓不算)對齊待機
+        s = s_idle * body_h(idle0) / body_h(fr[base][0]) if act != "idle" else s_idle
         # 地面線:同一個格線列(row band)裡最低的腳 —— bottom 是相對該列上緣量的,不同列不能比
         cols_ = grid[0]
         ground = {r: max(b for _, b in fr[r * cols_:(r + 1) * cols_]) for r in range(grid[1]) if fr[r * cols_:(r + 1) * cols_]}
@@ -147,7 +154,7 @@ def build(hero: str):
             s = (FX - 8) / max(im.size); p = pixelize(im, s, fpal)
             fsheet.alpha_composite(p, (i * FX + (FX - p.width) // 2, (FX - p.height) // 2))
         fsheet.save(OUT / f"{hero}-fx.png", optimize=True)
-        (OUT / f"{hero}-fx.json").write_text(json.dumps({"cell": FX, "frames": len(fr), "names": ["arrow", "arrowTrail", "volley", "impact1", "impact2", "impact3", "charge1", "charge2"]}, indent=1), encoding="utf-8")
+        (OUT / f"{hero}-fx.json").write_text(json.dumps({"cell": FX, "frames": len(fr)}, indent=1), encoding="utf-8")   # 每格用途見 make_heroes_v3.py fx_frames / pixel-world.js SKILL_FX
         print(f"{hero}-fx: {fsheet.size}")
 
 

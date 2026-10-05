@@ -288,7 +288,9 @@ export function createGame(saved = null) {
     h.skillCd = sk.cd; h.attackTimer = sk.lock + .4; h.skillAt = t; h.skillName = sk.name; h.atkX = target.x; h.atkZ = target.z;
     state.counts.skills = (state.counts.skills || 0) + 1;
     effect('skillName', h, { text: sk.name, color: '#bdf4ff' });
-    if (sk.kind === 'heal') { const v = Math.round(h.maxHp * sk.heal); h.hp = Math.min(h.maxHp, h.hp + v); effect('heal', h, { delay: release }); effect('holy', h, { sourceX: h.x, sourceZ: h.z, delay: release, value: -v }); return; }
+    // 特效:skillSelf = 英雄身上(旋風、聖盾、蓄力),skillfx = 打到目標(飛行物 → 命中);畫面依職業 sprite 特效表,沒有就退回舊特效(sk.fx)。
+    effect('skillSelf', h, { cls: h.classId, fx: sk.fx, delay: Math.max(0, release - .12), kind: sk.kind });
+    if (sk.kind === 'heal') { const v = Math.round(h.maxHp * sk.heal); h.hp = Math.min(h.maxHp, h.hp + v); effect('skillfx', h, { cls: h.classId, fx: sk.fx, sourceX: h.x, sourceZ: h.z, delay: release, text: `+${v}`, color: '#9cf09a', self: true }); return; }
     const alive = state.enemies.filter(e => e.hp > 0 && !e.rewarded);
     const hitList = sk.kind === 'multi' ? alive.filter(e => distance(h, e) <= h.range + 1).sort((a, b) => distance(h, a) - distance(h, b)).slice(0, sk.targets)
       : sk.kind === 'aoe' ? alive.filter(e => distance(e, target) <= sk.radius) : [target];
@@ -296,7 +298,7 @@ export function createGame(saved = null) {
     hitList.forEach((e, i) => {
       const dmg = Math.max(1, Math.round(base * sk.mult)), delay = release + (sk.fx === 'gale' ? .18 + i * .05 : sk.fx === 'arrow' ? .2 : .1);
       e.hitAt = t + delay; e.hitFromX = h.x; e.hitFromZ = h.z; e.hp -= dmg;
-      effect(sk.fx === 'gale' ? 'gale' : sk.fx, e, { sourceX: h.x, sourceZ: h.z, value: dmg, targetId: e.id, delay, cls: h.classId, crit: true, skill: true });
+      effect('skillfx', e, { sourceX: h.x, sourceZ: h.z, value: dmg, targetId: e.id, delay, cls: h.classId, fx: sk.fx, kind: sk.kind, crit: true, skill: true });
       if (h.classId === 'darkknight') h.hp = Math.min(h.maxHp, h.hp + dmg * 0.08);
       if (e.hp <= 0) rewardEnemy(e, h);
     });

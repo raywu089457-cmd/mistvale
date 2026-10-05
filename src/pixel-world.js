@@ -827,7 +827,7 @@ export function createWorld(canvas,{onSelect=()=>{},onPlace=()=>{},getState=()=>
       // 出村口:一座村門(木柱+茅草頂門楣)跨在路上。圖是「路沿 x 走」的方向,南門(路沿 z 走)左右翻面。
       for(const e of EXITS)decorations.push({type:'gate',x:e.x+(e.side==='east'?.15:0),z:e.z+(e.side==='south'?.15:0),variant:e.side==='east'?0:1,size:1});
       // 街上的人:沿一條街來回走
-      const WHO=['merchant','farmer','child','elder','smith','maid','cat','dog'],CLS=['berserker','ranger','paladin','sorcerer','darkknight','priest'];
+      const WHO=['merchant','farmer','child','elder','smith','maid','cat','dog'],CLS=['berserker','ranger','paladin','sorcerer','archer','archer'];  // 街上走的英雄:只用有新規格 sprite 的職業(長度不變,亂數序列不變)
       for(let k=0;k<22;k++){const alongX=vr()<.5,line=alongX?STREET_Z[Math.floor(vr()*STREET_Z.length)]:STREET_X[Math.floor(vr()*STREET_X.length)];
         const lo=alongX?STREET_X[0]:STREET_Z[0],hi=alongX?STREET_X.at(-1):STREET_Z.at(-1),c=lo+vr()*(hi-lo),span=3+vr()*6,a=Math.max(lo,c-span),b2=Math.min(hi,c+span),off=(vr()-.5)*.8;
         const walk=alongX?{ax:a,az:line+off,bx:b2,bz:line+off}:{ax:line+off,az:a,bx:line+off,bz:b2};walk.len=Math.hypot(walk.bx-walk.ax,walk.bz-walk.az)||1;walk.speed=.55+vr()*.5;walk.t0=vr()*20;
@@ -1074,6 +1074,8 @@ export function createWorld(canvas,{onSelect=()=>{},onPlace=()=>{},getState=()=>
     if(d.type==='bankRocks'&&drawAtlasDetail('bankRocks',p,24*d.size,23*d.size,3,1,true))return;
     if(d.type==='fisher'){contact(p,5);if(drawAtlasDetail('fisher',p,28,20,1,1,true)){const s=scale,t=Math.sin(elapsed*1.3);g.globalAlpha=.7;pixel(g,p.x-15*s,p.y+(3+t*.6)*s,4*s,Math.max(1,s*.6),'#cfeeff');g.globalAlpha=1;return;}}
     // 概念圖街上滿是村民與貓狗:純裝飾(不參與模擬),原地輕微上下呼吸。
+    if(d.type==='npc'&&heroSheets[d.cls]){const m=heroSheets[d.cls].meta.actions,t=elapsed+d.phase,sp=d.walk?{act:'walk',i:Math.floor(t/m.walk.frameTime)%m.walk.frames}:{act:'idle',i:Math.floor(t/m.idle.frameTime)%m.idle.frames};
+      contact(p,5);drawSheetHero({classId:d.cls},p,d.flip?-1:1,sp);detailUse.draw1x++;return;}
     if(d.type==='npc'){const bob=Math.sin(elapsed*2.1+d.phase)>.55?1:0,hf=heroFrameFor(d.cls,heroLodScale);contact(p,5);
       {const sp=heroSprite(d.cls,bob,d.flip?-1:1,Math.floor(d.phase*7)%3,heroLodScale,d.walk?walkFrame(elapsed,d.phase*7):'idle');drawSprite(sp,p,21*CHAR_SCALE*sp.width/(sp.baseH||sp.height),21*CHAR_SCALE*sp.height/(sp.baseH||sp.height),1.2,1,'char');};if(hf)detailUse.draw1x++;return;}
     if(d.type==='villager'){const pet=d.who==='cat'||d.who==='dog',bob=d.walk?(Math.floor(elapsed*6+d.phase)%2):Math.sin(elapsed*2.2+d.phase)>.4?1:0,k=CHAR_SCALE;contact(p,pet?4:5);
@@ -1427,7 +1429,8 @@ export function createWorld(canvas,{onSelect=()=>{},onPlace=()=>{},getState=()=>
     textLabel(crit?txt+'!':txt,p.x+dx,p.y-(27+rise)*scale-dy,{color:col,size,back:false});}
   function drawEffect(e){const age0=e.age||0,delay=e.delay||0,age=age0-delay,p=screenPoint(e.x||0,e.z||0);
     if(e.type==='skillName'){if(age<1.1){const a=Math.min(1,(1.1-age)*3);g.globalAlpha=a;textLabel(e.text,p.x,p.y-(30+age*10)*scale,{size:11,color:e.color||'#bdf4ff'});g.globalAlpha=1;}return;}
-    if(e.type==='gale'){drawGale(e,age0,delay,p);if(age>=0&&(e.value||e.text))damageText(e,age,p);g.globalAlpha=1;return;}
+    if(e.type==='skillSelf'){drawSkillSelf(e,age0,p);return;}
+    if(e.type==='skillfx'||e.type==='gale'){drawSkillFx(e,age0,delay,p);if(age>=0&&(e.value||e.text))damageText(e,age,p);g.globalAlpha=1;return;}
     if(age<0){if(e.type==='arrow'||e.type==='spell'||e.type==='holy')drawProjectile(e,Math.min(1,age0/Math.max(.01,delay)),p);return;}
     const fade=Math.max(0,1-age/1.5);if(!fade)return;
     if(e.type==='death'){drawDeath(e,age,p);return;}
@@ -1440,12 +1443,19 @@ export function createWorld(canvas,{onSelect=()=>{},onPlace=()=>{},getState=()=>
   // 疾風箭雨:放出格(0.32 秒)前不畫;飛行中用弓箭手特效表第 0–1 格(青色風箭+拖尾),命中後 3–5 格(星爆→衝擊環→散光)。
   function fxFrame(cls,i,x,y,size,{flip=false,rot=0,alpha=1}={}){const hs=heroSheets[cls];if(!hs?.fx||!hs.fxMeta)return false;const c=hs.fxMeta.cell,k=size*scale/c;
     g.save();g.globalAlpha=alpha;g.translate(Math.round(x),Math.round(y));if(rot)g.rotate(rot);if(flip)g.scale(-1,1);g.drawImage(hs.fx,i*c,0,c,c,-c*k/2,-c*k/2,c*k,c*k);g.restore();return true;}
-  function drawGale(e,age0,delay,p){const fly=.18,start=delay-fly,cls=e.cls||'archer';
-    if(age0<start)return;const a=screenPoint(e.sourceX??e.x,e.sourceZ??e.z);
+  // 各職業技能特效格(<職業>-fx 表,8 格):fly = 飛行物格、hit = 命中格、self = 英雄身上的格(旋風/聖盾/蓄力)。順序對 make_heroes_v3.py 的 fx_frames。
+  // selfY:身上特效的高度(蓄力漩渦在腳邊 2、旋風/聖盾在身體中間 10);selfA:身上特效透明度(聖盾半透明,不蓋掉角色)
+  const SKILL_FX={archer:{fly:[0,1],hit:[3,4,5],self:[6,7],size:14,selfY:2,selfA:.9},ranger:{fly:[2],hit:[3,4,5],self:[6,7],size:16,selfY:2,selfA:.9},sorcerer:{fly:[1,2],hit:[3,4,5],self:[6,7],size:18,selfY:2,selfA:.9},
+    berserker:{fly:[],hit:[5,6,7],self:[0,1,2,3,4],size:30,selfY:10,selfA:.9},paladin:{fly:[],hit:[6,7],self:[0,1,2,3,4,5],size:28,selfY:10,selfA:.55}};
+  function drawSkillSelf(e,age0,p){const cfg=SKILL_FX[e.cls],t=age0-(e.delay||0);if(!cfg||!heroSheets[e.cls]?.fx)return;const len=cfg.self.length*.09;if(t<-.25||t>len)return;
+    const i=cfg.self[Math.max(0,Math.min(cfg.self.length-1,Math.floor((t+.25)/(len+.25)*cfg.self.length)))];fxFrame(e.cls,i,p.x,p.y-cfg.selfY*scale,cfg.selfY<5?cfg.size*.9:cfg.size,{alpha:cfg.selfA*(t>len-.1?Math.max(0,(len-t)/.1):1)});}
+  function drawSkillFx(e,age0,delay,p){const cls=e.cls||'archer',cfg=SKILL_FX[cls];
+    if(!cfg||!heroSheets[cls]?.fx){const age=age0-delay,o={...e,type:e.fx==='gale'?'arrow':e.fx};if(age<0){if(o.type!=='slash')drawProjectile(o,Math.min(1,age0/Math.max(.01,delay)),p);return;}if(o.type==='slash')drawSlash(o,age,p);else drawImpact(o,age,p);return;}
+    const fly=cfg.fly.length&&!e.self?.18:0,start=delay-fly;if(age0<start)return;const a=screenPoint(e.sourceX??e.x,e.sourceZ??e.z);
     if(age0<delay){const u=(age0-start)/fly,x=a.x+(p.x-a.x)*u,y=a.y-12*scale+(p.y-11*scale-(a.y-12*scale))*u,ang=Math.atan2(p.y-11*scale-(a.y-12*scale),p.x-a.x);
-      if(!fxFrame(cls,u<.5?0:1,x,y,14,{rot:ang}))line(g,x-6*scale,y,x,y,'#5fd8ff',2*scale);return;}
-    const t=age0-delay;if(t>.36)return;const fr=3+Math.min(2,Math.floor(t/.12));
-    if(!fxFrame(cls,fr,p.x,p.y-11*scale,14+t*20,{alpha:1-t/.36*.4}))sparks(p.x,p.y-11*scale,t,hash(e.id),10,['#ffffff','#5fd8ff','#1a6f8a'],30);}
+      if(!fxFrame(cls,cfg.fly[Math.min(cfg.fly.length-1,Math.floor(u*cfg.fly.length))],x,y,cfg.size,{rot:ang}))line(g,x-6*scale,y,x,y,'#5fd8ff',2*scale);return;}
+    const t=age0-delay,len=cfg.hit.length*.12;if(t>len)return;const fr=cfg.hit[Math.min(cfg.hit.length-1,Math.floor(t/.12))];
+    fxFrame(cls,fr,p.x,p.y-11*scale,cfg.size*(e.self?1:.9)+t*20,{alpha:1-t/len*.4});}
   function drawAtlasEffect(e,age,p,fade){
     const id=FX_SPRITE[e.type];if(!id)return !!(e.value||e.text);  // 純數字飄字沒有圖,不算退回
     // 升級/收穫等事件光效:頭頂上方、小、半透明,不蓋住正在打的人。

@@ -1,0 +1,70 @@
+{
+ "hero": "paladin",
+ "heroHeight": 72,
+ "footFromBottom": 10,
+ "actions": {
+  "idle": {
+   "y": 0,
+   "cell": 128,
+   "frames": 4,
+   "frameTime": 0.22
+  },
+  "walk": {
+   "y": 128,
+   "cell": 128,
+   "frames": 6,
+   "frameTime": 0.1
+  },
+  "attack": {
+   "y": 256,
+   "cell": 160,
+   "frames": 8,
+   "frameTime": 0.075,
+   "release": 4,
+   "impact": 5
+  },
+  "skill": {
+   "y": 416,
+   "cell": 160,
+   "frames": 10,
+   "frameTime": 0.08,
+   "release": 4
+  },
+  "hurt": {
+   "y": 576,
+   "cell": 128,
+   "frames": 3,
+   "frameTime": 0.1
+  },
+  "death": {
+   "y": 704,
+   "cell": 128,
+   "frames": 6,
+   "frameTime": 0.12
+  },
+  "victory": {
+   "y": 832,
+   "cell": 128,
+   "frames": 4,
+   "frameTime": 0.15
+  }
+ },
+ "palette": [
+  "#fccf9d",
+  "#fad135",
+  "#f5f4f1",
+  "#c6c8c5",
+  "#df9358",
+  "#f3ae0c",
+  "#a4a7a4",
+  "#848783",
+  "#ae6817",
+  "#666865",
+  "#794011",
+  "#454441",
+  "#2461d3",
+  "#103da6",
+  "#2f1f14",
+  "#170f09"
+ ]
+}

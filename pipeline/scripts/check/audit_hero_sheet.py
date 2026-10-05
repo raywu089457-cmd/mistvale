@@ -65,15 +65,22 @@ def audit(hero):
     f = frames(img, idle)[0]; m = f[..., 3] > 0; edge = m & ~ndimage.binary_erosion(m)
     lum = (0.299 * f[..., 0] + 0.587 * f[..., 1] + 0.114 * f[..., 2])[edge]; info["outline"] = round(float((lum < 95).mean()), 2)
     if info["outline"] < .55: bad.append(f"outline dark ratio {info['outline']}")
-    # 8. 縮小可讀性:待機剪影縮到 32 px 高,跟其他職業(舊英雄圖集 hero@4x)剪影的 IoU < 0.8
+    # 8. 縮小可讀性:待機剪影縮到 32 px 高,跟其他職業(新規格英雄 + 舊英雄圖集的其他職業)剪影的 IoU < 0.8
     def sil(a):
         m = a[..., 3] > 0; ys, xs = np.nonzero(m); m = m[ys.min():ys.max() + 1, xs.min():xs.max() + 1]
         im = Image.fromarray((m * 255).astype(np.uint8)).resize((max(1, round(m.shape[1] * 32 / m.shape[0])), 32), Image.BOX)
         out = np.zeros((32, 40), bool); w = min(40, im.width); out[:, (40 - w) // 2:(40 - w) // 2 + w] = np.asarray(im)[:, :w] > 127; return out
     me = sil(f); old = json.loads((ROOT / "assets/hero@4x.manifest.json").read_text(encoding="utf-8"))["cells"]
     sheet = np.asarray(Image.open(ROOT / "assets/hero@4x.png").convert("RGBA")); ious = {}
-    for k, cc in old.items():
-        o = sil(sheet[cc["y"]:cc["y"] + cc["h"], cc["x"]:cc["x"] + cc["w"]]); ious[k] = round(float((me & o).sum() / max(1, (me | o).sum())), 2)
+    others = {}
+    for k, cc in old.items():   # 舊英雄圖集(同職業的舊版不算 —— 本來就是同一個角色)
+        if k != hero: others[k] = sil(sheet[cc["y"]:cc["y"] + cc["h"], cc["x"]:cc["x"] + cc["w"]])
+    for p in H.glob("*.json"):   # 其他新規格英雄(用它們的待機第 1 格)
+        k = p.stem
+        if k.endswith("-fx") or k == hero: continue
+        m2 = json.loads(p.read_text(encoding="utf-8")); i2 = np.asarray(Image.open(H / f"{k}.png").convert("RGBA")); others[k] = sil(frames(i2, m2["actions"]["idle"])[0])
+    for k, o in others.items():
+        ious[k] = round(float((me & o).sum() / max(1, (me | o).sum())), 2)
     info["silhouetteIoU"] = ious
     for k, v in ious.items():
         if v >= .8: bad.append(f"silhouette too similar to {k} at 32px (IoU {v})")

@@ -1,0 +1,70 @@
+{
+ "hero": "berserker",
+ "heroHeight": 72,
+ "footFromBottom": 10,
+ "actions": {
+  "idle": {
+   "y": 0,
+   "cell": 128,
+   "frames": 4,
+   "frameTime": 0.22
+  },
+  "walk": {
+   "y": 128,
+   "cell": 128,
+   "frames": 6,
+   "frameTime": 0.1
+  },
+  "attack": {
+   "y": 256,
+   "cell": 128,
+   "frames": 8,
+   "frameTime": 0.075,
+   "release": 4,
+   "impact": 5
+  },
+  "skill": {
+   "y": 384,
+   "cell": 160,
+   "frames": 10,
+   "frameTime": 0.08,
+   "release": 4
+  },
+  "hurt": {
+   "y": 544,
+   "cell": 128,
+   "frames": 3,
+   "frameTime": 0.1
+  },
+  "death": {
+   "y": 672,
+   "cell": 160,
+   "frames": 6,
+   "frameTime": 0.12
+  },
+  "victory": {
+   "y": 832,
+   "cell": 128,
+   "frames": 4,
+   "frameTime": 0.15
+  }
+ },
+ "palette": [
+  "#f7e4d0",
+  "#f6b884",
+  "#e59060",
+  "#c9ae94",
+  "#cc7046",
+  "#a15533",
+  "#8e7c6d",
+  "#5a524a",
+  "#b71b0e",
+  "#824428",
+  "#6a351f",
+  "#522c1c",
+  "#3f2115",
+  "#27130d",
+  "#100706",
+  "#040202"
+ ]
+}
