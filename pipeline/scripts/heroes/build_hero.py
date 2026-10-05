@@ -42,11 +42,15 @@ ACTIONS = {
 }
 # 背面 3/4(往右上走):一張 5x2 表 = 待機 4 + 走路 6。(來源檔後綴, 格線, 起始格, 格數, 基準格, 每格秒數)
 BACK = {"idleBack": ("back", (5, 2), 0, 4, 0, .22), "walkBack": ("back", (5, 2), 4, 6, 2, .1)}
+# 魔物(同一套規格,動作少一點):來源檔 output/l0veyou/mon3-<魔物>-<動作>-v1.png。
+# 美術大小跟英雄同一個像素密度:英雄 72 px = 遊戲 21 單位 → 魔物待機最長邊 = ENEMY_SIZE(遊戲單位)× 72/21。
+MON_ACTIONS = {"idle": ((4, 1), 4, 0, .2), "walk": ((6, 1), 6, 0, .1), "attack": ((4, 2), 8, 7, .075), "hurt": ((3, 1), 3, 2, .1), "death": ((3, 2), 6, 0, .12)}
+MON_SIZE = {"slime": 28, "wolf": 31, "golem": 33, "treant": 50}
 # 攻擊/技能的關鍵格(遊戲對時間用):出手、命中
 KEY = {"attack": {"release": 4, "impact": 5}, "skill": {"release": 4}}
 
 
-def cut(path: Path, grid):
+def cut(path: Path, grid, keep_all=False):
     """去背 → 等分格 → 每格主體(含跟主體距離 ≤ 6% 格寬的碎塊)→ (RGBA crop, 主體底在格內的 y)。"""
     im = Image.open(path).convert("RGB")
     rgb, alpha = key_out(im)
@@ -77,7 +81,7 @@ def cut(path: Path, grid):
             sizes = ndimage.sum(np.ones_like(lab), lab, range(1, n + 1))
             main = int(np.argmax(sizes)) + 1
             near = ndimage.binary_dilation(lab == main, iterations=int(cw * .08))
-            keep = np.isin(lab, [i + 1 for i in range(n) if sizes[i] >= 6 and (near & (lab == i + 1)).any()])
+            keep = np.isin(lab, [i + 1 for i in range(n) if sizes[i] >= 6 and (keep_all or (near & (lab == i + 1)).any())])
             ys, xs = np.nonzero(keep)
             if ys.min() == 0 or xs.min() == 0 or ys.max() == a.shape[0] - 1 or xs.max() == a.shape[1] - 1:
                 print(f"  WARN {path.name} cell {r},{c}: subject touches the cell edge")
@@ -127,33 +131,35 @@ def material_groups(hero: str, cols) -> dict:
     return g
 
 
-def build(hero: str):
+def build(hero: str, monster: bool = False):
     OUT.mkdir(parents=True, exist_ok=True)
-    raw = {a: cut(SRC / f"{hero}-{a}-v1.png", g) for a, (g, n, base, fps) in ACTIONS.items()}
-    plan = [(a, g, n, base, fps, raw[a][:n]) for a, (g, n, base, fps) in ACTIONS.items()]
-    if (SRC / f"{hero}-back-v1.png").exists():
+    acts, src = (MON_ACTIONS, f"mon3-{hero}") if monster else (ACTIONS, hero)
+    raw = {a: cut(SRC / f"{src}-{a}-v1.png", g) for a, (g, n, base, fps) in acts.items()}
+    plan = [(a, g, n, base, fps, raw[a][:n]) for a, (g, n, base, fps) in acts.items()]
+    if not monster and (SRC / f"{hero}-back-v1.png").exists():
         braw = cut(SRC / f"{hero}-back-v1.png", (5, 2))
         for a, (_, g, st, n, base, fps) in BACK.items():
             plan.append((a, g, n, base, fps, braw[st:st + n]))
     idle0 = raw["idle"][0][0]
-    s_idle = HERO_H / idle0.height
+    s_idle = HERO_H / idle0.height if not monster else MON_SIZE[hero] * 72 / 21 / max(idle0.size)
     pal = palette([f[0] for f in raw["idle"] if f])
     meta = {"hero": hero, "heroHeight": HERO_H, "footFromBottom": CELL - FOOT_Y, "actions": {}}
     rows, y_off = [], 0
     for act, grid, n, base, fps, fr in plan:
         if any(f is None for f in fr): sys.exit(f"{act}: empty cell")
         # 整張表同一個倍率(模型每張畫的大小不同):用「軀幹欄身高」(軀幹中心 ±12% 寬的欄,舉過頭的武器、伸出去的弓不算)對齊待機
-        s = s_idle * body_h(idle0) / body_h(fr[base][0]) if act != "idle" else s_idle
+        # 魔物(四足、矮胖):用外框最長邊對齊(軀幹欄身高對狼蹲低的格會量小、整列被放大 1.5 倍)
+        s = s_idle * ((max(idle0.size) / max(fr[base][0].size)) if monster else body_h(idle0) / body_h(fr[base][0])) if act != "idle" else s_idle
         # 地面線:同一個格線列(row band)裡最低的腳 —— bottom 是相對該列上緣量的,不同列不能比
         cols_ = grid[0] if act not in BACK else n + 1   # 背面表:待機/走路各自一段,地面線不用分列(腳一律貼地)
         ground = {r: max(b for _, b in fr[r * cols_:(r + 1) * cols_]) for r in range(max(1, len(fr) // cols_ + 1)) if fr[r * cols_:(r + 1) * cols_]}
         # 走路/待機/受擊:腳一律貼地(模型把經過格整隻畫高 5–9px,會變成浮空滑步;身體起伏由腿長自然產生)。跳躍只留給技能/勝利。
-        grounded = act in ("idle", "walk", "hurt", "attack", "idleBack", "walkBack")
+        grounded = act in ("idle", "walk", "hurt", "attack", "idleBack", "walkBack") and not (monster and hero == "slime" and act == "walk")   # 史萊姆走路是跳躍
         pix = [(pixelize(im, s, pal), 0 if grounded else round((ground[i // cols_] - bottom) * s)) for i, (im, bottom) in enumerate(fr)]
         # 格大小:預設 128;這一列有格放不下(跳躍、技能特效、長弓)就整列用 160 —— 錨點(軀幹中心、腳底離格底 10px)不變,不裁切也不位移身體
         def fits(c):
             return all(round(c / 2 - torso_x(p)) >= 2 and round(c / 2 - torso_x(p)) + p.width <= c - 2 and c - (CELL - FOOT_Y) - p.height - lift >= 2 for p, lift in pix)
-        cell = next((c for c in (CELL, 160, 192) if fits(c)), 192)
+        cell = next((c for c in (CELL, 160, 192, 224, 256) if fits(c)), 256)
         rows.append((act, cell, y_off, pix)); meta["actions"][act] = {"y": y_off, "cell": cell, "frames": n, "frameTime": fps, **KEY.get(act, {})}
         y_off += cell
     sheet = Image.new("RGBA", (max(c * len(p) for _, c, _, p in rows), y_off), (0, 0, 0, 0))
@@ -164,14 +170,30 @@ def build(hero: str):
             if x < 2 or y < 2 or x + px.width > cell - 2: print(f"  WARN {act}{i}: does not fit {cell} cell")
             sheet.alpha_composite(px, (i * cell + max(0, x), y0 + max(0, y)))
         if cell != CELL: print(f"  {act}: cell {cell}")
+    # 模組化配件:每格的頭頂錨點(格內座標)= 軀幹中線 ±12% 欄裡最上面一列不透明像素的中心。倒地/技能翻滾這類頭不在上面的格記 null(不戴配件)。
+    if not monster:
+        arr = np.asarray(sheet)
+        for act, cell, y0, pix in rows:
+            heads = []
+            for i in range(len(pix)):
+                f = arr[y0:y0 + cell, i * cell:(i + 1) * cell, 3] > 0
+                lo, hi = int(cell / 2 - .12 * cell), int(cell / 2 + .12 * cell)
+                ys = np.nonzero(f[:, lo:hi].any(1))[0]
+                if not len(ys): heads.append(None); continue
+                top = int(ys.min()); xs = np.nonzero(f[top:top + 4, lo:hi].any(0))[0] + lo
+                foot = cell - (CELL - FOOT_Y); upright = foot - top >= HERO_H * .8   # 頭頂離腳底至少 0.8 身高才算站著
+                heads.append([round(float(xs.mean()), 1), top] if upright and act not in ("death", "skill") else None)
+            meta["actions"][act]["head"] = heads
     meta["palette"] = ["#%02x%02x%02x" % tuple(c) for c in np.asarray(pal.getpalette()[:COLORS * 3]).reshape(-1, 3)]
-    meta["groups"] = material_groups(hero, np.asarray(pal.getpalette()[:COLORS * 3]).reshape(-1, 3))
-    print("  groups:", {k: len(v) for k, v in meta["groups"].items()})
-    sheet.save(OUT / f"{hero}.png", optimize=True)
-    (OUT / f"{hero}.json").write_text(json.dumps(meta, ensure_ascii=False, indent=1), encoding="utf-8")
+    if not monster: meta["groups"] = material_groups(hero, np.asarray(pal.getpalette()[:COLORS * 3]).reshape(-1, 3))
+    else: meta["monster"] = True; meta["size"] = MON_SIZE[hero]; meta["artSize"] = round(max(rows[0][3][0][0].size))
+    if "groups" in meta: print("  groups:", {k: len(v) for k, v in meta["groups"].items()})
+    out = OUT if not monster else ROOT / "assets" / "monsters3"; out.mkdir(parents=True, exist_ok=True)
+    sheet.save(out / f"{hero}.png", optimize=True)
+    (out / f"{hero}.json").write_text(json.dumps(meta, ensure_ascii=False, indent=1), encoding="utf-8")
     print(f"{hero}: {sheet.size}, palette {len(meta['palette'])}, idle scale {s_idle:.3f}")
     fx = SRC / f"{hero}-fx-v1.png"
-    if fx.exists():
+    if fx.exists() and not monster:
         fr = cut(fx, (4, 2)); fpal = palette([f[0] for f in fr if f], 12)
         FX = 64; fsheet = Image.new("RGBA", (FX * len(fr), FX), (0, 0, 0, 0))
         for i, (im, _) in enumerate(fr):
@@ -182,5 +204,20 @@ def build(hero: str):
         print(f"{hero}-fx: {fsheet.size}")
 
 
+def accessories():
+    """頭部配件(模組化 Accessory 槽):acc-head-v1.png 4x2 → assets/heroes/accessories.png(每格 32,美術像素密度跟英雄一樣:寬 ≈ 頭寬)。"""
+    names = ["crown", "laurel", "flowerCrown", "ribbon", "feather", "tiara", "halo", "horns"]
+    fr = cut(SRC / "acc-head-v1.png", (4, 2), keep_all=True); C = 32; sheet = Image.new("RGBA", (C * len(names), C), (0, 0, 0, 0)); meta = {"cell": C, "items": {}}
+    for i, (im, _) in enumerate(fr):
+        s_ = 24 / max(im.size); p = pixelize(im, s_, palette([im], 12))
+        x, y = (C - p.width) // 2, C - 2 - p.height; sheet.alpha_composite(p, (i * C + x, y))
+        meta["items"][names[i]] = {"i": i, "w": p.width, "h": p.height}
+    OUT.mkdir(parents=True, exist_ok=True); sheet.save(OUT / "accessories.png"); (OUT / "accessories.meta").write_text(json.dumps(meta, indent=1), encoding="utf-8")
+    print("accessories:", list(meta["items"]))
+
+
 if __name__ == "__main__":
-    build(sys.argv[1] if len(sys.argv) > 1 else "archer")
+    if len(sys.argv) > 1 and sys.argv[1] == "accessories": accessories(); sys.exit()
+    # python build_hero.py <hero>   或   python build_hero.py monster <slime|wolf|golem|treant>
+    if len(sys.argv) > 2 and sys.argv[1] == "monster": build(sys.argv[2], monster=True)
+    else: build(sys.argv[1] if len(sys.argv) > 1 else "archer")

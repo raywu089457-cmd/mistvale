@@ -1,0 +1,60 @@
+{
+ "hero": "slime",
+ "heroHeight": 72,
+ "footFromBottom": 10,
+ "actions": {
+  "idle": {
+   "y": 0,
+   "cell": 128,
+   "frames": 4,
+   "frameTime": 0.2
+  },
+  "walk": {
+   "y": 128,
+   "cell": 160,
+   "frames": 6,
+   "frameTime": 0.1
+  },
+  "attack": {
+   "y": 288,
+   "cell": 160,
+   "frames": 8,
+   "frameTime": 0.075,
+   "release": 4,
+   "impact": 5
+  },
+  "hurt": {
+   "y": 448,
+   "cell": 128,
+   "frames": 3,
+   "frameTime": 0.1
+  },
+  "death": {
+   "y": 576,
+   "cell": 128,
+   "frames": 6,
+   "frameTime": 0.12
+  }
+ },
+ "palette": [
+  "#f6f197",
+  "#c8d369",
+  "#a9d326",
+  "#81c203",
+  "#82bf03",
+  "#87cb03",
+  "#7fc003",
+  "#7bbc02",
+  "#73b302",
+  "#6bad01",
+  "#61a001",
+  "#5d9901",
+  "#595e05",
+  "#532003",
+  "#631f04",
+  "#271706"
+ ],
+ "monster": true,
+ "size": 28,
+ "artSize": 96
+}

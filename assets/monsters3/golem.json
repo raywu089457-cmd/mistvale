@@ -1,0 +1,60 @@
+{
+ "hero": "golem",
+ "heroHeight": 72,
+ "footFromBottom": 10,
+ "actions": {
+  "idle": {
+   "y": 0,
+   "cell": 160,
+   "frames": 4,
+   "frameTime": 0.2
+  },
+  "walk": {
+   "y": 160,
+   "cell": 160,
+   "frames": 6,
+   "frameTime": 0.1
+  },
+  "attack": {
+   "y": 320,
+   "cell": 224,
+   "frames": 8,
+   "frameTime": 0.075,
+   "release": 4,
+   "impact": 5
+  },
+  "hurt": {
+   "y": 544,
+   "cell": 160,
+   "frames": 3,
+   "frameTime": 0.1
+  },
+  "death": {
+   "y": 704,
+   "cell": 160,
+   "frames": 6,
+   "frameTime": 0.12
+  }
+ },
+ "palette": [
+  "#e4c89e",
+  "#beaf84",
+  "#abae3f",
+  "#b09670",
+  "#a38969",
+  "#968060",
+  "#877356",
+  "#8b9232",
+  "#756549",
+  "#65593d",
+  "#554a34",
+  "#453c29",
+  "#342c1d",
+  "#252014",
+  "#1c190f",
+  "#131009"
+ ],
+ "monster": true,
+ "size": 33,
+ "artSize": 113
+}

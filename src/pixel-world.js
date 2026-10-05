@@ -473,6 +473,14 @@ function ensureHeroSheets(){const A=globalThis.PIXEL_ASSETS?.heroSheets||{};
     const meta=typeof v.meta==='string'?JSON.parse(v.meta):v.meta,im=new Image(),fx=v.fx?new Image():null;
     im.onload=()=>{heroSheets[id]={img:im,meta,fx,fxMeta:v.fxMeta?(typeof v.fxMeta==='string'?JSON.parse(v.fxMeta):v.fxMeta):null};spriteCache.clear();globalThis.dispatchEvent(new CustomEvent('pixel-assets-ready'));};
     im.onerror=()=>loadedAssetKeys.delete('hs:'+id);im.src=v.img;if(fx)fx.src=v.fx;}}
+// 模組化配件槽(Accessory/Head):assets/heroes/accessories.png,依稀有度戴在每格的頭頂錨點(meta.actions[act].head)。
+let heroAcc=null;function ensureHeroAcc(){const v=globalThis.PIXEL_ASSETS?.heroAccessories;if(!v||heroAcc||loadedAssetKeys.has('hacc'))return;loadedAssetKeys.add('hacc');const im=new Image();im.onload=()=>{heroAcc={img:im,meta:v.meta};};im.src=v.img;}
+const ACC_BY_RARITY={rare:['ribbon','feather'],superior:['flowerCrown','tiara'],heroic:['laurel','horns'],legendary:['crown','halo']};
+function heroAccessory(h){const l=ACC_BY_RARITY[h.rarity];return l?l[hash(h.id||'')%l.length]:null;}
+// 新規格魔物 sheet(assets/monsters3,同英雄規格:1:1 像素、16 色、每列一個動作、軀幹中心=格中線、腳底=格底上 10px;密度跟英雄一樣 72 px = 21 單位)
+const monsterSheets={};function ensureMonsterSheets(){const A=globalThis.PIXEL_ASSETS?.monsterSheets||{};
+  for(const [id,v] of Object.entries(A)){if(loadedAssetKeys.has('ms:'+id))continue;loadedAssetKeys.add('ms:'+id);const im=new Image();im.onload=()=>{monsterSheets[id]={img:im,meta:v.meta};};im.src=v.img;}}
+const MON_SHEET=t=>monsterSheets[t==='boss'?'treant':t];
 globalThis.__mistvaleHeroSheets=()=>Object.fromEntries(Object.entries(heroSheets).map(([k,v])=>[k,{w:v.img.width,h:v.img.height,actions:Object.keys(v.meta.actions)}]));
 // 模組化換色(ART_BIBLE「模組化」):每職業 meta.groups = outfit(職業代表色布料)/metal(鎧甲、刀刃)。
 // 每位英雄依 id 挑一個布料色相(5 選 1)→ 同職業不同人;買了鎧甲 → 布料更飽和;買了武器 → 金屬變金色。結果整張 sheet 快取。
@@ -494,7 +502,7 @@ function ensureAtlas() {
   ensureDetailAtlas();
   ensureTerrainAtlas();
   ensurePlazaTile();ensureConceptTextures();
-  ensureHeroAtlas();ensureHeroSheets();
+  ensureHeroAtlas();ensureHeroSheets();ensureHeroAcc();ensureMonsterSheets();
   const assets=globalThis.PIXEL_ASSETS||{};
   // 舊的硬切格圖集載入已由上面的 manifest 圖集取代(列切線原本是猜的)。
 
@@ -1276,7 +1284,12 @@ export function createWorld(canvas,{onSelect=()=>{},onPlace=()=>{},getState=()=>
     cast(f.img,f.sx,f.sy,f.c,f.c,dx,dy,dw,dh,facing<0,true,'char');g.save();g.globalAlpha=alpha;
     if(facing<0){g.translate(dx+dw,dy);g.scale(-1,1);g.drawImage(f.img,f.sx,f.sy,f.c,f.c,0,0,dw,dh);}else g.drawImage(f.img,f.sx,f.sy,f.c,f.c,dx,dy,dw,dh);
     if(pose?.flash>0){g.globalAlpha=alpha*pose.flash*.8;const tc=tinted(f.img,f.sx,f.sy,f.c,f.c,pose.flashColor);if(facing<0)g.drawImage(tc,0,0,f.c,f.c,0,0,dw,dh);else g.drawImage(tc,0,0,f.c,f.c,dx,dy,dw,dh);}
-    g.restore();const hh=heroSheets[h.classId].meta.heroHeight*k;return{x:q.x-hh*.35,y:q.y-hh,w:hh*.7,h:hh};}
+    g.restore();
+    // 配件:頭頂錨點 → 配件底部沉進頭頂 4 美術像素(光環浮在上面 4 px);跟角色同密度、同翻面
+    {const acc=h.id&&heroAcc?heroAccessory(h):null,hd=acc?heroSheets[h.classId].meta.actions[sp.act]?.head?.[Math.max(0,Math.min((heroSheets[h.classId].meta.actions[sp.act].frames||1)-1,sp.i))]:null;
+     if(hd){const it=heroAcc.meta.items[acc],C=heroAcc.meta.cell,hx=facing<0?f.c-hd[0]:hd[0],ax=Math.round(dx+(hx-C/2)*k),ay=Math.round(dy+(hd[1]-C+2+(acc==='halo'?-4:4))*k);
+       g.save();g.globalAlpha=alpha;if(facing<0){g.translate(ax+C*k,ay);g.scale(-1,1);g.drawImage(heroAcc.img,it.i*C,0,C,C,0,0,C*k,C*k);}else g.drawImage(heroAcc.img,it.i*C,0,C,C,ax,ay,C*k,C*k);g.restore();}}
+    const hh=heroSheets[h.classId].meta.heroHeight*k;return{x:q.x-hh*.35,y:q.y-hh,w:hh*.7,h:hh};}
   function drawHunter(h,wanderer){if(!Number.isFinite(h.x)||!Number.isFinite(h.z))return;
     if(heroSheets[h.classId])return drawHunterSheet(h,wanderer);const p=screenPoint(h.x,h.z),old=previousPositions.get(h.id),moving=old&&Math.hypot(h.x-old.x,h.z-old.z)>.005;let facing=old?.facing||1;if(old&&Math.abs(h.x-old.x-(h.z-old.z))>.002)facing=h.x-old.x-(h.z-old.z)>0?1:-1;
     const isSelected=selected===`hunter:${h.id}`;
@@ -1363,6 +1376,19 @@ export function createWorld(canvas,{onSelect=()=>{},onPlace=()=>{},getState=()=>
     if(h.hp<=0){textLabel('✦',p.x,p.y-(top*.4)*scale,{color:'#e7d8ef',back:false});return;}
     const full=(h.hp??1)/(h.maxHp||1);if(full<.99||isSelected||h.status==='戰鬥中')bar(p.x-7*scale,p.y-(top+3)*scale,14*scale,full,full<.35?'#df795c':'#84bf6a');
     if(isSelected)textLabel(`${h.name||'獵人'} Lv.${h.level||1}`,p.x,p.y-(top+11)*scale,{color:RARITIES.find(r=>r.id===h.rarity)?.color||'#ffe19a'});}
+  // 魔物 sheet 繪製:回傳畫面框(點擊/血條用)
+  function drawMonsterSheet(type,p,flip,act,i,alpha=1,pose=null){const ms=MON_SHEET(type),a=ms?.meta.actions[act];if(!a)return null;const f=Math.max(0,Math.min(a.frames-1,i)),c=a.cell,k=21/72*scale,foot=c-ms.meta.footFromBottom;
+    const q=pose?{x:p.x+Math.round((pose.flash?Math.sin((state.time||0)*95)*.8:0)*scale),y:p.y}:p,dw=Math.round(c*k),dx=Math.round(q.x-c/2*k),dy=Math.round(q.y-foot*k);
+    cast(ms.img,f*c,a.y,c,c,dx,dy,dw,dw,flip,true,'char');g.save();g.globalAlpha=alpha;
+    const put=img=>{if(flip){g.save();g.translate(dx+dw,dy);g.scale(-1,1);g.drawImage(img,img===ms.img?f*c:0,img===ms.img?a.y:0,c,c,0,0,dw,dw);g.restore();}else g.drawImage(img,img===ms.img?f*c:0,img===ms.img?a.y:0,c,c,dx,dy,dw,dw);};
+    put(ms.img);if(pose?.flash>0){g.globalAlpha=alpha*pose.flash*.8;put(tinted(ms.img,f*c,a.y,c,c,pose.flashColor));}g.restore();
+    const hh=ms.meta.artSize*k;return{x:q.x-hh/2,y:q.y-hh,w:hh,h:hh};}
+  function monsterSheetPose(e,pose,walking){const m=MON_SHEET(e.type).meta.actions,t=state.time||0;
+    if(pose.pose==='strike')return['attack',4+Math.floor(Math.max(0,pose.atk)/m.attack.frameTime)];
+    if(pose.pose==='windup')return['attack',Math.min(3,Math.floor(pose.k*4))];
+    if(pose.pose==='hurt')return['hurt',Math.floor(Math.max(0,pose.hit)/m.hurt.frameTime)];
+    if(walking)return['walk',Math.floor(elapsed/m.walk.frameTime+hash(e.id))%m.walk.frames];
+    return['idle',Math.floor(elapsed/m.idle.frameTime+hash(e.id))%m.idle.frames];}
   function drawEnemy(e){if(!Number.isFinite(e.x)||!Number.isFinite(e.z)||e.hp<=0)return;const p=screenPoint(e.x,e.z),boss=e.type==='boss',sz=ENEMY_SIZE(e.type),seed=hash(e.id)%97;
     const old=previousPositions.get('enemy:'+e.id),moving=old&&Math.hypot(e.x-old.x,e.z-old.z)>.003,pose=combatPose(e,true,null);
     let flip=old?(e.x-old.x-(e.z-old.z)<-.002?true:e.x-old.x-(e.z-old.z)>.002?false:old.flip):false;
@@ -1389,7 +1415,9 @@ export function createWorld(canvas,{onSelect=()=>{},onPlace=()=>{},getState=()=>
       g.strokeStyle='#ff7a55d0';g.lineWidth=Math.max(1,scale*.7);g.setLineDash([3*scale,2*scale]);g.lineDashOffset=-elapsed*8*scale;g.stroke();g.setLineDash([]);g.restore();}
     contact(p,boss?12:7);
     drawnFacing.set('enemy:'+e.id,{f:flip?-1:1,frame,x:e.x,z:e.z,t:state.time});
-    const rect=posed(p,pose,q=>drawAtlasMonster(e.type,frame,q,sz,flip));
+    let rect;
+    if(MON_SHEET(e.type)){const [act,i]=monsterSheetPose(e,pose,walking);drawnFacing.set('enemy:'+e.id,{f:flip?-1:1,frame,act,i,x:e.x,z:e.z,t:state.time});rect=drawMonsterSheet(e.type,p,flip,act,i,1,pose);}  // 新規格 sheet:動作自帶位移/壓扁,不再疊 posed 變形
+    else rect=posed(p,pose,q=>drawAtlasMonster(e.type,frame,q,sz,flip));
     if(!rect){procUse['enemy:'+e.type]=(procUse['enemy:'+e.type]||0)+1;posed(p,pose,q=>drawSprite(enemySprite(e.type,frame%2),q,sz,sz,2,1,'char'));}
     if(e.hp<e.maxHp||boss||targeted){bar(p.x-(boss?17:10)*scale,p.y-(sz+3)*scale,(boss?34:20)*scale,e.hp/(e.maxHp||1),boss?'#d27967':'#c68764');}}
 
@@ -1434,6 +1462,7 @@ export function createWorld(canvas,{onSelect=()=>{},onPlace=()=>{},getState=()=>
       if(age<.12)fxSprite('fxHit',p.x,cy,(boss?10:7)+age*30,{alpha:.85*(1-age/.12)});sparks(p.x,cy,age,hash(e.id),7,['#ffd0b8','#e8584a']);}
   }
   function drawDeath(e,age,p){const type=e.enemyType||'slime',sz=ENEMY_SIZE(type),s=scale,t=Math.max(0,(age-.1)/.6);
+    if(MON_SHEET(type)){const m=MON_SHEET(type).meta.actions.death,i=Math.floor(age/m.frameTime),fade=age<1.1?1:Math.max(0,1-(age-1.1)/.5);if(fade>0)drawMonsterSheet(type,p,!!e.flipHint,'death',i,fade,{flash:age<.1?1:0,flashColor:'#ffffff'});return;}
     // 倒下:先第二受擊格(8)一下,再倒地屍體圖(9)躺著淡出;朝向沿用受擊時(面向打倒牠的獵人)。沒有 8/9 格才退回壓扁受擊圖。
     if(detailFrameFor(type+'9')){const fade=age<1.1?1:Math.max(0,1-(age-1.1)/.5),pose={pose:'hurt',ox:0,oy:0,lean:0,sx:1,sy:1,flash:age<.12?1:0,flashColor:'#ffffff'};
       if(fade>0)posed(p,pose,q=>drawAtlasMonster(type,age<.18?8:9,q,sz,!!e.flipHint,fade));}

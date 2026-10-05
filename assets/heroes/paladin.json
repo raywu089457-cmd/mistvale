@@ -7,13 +7,57 @@
    "y": 0,
    "cell": 128,
    "frames": 4,
-   "frameTime": 0.22
+   "frameTime": 0.22,
+   "head": [
+    [
+     65.5,
+     46
+    ],
+    [
+     66.0,
+     44
+    ],
+    [
+     68.5,
+     47
+    ],
+    [
+     67.0,
+     47
+    ]
+   ]
   },
   "walk": {
    "y": 128,
    "cell": 128,
    "frames": 6,
-   "frameTime": 0.1
+   "frameTime": 0.1,
+   "head": [
+    [
+     68.0,
+     46
+    ],
+    [
+     69.0,
+     51
+    ],
+    [
+     68.0,
+     46
+    ],
+    [
+     67.0,
+     46
+    ],
+    [
+     69.0,
+     51
+    ],
+    [
+     67.5,
+     46
+    ]
+   ]
   },
   "attack": {
    "y": 256,
@@ -21,44 +65,174 @@
    "frames": 8,
    "frameTime": 0.075,
    "release": 4,
-   "impact": 5
+   "impact": 5,
+   "head": [
+    [
+     77.0,
+     77
+    ],
+    [
+     67.5,
+     65
+    ],
+    [
+     77.5,
+     80
+    ],
+    [
+     89.5,
+     83
+    ],
+    [
+     84.0,
+     81
+    ],
+    [
+     88.0,
+     85
+    ],
+    [
+     80.0,
+     80
+    ],
+    [
+     86.5,
+     79
+    ]
+   ]
   },
   "skill": {
    "y": 416,
    "cell": 160,
    "frames": 10,
    "frameTime": 0.08,
-   "release": 4
+   "release": 4,
+   "head": [
+    null,
+    null,
+    null,
+    null,
+    null,
+    null,
+    null,
+    null,
+    null,
+    null
+   ]
   },
   "hurt": {
    "y": 576,
    "cell": 128,
    "frames": 3,
-   "frameTime": 0.1
+   "frameTime": 0.1,
+   "head": [
+    [
+     59.0,
+     46
+    ],
+    [
+     58.0,
+     46
+    ],
+    [
+     66.0,
+     46
+    ]
+   ]
   },
   "death": {
    "y": 704,
    "cell": 128,
    "frames": 6,
-   "frameTime": 0.12
+   "frameTime": 0.12,
+   "head": [
+    null,
+    null,
+    null,
+    null,
+    null,
+    null
+   ]
   },
   "victory": {
    "y": 832,
    "cell": 128,
    "frames": 4,
-   "frameTime": 0.15
+   "frameTime": 0.15,
+   "head": [
+    [
+     66.0,
+     44
+    ],
+    [
+     67.0,
+     47
+    ],
+    [
+     75.0,
+     35
+    ],
+    [
+     65.0,
+     46
+    ]
+   ]
   },
   "idleBack": {
    "y": 960,
    "cell": 128,
    "frames": 4,
-   "frameTime": 0.22
+   "frameTime": 0.22,
+   "head": [
+    [
+     68.0,
+     46
+    ],
+    [
+     68.0,
+     45
+    ],
+    [
+     70.0,
+     44
+    ],
+    [
+     68.0,
+     46
+    ]
+   ]
   },
   "walkBack": {
    "y": 1088,
    "cell": 128,
    "frames": 6,
-   "frameTime": 0.1
+   "frameTime": 0.1,
+   "head": [
+    [
+     68.0,
+     42
+    ],
+    [
+     68.0,
+     53
+    ],
+    [
+     68.0,
+     46
+    ],
+    [
+     68.5,
+     48
+    ],
+    [
+     68.5,
+     53
+    ],
+    [
+     68.0,
+     47
+    ]
+   ]
   }
  },
  "palette": [

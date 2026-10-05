@@ -12,6 +12,7 @@ from scipy import ndimage
 
 ROOT = Path(__file__).resolve().parents[3]
 H = ROOT / "assets" / "heroes"
+M = ROOT / "assets" / "monsters3"
 SPEC = {"idle": (4, 6), "walk": (4, 6), "attack": (6, 10), "skill": (8, 16), "hurt": (2, 4), "death": (5, 8), "victory": (4, 8)}
 STANDING = ("idle", "walk", "hurt", "idleBack", "walkBack")   # 勝利:舉弓過頭、跳起來是姿勢本身,不算比例改變
 
@@ -26,12 +27,16 @@ def body_h(f, cx):
     return int(ys.max() - ys.min() + 1) if len(ys) else 0
 
 
-def audit(hero):
-    meta = json.loads((H / f"{hero}.json").read_text(encoding="utf-8"))
-    img = np.asarray(Image.open(H / f"{hero}.png").convert("RGBA"))
+MON_SPEC = {"idle": (4, 6), "walk": (4, 6), "attack": (6, 10), "hurt": (2, 4), "death": (5, 8)}
+
+
+def audit(hero, d=H):
+    meta = json.loads((d / f"{hero}.json").read_text(encoding="utf-8"))
+    img = np.asarray(Image.open(d / f"{hero}.png").convert("RGBA"))
+    mon = bool(meta.get("monster"))
     bad, info = [], {}
     # 1. 動作格數
-    for a, (lo, hi) in SPEC.items():
+    for a, (lo, hi) in (MON_SPEC if mon else SPEC).items():
         n = meta["actions"].get(a, {}).get("frames", 0)
         if not lo <= n <= hi: bad.append(f"{a}: {n} frames (spec {lo}-{hi})")
     # 2. 1:1 像素、無半透明(no anti-aliasing / blur)
@@ -46,6 +51,18 @@ def audit(hero):
             m = f[..., 3] > 0
             if not m.any(): bad.append(f"{name}{i}: empty"); continue
             if m[:2].any() or m[-2:].any() or m[:, :2].any() or m[:, -2:].any(): bad.append(f"{name}{i}: touches cell edge")
+    if mon:   # 魔物:對齊(腳底)、尺寸(美術最長邊 = 遊戲大小 × 72/21 ±10%)、描邊、材質層級;不比剪影/身高
+        idle = meta["actions"]["idle"]; f0 = frames(img, idle)[0]; ys, xs = np.nonzero(f0[..., 3] > 0); size = max(np.ptp(xs), np.ptp(ys)) + 1
+        want = meta["size"] * 72 / 21; info["size"] = int(size)
+        if abs(size / want - 1) > .1: bad.append(f"art size {size} vs {want:.0f}")
+        for name in ("idle", "attack", "hurt"):
+            a = meta["actions"][name]
+            for i, f in enumerate(frames(img, a)):
+                yy = np.nonzero((f[..., 3] > 0).any(1))[0]; foot = a["cell"] - meta["footFromBottom"]
+                if abs(yy.max() + 1 - foot) > 3: bad.append(f"{name}{i}: foot at {yy.max() + 1}, expected {foot}")
+        m = f0[..., 3] > 0; edge = m & ~ndimage.binary_erosion(m); lum = (0.299 * f0[..., 0] + 0.587 * f0[..., 1] + 0.114 * f0[..., 2])[edge]; info["outline"] = round(float((lum < 95).mean()), 2)
+        if info["outline"] < .55: bad.append(f"outline dark ratio {info['outline']}")
+        return bad, info
     # 5. 角色高 64–90(待機第 1 格,軀幹欄)、站姿類各格 ±12%
     idle = meta["actions"]["idle"]; c = idle["cell"]
     base = body_h(frames(img, idle)[0], c / 2); info["height"] = base
@@ -69,6 +86,30 @@ def audit(hero):
     # 模組化:至少要有一組可換色材質(outfit)
     if not meta.get("groups", {}).get("outfit"): bad.append("no swappable outfit color group")
     info["groups"] = {k: len(v) for k, v in meta.get("groups", {}).items()}
+    # 9. 材質明暗層級(規格:每個主要材質 Dark/Mid/Light 3 層)。材質靠「位置」分:待機第 1 格裡,顏色屬於同一色族(色相 ±25°、飽和度 ±0.22,
+    #    近灰另一族、描邊除外)且相連的區塊 = 一塊材質(頭髮、皮膚、皮革、布…)。佔身體 ≥3% 的區塊,裡面的顏色數要 2–5
+    #    (1 = 平塗沒有立體;>5 = 漸層化/雜訊)。
+    import colorsys
+    f0 = frames(img, meta["actions"]["idle"])[0]; body = f0[..., 3] > 0
+    cols_ = np.unique(f0[body][:, :3], axis=0); fam = {}; reps = []
+    for c in cols_:
+        h, l, s_ = colorsys.rgb_to_hls(*(c / 255))
+        if l < .14: continue
+        for k, (hh, ss, gray) in enumerate(reps):
+            if (gray and s_ < .15) or (not gray and s_ >= .15 and min(abs(h - hh), 1 - abs(h - hh)) < 25 / 360 and abs(s_ - ss) < .22): fam[tuple(c)] = k; break
+        else: fam[tuple(c)] = len(reps); reps.append((h, s_, s_ < .15))
+    famimg = np.full(body.shape, -1)
+    for c, k in fam.items(): famimg[np.all(f0[..., :3] == np.array(c), -1) & body] = k
+    shades = []
+    for k in range(len(reps)):
+        lab, n = ndimage.label(famimg == k)
+        for r in range(1, n + 1):
+            reg = lab == r
+            if reg.sum() < .03 * body.sum(): continue
+            shades.append(len(np.unique(f0[reg][:, :3], axis=0)))
+    # 只回報不判:16 色整隻共用,頭髮/皮膚/皮革同色族又相連時會被算成同一塊(實測 8–9 色其實是 3 材質 × 3 層),
+    # 沒有逐像素材質標記就無法可靠判定。硬性門檻用「整隻 ≤16 色」(第 3 項)。
+    info["materialShades"] = shades
     # 7. 描邊:剪影外圈暗色比例 ≥ 0.55(待機格)
     f = frames(img, idle)[0]; m = f[..., 3] > 0; edge = m & ~ndimage.binary_erosion(m)
     lum = (0.299 * f[..., 0] + 0.587 * f[..., 1] + 0.114 * f[..., 2])[edge]; info["outline"] = round(float((lum < 95).mean()), 2)
@@ -96,10 +137,10 @@ def audit(hero):
 
 
 if __name__ == "__main__":
-    heroes = sys.argv[1:] or [p.stem for p in H.glob("*.json") if not p.stem.endswith("-fx")]
+    heroes = sys.argv[1:] or [p.stem for p in H.glob("*.json") if not p.stem.endswith("-fx")] + [f"monster:{p.stem}" for p in M.glob("*.json")]
     fail = 0
     for h in heroes:
-        bad, info = audit(h)
+        bad, info = audit(h.split(":")[1], M) if h.startswith("monster:") else audit(h)
         print(f"{h}: {'PASS' if not bad else 'FAIL'} {info}")
         for b in bad: print("  " + b)
         fail += len(bad)

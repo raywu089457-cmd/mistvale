@@ -59,7 +59,11 @@ for(const [tag,file,js] of [['heroAtlas','hero@1x.png',false],['heroManifest','h
  const sheets={};for(const f of files.filter(f=>f.endsWith('.json')&&!f.endsWith('-fx.json'))){const id=f.slice(0,-5);
   const img=await fs.readFile(path.join(dir,id+'.png')),meta=await fs.readFile(path.join(dir,f),'utf8');sheets[id]={img:'data:image/png;base64,'+img.toString('base64'),meta:JSON.parse(meta)};
   try{sheets[id].fx='data:image/png;base64,'+(await fs.readFile(path.join(dir,id+'-fx.png'))).toString('base64');sheets[id].fxMeta=JSON.parse(await fs.readFile(path.join(dir,id+'-fx.json'),'utf8'));}catch{}}
- assetScript+=`window.PIXEL_ASSETS=window.PIXEL_ASSETS||{};window.PIXEL_ASSETS.heroSheets=${JSON.stringify(sheets)};`;}
+ assetScript+=`window.PIXEL_ASSETS=window.PIXEL_ASSETS||{};window.PIXEL_ASSETS.heroSheets=${JSON.stringify(sheets)};`;
+ try{assetScript+=`window.PIXEL_ASSETS.heroAccessories=${JSON.stringify({img:'data:image/png;base64,'+(await fs.readFile(path.join(dir,'accessories.png'))).toString('base64'),meta:JSON.parse(await fs.readFile(path.join(dir,'accessories.meta'),'utf8'))})};`;}catch{}
+ // 新規格魔物(assets/monsters3/<魔物>.png/.json)
+ {const md=path.join(root,'assets/monsters3');let mf=[];try{mf=await fs.readdir(md);}catch{}const ms={};for(const f of mf.filter(f=>f.endsWith('.json'))){const id=f.slice(0,-5);ms[id]={img:'data:image/png;base64,'+(await fs.readFile(path.join(md,id+'.png'))).toString('base64'),meta:JSON.parse(await fs.readFile(path.join(md,f),'utf8'))};}
+  assetScript+=`window.PIXEL_ASSETS.monsterSheets=${JSON.stringify(ms)};`;}}
 html=html.replace('/*__STYLE__*/',()=>css).replace('/*__ASSETS__*/',()=>assetScript).replace('/*__SCRIPT__*/',()=>ui.outputFiles[0].text.replaceAll('</script','<\\/script'));
 for (const block of html.matchAll(/<script>([\s\S]*?)<\/script>/g)) new vm.Script(block[1]);
 const file=path.join(out,'暮影村.html');await fs.writeFile(file,html,'utf8');console.log('Built '+file+' ('+(Buffer.byteLength(html)/1024/1024).toFixed(2)+' MB)');
