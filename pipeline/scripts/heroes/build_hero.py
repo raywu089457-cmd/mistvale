@@ -43,10 +43,9 @@ ACTIONS = {
 # 背面 3/4(往右上走):一張 5x2 表 = 待機 4 + 走路 6。(來源檔後綴, 格線, 起始格, 格數, 基準格, 每格秒數)
 # 四方向(上下左右):右 = 側面動作列;下 = 正面(面向鏡頭)、上 = 正背面,各一張 5x2(待機 4 + 走路 6,來源 dir-<名>-down/up);
 # 左 = 右的鏡像,直接烘成 idleLeft/walkLeft 列(素材本身就有四個方向)。(來源後綴, 格線, 起始格, 格數, 基準格, 每格秒數)
-# 四個斜角方向(等角):右下 = 動作名本身(3/4 正面)、右上 = <動作>Up(3/4 背面),來源 d4-<名>-<動作>-<dr|ur>-v1.png;
-# 左下 <動作>Left、左上 <動作>UpLeft = 右邊同一格整格鏡像(烘進 sheet)。
-BACK = {}
-LEFT = None   # 每個動作(含 Up)都鏡像一份左向
+BACK = {"idleDown": ("down", (5, 2), 0, 4, 0, .22), "walkDown": ("down", (5, 2), 4, 6, 2, .1),
+        "idleUp": ("up", (5, 2), 0, 4, 0, .22), "walkUp": ("up", (5, 2), 4, 6, 2, .1)}
+LEFT = ("idle", "walk")
 # 魔物(同一套規格,動作少一點):來源檔 output/l0veyou/mon3-<魔物>-<動作>-v1.png。
 # 美術大小跟英雄同一個像素密度:英雄 72 px = 遊戲 21 單位 → 魔物待機最長邊 = ENEMY_SIZE(遊戲單位)× 72/21。
 MON_ACTIONS = {"idle": ((4, 1), 4, 0, .2), "walk": ((6, 1), 6, 0, .1), "attack": ((4, 2), 8, 7, .075), "hurt": ((3, 1), 3, 2, .1), "death": ((3, 2), 6, 0, .12)}
@@ -138,10 +137,9 @@ def material_groups(hero: str, cols) -> dict:
 
 def build(hero: str, monster: bool = False):
     OUT.mkdir(parents=True, exist_ok=True)
-    acts = MON_ACTIONS if monster else ACTIONS
-    raw = {a: cut(SRC / f"d4-{hero}-{a}-dr-v1.png", g) for a, (g, n, base, fps) in acts.items()}
+    acts, src = (MON_ACTIONS, f"mon3-{hero}") if monster else (ACTIONS, hero)
+    raw = {a: cut(SRC / f"{src}-{a}-v1.png", g) for a, (g, n, base, fps) in acts.items()}
     plan = [(a, g, n, base, fps, raw[a][:n]) for a, (g, n, base, fps) in acts.items()]
-    plan += [(a + "Up", g, n, base, fps, cut(SRC / f"d4-{hero}-{a}-ur-v1.png", g)[:n]) for a, (g, n, base, fps) in acts.items()]
     dcache = {}
     for a, (d, g, st, n, base, fps) in BACK.items():
         f = SRC / f"dir-{hero}-{d}-v1.png"
@@ -158,33 +156,22 @@ def build(hero: str, monster: bool = False):
         # 整張表同一個倍率(模型每張畫的大小不同):用「軀幹欄身高」(軀幹中心 ±12% 寬的欄,舉過頭的武器、伸出去的弓不算)對齊待機
         # 魔物(四足、矮胖):用外框最長邊對齊(軀幹欄身高對狼蹲低的格會量小、整列被放大 1.5 倍)
         # 正/背面的魔物用高度對齊(正面的狼比側面窄,最長邊會量小)
-        s = s_idle * ((max(idle0.size) / max(fr[base][0].size)) if monster else body_h(idle0) / body_h(fr[base][0])) if act != "idle" else s_idle
+        s = s_idle * ((idle0.height / fr[base][0].height if act in BACK else max(idle0.size) / max(fr[base][0].size)) if monster else body_h(idle0) / body_h(fr[base][0])) if act != "idle" else s_idle
         # 地面線:同一個格線列(row band)裡最低的腳 —— bottom 是相對該列上緣量的,不同列不能比
         cols_ = grid[0] if act not in BACK else n + 1   # 背面表:待機/走路各自一段,地面線不用分列(腳一律貼地)
         ground = {r: max(b for _, b in fr[r * cols_:(r + 1) * cols_]) for r in range(max(1, len(fr) // cols_ + 1)) if fr[r * cols_:(r + 1) * cols_]}
         # 走路/待機/受擊:腳一律貼地(模型把經過格整隻畫高 5–9px,會變成浮空滑步;身體起伏由腿長自然產生)。跳躍只留給技能/勝利。
-        base_act = act[:-2] if act.endswith("Up") else act
-        grounded = base_act in ("idle", "walk", "hurt", "attack") and not (monster and hero == "slime" and base_act == "walk")   # 史萊姆走路是跳躍
-        # 走路:模型常把「踩低」那兩格整隻畫小 12–15%(不是蹲低,是縮小)→ 跟整列中位數差超過 8% 的格單獨縮放回中位數高(英雄才做;魔物走路姿勢本來就會變矮)
-        fs = [s] * len(fr)
-        if base_act == "walk" and not monster:
-            bh = float(np.median([body_h(im) for im, _ in fr]))   # 中位數當基準(基準格自己也可能畫歪)
-            fs = [s * (bh / body_h(im) if abs(body_h(im) / bh - 1) > .08 else 1) for im, _ in fr]
-        pix = [(pixelize(im, fs[i], pal), 0 if grounded else round((ground[i // cols_] - bottom) * fs[i])) for i, (im, bottom) in enumerate(fr)]
-        if base_act == "walk" and not monster:   # 原圖量的軀幹欄會被弓/斗篷干擾 → 縮完再用跟 audit 一樣的量法(軀幹中心 ±10 px)校一次
-            def h10(p):
-                m = np.asarray(p)[..., 3] > 0; c = int(round(torso_x(p))); ys = np.nonzero(m[:, max(0, c - 10):c + 10].any(1))[0]; return len(ys) and ys.max() - ys.min() + 1
-            hs = [h10(p) for p, _ in pix]; med = float(np.median(hs))
-            pix = [(pixelize(im, fs[i] * med / hs[i], pal), 0) if abs(hs[i] / med - 1) > .06 else pix[i] for i, (im, _) in enumerate(fr)]
+        grounded = act in ("idle", "walk", "hurt", "attack", *BACK) and not (monster and hero == "slime" and act.startswith("walk"))   # 史萊姆走路是跳躍
+        pix = [(pixelize(im, s, pal), 0 if grounded else round((ground[i // cols_] - bottom) * s)) for i, (im, bottom) in enumerate(fr)]
         # 格大小:預設 128;這一列有格放不下(跳躍、技能特效、長弓)就整列用 160 —— 錨點(軀幹中心、腳底離格底 10px)不變,不裁切也不位移身體
         def fits(c):
             return all(round(c / 2 - torso_x(p)) >= 2 and round(c / 2 - torso_x(p)) + p.width <= c - 2 and c - (CELL - FOOT_Y) - p.height - lift >= 2 for p, lift in pix)
-        cell = next((c for c in (CELL, 160, 192, 224, 256, 288, 320, 384) if fits(c)), 384)
+        cell = next((c for c in (CELL, 160, 192, 224, 256) if fits(c)), 256)
         rows.append((act, cell, y_off, pix)); meta["actions"][act] = {"y": y_off, "cell": cell, "frames": n, "frameTime": fps, **KEY.get(act, {})}
         y_off += cell
-    # 左下 / 左上:每個右向動作列(含 Up)整格鏡像(以格中線為軸,軀幹錨點不動)
+    # 左:側面待機/走路的鏡像列(以格中線為軸,軀幹錨點不動)
     left_rows = []
-    for act in [r[0] for r in rows]:
+    for act in LEFT:
         a0 = next(r for r in rows if r[0] == act); _, cell, y_src, pix = a0
         left_rows.append((act, cell, y_src, y_off, len(pix)))
         meta["actions"][act + "Left"] = {**meta["actions"][act], "y": y_off}; y_off += cell
@@ -211,9 +198,9 @@ def build(hero: str, monster: bool = False):
                 if not len(ys): heads.append(None); continue
                 top = int(ys.min()); xs = np.nonzero(f[top:top + 4, lo:hi].any(0))[0] + lo
                 foot = cell - (CELL - FOOT_Y); upright = foot - top >= HERO_H * .8   # 頭頂離腳底至少 0.8 身高才算站著
-                heads.append([round(float(xs.mean()), 1), top] if upright and not act.startswith(("death", "skill")) else None)
+                heads.append([round(float(xs.mean()), 1), top] if upright and act not in ("death", "skill") else None)
             meta["actions"][act]["head"] = heads
-            if act + "Left" in meta["actions"]:   # 左向列是整格鏡像 → 錨點 x 也鏡像
+            if act in LEFT:   # 左向列是整格鏡像 → 錨點 x 也鏡像
                 meta["actions"][act + "Left"]["head"] = [[round(cell - h[0], 1), h[1]] if h else None for h in heads]
     meta["palette"] = ["#%02x%02x%02x" % tuple(c) for c in np.asarray(pal.getpalette()[:COLORS * 3]).reshape(-1, 3)]
     if not monster: meta["groups"] = material_groups(hero, np.asarray(pal.getpalette()[:COLORS * 3]).reshape(-1, 3))

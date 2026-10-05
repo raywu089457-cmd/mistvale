@@ -17,134 +17,78 @@
   },
   "attack": {
    "y": 416,
-   "cell": 224,
+   "cell": 256,
    "frames": 8,
    "frameTime": 0.075,
    "release": 4,
    "impact": 5
   },
   "hurt": {
-   "y": 640,
-   "cell": 224,
+   "y": 672,
+   "cell": 192,
    "frames": 3,
    "frameTime": 0.1
   },
   "death": {
    "y": 864,
-   "cell": 224,
+   "cell": 192,
    "frames": 6,
    "frameTime": 0.12
   },
-  "idleUp": {
-   "y": 1088,
-   "cell": 224,
+  "idleDown": {
+   "y": 1056,
+   "cell": 192,
    "frames": 4,
-   "frameTime": 0.2
+   "frameTime": 0.22
   },
-  "walkUp": {
-   "y": 1312,
+  "walkDown": {
+   "y": 1248,
    "cell": 192,
    "frames": 6,
    "frameTime": 0.1
   },
-  "attackUp": {
-   "y": 1504,
-   "cell": 384,
-   "frames": 8,
-   "frameTime": 0.075
+  "idleUp": {
+   "y": 1440,
+   "cell": 192,
+   "frames": 4,
+   "frameTime": 0.22
   },
-  "hurtUp": {
-   "y": 1888,
-   "cell": 224,
-   "frames": 3,
+  "walkUp": {
+   "y": 1632,
+   "cell": 192,
+   "frames": 6,
    "frameTime": 0.1
   },
-  "deathUp": {
-   "y": 2112,
-   "cell": 224,
-   "frames": 6,
-   "frameTime": 0.12
-  },
   "idleLeft": {
-   "y": 2336,
+   "y": 1824,
    "cell": 224,
    "frames": 4,
    "frameTime": 0.2
   },
   "walkLeft": {
-   "y": 2560,
+   "y": 2048,
    "cell": 192,
    "frames": 6,
    "frameTime": 0.1
-  },
-  "attackLeft": {
-   "y": 2752,
-   "cell": 224,
-   "frames": 8,
-   "frameTime": 0.075,
-   "release": 4,
-   "impact": 5
-  },
-  "hurtLeft": {
-   "y": 2976,
-   "cell": 224,
-   "frames": 3,
-   "frameTime": 0.1
-  },
-  "deathLeft": {
-   "y": 3200,
-   "cell": 224,
-   "frames": 6,
-   "frameTime": 0.12
-  },
-  "idleUpLeft": {
-   "y": 3424,
-   "cell": 224,
-   "frames": 4,
-   "frameTime": 0.2
-  },
-  "walkUpLeft": {
-   "y": 3648,
-   "cell": 192,
-   "frames": 6,
-   "frameTime": 0.1
-  },
-  "attackUpLeft": {
-   "y": 3840,
-   "cell": 384,
-   "frames": 8,
-   "frameTime": 0.075
-  },
-  "hurtUpLeft": {
-   "y": 4224,
-   "cell": 224,
-   "frames": 3,
-   "frameTime": 0.1
-  },
-  "deathUpLeft": {
-   "y": 4448,
-   "cell": 224,
-   "frames": 6,
-   "frameTime": 0.12
   }
  },
  "palette": [
-  "#f8c582",
-  "#de8c4b",
-  "#c67439",
-  "#b1b509",
-  "#b0622e",
-  "#a05125",
-  "#8d4921",
-  "#73890d",
-  "#7e3f1d",
-  "#70381a",
-  "#633117",
-  "#542a14",
-  "#432310",
-  "#4a5b11",
-  "#31180d",
-  "#1b0c07"
+  "#f7c686",
+  "#db8e4e",
+  "#c3763a",
+  "#aab308",
+  "#ac632d",
+  "#9b5223",
+  "#88481f",
+  "#6c860e",
+  "#773e1a",
+  "#683617",
+  "#5b2f15",
+  "#4e2912",
+  "#3f2310",
+  "#435812",
+  "#301a0c",
+  "#221209"
  ],
  "monster": true,
  "size": 50,
