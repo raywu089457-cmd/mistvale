@@ -1,7 +1,7 @@
 # 暮影村 英雄 Sprite 美術規範(Art Bible)
 
 來源:使用者 2026-10-05 的美術總監規格(Cute modern pixel RPG + mobile idle RPG,參考 EHT / Crusaders Quest / KOF AFK / Guardian Tales / Seven Knights Idle 的設計原理,不複製任何作品)。
-決策:**B**(英雄 64–90 px 美術、遊戲裡畫大約 2 倍)、**先做弓箭手(Archer)試點**、**技能是真的遊戲機制**。
+決策:英雄 64–90 px 美術(sheet 規格);**遊戲裡維持原本角色大小(待機身高 21 邏輯單位)**(2026-10-05 使用者看過試點後改回,原本選 B 畫 2 倍)、**先做弓箭手(Archer)試點**、**技能是真的遊戲機制**。
 
 核心:SILHOUETTE > DETAIL · READABILITY > COMPLEXITY · CONSISTENCY > INDIVIDUAL DETAIL · ANIMATION > STATIC BEAUTY · MASS PRODUCTION > ONE-OFF ART
 
@@ -36,10 +36,9 @@ Berserker 巨大雙手武器+寬肩 · Priest 聖杖+長袍+光 · Necromancer �
 每個英雄 = Base Character(固定頭身與骨架姿勢)+ 頭/髮/臉/身體/鎧甲/披風/武器/盾/飾品/特效。
 生圖時第一張「設計表」(idle 4 格)當之後每個動作表的 REF;同一職業的所有動作表共用同一份色盤(從設計表取 16 色)。
 
-## 遊戲內尺寸(決策 B)
+## 遊戲內尺寸
 
-美術像素密度跟建築/地面一致:0.62 邏輯單位/美術像素 → 64 px 高的英雄畫 ≈ 40 邏輯單位(舊英雄 21)。
-128 格 = 79 邏輯單位。腳底基準 = 格內 y=118(底下留 10 px 給影子/揚塵),軀幹中心 x = 64。
+遊戲裡待機身高 = 21 邏輯單位(跟舊英雄一樣),72 px 的英雄 → 1 美術像素 ≈ 0.29 邏輯單位(比建築細,這是使用者選的取捨)。腳底基準 = 格內 y=118(底下留 10 px 給影子/揚塵),軀幹中心 x = 64。
 
 ## 動畫時間(遊戲用)
 

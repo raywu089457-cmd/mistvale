@@ -463,8 +463,9 @@ function ensureAtlasManifest(){
   }
 }
 // ── 新規格英雄 sprite sheet(pipeline/ART_BIBLE.md;assets/heroes/<id>.png + .json,build.mjs 嵌成 PIXEL_ASSETS.heroSheets)──
-// 每列一個動作、每格 128(技能 160)、1:1 像素、軀幹中心 = 格中線、腳底 = 格底往上 10px。遊戲裡 1 美術像素 = HERO_ART 邏輯單位。
-const heroSheets={},HERO_ART=.62;
+// 每列一個動作、每格 128(技能 160)、1:1 像素、軀幹中心 = 格中線、腳底 = 格底往上 10px。遊戲裡待機身高 = HERO_H(21)邏輯單位。
+const heroSheets={},HERO_H=21;  // 使用者決定:新規格英雄在遊戲裡維持原本角色大小(待機身高 21 邏輯單位,跟舊英雄一樣)
+const heroArt=id=>HERO_H/(heroSheets[id]?.meta.heroHeight||72);  // 1 美術像素 = 幾個邏輯單位
 function ensureHeroSheets(){const A=globalThis.PIXEL_ASSETS?.heroSheets||{};
   for(const [id,v] of Object.entries(A)){if(loadedAssetKeys.has('hs:'+id))continue;loadedAssetKeys.add('hs:'+id);
     const meta=typeof v.meta==='string'?JSON.parse(v.meta):v.meta,im=new Image(),fx=v.fx?new Image():null;
@@ -1251,7 +1252,7 @@ export function createWorld(canvas,{onSelect=()=>{},onPlace=()=>{},getState=()=>
     if(walking)return{act:'walk',i:Math.floor(elapsed/m.walk.frameTime+hash(h.id))%m.walk.frames,pose:'walk'+(1+Math.floor(elapsed/m.walk.frameTime+hash(h.id))%m.walk.frames)};
     if(cheering)return{act:'victory',i:Math.floor((t-(heroMemo.get(h.id).cheer-.9))/m.victory.frameTime),pose:'victory'};
     return{act:'idle',i:Math.floor(elapsed/m.idle.frameTime+hash(h.id))%m.idle.frames,pose:'idle'};}
-  function drawSheetHero(h,p,facing,sp,alpha=1,pose=null){const f=sheetFrame(h.classId,sp.act,sp.i);if(!f)return null;const k=HERO_ART*scale,dw=Math.round(f.c*k),dh=dw;
+  function drawSheetHero(h,p,facing,sp,alpha=1,pose=null){const f=sheetFrame(h.classId,sp.act,sp.i);if(!f)return null;const k=heroArt(h.classId)*scale,dw=Math.round(f.c*k),dh=dw;
     const q=pose?{x:p.x+Math.round((pose.flash?Math.sin((state.time||0)*95)*.8:0)*scale),y:p.y}:p,dx=Math.round(q.x-f.c/2*k),dy=Math.round(q.y-f.foot*k);
     cast(f.img,f.sx,f.sy,f.c,f.c,dx,dy,dw,dh,facing<0,true,'char');g.save();g.globalAlpha=alpha;
     if(facing<0){g.translate(dx+dw,dy);g.scale(-1,1);g.drawImage(f.img,f.sx,f.sy,f.c,f.c,0,0,dw,dh);}else g.drawImage(f.img,f.sx,f.sy,f.c,f.c,dx,dy,dw,dh);
@@ -1326,7 +1327,7 @@ export function createWorld(canvas,{onSelect=()=>{},onPlace=()=>{},getState=()=>
   const ENEMY_SIZE=type=>type==='boss'?50:(type==='golem'?33:type==='wolf'?31:28)*CHAR_SCALE;
   function drawHunterSheet(h,wanderer){const p=screenPoint(h.x,h.z),old=previousPositions.get(h.id),moving=old&&Math.hypot(h.x-old.x,h.z-old.z)>.005;let facing=old?.facing||1;
     if(old&&Math.abs(h.x-old.x-(h.z-old.z))>.002)facing=h.x-old.x-(h.z-old.z)>0?1:-1;
-    const isSelected=selected===`hunter:${h.id}`,top=heroSheets[h.classId].meta.heroHeight*HERO_ART;contact(p,7);if(isSelected)ring(p,11,'#fff1b0');if(wanderer)ring(p,9,'#7fc4ff');
+    const isSelected=selected===`hunter:${h.id}`,top=HERO_H;contact(p,5);if(isSelected)ring(p,8,'#fff1b0');if(wanderer)ring(p,6,'#7fc4ff');
     const target=h.status==='戰鬥中'&&h.targetId?(state.enemies||[]).find(e=>e.id===h.targetId&&e.hp>0):null,pose=h.hp>0?combatPose(h,false,target):{pose:'idle',face:0,flash:0,hit:-1};
     if(pose.face)facing=pose.face>0?1:-1;
     {const t=state.time||0,sk=t-(h.skillAt??-99);if(sk>=0&&sk<1&&h.atkX!=null){const d=screenDir(h.x,h.z,h.atkX,h.atkZ).x;if(Math.abs(d)>.1)facing=d>0?1:-1;}}
@@ -1337,7 +1338,7 @@ export function createWorld(canvas,{onSelect=()=>{},onPlace=()=>{},getState=()=>
     const sp=sheetPose(h,pose,walking,cheering);sp.i=Math.max(0,Math.min(heroSheets[h.classId].meta.actions[sp.act].frames-1,sp.i));  // 時間超過最後一格就停在最後一格drawnFacing.set(h.id,{f:facing,pose:sp.pose,act:sp.act,i:sp.i,x:h.x,z:h.z,t:state.time});
     const rect=drawSheetHero(h,p,facing,sp,h.hp>0?1:.85,pose);if(rect)hits.push({id:`hunter:${h.id}`,...padHit(rect,16,22)});
     if(h.hp<=0){textLabel('✦',p.x,p.y-(top*.4)*scale,{color:'#e7d8ef',back:false});return;}
-    const full=(h.hp??1)/(h.maxHp||1);if(full<.99||isSelected||h.status==='戰鬥中')bar(p.x-9*scale,p.y-(top+4)*scale,18*scale,full,full<.35?'#df795c':'#84bf6a');
+    const full=(h.hp??1)/(h.maxHp||1);if(full<.99||isSelected||h.status==='戰鬥中')bar(p.x-7*scale,p.y-(top+3)*scale,14*scale,full,full<.35?'#df795c':'#84bf6a');
     if(isSelected)textLabel(`${h.name||'獵人'} Lv.${h.level||1}`,p.x,p.y-(top+11)*scale,{color:RARITIES.find(r=>r.id===h.rarity)?.color||'#ffe19a'});}
   function drawEnemy(e){if(!Number.isFinite(e.x)||!Number.isFinite(e.z)||e.hp<=0)return;const p=screenPoint(e.x,e.z),boss=e.type==='boss',sz=ENEMY_SIZE(e.type),seed=hash(e.id)%97;
     const old=previousPositions.get('enemy:'+e.id),moving=old&&Math.hypot(e.x-old.x,e.z-old.z)>.003,pose=combatPose(e,true,null);
@@ -1425,7 +1426,7 @@ export function createWorld(canvas,{onSelect=()=>{},onPlace=()=>{},getState=()=>
     const hh=hash(e.id),dx=e.type==='loot'?0:((hh%13)-6)*1.6*scale,dy=e.type==='loot'?0:((hh>>5)%4)*3.5*scale;  // 同一目標連續挨打:數字錯開成一小片,不疊成一團
     textLabel(crit?txt+'!':txt,p.x+dx,p.y-(27+rise)*scale-dy,{color:col,size,back:false});}
   function drawEffect(e){const age0=e.age||0,delay=e.delay||0,age=age0-delay,p=screenPoint(e.x||0,e.z||0);
-    if(e.type==='skillName'){if(age<1.1){const a=Math.min(1,(1.1-age)*3);g.globalAlpha=a;textLabel(e.text,p.x,p.y-(52+age*10)*scale,{size:11,color:e.color||'#bdf4ff'});g.globalAlpha=1;}return;}
+    if(e.type==='skillName'){if(age<1.1){const a=Math.min(1,(1.1-age)*3);g.globalAlpha=a;textLabel(e.text,p.x,p.y-(30+age*10)*scale,{size:11,color:e.color||'#bdf4ff'});g.globalAlpha=1;}return;}
     if(e.type==='gale'){drawGale(e,age0,delay,p);if(age>=0&&(e.value||e.text))damageText(e,age,p);g.globalAlpha=1;return;}
     if(age<0){if(e.type==='arrow'||e.type==='spell'||e.type==='holy')drawProjectile(e,Math.min(1,age0/Math.max(.01,delay)),p);return;}
     const fade=Math.max(0,1-age/1.5);if(!fade)return;
@@ -1441,10 +1442,10 @@ export function createWorld(canvas,{onSelect=()=>{},onPlace=()=>{},getState=()=>
     g.save();g.globalAlpha=alpha;g.translate(Math.round(x),Math.round(y));if(rot)g.rotate(rot);if(flip)g.scale(-1,1);g.drawImage(hs.fx,i*c,0,c,c,-c*k/2,-c*k/2,c*k,c*k);g.restore();return true;}
   function drawGale(e,age0,delay,p){const fly=.18,start=delay-fly,cls=e.cls||'archer';
     if(age0<start)return;const a=screenPoint(e.sourceX??e.x,e.sourceZ??e.z);
-    if(age0<delay){const u=(age0-start)/fly,x=a.x+(p.x-a.x)*u,y=a.y-22*scale+(p.y-11*scale-(a.y-22*scale))*u,ang=Math.atan2(p.y-11*scale-(a.y-22*scale),p.x-a.x);
-      if(!fxFrame(cls,u<.5?0:1,x,y,26,{rot:ang}))line(g,x-6*scale,y,x,y,'#5fd8ff',2*scale);return;}
+    if(age0<delay){const u=(age0-start)/fly,x=a.x+(p.x-a.x)*u,y=a.y-12*scale+(p.y-11*scale-(a.y-12*scale))*u,ang=Math.atan2(p.y-11*scale-(a.y-12*scale),p.x-a.x);
+      if(!fxFrame(cls,u<.5?0:1,x,y,14,{rot:ang}))line(g,x-6*scale,y,x,y,'#5fd8ff',2*scale);return;}
     const t=age0-delay;if(t>.36)return;const fr=3+Math.min(2,Math.floor(t/.12));
-    if(!fxFrame(cls,fr,p.x,p.y-11*scale,22+t*30,{alpha:1-t/.36*.4}))sparks(p.x,p.y-11*scale,t,hash(e.id),10,['#ffffff','#5fd8ff','#1a6f8a'],30);}
+    if(!fxFrame(cls,fr,p.x,p.y-11*scale,14+t*20,{alpha:1-t/.36*.4}))sparks(p.x,p.y-11*scale,t,hash(e.id),10,['#ffffff','#5fd8ff','#1a6f8a'],30);}
   function drawAtlasEffect(e,age,p,fade){
     const id=FX_SPRITE[e.type];if(!id)return !!(e.value||e.text);  // 純數字飄字沒有圖,不算退回
     // 升級/收穫等事件光效:頭頂上方、小、半透明,不蓋住正在打的人。
