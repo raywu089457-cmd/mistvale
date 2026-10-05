@@ -1,7 +1,7 @@
 import {getRoads,roadGraph,distanceSegment,arenaAt,ARENAS,arenaContains,SOLID_PROPS} from './landscape-layout.js';
 import {WORLD,REGIONS,walkable,inVillage,regionAt} from './overworld.js';
 import {VILLAGE_BOUNDS,EXITS,blockAt,BUILDING_NUDGE} from './village-grid.js';
-import { BUILDINGS, CLASSES, RARITIES, TRAITS, MATERIALS, PRODUCTS, RECIPES, DIFFICULTIES, CAMP, HUNT_ZONE, LEGACY_LAYOUT_V14, LEGACY_LAYOUT_V15, LEGACY_LAYOUT_V16, ART_LAYOUT_HISTORY } from './pixel-data.js';
+import { SKILLS, BUILDINGS, CLASSES, RARITIES, TRAITS, MATERIALS, PRODUCTS, RECIPES, DIFFICULTIES, CAMP, HUNT_ZONE, LEGACY_LAYOUT_V14, LEGACY_LAYOUT_V15, LEGACY_LAYOUT_V16, ART_LAYOUT_HISTORY } from './pixel-data.js';
 
 const mapById = list => Object.assign(Object.create(null), Object.fromEntries(list.map(item => [item.id, item])));
 const CLASS = mapById(CLASSES), BUILDING = mapById(BUILDINGS), RARITY = mapById(RARITIES), RECIPE = mapById(RECIPES);
@@ -282,6 +282,26 @@ export function createGame(saved = null) {
     }
   }
 
+  // 招牌技能:結算當下扣血(跟普攻一樣),畫面用 skillAt / effect 延遲對到放出格。
+  function castSkill(h, target, sk) {
+    const t = state.time, release = sk.release ?? .25, base = Math.max(1, Math.round(h.attack * (h.satiety < 15 || h.stamina < 15 ? 0.6 : 1)));
+    h.skillCd = sk.cd; h.attackTimer = sk.lock + .4; h.skillAt = t; h.skillName = sk.name; h.atkX = target.x; h.atkZ = target.z;
+    state.counts.skills = (state.counts.skills || 0) + 1;
+    effect('skillName', h, { text: sk.name, color: '#bdf4ff' });
+    if (sk.kind === 'heal') { const v = Math.round(h.maxHp * sk.heal); h.hp = Math.min(h.maxHp, h.hp + v); effect('heal', h, { delay: release }); effect('holy', h, { sourceX: h.x, sourceZ: h.z, delay: release, value: -v }); return; }
+    const alive = state.enemies.filter(e => e.hp > 0 && !e.rewarded);
+    const hitList = sk.kind === 'multi' ? alive.filter(e => distance(h, e) <= h.range + 1).sort((a, b) => distance(h, a) - distance(h, b)).slice(0, sk.targets)
+      : sk.kind === 'aoe' ? alive.filter(e => distance(e, target) <= sk.radius) : [target];
+    if (!hitList.includes(target)) hitList.unshift(target);
+    hitList.forEach((e, i) => {
+      const dmg = Math.max(1, Math.round(base * sk.mult)), delay = release + (sk.fx === 'gale' ? .18 + i * .05 : sk.fx === 'arrow' ? .2 : .1);
+      e.hitAt = t + delay; e.hitFromX = h.x; e.hitFromZ = h.z; e.hp -= dmg;
+      effect(sk.fx === 'gale' ? 'gale' : sk.fx, e, { sourceX: h.x, sourceZ: h.z, value: dmg, targetId: e.id, delay, cls: h.classId, crit: true, skill: true });
+      if (h.classId === 'darkknight') h.hp = Math.min(h.maxHp, h.hp + dmg * 0.08);
+      if (e.hp <= 0) rewardEnemy(e, h);
+    });
+  }
+
   function died(h) {
     h.hp = 0; h.reviveTimer = 8; h.status = '復活中'; h.targetId = null; h.route = [];
     if (h.task !== 'dungeon' && h.task !== 'arena') h.task = 'revive';
@@ -454,11 +474,14 @@ export function createGame(saved = null) {
       // 先走進戰鬥空地再開打(不在柵欄邊、出村口遠遠放箭),戰鬥才會在開闊處、看得清楚。
       if (target && !inVillage(h.x,h.z) && distance(h, target) <= h.range && (arenaAt(h.x, h.z, -0.6) || distance(h, target) <= 1.9)) {
         h.status = '戰鬥中'; h.route = [];
+        h.skillCd = Math.max(0, (h.skillCd ?? 3) - dt);
+        const sk = SKILLS[h.classId];
+        if (sk && h.skillCd === 0 && h.attackTimer === 0) { castSkill(h, target, sk); continue; }
         if (h.attackTimer === 0) {
-          h.attackTimer = (h.classId === 'sorcerer' ? 1.65 : h.classId === 'ranger' ? 1.2 : 1.1) * (h.trait === 'swift' ? 0.9 : 1);
+          h.attackTimer = (h.classId === 'sorcerer' ? 1.65 : h.classId === 'ranger' || h.classId === 'archer' ? 1.2 : 1.1) * (h.trait === 'swift' ? 0.9 : 1);
           const damage = Math.max(1, Math.round(h.attack * (h.satiety < 15 || h.stamina < 15 ? 0.6 : 1)));
           // 動畫用時間戳(只給畫面看,不影響結算):出手瞬間、命中時刻(遠程要等箭/法球飛到)、攻擊方向。
-          const kind = h.classId === 'sorcerer' ? 'spell' : h.classId === 'ranger' ? 'arrow' : h.classId === 'priest' ? 'holy' : 'slash', delay = kind === 'arrow' ? 0.2 : kind === 'spell' ? 0.25 : kind === 'holy' ? 0.16 : 0.07;
+          const kind = h.classId === 'sorcerer' ? 'spell' : (h.classId === 'ranger' || h.classId === 'archer') ? 'arrow' : h.classId === 'priest' ? 'holy' : 'slash', delay = kind === 'arrow' ? 0.2 : kind === 'spell' ? 0.25 : kind === 'holy' ? 0.16 : 0.07;
           h.atkAt = state.time; h.atkX = target.x; h.atkZ = target.z; target.hitAt = state.time + delay; target.hitFromX = h.x; target.hitFromZ = h.z;
           target.hp -= damage; effect(kind, target, { sourceX: h.x, sourceZ: h.z, value: damage, targetId: target.id, delay, cls: h.classId, crit: damage >= h.attack * 1.25 });
           if (h.classId === 'darkknight') h.hp = Math.min(h.maxHp, h.hp + damage * 0.08);

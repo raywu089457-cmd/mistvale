@@ -1,3 +1,19 @@
+## 2026-10-05:新規格英雄試點 — 弓箭手(branch archer-pilot,最新)
+
+使用者決策:**B**(英雄 64–90 px 美術、遊戲裡畫約 2 倍大)、**先做弓箭手試點**、**技能是真的遊戲機制**。規格全文 `pipeline/ART_BIBLE.md`。
+- **生圖改走 cheaprouter.cc**(`pipeline/scripts/imagegen/cheaprouter.py`,`CHEAPROUTER_KEY` 環境變數,不寫進檔案)。坑:Cloudflare 擋預設 UA(403/1010)→ 帶瀏覽器 UA;
+  Luna 模型(gpt-6-luna、gpt-5.6-luna)當時 502/503 不能用,codex CLI 走 Luna 失敗;圖像直接打 /v1/images/generations、/v1/images/edits(帶參考圖)。生成器會檢查圖邊是不是洋紅,不是就重生。
+- **組裝** `pipeline/scripts/heroes/build_hero.py <hero>`:去背 → 依空隙切格(模型不會畫在等分格上)→ 每張表以基準格縮到待機同倍率 → 16 色共用色盤像素化(待機 72 px 高)→
+  128 格(技能列放不下自動 160),軀幹中心對格中線、腳底 = 格底上 10 px(走路/待機/受擊/普攻腳一律貼地,跳躍只在技能/勝利)。輸出 `assets/heroes/archer.png/.json` + `archer-fx.png/.json`。
+- **格數**:idle 4 · walk 6 · attack 8(第 5 格放箭)· skill 10(第 5 格放出)· hurt 3 · death 6 · victory 4;技能特效 8 格(風箭、箭雨、星爆、衝擊環、蓄力漩渦)。
+- **遊戲**:`CLASSES` 加 archer(第 5 職業,開局 5 人每職業一個);`SKILLS`(pixel-data.js)五職業都有技能:旋風斬/穿心箭/聖盾祈禱/流星火球/疾風箭雨(三連射),
+  `castSkill`(pixel-game.js)戰鬥中冷卻好就放、結算扣血、effect 延遲對到放出格;其他四職業目前沿用舊特效,只有弓箭手有完整新美術。
+- **畫面**:`heroSheets`/`drawHunterSheet`(pixel-world.js)— 有 sheet 的職業走新路徑(動作時間表見 ART_BIBLE),1 美術像素 = 0.62 邏輯單位(跟建築同密度,英雄約 45 單位高);
+  立繪/殘影用 sheet 待機格;`gale` 特效(風箭飛行 → 命中星爆)、`skillName` 招式名飄字。
+- **驗收**:`audit_hero_sheet.py` 弓箭手 PASS(16 色、72 px、描邊 0.92、無半透明、無裁切、腳底對齊、32 px 剪影跟其他職業 IoU 0.51–0.66);
+  實機 70 秒:技能放 4 次、10 格技能/8 格普攻/6 格走路全部有畫到;npm test 全過、check_facing/zorder/placement 0、check_anim 閃格 1/10026(門檻 0.5%)。
+- **已知**:其他職業還是 21 單位高的舊尺寸,弓箭手跟他們站一起明顯大一倍 —— 試點核准後要照同一流程量產其他職業;4 方向只做右(左鏡像)。
+
 ## 2026-10-05 第二輪:動畫格數(最新)
 
 - 新量測 `pipeline/scripts/check/audit_frames.py`:每個動作格數對照商業像素遊戲常見下限(走路 ≥4、待機 ≥2、攻擊 ≥3、受擊 ≥2、倒下 ≥2)。修前 16 項不足(英雄受擊/倒下各 1 格、魔物走路 2 格)→ 0。

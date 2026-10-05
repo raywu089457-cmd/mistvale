@@ -56,6 +56,10 @@ function shadowFor(img,sx,sy,sw,sh,flip,wpp,grounded,capWorld){
 
 function heroSprite(classId='berserker',frame=0,facing=1,variant=0,lodScale=heroLodScale,pose='idle') {
   heroUse.calls++;
+  // 新規格英雄:立繪/路人/殘影用待機第 1 格,裁到身體(畫布比例 28:35 跟舊圖一樣,drawPortrait 不變形)
+  if(heroSheets[classId]){const key=`sheet:${classId}:${facing}`;if(spriteCache.has(key))return spriteCache.get(key);
+    const f=sheetFrame(classId,'idle',0),H=heroSheets[classId].meta.heroHeight+4,W=Math.round(H*28/35),c=makeCanvas(W,H),g=c.getContext('2d');g.imageSmoothingEnabled=false;
+    g.save();if(facing<0){g.translate(W,0);g.scale(-1,1);}g.drawImage(f.img,f.sx+f.c/2-W/2,f.sy+f.foot-H+1,W,H,0,0,W,H);g.restore();c.baseH=H;heroUse.atlas++;spriteCache.set(key,c);return c;}
   const hf=heroFrameFor(classId,lodScale);
   // 戰鬥姿勢圖(heropose 圖集,<職業>_windup/_strike/_hurt):倍率跟待機圖同一個,腳底(foot)對齊畫布中線,
   // 武器往外伸就把畫布加寬,人不會因為姿勢不同而忽大忽小。沒有姿勢圖就用待機圖。
@@ -458,12 +462,22 @@ function ensureAtlasManifest(){
     im.src=assets[urlKey];
   }
 }
+// ── 新規格英雄 sprite sheet(pipeline/ART_BIBLE.md;assets/heroes/<id>.png + .json,build.mjs 嵌成 PIXEL_ASSETS.heroSheets)──
+// 每列一個動作、每格 128(技能 160)、1:1 像素、軀幹中心 = 格中線、腳底 = 格底往上 10px。遊戲裡 1 美術像素 = HERO_ART 邏輯單位。
+const heroSheets={},HERO_ART=.62;
+function ensureHeroSheets(){const A=globalThis.PIXEL_ASSETS?.heroSheets||{};
+  for(const [id,v] of Object.entries(A)){if(loadedAssetKeys.has('hs:'+id))continue;loadedAssetKeys.add('hs:'+id);
+    const meta=typeof v.meta==='string'?JSON.parse(v.meta):v.meta,im=new Image(),fx=v.fx?new Image():null;
+    im.onload=()=>{heroSheets[id]={img:im,meta,fx,fxMeta:v.fxMeta?(typeof v.fxMeta==='string'?JSON.parse(v.fxMeta):v.fxMeta):null};spriteCache.clear();globalThis.dispatchEvent(new CustomEvent('pixel-assets-ready'));};
+    im.onerror=()=>loadedAssetKeys.delete('hs:'+id);im.src=v.img;if(fx)fx.src=v.fx;}}
+globalThis.__mistvaleHeroSheets=()=>Object.fromEntries(Object.entries(heroSheets).map(([k,v])=>[k,{w:v.img.width,h:v.img.height,actions:Object.keys(v.meta.actions)}]));
+function sheetFrame(id,act,i){const hs=heroSheets[id],a=hs?.meta.actions[act];if(!a)return null;const f=Math.max(0,Math.min(a.frames-1,i));return{img:hs.img,sx:f*a.cell,sy:a.y,c:a.cell,foot:a.cell-hs.meta.footFromBottom};}
 function ensureAtlas() {
   ensureAtlasManifest();
   ensureDetailAtlas();
   ensureTerrainAtlas();
   ensurePlazaTile();ensureConceptTextures();
-  ensureHeroAtlas();
+  ensureHeroAtlas();ensureHeroSheets();
   const assets=globalThis.PIXEL_ASSETS||{};
   // 舊的硬切格圖集載入已由上面的 manifest 圖集取代(列切線原本是猜的)。
 
@@ -1217,6 +1231,7 @@ export function createWorld(canvas,{onSelect=()=>{},onPlace=()=>{},getState=()=>
 
   function ghostHunter(h){if(!(h.hp>0)||h.status!=='戰鬥中'||!Number.isFinite(h.x))return;const p=screenPoint(h.x,h.z);if(p.x<-40||p.x>width+40||p.y<-40||p.y>height+60)return;
     const target=h.targetId?(state.enemies||[]).find(e=>e.id===h.targetId&&e.hp>0):null,pose={...combatPose(h,false,target),flash:0},facing=previousPositions.get(h.id)?.facing||1;
+    if(heroSheets[h.classId]){const d=drawnFacing.get(h.id);if(d?.act)drawSheetHero(h,p,facing,{act:d.act,i:d.i},.38);return;}  // 新規格英雄:殘影用同一格
     const sprite=heroSprite(h.classId,0,facing,hash(h.id)%3,heroLodScale,pose.pose);posed(p,pose,q=>drawSprite(sprite,q,21*CHAR_SCALE*sprite.width/(sprite.baseH||sprite.height),21*CHAR_SCALE*sprite.height/(sprite.baseH||sprite.height),1.2,.38));}
   // 驗收用:每一隻最後一次畫出來的朝向/姿勢(__mistvaleFacing())。
   globalThis.__mistvaleBuildingSize=id=>{const b=BUILDINGS.find(q=>q.id===id);return b?{w:b.w,d:b.d}:null;};
@@ -1225,7 +1240,25 @@ export function createWorld(canvas,{onSelect=()=>{},onPlace=()=>{},getState=()=>
   globalThis.__mistvaleDecor=()=>decorations.map(d=>({type:d.type,x:d.x,z:d.z,size:d.size||1,walk:!!d.walk}));  // 驗收用:擺設清單(check_placement.mjs)
   const drawnFacing=new Map();globalThis.__mistvaleFacing=()=>Object.fromEntries(drawnFacing);
   const heroMemo=new Map();  // 獵人上一幀的目標(打倒目標 → 歡呼)
-  function drawHunter(h,wanderer){if(!Number.isFinite(h.x)||!Number.isFinite(h.z))return;const p=screenPoint(h.x,h.z),old=previousPositions.get(h.id),moving=old&&Math.hypot(h.x-old.x,h.z-old.z)>.005;let facing=old?.facing||1;if(old&&Math.abs(h.x-old.x-(h.z-old.z))>.002)facing=h.x-old.x-(h.z-old.z)>0?1:-1;
+  // 新規格英雄:依動作時間軸挑格(ART_BIBLE 動畫時間表)。回傳 {act,i,pose}(pose 給驗收 hook)。
+  function sheetPose(h,pose,walking,cheering){const t=state.time||0,m=heroSheets[h.classId].meta.actions;
+    if(h.hp<=0){const dt=8-(h.reviveTimer??8);return{act:'death',i:Math.floor(dt/m.death.frameTime),pose:'dead'};}
+    const sk=t-(h.skillAt??-99),skLen=m.skill.frames*m.skill.frameTime;if(sk>=0&&sk<skLen)return{act:'skill',i:Math.floor(sk/m.skill.frameTime),pose:'skill'};
+    if(pose.pose==='hurt'||(pose.hit>=0&&pose.hit<m.hurt.frames*m.hurt.frameTime&&pose.pose!=='strike'))return{act:'hurt',i:Math.floor(Math.max(0,pose.hit)/m.hurt.frameTime),pose:'hurt'};
+    const atk=t-(h.atkAt??-99),rel=m.attack.release;
+    if(atk>=0&&atk<(m.attack.frames-rel)*m.attack.frameTime)return{act:'attack',i:rel+Math.floor(atk/m.attack.frameTime),pose:'strike'};
+    if(pose.pose==='windup')return{act:'attack',i:Math.min(rel-1,Math.floor(pose.k*rel)),pose:'windup'};
+    if(walking)return{act:'walk',i:Math.floor(elapsed/m.walk.frameTime+hash(h.id))%m.walk.frames,pose:'walk'+(1+Math.floor(elapsed/m.walk.frameTime+hash(h.id))%m.walk.frames)};
+    if(cheering)return{act:'victory',i:Math.floor((t-(heroMemo.get(h.id).cheer-.9))/m.victory.frameTime),pose:'victory'};
+    return{act:'idle',i:Math.floor(elapsed/m.idle.frameTime+hash(h.id))%m.idle.frames,pose:'idle'};}
+  function drawSheetHero(h,p,facing,sp,alpha=1,pose=null){const f=sheetFrame(h.classId,sp.act,sp.i);if(!f)return null;const k=HERO_ART*scale,dw=Math.round(f.c*k),dh=dw;
+    const q=pose?{x:p.x+Math.round((pose.flash?Math.sin((state.time||0)*95)*.8:0)*scale),y:p.y}:p,dx=Math.round(q.x-f.c/2*k),dy=Math.round(q.y-f.foot*k);
+    cast(f.img,f.sx,f.sy,f.c,f.c,dx,dy,dw,dh,facing<0,true,'char');g.save();g.globalAlpha=alpha;
+    if(facing<0){g.translate(dx+dw,dy);g.scale(-1,1);g.drawImage(f.img,f.sx,f.sy,f.c,f.c,0,0,dw,dh);}else g.drawImage(f.img,f.sx,f.sy,f.c,f.c,dx,dy,dw,dh);
+    if(pose?.flash>0){g.globalAlpha=alpha*pose.flash*.8;const tc=tinted(f.img,f.sx,f.sy,f.c,f.c,pose.flashColor);if(facing<0)g.drawImage(tc,0,0,f.c,f.c,0,0,dw,dh);else g.drawImage(tc,0,0,f.c,f.c,dx,dy,dw,dh);}
+    g.restore();const hh=heroSheets[h.classId].meta.heroHeight*k;return{x:q.x-hh*.35,y:q.y-hh,w:hh*.7,h:hh};}
+  function drawHunter(h,wanderer){if(!Number.isFinite(h.x)||!Number.isFinite(h.z))return;
+    if(heroSheets[h.classId])return drawHunterSheet(h,wanderer);const p=screenPoint(h.x,h.z),old=previousPositions.get(h.id),moving=old&&Math.hypot(h.x-old.x,h.z-old.z)>.005;let facing=old?.facing||1;if(old&&Math.abs(h.x-old.x-(h.z-old.z))>.002)facing=h.x-old.x-(h.z-old.z)>0?1:-1;
     const isSelected=selected===`hunter:${h.id}`;
     contact(p,5);if(isSelected)ring(p,8,'#fff1b0');if(wanderer)ring(p,6,'#7fc4ff');  // 藍圈＝流浪英雄(自己打怪,不是我方單位)
     // 倒下:用倒地圖(<職業>_dead),半透明等復活;沒有倒地圖才退回把待機圖轉 90°。
@@ -1291,6 +1324,21 @@ export function createWorld(canvas,{onSelect=()=>{},onPlace=()=>{},getState=()=>
     return {x:dx,y:dy,w:dw,h:dh};
   }
   const ENEMY_SIZE=type=>type==='boss'?50:(type==='golem'?33:type==='wolf'?31:28)*CHAR_SCALE;
+  function drawHunterSheet(h,wanderer){const p=screenPoint(h.x,h.z),old=previousPositions.get(h.id),moving=old&&Math.hypot(h.x-old.x,h.z-old.z)>.005;let facing=old?.facing||1;
+    if(old&&Math.abs(h.x-old.x-(h.z-old.z))>.002)facing=h.x-old.x-(h.z-old.z)>0?1:-1;
+    const isSelected=selected===`hunter:${h.id}`,top=heroSheets[h.classId].meta.heroHeight*HERO_ART;contact(p,7);if(isSelected)ring(p,11,'#fff1b0');if(wanderer)ring(p,9,'#7fc4ff');
+    const target=h.status==='戰鬥中'&&h.targetId?(state.enemies||[]).find(e=>e.id===h.targetId&&e.hp>0):null,pose=h.hp>0?combatPose(h,false,target):{pose:'idle',face:0,flash:0,hit:-1};
+    if(pose.face)facing=pose.face>0?1:-1;
+    {const t=state.time||0,sk=t-(h.skillAt??-99);if(sk>=0&&sk<1&&h.atkX!=null){const d=screenDir(h.x,h.z,h.atkX,h.atkZ).x;if(Math.abs(d)>.1)facing=d>0?1:-1;}}
+    previousPositions.set(h.id,{x:h.x,z:h.z,facing});
+    const walking=moving&&h.status!=='戰鬥中'&&h.hp>0;
+    {const tg=h.targetId,prev=heroMemo.get(h.id);if(prev&&prev.tg&&prev.tg!==tg&&!(state.enemies||[]).some(e=>e.id===prev.tg&&e.hp>0)&&(state.time||0)-(h.atkAt??-99)<.8)heroMemo.set(h.id,{...prev,tg,cheer:(state.time||0)+.9});else heroMemo.set(h.id,{...prev,tg,cheer:prev?.cheer??-1});}
+    const cheering=(state.time||0)<(heroMemo.get(h.id)?.cheer??-1)&&!walking;
+    const sp=sheetPose(h,pose,walking,cheering);sp.i=Math.max(0,Math.min(heroSheets[h.classId].meta.actions[sp.act].frames-1,sp.i));  // 時間超過最後一格就停在最後一格drawnFacing.set(h.id,{f:facing,pose:sp.pose,act:sp.act,i:sp.i,x:h.x,z:h.z,t:state.time});
+    const rect=drawSheetHero(h,p,facing,sp,h.hp>0?1:.85,pose);if(rect)hits.push({id:`hunter:${h.id}`,...padHit(rect,16,22)});
+    if(h.hp<=0){textLabel('✦',p.x,p.y-(top*.4)*scale,{color:'#e7d8ef',back:false});return;}
+    const full=(h.hp??1)/(h.maxHp||1);if(full<.99||isSelected||h.status==='戰鬥中')bar(p.x-9*scale,p.y-(top+4)*scale,18*scale,full,full<.35?'#df795c':'#84bf6a');
+    if(isSelected)textLabel(`${h.name||'獵人'} Lv.${h.level||1}`,p.x,p.y-(top+11)*scale,{color:RARITIES.find(r=>r.id===h.rarity)?.color||'#ffe19a'});}
   function drawEnemy(e){if(!Number.isFinite(e.x)||!Number.isFinite(e.z)||e.hp<=0)return;const p=screenPoint(e.x,e.z),boss=e.type==='boss',sz=ENEMY_SIZE(e.type),seed=hash(e.id)%97;
     const old=previousPositions.get('enemy:'+e.id),moving=old&&Math.hypot(e.x-old.x,e.z-old.z)>.003,pose=combatPose(e,true,null);
     let flip=old?(e.x-old.x-(e.z-old.z)<-.002?true:e.x-old.x-(e.z-old.z)>.002?false:old.flip):false;
@@ -1377,6 +1425,8 @@ export function createWorld(canvas,{onSelect=()=>{},onPlace=()=>{},getState=()=>
     const hh=hash(e.id),dx=e.type==='loot'?0:((hh%13)-6)*1.6*scale,dy=e.type==='loot'?0:((hh>>5)%4)*3.5*scale;  // 同一目標連續挨打:數字錯開成一小片,不疊成一團
     textLabel(crit?txt+'!':txt,p.x+dx,p.y-(27+rise)*scale-dy,{color:col,size,back:false});}
   function drawEffect(e){const age0=e.age||0,delay=e.delay||0,age=age0-delay,p=screenPoint(e.x||0,e.z||0);
+    if(e.type==='skillName'){if(age<1.1){const a=Math.min(1,(1.1-age)*3);g.globalAlpha=a;textLabel(e.text,p.x,p.y-(52+age*10)*scale,{size:11,color:e.color||'#bdf4ff'});g.globalAlpha=1;}return;}
+    if(e.type==='gale'){drawGale(e,age0,delay,p);if(age>=0&&(e.value||e.text))damageText(e,age,p);g.globalAlpha=1;return;}
     if(age<0){if(e.type==='arrow'||e.type==='spell'||e.type==='holy')drawProjectile(e,Math.min(1,age0/Math.max(.01,delay)),p);return;}
     const fade=Math.max(0,1-age/1.5);if(!fade)return;
     if(e.type==='death'){drawDeath(e,age,p);return;}
@@ -1386,6 +1436,15 @@ export function createWorld(canvas,{onSelect=()=>{},onPlace=()=>{},getState=()=>
     if(e.value||e.text)damageText(e,age,p);
     g.globalAlpha=1;
   }
+  // 疾風箭雨:放出格(0.32 秒)前不畫;飛行中用弓箭手特效表第 0–1 格(青色風箭+拖尾),命中後 3–5 格(星爆→衝擊環→散光)。
+  function fxFrame(cls,i,x,y,size,{flip=false,rot=0,alpha=1}={}){const hs=heroSheets[cls];if(!hs?.fx||!hs.fxMeta)return false;const c=hs.fxMeta.cell,k=size*scale/c;
+    g.save();g.globalAlpha=alpha;g.translate(Math.round(x),Math.round(y));if(rot)g.rotate(rot);if(flip)g.scale(-1,1);g.drawImage(hs.fx,i*c,0,c,c,-c*k/2,-c*k/2,c*k,c*k);g.restore();return true;}
+  function drawGale(e,age0,delay,p){const fly=.18,start=delay-fly,cls=e.cls||'archer';
+    if(age0<start)return;const a=screenPoint(e.sourceX??e.x,e.sourceZ??e.z);
+    if(age0<delay){const u=(age0-start)/fly,x=a.x+(p.x-a.x)*u,y=a.y-22*scale+(p.y-11*scale-(a.y-22*scale))*u,ang=Math.atan2(p.y-11*scale-(a.y-22*scale),p.x-a.x);
+      if(!fxFrame(cls,u<.5?0:1,x,y,26,{rot:ang}))line(g,x-6*scale,y,x,y,'#5fd8ff',2*scale);return;}
+    const t=age0-delay;if(t>.36)return;const fr=3+Math.min(2,Math.floor(t/.12));
+    if(!fxFrame(cls,fr,p.x,p.y-11*scale,22+t*30,{alpha:1-t/.36*.4}))sparks(p.x,p.y-11*scale,t,hash(e.id),10,['#ffffff','#5fd8ff','#1a6f8a'],30);}
   function drawAtlasEffect(e,age,p,fade){
     const id=FX_SPRITE[e.type];if(!id)return !!(e.value||e.text);  // 純數字飄字沒有圖,不算退回
     // 升級/收穫等事件光效:頭頂上方、小、半透明,不蓋住正在打的人。
