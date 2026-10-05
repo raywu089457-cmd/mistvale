@@ -481,11 +481,15 @@ function heroAccessory(h){const l=ACC_BY_RARITY[h.rarity];return l?l[hash(h.id||
 const monsterSheets={};function ensureMonsterSheets(){const A=globalThis.PIXEL_ASSETS?.monsterSheets||{};
   for(const [id,v] of Object.entries(A)){if(loadedAssetKeys.has('ms:'+id))continue;loadedAssetKeys.add('ms:'+id);const im=new Image();im.onload=()=>{monsterSheets[id]={img:im,meta:v.meta};};im.src=v.img;}}
 const MON_SHEET=t=>monsterSheets[t==='boss'?'treant':t];
-// 四方向:畫面上的移動量(等角 x 9、y 4.5)哪個軸大 → 上/下 或 左右(側面);沒移動就沿用上一個方向。
-function moveDir(dx,dz,prev){const Sx=(dx-dz)*9,Sy=(dx+dz)*4.5;if(Math.hypot(Sx,Sy)<.01)return prev||'side';return Math.abs(Sy)>Math.abs(Sx)?(Sy<0?'up':'down'):'side';}
-const DIR_ACT={up:'Up',down:'Down',side:''};
+// 四個斜角方向(等角):畫面上往上(遠離鏡頭)→ 3/4 背面 <動作>Up,往下 → 3/4 正面 <動作>;左右由 facing 決定(<動作>Left / <動作>UpLeft 鏡像列)。
+// 等角道路(x、z 軸)剛好是畫面四個斜方向。沒移動就沿用上一個方向。
+function moveDir(dx,dz,prev){const Sy=(dx+dz)*4.5,Sx=(dx-dz)*9;if(Math.hypot(Sx,Sy)<.01||Math.abs(Sy)<1e-4)return prev||'down';return Sy<0?'up':'down';}
+const DIR_ACT={up:'Up',down:'',side:''};
+// 戰鬥方向:普攻/技能看目標、受擊看打來的方向
+function combatDir(a,act,prev){const t=(act==='attack'||act==='skill')?[a.atkX,a.atkZ]:act==='hurt'?[a.hitFromX,a.hitFromZ]:null;return t&&t[0]!=null?moveDir(t[0]-a.x,t[1]-a.z,prev):prev||'down';}
 // 有烘好的左向列(<動作>Left)就直接用,不用即時鏡像
 function leftRow(meta,act,facing){return facing<0&&meta.actions[act+'Left']?[act+'Left',false]:[act,facing<0];}
+function withDir(meta,act,vdir){const D=DIR_ACT[vdir]||'';return D&&meta.actions[act+D]?act+D:act;}
 globalThis.__mistvaleHeroSheets=()=>Object.fromEntries(Object.entries(heroSheets).map(([k,v])=>[k,{w:v.img.width,h:v.img.height,actions:Object.keys(v.meta.actions)}]));
 // 模組化換色(ART_BIBLE「模組化」):每職業 meta.groups = outfit(職業代表色布料)/metal(鎧甲、刀刃)。
 // 每位英雄依 id 挑一個布料色相(5 選 1)→ 同職業不同人;買了鎧甲 → 布料更飽和;買了武器 → 金屬變金色。結果整張 sheet 快取。
@@ -1103,7 +1107,7 @@ export function createWorld(canvas,{onSelect=()=>{},onPlace=()=>{},getState=()=>
     if(d.type==='bankRocks'&&drawAtlasDetail('bankRocks',p,24*d.size,23*d.size,3,1,true))return;
     if(d.type==='fisher'){contact(p,5);if(drawAtlasDetail('fisher',p,28,20,1,1,true)){const s=scale,t=Math.sin(elapsed*1.3);g.globalAlpha=.7;pixel(g,p.x-15*s,p.y+(3+t*.6)*s,4*s,Math.max(1,s*.6),'#cfeeff');g.globalAlpha=1;return;}}
     // 概念圖街上滿是村民與貓狗:純裝飾(不參與模擬),原地輕微上下呼吸。
-    if(d.type==='npc'&&heroSheets[d.cls]){const m=heroSheets[d.cls].meta.actions,t=elapsed+d.phase,w=d.walk&&d.vdir&&m['walk'+DIR_ACT[d.vdir]]?'walk'+DIR_ACT[d.vdir]:'walk',sp=d.walk?{act:w,i:Math.floor(t/m[w].frameTime)%m[w].frames}:{act:'idle',i:Math.floor(t/m.idle.frameTime)%m.idle.frames};
+    if(d.type==='npc'&&heroSheets[d.cls]){const m=heroSheets[d.cls].meta.actions,t=elapsed+d.phase,w=withDir(heroSheets[d.cls].meta,'walk',d.vdir),sp=d.walk?{act:w,i:Math.floor(t/m[w].frameTime)%m[w].frames}:{act:'idle',i:Math.floor(t/m.idle.frameTime)%m.idle.frames};
       contact(p,5);drawSheetHero({classId:d.cls},p,d.flip?-1:1,sp);detailUse.draw1x++;return;}
     if(d.type==='npc'){const bob=Math.sin(elapsed*2.1+d.phase)>.55?1:0,hf=heroFrameFor(d.cls,heroLodScale);contact(p,5);
       {const sp=heroSprite(d.cls,bob,d.flip?-1:1,Math.floor(d.phase*7)%3,heroLodScale,d.walk?walkFrame(elapsed,d.phase*7):'idle');drawSprite(sp,p,21*CHAR_SCALE*sp.width/(sp.baseH||sp.height),21*CHAR_SCALE*sp.height/(sp.baseH||sp.height),1.2,1,'char');};if(hf)detailUse.draw1x++;return;}
@@ -1281,9 +1285,9 @@ export function createWorld(canvas,{onSelect=()=>{},onPlace=()=>{},getState=()=>
     const atk=t-(h.atkAt??-99),rel=m.attack.release;
     if(atk>=0&&atk<(m.attack.frames-rel)*m.attack.frameTime)return{act:'attack',i:rel+Math.floor(atk/m.attack.frameTime),pose:'strike'};
     if(pose.pose==='windup')return{act:'attack',i:Math.min(rel-1,Math.floor(pose.k*rel)),pose:'windup'};
-    if(walking){const w=m['walk'+DIR_ACT[vdir]]?'walk'+DIR_ACT[vdir]:'walk',i=Math.floor(elapsed/m[w].frameTime+hash(h.id))%m[w].frames;return{act:w,i,pose:'walk'+(1+i),vdir};}
+    if(walking){const w='walk',i=Math.floor(elapsed/m[w].frameTime+hash(h.id))%m[w].frames;return{act:w,i,pose:'walk'+(1+i),vdir};}
     if(cheering)return{act:'victory',i:Math.floor((t-(heroMemo.get(h.id).cheer-.9))/m.victory.frameTime),pose:'victory'};
-    const id=h.status!=='戰鬥中'&&m['idle'+DIR_ACT[vdir]]?'idle'+DIR_ACT[vdir]:'idle';return{act:id,i:Math.floor(elapsed/m[id].frameTime+hash(h.id))%m[id].frames,pose:'idle',vdir};}
+    const id='idle';return{act:id,i:Math.floor(elapsed/m[id].frameTime+hash(h.id))%m[id].frames,pose:'idle',vdir};}
   function drawSheetHero(h,p,facing,sp,alpha=1,pose=null){{const [a2,fl]=leftRow(heroSheets[h.classId].meta,sp.act,facing);if(a2!==sp.act){sp={...sp,act:a2};facing=1;}}
     const f=sheetFrame(h.classId,sp.act,sp.i,h.id?heroLook(h):null);if(!f)return null;const k=heroArt(h.classId)*scale,dw=Math.round(f.c*k),dh=dw;
     const q=pose?{x:p.x+Math.round((pose.flash?Math.sin((state.time||0)*95)*.8:0)*scale),y:p.y}:p,dx=Math.round(q.x-f.c/2*k),dy=Math.round(q.y-f.foot*k);
@@ -1367,15 +1371,16 @@ export function createWorld(canvas,{onSelect=()=>{},onPlace=()=>{},getState=()=>
     if(old&&Math.abs(h.x-old.x-(h.z-old.z))>.002)facing=h.x-old.x-(h.z-old.z)>0?1:-1;
     const isSelected=selected===`hunter:${h.id}`,top=HERO_H;contact(p,5);if(isSelected)ring(p,8,'#fff1b0');if(wanderer)ring(p,6,'#7fc4ff');
     const target=h.status==='戰鬥中'&&h.targetId?(state.enemies||[]).find(e=>e.id===h.targetId&&e.hp>0):null,pose=h.hp>0?combatPose(h,false,target):{pose:'idle',face:0,flash:0,hit:-1};
-    let vdir=old?.vdir||'side';if(old&&moving)vdir=moveDir(h.x-old.x,h.z-old.z,vdir);
-    if(h.status==='戰鬥中'||pose.pose!=='idle')vdir='side';
+    let vdir=old?.vdir||'down';if(old&&moving)vdir=moveDir(h.x-old.x,h.z-old.z,vdir);
     const walking=moving&&h.status!=='戰鬥中'&&h.hp>0;
     {const tg=h.targetId,prev=heroMemo.get(h.id);if(prev&&prev.tg&&prev.tg!==tg&&!(state.enemies||[]).some(e=>e.id===prev.tg&&e.hp>0)&&(state.time||0)-(h.atkAt??-99)<.8)heroMemo.set(h.id,{...prev,tg,cheer:(state.time||0)+.9});else heroMemo.set(h.id,{...prev,tg,cheer:prev?.cheer??-1});}
     const cheering=(state.time||0)<(heroMemo.get(h.id)?.cheer??-1)&&!walking;
-    const sp=sheetPose(h,pose,walking,cheering,vdir);
+    let sp=sheetPose(h,pose,walking,cheering,vdir);
+    if(['attack','skill','hurt'].includes(sp.act))vdir=combatDir(h,sp.act,vdir);else if(h.status==='戰鬥中'&&!walking){const tg=(state.enemies||[]).find(e=>e.id===h.targetId);if(tg)vdir=moveDir(tg.x-h.x,tg.z-h.z,vdir);}
+    const baseAct=sp.act;sp={...sp,act:withDir(heroSheets[h.classId].meta,sp.act,vdir),vdir};
     // 朝向:畫的是戰鬥格(普攻/受擊/技能)才用戰鬥朝向(面向目標/打來的一側);走路/待機一律照移動方向 —— 出手後 0.3–0.36 秒換追下一個目標時,不會倒退走
-    if(['attack','hurt','skill','death'].includes(sp.act)){if(pose.face)facing=pose.face>0?1:-1;
-      {const t=state.time||0,sk=t-(h.skillAt??-99);if(sp.act==='skill'&&sk>=0&&h.atkX!=null){const d=screenDir(h.x,h.z,h.atkX,h.atkZ).x;if(Math.abs(d)>.1)facing=d>0?1:-1;}}}
+    if(['attack','hurt','skill','death'].includes(baseAct)){if(pose.face)facing=pose.face>0?1:-1;
+      {const t=state.time||0,sk=t-(h.skillAt??-99);if(baseAct==='skill'&&sk>=0&&h.atkX!=null){const d=screenDir(h.x,h.z,h.atkX,h.atkZ).x;if(Math.abs(d)>.1)facing=d>0?1:-1;}}}
     previousPositions.set(h.id,{x:h.x,z:h.z,facing,vdir});sp.i=Math.max(0,Math.min(heroSheets[h.classId].meta.actions[sp.act].frames-1,sp.i));  // 時間超過最後一格就停在最後一格
     drawnFacing.set(h.id,{f:facing,pose:sp.pose,act:sp.act,i:sp.i,x:h.x,z:h.z,t:state.time});
     const rect=drawSheetHero(h,p,facing,sp,h.hp>0?1:.85,pose);if(rect)hits.push({id:`hunter:${h.id}`,...padHit(rect,16,22)});
@@ -1389,12 +1394,12 @@ export function createWorld(canvas,{onSelect=()=>{},onPlace=()=>{},getState=()=>
     const put=img=>{if(flip){g.save();g.translate(dx+dw,dy);g.scale(-1,1);g.drawImage(img,img===ms.img?f*c:0,img===ms.img?a.y:0,c,c,0,0,dw,dw);g.restore();}else g.drawImage(img,img===ms.img?f*c:0,img===ms.img?a.y:0,c,c,dx,dy,dw,dw);};
     put(ms.img);if(pose?.flash>0){g.globalAlpha=alpha*pose.flash*.8;put(tinted(ms.img,f*c,a.y,c,c,pose.flashColor));}g.restore();
     const hh=ms.meta.artSize*k;return{x:q.x-hh/2,y:q.y-hh,w:hh,h:hh};}
-  function monsterSheetPose(e,pose,walking,vdir='side'){const m=MON_SHEET(e.type).meta.actions,t=state.time||0,D=DIR_ACT[vdir]||'';
+  function monsterSheetPose(e,pose,walking,vdir='down'){const m=MON_SHEET(e.type).meta.actions,t=state.time||0;
     if(pose.pose==='strike')return['attack',4+Math.floor(Math.max(0,pose.atk)/m.attack.frameTime)];
     if(pose.pose==='windup')return['attack',Math.min(3,Math.floor(pose.k*4))];
     if(pose.pose==='hurt')return['hurt',Math.floor(Math.max(0,pose.hit)/m.hurt.frameTime)];
-    if(walking){const w=m['walk'+D]?'walk'+D:'walk';return[w,Math.floor(elapsed/m[w].frameTime+hash(e.id))%m[w].frames];}
-    const id=m['idle'+D]&&!e.engaged?'idle'+D:'idle';return[id,Math.floor(elapsed/m[id].frameTime+hash(e.id))%m[id].frames];}
+    if(walking){const w='walk';return[w,Math.floor(elapsed/m[w].frameTime+hash(e.id))%m[w].frames];}
+    const id='idle';return[id,Math.floor(elapsed/m[id].frameTime+hash(e.id))%m[id].frames];}
   function drawEnemy(e){if(!Number.isFinite(e.x)||!Number.isFinite(e.z)||e.hp<=0)return;const p=screenPoint(e.x,e.z),boss=e.type==='boss',sz=ENEMY_SIZE(e.type),seed=hash(e.id)%97;
     const old=previousPositions.get('enemy:'+e.id),moving=old&&Math.hypot(e.x-old.x,e.z-old.z)>.003,pose=combatPose(e,true,null);
     let flip=old?(e.x-old.x-(e.z-old.z)<-.002?true:e.x-old.x-(e.z-old.z)>.002?false:old.flip):false;
@@ -1422,8 +1427,10 @@ export function createWorld(canvas,{onSelect=()=>{},onPlace=()=>{},getState=()=>
     contact(p,boss?12:7);
     drawnFacing.set('enemy:'+e.id,{f:flip?-1:1,frame,x:e.x,z:e.z,t:state.time});
     let rect;
-    if(MON_SHEET(e.type)){let vdir=old?.vdir||'side';if(old&&moving)vdir=moveDir(e.x-old.x,e.z-old.z,vdir);if(pose.pose!=='idle'||e.engaged)vdir='side';previousPositions.set('enemy:'+e.id,{x:e.x,z:e.z,flip,vdir});
-      const [act,i]=monsterSheetPose(e,pose,walking,vdir);drawnFacing.set('enemy:'+e.id,{f:flip?-1:1,frame,act,i,x:e.x,z:e.z,t:state.time});rect=drawMonsterSheet(e.type,p,flip,act,i,1,pose);}  // 新規格 sheet:動作自帶位移/壓扁,不再疊 posed 變形
+    if(MON_SHEET(e.type)){let vdir=old?.vdir||'down';if(old&&moving)vdir=moveDir(e.x-old.x,e.z-old.z,vdir);
+      let [act,i]=monsterSheetPose(e,pose,walking,vdir);
+      if(act==='attack'||act==='hurt')vdir=combatDir(e,act,vdir);else if(e.engaged&&e.facingX!=null)vdir=moveDir(e.facingX-e.x,e.facingZ-e.z,vdir);
+      previousPositions.set('enemy:'+e.id,{x:e.x,z:e.z,flip,vdir});act=withDir(MON_SHEET(e.type).meta,act,vdir);drawnFacing.set('enemy:'+e.id,{f:flip?-1:1,frame,act,i,x:e.x,z:e.z,t:state.time});rect=drawMonsterSheet(e.type,p,flip,act,i,1,pose);}  // 新規格 sheet:動作自帶位移/壓扁,不再疊 posed 變形
     else rect=posed(p,pose,q=>drawAtlasMonster(e.type,frame,q,sz,flip));
     if(!rect){procUse['enemy:'+e.type]=(procUse['enemy:'+e.type]||0)+1;posed(p,pose,q=>drawSprite(enemySprite(e.type,frame%2),q,sz,sz,2,1,'char'));}
     if(e.hp<e.maxHp||boss||targeted){bar(p.x-(boss?17:10)*scale,p.y-(sz+3)*scale,(boss?34:20)*scale,e.hp/(e.maxHp||1),boss?'#d27967':'#c68764');}}
@@ -1469,7 +1476,7 @@ export function createWorld(canvas,{onSelect=()=>{},onPlace=()=>{},getState=()=>
       if(age<.12)fxSprite('fxHit',p.x,cy,(boss?10:7)+age*30,{alpha:.85*(1-age/.12)});sparks(p.x,cy,age,hash(e.id),7,['#ffd0b8','#e8584a']);}
   }
   function drawDeath(e,age,p){const type=e.enemyType||'slime',sz=ENEMY_SIZE(type),s=scale,t=Math.max(0,(age-.1)/.6);
-    if(MON_SHEET(type)){const m=MON_SHEET(type).meta.actions.death,i=Math.floor(age/m.frameTime),fade=age<1.1?1:Math.max(0,1-(age-1.1)/.5);if(fade>0)drawMonsterSheet(type,p,!!e.flipHint,'death',i,fade,{flash:age<.1?1:0,flashColor:'#ffffff'});return;}
+    if(MON_SHEET(type)){const da=withDir(MON_SHEET(type).meta,'death',e.fromX!=null?moveDir(e.fromX-e.x,e.fromZ-e.z,'down'):'down'),m=MON_SHEET(type).meta.actions[da],i=Math.floor(age/m.frameTime),fade=age<1.1?1:Math.max(0,1-(age-1.1)/.5);if(fade>0)drawMonsterSheet(type,p,!!e.flipHint,da,i,fade,{flash:age<.1?1:0,flashColor:'#ffffff'});return;}
     // 倒下:先第二受擊格(8)一下,再倒地屍體圖(9)躺著淡出;朝向沿用受擊時(面向打倒牠的獵人)。沒有 8/9 格才退回壓扁受擊圖。
     if(detailFrameFor(type+'9')){const fade=age<1.1?1:Math.max(0,1-(age-1.1)/.5),pose={pose:'hurt',ox:0,oy:0,lean:0,sx:1,sy:1,flash:age<.12?1:0,flashColor:'#ffffff'};
       if(fade>0)posed(p,pose,q=>drawAtlasMonster(type,age<.18?8:9,q,sz,!!e.flipHint,fade));}

@@ -1,3 +1,15 @@
+## 2026-10-05:四個斜角方向(左上/右上/左下/右下)— 全部英雄與魔物(最新,取代下面「上下左右」那節)
+
+- 使用者決定取消正上/正下,改成等角地圖的 4 個斜角。每個英雄(5)與魔物(4)的**每個動作**(待機/走路/普攻/技能/受擊/倒下/勝利;魔物 idle/walk/attack/hurt/death)都有:
+  `<act>` = 右下(3/4 正面)、`<act>Up` = 右上(3/4 背面)、`<act>Left` / `<act>UpLeft` = 左下/左上(sheet 內烘好的鏡像列,audit 檢查逐像素鏡像)。
+- 遊戲(pixel-world.js):`moveDir` 只看畫面 y 正負選上/下,左右由 facing 決定;戰鬥格用 `combatDir`(普攻/技能看目標、受擊看打來的一側、倒下看致命一擊來向 `fromX/fromZ`);
+  `withDir(meta,act,vdir)` 加方向後綴。**注意**:加完後綴的 `sp.act` 會是 `attackUp` 之類,判斷動作種類要用加後綴前的 `baseAct`(這次修掉:背面普攻沒套戰鬥朝向,check_facing heroCombatBad 85 → 0)。
+- 生圖:110 張 `output/l0veyou/d4-<名>-<動作>-<dr|ur>-v1.png`,prompt 在 `prompts/d4-*.txt`。47 張用 cheaprouter gpt-image-2,63 張用 **l0veyou 網站 GPT Image 2**(`prompts/run_d4_l0v.sh`,16:9,
+  `MODEL` 環境變數選模型,`generate.mjs` 內建 6 分鐘 watchdog — Windows 的 `timeout` 殺不掉卡住的 CDP 連線)。l0veyou 要在 **Chrome for Testing**(CDP 9447、`work/.l0veyou-profile`)登入,不是一般 Chrome。
+  使用者試過 2.5 满血版 / 极速版後決定用 GPT Image 2(全部同一模型,風格一致)。
+- build_hero.py:走路格模型常把踩低格整隻畫小 12–15% → 縮完用 audit 同一量法(軀幹 ±10px)把偏離中位數 >6% 的格縮放回來;格大小最大到 384(樹人背面普攻伸手)。
+- 全部通過:audit_hero_sheet(9/9)、npm test、check_facing(0 bad)、check_anim(flicker 0)、check_zorder、check_placement、check_embedded_assets、check_gates。總覽圖:四方向 × 待機/走路 9 角色。
+
 ## 2026-10-05:四方向(上下左右)— 全部英雄與魔物(最新)
 
 - 每個英雄(5)與魔物(4)都有 **右(側面)/左(鏡像烘進 sheet)/下(正面)/上(正背面)** 的待機 4 + 走路 6;

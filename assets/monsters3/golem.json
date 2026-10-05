@@ -11,12 +11,12 @@
   },
   "walk": {
    "y": 160,
-   "cell": 160,
+   "cell": 128,
    "frames": 6,
    "frameTime": 0.1
   },
   "attack": {
-   "y": 320,
+   "y": 288,
    "cell": 224,
    "frames": 8,
    "frameTime": 0.075,
@@ -24,71 +24,127 @@
    "impact": 5
   },
   "hurt": {
-   "y": 544,
+   "y": 512,
    "cell": 160,
    "frames": 3,
    "frameTime": 0.1
   },
   "death": {
-   "y": 704,
+   "y": 672,
    "cell": 160,
    "frames": 6,
    "frameTime": 0.12
   },
-  "idleDown": {
-   "y": 864,
-   "cell": 128,
+  "idleUp": {
+   "y": 832,
+   "cell": 160,
    "frames": 4,
-   "frameTime": 0.22
+   "frameTime": 0.2
   },
-  "walkDown": {
+  "walkUp": {
    "y": 992,
    "cell": 128,
    "frames": 6,
    "frameTime": 0.1
   },
-  "idleUp": {
+  "attackUp": {
    "y": 1120,
-   "cell": 128,
-   "frames": 4,
-   "frameTime": 0.22
+   "cell": 224,
+   "frames": 8,
+   "frameTime": 0.075
   },
-  "walkUp": {
-   "y": 1248,
-   "cell": 128,
-   "frames": 6,
+  "hurtUp": {
+   "y": 1344,
+   "cell": 160,
+   "frames": 3,
    "frameTime": 0.1
   },
+  "deathUp": {
+   "y": 1504,
+   "cell": 160,
+   "frames": 6,
+   "frameTime": 0.12
+  },
   "idleLeft": {
-   "y": 1376,
+   "y": 1664,
    "cell": 160,
    "frames": 4,
    "frameTime": 0.2
   },
   "walkLeft": {
-   "y": 1536,
-   "cell": 160,
+   "y": 1824,
+   "cell": 128,
    "frames": 6,
    "frameTime": 0.1
+  },
+  "attackLeft": {
+   "y": 1952,
+   "cell": 224,
+   "frames": 8,
+   "frameTime": 0.075,
+   "release": 4,
+   "impact": 5
+  },
+  "hurtLeft": {
+   "y": 2176,
+   "cell": 160,
+   "frames": 3,
+   "frameTime": 0.1
+  },
+  "deathLeft": {
+   "y": 2336,
+   "cell": 160,
+   "frames": 6,
+   "frameTime": 0.12
+  },
+  "idleUpLeft": {
+   "y": 2496,
+   "cell": 160,
+   "frames": 4,
+   "frameTime": 0.2
+  },
+  "walkUpLeft": {
+   "y": 2656,
+   "cell": 128,
+   "frames": 6,
+   "frameTime": 0.1
+  },
+  "attackUpLeft": {
+   "y": 2784,
+   "cell": 224,
+   "frames": 8,
+   "frameTime": 0.075
+  },
+  "hurtUpLeft": {
+   "y": 3008,
+   "cell": 160,
+   "frames": 3,
+   "frameTime": 0.1
+  },
+  "deathUpLeft": {
+   "y": 3168,
+   "cell": 160,
+   "frames": 6,
+   "frameTime": 0.12
   }
  },
  "palette": [
-  "#e4c89e",
-  "#beaf84",
-  "#abae3f",
-  "#b09670",
-  "#a38969",
-  "#968060",
-  "#877356",
-  "#8b9232",
-  "#756549",
-  "#65593d",
-  "#554a34",
-  "#453c29",
-  "#342c1d",
-  "#252014",
-  "#1c190f",
-  "#131009"
+  "#edca9c",
+  "#cdad7b",
+  "#a7a639",
+  "#b19873",
+  "#aa8b67",
+  "#9e8160",
+  "#907758",
+  "#86872f",
+  "#806a4d",
+  "#6e5d40",
+  "#5f4f38",
+  "#4f422e",
+  "#3b3022",
+  "#2b2219",
+  "#1f1811",
+  "#110c08"
  ],
  "monster": true,
  "size": 33,

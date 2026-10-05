@@ -14,7 +14,7 @@ ROOT = Path(__file__).resolve().parents[3]
 H = ROOT / "assets" / "heroes"
 M = ROOT / "assets" / "monsters3"
 SPEC = {"idle": (4, 6), "walk": (4, 6), "attack": (6, 10), "skill": (8, 16), "hurt": (2, 4), "death": (5, 8), "victory": (4, 8)}
-STANDING = ("idle", "walk", "hurt", "idleDown", "walkDown", "idleUp", "walkUp")   # 勝利:舉弓過頭、跳起來是姿勢本身,不算比例改變
+STANDING = ("idle", "walk", "hurt", "idleUp", "walkUp", "hurtUp")   # 勝利:舉弓過頭、跳起來是姿勢本身,不算比例改變
 
 
 def frames(img, act):
@@ -31,15 +31,18 @@ MON_SPEC = {"idle": (4, 6), "walk": (4, 6), "attack": (6, 10), "hurt": (2, 4), "
 
 
 def four_dir(meta, img):
-    """四方向(上下左右):Down/Up 各有待機 4、走路 6;Left 列存在且是右邊同一格的鏡像(逐像素相等)。"""
+    """四個斜角方向:每個動作都有 右下(<動作>)、右上(<動作>Up)、左下(<動作>Left)、左上(<動作>UpLeft),格數相同;Left 列是右向同一格的逐像素鏡像。"""
     out = []
-    for name, n in (("idleDown", 4), ("walkDown", 6), ("idleUp", 4), ("walkUp", 6), ("idleLeft", 4), ("walkLeft", 6)):
-        if meta["actions"].get(name, {}).get("frames") != n: out.append(f"{name}: expected {n} frames")
-    for name in ("idle", "walk"):
-        a, l = meta["actions"].get(name), meta["actions"].get(name + "Left")
-        if not a or not l: continue
-        for i, (fr, fl) in enumerate(zip(frames(img, a), frames(img, l))):
-            if not np.array_equal(fr[:, ::-1], fl): out.append(f"{name}Left{i}: not a mirror of {name}{i}")
+    base = [a for a in meta["actions"] if not a.endswith(("Up", "Left"))]
+    for a in base:
+        n = meta["actions"][a]["frames"]
+        for suf in ("Up", "Left", "UpLeft"):
+            if meta["actions"].get(a + suf, {}).get("frames") != n: out.append(f"{a}{suf}: expected {n} frames")
+        for r in (a, a + "Up"):
+            x, l = meta["actions"].get(r), meta["actions"].get(r + "Left")
+            if not x or not l: continue
+            for i, (fr, fl) in enumerate(zip(frames(img, x), frames(img, l))):
+                if not np.array_equal(fr[:, ::-1], fl): out.append(f"{r}Left{i}: not a mirror")
     return out
 
 

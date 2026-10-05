@@ -9,6 +9,7 @@ import {pathToFileURL} from 'node:url';
 import {execSync} from 'node:child_process';
 let pw;try{pw=await import('playwright');}catch{pw=await import(pathToFileURL(path.join(execSync('npm root -g').toString().trim(),'playwright','index.js')).href);}
 const {chromium}=pw.default||pw;
+setTimeout(()=>{console.log('WATCHDOG');process.exit(4);},6*60e3).unref?.();   // Windows 的 timeout 殺不掉卡住的 CDP 連線,自己設上限
 let [promptFile,outFile,shotDir='',ratio='1:1']=process.argv.slice(2);
 const prompt=fs.readFileSync(promptFile,'utf8').trim();
 const log=(...a)=>console.log(new Date().toISOString().slice(11,19),...a);
@@ -23,8 +24,9 @@ await p.bringToFront();await p.waitForTimeout(500);
 await p.locator('button.new-chat').click();await p.waitForTimeout(1500);
 const rail=p.locator('button.rail-btn',{hasText:'AI 生图'});if(await rail.count()&&!(await rail.getAttribute('class')).includes('active')){await rail.click();await p.waitForTimeout(800);}
 const model=(await p.locator('button.model-trigger').innerText()).trim();log('model:',model);
-if(!model.includes('GPT Image 2')){await p.locator('button.model-trigger').click();await p.waitForTimeout(600);await p.getByText('GPT Image 2',{exact:false}).last().click();await p.waitForTimeout(600);log('model now:',(await p.locator('button.model-trigger').innerText()).trim());}
-await p.locator('button.ratio-btn').filter({hasText:new RegExp('^'+ratio+'$')}).click();await p.waitForTimeout(300);log('ratio:',(await p.locator('button.ratio-btn.active').innerText()).trim());
+const WANT=process.env.MODEL||'GPT Image 2';   // 例:MODEL='GPT Image 2.5 满血版'
+if(model!==WANT){await p.locator('button.model-trigger').click();await p.waitForTimeout(600);await p.getByText(WANT,{exact:true}).last().click();await p.waitForTimeout(600);log('model now:',(await p.locator('button.model-trigger').innerText()).trim());}
+await p.locator('button.ratio-btn').filter({hasText:new RegExp('^'+ratio+'$')}).click();await p.waitForTimeout(300);log('ratio:',(await p.locator('button.ratio-btn.active').first().innerText()).trim());
 // 「多參考圖」若存在且開著就關掉（文件說會用前面的圖當參考、污染風格）
 const multi=await p.evaluate(()=>[...document.querySelectorAll('*')].filter(e=>e.children.length===0&&/多参考图|多參考圖/.test(e.textContent||'')).map(e=>e.parentElement.outerHTML.slice(0,300)));
 if(multi.length)log('multi-ref control:',multi.join(' | '));
