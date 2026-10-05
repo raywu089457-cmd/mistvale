@@ -149,6 +149,8 @@ export function spriteDataURL(classId='berserker',rarity='normal') {
 }
 export function drawPortrait(canvas,hunter={},options={}) {
   const g=canvas.getContext('2d');g.imageSmoothingEnabled=false;g.clearRect(0,0,canvas.width,canvas.height);
+  if(heroSheets[hunter.classId]){const f=sheetFrame(hunter.classId,'idle',0,hunter.id?heroLook(hunter):null),H=heroSheets[hunter.classId].meta.heroHeight+6,s=Math.min(canvas.width/(H*.8),canvas.height/H);  // 新規格英雄:用自己的換色版待機格
+    g.drawImage(f.img,f.sx+f.c/2-H*.4,f.sy+f.foot-H+2,H*.8,H,Math.round((canvas.width-H*.8*s)/2),Math.round(canvas.height-H*s),Math.round(H*.8*s),Math.round(H*s));return;}
   const s=options.scale||Math.min(canvas.width/28,canvas.height/34);g.drawImage(heroSprite(hunter.classId,0,1,hash(hunter.id||hunter.classId)%3,s),Math.round((canvas.width-28*s)/2),Math.round(canvas.height-34*s),28*s,35*s);
 }
 
@@ -472,7 +474,21 @@ function ensureHeroSheets(){const A=globalThis.PIXEL_ASSETS?.heroSheets||{};
     im.onload=()=>{heroSheets[id]={img:im,meta,fx,fxMeta:v.fxMeta?(typeof v.fxMeta==='string'?JSON.parse(v.fxMeta):v.fxMeta):null};spriteCache.clear();globalThis.dispatchEvent(new CustomEvent('pixel-assets-ready'));};
     im.onerror=()=>loadedAssetKeys.delete('hs:'+id);im.src=v.img;if(fx)fx.src=v.fx;}}
 globalThis.__mistvaleHeroSheets=()=>Object.fromEntries(Object.entries(heroSheets).map(([k,v])=>[k,{w:v.img.width,h:v.img.height,actions:Object.keys(v.meta.actions)}]));
-function sheetFrame(id,act,i){const hs=heroSheets[id],a=hs?.meta.actions[act];if(!a)return null;const f=Math.max(0,Math.min(a.frames-1,i));return{img:hs.img,sx:f*a.cell,sy:a.y,c:a.cell,foot:a.cell-hs.meta.footFromBottom};}
+// 模組化換色(ART_BIBLE「模組化」):每職業 meta.groups = outfit(職業代表色布料)/metal(鎧甲、刀刃)。
+// 每位英雄依 id 挑一個布料色相(5 選 1)→ 同職業不同人;買了鎧甲 → 布料更飽和;買了武器 → 金屬變金色。結果整張 sheet 快取。
+const OUTFIT_SHIFT=[0,40,120,200,280],variantCache=new Map();
+function rgb2hsl(r,g,b){r/=255;g/=255;b/=255;const mx=Math.max(r,g,b),mn=Math.min(r,g,b),l=(mx+mn)/2;if(mx===mn)return[0,0,l];const d=mx-mn,s=l>.5?d/(2-mx-mn):d/(mx+mn);let h=mx===r?(g-b)/d+(g<b?6:0):mx===g?(b-r)/d+2:(r-g)/d+4;return[h/6,s,l];}
+function hsl2rgb(h,s,l){const f=n=>{const k=(n+h*12)%12,a=s*Math.min(l,1-l);return Math.round(255*(l-a*Math.max(-1,Math.min(k-3,9-k,1))));};return[f(0),f(8),f(4)];}
+function heroLook(h){return{shift:OUTFIT_SHIFT[hash(h.id||'')%OUTFIT_SHIFT.length],rich:!!h.equipment?.armor,gold:!!h.equipment?.weapon};}
+function variantImg(id,look){const hs=heroSheets[id];if(!hs||!look||(!look.shift&&!look.rich&&!look.gold))return hs?.img;const key=`${id}:${look.shift}:${+look.rich}:${+look.gold}`;
+  if(variantCache.has(key))return variantCache.get(key);const m=hs.meta,pal=m.palette.map(c=>[1,3,5].map(i=>parseInt(c.slice(i,i+2),16))),map=new Map();
+  for(const i of m.groups?.outfit||[]){const [h,s,l]=rgb2hsl(...pal[i]);map.set(pal[i].join(','),hsl2rgb((h+look.shift/360)%1,Math.min(1,s*(look.rich?1.25:1)),l*(look.rich?.9:1)));}
+  if(look.gold)for(const i of m.groups?.metal||[]){const [,,l]=rgb2hsl(...pal[i]);map.set(pal[i].join(','),hsl2rgb(45/360,.7,Math.min(.85,l*.95+.05)));}
+  const c=makeCanvas(hs.img.width,hs.img.height),x=c.getContext('2d',{willReadFrequently:true});x.drawImage(hs.img,0,0);const d=x.getImageData(0,0,c.width,c.height),p=d.data;
+  for(let k=0;k<p.length;k+=4){if(!p[k+3])continue;const n=map.get(p[k]+','+p[k+1]+','+p[k+2]);if(n){p[k]=n[0];p[k+1]=n[1];p[k+2]=n[2];}}
+  x.putImageData(d,0,0);variantCache.set(key,c);return c;}
+globalThis.__mistvaleVariants=()=>[...variantCache.keys()];
+function sheetFrame(id,act,i,look){const hs=heroSheets[id],a=hs?.meta.actions[act];if(!a)return null;const f=Math.max(0,Math.min(a.frames-1,i));return{img:variantImg(id,look)||hs.img,sx:f*a.cell,sy:a.y,c:a.cell,foot:a.cell-hs.meta.footFromBottom};}
 function ensureAtlas() {
   ensureAtlasManifest();
   ensureDetailAtlas();
@@ -1074,7 +1090,7 @@ export function createWorld(canvas,{onSelect=()=>{},onPlace=()=>{},getState=()=>
     if(d.type==='bankRocks'&&drawAtlasDetail('bankRocks',p,24*d.size,23*d.size,3,1,true))return;
     if(d.type==='fisher'){contact(p,5);if(drawAtlasDetail('fisher',p,28,20,1,1,true)){const s=scale,t=Math.sin(elapsed*1.3);g.globalAlpha=.7;pixel(g,p.x-15*s,p.y+(3+t*.6)*s,4*s,Math.max(1,s*.6),'#cfeeff');g.globalAlpha=1;return;}}
     // 概念圖街上滿是村民與貓狗:純裝飾(不參與模擬),原地輕微上下呼吸。
-    if(d.type==='npc'&&heroSheets[d.cls]){const m=heroSheets[d.cls].meta.actions,t=elapsed+d.phase,sp=d.walk?{act:'walk',i:Math.floor(t/m.walk.frameTime)%m.walk.frames}:{act:'idle',i:Math.floor(t/m.idle.frameTime)%m.idle.frames};
+    if(d.type==='npc'&&heroSheets[d.cls]){const m=heroSheets[d.cls].meta.actions,t=elapsed+d.phase,up=d.walk&&d.walkUp&&m.walkBack,w=up?'walkBack':'walk',sp=d.walk?{act:w,i:Math.floor(t/m[w].frameTime)%m[w].frames}:{act:'idle',i:Math.floor(t/m.idle.frameTime)%m.idle.frames};
       contact(p,5);drawSheetHero({classId:d.cls},p,d.flip?-1:1,sp);detailUse.draw1x++;return;}
     if(d.type==='npc'){const bob=Math.sin(elapsed*2.1+d.phase)>.55?1:0,hf=heroFrameFor(d.cls,heroLodScale);contact(p,5);
       {const sp=heroSprite(d.cls,bob,d.flip?-1:1,Math.floor(d.phase*7)%3,heroLodScale,d.walk?walkFrame(elapsed,d.phase*7):'idle');drawSprite(sp,p,21*CHAR_SCALE*sp.width/(sp.baseH||sp.height),21*CHAR_SCALE*sp.height/(sp.baseH||sp.height),1.2,1,'char');};if(hf)detailUse.draw1x++;return;}
@@ -1244,17 +1260,18 @@ export function createWorld(canvas,{onSelect=()=>{},onPlace=()=>{},getState=()=>
   const drawnFacing=new Map();globalThis.__mistvaleFacing=()=>Object.fromEntries(drawnFacing);
   const heroMemo=new Map();  // 獵人上一幀的目標(打倒目標 → 歡呼)
   // 新規格英雄:依動作時間軸挑格(ART_BIBLE 動畫時間表)。回傳 {act,i,pose}(pose 給驗收 hook)。
-  function sheetPose(h,pose,walking,cheering){const t=state.time||0,m=heroSheets[h.classId].meta.actions;
+  // back:最後一次移動是往畫面上方(遠離鏡頭)→ 走路/待機用背面 3/4 圖(4 方向:正面右/左 + 背面右/左,左邊是鏡像)
+  function sheetPose(h,pose,walking,cheering,back=false){const t=state.time||0,m=heroSheets[h.classId].meta.actions;
     if(h.hp<=0){const dt=8-(h.reviveTimer??8);return{act:'death',i:Math.floor(dt/m.death.frameTime),pose:'dead'};}
     const sk=t-(h.skillAt??-99),skLen=m.skill.frames*m.skill.frameTime;if(sk>=0&&sk<skLen)return{act:'skill',i:Math.floor(sk/m.skill.frameTime),pose:'skill'};
     if(pose.pose==='hurt'||(pose.hit>=0&&pose.hit<m.hurt.frames*m.hurt.frameTime&&pose.pose!=='strike'))return{act:'hurt',i:Math.floor(Math.max(0,pose.hit)/m.hurt.frameTime),pose:'hurt'};
     const atk=t-(h.atkAt??-99),rel=m.attack.release;
     if(atk>=0&&atk<(m.attack.frames-rel)*m.attack.frameTime)return{act:'attack',i:rel+Math.floor(atk/m.attack.frameTime),pose:'strike'};
     if(pose.pose==='windup')return{act:'attack',i:Math.min(rel-1,Math.floor(pose.k*rel)),pose:'windup'};
-    if(walking)return{act:'walk',i:Math.floor(elapsed/m.walk.frameTime+hash(h.id))%m.walk.frames,pose:'walk'+(1+Math.floor(elapsed/m.walk.frameTime+hash(h.id))%m.walk.frames)};
+    if(walking){const w=back&&m.walkBack?'walkBack':'walk',i=Math.floor(elapsed/m[w].frameTime+hash(h.id))%m[w].frames;return{act:w,i,pose:'walk'+(1+i)};}
     if(cheering)return{act:'victory',i:Math.floor((t-(heroMemo.get(h.id).cheer-.9))/m.victory.frameTime),pose:'victory'};
-    return{act:'idle',i:Math.floor(elapsed/m.idle.frameTime+hash(h.id))%m.idle.frames,pose:'idle'};}
-  function drawSheetHero(h,p,facing,sp,alpha=1,pose=null){const f=sheetFrame(h.classId,sp.act,sp.i);if(!f)return null;const k=heroArt(h.classId)*scale,dw=Math.round(f.c*k),dh=dw;
+    const id=back&&m.idleBack&&h.status!=='戰鬥中'?'idleBack':'idle';return{act:id,i:Math.floor(elapsed/m[id].frameTime+hash(h.id))%m[id].frames,pose:'idle'};}
+  function drawSheetHero(h,p,facing,sp,alpha=1,pose=null){const f=sheetFrame(h.classId,sp.act,sp.i,h.id?heroLook(h):null);if(!f)return null;const k=heroArt(h.classId)*scale,dw=Math.round(f.c*k),dh=dw;
     const q=pose?{x:p.x+Math.round((pose.flash?Math.sin((state.time||0)*95)*.8:0)*scale),y:p.y}:p,dx=Math.round(q.x-f.c/2*k),dy=Math.round(q.y-f.foot*k);
     cast(f.img,f.sx,f.sy,f.c,f.c,dx,dy,dw,dh,facing<0,true,'char');g.save();g.globalAlpha=alpha;
     if(facing<0){g.translate(dx+dw,dy);g.scale(-1,1);g.drawImage(f.img,f.sx,f.sy,f.c,f.c,0,0,dw,dh);}else g.drawImage(f.img,f.sx,f.sy,f.c,f.c,dx,dy,dw,dh);
@@ -1331,13 +1348,17 @@ export function createWorld(canvas,{onSelect=()=>{},onPlace=()=>{},getState=()=>
     if(old&&Math.abs(h.x-old.x-(h.z-old.z))>.002)facing=h.x-old.x-(h.z-old.z)>0?1:-1;
     const isSelected=selected===`hunter:${h.id}`,top=HERO_H;contact(p,5);if(isSelected)ring(p,8,'#fff1b0');if(wanderer)ring(p,6,'#7fc4ff');
     const target=h.status==='戰鬥中'&&h.targetId?(state.enemies||[]).find(e=>e.id===h.targetId&&e.hp>0):null,pose=h.hp>0?combatPose(h,false,target):{pose:'idle',face:0,flash:0,hit:-1};
-    if(pose.face)facing=pose.face>0?1:-1;
-    {const t=state.time||0,sk=t-(h.skillAt??-99);if(sk>=0&&sk<1&&h.atkX!=null){const d=screenDir(h.x,h.z,h.atkX,h.atkZ).x;if(Math.abs(d)>.1)facing=d>0?1:-1;}}
-    previousPositions.set(h.id,{x:h.x,z:h.z,facing});
+    let back=old?.back||false;if(old&&moving){const sy=(h.x-old.x)+(h.z-old.z),sx=(h.x-old.x)-(h.z-old.z);if(Math.abs(sy)>.002&&Math.abs(sy)>=Math.abs(sx)*.25)back=sy<0;}
+    if(h.status==='戰鬥中'||pose.pose!=='idle')back=false;
     const walking=moving&&h.status!=='戰鬥中'&&h.hp>0;
     {const tg=h.targetId,prev=heroMemo.get(h.id);if(prev&&prev.tg&&prev.tg!==tg&&!(state.enemies||[]).some(e=>e.id===prev.tg&&e.hp>0)&&(state.time||0)-(h.atkAt??-99)<.8)heroMemo.set(h.id,{...prev,tg,cheer:(state.time||0)+.9});else heroMemo.set(h.id,{...prev,tg,cheer:prev?.cheer??-1});}
     const cheering=(state.time||0)<(heroMemo.get(h.id)?.cheer??-1)&&!walking;
-    const sp=sheetPose(h,pose,walking,cheering);sp.i=Math.max(0,Math.min(heroSheets[h.classId].meta.actions[sp.act].frames-1,sp.i));  // 時間超過最後一格就停在最後一格drawnFacing.set(h.id,{f:facing,pose:sp.pose,act:sp.act,i:sp.i,x:h.x,z:h.z,t:state.time});
+    const sp=sheetPose(h,pose,walking,cheering,back);
+    // 朝向:畫的是戰鬥格(普攻/受擊/技能)才用戰鬥朝向(面向目標/打來的一側);走路/待機一律照移動方向 —— 出手後 0.3–0.36 秒換追下一個目標時,不會倒退走
+    if(['attack','hurt','skill','death'].includes(sp.act)){if(pose.face)facing=pose.face>0?1:-1;
+      {const t=state.time||0,sk=t-(h.skillAt??-99);if(sp.act==='skill'&&sk>=0&&h.atkX!=null){const d=screenDir(h.x,h.z,h.atkX,h.atkZ).x;if(Math.abs(d)>.1)facing=d>0?1:-1;}}}
+    previousPositions.set(h.id,{x:h.x,z:h.z,facing,back});sp.i=Math.max(0,Math.min(heroSheets[h.classId].meta.actions[sp.act].frames-1,sp.i));  // 時間超過最後一格就停在最後一格
+    drawnFacing.set(h.id,{f:facing,pose:sp.pose,act:sp.act,i:sp.i,x:h.x,z:h.z,t:state.time});
     const rect=drawSheetHero(h,p,facing,sp,h.hp>0?1:.85,pose);if(rect)hits.push({id:`hunter:${h.id}`,...padHit(rect,16,22)});
     if(h.hp<=0){textLabel('✦',p.x,p.y-(top*.4)*scale,{color:'#e7d8ef',back:false});return;}
     const full=(h.hp??1)/(h.maxHp||1);if(full<.99||isSelected||h.status==='戰鬥中')bar(p.x-7*scale,p.y-(top+3)*scale,14*scale,full,full<.35?'#df795c':'#84bf6a');
@@ -1487,7 +1508,7 @@ export function createWorld(canvas,{onSelect=()=>{},onPlace=()=>{},getState=()=>
       // 往鏡頭(+t)穿過佔地 → 在建築後面;往反方向(−t)穿過 → 在建築前面;都沒穿過(在旁邊)→ 不限制。
       const lo=Math.max(B.x0-x,B.z0-z),hi=Math.min(B.x1-x,B.z1-z);if(lo>hi)continue;if(hi>=0&&lo>=0)key=Math.min(key,B.key-.001);else if(lo<=0&&hi<=0)key=Math.max(key,B.key+.001);}return key;};
     // 街上走的村民/獵人:沿自己那條街來回(三角波),面向跟著走的方向。
-    for(const d of decorations)if(d.walk){const w=d.walk,t=((elapsed*w.speed+w.t0)/w.len)%2,u=t<1?t:2-t,nx=w.ax+(w.bx-w.ax)*u,nz=w.az+(w.bz-w.az)*u,sd=(nx-d.x)-(nz-d.z);if(Math.abs(sd)>1e-5)d.flip=sd<0;d.x=nx;d.z=nz;}
+    for(const d of decorations)if(d.walk){const w=d.walk,t=((elapsed*w.speed+w.t0)/w.len)%2,u=t<1?t:2-t,nx=w.ax+(w.bx-w.ax)*u,nz=w.az+(w.bz-w.az)*u,sd=(nx-d.x)-(nz-d.z),sy=(nx-d.x)+(nz-d.z);if(Math.abs(sd)>1e-5)d.flip=sd<0;if(Math.abs(sy)>1e-5)d.walkUp=sy<0;d.x=nx;d.z=nz;}
     for(const d of decorations){const p=screenPoint(d.x,d.z);if(p.x>-100&&p.x<width+100&&p.y>-40&&p.y<height+260)all.push({sort:d.type==='streamBridge'||d.type==='frozenPond'?-1e9:depth(d.x,d.z,d.x+d.z),type:'decor',data:d});}  // 橋面是地面:過橋的人永遠畫在上面
     for(const b of BUILDINGS){const p=state.layout?.[b.id]||b;all.push({sort:p.x+p.z+.2,type:'building',data:b});}
     for(const h of state.hunters||[])all.push({sort:depth(h.x,h.z,h.x+h.z+.32),type:'hunter',data:h});  // 跟魔物同深度時獵人畫在前面

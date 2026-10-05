@@ -13,7 +13,7 @@ from scipy import ndimage
 ROOT = Path(__file__).resolve().parents[3]
 H = ROOT / "assets" / "heroes"
 SPEC = {"idle": (4, 6), "walk": (4, 6), "attack": (6, 10), "skill": (8, 16), "hurt": (2, 4), "death": (5, 8), "victory": (4, 8)}
-STANDING = ("idle", "walk", "hurt")   # 勝利:舉弓過頭、跳起來是姿勢本身,不算比例改變
+STANDING = ("idle", "walk", "hurt", "idleBack", "walkBack")   # 勝利:舉弓過頭、跳起來是姿勢本身,不算比例改變
 
 
 def frames(img, act):
@@ -51,16 +51,24 @@ def audit(hero):
     base = body_h(frames(img, idle)[0], c / 2); info["height"] = base
     if not 64 <= base <= 90: bad.append(f"idle height {base} px (spec 64-90)")
     for name in STANDING:
+        if name not in meta["actions"]: bad.append(f"missing {name}"); continue
         a = meta["actions"][name]
         for i, f in enumerate(frames(img, a)):
             h = body_h(f, a["cell"] / 2)
             if abs(h / base - 1) > .12: bad.append(f"{name}{i}: body height {h} vs idle {base}")
     # 6. 對齊:站姿類與普攻每格腳底(最低不透明列)= 格底往上 footFromBottom ±3 px(跳躍只允許在技能/勝利)
     for name in STANDING + ("attack",):
+        if name not in meta["actions"]: continue
         a = meta["actions"][name]
         for i, f in enumerate(frames(img, a)):
             ys = np.nonzero((f[..., 3] > 0).any(1))[0]; foot = a["cell"] - meta["footFromBottom"]
             if abs(ys.max() + 1 - foot) > 3: bad.append(f"{name}{i}: foot at {ys.max() + 1}, expected {foot}")
+    # 4 方向:背面待機/走路格數(正面右/左 + 背面右/左,左邊鏡像)
+    for name, n in (("idleBack", 4), ("walkBack", 6)):
+        if meta["actions"].get(name, {}).get("frames") != n: bad.append(f"{name}: expected {n} frames")
+    # 模組化:至少要有一組可換色材質(outfit)
+    if not meta.get("groups", {}).get("outfit"): bad.append("no swappable outfit color group")
+    info["groups"] = {k: len(v) for k, v in meta.get("groups", {}).items()}
     # 7. 描邊:剪影外圈暗色比例 ≥ 0.55(待機格)
     f = frames(img, idle)[0]; m = f[..., 3] > 0; edge = m & ~ndimage.binary_erosion(m)
     lum = (0.299 * f[..., 0] + 0.587 * f[..., 1] + 0.114 * f[..., 2])[edge]; info["outline"] = round(float((lum < 95).mean()), 2)

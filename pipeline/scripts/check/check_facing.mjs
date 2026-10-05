@@ -17,7 +17,7 @@ await p.evaluate(v=>{
  const prev=new Map(),R=globalThis.__fc={n:0,heroWalk:0,heroWalkBad:0,heroAnimBad:0,heroCombat:0,heroCombatBad:0,enemyWalk:0,enemyWalkBad:0,enemyCombat:0,enemyCombatBad:0,enemyAnimBad:0,examples:[],poses:{}};
  const sx=(x,z)=>x-z,bad=(k,o)=>{R[k]++;if(R.examples.length<40)R.examples.push({k,...o});};
  const orig=V.update.bind(V);V.update=(dt,state)=>{const r=orig(dt,state),F=__mistvaleFacing(),t=state.time;
-  for(const h of state.hunters){const d=F[h.id],o=prev.get(h.id);prev.set(h.id,{x:h.x,z:h.z});if(!d||d.t!==t||!o||h.hp<=0)continue;
+  for(const h of [...state.hunters,...(state.wanderers||[])]){const d=F[h.id],o=prev.get(h.id);prev.set(h.id,{x:h.x,z:h.z});if(!d||d.t!==t||!o||h.hp<=0)continue;
    const dsx=sx(h.x,h.z)-sx(o.x,o.z),moved=Math.hypot(h.x-o.x,h.z-o.z);
    if(d.pose.startsWith('walk')){if(moved<.001)bad('heroAnimBad',{id:h.id,why:'walk pose but standing',st:h.status});else if(Math.abs(dsx)>.01){R.heroWalk++;if(Math.sign(dsx)!==d.f)bad('heroWalkBad',{id:h.id,dsx:+dsx.toFixed(3),f:d.f,st:h.status});}}
    else if(['idle','idle2','blink','rest','eat','drink','sleep','bandaged','trade','train','victory','dead','falling','getup'].includes(d.pose)){if(moved>.02&&h.status!=='戰鬥中')bad('heroAnimBad',{id:h.id,why:'idle pose while walking',moved:+moved.toFixed(3),st:h.status});}

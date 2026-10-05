@@ -47,6 +47,18 @@
    "cell": 128,
    "frames": 4,
    "frameTime": 0.15
+  },
+  "idleBack": {
+   "y": 960,
+   "cell": 128,
+   "frames": 4,
+   "frameTime": 0.22
+  },
+  "walkBack": {
+   "y": 1088,
+   "cell": 128,
+   "frames": 6,
+   "frameTime": 0.1
   }
  },
  "palette": [
@@ -66,5 +78,17 @@
   "#103da6",
   "#2f1f14",
   "#170f09"
- ]
+ ],
+ "groups": {
+  "outfit": [
+   12,
+   13
+  ],
+  "metal": [
+   3,
+   6,
+   7,
+   9
+  ]
+ }
 }
