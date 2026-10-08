@@ -1,0 +1,9 @@
+Pixel art farm animal sprite sheet in the exact art style of the attached reference image (the mobile game Evil Hunter Tycoon / 獵魔村物語): cute chibi proportions with a slightly big head, simple dot eyes, thin dark-brown pixel outline, 3-4 tone hard pixel shading clusters, warm muted colors, chunky pixels with no anti-aliasing, lighting from the upper right. Do NOT copy any character from the reference; only copy its drawing style.
+
+Exactly 4 separate animals arranged in a clean 4 columns x 1 row grid, each fully visible and centered in its cell, the same size scale as each other, wide empty gaps between them, none touching each other or the canvas edge:
+(1) fluffy white sheep with cream wool, dark gray face and legs, standing, 3/4 view facing right;
+(2) brown goat with small curved horns, a little beard and a lighter belly, standing, 3/4 view facing right;
+(3) the same white sheep grazing with its head lowered to the ground, facing right;
+(4) the same brown goat with its head raised, facing right.
+
+Background: perfectly flat solid pure magenta #FF00FF everywhere, no ground, no cast shadow, no grid lines, no borders, no text. One sprite sheet image only.

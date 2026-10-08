@@ -287,7 +287,7 @@ function ensureHeroAtlas(){
 
 // ── 無縫地面材質(整片 pattern,不是逐格貼圖) ─────────────────────────
 // 地面材質縮放:1.0 = 一比一。0.5 讓草葉落在 1~3px(跟建築細節同一個量級)。
-const TERRAIN_TEX_SCALE=.5;  // 1 材質像素 = 0.5 邏輯單位:地面美術像素跟英雄(0.62)、建築同一級(pipeline/scripts/check/audit_density.py)
+const TERRAIN_TEX_SCALE=0.29;  // 1 材質像素 = 0.5 邏輯單位:地面美術像素跟英雄(0.62)、建築同一級(pipeline/scripts/check/audit_density.py)
 // 垂直壓扁比例。等角理論上是 0.5,但實測草葉會被壓成橫向斑點、看起來像雜訊,
 // 所以先用 1(不壓)。要試等角感就把 TERRAIN_TEX_SQUASH 改成 .5。
 const TERRAIN_TEX_SQUASH=1;

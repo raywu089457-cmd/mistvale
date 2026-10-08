@@ -68,7 +68,7 @@ def resize_sprite(im: Image.Image, f: float) -> Image.Image:
 
 # ── 道具像素密度(audit_density.py):道具原圖 250px 左右,但畫面上只畫 8–30 邏輯單位 → 美術像素比英雄細 3 倍。
 # 每個道具依「遊戲畫它的外框」縮成真像素畫(0.62 邏輯單位/美術像素,跟英雄一樣),圖集裡存最近鄰放大版(2x ×4、1x ×2)。
-ART_DENSITY = 0.62
+ART_DENSITY = 0.40
 EXTRA_BOX = {"boulders": (10, 8), "signpost": (13, 16), "lamppost": (7, 15), "plot": (52, 40), "well": (50, 51), "flowerYellow": (9, 7), "flowerPink": (9, 7),
              "flowerBlue": (9, 7), "flowerWhite": (9, 7), "wheat": (9, 9), "cabbage": (10, 7), "cave": (55, 60), "ruin": (46, 46), "outcrop": (42, 40), "sheep": (10, 8.5), "goat": (9.5, 10),
              "pine": (42.5, 61), "oak": (42.5, 61), "birch": (42.5, 61), "snowpine": (42.5, 61), "autumnOak": (42.5, 61)}
