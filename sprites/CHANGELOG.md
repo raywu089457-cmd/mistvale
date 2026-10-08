@@ -1,5 +1,17 @@
 # CHANGELOG — sprites
 
+## 2026-10-08 — 獵魔人 witchhunter:QA 修正(idle 06/07、walkUp 地線)
+
+- **idle 06/07 失敗**:木製連弩的弩身飽和度 60–90,`sprite_qa.py` 的金屬偵測只認飽和 < 30,量不到(回傳 None)。
+  - rig:新增 `weaponSatMax` 90(預設 30 不變,只有這隻角色用),`weaponMetalMin` 100 → 40(弩身亮度約 60–85,100 會把它濾掉)。
+  - 結果:8 格弩身偏移 (0,−2)、尺寸 15×10 完全一致 → 06/07 PASS。
+- **walkUp 地線失敗**:背面弩在左側,bbox 置中把身體與兩腳推到軸線右側 → 左腳落在右半邊,walk 的左右分組失效,整對腳一起抬,地線掉到 90。
+  - `make_dir.py` 新增 rig `dirFeetGapAxis`(背面):兩腳之間的縫對到軸線(dx = −6);來源圖左腳比右腳高 2 px,另以 `plant_feet` 把那側腿段拉長 2 列貼回地線。
+  - 結果:四方向 idle/walk 腳底都在地線 92;walkUp PASS。
+- **未修**:正面(Down)左靴仍比右靴高 2 px(來源圖),walk 抬右腳時右靴左側 3 px 會留在左組。人工項「四方向腳底貼地」記 FAIL;需要新的正面關鍵表,或另做分腳設計。
+- 驗收:`sprite_qa.py idle` PASS;`sprite_qa_dyn.py walk attack hurt death` PASS;`make_dir.py` 四方向 PASS;`audit_hero_sheet.py witchhunter` PASS;`check_anim` 閃格 0、受擊 163/163。
+  `check_facing` heroCombatBad 3 次(base 版本同樣出現 2 次,屬既有問題,未在本次修)。`npm test` 在 base 與本次都失敗(test-pixel-game 5≠6、test-landscape 交易所道路),非本次造成。
+
 ## 2026-10-07(夜)— 獵魔村物語怪物風格試作:食人魔 ogre
 
 - 從實機截圖(`webref/s5.png`)整理野外怪物風格 → Visual Bible 2.2 節(直立人形、偏灰低飽和、小黑點眼、與英雄同尺度)。

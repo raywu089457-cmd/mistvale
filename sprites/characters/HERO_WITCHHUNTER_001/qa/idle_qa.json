@@ -13,11 +13,8 @@
   "rows": 2
  },
  "palette": 14,
- "result": "FAIL",
- "failed": [
-  "06_weapon_position",
-  "07_weapon_size"
- ],
+ "result": "PASS",
+ "failed": [],
  "checks": {
   "hard_pixel_edges": {
    "pass": true,
@@ -122,30 +119,78 @@
    "note": "height/width"
   },
   "06_weapon_position": {
-   "pass": false,
+   "pass": true,
    "value": [
-    null,
-    null,
-    null,
-    null,
-    null,
-    null,
-    null,
-    null
+    [
+     0,
+     -2
+    ],
+    [
+     0,
+     -2
+    ],
+    [
+     0,
+     -2
+    ],
+    [
+     0,
+     -2
+    ],
+    [
+     0,
+     -2
+    ],
+    [
+     0,
+     -2
+    ],
+    [
+     0,
+     -2
+    ],
+    [
+     0,
+     -2
+    ]
    ],
    "note": "blade bbox offset from grip"
   },
   "07_weapon_size": {
-   "pass": false,
+   "pass": true,
    "value": [
-    null,
-    null,
-    null,
-    null,
-    null,
-    null,
-    null,
-    null
+    [
+     15,
+     10
+    ],
+    [
+     15,
+     10
+    ],
+    [
+     15,
+     10
+    ],
+    [
+     15,
+     10
+    ],
+    [
+     15,
+     10
+    ],
+    [
+     15,
+     10
+    ],
+    [
+     15,
+     10
+    ],
+    [
+     15,
+     10
+    ]
    ]
   },
   "08_equipment_consistency": {
@@ -235,7 +280,7 @@
    "value": {
     "archer": 0.528,
     "berserker": 0.454,
-    "darkknight": 0.651,
+    "darkknight": 0.654,
     "paladin": 0.708,
     "priest": 0.479,
     "ranger": 0.662,

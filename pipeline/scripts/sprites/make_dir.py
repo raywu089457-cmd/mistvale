@@ -40,6 +40,32 @@ def place(a):
     return cell
 
 
+def feet_gap_dx(key):
+    """腳底 3 列裡兩腳之間最寬的空欄,對到軸線所需的水平位移;兩腳相連(沒有縫)回傳 None。"""
+    on = key[GROUND - 3:GROUND, :, 3].any(0); xs = np.nonzero(on)[0]
+    if len(xs) == 0: return None
+    gaps, start = [], None
+    for x in range(xs.min(), xs.max() + 1):
+        if not on[x] and start is None: start = x
+        if on[x] and start is not None: gaps.append((start, x - 1)); start = None
+    if not gaps: return None
+    g0, g1 = max(gaps, key=lambda g: g[1] - g[0])
+    return AXIS - round((g0 + g1) / 2)
+
+
+def plant_feet(key, split, top):
+    """兩腳落地高度不同(來源圖一腳高 d 列):把高的那側腿段從 top 起拉長 d 列,腳底貼回另一腳的地線。只動 split 一側、top 以下。"""
+    m = key[..., 3] > 0
+    lo = int(np.nonzero(m[top:, :split].any(1))[0].max()) + top
+    ro = int(np.nonzero(m[top:, split:].any(1))[0].max()) + top
+    d = ro - lo
+    if not 0 < d <= 3: return key
+    out = key.copy(); n_in = lo - top + 1; n_out = n_in + d
+    idx = np.round(np.linspace(0, n_in - 1, n_out)).astype(int)
+    out[top:top + n_out, :split] = key[top:lo + 1, :split][idx]
+    return out
+
+
 def frames_for(key, hop):
     """key = 已放進格子的待機格。回傳 (idle 8 格, walk 8 格)。"""
     al = key[..., 3] > 0; ys = np.nonzero(al.any(1))[0]; h = ys.max() - ys.min() + 1
@@ -74,6 +100,10 @@ def main(char_dir: Path):
         if view == "Up" and rig.get("dirMirrorUp"): u = u.transpose(Image.FLIP_LEFT_RIGHT)   # 模型把背面裝備畫在跟正面同一側(換手)時鏡像回來
         a = MI.clean_key(np.asarray(u).copy(), {**rig, "keyDespeck": rig.get("keyDespeck", 10)})
         key = MR.outline_fix(place(a), rig.get("outlineTarget", .62))
+        if view == "Up" and rig.get("dirFeetGapAxis"):   # 背面弩在左側,bbox 置中會把身體與兩腳推離軸線 → 左腳落到右半邊、walk 兩腳同組一起抬;改依兩腳之間的縫對齊軸線
+            dx = feet_gap_dx(key)
+            if dx is not None:
+                key = plant_feet(MI.shift(key, 0, dx), AXIS, GROUND - 9); print(f"{cid} Up: 兩腳縫對齊軸線 dx={dx},高的那隻腳貼回地線")
         idle, walk = frames_for(key, hop)
         for anim, cells, ft in ((f"idle{view}", idle, .16), (f"walk{view}", walk, .1)):
             cells = [MR.despeck(c.copy(), 8) for c in cells]

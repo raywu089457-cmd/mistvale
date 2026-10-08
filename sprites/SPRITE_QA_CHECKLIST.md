@@ -60,7 +60,7 @@ idle 的剛性檢查(腳、頭、武器逐像素不變)在姿勢會變的動作�
 
 ## rig.json 的修正旋鈕(用了要寫進 CHANGELOG)
 
-`weaponMetalMin`(武器亮度門檻,暗色/木製武器調低)· `outlineTarget`(關鍵格描邊比例下限)· `keyDespeck`(關鍵格小於 N px 的碎塊清掉)·
+`weaponMetalMin`(武器亮度門檻,暗色/木製武器調低)· `weaponSatMax`(武器飽和度上限,預設 30 = 金屬;木製武器放寬到 ~90)· `dirFeetGapAxis`(背面:兩腳之間的縫對到軸線,高的那隻腳貼回地線)· `outlineTarget`(關鍵格描邊比例下限)· `keyDespeck`(關鍵格小於 N px 的碎塊清掉)·
 `keyBridge`(與主體距離 ≤ N 的分離塊用連線補成一體)· `rigged.despeck.<anim>`(動作格碎塊門檻)· `qaOverride`。
 
 ## 不可接受(任何一項 = FAIL)

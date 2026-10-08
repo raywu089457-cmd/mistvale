@@ -1,10 +1,8 @@
 {
  "character": "HERO_WITCHHUNTER_001",
  "animation": "walkUp",
- "result": "FAIL",
- "failed": [
-  "ground [92, 92, 92, 92, 92, 91, 90, 91]"
- ],
+ "result": "PASS",
+ "failed": [],
  "checks": {
   "frame_count/alpha/ground/palette_shared/height_vs_side/outline/continuity/inside_cell": "make_dir.qa"
  }

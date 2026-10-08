@@ -150,7 +150,9 @@
    ]
   }
  },
- "weaponMetalMin": 100,
+ "weaponMetalMin": 40,
+ "weaponSatMax": 90,
+ "dirFeetGapAxis": true,
  "outlineTarget": 0.75,
  "keyDespeck": 10,
  "qaOverride": {

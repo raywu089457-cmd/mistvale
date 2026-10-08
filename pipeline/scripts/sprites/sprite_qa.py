@@ -45,6 +45,7 @@ def run(char_dir: Path, anim: str):
     res, fail = {}, []
     rigj = json.loads((char_dir / "rig.json").read_text(encoding="utf-8"))
     WM = rigj.get("weaponMetalMin", 150)   # 黑色武器(暗鋼)用較低的亮度門檻
+    SAT = rigj.get("weaponSatMax", 30)     # 金屬 = 低飽和;木製武器(連弩木身,飽和 60–80)要放寬,否則量不到(回傳 None)
     armed = "weapon" in rigj.get("layers", {})   # 魔物沒有武器:06/07 不適用
 
     def check(name, ok, value, note=""):
@@ -81,7 +82,7 @@ def run(char_dir: Path, anim: str):
     def weapon_box(k):
         g = meta["anchors"][k]["WEAPON_GRIP"]; gx, gy = g[0] // S, g[1] // S
         l = L[k]; rgb = l[..., :3].astype(int); sat = rgb.max(2) - rgb.min(2)
-        metal = (l[..., 3] > 0) & (sat < 30) & (rgb.mean(2) > WM)
+        metal = (l[..., 3] > 0) & (sat < SAT) & (rgb.mean(2) > WM)
         reg = np.zeros_like(metal); reg[gy - 2:, gx:] = True
         lab, _ = ndimage.label(metal & reg); ids = [i for i in np.unique(lab) if i]
         if not ids: return None
