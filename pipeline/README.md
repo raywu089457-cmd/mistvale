@@ -18,8 +18,8 @@ AI／工程師，光看這個資料夾就能**完整接手**——知道素材�
 | [`ASSETS.md`](ASSETS.md) | 素材清單：每一張從哪來、狀態、缺口 |
 | [`sprite-gen.md`](sprite-gen.md) | **主管線**：sprite-gen 生圖 → 切格 → 組圖集 → 進遊戲 |
 | [`comfyui.md`](comfyui.md) | **旁支管線**：本機 SD（ComfyUI）生變體／實驗 |
-| [`align.md`](align.md) | **概念圖對齊**：量測（capture/metrics）、概念圖→地面/樹/道具/建築/角色、各階段數字 |
-| [`l0veyou.md`](l0veyou.md) | **替代來源**：l0veyou.com（GPT Image 2）生道具／魔物／材質，額度用完時用 |
+| [`align.md`](align.md) | **概念圖對齊**：量測（capture/metrics）、概念圖→地面/樹/道具/建築、各階段數字 |
+| [`l0veyou.md`](l0veyou.md) | **替代來源**：l0veyou.com（GPT Image 2）生道具／材質，額度用完時用 |
 
 報告原文在 [`reports/`](reports/)，可重跑腳本在 [`scripts/`](scripts/)。
 
@@ -30,7 +30,7 @@ AI／工程師，光看這個資料夾就能**完整接手**——知道素材�
 | | sprite-gen（主管線） | ComfyUI（旁支） |
 |---|---|---|
 | 生圖引擎 | **Codex 內建 ImageGen**（ChatGPT／Grok） | 本機 SDXL（離線、免費無限） |
-| 產出 | 建築／細節／地形／角色 **圖集 + manifest** | 現有建築的**變體**、風格實驗 |
+| 產出 | 建築／細節／地形 **圖集 + manifest** | 現有建築的**變體**、風格實驗 |
 | 額度 | 要 Codex 額度（10/4 前用光了） | 不要錢，只要顯卡（RTX 3070 Ti 8GB） |
 | 現況 | **四階段全做完、已推進正式專案** | 環境修好、配方驗證達標，但沒量產 |
 | 什麼時候用 | 生**全新**素材、重跑整條產線 | 生**現有 12 棟的變體**、或額度用完時 |
@@ -46,15 +46,14 @@ AI／工程師，光看這個資料夾就能**完整接手**——知道素材�
 
 - **兩段 LOD**：每個圖集都有 `@1x`（日常）＋ `@2x`（放大）。放大約 >2.2 倍才切 2x，省記憶體。
 - **載入流程**：洋紅底色鍵去背 → 裁切 → **離線 LANCZOS 先縮好** → 執行時 1:1 貼上。
-  （鐵律：別在瀏覽器裡用最近鄰縮小，會糊。當初建築跟角色都踩過這坑。）
+  （鐵律：別在瀏覽器裡用最近鄰縮小，會糊。當初建築踩過這坑。）
 - **fallback**：圖集沒到位就退回 `pixel-world.js` 的程序繪製，遊戲不會開天窗。
 
 build.mjs 目前內嵌的 key（對照它，才知道漏了什麼）：
 `title / hall / inn / monument`（單圖）＋
 `buildingsAtlas(+2x) / buildingsManifest(+2x)` ＋
 `detailsAtlas(+2x) / detailsManifest(+2x)` ＋
-`terrainAtlas / terrainManifest` ＋
-`heroAtlas(+2x) / heroManifest(+2x)`。
+`terrainAtlas / terrainManifest`。
 
 > `buildings14.png` **已不再內嵌**（舊清單裡有，後來拿掉）。它留著當**風格基準 + img2img 底圖**，
 > 不是 runtime 素材，別誤刪。
@@ -97,12 +96,10 @@ npm run serve        # 起本地埠 5024（綁 Tailscale 100.79.149.0）
 1. **`scripts/sprite-gen/integrate_*.py` 是一次性搬移腳本**，路徑寫死打在
    `C:\Users\ray\sprite-demo\mistvale-work\proj`（工作副本），**不是**打在這個正式專案。
    正式專案已經整合完。這些腳本的價值是「記錄整合契約」，想重跑要先改路徑。
-2. **角色職業 id 要對得上**：圖集 key = `berserker/ranger/paladin/sorcerer/darkknight/priest`。
-   早前 bug 是遊戲用 `knight/ranger/mage`、圖集用另一套 → 全部退回程序繪製、不報錯。已修。
-3. **快取不失效 = 白做**：`portraitCache` / `spriteCache` 在圖集載入前就烤好會永久佔住舊圖。
+2. **快取不失效 = 白做**：`portraitCache` / `spriteCache` 在圖集載入前就烤好會永久佔住舊圖。
    圖集載入後要清快取、快取 key 要分 LOD。這類 bug **不報錯**，要用計數器實測（`atlasUse`）。
-4. **額度**：Codex 額度 10/4 06:08 前用光。要用 sprite-gen 生新圖，先確認額度回來。
-5. **21:30 有「別的管道」動過正式專案**（生態系調色 + UI 主題，查過純外觀）。
+3. **額度**：Codex 額度 10/4 06:08 前用光。要用 sprite-gen 生新圖，先確認額度回來。
+4. **21:30 有「別的管道」動過正式專案**（生態系調色 + UI 主題，查過純外觀）。
    如果之後另一個 AI 也動 `pixel-world.js`／`pixel-ui.js`，可能蓋掉素材整合，改前先 diff。
 
 ---

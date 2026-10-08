@@ -1,0 +1,166 @@
+{
+ "id": "HERO_PRIEST_001",
+ "version": "v01",
+ "animation": "death",
+ "frames": 8,
+ "layout": {
+  "columns": 4,
+  "rows": 2
+ },
+ "cell": 400,
+ "sheet": [
+  1600,
+  800
+ ],
+ "logicalScale": 4,
+ "logicalCell": 100,
+ "frameTime": 0.12,
+ "loop": false,
+ "facing": "right",
+ "groundY": 368,
+ "axisX": 200,
+ "characterHeight": 284,
+ "anchors": [
+  {
+   "GROUND": [
+    200,
+    368
+   ],
+   "BODY": [
+    202,
+    224
+   ],
+   "HEAD": [
+    202,
+    116
+   ]
+  },
+  {
+   "GROUND": [
+    200,
+    368
+   ],
+   "BODY": [
+    202,
+    224
+   ],
+   "HEAD": [
+    202,
+    116
+   ]
+  },
+  {
+   "GROUND": [
+    200,
+    368
+   ],
+   "BODY": [
+    202,
+    228
+   ],
+   "HEAD": [
+    202,
+    124
+   ]
+  },
+  {
+   "GROUND": [
+    200,
+    368
+   ],
+   "BODY": [
+    202,
+    228
+   ],
+   "HEAD": [
+    202,
+    124
+   ]
+  },
+  {
+   "GROUND": [
+    200,
+    368
+   ],
+   "BODY": [
+    202,
+    288
+   ],
+   "HEAD": [
+    202,
+    240
+   ]
+  },
+  {
+   "GROUND": [
+    200,
+    368
+   ],
+   "BODY": [
+    202,
+    288
+   ],
+   "HEAD": [
+    202,
+    240
+   ]
+  },
+  {
+   "GROUND": [
+    200,
+    368
+   ],
+   "BODY": [
+    202,
+    288
+   ],
+   "HEAD": [
+    202,
+    240
+   ]
+  },
+  {
+   "GROUND": [
+    200,
+    368
+   ],
+   "BODY": [
+    202,
+    288
+   ],
+   "HEAD": [
+    202,
+    240
+   ]
+  }
+ ],
+ "palette": [
+  "#030102",
+  "#24140a",
+  "#726b62",
+  "#915720",
+  "#a97939",
+  "#ae9f86",
+  "#c7c1b3",
+  "#dd8f3c",
+  "#efd2b2",
+  "#f0ac4a",
+  "#f6c45d",
+  "#f6e4c6",
+  "#faf3d5",
+  "#fbf6e4",
+  "#fdcc6e",
+  "#fde278"
+ ],
+ "source": {
+  "sheets": [
+   {
+    "rigged": true
+   }
+  ],
+  "unfake": true,
+  "pitch": 5.0
+ },
+ "rig": "rig.json",
+ "anchorsApprox": true
+}

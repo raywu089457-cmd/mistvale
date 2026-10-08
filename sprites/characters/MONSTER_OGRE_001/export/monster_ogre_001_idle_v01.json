@@ -1,0 +1,229 @@
+{
+ "id": "MONSTER_OGRE_001",
+ "version": "v01",
+ "animation": "idle",
+ "frames": 8,
+ "layout": {
+  "columns": 4,
+  "rows": 2
+ },
+ "cell": 576,
+ "sheet": [
+  2304,
+  1152
+ ],
+ "logicalScale": 4,
+ "logicalCell": 144,
+ "frameTime": 0.16,
+ "loop": true,
+ "facing": "right",
+ "groundY": 544,
+ "axisX": 288,
+ "characterHeight": 384,
+ "anchors": [
+  {
+   "HEAD": [
+    306,
+    194
+   ],
+   "BODY": [
+    282,
+    354
+   ],
+   "LEFT_FOOT": [
+    250,
+    542
+   ],
+   "RIGHT_FOOT": [
+    342,
+    542
+   ],
+   "GROUND": [
+    288,
+    544
+   ]
+  },
+  {
+   "HEAD": [
+    306,
+    194
+   ],
+   "BODY": [
+    282,
+    354
+   ],
+   "LEFT_FOOT": [
+    250,
+    542
+   ],
+   "RIGHT_FOOT": [
+    342,
+    542
+   ],
+   "GROUND": [
+    288,
+    544
+   ]
+  },
+  {
+   "HEAD": [
+    306,
+    198
+   ],
+   "BODY": [
+    282,
+    358
+   ],
+   "LEFT_FOOT": [
+    250,
+    542
+   ],
+   "RIGHT_FOOT": [
+    342,
+    542
+   ],
+   "GROUND": [
+    288,
+    544
+   ]
+  },
+  {
+   "HEAD": [
+    306,
+    198
+   ],
+   "BODY": [
+    282,
+    358
+   ],
+   "LEFT_FOOT": [
+    250,
+    542
+   ],
+   "RIGHT_FOOT": [
+    342,
+    542
+   ],
+   "GROUND": [
+    288,
+    544
+   ]
+  },
+  {
+   "HEAD": [
+    306,
+    198
+   ],
+   "BODY": [
+    282,
+    358
+   ],
+   "LEFT_FOOT": [
+    250,
+    542
+   ],
+   "RIGHT_FOOT": [
+    342,
+    542
+   ],
+   "GROUND": [
+    288,
+    544
+   ]
+  },
+  {
+   "HEAD": [
+    306,
+    198
+   ],
+   "BODY": [
+    282,
+    358
+   ],
+   "LEFT_FOOT": [
+    250,
+    542
+   ],
+   "RIGHT_FOOT": [
+    342,
+    542
+   ],
+   "GROUND": [
+    288,
+    544
+   ]
+  },
+  {
+   "HEAD": [
+    306,
+    194
+   ],
+   "BODY": [
+    282,
+    354
+   ],
+   "LEFT_FOOT": [
+    250,
+    542
+   ],
+   "RIGHT_FOOT": [
+    342,
+    542
+   ],
+   "GROUND": [
+    288,
+    544
+   ]
+  },
+  {
+   "HEAD": [
+    306,
+    194
+   ],
+   "BODY": [
+    282,
+    354
+   ],
+   "LEFT_FOOT": [
+    250,
+    542
+   ],
+   "RIGHT_FOOT": [
+    342,
+    542
+   ],
+   "GROUND": [
+    288,
+    544
+   ]
+  }
+ ],
+ "palette": [
+  "#030302",
+  "#1b1d17",
+  "#2e3228",
+  "#43403a",
+  "#524f45",
+  "#588964",
+  "#5f5c4f",
+  "#659a72",
+  "#6a6658",
+  "#7aab82",
+  "#887d66",
+  "#8cc094",
+  "#a0cca4",
+  "#ab9d81"
+ ],
+ "source": {
+  "sheet": "output/l0veyou/hv4/mon3-ogre-keysA.png",
+  "grid": [
+   4,
+   1
+  ],
+  "frame": 0,
+  "unfake": true,
+  "keysheet": true,
+  "pixelize": 96
+ },
+ "rig": "rig.json"
+}

@@ -1,0 +1,110 @@
+{
+ "id": "HERO_SORCERER_001",
+ "version": "v01",
+ "animation": "hurt",
+ "frames": 4,
+ "layout": {
+  "columns": 4,
+  "rows": 1
+ },
+ "cell": 400,
+ "sheet": [
+  1600,
+  400
+ ],
+ "logicalScale": 4,
+ "logicalCell": 100,
+ "frameTime": 0.1,
+ "loop": false,
+ "facing": "right",
+ "groundY": 368,
+ "axisX": 200,
+ "characterHeight": 288,
+ "anchors": [
+  {
+   "GROUND": [
+    200,
+    368
+   ],
+   "BODY": [
+    202,
+    224
+   ],
+   "HEAD": [
+    202,
+    112
+   ]
+  },
+  {
+   "GROUND": [
+    200,
+    368
+   ],
+   "BODY": [
+    202,
+    224
+   ],
+   "HEAD": [
+    202,
+    116
+   ]
+  },
+  {
+   "GROUND": [
+    200,
+    368
+   ],
+   "BODY": [
+    202,
+    224
+   ],
+   "HEAD": [
+    202,
+    116
+   ]
+  },
+  {
+   "GROUND": [
+    200,
+    368
+   ],
+   "BODY": [
+    202,
+    224
+   ],
+   "HEAD": [
+    202,
+    112
+   ]
+  }
+ ],
+ "palette": [
+  "#16080a",
+  "#341537",
+  "#431911",
+  "#4d205f",
+  "#63297b",
+  "#792f9a",
+  "#7b3827",
+  "#88a6f9",
+  "#913abd",
+  "#9b8082",
+  "#a451f2",
+  "#b15c34",
+  "#e08547",
+  "#eedffc",
+  "#f8b261",
+  "#fac7a8"
+ ],
+ "source": {
+  "sheets": [
+   {
+    "rigged": true
+   }
+  ],
+  "unfake": true,
+  "pitch": 5.0
+ },
+ "rig": "rig.json",
+ "anchorsApprox": true
+}

@@ -1,68 +1,46 @@
-## 2026-10-05:四方向(上下左右)— 全部英雄與魔物(最新)
+## 2026-10-07:新英雄「獵魔人 witchhunter」+ agent-sprite-forge 試用
 
-- 每個英雄(5)與魔物(4)都有 **右(側面)/左(鏡像烘進 sheet)/下(正面)/上(正背面)** 的待機 4 + 走路 6;
-  sheet 動作列:`idle walk … idleDown walkDown idleUp walkUp idleLeft walkLeft`。原本的 3/4 背面(`<職業>-back`)不再使用。戰鬥(普攻/技能/受擊/倒下/勝利)維持側面左右(規格:戰鬥只需側面)。
-- 遊戲(pixel-world.js `moveDir`):畫面上移動量哪個軸大 → 上/下 或 側面,停下沿用最後方向;面向左時直接用 Left 列(`leftRow`)。街上英雄、魔物同一套。
-  道路方向(等角 x/z 軸,畫面斜 26.6°)屬於側面;往畫面正上/正下(村外自由走斜向)才換正背/正面。
-- build_hero.py:`BACK` 改成 Down/Up 兩張表;Left 列在 sheet 組好後整格鏡像(逐像素對稱);配件頭頂錨點也鏡像。魔物正/背面用高度對齊(正面的狼本來就窄:106 寬 → 41 寬,高度一樣 74)。
-- 驗收:audit_hero_sheet 九個角色全 PASS(含 Down/Up 格數、Left 是逐像素鏡像、站姿身高、腳底);check_facing 0、check_anim 閃格 0 受擊 118/118、zorder 0、npm test 全過。
+- **工具**:[0x0funky/agent-sprite-forge](https://github.com/0x0funky/agent-sprite-forge)(0.4,clone 在 `~/agent-sprite-forge`,`pip install -r requirements.txt`)。
+  它的生圖路由(API key → Codex/Grok CLI)在本機都不能用:沒 API key、沒 Grok;Codex 走 CheapRouter 中轉,`image_gen` 回 `TOOL_UNAVAILABLE`。
+  **使用者指示:只用 l0veyou 網頁生圖**,所以只拿它的「規劃 + 後製」腳本用,生圖改成手動驅動瀏覽器。
+  - `master_still.py generate` 只拿來產 prompt(`master_run/prompt.txt`,洋紅底、72% 畫高、指定朝向);`master_still.py approve --still <png> --route "l0veyou…"` 去背、縮成 hero 框(1024² 上身高 788)→ `master/master.png`。
+  - `plan_guide.py --frames 8 --cycle walk` 產走路姿勢表與 prompt;`sheet_qc.py spill` 抓到原表弩尖跨格(cross_cell FAIL)→ 改用連通塊歸屬切格;
+    `scale_frames.py --sheet … --root-lock torso-x --row-baseline --emit-clips`、`build_animation_clips.py` 出 91×98 透明幀(試用成果,未進遊戲)。
+  - 結論:規劃/QC 工具好用(跨格、安全框、腳底對齊都有數字);它的輸出格式跟本專案 `assets/heroes` 規格不同,進遊戲要自己轉。
+- **l0veyou 生圖(這次用的方式)**:Chrome `--remote-debugging-port=9333 --user-data-dir=C:\Users\ray\.l0ve-chrome`(使用者自己登入),Playwright `connect_over_cdp`。
+  腳本在 `~/sprite-hero/`:`send.py <prompt> <ref> [16:9]`(確認有發出 POST /api/v1/images/generate)、`grab.py <out>`(抓最新 cloudfront 結果)。
+  **坑**:附 2 張參考圖時按送出會清空輸入框但不發請求(靜默失敗)→ 一次只附 1 張(角色主圖);`AI 生图` 側欄鈕是切換鈕,已啟用時再按會切回聊天模型;16:9 回 1536×864;每張 30–60 秒。
+- **生成的素材**(全在 `~/sprite-hero/`):主圖 `take1.png`(以聖騎士表當風格 REF)、側走 `walk_sheet.png`、攻擊 `atk_sheet.png`、正面走 `down_sheet.png`、背面走 `up_sheet.png`(第一次上排變側面,改 prompt 強調「8 格全背面」重生)。prompt 在同資料夾 `*_prompt*.txt`。
+- **進遊戲**:`~/sprite-hero/build_sheet.py hero_out` → `assets/heroes/witchhunter.png/.json`(800×1300、13 列 × 8 格 100px、身高 72、腳 y=91、16 色)。
+  idle=站姿上下 1px、hurt=閃白/紅、death=旋轉倒地、victory=舉弩格、skill=攻擊重排、Left 列=鏡像 → 這幾列是程式湊的,之後可各自生圖重做。
+  程式:`pixel-data.js` 職業(HP104/攻22/射程4.8/170 金)+ 技能「銀弩獵殺」(single ×2.6,cd 9);`pixel-game.js` 遠程攻速/箭矢、`offerNewClass()` 名單裡沒有獵魔人就讓招募欄第一位是他(新舊存檔都會);
+  `pixel-world.js` ranged 判定、街上英雄、palettes;`test-pixel-game.mjs` 加斷言。
+- **踩坑**:開局改成每職業一人(6 人)會讓 test-overworld「白樺花原 keeps spawning monsters」失敗(多一人清怪比補怪快)→ 開局維持 5 人,獵魔人走招募。
+  `CLASSES` 新職業要放陣列最後,否則開局 5 人的 `CLASSES[i]` 會換人。
+- 驗收:npm test 三套全過;無頭瀏覽器(5030)確認 heroSheets 有 witchhunter 13 動作、招募卡出現、雇用後在獵人小屋旁正常行走,0 pageerror。舊版備份 `outputs/暮影村.before-witchhunter.html`。
+## 2026-10-06 晚:獵魔村風格重製(最新)
+- **角色規格權威**:`sprites/SPRITE_VISUAL_BIBLE.md`(第 0 節權威清單、第 6 節 = 上線的 hv2 風格);其他文件裡的角色描述都不是規格。
+- 道具視角修正:output/l0veyou/props-fix-v1.png(提示 prompts/props-fix-v1.txt)重生成 hayBale/archeryTarget/handCart/chest/fruitStand/barrel/bucket/snowDrift,2:1 等角 3/4 視角,assemble.py 新增 zx-fix;PROP_ATLAS 尺寸已調。assemble.py all 末尾 KeyError title 為既有問題(atlas 已寫出)。
+- 2026-10-06 夜:全 7 英雄(新增祭司 priest、暗黑騎士 darkknight 走 heroes/ 圖集)+ 4 魔物改用「真實獵魔村截圖」當 REF 重生成(hv2/webref、hv2/styleref;`ship_hv.sh <name>` 出貨,build_hero.py 補空格、SWAP 調色、priest idle 高 80、darkknight hurt ×0.88)。村民 8 人 villagers@1x/2x 已重生成並接進 build.mjs,但遊戲目前沒有生成 type:'villager' 的程式碼。羊/山羊已改獵魔村風格(output/l0veyou/animals-hv-v1.png,提示 prompts_hv/animals.txt,assemble.py atlases 的 zx-animals);街上英雄加回暗黑騎士/祭司。舊圖集 hero@/heropose@/monsters@ 已移除(build.mjs 不再嵌入、assemble.py 不再產生、pixel-world.js 不再載入);新 sheet 解碼前 pendingHero/pendingMon 讓該幀不畫,不會閃出舊程序圖。舊檔與 output/l0veyou 舊版原圖/_old_style*/hv2/_mixed 移到 work/_archive_old_assets_2026-10-06/(專案外,可手動刪)。
+- 教訓:l0veyou generate.mjs 一次只能跑一支(共用一個分頁會互相污染檔名);要先「清空」參考圖。Windows 無頭 chromium 載遊戲會 GPU 崩潰,檢查腳本要用 launch({channel:'chromium'})。
 
-## 2026-10-05:規格補完 — 魔物新規格、頭部配件槽、材質層級量測(最新)
+- 驗收:audit_hero_sheet 全 PASS(僅樹精 attack3/4 觸格邊),npm test、check_facing 0 錯、check_anim 閃格 0。
+- 建築/地圖物品角度檢查:建築全 2:1 合格;弱項道具 hayBale、archeryTarget、handCart、chest、fruitStand、town2 barrel/bucket、snowDrift 待重畫(未動)。
+- 5025 預覽(pilot-server.mjs)要重啟才會看到新版。
 
-- **魔物**:史萊姆/狼/魔像/暮林領主照英雄規格重做(idle 4 / walk 6 / attack 8 / hurt 3 / death 6,16 色,1:1 像素),`assets/monsters3/`。
-  美術大小 = 遊戲大小 × 72/21(跟英雄同一個像素密度):史萊姆 96、狼 106、魔像 113、領主 171 px。格子自動 128–256(放得下才不裁切)。
-  魔物每張表的倍率用外框最長邊對齊(軀幹欄身高對四足/蹲低的格不準,狼攻擊列被放大 1.5 倍)。
-  畫面 `drawMonsterSheet`/`monsterSheetPose`:動作邏輯沿用(蓄力 attackTimer、出手 atkAt、受擊 hitAt),死亡特效播 6 格倒下再淡出;舊圖集留作退回。
-- **模組化配件槽(Accessory/Head)**:`acc-head` 8 個頭部配件(皇冠、桂冠、花冠、緞帶、羽飾、銀冠、光環、小角)→ `assets/heroes/accessories.png`。
-  build_hero 每格算頭頂錨點(軀幹中線 ±12% 最上一列;倒地、技能翻滾等頭不在上面的格 = null 不戴)。遊戲依稀有度戴:稀有 緞帶/羽飾、超級稀有 花冠/銀冠、英雄 桂冠/小角、傳說 皇冠/光環。
-- **材質 3 層量測**:audit_hero_sheet 加「材質區塊明暗層數」(依色族 + 相連區塊)— 只回報不判:16 色整隻共用,頭髮/皮膚/皮革同色族又相連時會合成一塊(實測 8–9 色其實是 3 材質 × 3 層),
-  沒有逐像素材質標記無法可靠判定;硬門檻維持整隻 ≤16 色。
-- 驗收:audit_hero_sheet 英雄 5 + 魔物 4 全 PASS;npm test、check_facing(英雄 0/4285、魔物 0/26449)、check_anim 閃格 0 受擊 134/134、zorder 0。
-- 規格裡刻意沒做:新增職業(使用者說職業夠了)、正前/正後(等角遊戲沒有這兩個移動方向,用 3/4 正背面代替)、逐格分件換裝(AI 逐格零件對不齊,改用換色 + 配件槽)。
+## 2026-10-06:動作自然度 — 待機不跳、正背面走路有起伏、腳不打滑、狼花紋一致(最新)
 
-## 2026-10-05:英雄四方向 + 模組化換色(最新)
-
-- **四方向**:等角遊戲的移動是畫面四個斜方向,所以 4 方向 = 正面 3/4(右下,原本的側面圖)+ 背面 3/4(右上,新生)各自鏡像成左邊。
-  每職業新增 `idleBack`(4)/`walkBack`(6)(`<職業>-back` 表)。往畫面上方移動(遠離鏡頭)就用背面,停下來沿用最後方向;戰鬥一律正面側面圖。街上的英雄也會轉背面。
-- **模組化換色**:16 色是整隻共用的(頭髮/皮膚/皮革同色票,不能安全分開)→ 每職業只開放色相獨佔的兩組(build_hero.py `SWAP`):
-  outfit(弓箭手青衣、狂戰士紅腰帶、遊俠綠斗篷、聖騎士藍盾、法師紫袍)與 metal(低飽和亮色:鎧甲、斧刃)。
-  遊戲裡(pixel-world.js `variantImg`/`heroLook`):每人依 id 從 5 個布料色相挑一個;買鎧甲 → 布料更飽和;買武器 → 金屬變金色。立繪也用同一份換色。
-  做不到的:真正的分件換裝(底身+可替換頭盔/武器/披風逐格疊圖)—— AI 逐格生成的零件跨 40 幾格對不齊,需要手工逐格對位或骨骼動畫,沒做。
-- **抓到的 bug**:上一輪加「停在最後一格」時註解把 `drawnFacing.set` 吃掉,新規格英雄的朝向驗收其實沒在檢查 → 修好,check_facing 改連流浪英雄一起檢查,
-  又抓到「出手後 0.3–0.36 秒換追下一個目標時倒退走」→ 朝向改成只有畫戰鬥格才用戰鬥朝向。兩輪各 0/4280 走路、0/1600 戰鬥。
-- 驗收:audit_hero_sheet 五職業 PASS(含背面格數/身高/腳底、可換色組存在)、npm test、check_anim 閃格 0、zorder 0。
-
-## 2026-10-05:新規格英雄量產 — 五職業全部完成(最新)
-
-- 狂戰士/遊俠/聖騎士/魔法師照弓箭手流程各 8 張(cheaprouter gpt-image-2),`audit_hero_sheet.py` 五職業全 PASS(16 色、身高 71–72、描邊 0.92–0.99、32 px 剪影跟其他職業 IoU ≤ 0.75)。
-- build_hero.py 改:整張表倍率改用「軀幹欄身高」對齊待機(舊版用整格高,舉過頭的斧頭讓狂戰士技能列小一號);技能基準格改最後的備戰站姿;放不下的列自動 160 格(狂戰士死亡、聖騎士普攻/技能、法師技能)。
-- 技能特效通用化(pixel-world.js `SKILL_FX`):每職業 fx 表 8 格 → 飛行格/命中格/身上格(旋風、聖盾半透明、蓄力法陣在腳邊);沒有 fx 表的職業退回舊特效。
-  遊戲邏輯 castSkill 改發 `skillSelf`(英雄身上)+ `skillfx`(目標)。
-- 街上走的英雄改用新 sheet(走路 6 格動畫),不再出現舊格式黑騎士/祭司。
-- 驗收:npm test 全過、check_facing/zorder 0、check_anim 閃格 0 受擊 89/89、五職業技能擺拍(蓄力/放出/命中)全對。
-
-## 2026-10-05:新規格英雄試點 — 弓箭手(branch archer-pilot,最新)
-
-使用者決策:**B**(英雄 64–90 px 美術、遊戲裡畫約 2 倍大)、**先做弓箭手試點**、**技能是真的遊戲機制**。規格全文 `pipeline/ART_BIBLE.md`。
-- **生圖改走 cheaprouter.cc**(`pipeline/scripts/imagegen/cheaprouter.py`,`CHEAPROUTER_KEY` 環境變數,不寫進檔案)。坑:Cloudflare 擋預設 UA(403/1010)→ 帶瀏覽器 UA;
-  Luna 模型(gpt-6-luna、gpt-5.6-luna)當時 502/503 不能用,codex CLI 走 Luna 失敗;圖像直接打 /v1/images/generations、/v1/images/edits(帶參考圖)。生成器會檢查圖邊是不是洋紅,不是就重生。
-- **組裝** `pipeline/scripts/heroes/build_hero.py <hero>`:去背 → 依空隙切格(模型不會畫在等分格上)→ 每張表以基準格縮到待機同倍率 → 16 色共用色盤像素化(待機 72 px 高)→
-  128 格(技能列放不下自動 160),軀幹中心對格中線、腳底 = 格底上 10 px(走路/待機/受擊/普攻腳一律貼地,跳躍只在技能/勝利)。輸出 `assets/heroes/archer.png/.json` + `archer-fx.png/.json`。
-- **格數**:idle 4 · walk 6 · attack 8(第 5 格放箭)· skill 10(第 5 格放出)· hurt 3 · death 6 · victory 4;技能特效 8 格(風箭、箭雨、星爆、衝擊環、蓄力漩渦)。
-- **遊戲**:`CLASSES` 加 archer(第 5 職業,開局 5 人每職業一個);`SKILLS`(pixel-data.js)五職業都有技能:旋風斬/穿心箭/聖盾祈禱/流星火球/疾風箭雨(三連射),
-  `castSkill`(pixel-game.js)戰鬥中冷卻好就放、結算扣血、effect 延遲對到放出格;其他四職業目前沿用舊特效,只有弓箭手有完整新美術。
-- **畫面**:`heroSheets`/`drawHunterSheet`(pixel-world.js)— 有 sheet 的職業走新路徑(動作時間表見 ART_BIBLE),1 美術像素 = 0.62 邏輯單位(跟建築同密度,英雄約 45 單位高);
-  立繪/殘影用 sheet 待機格;`gale` 特效(風箭飛行 → 命中星爆)、`skillName` 招式名飄字。
-- **驗收**:`audit_hero_sheet.py` 弓箭手 PASS(16 色、72 px、描邊 0.92、無半透明、無裁切、腳底對齊、32 px 剪影跟其他職業 IoU 0.51–0.66);
-  (遊戲內大小已依使用者改回原本 21 單位)實機 70 秒:技能放 4 次、10 格技能/8 格普攻/6 格走路全部有畫到;npm test 全過、check_facing/zorder/placement 0、check_anim 閃格 1/10026(門檻 0.5%)。
-- **已知**:使用者核准試點、遊戲內大小改回原本(21 單位);其他職業待照同一流程量產;4 方向只做右(左鏡像)。
-
-## 2026-10-05 第二輪:動畫格數(最新)
-
-- 新量測 `pipeline/scripts/check/audit_frames.py`:每個動作格數對照商業像素遊戲常見下限(走路 ≥4、待機 ≥2、攻擊 ≥3、受擊 ≥2、倒下 ≥2)。修前 16 項不足(英雄受擊/倒下各 1 格、魔物走路 2 格)→ 0。
-- 第七批生圖(prompt 在 PROVENANCE):英雄每職業 `hurt2`(受擊後段)、`falling`(倒下 0.45 秒)、`getup`(復活後 0.6 秒)、`blink`(待機約每 3.2 秒眨眼 0.14 秒);
-  魔物四格走路 3→6→10→11(步頻:狼 10、史萊姆/魔像 6、領主 5 格/秒),走路表以舊走路格最長邊中位數縮放。
-- 實機:check_anim 閃格 0、受擊有畫 131/131;check_facing 全 0;check_zorder 0;擺放 0;出入口 0;check_embedded 283 個 id。
+- **待機跳格**:模型常把待機某一格整隻畫大(史萊姆 +16、狼 +10、魔像 +18、樹精 +28 px)。build_hero.py 待機列每格各自縮到跟基準格同大;
+  姿勢不同、縮完還差 >6% 的格(狼抬頭、史萊姆拉高)直接換成基準格。呼吸改由 `add_motion` 統一做:變形場 `warp`/`envelope`(參考 aldegad/sprite-gen breathe 的 envelope 做法重寫):頭部(`RIGID`)逐像素不動、
+  軀幹吸氣時變高變窄(面積守恆,g=-6.5%×0/½/1/½)、腳底段降回 0 不離地。舊的「切一刀上移」會在切口複製出一條線(魔像腰間黑縫變粗帶),已淘汰。
+  正/背面走路起伏也改成伸長量平均分散在小腿段。
+- **正/背面走路像滑行**(前後格變化只有 6–9%):`add_motion` 依兩腳間距找出經過格,身體抬高 ~3%(膝蓋以上上移、腳貼地),跨步格貼地。
+  正/背面列的倍率改用整列高度中位數(法師背面走路第 3 格帽尖彎下,當基準會把其他格放大 10 px)。
+- **腳打滑**:走路格原本依時間推進(0.1 秒一格),魔像一輪只前進 14 美術 px 卻跨 ~50 px(比例 0.12,原地踏步滑行)。
+  build 把 `cycle`(一輪走路該前進的美術 px = 跨步格兩腳外緣 × 1.7;史萊姆 0.6 個身長)寫進每個 walk* 動作;
+  pixel-world.js `gaitFrame` 依畫面上實際走的距離推進走路格(英雄、魔物、街上英雄都是)。實測每換一格走 6–18 px,跟 cycle/6 一致。
+- **狼花紋**:走路表模型漏畫背上紅鬃毛 → `MARKINGS`/`transfer_marking` 依待機格的花紋位置與深度補畫(依亮度對應花紋色)。
+- 驗收:audit_hero_sheet 九隻全 PASS、npm test、check_anim 閃格 0 受擊 178/178、check_facing 0、zorder 0。量測腳本(待機身高跳動、前後格變化、腳底、花紋色)在當次 session scratchpad 的 motion.py。
 
 ## 2026-10-05:商業像素遊戲標準視覺體檢(最新)
 
@@ -70,30 +48,22 @@
 | 檢查 | 工具 | 修前 | 修後 |
 |---|---|---|---|
 | 破圖:去背殘色/半透明光暈/描邊一致(暗描邊 ≥55%) | `audit_art.py` | 描邊/尺寸不合 3 | 0 |
-| 換姿勢身體左右跳(軀幹中心 ≤12% 寬) | `audit_pose_jump.py` | 18 個姿勢 | 0 |
-| 魔物各格身體前後跳 | 同上量法(ax 錨點) | 狼受擊 −14%、魔像出手 −16%、領主 +12–17% | 錨點對齊 |
 | 單位/擺設 vs 建築畫的先後(穿模) | `check_zorder.mjs` | 77/5271 錯 | 0/4000+ |
 | 像素密度一致(mixel,各類 vs 英雄 0.67–1.5) | `audit_density.py` | 道具 0.57、樹 2.2、建築 2.9 | 0.81–1.01 |
 | 動畫閃格/走路跳格/受擊回饋 | `check_anim.mjs` | — | 0/0、132/132 有受擊格 |
 | 擺放、出入口、朝向 | `check_placement`/`check_gates`/`check_facing` | — | 0 |
 
 主要修正:
-- **英雄**:錨點改「軀幹中心」(腳底會被落地的斧頭/盾/法杖拉偏);待機也走同一條繪製路(以前待機被塞進 40 寬畫布,寬武器職業待機變小);
-  第二張表站姿(idle2/drink/trade)逐格校正身高(黑騎士/法師小了 13–18%)。
 - **穿模**:會動的單位與擺設跟建築的前後改用「往鏡頭方向射線是否穿過佔地」判定(`depth()`),單一 x+z 排序對點 vs 長方形會錯。
-- **像素密度**:全部美術統一 ≈0.62 邏輯單位/美術像素 —— 英雄縮成 34px 高真像素畫(職業色盤、深色描邊)、2x/4x 為整數倍放大;
-  道具/魔物/樹/特效依遊戲畫的外框像素化(`assemble.py` `pixelize_prop`,同一魔物所有格同倍率);UI 圖示 24px 像素畫;
+- **像素密度**:全部美術統一 ≈0.62 邏輯單位/美術像素 —— 道具/樹/特效依遊戲畫的外框像素化(`assemble.py` `pixelize_prop`);UI 圖示 24px 像素畫;
   地面材質 256 格、TERRAIN_TEX_SCALE .25→.5;建築第六批單張高細節重繪(以原圖當 REF,約 170 美術像素寬)再像素化。建置 34→7.4 MB。
 - prompt 全部寫進 `assets/PROVENANCE.md`(第二~六批 75 條)。
 - 光源:場景素材右半−左半亮度中位數 −2(左亮 90 / 右亮 70)— 沒有系統性跟「光從右上、影子往左下」矛盾,未改。
 - FPS:GPU 桌機/手機 30/30;軟體算繪桌機跟改前同一時段交錯量 19–22 vs 16–21(機器負載波動大),手機 30。
 - 量測注意:生圖原表的美術像素格距用 FFT 量(合成驗證 3/5/8 → 2.98/4.98/7.98),建築表有茅草紋週期會量錯,所以未像素化的資產一律用實測的 4。
 
-## 2026-10-05:素材擺放檢查、地面高細節、英雄/魔物更多狀態、特效方向(branch art-polish,最新)
+## 2026-10-05:素材擺放檢查、地面高細節、特效方向(branch art-polish,最新)
 
-- **英雄每職業 +10 個狀態**(第四批,第一張待機圖當 REF 生,依 idle2 高度縮成同尺寸):`idle2` 呼吸、`strike2` 收招、`dead` 倒地、`victory` 歡呼、`eat` 用餐、`drink` 飲用、`sleep` 睡覺、`bandaged` 包紮、`trade` 交易、`train` 訓練。
-  畫面:待機 idle↔idle2 交替;近戰出手 0.2 秒後換 strike2;狀態文字 → 用餐/飲用/休息/休養/交易/訓練圖;打倒目標歡呼 0.9 秒;倒下用 dead 圖(原本是待機圖轉 90°)。
-- **魔物每種 +5 格**(monsters 圖集 5–9):5 呼吸待機、6 第二走路格(史萊姆著地壓扁)、7 出手收招、8 第二受擊格、9 倒下屍體(死亡特效 8→9 躺 1.1 秒再淡出)。
 - **地面高細節**:`tex2-*` 生圖要求小像素(1254² 約 5px 一格)→ 縮到 256 原生 → 色調逐通道配回第一版(已確認的 Xilurus 色票)→ 無縫化 → 512 大格(第二層旋轉/位移、週期雜訊遮罩切換,不混色)。
   1 原生像素＝0.25 畫面單位,跟建築 2x 圖集同密度(原本村莊地面 1 原生像素＝1.4 單位,粗 5 倍)。手機地面 2px/單位時開平滑避免摩爾紋。建置 20→34 MB。
 - **特效方向**:fxSlash 原圖是「由右往左揮」,原本翻面反了 → 攻擊者在左才翻面。擺拍 `stage.mjs`(scratchpad)驗:斬擊、箭、法球、聖光、受擊爪痕左右兩側都對。
@@ -108,9 +78,9 @@
 **遊戲原本的美術已全部取代**:`assets/` 裡每個檔案都是 Xilurus 風格新圖(舊 concept-clean、buildings/stream/villagers/monsteratk 圖集、hall/inn/monument.png 已刪,git 歷史裡有)。
 - 一鍵重組:`python pipeline/scripts/xilurus/assemble.py [atlases|heroes|buildings|textures|tones|title|all]`
   來源是 `output/l0veyou/<表>-v1.(png|jpg)`(prompt 在 `output/l0veyou/prompts/`,`make_batch2.py`/`make_batch3.py` 產 prompt,`run_batch*.sh` 依序生圖)。
-  **檔名與 cell id 跟舊版一樣**(details/props/cold/woods/flora/yard/town/town2/vfx/icons/monsters + hero/heropose + terrain-atlas/plaza/road/concept-*/woodui/title),所以 pixel-world.js 幾乎不用改。
-- 第三批生圖(27 張):地貌/農作/庭院道具/特效/UI 圖示 2 張/六職業英雄(每職業一張 5x2:待機、走路 1–4、蓄力、出手、受擊、休息、勝利)/標題圖/12 種地面材質/UI 木紋。
-  英雄全部朝右;法師用綠底(紫水晶)。黑騎士 walk4 沒拿劍 → `POSE_FIX` 用 walk2 代。狼表整張朝左 → 鏡像再切。柵欄段生成方向相反 → `MIRROR_CELLS` 鏡像。
+  **檔名與 cell id 跟舊版一樣**(details/props/cold/woods/flora/yard/town/town2/vfx/icons + terrain-atlas/plaza/road/concept-*/woodui/title),所以 pixel-world.js 幾乎不用改。
+- 第三批生圖(27 張):地貌/農作/庭院道具/特效/UI 圖示 2 張/標題圖/12 種地面材質/UI 木紋。
+  柵欄段生成方向相反 → `MIRROR_CELLS` 鏡像。
 - 地面材質:1024² 生圖 → 去外圈 5% → BOX 縮到 64² 原生像素 → 無縫化(半格位移 + 有機抖動遮罩,不混色) → 最近鄰放大 256。海往青藍拉;土路重生成「無車轍」版(車轍在空地上變條紋)。
   生態域底色/小地圖色由 `tones` 步驟從新材質量測寫進 `GRASS_TONE`/`MAP_ACCENT`(不再對齊舊概念圖)。
 - 程式改動:build.mjs 改嵌 `assets/xilurus/<建築>.png`(去背)、不嵌舊圖集;pixel-world.js:新建築畫寬、出村口改一座村門(南門翻面)、柵欄段尺寸 22.6×22、投射物改 `arrowFx`、標題圖 16:9;
@@ -135,19 +105,12 @@
 | `isobld-b` | 4x1 | tavern／clinic／forge／academy |
 | `isobld-c` | 4x1 | training／sanctuary／house／bounty |
 | `isobld-d` | 4x1 | enhancement／dungeon／monument(廣場騎士像)／gate(村門,配新的東南出村口) |
-| `isomon-slime/-wolf/-golem/-boss` | 5x1 | `<type>0..4` ＝ 待機／蓄力／出手／走路／受擊,跟 `monsters`+`monsteratk` 的格號一樣,可直接換 |
 | `isoterrain2` | 4x2 | forestFloor／taigaMoss／mountainRock／desertSand／meadowFlowers／dirtRoad／plazaStone／ice |
 | `isoprops2` | 4x2 | stall／fruitStand／handCart／bench／anvilStump／weaponRack／dummy／archeryTarget(id 同現有道具) |
 | `isonature` | 4x2 | snowPine／birch／cactus／boulder／mossRock／iceRocks／outcrop／wildflowers |
 
-- 魔物 slime/wolf/golem 帶第一批待機圖當 REF(`output/l0veyou/ref-iso-*.png`),外型跟第一批一致。
-- **首領改成暮林領主(樹人)**:第一批 `isomonsters` 的 boss 是紅色有翼惡魔,跟遊戲的「暮林領主」不符 → 以 `isomon-boss` 為準。
-  第一批 `isomonsters` 的狼也是朝左。**第一批 `isomonsters` 整份作廢,用 `isomon-*`**。
-- **朝向**:遊戲規則是「所有圖朝右、往左才鏡像;受擊＝被右邊打往左退」。prompt 寫了 facing RIGHT,狼還是整排朝左 →
-  `mon-wolf-iso-v2-v1-mirror.png`(整張左右翻)再切,id 順序反過來(`wolf4,wolf3,wolf2,wolf1,wolf0`)。之後每張魔物表都要先看朝向再切。
-  魔像走路格(golem3)前腳往左下踏,朝向有點曖昧,可接受;要更乾淨就重生那張。
 - 小瑕疵:餐廳煙囪的煙帶一點淡紫(洋紅去背殘色,不算 magenta 殘留);地形磚是「有厚度的方塊」不是純平面菱形(第一批也是),接進遊戲要嘛裁掉側面、要嘛當高台用。
-- 已接進遊戲(見上一節「全部美術換成 Xilurus 風格」);中間產物 isobld-*/isomon-* 等圖集已刪,由 assemble.py 直接從原圖重組。
+- 已接進遊戲(見上一節「全部美術換成 Xilurus 風格」);中間產物 isobld-* 等圖集已刪,由 assemble.py 直接從原圖重組。
 
 ## 2026-10-04 15:00：Xilurus 風格批次生圖（l0veyou 管線，一次 36 件）
 
@@ -164,7 +127,6 @@
    - **寫死色票（hex）**才會貼近目標風格，這批用的是：
      `salmon pink #d29c8a / dark red-brown #642726 / golden straw #c49459 和 #bb863d / dark brown outline #0a0706 / blue-gray stone #5b5e6e`
    - **4 欄的表一律用 16:9**（格子近正方，物件才不會被切邊，詳見 l0veyou.md）。
-   - 魔物動作格：同一張圖寫「row 2 is the SAME four monsters in their attack frame」，同一張出待機＋出手，一致性很好。
 2. **生圖**：`node pipeline/scripts/l0veyou/generate.mjs <prompt> output/l0veyou/<名>.png "" 16:9`（約 25–30 秒）。
 3. **切圖集**：`python pipeline/scripts/l0veyou/sheet_to_atlas.py <原圖> <prefix> 4x2 <id1,id2,...>`
    產出 `assets/<prefix>@1x/@2x.png` + manifest。**`magenta殘留=0` 才算過**。
@@ -177,7 +139,6 @@
 | `isoterrain` | 8（4x2） | dirt／grass／cobble／water／sand／snow／soil／gravel |
 | `isotree` | 8（4x2） | autumnOak／greenOak／pine／deadTree／bush／stump／sapling／flowerBush |
 | `isoprops` | 8（4x2） | crates／barrels／logs／fence／lantern／signpost／tent／hayBale |
-| `isomonsters` | 8（4x2） | slime0/1、wolf0/1、golem0/1、boss0/1（0 待機、1 出手格） |
 
 原圖在 `output/l0veyou/*-iso-v1.png`（+ `bld-iso-houses-v1.png`），prompt 在 `output/l0veyou/prompts/`。
 **都還沒接進遊戲、也還沒 commit**（`git status` 顯示 `??`）。要接進遊戲時記得：
@@ -232,19 +193,15 @@
 ## 2026-10-05 晚：動作方向、走路循環、戰鬥站位（最新）
 
 - 狀態：main 比 origin 多 1 commit（1eb51de 戰鬥站位，未 push）；之前全部已上 Pages（f08a3f6）。
-- 英雄走路：4 格循環 walk1–4（`walk4-<職業>-v1.png` 綠底，以各職業待機圖為參考），`walkFrame()` 每秒 8 格；舊 walkA/B 保留未用。
 - 方向規則：所有圖朝右、往左走/打就鏡像；受擊一律面向打來的一側（受擊圖＝被右邊打往左退）。魔物走路用第 3 格（側面），史萊姆著地壓扁/騰空圓。
 - 戰鬥站位：草原空地 x19 半徑 5.8（landscape-layout ARENAS）；魔物只在空地內 1.2 格追；等空位的魔物站到戰鬥另一側；目前狩獵區上限 5。
-- 驗收工具（scratchpad，不在 repo）：擺拍方向／特效時間軸、四方向走路連拍、魔物走路連拍；repo 內 `check_heroes.py`（6×10 姿勢×3 LOD）。
-- 已知未完：戰鬥正下方等待的魔物仍可能半擋英雄（有半透明重畫與最上層血條）；與獵魔村物語的相似度是目測，沒有實機截圖比對。
+- 驗收工具（scratchpad，不在 repo）：擺拍方向／特效時間軸、四方向走路連拍、魔物走路連拍。
+- 已知未完：戰鬥正下方等待的魔物仍可能半擋英雄（有半透明重畫與最上層血條）。
 - l0veyou：登入存在 `work/.l0veyou-profile`；用前啟動 chrome 9447，用完關。
 
-## 2026-10-05：建築等角幾何、英雄 Q 版無破圖
+## 2026-10-05：建築等角幾何
 
 - 建築：委託所原本是正面平板（不符 2:1 等角）→ 重生等角涼亭 `bounty-concept-v3.png`；`fitScaleFor` 另算「貼地輪廓外框中心」把佔地置中到街區（原本都偏後半）。
-- 英雄：`make_sd_heroes.py`（Q 版 2 頭身，1x/2x/4x）。法師的紫水晶跟洋紅底同色 → 法師改用綠底單獨表 `sd-sorcerer-v1.png`（`solo=sorcerer:…`，出手格左右翻轉）。
-  其他職業：`regreen()` 用「跟圖邊連通」找背景＋被包住的純底色洞，`clean()` 清外緣洋紅、縫裡殘色改描邊色。
-- 驗收：`python pipeline/scripts/align/check_heroes.py 總表.png` → 6×7×3 無缺格／洋紅／綠色殘留／碎裂、姿勢高度一致。
 
 ## 2026-10-04 下午：建築不壓街、可搬可縮放、地面高解析、拿掉村民
 
@@ -253,13 +210,12 @@
 - 地面畫布改成只涵蓋陸地（2345×1180 邏輯單位）、桌機 4 px/單位、手機 2；`TERRAIN_TEX_SCALE` .5→.25，材質細緻度跟建築圖同級。
 - 村民、貓狗、釣魚人拿掉，街上只剩英雄；廣場只留四角矮花圃。
 
-## 2026-10-04：棋盤格村莊、各區生怪、走路/休息圖
+## 2026-10-04：棋盤格村莊、各區生怪
 
 - **`src/village-grid.js` 是村莊布局的單一來源**：5×5 街區（10.5 單位），建築預設位置、石板街、柵欄/出村口、街區用途（田、果園、市集、公園池塘、水井廣場、畜欄、牧草地、花園、柴場）都從這裡算。廣場固定 (-8,2)。
   概念圖的地面分類／道具／人物在村裡已不用（`concept-*.js` 還在，只剩匯入）；村莊地面層 `buildVillageLayer` 改用街區路徑畫。
 - 世界 minX -30 → -54；`WORLD.threeXArea` 保留原 3 倍面積當下限。
 - 生怪：`REGION_MIX` 每區組成、強度＝難度 × region.risk；目前狩獵區上限 7、其他區上限 4；獵人只打目前狩獵區。
-- 姿勢圖：heropose（strike/windup/hurt/walkA/walkB/rest）、monsteratk（2 攻擊、3 走路、4 受擊）。`make_combat_art.py heropose pose=檔 …`、`monsteratk 2=檔 3=檔 4=檔`。
 
 ## 2026-10-03 深夜：地形、道路、文字
 
@@ -271,18 +227,15 @@
 - 道路：在等角座標描線（圓頭、蜿蜒）＋遮罩填材質；行走用的 `getRoads` 不變。
 - 數字：hist_bc 0.927、conform 0.933；npm test 10/10；proc={}；手機/桌機 30fps。
 
-## 2026-10-03 晚：陰影、戰鬥動畫、村民風格（commit 4959b8d、f6ef8a3、6d7b91e 之後）
+## 2026-10-03 晚：陰影、戰鬥動畫（commit 4959b8d、f6ef8a3、6d7b91e 之後）
 
 - **陰影**：光從右上（概念圖），`shadowFor()` 把每個圖的剪影往左下投影（人物/樹/旗＝整張一個地面；建築/圍籬＝每欄地面），
   全部畫進 `shadowLayer` 再一次壓上地面（重疊不疊黑），物件畫在 `spriteLayer`。g 是「目前那一層」。拿掉建築腳下大橢圓。
-- **戰鬥**：模擬只記 `atkAt/hitAt/atkX/hitFromX`，`combatPose()` 算蓄力→出手→受擊；`heropose` 圖集（strike/windup/hurt，
-  `make_combat_art.py heropose`）、`monsteratk`（slime2…boss2）。特效時間軸：effect.delay 秒後才命中（箭/法球在飛）。
+- **戰鬥**：模擬只記 `atkAt/hitAt/atkX/hitFromX`，`combatPose()` 算蓄力→出手→受擊。特效時間軸：effect.delay 秒後才命中（箭/法球在飛）。
   清晰度：目標紅圈、血條/名牌延後到最上層（`overlays`）、被擋住的戰鬥中英雄半透明重畫、每位獵人最多兩隻近身、魔物不上橋、站位分散。
-- **村民**：`villagers-sheet-v2`（英雄表當參考圖重生），跟英雄同像素密度（`make_combat_art.py villagers`）。
 - **地圖**：戰鬥空地 rz 6→7.5；`stream` 圖集（石墩木橋 z=18、瀑布、苔石岸、釣魚人）；草原補花叢/灌木；河岸平滑。
 - 數字：hist_bc 0.920→0.927、conform 0.929→0.932（上限 0.936）；npm test 全過；`proc={}`；手機/桌機 30fps 無錯誤。
 - 驗戰鬥：`globalThis.__mistvaleGame`（新 hook）＋鏡頭對準戰鬥者質心連拍。
-
 
 接手先讀這頁，細節在 [`align.md`](align.md)（量測與做法）、[`l0veyou.md`](l0veyou.md)（生圖管線）。
 
@@ -299,7 +252,6 @@
 ## 使用者的要求（不要改回去）
 
 - 目標：全部美術以 `assets/title.png` 為基準對齊，目標 100%。**1.0 做不到**（概念圖是手繪構圖），要用數字回報、講清楚差在哪。
-- **人物、怪物維持原本大小**（`CHAR_SCALE=1`：獵人 21、魔物 28–33、首領 50）。不要為了概念圖比例縮小。
 - 從手機 App 遠端操作時不要用選擇題 UI，用純文字問。
 
 ## 數字（同構圖，`pipeline/scripts/align/capture.mjs` + `metrics.py`）
@@ -321,7 +273,6 @@
 2. **概念圖下方中央的石橋、右下瀑布、釣魚人**還沒做（概念圖 (690–860,1100–1254)、(1170,1060)、(1050,1180)）。
 3. **獵人小屋**被村莊東邊界（x ≤ 8，柵欄 x=9）卡住，比概念圖偏左上；放大成畫寬 100 補償。要再對齊得動邊界／柵欄（會影響道路測試）。
 4. 材質（`concept-*.png`）是 48px 樣本拼的，近看有規則感；可改大樣本或換合成方法（`concept_textures.py`）。
-5. 村民（l0veyou villagers）與新獵人風格接近但不是同一批生的；需要的話用 `heroes-ref.png` 當參考重生村民。
 
 ## 環境與工具（不在 repo 的東西）
 
@@ -329,7 +280,7 @@
   `"%LOCALAPPDATA%/ms-playwright/chromium-1243/chrome-win64/chrome.exe" --remote-debugging-port=9447 --user-data-dir="<work>/.l0veyou-profile" https://l0veyou.com/chat`
   （9333 被別的程式佔用；舊文件寫的 `chromium-1217` 未驗證，`chromium-1181` 確認會崩。）登入失效就請使用者在那個視窗登入，不要要密碼。
 - 生圖：`[REF=參考圖] node pipeline/scripts/l0veyou/generate.mjs prompt.txt output/l0veyou/<名>-v1.png "" 16:9`
-- 處理：物件表 `sheet_to_atlas.py`（有碰邊檢查）、單棟建築 `align/make_building.py`、獵人 `align/make_heroes.py`。
+- 處理：物件表 `sheet_to_atlas.py`（有碰邊檢查）、單棟建築 `align/make_building.py`。
   **紫色主體**一律 `NO_SHADOW=1 NO_HOLES=1 HUE_TOL=12`。
 - Playwright：全域安裝（`npm root -g`），腳本會自動找。
 

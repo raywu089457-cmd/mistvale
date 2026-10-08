@@ -1,0 +1,100 @@
+{
+ "hero": "wolf",
+ "heroHeight": 72,
+ "footFromBottom": 10,
+ "actions": {
+  "idle": {
+   "y": 0,
+   "cell": 128,
+   "frames": 4,
+   "frameTime": 0.2
+  },
+  "walk": {
+   "y": 128,
+   "cell": 128,
+   "frames": 6,
+   "frameTime": 0.1,
+   "cycle": 102
+  },
+  "attack": {
+   "y": 256,
+   "cell": 160,
+   "frames": 8,
+   "frameTime": 0.075,
+   "release": 4,
+   "impact": 5
+  },
+  "hurt": {
+   "y": 416,
+   "cell": 128,
+   "frames": 3,
+   "frameTime": 0.1
+  },
+  "death": {
+   "y": 544,
+   "cell": 160,
+   "frames": 6,
+   "frameTime": 0.12
+  },
+  "idleDown": {
+   "y": 704,
+   "cell": 128,
+   "frames": 4,
+   "frameTime": 0.22
+  },
+  "walkDown": {
+   "y": 832,
+   "cell": 128,
+   "frames": 6,
+   "frameTime": 0.1,
+   "cycle": 102
+  },
+  "idleUp": {
+   "y": 960,
+   "cell": 128,
+   "frames": 4,
+   "frameTime": 0.22
+  },
+  "walkUp": {
+   "y": 1088,
+   "cell": 128,
+   "frames": 6,
+   "frameTime": 0.1,
+   "cycle": 102
+  },
+  "idleLeft": {
+   "y": 1216,
+   "cell": 128,
+   "frames": 4,
+   "frameTime": 0.2
+  },
+  "walkLeft": {
+   "y": 1344,
+   "cell": 128,
+   "frames": 6,
+   "frameTime": 0.1,
+   "cycle": 102
+  }
+ },
+ "palette": [
+  "#faf5e1",
+  "#fae4b0",
+  "#e4cda3",
+  "#bb9d72",
+  "#cfb68c",
+  "#a59f93",
+  "#908f8d",
+  "#82807b",
+  "#947655",
+  "#d55149",
+  "#6e6b67",
+  "#5d5851",
+  "#55362d",
+  "#331b13",
+  "#26140c",
+  "#0a0402"
+ ],
+ "monster": true,
+ "size": 31,
+ "artSize": 106
+}

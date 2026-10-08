@@ -1,0 +1,91 @@
+{
+ "version": 1,
+ "kind": "mistvale-villagers-atlas",
+ "image": "villagers@2x.png",
+ "sheetWidth": 374,
+ "sheetHeight": 76,
+ "packing": "shelf",
+ "generator": "l0veyou.com GPT Image 2（英雄／魔物表當參考圖）",
+ "cells": {
+  "merchant": {
+   "x": 2,
+   "y": 2,
+   "w": 57,
+   "h": 69,
+   "anchor": [
+    30.5,
+    71
+   ]
+  },
+  "farmer": {
+   "x": 62,
+   "y": 2,
+   "w": 51,
+   "h": 67,
+   "anchor": [
+    87.5,
+    69
+   ]
+  },
+  "child": {
+   "x": 116,
+   "y": 2,
+   "w": 32,
+   "h": 54,
+   "anchor": [
+    132.0,
+    56
+   ]
+  },
+  "elder": {
+   "x": 151,
+   "y": 2,
+   "w": 48,
+   "h": 61,
+   "anchor": [
+    175.0,
+    63
+   ]
+  },
+  "smith": {
+   "x": 202,
+   "y": 2,
+   "w": 49,
+   "h": 65,
+   "anchor": [
+    226.5,
+    67
+   ]
+  },
+  "maid": {
+   "x": 254,
+   "y": 2,
+   "w": 33,
+   "h": 60,
+   "anchor": [
+    270.5,
+    62
+   ]
+  },
+  "cat": {
+   "x": 290,
+   "y": 2,
+   "w": 34,
+   "h": 38,
+   "anchor": [
+    307.0,
+    40
+   ]
+  },
+  "dog": {
+   "x": 327,
+   "y": 2,
+   "w": 42,
+   "h": 40,
+   "anchor": [
+    348.0,
+    42
+   ]
+  }
+ }
+}

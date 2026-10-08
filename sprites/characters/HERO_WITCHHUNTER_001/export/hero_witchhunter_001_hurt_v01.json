@@ -1,0 +1,108 @@
+{
+ "id": "HERO_WITCHHUNTER_001",
+ "version": "v01",
+ "animation": "hurt",
+ "frames": 4,
+ "layout": {
+  "columns": 4,
+  "rows": 1
+ },
+ "cell": 400,
+ "sheet": [
+  1600,
+  400
+ ],
+ "logicalScale": 4,
+ "logicalCell": 100,
+ "frameTime": 0.1,
+ "loop": false,
+ "facing": "right",
+ "groundY": 368,
+ "axisX": 200,
+ "characterHeight": 288,
+ "anchors": [
+  {
+   "GROUND": [
+    200,
+    368
+   ],
+   "BODY": [
+    202,
+    224
+   ],
+   "HEAD": [
+    202,
+    112
+   ]
+  },
+  {
+   "GROUND": [
+    200,
+    368
+   ],
+   "BODY": [
+    202,
+    224
+   ],
+   "HEAD": [
+    202,
+    116
+   ]
+  },
+  {
+   "GROUND": [
+    200,
+    368
+   ],
+   "BODY": [
+    202,
+    224
+   ],
+   "HEAD": [
+    202,
+    116
+   ]
+  },
+  {
+   "GROUND": [
+    200,
+    368
+   ],
+   "BODY": [
+    202,
+    224
+   ],
+   "HEAD": [
+    202,
+    112
+   ]
+  }
+ ],
+ "palette": [
+  "#070303",
+  "#171d1b",
+  "#1a0e0a",
+  "#1e3030",
+  "#2d4343",
+  "#301d14",
+  "#35281c",
+  "#553d27",
+  "#6c2c1c",
+  "#775138",
+  "#8f7559",
+  "#c27c45",
+  "#ccb398",
+  "#f3e0c7"
+ ],
+ "source": {
+  "sheets": [
+   {
+    "rigged": true
+   }
+  ],
+  "unfake": true,
+  "pitch": 5.0
+ },
+ "rig": "rig.json",
+ "anchorsApprox": true
+}

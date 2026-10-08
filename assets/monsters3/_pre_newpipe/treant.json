@@ -1,0 +1,100 @@
+{
+ "hero": "treant",
+ "heroHeight": 72,
+ "footFromBottom": 10,
+ "actions": {
+  "idle": {
+   "y": 0,
+   "cell": 192,
+   "frames": 4,
+   "frameTime": 0.2
+  },
+  "walk": {
+   "y": 192,
+   "cell": 192,
+   "frames": 6,
+   "frameTime": 0.1,
+   "cycle": 141
+  },
+  "attack": {
+   "y": 384,
+   "cell": 256,
+   "frames": 8,
+   "frameTime": 0.075,
+   "release": 4,
+   "impact": 5
+  },
+  "hurt": {
+   "y": 640,
+   "cell": 192,
+   "frames": 3,
+   "frameTime": 0.1
+  },
+  "death": {
+   "y": 832,
+   "cell": 192,
+   "frames": 6,
+   "frameTime": 0.12
+  },
+  "idleDown": {
+   "y": 1024,
+   "cell": 192,
+   "frames": 4,
+   "frameTime": 0.22
+  },
+  "walkDown": {
+   "y": 1216,
+   "cell": 192,
+   "frames": 6,
+   "frameTime": 0.1,
+   "cycle": 141
+  },
+  "idleUp": {
+   "y": 1408,
+   "cell": 192,
+   "frames": 4,
+   "frameTime": 0.22
+  },
+  "walkUp": {
+   "y": 1600,
+   "cell": 192,
+   "frames": 6,
+   "frameTime": 0.1,
+   "cycle": 141
+  },
+  "idleLeft": {
+   "y": 1792,
+   "cell": 192,
+   "frames": 4,
+   "frameTime": 0.2
+  },
+  "walkLeft": {
+   "y": 1984,
+   "cell": 192,
+   "frames": 6,
+   "frameTime": 0.1,
+   "cycle": 141
+  }
+ },
+ "palette": [
+  "#77a124",
+  "#648e1d",
+  "#ece5e0",
+  "#537817",
+  "#a57a45",
+  "#8e6432",
+  "#89602f",
+  "#5d5c1a",
+  "#7c5628",
+  "#6d4920",
+  "#5d3e19",
+  "#415e12",
+  "#4c3314",
+  "#2d260d",
+  "#180d08",
+  "#0c0604"
+ ],
+ "monster": true,
+ "size": 50,
+ "artSize": 171
+}

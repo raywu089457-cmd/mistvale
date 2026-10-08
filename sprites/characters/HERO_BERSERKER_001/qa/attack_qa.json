@@ -1,0 +1,120 @@
+{
+ "character": "HERO_BERSERKER_001",
+ "animation": "attack",
+ "result": "PASS",
+ "failed": [],
+ "checks": {
+  "0a_hard_pixel_edges": {
+   "pass": true,
+   "value": "4x4 blocks uniform"
+  },
+  "0b_alpha_binary": {
+   "pass": true,
+   "value": "0/255"
+  },
+  "0c_inside_cell_ge2px": {
+   "pass": true,
+   "value": "min margin 2 logical px"
+  },
+  "A_frame_count": {
+   "pass": true,
+   "value": 8,
+   "note": "spec 8"
+  },
+  "B2_height_cap_80": {
+   "pass": true,
+   "value": [
+    73,
+    72,
+    84,
+    84,
+    69,
+    69,
+    77,
+    73
+   ],
+   "note": "BIBLE: hero height 70–80 (weapon excluded, so soft)"
+  },
+  "03_ground_line": {
+   "pass": true,
+   "value": [
+    92,
+    92,
+    92,
+    92,
+    92,
+    92,
+    92,
+    92
+   ],
+   "note": "lowest row == 92, others ≥ ground-0"
+  },
+  "C_release_impact": {
+   "pass": true,
+   "value": [
+    5,
+    6
+   ]
+  },
+  "09_palette_shared": {
+   "pass": true,
+   "value": "16 colours, subset of shared palette=True"
+  },
+  "12_frame_continuity": {
+   "pass": true,
+   "value": [
+    0.131,
+    0.441,
+    0.0,
+    0.581,
+    0.096,
+    0.601,
+    0.271
+   ],
+   "note": "adjacent silhouette change ≤0.65 (動態版;idle ≤0.22) (no wrap)"
+  },
+  "10_outline": {
+   "pass": true,
+   "value": [
+    0.779,
+    0.756,
+    0.854,
+    0.854,
+    0.752,
+    0.754,
+    0.761,
+    0.736
+   ]
+  },
+  "11_facing": {
+   "pass": true,
+   "value": "all match frame 1 = False (attack/death 姿勢差大,改人工看)"
+  },
+  "13_14_components_proxy": {
+   "pass": true,
+   "value": [
+    1,
+    1,
+    1,
+    1,
+    1,
+    1,
+    1,
+    1
+   ],
+   "note": "connected blobs per frame (>2 = floating pieces / extra limb suspect)"
+  },
+  "18_background": {
+   "pass": true,
+   "value": 0
+  },
+  "T_thumbnail_noise": {
+   "pass": true,
+   "value": {
+    "64": 0.0,
+    "32": 0.0
+   },
+   "note": "worst frame isolated-pixel share"
+  }
+ }
+}

@@ -1,0 +1,325 @@
+{
+ "id": "HERO_PALADIN_001",
+ "version": "v01",
+ "animation": "idle",
+ "frames": 8,
+ "layout": {
+  "columns": 4,
+  "rows": 2
+ },
+ "cell": 400,
+ "sheet": [
+  1600,
+  800
+ ],
+ "logicalScale": 4,
+ "logicalCell": 100,
+ "frameTime": 0.16,
+ "loop": true,
+ "facing": "right",
+ "groundY": 368,
+ "axisX": 200,
+ "characterHeight": 284,
+ "anchors": [
+  {
+   "HEAD": [
+    218,
+    198
+   ],
+   "BODY": [
+    210,
+    278
+   ],
+   "LEFT_HAND": [
+    158,
+    294
+   ],
+   "RIGHT_HAND": [
+    266,
+    302
+   ],
+   "LEFT_FOOT": [
+    178,
+    366
+   ],
+   "RIGHT_FOOT": [
+    230,
+    366
+   ],
+   "WEAPON_GRIP": [
+    270,
+    306
+   ],
+   "GROUND": [
+    200,
+    368
+   ]
+  },
+  {
+   "HEAD": [
+    218,
+    198
+   ],
+   "BODY": [
+    210,
+    278
+   ],
+   "LEFT_HAND": [
+    158,
+    294
+   ],
+   "RIGHT_HAND": [
+    266,
+    302
+   ],
+   "LEFT_FOOT": [
+    178,
+    366
+   ],
+   "RIGHT_FOOT": [
+    230,
+    366
+   ],
+   "WEAPON_GRIP": [
+    270,
+    306
+   ],
+   "GROUND": [
+    200,
+    368
+   ]
+  },
+  {
+   "HEAD": [
+    218,
+    202
+   ],
+   "BODY": [
+    210,
+    282
+   ],
+   "LEFT_HAND": [
+    158,
+    298
+   ],
+   "RIGHT_HAND": [
+    266,
+    306
+   ],
+   "LEFT_FOOT": [
+    178,
+    366
+   ],
+   "RIGHT_FOOT": [
+    230,
+    366
+   ],
+   "WEAPON_GRIP": [
+    270,
+    310
+   ],
+   "GROUND": [
+    200,
+    368
+   ]
+  },
+  {
+   "HEAD": [
+    218,
+    202
+   ],
+   "BODY": [
+    210,
+    282
+   ],
+   "LEFT_HAND": [
+    158,
+    298
+   ],
+   "RIGHT_HAND": [
+    266,
+    306
+   ],
+   "LEFT_FOOT": [
+    178,
+    366
+   ],
+   "RIGHT_FOOT": [
+    230,
+    366
+   ],
+   "WEAPON_GRIP": [
+    270,
+    310
+   ],
+   "GROUND": [
+    200,
+    368
+   ]
+  },
+  {
+   "HEAD": [
+    218,
+    202
+   ],
+   "BODY": [
+    210,
+    282
+   ],
+   "LEFT_HAND": [
+    158,
+    298
+   ],
+   "RIGHT_HAND": [
+    266,
+    306
+   ],
+   "LEFT_FOOT": [
+    178,
+    366
+   ],
+   "RIGHT_FOOT": [
+    230,
+    366
+   ],
+   "WEAPON_GRIP": [
+    270,
+    310
+   ],
+   "GROUND": [
+    200,
+    368
+   ]
+  },
+  {
+   "HEAD": [
+    218,
+    202
+   ],
+   "BODY": [
+    210,
+    282
+   ],
+   "LEFT_HAND": [
+    158,
+    298
+   ],
+   "RIGHT_HAND": [
+    266,
+    306
+   ],
+   "LEFT_FOOT": [
+    178,
+    366
+   ],
+   "RIGHT_FOOT": [
+    230,
+    366
+   ],
+   "WEAPON_GRIP": [
+    270,
+    310
+   ],
+   "GROUND": [
+    200,
+    368
+   ]
+  },
+  {
+   "HEAD": [
+    218,
+    198
+   ],
+   "BODY": [
+    210,
+    278
+   ],
+   "LEFT_HAND": [
+    158,
+    294
+   ],
+   "RIGHT_HAND": [
+    266,
+    302
+   ],
+   "LEFT_FOOT": [
+    178,
+    366
+   ],
+   "RIGHT_FOOT": [
+    230,
+    366
+   ],
+   "WEAPON_GRIP": [
+    270,
+    306
+   ],
+   "GROUND": [
+    200,
+    368
+   ]
+  },
+  {
+   "HEAD": [
+    218,
+    198
+   ],
+   "BODY": [
+    210,
+    278
+   ],
+   "LEFT_HAND": [
+    158,
+    294
+   ],
+   "RIGHT_HAND": [
+    266,
+    302
+   ],
+   "LEFT_FOOT": [
+    178,
+    366
+   ],
+   "RIGHT_FOOT": [
+    230,
+    366
+   ],
+   "WEAPON_GRIP": [
+    270,
+    306
+   ],
+   "GROUND": [
+    200,
+    368
+   ]
+  }
+ ],
+ "palette": [
+  "#050204",
+  "#1d1312",
+  "#3f353e",
+  "#4a4e6d",
+  "#5774d3",
+  "#5f657e",
+  "#7d6856",
+  "#918f8a",
+  "#ab7233",
+  "#b2a286",
+  "#cec5b2",
+  "#d5903c",
+  "#ecac52",
+  "#f1e8d1",
+  "#f3d6b6",
+  "#fac76f"
+ ],
+ "source": {
+  "sheet": "output/l0veyou/hv2/paladin-idle-v1.png",
+  "grid": [
+   4,
+   1
+  ],
+  "frame": 0,
+  "unfake": true
+ },
+ "rig": "rig.json"
+}

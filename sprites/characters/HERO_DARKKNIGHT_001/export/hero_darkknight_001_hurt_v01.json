@@ -1,0 +1,109 @@
+{
+ "id": "HERO_DARKKNIGHT_001",
+ "version": "v01",
+ "animation": "hurt",
+ "frames": 4,
+ "layout": {
+  "columns": 4,
+  "rows": 1
+ },
+ "cell": 400,
+ "sheet": [
+  1600,
+  400
+ ],
+ "logicalScale": 4,
+ "logicalCell": 100,
+ "frameTime": 0.1,
+ "loop": false,
+ "facing": "right",
+ "groundY": 368,
+ "axisX": 200,
+ "characterHeight": 280,
+ "anchors": [
+  {
+   "GROUND": [
+    200,
+    368
+   ],
+   "BODY": [
+    202,
+    228
+   ],
+   "HEAD": [
+    202,
+    120
+   ]
+  },
+  {
+   "GROUND": [
+    200,
+    368
+   ],
+   "BODY": [
+    202,
+    228
+   ],
+   "HEAD": [
+    202,
+    124
+   ]
+  },
+  {
+   "GROUND": [
+    200,
+    368
+   ],
+   "BODY": [
+    202,
+    228
+   ],
+   "HEAD": [
+    202,
+    124
+   ]
+  },
+  {
+   "GROUND": [
+    200,
+    368
+   ],
+   "BODY": [
+    202,
+    228
+   ],
+   "HEAD": [
+    202,
+    120
+   ]
+  }
+ ],
+ "palette": [
+  "#000000",
+  "#0f0606",
+  "#13110e",
+  "#231311",
+  "#24231e",
+  "#33312c",
+  "#6c4744",
+  "#6f3634",
+  "#712625",
+  "#761314",
+  "#957b79",
+  "#ac4447",
+  "#bc1515",
+  "#d7696e",
+  "#f53433"
+ ],
+ "source": {
+  "sheets": [
+   {
+    "rigged": true
+   }
+  ],
+  "unfake": true,
+  "pitch": 5.0
+ },
+ "rig": "rig.json",
+ "anchorsApprox": true
+}

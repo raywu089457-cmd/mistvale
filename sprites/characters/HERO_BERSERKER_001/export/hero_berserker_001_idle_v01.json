@@ -1,0 +1,326 @@
+{
+ "id": "HERO_BERSERKER_001",
+ "version": "v01",
+ "animation": "idle",
+ "frames": 8,
+ "layout": {
+  "columns": 4,
+  "rows": 2
+ },
+ "cell": 400,
+ "sheet": [
+  1600,
+  800
+ ],
+ "logicalScale": 4,
+ "logicalCell": 100,
+ "frameTime": 0.16,
+ "loop": true,
+ "facing": "right",
+ "groundY": 368,
+ "axisX": 200,
+ "characterHeight": 292,
+ "anchors": [
+  {
+   "HEAD": [
+    218,
+    166
+   ],
+   "BODY": [
+    190,
+    270
+   ],
+   "LEFT_HAND": [
+    154,
+    238
+   ],
+   "RIGHT_HAND": [
+    266,
+    266
+   ],
+   "LEFT_FOOT": [
+    170,
+    366
+   ],
+   "RIGHT_FOOT": [
+    230,
+    366
+   ],
+   "WEAPON_GRIP": [
+    34,
+    198
+   ],
+   "GROUND": [
+    200,
+    368
+   ]
+  },
+  {
+   "HEAD": [
+    218,
+    166
+   ],
+   "BODY": [
+    190,
+    270
+   ],
+   "LEFT_HAND": [
+    154,
+    238
+   ],
+   "RIGHT_HAND": [
+    266,
+    266
+   ],
+   "LEFT_FOOT": [
+    170,
+    366
+   ],
+   "RIGHT_FOOT": [
+    230,
+    366
+   ],
+   "WEAPON_GRIP": [
+    34,
+    198
+   ],
+   "GROUND": [
+    200,
+    368
+   ]
+  },
+  {
+   "HEAD": [
+    218,
+    170
+   ],
+   "BODY": [
+    190,
+    274
+   ],
+   "LEFT_HAND": [
+    154,
+    242
+   ],
+   "RIGHT_HAND": [
+    266,
+    270
+   ],
+   "LEFT_FOOT": [
+    170,
+    366
+   ],
+   "RIGHT_FOOT": [
+    230,
+    366
+   ],
+   "WEAPON_GRIP": [
+    34,
+    202
+   ],
+   "GROUND": [
+    200,
+    368
+   ]
+  },
+  {
+   "HEAD": [
+    218,
+    170
+   ],
+   "BODY": [
+    190,
+    274
+   ],
+   "LEFT_HAND": [
+    154,
+    242
+   ],
+   "RIGHT_HAND": [
+    266,
+    270
+   ],
+   "LEFT_FOOT": [
+    170,
+    366
+   ],
+   "RIGHT_FOOT": [
+    230,
+    366
+   ],
+   "WEAPON_GRIP": [
+    34,
+    202
+   ],
+   "GROUND": [
+    200,
+    368
+   ]
+  },
+  {
+   "HEAD": [
+    218,
+    170
+   ],
+   "BODY": [
+    190,
+    274
+   ],
+   "LEFT_HAND": [
+    154,
+    242
+   ],
+   "RIGHT_HAND": [
+    266,
+    270
+   ],
+   "LEFT_FOOT": [
+    170,
+    366
+   ],
+   "RIGHT_FOOT": [
+    230,
+    366
+   ],
+   "WEAPON_GRIP": [
+    34,
+    202
+   ],
+   "GROUND": [
+    200,
+    368
+   ]
+  },
+  {
+   "HEAD": [
+    218,
+    170
+   ],
+   "BODY": [
+    190,
+    274
+   ],
+   "LEFT_HAND": [
+    154,
+    242
+   ],
+   "RIGHT_HAND": [
+    266,
+    270
+   ],
+   "LEFT_FOOT": [
+    170,
+    366
+   ],
+   "RIGHT_FOOT": [
+    230,
+    366
+   ],
+   "WEAPON_GRIP": [
+    34,
+    202
+   ],
+   "GROUND": [
+    200,
+    368
+   ]
+  },
+  {
+   "HEAD": [
+    218,
+    166
+   ],
+   "BODY": [
+    190,
+    270
+   ],
+   "LEFT_HAND": [
+    154,
+    238
+   ],
+   "RIGHT_HAND": [
+    266,
+    266
+   ],
+   "LEFT_FOOT": [
+    170,
+    366
+   ],
+   "RIGHT_FOOT": [
+    230,
+    366
+   ],
+   "WEAPON_GRIP": [
+    34,
+    198
+   ],
+   "GROUND": [
+    200,
+    368
+   ]
+  },
+  {
+   "HEAD": [
+    218,
+    166
+   ],
+   "BODY": [
+    190,
+    270
+   ],
+   "LEFT_HAND": [
+    154,
+    238
+   ],
+   "RIGHT_HAND": [
+    266,
+    266
+   ],
+   "LEFT_FOOT": [
+    170,
+    366
+   ],
+   "RIGHT_FOOT": [
+    230,
+    366
+   ],
+   "WEAPON_GRIP": [
+    34,
+    198
+   ],
+   "GROUND": [
+    200,
+    368
+   ]
+  }
+ ],
+ "palette": [
+  "#020101",
+  "#110806",
+  "#402416",
+  "#5b2c16",
+  "#643a22",
+  "#706b66",
+  "#84827e",
+  "#8a4a26",
+  "#972b17",
+  "#a35b33",
+  "#c3aa99",
+  "#cc825b",
+  "#d51a12",
+  "#ecd4bc",
+  "#f2c69c",
+  "#f6b180"
+ ],
+ "source": {
+  "sheet": "output/l0veyou/hv4/berserker-keysA.png",
+  "grid": [
+   4,
+   1
+  ],
+  "frame": 0,
+  "unfake": true,
+  "keysheet": true
+ },
+ "rig": "rig.json"
+}

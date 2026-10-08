@@ -1,6 +1,6 @@
-"""audit_hero_sheet.py — 新規格英雄 sprite sheet 對照 pipeline/ART_BIBLE.md 的可量測檢查(規格第 25 條自我檢查清單裡能量化的項目)。
+"""audit_hero_sheet.py — 既有遊戲 sheet 的可量測檢查(規格:sprites/SPRITE_VISUAL_BIBLE.md 第 1 節參數表 + 第 4 節上線格式裡能量化的項目)。
 
-用法:python pipeline/scripts/check/audit_hero_sheet.py [hero ...]   (預設 assets/heroes/ 全部;exit 1 = 有不合格)
+用法:python pipeline/scripts/check/audit_hero_sheet.py [hero | monster:name | villagers ...]   (預設 英雄+魔物+村民 全部;exit 1 = 有不合格)
 """
 import json
 import sys
@@ -13,7 +13,9 @@ from scipy import ndimage
 ROOT = Path(__file__).resolve().parents[3]
 H = ROOT / "assets" / "heroes"
 M = ROOT / "assets" / "monsters3"
-SPEC = {"idle": (4, 6), "walk": (4, 6), "attack": (6, 10), "skill": (8, 16), "hurt": (2, 4), "death": (5, 8), "victory": (4, 8)}
+# 格數、英雄每格秒數:Bible 第 4.2 節(精確值;walk 秒數依移動距離、attack 依蓄力,不檢)
+SPEC = {"idle": (4, 4), "walk": (6, 6), "attack": (8, 8), "skill": (10, 10), "hurt": (3, 3), "death": (6, 6), "victory": (4, 4)}
+HERO_FT = {"idle": .22, "skill": .08, "hurt": .1, "death": .12, "victory": .15}
 STANDING = ("idle", "walk", "hurt", "idleDown", "walkDown", "idleUp", "walkUp")   # 勝利:舉弓過頭、跳起來是姿勢本身,不算比例改變
 
 
@@ -27,7 +29,8 @@ def body_h(f, cx):
     return int(ys.max() - ys.min() + 1) if len(ys) else 0
 
 
-MON_SPEC = {"idle": (4, 6), "walk": (4, 6), "attack": (6, 10), "hurt": (2, 4), "death": (5, 8)}
+MON_SPEC = {k: SPEC[k] for k in ("idle", "walk", "attack", "hurt", "death")}
+MON_FT = {"idle": .2, "hurt": .1, "death": .12}   # 魔物待機 0.2 s(Bible 4.2 備註)
 
 
 def four_dir(meta, img):
@@ -52,18 +55,29 @@ def audit(hero, d=H):
     for a, (lo, hi) in (MON_SPEC if mon else SPEC).items():
         n = meta["actions"].get(a, {}).get("frames", 0)
         if not lo <= n <= hi: bad.append(f"{a}: {n} frames (spec {lo}-{hi})")
+    for a, ft in (MON_FT if mon else HERO_FT).items():
+        t = meta["actions"].get(a, {}).get("frameTime")
+        if t is not None and abs(t - ft) > 1e-6: bad.append(f"{a}: frameTime {t} (spec {ft})")
     # 2. 1:1 像素、無半透明(no anti-aliasing / blur)
     al = img[..., 3]; semi = int(((al > 0) & (al < 255)).sum())
     if semi: bad.append(f"{semi} semi-transparent pixels (anti-aliasing)")
+    # 色鍵殘留(洋紅/綠底)
+    r_, g_, b_ = (img[..., i].astype(int) for i in range(3))
+    res = int(((al > 0) & (((r_ > 200) & (b_ > 200) & (g_ < 80)) | ((g_ > 200) & (r_ < 80) & (b_ < 80)))).sum())
+    if res: bad.append(f"{res} key-color residue px")
     # 3. 色盤 ≤16(整張共用)
     cols = np.unique(img[al == 255][:, :3], axis=0); info["colors"] = len(cols)
     if len(cols) > 16: bad.append(f"{len(cols)} colors > 16")
+    iso_n = tot_px = 0
     # 4. 不裁切:每格四邊留 ≥2 px
     for name, a in meta["actions"].items():
         for i, f in enumerate(frames(img, a)):
             m = f[..., 3] > 0
             if not m.any(): bad.append(f"{name}{i}: empty"); continue
             if m[:2].any() or m[-2:].any() or m[:, :2].any() or m[:, -2:].any(): bad.append(f"{name}{i}: touches cell edge")
+            lab_, nc_ = ndimage.label(m, np.ones((3, 3))); iso_n += int(sum(1 for z in ndimage.sum(m, lab_, range(1, nc_ + 1)) if z == 1)) if nc_ > 1 else 0; tot_px += int(m.sum())
+    info["isolated"] = round(iso_n / max(tot_px, 1), 4)   # 縮圖測試:孤立單像素 ≤1%
+    if info["isolated"] > .01: bad.append(f"isolated single pixels {info['isolated']:.2%} > 1%")
     if mon:   # 魔物:對齊(腳底)、尺寸(美術最長邊 = 遊戲大小 × 72/21 ±10%)、描邊、材質層級;不比剪影/身高
         idle = meta["actions"]["idle"]; f0 = frames(img, idle)[0]; ys, xs = np.nonzero(f0[..., 3] > 0); size = max(np.ptp(xs), np.ptp(ys)) + 1
         want = meta["size"] * 72 / 21; info["size"] = int(size)
@@ -81,6 +95,7 @@ def audit(hero, d=H):
     idle = meta["actions"]["idle"]; c = idle["cell"]
     base = body_h(frames(img, idle)[0], c / 2); info["height"] = base
     if not 64 <= base <= 90: bad.append(f"idle height {base} px (spec 64-90)")
+    if hero != "priest" and abs(base - 72) > 2: bad.append(f"idle height {base} px; heroes share 72 ±2 (priest 80 is the exception)")
     for name in STANDING:
         if name not in meta["actions"]: bad.append(f"missing {name}"); continue
         a = meta["actions"][name]
@@ -127,17 +142,13 @@ def audit(hero, d=H):
     f = frames(img, idle)[0]; m = f[..., 3] > 0; edge = m & ~ndimage.binary_erosion(m)
     lum = (0.299 * f[..., 0] + 0.587 * f[..., 1] + 0.114 * f[..., 2])[edge]; info["outline"] = round(float((lum < 95).mean()), 2)
     if info["outline"] < .55: bad.append(f"outline dark ratio {info['outline']}")
-    # 8. 縮小可讀性:待機剪影縮到 32 px 高,跟其他職業(新規格英雄 + 舊英雄圖集的其他職業)剪影的 IoU < 0.8
+    # 8. 縮小可讀性:待機剪影縮到 32 px 高,跟其他職業剪影的 IoU < 0.8
     def sil(a):
         m = a[..., 3] > 0; ys, xs = np.nonzero(m); m = m[ys.min():ys.max() + 1, xs.min():xs.max() + 1]
         im = Image.fromarray((m * 255).astype(np.uint8)).resize((max(1, round(m.shape[1] * 32 / m.shape[0])), 32), Image.BOX)
         out = np.zeros((32, 40), bool); w = min(40, im.width); out[:, (40 - w) // 2:(40 - w) // 2 + w] = np.asarray(im)[:, :w] > 127; return out
-    me = sil(f); old = json.loads((ROOT / "assets/hero@4x.manifest.json").read_text(encoding="utf-8"))["cells"]
-    sheet = np.asarray(Image.open(ROOT / "assets/hero@4x.png").convert("RGBA")); ious = {}
-    others = {}
-    for k, cc in old.items():   # 舊英雄圖集(同職業的舊版不算 —— 本來就是同一個角色)
-        if k != hero: others[k] = sil(sheet[cc["y"]:cc["y"] + cc["h"], cc["x"]:cc["x"] + cc["w"]])
-    for p in H.glob("*.json"):   # 其他新規格英雄(用它們的待機第 1 格)
+    me = sil(f); ious = {}; others = {}
+    for p in H.glob("*.json"):   # 其他英雄(用它們的待機第 1 格)
         k = p.stem
         if k.endswith("-fx") or k == hero: continue
         m2 = json.loads(p.read_text(encoding="utf-8")); i2 = np.asarray(Image.open(H / f"{k}.png").convert("RGBA")); others[k] = sil(frames(i2, m2["actions"]["idle"])[0])
@@ -149,11 +160,22 @@ def audit(hero, d=H):
     return bad, info
 
 
+def audit_villagers():
+    m = json.loads((ROOT / "assets/villagers@2x.manifest.json").read_text(encoding="utf-8")); img = np.asarray(Image.open(ROOT / "assets/villagers@2x.png").convert("RGBA"))
+    bad = []; al = img[..., 3]
+    semi = int(((al > 0) & (al < 255)).sum())
+    if semi: bad.append(f"{semi} semi-transparent pixels")
+    r_, g_, b_ = (img[..., i].astype(int) for i in range(3))
+    res = int(((al > 0) & (((r_ > 200) & (b_ > 200) & (g_ < 80)) | ((g_ > 200) & (r_ < 80) & (b_ < 80)))).sum())
+    if res: bad.append(f"{res} key-color residue px")
+    return bad, {"cells": len(m["cells"])}
+
+
 if __name__ == "__main__":
-    heroes = sys.argv[1:] or [p.stem for p in H.glob("*.json") if not p.stem.endswith("-fx")] + [f"monster:{p.stem}" for p in M.glob("*.json")]
+    heroes = sys.argv[1:] or [p.stem for p in H.glob("*.json") if not p.stem.endswith("-fx")] + [f"monster:{p.stem}" for p in M.glob("*.json")] + ["villagers"]
     fail = 0
     for h in heroes:
-        bad, info = audit(h.split(":")[1], M) if h.startswith("monster:") else audit(h)
+        bad, info = audit_villagers() if h == "villagers" else audit(h.split(":")[1], M) if h.startswith("monster:") else audit(h)
         print(f"{h}: {'PASS' if not bad else 'FAIL'} {info}")
         for b in bad: print("  " + b)
         fail += len(bad)

@@ -1,0 +1,126 @@
+{
+ "id": "MONSTER_OGRE_001",
+ "version": "v01",
+ "monster": true,
+ "cell": 144,
+ "artSize": 96,
+ "gameSize": 28,
+ "source": {
+  "sheet": "output/l0veyou/hv4/mon3-ogre-keysA.png",
+  "grid": [
+   4,
+   1
+  ],
+  "frame": 0,
+  "unfake": true,
+  "keysheet": true,
+  "pixelize": 96
+ },
+ "knee": 82,
+ "foot": 92,
+ "layers": {},
+ "idle": {
+  "frames": 8,
+  "body": [
+   0,
+   0,
+   1,
+   1,
+   1,
+   1,
+   0,
+   0
+  ]
+ },
+ "anchors": {
+  "HEAD": [
+   36,
+   8
+  ],
+  "BODY": [
+   30,
+   48
+  ],
+  "LEFT_FOOT": [
+   22,
+   95
+  ],
+  "RIGHT_FOOT": [
+   45,
+   95
+  ]
+ },
+ "anchorLayer": {
+  "LEFT_FOOT": "feet",
+  "RIGHT_FOOT": "feet"
+ },
+ "anims": {
+  "attack": {
+   "sheet": "output/l0veyou/hv4/mon3-ogre-keysA.png",
+   "grid": [
+    4,
+    1
+   ],
+   "frames": 4,
+   "pixelize": 96,
+   "frameTime": 0.075,
+   "loop": false,
+   "release": 5,
+   "impact": 6
+  }
+ },
+ "rigged": {
+  "walk": {
+   "stride": 3
+  },
+  "attack": {
+   "keys": {
+    "wind": [
+     "attack",
+     1
+    ],
+    "max": [
+     "attack",
+     2
+    ],
+    "rec": [
+     "attack",
+     3
+    ]
+   },
+   "stripFlash": true,
+   "dx": {}
+  },
+  "death": {
+   "proc": true,
+   "wk": 0
+  },
+  "hurt": {
+   "lean": [
+    -2,
+    -1,
+    -1
+   ],
+   "wdx": [
+    0,
+    0,
+    0
+   ],
+   "dx": [
+    -1,
+    -1,
+    -1
+   ],
+   "wdy": [
+    0,
+    0,
+    0
+   ]
+  },
+  "despeck": {
+   "attack": 80
+  }
+ },
+ "outlineTarget": 0.75,
+ "keyDespeck": 10
+}

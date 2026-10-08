@@ -1,0 +1,326 @@
+{
+ "id": "HERO_PRIEST_001",
+ "version": "v01",
+ "animation": "idle",
+ "frames": 8,
+ "layout": {
+  "columns": 4,
+  "rows": 2
+ },
+ "cell": 400,
+ "sheet": [
+  1600,
+  800
+ ],
+ "logicalScale": 4,
+ "logicalCell": 100,
+ "frameTime": 0.16,
+ "loop": true,
+ "facing": "right",
+ "groundY": 368,
+ "axisX": 200,
+ "characterHeight": 284,
+ "anchors": [
+  {
+   "HEAD": [
+    202,
+    166
+   ],
+   "BODY": [
+    202,
+    266
+   ],
+   "LEFT_HAND": [
+    170,
+    286
+   ],
+   "RIGHT_HAND": [
+    250,
+    278
+   ],
+   "LEFT_FOOT": [
+    186,
+    362
+   ],
+   "RIGHT_FOOT": [
+    222,
+    362
+   ],
+   "WEAPON_GRIP": [
+    262,
+    278
+   ],
+   "GROUND": [
+    200,
+    368
+   ]
+  },
+  {
+   "HEAD": [
+    202,
+    166
+   ],
+   "BODY": [
+    202,
+    266
+   ],
+   "LEFT_HAND": [
+    170,
+    286
+   ],
+   "RIGHT_HAND": [
+    250,
+    278
+   ],
+   "LEFT_FOOT": [
+    186,
+    362
+   ],
+   "RIGHT_FOOT": [
+    222,
+    362
+   ],
+   "WEAPON_GRIP": [
+    262,
+    278
+   ],
+   "GROUND": [
+    200,
+    368
+   ]
+  },
+  {
+   "HEAD": [
+    202,
+    170
+   ],
+   "BODY": [
+    202,
+    270
+   ],
+   "LEFT_HAND": [
+    170,
+    290
+   ],
+   "RIGHT_HAND": [
+    250,
+    282
+   ],
+   "LEFT_FOOT": [
+    186,
+    362
+   ],
+   "RIGHT_FOOT": [
+    222,
+    362
+   ],
+   "WEAPON_GRIP": [
+    262,
+    282
+   ],
+   "GROUND": [
+    200,
+    368
+   ]
+  },
+  {
+   "HEAD": [
+    202,
+    170
+   ],
+   "BODY": [
+    202,
+    270
+   ],
+   "LEFT_HAND": [
+    170,
+    290
+   ],
+   "RIGHT_HAND": [
+    250,
+    282
+   ],
+   "LEFT_FOOT": [
+    186,
+    362
+   ],
+   "RIGHT_FOOT": [
+    222,
+    362
+   ],
+   "WEAPON_GRIP": [
+    262,
+    282
+   ],
+   "GROUND": [
+    200,
+    368
+   ]
+  },
+  {
+   "HEAD": [
+    202,
+    170
+   ],
+   "BODY": [
+    202,
+    270
+   ],
+   "LEFT_HAND": [
+    170,
+    290
+   ],
+   "RIGHT_HAND": [
+    250,
+    282
+   ],
+   "LEFT_FOOT": [
+    186,
+    362
+   ],
+   "RIGHT_FOOT": [
+    222,
+    362
+   ],
+   "WEAPON_GRIP": [
+    262,
+    282
+   ],
+   "GROUND": [
+    200,
+    368
+   ]
+  },
+  {
+   "HEAD": [
+    202,
+    170
+   ],
+   "BODY": [
+    202,
+    270
+   ],
+   "LEFT_HAND": [
+    170,
+    290
+   ],
+   "RIGHT_HAND": [
+    250,
+    282
+   ],
+   "LEFT_FOOT": [
+    186,
+    362
+   ],
+   "RIGHT_FOOT": [
+    222,
+    362
+   ],
+   "WEAPON_GRIP": [
+    262,
+    282
+   ],
+   "GROUND": [
+    200,
+    368
+   ]
+  },
+  {
+   "HEAD": [
+    202,
+    166
+   ],
+   "BODY": [
+    202,
+    266
+   ],
+   "LEFT_HAND": [
+    170,
+    286
+   ],
+   "RIGHT_HAND": [
+    250,
+    278
+   ],
+   "LEFT_FOOT": [
+    186,
+    362
+   ],
+   "RIGHT_FOOT": [
+    222,
+    362
+   ],
+   "WEAPON_GRIP": [
+    262,
+    278
+   ],
+   "GROUND": [
+    200,
+    368
+   ]
+  },
+  {
+   "HEAD": [
+    202,
+    166
+   ],
+   "BODY": [
+    202,
+    266
+   ],
+   "LEFT_HAND": [
+    170,
+    286
+   ],
+   "RIGHT_HAND": [
+    250,
+    278
+   ],
+   "LEFT_FOOT": [
+    186,
+    362
+   ],
+   "RIGHT_FOOT": [
+    222,
+    362
+   ],
+   "WEAPON_GRIP": [
+    262,
+    278
+   ],
+   "GROUND": [
+    200,
+    368
+   ]
+  }
+ ],
+ "palette": [
+  "#030102",
+  "#24140a",
+  "#726b62",
+  "#915720",
+  "#a97939",
+  "#ae9f86",
+  "#c7c1b3",
+  "#dd8f3c",
+  "#efd2b2",
+  "#f0ac4a",
+  "#f6c45d",
+  "#f6e4c6",
+  "#faf3d5",
+  "#fbf6e4",
+  "#fdcc6e",
+  "#fde278"
+ ],
+ "source": {
+  "sheet": "output/l0veyou/hv4/priest-keysA.png",
+  "grid": [
+   4,
+   1
+  ],
+  "frame": 0,
+  "unfake": true,
+  "keysheet": true
+ },
+ "rig": "rig.json"
+}

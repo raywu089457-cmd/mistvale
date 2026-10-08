@@ -1,0 +1,113 @@
+{
+ "character": "MONSTER_GOLEM_001",
+ "animation": "death",
+ "result": "PASS",
+ "failed": [],
+ "checks": {
+  "0a_hard_pixel_edges": {
+   "pass": true,
+   "value": "4x4 blocks uniform"
+  },
+  "0b_alpha_binary": {
+   "pass": true,
+   "value": "0/255"
+  },
+  "0c_inside_cell_ge2px": {
+   "pass": true,
+   "value": "min margin 8 logical px"
+  },
+  "A_frame_count": {
+   "pass": true,
+   "value": 8,
+   "note": "spec 8"
+  },
+  "B3_monster_art_size": {
+   "pass": true,
+   "value": [
+    114,
+    115,
+    114,
+    115,
+    113,
+    113,
+    113,
+    113
+   ],
+   "note": "BIBLE: 魔物美術最長邊 = 遊戲尺寸×72/21 = 113;動作中 ≤ ×1.35"
+  },
+  "03_ground_line": {
+   "pass": true,
+   "value": [
+    168,
+    168,
+    168,
+    168,
+    168,
+    168,
+    168,
+    168
+   ],
+   "note": "lowest row == 168, others ≥ ground-3 at hold frame"
+  },
+  "09_palette_shared": {
+   "pass": true,
+   "value": "15 colours, subset of shared palette=True"
+  },
+  "12_frame_continuity": {
+   "pass": true,
+   "value": [
+    0.071,
+    0.064,
+    0.064,
+    0.348,
+    0.027,
+    0.027,
+    0.0
+   ],
+   "note": "adjacent silhouette change ≤0.66 (動態版;idle ≤0.22) (no wrap)"
+  },
+  "10_outline": {
+   "pass": true,
+   "value": [
+    0.998,
+    1.0,
+    0.998,
+    0.998,
+    1.0,
+    1.0,
+    1.0,
+    1.0
+   ]
+  },
+  "11_facing": {
+   "pass": true,
+   "value": "all match frame 1 = True (attack/death 姿勢差大,改人工看)"
+  },
+  "13_14_components_proxy": {
+   "pass": true,
+   "value": [
+    1,
+    1,
+    1,
+    1,
+    1,
+    1,
+    1,
+    1
+   ],
+   "note": "connected blobs per frame (>2 = floating pieces / extra limb suspect)"
+  },
+  "18_background": {
+   "pass": true,
+   "value": 0
+  },
+  "T_thumbnail_noise": {
+   "pass": true,
+   "value": {
+    "64": 0.0,
+    "32": 0.0
+   },
+   "note": "worst frame isolated-pixel share"
+  }
+ }
+}

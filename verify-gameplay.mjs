@@ -1,0 +1,18 @@
+import {createGame} from './src/pixel-game.js';
+const g=createGame();
+const run=(sec)=>{for(let i=0;i<sec*10;i++)g.tick(.1);};
+run(60);
+console.log('--- 60 秒未下任何指令 ---');
+console.log('我方擊殺 totalKills =', g.state.totalKills, '(應為 0)');
+console.log('流浪英雄擊殺 wanderKills =', g.state.wanderKills||0, '(應 > 0)');
+console.log('我方英雄:', g.state.hunters.map(h=>`${h.status}${h.huntRegion?'→'+h.huntRegion:''}`).join(' | '));
+console.log('流浪英雄:', g.state.wanderers.map(w=>`${w.classId}/${w.status}@${w.regionId}`).join(' | '));
+console.log('\n--- 派遣到草原 ---');
+console.log(g.exploreRegion('meadow').message);
+run(120);
+console.log('我方擊殺 totalKills =', g.state.totalKills, '(應 > 5)');
+console.log('我方英雄:', g.state.hunters.map(h=>`${h.status}${h.huntRegion?'→'+h.huntRegion:''}`).join(' | '));
+console.log('\n--- 召回 ---');
+console.log(g.recallHunters().message);
+run(20);
+console.log('我方英雄:', g.state.hunters.map(h=>`${h.status}${h.huntRegion?'→'+h.huntRegion:''}`).join(' | '));

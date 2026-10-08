@@ -46,7 +46,6 @@ python pipeline/scripts/align/metrics.py out.png --side side.png
 | `assets/concept-{stone,earth,grass}.png` | `python pipeline/scripts/align/concept_textures.py` | 用概念圖像素做環繞式 image quilting 的無縫材質（360px，原生 3.93 px/單位）；土路色調配到概念圖整體土色 |
 | `src/concept-props.js` | 手量概念圖像素 | 道具、圍籬、角色的位置（存概念圖座標，執行時換算） |
 | `assets/concept-clean/*-v3.png` | l0veyou 參考圖 → `make_building.py` | 鐵匠鋪、學院、酒館、獵人小屋、餐廳、交易所 |
-| `assets/hero@1x/@2x` | l0veyou 參考圖 → `make_heroes.py` | 六職業 Q 版冒險者 |
 
 - **村莊高解析地面層**（`pixel-world.js` `buildVillageLayer`）：大地面畫布只有 GROUND_RES（桌機 2 px/單位），
   概念圖畫框另畫一張 VRES＝2×GROUND_RES 的地面，材質 1:1；溪流、橋、戰鬥空地不蓋。
@@ -54,7 +53,7 @@ python pipeline/scripts/align/metrics.py out.png --side side.png
 - 預設建築位置照概念圖量；舊預設在 `ART_LAYOUT_HISTORY`，存檔還是舊預設就自動搬到新預設。
 - `SPRITE_SHIFT`：只移動圖、不動佔地（酒館連露台往右下畫），避免改到道路測試。
 
-## l0veyou 參考圖做法（建築、角色）
+## l0veyou 參考圖做法（建築）
 
 1. 從概念圖裁出該建築（含一點周邊）→ `output/l0veyou/ref/<id>-ref.png`。
 2. 站上「添加参考图」上傳（瀏覽器自動化：`input.file-input` 設檔），prompt 要求「只畫參考圖裡的某棟、補完被切掉的部分、洋紅底」。

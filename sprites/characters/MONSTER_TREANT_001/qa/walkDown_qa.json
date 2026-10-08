@@ -1,0 +1,9 @@
+{
+ "character": "MONSTER_TREANT_001",
+ "animation": "walkDown",
+ "result": "PASS",
+ "failed": [],
+ "checks": {
+  "frame_count/alpha/ground/palette_shared/height_vs_side/outline/continuity/inside_cell": "make_dir.qa"
+ }
+}

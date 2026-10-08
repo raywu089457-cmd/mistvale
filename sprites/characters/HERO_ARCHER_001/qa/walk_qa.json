@@ -1,0 +1,142 @@
+{
+ "character": "HERO_ARCHER_001",
+ "animation": "walk",
+ "result": "PASS",
+ "failed": [],
+ "checks": {
+  "0a_hard_pixel_edges": {
+   "pass": true,
+   "value": "4x4 blocks uniform"
+  },
+  "0b_alpha_binary": {
+   "pass": true,
+   "value": "0/255"
+  },
+  "0c_inside_cell_ge2px": {
+   "pass": true,
+   "value": "min margin 8 logical px"
+  },
+  "A_frame_count": {
+   "pass": true,
+   "value": 8,
+   "note": "spec 8"
+  },
+  "B_standing_height_pm12pct": {
+   "pass": true,
+   "value": [
+    72,
+    71,
+    72,
+    73,
+    72,
+    71,
+    72,
+    73
+   ],
+   "note": "vs idle frame 1 = 72"
+  },
+  "B2_height_cap_80": {
+   "pass": true,
+   "value": [
+    72,
+    71,
+    72,
+    73,
+    72,
+    71,
+    72,
+    73
+   ],
+   "note": "BIBLE: hero height 70–80 (weapon excluded, so soft)"
+  },
+  "03_ground_line": {
+   "pass": true,
+   "value": [
+    92,
+    92,
+    92,
+    92,
+    92,
+    92,
+    92,
+    92
+   ],
+   "note": "lowest row == 92, others ≥ ground-1"
+  },
+  "E_feet_alternate": {
+   "pass": true,
+   "value": [
+    40,
+    43,
+    46,
+    45,
+    43,
+    45,
+    46,
+    43
+   ],
+   "note": "not one copied pose"
+  },
+  "09_palette_shared": {
+   "pass": true,
+   "value": "16 colours, subset of shared palette=True"
+  },
+  "12_frame_continuity": {
+   "pass": true,
+   "value": [
+    0.091,
+    0.083,
+    0.081,
+    0.079,
+    0.079,
+    0.081,
+    0.083,
+    0.091
+   ],
+   "note": "adjacent silhouette change ≤0.3 (動態版;idle ≤0.22) incl. wrap"
+  },
+  "10_outline": {
+   "pass": true,
+   "value": [
+    1.0,
+    1.0,
+    1.0,
+    1.0,
+    1.0,
+    1.0,
+    1.0,
+    1.0
+   ]
+  },
+  "11_facing": {
+   "pass": true,
+   "value": "all match frame 1 = True"
+  },
+  "13_14_components_proxy": {
+   "pass": true,
+   "value": [
+    1,
+    1,
+    1,
+    1,
+    1,
+    1,
+    1,
+    1
+   ],
+   "note": "connected blobs per frame (>2 = floating pieces / extra limb suspect)"
+  },
+  "18_background": {
+   "pass": true,
+   "value": 0
+  },
+  "T_thumbnail_noise": {
+   "pass": true,
+   "value": {
+    "64": 0.0,
+    "32": 0.0
+   },
+   "note": "worst frame isolated-pixel share"
+  }
+ }
+}

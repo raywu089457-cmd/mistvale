@@ -1,0 +1,325 @@
+{
+ "id": "HERO_WITCHHUNTER_001",
+ "version": "v01",
+ "animation": "idle",
+ "frames": 8,
+ "layout": {
+  "columns": 4,
+  "rows": 2
+ },
+ "cell": 400,
+ "sheet": [
+  1600,
+  800
+ ],
+ "logicalScale": 4,
+ "logicalCell": 100,
+ "frameTime": 0.16,
+ "loop": true,
+ "facing": "right",
+ "groundY": 368,
+ "axisX": 200,
+ "characterHeight": 288,
+ "anchors": [
+  {
+   "HEAD": [
+    198,
+    162
+   ],
+   "BODY": [
+    182,
+    262
+   ],
+   "LEFT_HAND": [
+    174,
+    282
+   ],
+   "RIGHT_HAND": [
+    278,
+    238
+   ],
+   "LEFT_FOOT": [
+    174,
+    362
+   ],
+   "RIGHT_FOOT": [
+    238,
+    362
+   ],
+   "WEAPON_GRIP": [
+    282,
+    238
+   ],
+   "GROUND": [
+    200,
+    368
+   ]
+  },
+  {
+   "HEAD": [
+    198,
+    162
+   ],
+   "BODY": [
+    182,
+    262
+   ],
+   "LEFT_HAND": [
+    174,
+    282
+   ],
+   "RIGHT_HAND": [
+    278,
+    238
+   ],
+   "LEFT_FOOT": [
+    174,
+    362
+   ],
+   "RIGHT_FOOT": [
+    238,
+    362
+   ],
+   "WEAPON_GRIP": [
+    282,
+    238
+   ],
+   "GROUND": [
+    200,
+    368
+   ]
+  },
+  {
+   "HEAD": [
+    198,
+    166
+   ],
+   "BODY": [
+    182,
+    266
+   ],
+   "LEFT_HAND": [
+    174,
+    286
+   ],
+   "RIGHT_HAND": [
+    278,
+    242
+   ],
+   "LEFT_FOOT": [
+    174,
+    362
+   ],
+   "RIGHT_FOOT": [
+    238,
+    362
+   ],
+   "WEAPON_GRIP": [
+    282,
+    242
+   ],
+   "GROUND": [
+    200,
+    368
+   ]
+  },
+  {
+   "HEAD": [
+    198,
+    166
+   ],
+   "BODY": [
+    182,
+    266
+   ],
+   "LEFT_HAND": [
+    174,
+    286
+   ],
+   "RIGHT_HAND": [
+    278,
+    242
+   ],
+   "LEFT_FOOT": [
+    174,
+    362
+   ],
+   "RIGHT_FOOT": [
+    238,
+    362
+   ],
+   "WEAPON_GRIP": [
+    282,
+    242
+   ],
+   "GROUND": [
+    200,
+    368
+   ]
+  },
+  {
+   "HEAD": [
+    198,
+    166
+   ],
+   "BODY": [
+    182,
+    266
+   ],
+   "LEFT_HAND": [
+    174,
+    286
+   ],
+   "RIGHT_HAND": [
+    278,
+    242
+   ],
+   "LEFT_FOOT": [
+    174,
+    362
+   ],
+   "RIGHT_FOOT": [
+    238,
+    362
+   ],
+   "WEAPON_GRIP": [
+    282,
+    242
+   ],
+   "GROUND": [
+    200,
+    368
+   ]
+  },
+  {
+   "HEAD": [
+    198,
+    166
+   ],
+   "BODY": [
+    182,
+    266
+   ],
+   "LEFT_HAND": [
+    174,
+    286
+   ],
+   "RIGHT_HAND": [
+    278,
+    242
+   ],
+   "LEFT_FOOT": [
+    174,
+    362
+   ],
+   "RIGHT_FOOT": [
+    238,
+    362
+   ],
+   "WEAPON_GRIP": [
+    282,
+    242
+   ],
+   "GROUND": [
+    200,
+    368
+   ]
+  },
+  {
+   "HEAD": [
+    198,
+    162
+   ],
+   "BODY": [
+    182,
+    262
+   ],
+   "LEFT_HAND": [
+    174,
+    282
+   ],
+   "RIGHT_HAND": [
+    278,
+    238
+   ],
+   "LEFT_FOOT": [
+    174,
+    362
+   ],
+   "RIGHT_FOOT": [
+    238,
+    362
+   ],
+   "WEAPON_GRIP": [
+    282,
+    238
+   ],
+   "GROUND": [
+    200,
+    368
+   ]
+  },
+  {
+   "HEAD": [
+    198,
+    162
+   ],
+   "BODY": [
+    182,
+    262
+   ],
+   "LEFT_HAND": [
+    174,
+    282
+   ],
+   "RIGHT_HAND": [
+    278,
+    238
+   ],
+   "LEFT_FOOT": [
+    174,
+    362
+   ],
+   "RIGHT_FOOT": [
+    238,
+    362
+   ],
+   "WEAPON_GRIP": [
+    282,
+    238
+   ],
+   "GROUND": [
+    200,
+    368
+   ]
+  }
+ ],
+ "palette": [
+  "#070303",
+  "#171d1b",
+  "#1a0e0a",
+  "#1e3030",
+  "#2d4343",
+  "#301d14",
+  "#35281c",
+  "#553d27",
+  "#6c2c1c",
+  "#775138",
+  "#8f7559",
+  "#c27c45",
+  "#ccb398",
+  "#f3e0c7"
+ ],
+ "source": {
+  "sheet": "output/l0veyou/hv4/witchhunter-keysA.png",
+  "grid": [
+   4,
+   1
+  ],
+  "frame": 0,
+  "unfake": true,
+  "keysheet": true,
+  "pixelize": 72
+ },
+ "rig": "rig.json"
+}

@@ -24,30 +24,21 @@
 | `buildings@1x.png` / `@2x` | ✅ | sprite-gen（12 棟） | ✅ | `buildingsAtlas(+2x)` |
 | `details@1x.png` / `@2x` | ✅ | sprite-gen（地圖細節） | ✅ | `detailsAtlas(+2x)` |
 | `terrain-atlas.png` | ✅ | sprite-gen（無縫地面材質） | ✅ | `terrainAtlas` |
-| `hero@1x.png` / `@2x` | ✅ | sprite-gen（獵人六職業） | ✅ | `heroAtlas(+2x)` |
 | `props@1x.png` / `@2x` | ✅ | **l0veyou**（羊／山羊、花圃、灌木、香菇、仙人掌、村旗、戰鬥旗、閘門、攤位、木桶） | ✅ | `propsAtlas(+2x)` |
-| `monsters@1x.png` / `@2x` | ✅ | **l0veyou**（史萊姆／狼／石巨人／森林領主，各 2 格動畫） | ✅ | `monstersAtlas(+2x)` |
 | `plaza.png` | — | **l0veyou**（無縫石板，色調對齊 title 廣場） | ✅ | `plaza` |
 | `road.png` | — | **l0veyou**（無縫土路，色調對齊 title 小路） | ✅ | `road` |
 | `woodui.png` | — | **l0veyou**（UI 木板材質，色調對齊 title 木頭） | ✅ | `woodui`（CSS `--wood-tex`） |
 | `icons@1x.png` / `@2x` | ✅ | **l0veyou**（29 個 UI 圖示：資源、物資、裝備、選單） | ✅ | `iconsAtlas(+2x)` |
 | `vfx@1x.png` / `@2x` | ✅ | **l0veyou**（斬擊、法球、治療、升級星、命中、閃光、施工空地、獸皮圖示） | ✅ | `vfxAtlas(+2x)` |
 | `flora@1x.png` / `@2x` | ✅ | **l0veyou**（四色小花、麥穗、高麗菜、等角橋欄長條、橋柱） | ✅ | `floraAtlas(+2x)` |
-| `villagers@1x.png` / `@2x` | ✅ | **l0veyou**（商人、農婦、小孩、長老、鐵匠學徒、酒館女侍、貓、狗；純裝飾） | ✅ | `villagersAtlas(+2x)` |
 | `yard@1x.png` / `@2x` | ✅ | **l0veyou**（寶箱、木箱、草捆、柴堆、水槽、稻草人、燈籠、推車；純裝飾，16:9 生成） | ✅ | `yardAtlas(+2x)` |
 | `town@1x.png` / `@2x` | ✅ | **l0veyou**（箭靶、木人、兵器架、鐵砧、桌椅、長凳、推車、花箱） | ✅ | `townAtlas(+2x)` |
 | `town2@1x.png` / `@2x` | ✅ | **l0veyou**（紫旗、斜向木圍籬、水果攤、麻袋、木桶、水桶、花叢、河石） | ✅ | `town2Atlas(+2x)` |
 | `concept-{stone,earth,grass}.png` | — | **概念圖像素**（image quilting 無縫材質） | ✅ | `conceptStone/Earth/Grass`（村莊高解析地面層） |
 | `concept-clean/*-v3.png` | — | **l0veyou＋概念圖參考圖**（鐵匠鋪、學院、酒館、獵人小屋、餐廳、交易所） | ✅ | 取代 v2（build.mjs 優先） |
-| `hero@1x.png` / `@2x`（v2） | ✅ | **l0veyou＋概念圖參考圖**（六職業 Q 版冒險者，取代 sprite-gen 版） | ✅ | `heroAtlas(+2x)` |
 
 每個圖集都配一個 `*.manifest.json`（`frame_layout`，每格座標）。build.mjs 把 PNG＋manifest
 一起 base64 內嵌。**改 manifest 記得 `npm run build`**。
-
-### 角色職業 id（很重要，對不上會靜默退回程序繪製）
-圖集 key：`berserker`（狂戰士）／`ranger`（遊俠）／`paladin`（聖騎士）／
-`sorcerer`（魔法師）／`darkknight`（黑暗騎士）／`priest`（牧師）。
-遊戲 `pixel-data.js` 的職業 id 現在跟這套一致。
 
 ---
 
@@ -58,12 +49,11 @@
 | 程序繪製 | 備註 |
 |---|---|
 
-所有地圖裝飾、魔物、戰鬥特效、空地標記與 UI 圖示都已改走圖集：建築／樹／岩石／圍欄（sprite-gen）、道具／魔物／花草／作物／橋欄（l0veyou）、
+所有地圖裝飾、戰鬥特效、空地標記與 UI 圖示都已改走圖集：建築／樹／岩石／圍欄（sprite-gen）、道具／花草／作物／橋欄（l0veyou）、
 廣場石板（l0veyou）、草地（terrain-atlas，色調對齊概念圖草地）。驗收：`__mistvaleDetails().proc` 必須是 `{}`。
 圖集沒載到時仍退回原本的程序繪製。
 
 樹木、岩石、洞穴、廢墟、圍欄、水井、燈柱與路標優先使用 `details@1x/@2x`。
-獵人使用六職業角色圖集；`hero@2x` 已由現成來源恢復成 184×148。
 村莊建築優先使用 `assets/concept-clean/`，地下城使用建築圖集；載入失敗時仍有程序 fallback。
 
 現成素材的可重跑入口：`python pipeline/scripts/prepare_concept_assets.py`，完成後執行
@@ -82,6 +72,6 @@
 
 ## 五、狀態速查
 
-- 四階段（建築 → 細節 → 地形 → 角色）**全部完成、已推進正式專案**。
+- 三階段（建築 → 細節 → 地形）**全部完成、已推進正式專案**。
 - 驗證：`atlasUse` 計數 `atlas=全走圖集、proc=0`、0 console 錯誤、`npm test` PASS。
 - 備份：`work\mistvale-backup-*`（推版前有備份，可回復）。

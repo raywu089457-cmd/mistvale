@@ -7,7 +7,7 @@ export const REGIONS=[
  {id:'village',name:'暮影村',subtitle:'平原聚落',x:-5,z:3,color:'#bcb79a',description:'石板路、農田與獵人歸來的家。',enemy:'slime',risk:0},
  {id:'meadow',name:'向陽草原',subtitle:'草原 · 初階狩獵',x:17,z:3,color:'#86ad5a',description:'野花與羊群之間，史萊姆正在草叢裡聚集。',enemy:'slime',risk:1},
  {id:'forest',name:'橡木密林',subtitle:'森林 · 木材與獸皮',x:43,z:2,color:'#4d8350',description:'茂密樹冠與蕈菇，狼群在林間巡行。',enemy:'wolf',risk:1.15},
- {id:'taiga',name:'霜杉林地',subtitle:'針葉林 · 北方荒野',x:15,z:-23,color:'#487d70',description:'針葉樹與苔石覆蓋的冷涼森林。',enemy:'wolf',risk:1.25},
+ {id:'taiga',name:'霜杉林地',subtitle:'針葉林 · 北方荒野',x:17,z:-23,color:'#487d70',description:'針葉樹與苔石覆蓋的冷涼森林。',enemy:'wolf',risk:1.25},
  {id:'snow',name:'白霜雪原',subtitle:'雪地 · 冰河與松林',x:8,z:-36,color:'#cee4df',description:'積雪堆在杉樹上，冰晶映出淡藍色晨光。',enemy:'golem',risk:1.5},
  {id:'mountain',name:'鐵脊山麓',subtitle:'山地 · 礦脈與洞穴',x:45,z:-29,color:'#a7a8a1',description:'層疊岩壁、鐵礦與古老礦坑，石巨人在此守望。',enemy:'golem',risk:1.65},
  {id:'desert',name:'赤金沙地',subtitle:'沙漠 · 仙人掌與遺跡',x:45,z:40,color:'#d7b778',description:'仙人掌與砂岩遺跡點綴暖色沙丘。',enemy:'golem',risk:1.4},

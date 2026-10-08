@@ -1,0 +1,110 @@
+{
+ "id": "HERO_ARCHER_001",
+ "version": "v01",
+ "animation": "hurt",
+ "frames": 4,
+ "layout": {
+  "columns": 4,
+  "rows": 1
+ },
+ "cell": 400,
+ "sheet": [
+  1600,
+  400
+ ],
+ "logicalScale": 4,
+ "logicalCell": 100,
+ "frameTime": 0.1,
+ "loop": false,
+ "facing": "right",
+ "groundY": 368,
+ "axisX": 200,
+ "characterHeight": 288,
+ "anchors": [
+  {
+   "GROUND": [
+    200,
+    368
+   ],
+   "BODY": [
+    202,
+    224
+   ],
+   "HEAD": [
+    202,
+    112
+   ]
+  },
+  {
+   "GROUND": [
+    200,
+    368
+   ],
+   "BODY": [
+    202,
+    224
+   ],
+   "HEAD": [
+    202,
+    116
+   ]
+  },
+  {
+   "GROUND": [
+    200,
+    368
+   ],
+   "BODY": [
+    202,
+    224
+   ],
+   "HEAD": [
+    202,
+    116
+   ]
+  },
+  {
+   "GROUND": [
+    200,
+    368
+   ],
+   "BODY": [
+    202,
+    224
+   ],
+   "HEAD": [
+    202,
+    112
+   ]
+  }
+ ],
+ "palette": [
+  "#080304",
+  "#190a07",
+  "#30190d",
+  "#3b5636",
+  "#4a2714",
+  "#597d51",
+  "#613319",
+  "#774120",
+  "#905027",
+  "#9f6e4b",
+  "#ae6324",
+  "#c78d64",
+  "#e3aa7d",
+  "#ef9b06",
+  "#f5efeb",
+  "#f7c7a1"
+ ],
+ "source": {
+  "sheets": [
+   {
+    "rigged": true
+   }
+  ],
+  "unfake": true,
+  "pitch": 5.0
+ },
+ "rig": "rig.json",
+ "anchorsApprox": true
+}

@@ -1,0 +1,228 @@
+{
+ "id": "MONSTER_SLIME_001",
+ "version": "v01",
+ "animation": "idle",
+ "frames": 8,
+ "layout": {
+  "columns": 4,
+  "rows": 2
+ },
+ "cell": 576,
+ "sheet": [
+  2304,
+  1152
+ ],
+ "logicalScale": 4,
+ "logicalCell": 144,
+ "frameTime": 0.16,
+ "loop": true,
+ "facing": "right",
+ "groundY": 544,
+ "axisX": 288,
+ "characterHeight": 356,
+ "anchors": [
+  {
+   "HEAD": [
+    290,
+    222
+   ],
+   "BODY": [
+    286,
+    366
+   ],
+   "LEFT_FOOT": [
+    242,
+    542
+   ],
+   "RIGHT_FOOT": [
+    322,
+    542
+   ],
+   "GROUND": [
+    288,
+    544
+   ]
+  },
+  {
+   "HEAD": [
+    290,
+    222
+   ],
+   "BODY": [
+    286,
+    366
+   ],
+   "LEFT_FOOT": [
+    242,
+    542
+   ],
+   "RIGHT_FOOT": [
+    322,
+    542
+   ],
+   "GROUND": [
+    288,
+    544
+   ]
+  },
+  {
+   "HEAD": [
+    290,
+    226
+   ],
+   "BODY": [
+    286,
+    370
+   ],
+   "LEFT_FOOT": [
+    242,
+    542
+   ],
+   "RIGHT_FOOT": [
+    322,
+    542
+   ],
+   "GROUND": [
+    288,
+    544
+   ]
+  },
+  {
+   "HEAD": [
+    290,
+    226
+   ],
+   "BODY": [
+    286,
+    370
+   ],
+   "LEFT_FOOT": [
+    242,
+    542
+   ],
+   "RIGHT_FOOT": [
+    322,
+    542
+   ],
+   "GROUND": [
+    288,
+    544
+   ]
+  },
+  {
+   "HEAD": [
+    290,
+    226
+   ],
+   "BODY": [
+    286,
+    370
+   ],
+   "LEFT_FOOT": [
+    242,
+    542
+   ],
+   "RIGHT_FOOT": [
+    322,
+    542
+   ],
+   "GROUND": [
+    288,
+    544
+   ]
+  },
+  {
+   "HEAD": [
+    290,
+    226
+   ],
+   "BODY": [
+    286,
+    370
+   ],
+   "LEFT_FOOT": [
+    242,
+    542
+   ],
+   "RIGHT_FOOT": [
+    322,
+    542
+   ],
+   "GROUND": [
+    288,
+    544
+   ]
+  },
+  {
+   "HEAD": [
+    290,
+    222
+   ],
+   "BODY": [
+    286,
+    366
+   ],
+   "LEFT_FOOT": [
+    242,
+    542
+   ],
+   "RIGHT_FOOT": [
+    322,
+    542
+   ],
+   "GROUND": [
+    288,
+    544
+   ]
+  },
+  {
+   "HEAD": [
+    290,
+    222
+   ],
+   "BODY": [
+    286,
+    366
+   ],
+   "LEFT_FOOT": [
+    242,
+    542
+   ],
+   "RIGHT_FOOT": [
+    322,
+    542
+   ],
+   "GROUND": [
+    288,
+    544
+   ]
+  }
+ ],
+ "palette": [
+  "#070302",
+  "#150904",
+  "#283e15",
+  "#406e1f",
+  "#559d2c",
+  "#68c129",
+  "#7ccf20",
+  "#8de028",
+  "#98e92c",
+  "#a3e939",
+  "#b5f355",
+  "#d5ecae",
+  "#fbfbf9"
+ ],
+ "source": {
+  "sheet": "output/l0veyou/hv4/mon3-slime-keysA.png",
+  "grid": [
+   4,
+   1
+  ],
+  "frame": 0,
+  "unfake": true,
+  "keysheet": true,
+  "pixelize": 89
+ },
+ "rig": "rig.json"
+}

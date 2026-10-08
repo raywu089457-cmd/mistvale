@@ -1,0 +1,165 @@
+{
+ "id": "MONSTER_GOLEM_001",
+ "version": "v01",
+ "animation": "walk",
+ "frames": 8,
+ "layout": {
+  "columns": 4,
+  "rows": 2
+ },
+ "cell": 704,
+ "sheet": [
+  2816,
+  1408
+ ],
+ "logicalScale": 4,
+ "logicalCell": 176,
+ "frameTime": 0.1,
+ "loop": true,
+ "facing": "right",
+ "groundY": 672,
+ "axisX": 352,
+ "characterHeight": 432,
+ "anchors": [
+  {
+   "GROUND": [
+    352,
+    672
+   ],
+   "BODY": [
+    354,
+    456
+   ],
+   "HEAD": [
+    354,
+    276
+   ]
+  },
+  {
+   "GROUND": [
+    352,
+    672
+   ],
+   "BODY": [
+    354,
+    460
+   ],
+   "HEAD": [
+    354,
+    280
+   ]
+  },
+  {
+   "GROUND": [
+    352,
+    672
+   ],
+   "BODY": [
+    354,
+    456
+   ],
+   "HEAD": [
+    354,
+    276
+   ]
+  },
+  {
+   "GROUND": [
+    352,
+    672
+   ],
+   "BODY": [
+    354,
+    456
+   ],
+   "HEAD": [
+    354,
+    272
+   ]
+  },
+  {
+   "GROUND": [
+    352,
+    672
+   ],
+   "BODY": [
+    354,
+    456
+   ],
+   "HEAD": [
+    354,
+    276
+   ]
+  },
+  {
+   "GROUND": [
+    352,
+    672
+   ],
+   "BODY": [
+    354,
+    460
+   ],
+   "HEAD": [
+    354,
+    280
+   ]
+  },
+  {
+   "GROUND": [
+    352,
+    672
+   ],
+   "BODY": [
+    354,
+    456
+   ],
+   "HEAD": [
+    354,
+    276
+   ]
+  },
+  {
+   "GROUND": [
+    352,
+    672
+   ],
+   "BODY": [
+    354,
+    456
+   ],
+   "HEAD": [
+    354,
+    272
+   ]
+  }
+ ],
+ "palette": [
+  "#080504",
+  "#0e4f5b",
+  "#212213",
+  "#354222",
+  "#3bd8e2",
+  "#4b4a2e",
+  "#5c4d3b",
+  "#678b2e",
+  "#695944",
+  "#76664e",
+  "#847459",
+  "#928064",
+  "#9e8b70",
+  "#ae9c77",
+  "#f4f7fb"
+ ],
+ "source": {
+  "sheets": [
+   {
+    "rigged": true
+   }
+  ],
+  "unfake": true,
+  "pitch": 5.0
+ },
+ "rig": "rig.json",
+ "anchorsApprox": true
+}

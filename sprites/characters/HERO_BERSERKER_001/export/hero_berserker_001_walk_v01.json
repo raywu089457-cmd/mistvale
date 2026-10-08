@@ -1,0 +1,166 @@
+{
+ "id": "HERO_BERSERKER_001",
+ "version": "v01",
+ "animation": "walk",
+ "frames": 8,
+ "layout": {
+  "columns": 4,
+  "rows": 2
+ },
+ "cell": 400,
+ "sheet": [
+  1600,
+  800
+ ],
+ "logicalScale": 4,
+ "logicalCell": 100,
+ "frameTime": 0.1,
+ "loop": true,
+ "facing": "right",
+ "groundY": 368,
+ "axisX": 200,
+ "characterHeight": 296,
+ "anchors": [
+  {
+   "GROUND": [
+    200,
+    368
+   ],
+   "BODY": [
+    202,
+    220
+   ],
+   "HEAD": [
+    202,
+    108
+   ]
+  },
+  {
+   "GROUND": [
+    200,
+    368
+   ],
+   "BODY": [
+    202,
+    224
+   ],
+   "HEAD": [
+    202,
+    112
+   ]
+  },
+  {
+   "GROUND": [
+    200,
+    368
+   ],
+   "BODY": [
+    202,
+    220
+   ],
+   "HEAD": [
+    202,
+    108
+   ]
+  },
+  {
+   "GROUND": [
+    200,
+    368
+   ],
+   "BODY": [
+    202,
+    220
+   ],
+   "HEAD": [
+    202,
+    104
+   ]
+  },
+  {
+   "GROUND": [
+    200,
+    368
+   ],
+   "BODY": [
+    202,
+    220
+   ],
+   "HEAD": [
+    202,
+    108
+   ]
+  },
+  {
+   "GROUND": [
+    200,
+    368
+   ],
+   "BODY": [
+    202,
+    224
+   ],
+   "HEAD": [
+    202,
+    112
+   ]
+  },
+  {
+   "GROUND": [
+    200,
+    368
+   ],
+   "BODY": [
+    202,
+    220
+   ],
+   "HEAD": [
+    202,
+    108
+   ]
+  },
+  {
+   "GROUND": [
+    200,
+    368
+   ],
+   "BODY": [
+    202,
+    220
+   ],
+   "HEAD": [
+    202,
+    104
+   ]
+  }
+ ],
+ "palette": [
+  "#020101",
+  "#110806",
+  "#402416",
+  "#5b2c16",
+  "#643a22",
+  "#706b66",
+  "#84827e",
+  "#8a4a26",
+  "#972b17",
+  "#a35b33",
+  "#c3aa99",
+  "#cc825b",
+  "#d51a12",
+  "#ecd4bc",
+  "#f2c69c",
+  "#f6b180"
+ ],
+ "source": {
+  "sheets": [
+   {
+    "rigged": true
+   }
+  ],
+  "unfake": true,
+  "pitch": 5.0
+ },
+ "rig": "rig.json",
+ "anchorsApprox": true
+}

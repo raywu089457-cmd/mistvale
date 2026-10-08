@@ -1,0 +1,128 @@
+{
+ "character": "MONSTER_GOLEM_001",
+ "animation": "walk",
+ "result": "PASS",
+ "failed": [],
+ "checks": {
+  "0a_hard_pixel_edges": {
+   "pass": true,
+   "value": "4x4 blocks uniform"
+  },
+  "0b_alpha_binary": {
+   "pass": true,
+   "value": "0/255"
+  },
+  "0c_inside_cell_ge2px": {
+   "pass": true,
+   "value": "min margin 8 logical px"
+  },
+  "A_frame_count": {
+   "pass": true,
+   "value": 8,
+   "note": "spec 8"
+  },
+  "B3_monster_art_size": {
+   "pass": true,
+   "value": [
+    113,
+    113,
+    113,
+    113,
+    113,
+    113,
+    113,
+    113
+   ],
+   "note": "BIBLE: 魔物美術最長邊 = 遊戲尺寸×72/21 = 113;動作中 ≤ ×1.35"
+  },
+  "03_ground_line": {
+   "pass": true,
+   "value": [
+    168,
+    168,
+    168,
+    168,
+    168,
+    168,
+    168,
+    168
+   ],
+   "note": "lowest row == 168, others ≥ ground-3"
+  },
+  "E_feet_alternate": {
+   "pass": true,
+   "value": [
+    71,
+    74,
+    76,
+    75,
+    72,
+    75,
+    76,
+    74
+   ],
+   "note": "not one copied pose"
+  },
+  "09_palette_shared": {
+   "pass": true,
+   "value": "15 colours, subset of shared palette=True"
+  },
+  "12_frame_continuity": {
+   "pass": true,
+   "value": [
+    0.019,
+    0.018,
+    0.018,
+    0.019,
+    0.019,
+    0.018,
+    0.018,
+    0.019
+   ],
+   "note": "adjacent silhouette change ≤0.3 (動態版;idle ≤0.22) incl. wrap"
+  },
+  "10_outline": {
+   "pass": true,
+   "value": [
+    0.979,
+    0.965,
+    0.958,
+    0.968,
+    0.979,
+    0.967,
+    0.958,
+    0.966
+   ]
+  },
+  "11_facing": {
+   "pass": true,
+   "value": "all match frame 1 = True"
+  },
+  "13_14_components_proxy": {
+   "pass": true,
+   "value": [
+    1,
+    1,
+    1,
+    1,
+    1,
+    1,
+    1,
+    1
+   ],
+   "note": "connected blobs per frame (>2 = floating pieces / extra limb suspect)"
+  },
+  "18_background": {
+   "pass": true,
+   "value": 0
+  },
+  "T_thumbnail_noise": {
+   "pass": true,
+   "value": {
+    "64": 0.0,
+    "32": 0.0
+   },
+   "note": "worst frame isolated-pixel share"
+  }
+ }
+}

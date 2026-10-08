@@ -1,0 +1,327 @@
+{
+ "id": "HERO_ARCHER_001",
+ "version": "v01",
+ "animation": "idle",
+ "frames": 8,
+ "layout": {
+  "columns": 4,
+  "rows": 2
+ },
+ "cell": 400,
+ "sheet": [
+  1600,
+  800
+ ],
+ "logicalScale": 4,
+ "logicalCell": 100,
+ "frameTime": 0.16,
+ "loop": true,
+ "facing": "right",
+ "groundY": 368,
+ "axisX": 200,
+ "characterHeight": 288,
+ "anchors": [
+  {
+   "HEAD": [
+    174,
+    162
+   ],
+   "BODY": [
+    174,
+    262
+   ],
+   "LEFT_HAND": [
+    118,
+    262
+   ],
+   "RIGHT_HAND": [
+    294,
+    282
+   ],
+   "LEFT_FOOT": [
+    166,
+    366
+   ],
+   "RIGHT_FOOT": [
+    234,
+    366
+   ],
+   "WEAPON_GRIP": [
+    306,
+    282
+   ],
+   "GROUND": [
+    200,
+    368
+   ]
+  },
+  {
+   "HEAD": [
+    174,
+    162
+   ],
+   "BODY": [
+    174,
+    262
+   ],
+   "LEFT_HAND": [
+    118,
+    262
+   ],
+   "RIGHT_HAND": [
+    294,
+    282
+   ],
+   "LEFT_FOOT": [
+    166,
+    366
+   ],
+   "RIGHT_FOOT": [
+    234,
+    366
+   ],
+   "WEAPON_GRIP": [
+    306,
+    282
+   ],
+   "GROUND": [
+    200,
+    368
+   ]
+  },
+  {
+   "HEAD": [
+    174,
+    166
+   ],
+   "BODY": [
+    174,
+    266
+   ],
+   "LEFT_HAND": [
+    118,
+    266
+   ],
+   "RIGHT_HAND": [
+    294,
+    286
+   ],
+   "LEFT_FOOT": [
+    166,
+    366
+   ],
+   "RIGHT_FOOT": [
+    234,
+    366
+   ],
+   "WEAPON_GRIP": [
+    306,
+    286
+   ],
+   "GROUND": [
+    200,
+    368
+   ]
+  },
+  {
+   "HEAD": [
+    174,
+    166
+   ],
+   "BODY": [
+    174,
+    266
+   ],
+   "LEFT_HAND": [
+    118,
+    266
+   ],
+   "RIGHT_HAND": [
+    294,
+    286
+   ],
+   "LEFT_FOOT": [
+    166,
+    366
+   ],
+   "RIGHT_FOOT": [
+    234,
+    366
+   ],
+   "WEAPON_GRIP": [
+    306,
+    286
+   ],
+   "GROUND": [
+    200,
+    368
+   ]
+  },
+  {
+   "HEAD": [
+    174,
+    166
+   ],
+   "BODY": [
+    174,
+    266
+   ],
+   "LEFT_HAND": [
+    118,
+    266
+   ],
+   "RIGHT_HAND": [
+    294,
+    286
+   ],
+   "LEFT_FOOT": [
+    166,
+    366
+   ],
+   "RIGHT_FOOT": [
+    234,
+    366
+   ],
+   "WEAPON_GRIP": [
+    306,
+    286
+   ],
+   "GROUND": [
+    200,
+    368
+   ]
+  },
+  {
+   "HEAD": [
+    174,
+    166
+   ],
+   "BODY": [
+    174,
+    266
+   ],
+   "LEFT_HAND": [
+    118,
+    266
+   ],
+   "RIGHT_HAND": [
+    294,
+    286
+   ],
+   "LEFT_FOOT": [
+    166,
+    366
+   ],
+   "RIGHT_FOOT": [
+    234,
+    366
+   ],
+   "WEAPON_GRIP": [
+    306,
+    286
+   ],
+   "GROUND": [
+    200,
+    368
+   ]
+  },
+  {
+   "HEAD": [
+    174,
+    162
+   ],
+   "BODY": [
+    174,
+    262
+   ],
+   "LEFT_HAND": [
+    118,
+    262
+   ],
+   "RIGHT_HAND": [
+    294,
+    282
+   ],
+   "LEFT_FOOT": [
+    166,
+    366
+   ],
+   "RIGHT_FOOT": [
+    234,
+    366
+   ],
+   "WEAPON_GRIP": [
+    306,
+    282
+   ],
+   "GROUND": [
+    200,
+    368
+   ]
+  },
+  {
+   "HEAD": [
+    174,
+    162
+   ],
+   "BODY": [
+    174,
+    262
+   ],
+   "LEFT_HAND": [
+    118,
+    262
+   ],
+   "RIGHT_HAND": [
+    294,
+    282
+   ],
+   "LEFT_FOOT": [
+    166,
+    366
+   ],
+   "RIGHT_FOOT": [
+    234,
+    366
+   ],
+   "WEAPON_GRIP": [
+    306,
+    282
+   ],
+   "GROUND": [
+    200,
+    368
+   ]
+  }
+ ],
+ "palette": [
+  "#080304",
+  "#190a07",
+  "#30190d",
+  "#3b5636",
+  "#4a2714",
+  "#597d51",
+  "#613319",
+  "#774120",
+  "#905027",
+  "#9f6e4b",
+  "#ae6324",
+  "#c78d64",
+  "#e3aa7d",
+  "#ef9b06",
+  "#f5efeb",
+  "#f7c7a1"
+ ],
+ "source": {
+  "sheet": "output/l0veyou/hv4/archer-keysD.png",
+  "grid": [
+   4,
+   1
+  ],
+  "frame": 0,
+  "unfake": true,
+  "keysheet": true,
+  "pixelize": 72
+ },
+ "rig": "rig.json"
+}

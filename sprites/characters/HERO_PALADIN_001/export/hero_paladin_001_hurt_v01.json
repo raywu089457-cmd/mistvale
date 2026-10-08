@@ -1,0 +1,110 @@
+{
+ "id": "HERO_PALADIN_001",
+ "version": "v01",
+ "animation": "hurt",
+ "frames": 4,
+ "layout": {
+  "columns": 4,
+  "rows": 1
+ },
+ "cell": 400,
+ "sheet": [
+  1600,
+  400
+ ],
+ "logicalScale": 4,
+ "logicalCell": 100,
+ "frameTime": 0.1,
+ "loop": false,
+ "facing": "right",
+ "groundY": 368,
+ "axisX": 200,
+ "characterHeight": 284,
+ "anchors": [
+  {
+   "GROUND": [
+    200,
+    368
+   ],
+   "BODY": [
+    202,
+    224
+   ],
+   "HEAD": [
+    202,
+    116
+   ]
+  },
+  {
+   "GROUND": [
+    200,
+    368
+   ],
+   "BODY": [
+    202,
+    228
+   ],
+   "HEAD": [
+    202,
+    120
+   ]
+  },
+  {
+   "GROUND": [
+    200,
+    368
+   ],
+   "BODY": [
+    202,
+    228
+   ],
+   "HEAD": [
+    202,
+    120
+   ]
+  },
+  {
+   "GROUND": [
+    200,
+    368
+   ],
+   "BODY": [
+    202,
+    224
+   ],
+   "HEAD": [
+    202,
+    116
+   ]
+  }
+ ],
+ "palette": [
+  "#050204",
+  "#1d1312",
+  "#3f353e",
+  "#4a4e6d",
+  "#5774d3",
+  "#5f657e",
+  "#7d6856",
+  "#918f8a",
+  "#ab7233",
+  "#b2a286",
+  "#cec5b2",
+  "#d5903c",
+  "#ecac52",
+  "#f1e8d1",
+  "#f3d6b6",
+  "#fac76f"
+ ],
+ "source": {
+  "sheets": [
+   {
+    "rigged": true
+   }
+  ],
+  "unfake": true,
+  "pitch": 5.0
+ },
+ "rig": "rig.json",
+ "anchorsApprox": true
+}

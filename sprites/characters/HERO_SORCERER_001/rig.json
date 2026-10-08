@@ -1,0 +1,161 @@
+{
+ "id": "HERO_SORCERER_001",
+ "version": "v01",
+ "source": {
+  "sheet": "output/l0veyou/hv4/sorcerer-keysD.png",
+  "grid": [
+   4,
+   1
+  ],
+  "frame": 0,
+  "unfake": true,
+  "keysheet": true,
+  "pixelize": 72
+ },
+ "knee": 62,
+ "foot": 66,
+ "layers": {
+  "weapon": {
+   "rects": [
+    [
+     43,
+     4,
+     54,
+     72
+    ]
+   ],
+   "num": 8,
+   "z": "front"
+  }
+ },
+ "idle": {
+  "frames": 8,
+  "body": [
+   0,
+   0,
+   1,
+   1,
+   1,
+   1,
+   0,
+   0
+  ],
+  "weapon": [
+   0,
+   0,
+   1,
+   1,
+   1,
+   1,
+   0,
+   0
+  ]
+ },
+ "anchors": {
+  "HEAD": [
+   26,
+   20
+  ],
+  "BODY": [
+   26,
+   45
+  ],
+  "LEFT_HAND": [
+   8,
+   50
+  ],
+  "RIGHT_HAND": [
+   44,
+   48
+  ],
+  "LEFT_FOOT": [
+   16,
+   71
+  ],
+  "RIGHT_FOOT": [
+   31,
+   71
+  ],
+  "WEAPON_GRIP": [
+   47,
+   48
+  ]
+ },
+ "anchorLayer": {
+  "RIGHT_HAND": "weapon",
+  "WEAPON_GRIP": "weapon",
+  "LEFT_FOOT": "feet",
+  "RIGHT_FOOT": "feet"
+ },
+ "anims": {
+  "attack": {
+   "sheet": "output/l0veyou/hv4/sorcerer-keysD.png",
+   "grid": [
+    4,
+    1
+   ],
+   "frames": 4,
+   "pixelize": 72,
+   "frameTime": 0.075,
+   "loop": false,
+   "release": 5,
+   "impact": 6
+  }
+ },
+ "rigged": {
+  "walk": {
+   "stride": 6
+  },
+  "attack": {
+   "keys": {
+    "wind": [
+     "attack",
+     1
+    ],
+    "max": [
+     "attack",
+     2
+    ],
+    "rec": [
+     "attack",
+     3
+    ]
+   },
+   "stripFlash": true,
+   "dx": {}
+  },
+  "death": {
+   "proc": true
+  },
+  "hurt": {
+   "lean": [
+    -2,
+    -1,
+    -1
+   ],
+   "wdx": [
+    -1,
+    -1,
+    0
+   ],
+   "dx": [
+    -1,
+    -1,
+    -1
+   ],
+   "wdy": [
+    1,
+    1,
+    0
+   ]
+  },
+  "despeck": {
+   "attack": 10,
+   "death": 10
+  }
+ },
+ "weaponMetalMin": 0,
+ "outlineTarget": 0.75,
+ "keyDespeck": 20,
+ "keyBridge": 8
+}

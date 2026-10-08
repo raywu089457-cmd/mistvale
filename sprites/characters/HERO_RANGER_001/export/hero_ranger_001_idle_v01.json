@@ -1,0 +1,326 @@
+{
+ "id": "HERO_RANGER_001",
+ "version": "v01",
+ "animation": "idle",
+ "frames": 8,
+ "layout": {
+  "columns": 4,
+  "rows": 2
+ },
+ "cell": 400,
+ "sheet": [
+  1600,
+  800
+ ],
+ "logicalScale": 4,
+ "logicalCell": 100,
+ "frameTime": 0.16,
+ "loop": true,
+ "facing": "right",
+ "groundY": 368,
+ "axisX": 200,
+ "characterHeight": 288,
+ "anchors": [
+  {
+   "HEAD": [
+    206,
+    162
+   ],
+   "BODY": [
+    206,
+    262
+   ],
+   "LEFT_HAND": [
+    150,
+    262
+   ],
+   "RIGHT_HAND": [
+    302,
+    270
+   ],
+   "LEFT_FOOT": [
+    190,
+    366
+   ],
+   "RIGHT_FOOT": [
+    246,
+    366
+   ],
+   "WEAPON_GRIP": [
+    310,
+    270
+   ],
+   "GROUND": [
+    200,
+    368
+   ]
+  },
+  {
+   "HEAD": [
+    206,
+    162
+   ],
+   "BODY": [
+    206,
+    262
+   ],
+   "LEFT_HAND": [
+    150,
+    262
+   ],
+   "RIGHT_HAND": [
+    302,
+    270
+   ],
+   "LEFT_FOOT": [
+    190,
+    366
+   ],
+   "RIGHT_FOOT": [
+    246,
+    366
+   ],
+   "WEAPON_GRIP": [
+    310,
+    270
+   ],
+   "GROUND": [
+    200,
+    368
+   ]
+  },
+  {
+   "HEAD": [
+    206,
+    166
+   ],
+   "BODY": [
+    206,
+    266
+   ],
+   "LEFT_HAND": [
+    150,
+    266
+   ],
+   "RIGHT_HAND": [
+    302,
+    274
+   ],
+   "LEFT_FOOT": [
+    190,
+    366
+   ],
+   "RIGHT_FOOT": [
+    246,
+    366
+   ],
+   "WEAPON_GRIP": [
+    310,
+    274
+   ],
+   "GROUND": [
+    200,
+    368
+   ]
+  },
+  {
+   "HEAD": [
+    206,
+    166
+   ],
+   "BODY": [
+    206,
+    266
+   ],
+   "LEFT_HAND": [
+    150,
+    266
+   ],
+   "RIGHT_HAND": [
+    302,
+    274
+   ],
+   "LEFT_FOOT": [
+    190,
+    366
+   ],
+   "RIGHT_FOOT": [
+    246,
+    366
+   ],
+   "WEAPON_GRIP": [
+    310,
+    274
+   ],
+   "GROUND": [
+    200,
+    368
+   ]
+  },
+  {
+   "HEAD": [
+    206,
+    166
+   ],
+   "BODY": [
+    206,
+    266
+   ],
+   "LEFT_HAND": [
+    150,
+    266
+   ],
+   "RIGHT_HAND": [
+    302,
+    274
+   ],
+   "LEFT_FOOT": [
+    190,
+    366
+   ],
+   "RIGHT_FOOT": [
+    246,
+    366
+   ],
+   "WEAPON_GRIP": [
+    310,
+    274
+   ],
+   "GROUND": [
+    200,
+    368
+   ]
+  },
+  {
+   "HEAD": [
+    206,
+    166
+   ],
+   "BODY": [
+    206,
+    266
+   ],
+   "LEFT_HAND": [
+    150,
+    266
+   ],
+   "RIGHT_HAND": [
+    302,
+    274
+   ],
+   "LEFT_FOOT": [
+    190,
+    366
+   ],
+   "RIGHT_FOOT": [
+    246,
+    366
+   ],
+   "WEAPON_GRIP": [
+    310,
+    274
+   ],
+   "GROUND": [
+    200,
+    368
+   ]
+  },
+  {
+   "HEAD": [
+    206,
+    162
+   ],
+   "BODY": [
+    206,
+    262
+   ],
+   "LEFT_HAND": [
+    150,
+    262
+   ],
+   "RIGHT_HAND": [
+    302,
+    270
+   ],
+   "LEFT_FOOT": [
+    190,
+    366
+   ],
+   "RIGHT_FOOT": [
+    246,
+    366
+   ],
+   "WEAPON_GRIP": [
+    310,
+    270
+   ],
+   "GROUND": [
+    200,
+    368
+   ]
+  },
+  {
+   "HEAD": [
+    206,
+    162
+   ],
+   "BODY": [
+    206,
+    262
+   ],
+   "LEFT_HAND": [
+    150,
+    262
+   ],
+   "RIGHT_HAND": [
+    302,
+    270
+   ],
+   "LEFT_FOOT": [
+    190,
+    366
+   ],
+   "RIGHT_FOOT": [
+    246,
+    366
+   ],
+   "WEAPON_GRIP": [
+    310,
+    270
+   ],
+   "GROUND": [
+    200,
+    368
+   ]
+  }
+ ],
+ "palette": [
+  "#110c08",
+  "#1d160e",
+  "#292213",
+  "#2a4425",
+  "#345b31",
+  "#406f3a",
+  "#4b8041",
+  "#4c2f14",
+  "#5c522a",
+  "#688f4c",
+  "#734116",
+  "#90521c",
+  "#b6691a",
+  "#d69c62",
+  "#fad4a0"
+ ],
+ "source": {
+  "sheet": "output/l0veyou/hv4/ranger-keysD.png",
+  "grid": [
+   4,
+   1
+  ],
+  "frame": 0,
+  "unfake": true,
+  "keysheet": true,
+  "pixelize": 72
+ },
+ "rig": "rig.json"
+}

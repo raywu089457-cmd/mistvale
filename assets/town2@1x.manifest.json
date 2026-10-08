@@ -2,18 +2,18 @@
  "version": 1,
  "kind": "mistvale-xilurus-town2-atlas",
  "image": "town2@1x.png",
- "sheetWidth": 216,
- "sheetHeight": 70,
+ "sheetWidth": 222,
+ "sheetHeight": 86,
  "packing": "shelf",
  "generator": "l0veyou.com GPT Image 2(Xilurus 風格)→ pipeline/scripts/xilurus/assemble.py",
  "cells": {
   "purpleBanner": {
-   "x": 0,
+   "x": 72,
    "y": 0,
    "w": 30,
    "h": 70,
    "anchor": [
-    15.0,
+    87.0,
     70
    ]
   },
@@ -27,34 +27,34 @@
     36
    ]
   },
+  "fruitStand": {
+   "x": 0,
+   "y": 0,
+   "w": 70,
+   "h": 86,
+   "anchor": [
+    35.0,
+    86
+   ]
+  },
   "barrel": {
    "x": 182,
    "y": 0,
-   "w": 18,
-   "h": 26,
+   "w": 20,
+   "h": 28,
    "anchor": [
-    191.0,
-    26
+    192.0,
+    28
    ]
   },
   "bucket": {
-   "x": 202,
+   "x": 204,
    "y": 0,
-   "w": 12,
+   "w": 16,
    "h": 20,
    "anchor": [
-    208.0,
+    212.0,
     20
-   ]
-  },
-  "fruitStand": {
-   "x": 32,
-   "y": 0,
-   "w": 70,
-   "h": 58,
-   "anchor": [
-    67.0,
-    58
    ]
   },
   "flowerBush": {

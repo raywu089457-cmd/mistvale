@@ -1,0 +1,240 @@
+{
+ "id": "HERO_PALADIN_001",
+ "version": "v01",
+ "source": {
+  "sheet": "output/l0veyou/hv2/paladin-idle-v1.png",
+  "grid": [
+   4,
+   1
+  ],
+  "frame": 0,
+  "unfake": true
+ },
+ "knee": 62,
+ "foot": 65,
+ "layers": {
+  "crest": {
+   "rects": [
+    [
+     20,
+     0,
+     32,
+     3
+    ]
+   ],
+   "num": 2,
+   "z": "front"
+  },
+  "weapon": {
+   "rects": [
+    [
+     34,
+     50,
+     53,
+     72
+    ]
+   ],
+   "num": 8,
+   "z": "front"
+  }
+ },
+ "idle": {
+  "frames": 8,
+  "body": [
+   0,
+   0,
+   1,
+   1,
+   1,
+   1,
+   0,
+   0
+  ],
+  "weapon": [
+   0,
+   0,
+   1,
+   1,
+   1,
+   1,
+   0,
+   0
+  ],
+  "crest": [
+   0,
+   0,
+   0,
+   1,
+   1,
+   1,
+   1,
+   0
+  ]
+ },
+ "anchors": {
+  "HEAD": [
+   24,
+   28
+  ],
+  "BODY": [
+   22,
+   48
+  ],
+  "LEFT_HAND": [
+   9,
+   52
+  ],
+  "RIGHT_HAND": [
+   36,
+   54
+  ],
+  "LEFT_FOOT": [
+   14,
+   70
+  ],
+  "RIGHT_FOOT": [
+   27,
+   70
+  ],
+  "WEAPON_GRIP": [
+   37,
+   55
+  ]
+ },
+ "anchorLayer": {
+  "RIGHT_HAND": "weapon",
+  "WEAPON_GRIP": "weapon",
+  "LEFT_FOOT": "feet",
+  "RIGHT_FOOT": "feet"
+ },
+ "anims": {
+  "walk": {
+   "sheet": "output/l0veyou/hv3/paladin-walk-v1.png",
+   "grid": [
+    4,
+    2
+   ],
+   "frames": 8,
+   "frameTime": 0.1,
+   "loop": true
+  },
+  "attack": {
+   "sheet": "output/l0veyou/hv3/paladin-attack-v2.png",
+   "grid": [
+    4,
+    2
+   ],
+   "frames": 8,
+   "frameTime": 0.075,
+   "loop": false,
+   "release": 5,
+   "impact": 6,
+   "sheets": [
+    {
+     "sheet": "output/l0veyou/hv3/paladin-attack-a-v1.png",
+     "grid": [
+      4,
+      1
+     ],
+     "frames": 4
+    },
+    {
+     "sheet": "output/l0veyou/hv3/paladin-attack-b-v1.png",
+     "grid": [
+      4,
+      1
+     ],
+     "frames": 4
+    }
+   ]
+  },
+  "hurt": {
+   "sheet": "output/l0veyou/hv3/paladin-hurt-v1.png",
+   "grid": [
+    4,
+    1
+   ],
+   "frames": 4,
+   "frameTime": 0.1,
+   "loop": false
+  },
+  "death": {
+   "sheet": "output/l0veyou/hv3/paladin-death-v2.png",
+   "grid": [
+    4,
+    2
+   ],
+   "frames": 8,
+   "frameTime": 0.12,
+   "loop": false,
+   "sheets": [
+    {
+     "sheet": "output/l0veyou/hv3/paladin-death-a-v1.png",
+     "grid": [
+      4,
+      1
+     ],
+     "frames": 4
+    },
+    {
+     "sheet": "output/l0veyou/hv3/paladin-death-b-v1.png",
+     "grid": [
+      4,
+      1
+     ],
+     "frames": 4
+    }
+   ]
+  }
+ },
+ "rigged": {
+  "walk": {
+   "stride": 8
+  },
+  "attack": {
+   "keys": {
+    "wind": [
+     "attack",
+     1
+    ],
+    "max": [
+     "attack",
+     5
+    ],
+    "rec": [
+     "attack",
+     6
+    ]
+   }
+  },
+  "death": {
+   "keys": {
+    "hit": [
+     "death",
+     1
+    ],
+    "fall1": [
+     "death",
+     2
+    ],
+    "fall2": [
+     "death",
+     3
+    ],
+    "ground": [
+     "death",
+     4
+    ],
+    "collapse": [
+     "death",
+     5
+    ],
+    "final": [
+     "death",
+     7
+    ]
+   }
+  }
+ },
+ "dirMirrorUp": true
+}

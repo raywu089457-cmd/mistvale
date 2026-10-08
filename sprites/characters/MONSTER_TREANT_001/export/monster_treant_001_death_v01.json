@@ -1,0 +1,165 @@
+{
+ "id": "MONSTER_TREANT_001",
+ "version": "v01",
+ "animation": "death",
+ "frames": 8,
+ "layout": {
+  "columns": 4,
+  "rows": 2
+ },
+ "cell": 896,
+ "sheet": [
+  3584,
+  1792
+ ],
+ "logicalScale": 4,
+ "logicalCell": 224,
+ "frameTime": 0.12,
+ "loop": false,
+ "facing": "right",
+ "groundY": 864,
+ "axisX": 448,
+ "characterHeight": 680,
+ "anchors": [
+  {
+   "GROUND": [
+    448,
+    864
+   ],
+   "BODY": [
+    450,
+    524
+   ],
+   "HEAD": [
+    450,
+    216
+   ]
+  },
+  {
+   "GROUND": [
+    448,
+    864
+   ],
+   "BODY": [
+    450,
+    524
+   ],
+   "HEAD": [
+    450,
+    220
+   ]
+  },
+  {
+   "GROUND": [
+    448,
+    864
+   ],
+   "BODY": [
+    450,
+    524
+   ],
+   "HEAD": [
+    450,
+    220
+   ]
+  },
+  {
+   "GROUND": [
+    448,
+    864
+   ],
+   "BODY": [
+    450,
+    524
+   ],
+   "HEAD": [
+    450,
+    220
+   ]
+  },
+  {
+   "GROUND": [
+    448,
+    864
+   ],
+   "BODY": [
+    450,
+    604
+   ],
+   "HEAD": [
+    450,
+    380
+   ]
+  },
+  {
+   "GROUND": [
+    448,
+    864
+   ],
+   "BODY": [
+    450,
+    604
+   ],
+   "HEAD": [
+    450,
+    380
+   ]
+  },
+  {
+   "GROUND": [
+    448,
+    864
+   ],
+   "BODY": [
+    450,
+    604
+   ],
+   "HEAD": [
+    450,
+    380
+   ]
+  },
+  {
+   "GROUND": [
+    448,
+    864
+   ],
+   "BODY": [
+    450,
+    604
+   ],
+   "HEAD": [
+    450,
+    380
+   ]
+  }
+ ],
+ "palette": [
+  "#0a0503",
+  "#180c07",
+  "#2e250b",
+  "#425e12",
+  "#4f3013",
+  "#557918",
+  "#633e18",
+  "#678e1e",
+  "#716821",
+  "#764b1f",
+  "#79a125",
+  "#865726",
+  "#94632e",
+  "#b5824d",
+  "#f3f0f0"
+ ],
+ "source": {
+  "sheets": [
+   {
+    "rigged": true
+   }
+  ],
+  "unfake": true,
+  "pitch": 5.0
+ },
+ "rig": "rig.json",
+ "anchorsApprox": true
+}

@@ -53,7 +53,6 @@ Mistvale 跑了四輪 A 產線，產出四種圖集，**都已推進正式專案
 | 1 | `buildings@1x/@2x` | 12 棟建築（4×3） | `reports/INTEGRATION.md` |
 | 2 | `details@1x/@2x` | 地圖細節裝飾 | `reports/DETAILS.md` |
 | 3 | `terrain-atlas` | 無縫地面材質 | `reports/TERRAIN.md` |
-| 4 | `hero@1x/@2x` | 獵人六職業 | `reports/HERO.md` |
 
 每階段都產 **1x（日常）＋ 2x（放大）** 兩套 LOD。
 

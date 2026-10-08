@@ -1,0 +1,98 @@
+{
+ "character": "MONSTER_SLIME_001",
+ "animation": "hurt",
+ "result": "PASS",
+ "failed": [],
+ "checks": {
+  "0a_hard_pixel_edges": {
+   "pass": true,
+   "value": "4x4 blocks uniform"
+  },
+  "0b_alpha_binary": {
+   "pass": true,
+   "value": "0/255"
+  },
+  "0c_inside_cell_ge2px": {
+   "pass": true,
+   "value": "min margin 8 logical px"
+  },
+  "A_frame_count": {
+   "pass": true,
+   "value": 4,
+   "note": "spec 4"
+  },
+  "B3_monster_art_size": {
+   "pass": true,
+   "value": [
+    96,
+    96,
+    96,
+    96
+   ],
+   "note": "BIBLE: 魔物美術最長邊 = 遊戲尺寸×72/21 = 96;動作中 ≤ ×1.35"
+  },
+  "03_ground_line": {
+   "pass": true,
+   "value": [
+    136,
+    136,
+    136,
+    136
+   ],
+   "note": "lowest row == 136, others ≥ ground-3"
+  },
+  "D_knockback_le_2px": {
+   "pass": true,
+   "value": 1.58,
+   "note": "silhouette centroid shift"
+  },
+  "09_palette_shared": {
+   "pass": true,
+   "value": "13 colours, subset of shared palette=True"
+  },
+  "12_frame_continuity": {
+   "pass": true,
+   "value": [
+    0.066,
+    0.013,
+    0.024
+   ],
+   "note": "adjacent silhouette change ≤0.4 (動態版;idle ≤0.22) (no wrap)"
+  },
+  "10_outline": {
+   "pass": true,
+   "value": [
+    1.0,
+    1.0,
+    1.0,
+    1.0
+   ]
+  },
+  "11_facing": {
+   "pass": true,
+   "value": "all match frame 1 = True"
+  },
+  "13_14_components_proxy": {
+   "pass": true,
+   "value": [
+    1,
+    1,
+    1,
+    1
+   ],
+   "note": "connected blobs per frame (>2 = floating pieces / extra limb suspect)"
+  },
+  "18_background": {
+   "pass": true,
+   "value": 0
+  },
+  "T_thumbnail_noise": {
+   "pass": true,
+   "value": {
+    "64": 0.0,
+    "32": 0.0
+   },
+   "note": "worst frame isolated-pixel share"
+  }
+ }
+}

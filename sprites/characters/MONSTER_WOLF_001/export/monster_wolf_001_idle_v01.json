@@ -1,0 +1,230 @@
+{
+ "id": "MONSTER_WOLF_001",
+ "version": "v01",
+ "animation": "idle",
+ "frames": 8,
+ "layout": {
+  "columns": 4,
+  "rows": 2
+ },
+ "cell": 640,
+ "sheet": [
+  2560,
+  1280
+ ],
+ "logicalScale": 4,
+ "logicalCell": 160,
+ "frameTime": 0.16,
+ "loop": true,
+ "facing": "right",
+ "groundY": 608,
+ "axisX": 320,
+ "characterHeight": 328,
+ "anchors": [
+  {
+   "HEAD": [
+    382,
+    314
+   ],
+   "BODY": [
+    290,
+    446
+   ],
+   "LEFT_FOOT": [
+    238,
+    606
+   ],
+   "RIGHT_FOOT": [
+    370,
+    606
+   ],
+   "GROUND": [
+    320,
+    608
+   ]
+  },
+  {
+   "HEAD": [
+    382,
+    314
+   ],
+   "BODY": [
+    290,
+    446
+   ],
+   "LEFT_FOOT": [
+    238,
+    606
+   ],
+   "RIGHT_FOOT": [
+    370,
+    606
+   ],
+   "GROUND": [
+    320,
+    608
+   ]
+  },
+  {
+   "HEAD": [
+    382,
+    318
+   ],
+   "BODY": [
+    290,
+    450
+   ],
+   "LEFT_FOOT": [
+    238,
+    606
+   ],
+   "RIGHT_FOOT": [
+    370,
+    606
+   ],
+   "GROUND": [
+    320,
+    608
+   ]
+  },
+  {
+   "HEAD": [
+    382,
+    318
+   ],
+   "BODY": [
+    290,
+    450
+   ],
+   "LEFT_FOOT": [
+    238,
+    606
+   ],
+   "RIGHT_FOOT": [
+    370,
+    606
+   ],
+   "GROUND": [
+    320,
+    608
+   ]
+  },
+  {
+   "HEAD": [
+    382,
+    318
+   ],
+   "BODY": [
+    290,
+    450
+   ],
+   "LEFT_FOOT": [
+    238,
+    606
+   ],
+   "RIGHT_FOOT": [
+    370,
+    606
+   ],
+   "GROUND": [
+    320,
+    608
+   ]
+  },
+  {
+   "HEAD": [
+    382,
+    318
+   ],
+   "BODY": [
+    290,
+    450
+   ],
+   "LEFT_FOOT": [
+    238,
+    606
+   ],
+   "RIGHT_FOOT": [
+    370,
+    606
+   ],
+   "GROUND": [
+    320,
+    608
+   ]
+  },
+  {
+   "HEAD": [
+    382,
+    314
+   ],
+   "BODY": [
+    290,
+    446
+   ],
+   "LEFT_FOOT": [
+    238,
+    606
+   ],
+   "RIGHT_FOOT": [
+    370,
+    606
+   ],
+   "GROUND": [
+    320,
+    608
+   ]
+  },
+  {
+   "HEAD": [
+    382,
+    314
+   ],
+   "BODY": [
+    290,
+    446
+   ],
+   "LEFT_FOOT": [
+    238,
+    606
+   ],
+   "RIGHT_FOOT": [
+    370,
+    606
+   ],
+   "GROUND": [
+    320,
+    608
+   ]
+  }
+ ],
+ "palette": [
+  "#23110b",
+  "#301811",
+  "#493027",
+  "#57514a",
+  "#686660",
+  "#807d77",
+  "#8f8c87",
+  "#92714c",
+  "#9b332d",
+  "#b3aa98",
+  "#bf9b6c",
+  "#dc5047",
+  "#e3c393",
+  "#fce1a9",
+  "#fcf8f3"
+ ],
+ "source": {
+  "sheet": "output/l0veyou/hv4/mon3-wolf-keysA.png",
+  "grid": [
+   4,
+   1
+  ],
+  "frame": 0,
+  "unfake": true,
+  "keysheet": true,
+  "pixelize": 82
+ },
+ "rig": "rig.json"
+}

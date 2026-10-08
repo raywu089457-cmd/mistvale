@@ -1,0 +1,167 @@
+{
+ "id": "MONSTER_SLIME_001",
+ "version": "v01",
+ "animation": "attack",
+ "frames": 8,
+ "layout": {
+  "columns": 4,
+  "rows": 2
+ },
+ "cell": 576,
+ "sheet": [
+  2304,
+  1152
+ ],
+ "logicalScale": 4,
+ "logicalCell": 144,
+ "frameTime": 0.075,
+ "loop": false,
+ "facing": "right",
+ "groundY": 544,
+ "axisX": 288,
+ "characterHeight": 356,
+ "anchors": [
+  {
+   "GROUND": [
+    288,
+    544
+   ],
+   "BODY": [
+    290,
+    364
+   ],
+   "HEAD": [
+    290,
+    220
+   ]
+  },
+  {
+   "GROUND": [
+    288,
+    544
+   ],
+   "BODY": [
+    290,
+    368
+   ],
+   "HEAD": [
+    290,
+    224
+   ]
+  },
+  {
+   "GROUND": [
+    288,
+    544
+   ],
+   "BODY": [
+    290,
+    388
+   ],
+   "HEAD": [
+    290,
+    264
+   ]
+  },
+  {
+   "GROUND": [
+    288,
+    544
+   ],
+   "BODY": [
+    290,
+    388
+   ],
+   "HEAD": [
+    290,
+    264
+   ]
+  },
+  {
+   "GROUND": [
+    288,
+    544
+   ],
+   "BODY": [
+    290,
+    364
+   ],
+   "HEAD": [
+    290,
+    220
+   ]
+  },
+  {
+   "GROUND": [
+    288,
+    544
+   ],
+   "BODY": [
+    290,
+    364
+   ],
+   "HEAD": [
+    290,
+    220
+   ]
+  },
+  {
+   "GROUND": [
+    288,
+    544
+   ],
+   "BODY": [
+    290,
+    368
+   ],
+   "HEAD": [
+    290,
+    224
+   ]
+  },
+  {
+   "GROUND": [
+    288,
+    544
+   ],
+   "BODY": [
+    290,
+    364
+   ],
+   "HEAD": [
+    290,
+    220
+   ]
+  }
+ ],
+ "palette": [
+  "#070302",
+  "#150904",
+  "#283e15",
+  "#406e1f",
+  "#559d2c",
+  "#68c129",
+  "#6b0c0c",
+  "#7ccf20",
+  "#8de028",
+  "#98e92c",
+  "#a3e939",
+  "#b5f355",
+  "#d5ecae",
+  "#fbfbf9"
+ ],
+ "source": {
+  "sheets": [
+   {
+    "rigged": true
+   }
+  ],
+  "unfake": true,
+  "pitch": 5.0
+ },
+ "rig": "rig.json",
+ "anchorsApprox": true,
+ "release": 5,
+ "keyFrameBase": 1,
+ "impact": 6
+}

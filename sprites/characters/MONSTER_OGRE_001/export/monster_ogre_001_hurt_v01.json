@@ -1,0 +1,108 @@
+{
+ "id": "MONSTER_OGRE_001",
+ "version": "v01",
+ "animation": "hurt",
+ "frames": 4,
+ "layout": {
+  "columns": 4,
+  "rows": 1
+ },
+ "cell": 576,
+ "sheet": [
+  2304,
+  576
+ ],
+ "logicalScale": 4,
+ "logicalCell": 144,
+ "frameTime": 0.1,
+ "loop": false,
+ "facing": "right",
+ "groundY": 544,
+ "axisX": 288,
+ "characterHeight": 384,
+ "anchors": [
+  {
+   "GROUND": [
+    288,
+    544
+   ],
+   "BODY": [
+    290,
+    352
+   ],
+   "HEAD": [
+    290,
+    192
+   ]
+  },
+  {
+   "GROUND": [
+    288,
+    544
+   ],
+   "BODY": [
+    290,
+    352
+   ],
+   "HEAD": [
+    290,
+    196
+   ]
+  },
+  {
+   "GROUND": [
+    288,
+    544
+   ],
+   "BODY": [
+    290,
+    352
+   ],
+   "HEAD": [
+    290,
+    196
+   ]
+  },
+  {
+   "GROUND": [
+    288,
+    544
+   ],
+   "BODY": [
+    290,
+    352
+   ],
+   "HEAD": [
+    290,
+    192
+   ]
+  }
+ ],
+ "palette": [
+  "#030302",
+  "#1b1d17",
+  "#2e3228",
+  "#43403a",
+  "#524f45",
+  "#588964",
+  "#5f5c4f",
+  "#659a72",
+  "#6a6658",
+  "#7aab82",
+  "#887d66",
+  "#8cc094",
+  "#a0cca4",
+  "#ab9d81"
+ ],
+ "source": {
+  "sheets": [
+   {
+    "rigged": true
+   }
+  ],
+  "unfake": true,
+  "pitch": 5.0
+ },
+ "rig": "rig.json",
+ "anchorsApprox": true
+}

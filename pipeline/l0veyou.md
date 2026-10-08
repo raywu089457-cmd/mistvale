@@ -3,6 +3,44 @@
 Codex ImageGen 額度用完時的替代：<https://l0veyou.com/chat>（需登入），模型選 **GPT Image 2**。
 完整 prompt 與每張圖的用途記在 [`../assets/PROVENANCE.md`](../assets/PROVENANCE.md) 的 v1.6 段落。
 
+## 服務狀態實測（2026-10-05）
+
+網頁介面已上線，`/chat` 可用，右側有「AI 生圖」模式。**模型下拉選單共 3 個：**
+
+| 模型 | 備註 |
+|---|---|
+| **GPT Image 2** | 平台自己建議用這個 |
+| GPT Image 2.5 极速版 | 頁面紅字：**「2.5模型不稳定，请用2.0模型」** |
+| GPT Image 2.5 满血版 | 同上，不穩定 |
+
+比例選項：`1:1` / `16:9` / `9:16` / `4:3` / `3:4`。
+
+### API 端目前不能生圖（重要）
+
+用 API Key 打 `POST /v1/images/generations` 實測：
+
+```
+gpt-image-2 / gpt-image-2.5 / gpt-image-2.5-fast / gpt-image-1
+  → 403 {"error":{"message":"Image generation is not enabled for this group","type":"permission_error"}}
+dall-e-3 / muse-spark-1.3
+  → 400 images endpoint requires an image model
+```
+
+`/v1/models` 只回 **1 個文字模型** `muse-spark-1.3`，而且實測是**空殼**——
+只會把你的指令改寫成第三人稱短句（問 `17*23` 回 `17*23 multiplication result`，不給 391），
+每次還燒 2000–3800 tokens。**不要拿它做批次生成。**
+
+**結論：生圖目前只能走網頁介面，不能走 API。** 權限是按「group」分級開通的，
+要開 API 生圖需另外向服務方申請。
+
+### 登入是 Cloudflare Turnstile，自動化過不了
+
+嘗試用瀏覽器自動化登入，網路請求顯示 Cloudflare 回 `.../auto/fbE/failure_retry/...`
+→ **被判定為自動化並拒絕**。登入必須真人手動完成。
+另外頁面要求「登录 / 注册后即可开始对话」＋「请先完成人机验证」兩個條件。
+
+（2026-10-05 實測，非持久設定，之後可能改變。）
+
 ## 實測特性
 
 | 項目 | 結果 |
@@ -25,8 +63,6 @@ Codex ImageGen 額度用完時的替代：<https://l0veyou.com/chat>（需登入
 
    ```sh
    python pipeline/scripts/l0veyou/sheet_to_atlas.py output/l0veyou/props-sheet-v1.jpg props 4x3 sheep,goat,garden,bush,mushroom,cactus,villageBanner,arenaFlag,gate,bridgeRail,stall,barrels
-   MIN_PX=600 python pipeline/scripts/l0veyou/sheet_to_atlas.py output/l0veyou/monsters-sheet-v1.jpg monsters 4x2 slime0,wolf0,golem0,boss0,slime1,wolf1,golem1,boss1
-   HUE_TOL=16 python pipeline/scripts/l0veyou/sheet_to_atlas.py output/l0veyou/villagers-sheet-v1.jpg villagers 4x2 merchant,farmer,child,elder,smith,maid,cat,dog
    HUE_TOL=12 python pipeline/scripts/l0veyou/sheet_to_atlas.py output/l0veyou/icons-sheet-v1.jpg icons 5x6 gold,gems,wood,ore,herb,drink,bed,heal,cloth,food,armor,swords,hammer,anvil,bag,skull,hunter,hall,scroll,map,up,boss,trade,horn,gear,-,arrow,star,heart,shield
    NO_HOLES=1 NO_SHADOW=1 HUE_TOL=12 python pipeline/scripts/l0veyou/sheet_to_atlas.py output/l0veyou/vfx-sheet-v1.jpg vfx 4x2 fxSlash,fxOrb,fxHeal,fxStar,fxHit,plot,iconLeather,fxSparkle
    HUE_TOL=12 STRIP_IDS=railing:4 python pipeline/scripts/l0veyou/sheet_to_atlas.py output/l0veyou/flora-sheet-v1.jpg flora 4x2 flowerYellow,flowerPink,flowerBlue,flowerWhite,wheat,cabbage,railing,bridgePost
@@ -48,9 +84,9 @@ Codex ImageGen 額度用完時的替代：<https://l0veyou.com/chat>（需登入
 
 ## 接進遊戲
 
-- `build.mjs`：`props` / `monsters` / `flora` 三組圖集照 details 的方式內嵌；`plaza` 走單圖清單。
+- `build.mjs`：`props` / `flora` 兩組圖集照 details 的方式內嵌；`plaza` 走單圖清單。
 - `pixel-world.js`：
-  - `ensureDetailAtlas()` 一起載 props / monsters / flora（cell id 不重複，共用 `detailLod`）。
+  - `ensureDetailAtlas()` 一起載 props / flora（cell id 不重複，共用 `detailLod`）。
   - `PROP_ATLAS` 表：裝飾型別 → [cell, 外框寬, 外框高, 偏移]；外框沿用舊程序版尺寸，版面不跑。
   - `drawAtlasMonster()`：兩格動畫一律以第 0 格算倍率，動畫不會忽大忽小；依移動方向左右翻。
   - 廣場：`plazaCells` 收集格子 → 一次 clip 整片填 `plazaPattern`（不逐格貼，石塊才不會被切碎）。
@@ -77,7 +113,6 @@ Codex ImageGen 額度用完時的替代：<https://l0veyou.com/chat>（需登入
 | l0veyou 素材 + 石板廣場 | 0.794 | 0.541 | 121.8 | 0.480 |
 | ＋花草／橋欄／草地色調對齊 | **0.823–0.833** | **0.560–0.597** | 110–116 | 0.47–0.51 |
 | ＋土路改概念圖土色、建築接地陰影 | 0.825–0.826 | 0.565 | — | — |
-| ＋村民與貓狗（villagers 圖集） | 0.808 | 0.582 | — | — |
 | ＋比例對齊、樹冠色調、鋪面透視、地面殘留平塗清除、生態域交界、海岸、木頭 UI | **0.870–0.871** | **0.614** | — | — |
 
 （範圍是不同幀：角色在走動。）
@@ -91,7 +126,7 @@ Codex ImageGen 額度用完時的替代：<https://l0veyou.com/chat>（需登入
 **天花板在構圖，不在顏色。** 同構圖下分色群比例已接近概念圖（綠 26% vs 19%、米色 37% vs 31%、藍 7% vs 11%），
 剩下的差距來自概念圖是一張手繪構圖（建築更密、角色更多、沒有 UI 與小地圖），遊戲是可操作的地圖。
 直方圖相似度要到 1.0 只能把概念圖本身貼上畫面，那就不是遊戲了。試過整張畫面加 saturate／brightness 濾鏡，相似度反而降到 0.75–0.80，所以不做全域調色。
-另一條硬指標：`__mistvaleDetails().proc` 在全景視角（全世界）是 `{}` —— 沒有任何裝飾或魔物退回程序繪製。
+另一條硬指標：`__mistvaleDetails().proc` 在全景視角（全世界）是 `{}` —— 沒有任何裝飾退回程序繪製。
 
 ## 村莊外的延伸（以概念圖為基準）
 
@@ -107,7 +142,7 @@ Codex ImageGen 額度用完時的替代：<https://l0veyou.com/chat>（需登入
 | 林地密度 | 第二層密樹（獨立亂數 77031）：森林 70%、霜杉林 62%、樺林 38%、雪原 20% 雪松 | 概念圖四周的林地密到看不見地面 |
 | 沙漠／山地 | 補仙人掌、碎石、岩峰；沙漠小花改碎石；岩峰／洞穴／遺跡外框放寬到 44–50（原本被壓成小石頭） | 延伸 |
 
-`__mistvaleDetails().proc` 在全景（全世界）與村莊特寫都是 `{}`；`__mistvaleHero().use.proc` 是 0。
+`__mistvaleDetails().proc` 在全景（全世界）與村莊特寫都是 `{}`。
 
 ## UI 圖示、戰鬥特效、空地
 
@@ -123,8 +158,6 @@ Codex ImageGen 額度用完時的替代：<https://l0veyou.com/chat>（需登入
 
 | 項目 | 概念圖量測 | 舊 | 新 |
 |---|---|---|---|
-| 人物（獵人、村民） | 45–50px → 12.5 單位 | 21 | `CHAR_SCALE=.6` → 12.6；點擊範圍保底 14×18 螢幕 px |
-| 魔物 | 跟人物同倍率 | 28–33（首領 50） | ×0.6（首領 ×0.72） |
 | 羊／山羊 | 約 30px → 8 單位 | 18 | 10 |
 | 松樹 | 約 120px → 30 單位 | 村內 62、林地 45–65 | 村內 36、林地 30–45；密樹層密度加倍補回林冠 |
 | 村旗／戰鬥旗／閘門 | 約 75px → 19 | 32 | 19–20 |

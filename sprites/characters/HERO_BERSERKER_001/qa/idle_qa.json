@@ -1,0 +1,299 @@
+{
+ "character": "HERO_BERSERKER_001",
+ "animation": "idle",
+ "version": "v01",
+ "frames": 8,
+ "sheet": [
+  1600,
+  800
+ ],
+ "cell": 400,
+ "layout": {
+  "columns": 4,
+  "rows": 2
+ },
+ "palette": 16,
+ "result": "PASS",
+ "failed": [],
+ "checks": {
+  "hard_pixel_edges": {
+   "pass": true,
+   "value": "4x4 blocks uniform=True"
+  },
+  "alpha_binary": {
+   "pass": true,
+   "value": [
+    0,
+    255
+   ]
+  },
+  "inside_cell": {
+   "pass": true,
+   "value": "min margin 8px"
+  },
+  "01_character_scale": {
+   "pass": true,
+   "value": [
+    73,
+    73,
+    72,
+    72,
+    72,
+    72,
+    73,
+    73
+   ],
+   "note": "height range ≤2 logical px"
+  },
+  "02_character_position": {
+   "pass": true,
+   "value": [
+    39.56,
+    39.56,
+    39.46,
+    39.46,
+    39.46,
+    39.46,
+    39.56,
+    39.56
+   ],
+   "note": "silhouette x-centroid drift"
+  },
+  "03_ground_line": {
+   "pass": true,
+   "value": [
+    92,
+    92,
+    92,
+    92,
+    92,
+    92,
+    92,
+    92
+   ],
+   "note": "feet bottom == ground 92"
+  },
+  "03b_feet_planted": {
+   "pass": true,
+   "value": [
+    0,
+    0,
+    0,
+    0,
+    0,
+    0,
+    0,
+    0
+   ],
+   "note": "pixels changed in the foot boxes vs frame 1 (no foot drift)"
+  },
+  "04_head_position": {
+   "pass": true,
+   "value": [
+    19,
+    19,
+    20,
+    20,
+    20,
+    20,
+    19,
+    19
+   ]
+  },
+  "04b_head_identity": {
+   "pass": true,
+   "value": "12x12 head crop bit-identical (rigid)"
+  },
+  "05_body_proportion": {
+   "pass": true,
+   "value": [
+    0.986,
+    0.986,
+    0.973,
+    0.973,
+    0.973,
+    0.973,
+    0.986,
+    0.986
+   ],
+   "note": "height/width"
+  },
+  "06_weapon_position": {
+   "pass": true,
+   "value": [
+    [
+     0,
+     -2
+    ],
+    [
+     0,
+     -2
+    ],
+    [
+     0,
+     -2
+    ],
+    [
+     0,
+     -2
+    ],
+    [
+     0,
+     -2
+    ],
+    [
+     0,
+     -2
+    ],
+    [
+     0,
+     -2
+    ],
+    [
+     0,
+     -2
+    ]
+   ],
+   "note": "blade bbox offset from grip"
+  },
+  "07_weapon_size": {
+   "pass": true,
+   "value": [
+    [
+     17,
+     13
+    ],
+    [
+     17,
+     13
+    ],
+    [
+     17,
+     13
+    ],
+    [
+     17,
+     13
+    ],
+    [
+     17,
+     13
+    ],
+    [
+     17,
+     13
+    ],
+    [
+     17,
+     13
+    ],
+    [
+     17,
+     13
+    ]
+   ]
+  },
+  "08_equipment_consistency": {
+   "pass": true,
+   "value": [
+    0.0,
+    0.0,
+    0.011,
+    0.011,
+    0.011,
+    0.011,
+    0.0,
+    0.0
+   ],
+   "note": "colour-histogram L1 vs frame 1"
+  },
+  "09_palette_consistency": {
+   "pass": true,
+   "value": "16 colours, same set every frame"
+  },
+  "10_outline_consistency": {
+   "pass": true,
+   "value": [
+    0.779,
+    0.779,
+    0.779,
+    0.779,
+    0.779,
+    0.779,
+    0.779,
+    0.779
+   ],
+   "note": "dark share of silhouette edge"
+  },
+  "11_facing_direction": {
+   "pass": true,
+   "value": "facing=right, all frames match frame-1 orientation=True"
+  },
+  "12_frame_continuity": {
+   "pass": true,
+   "value": [
+    0.0,
+    0.06,
+    0.0,
+    0.0,
+    0.0,
+    0.06,
+    0.0,
+    0.0
+   ],
+   "note": "silhouette change incl. wrap 8→1"
+  },
+  "13_14_limb_count_proxy": {
+   "pass": true,
+   "value": [
+    1,
+    1,
+    1,
+    1,
+    1,
+    1,
+    1,
+    1
+   ],
+   "note": "proxy: connected silhouette components stable (extra/missing limb → component change)"
+  },
+  "15_16_17_silhouette_stability": {
+   "pass": true,
+   "value": [
+    1.0,
+    1.0,
+    0.94,
+    0.94,
+    0.94,
+    0.94,
+    1.0,
+    1.0
+   ],
+   "note": "proxy: no duplicated weapon / floating gear / broken silhouette"
+  },
+  "18_background_contamination": {
+   "pass": true,
+   "value": "0 magenta-ish pixels"
+  },
+  "silhouette_test_class_distinct": {
+   "pass": true,
+   "value": {
+    "archer": 0.6,
+    "darkknight": 0.471,
+    "paladin": 0.462,
+    "priest": 0.424,
+    "ranger": 0.562,
+    "sorcerer": 0.553
+   },
+   "note": "32px silhouette IoU vs every other class < 0.8"
+  },
+  "thumbnail_test_noise": {
+   "pass": true,
+   "value": {
+    "64": 0.0,
+    "32": 0.0
+   },
+   "note": "isolated single-pixel share at 64/32 px"
+  }
+ }
+}

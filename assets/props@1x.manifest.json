@@ -8,22 +8,22 @@
  "generator": "l0veyou.com GPT Image 2(Xilurus 風格)→ pipeline/scripts/xilurus/assemble.py",
  "cells": {
   "sheep": {
-   "x": 30,
+   "x": 32,
    "y": 182,
-   "w": 32,
-   "h": 26,
+   "w": 28,
+   "h": 28,
    "anchor": [
     46.0,
-    208
+    210
    ]
   },
   "goat": {
    "x": 0,
    "y": 182,
-   "w": 28,
+   "w": 30,
    "h": 32,
    "anchor": [
-    14.0,
+    15.0,
     214
    ]
   },
@@ -38,12 +38,12 @@
    ]
   },
   "mushroom": {
-   "x": 64,
+   "x": 62,
    "y": 182,
    "w": 30,
    "h": 24,
    "anchor": [
-    79.0,
+    77.0,
     206
    ]
   },

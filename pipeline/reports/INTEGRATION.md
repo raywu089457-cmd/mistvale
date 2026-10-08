@@ -164,7 +164,6 @@ cd .../mistvale && node build.mjs
 - **attempt3 的圖集** — 等 10/4 額度回來,`atlas-prompt-v2.txt` 已含留白要求
 - **`hall` / `inn` / `monument` 還是走舊的單張路徑**(含那個危險的 inn 專屬去背 hack)
 - **`drawPortrait` 縮圖**沒在真實瀏覽器逐一比對
-- **主角與魔物還是程序繪製**,換成圖集需要另外處理「3 種膚色變體 + 左右翻轉」
 
 
 ---

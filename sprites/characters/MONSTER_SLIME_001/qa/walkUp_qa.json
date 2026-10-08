@@ -1,0 +1,9 @@
+{
+ "character": "MONSTER_SLIME_001",
+ "animation": "walkUp",
+ "result": "PASS",
+ "failed": [],
+ "checks": {
+  "frame_count/alpha/ground/palette_shared/height_vs_side/outline/continuity/inside_cell": "make_dir.qa"
+ }
+}

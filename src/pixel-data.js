@@ -20,7 +20,8 @@ export const CLASSES = [
  {id:'ranger',name:'遊俠',tag:'遠程 / 迅捷',color:'#72aa58',hp:92,attack:20,defense:2,speed:3,range:5,cost:150,desc:'從遠處以箭矢精準攻擊。'},
  {id:'paladin',name:'聖騎士',tag:'近戰 / 防禦',color:'#daaf48',hp:168,attack:15,defense:8,speed:2.25,range:1.3,cost:150,desc:'以厚重鎧甲守護隊伍。'},
  {id:'sorcerer',name:'魔法師',tag:'遠程 / 魔法',color:'#b080ce',hp:84,attack:27,defense:1,speed:2.4,range:4.5,cost:180,desc:'操縱元素，發射強大的魔法。'},
- {id:'archer',name:'弓箭手',tag:'遠程 / 連射',color:'#3fa7a0',hp:96,attack:18,defense:2,speed:2.9,range:5.5,cost:160,desc:'背著大箭袋的輕裝射手，疾風箭雨可同時射穿三個目標。'}
+ {id:'archer',name:'弓箭手',tag:'遠程 / 連射',color:'#3fa7a0',hp:96,attack:18,defense:2,speed:2.9,range:5.5,cost:160,desc:'背著大箭袋的輕裝射手，疾風箭雨可同時射穿三個目標。'},
+ {id:'witchhunter',name:'獵魔人',tag:'遠程 / 獵魔',color:'#3f7f86',hp:104,attack:22,defense:3,speed:2.8,range:4.8,cost:170,desc:'戴羽飾獵帽、手持連弩的獵魔人，銀弩矢專破魔物要害。'}
 ];
 // 招牌技能(真的遊戲機制):戰鬥中冷卻好就放,放完 lock 秒內不普攻(播完技能動畫)。
 // kind:multi = 同時打 targets 個最近的魔物;aoe = 打目標與其 radius 內的魔物;single = 單體高倍率;heal = 回復自己。
@@ -29,6 +30,7 @@ export const SKILLS={
  ranger:{name:'穿心箭',kind:'single',cd:8,mult:2.3,lock:.6,fx:'arrow'},
  paladin:{name:'聖盾祈禱',kind:'heal',cd:12,heal:.25,lock:.7,fx:'holy'},
  sorcerer:{name:'流星火球',kind:'aoe',cd:10,mult:1.4,radius:2.6,lock:.8,fx:'spell'},
+ witchhunter:{name:'銀弩獵殺',kind:'single',cd:9,mult:2.6,lock:.6,fx:'arrow'},
  archer:{name:'疾風箭雨',kind:'multi',cd:8,mult:1.3,targets:3,lock:.8,release:.32,fx:'gale'}
 };
 export const RARITIES=[{id:'normal',name:'普通',color:'#d3cab2',mult:1},{id:'rare',name:'稀有',color:'#6fbe8b',mult:1.08},{id:'superior',name:'超級稀有',color:'#6caeee',mult:1.18},{id:'heroic',name:'英雄',color:'#c184e1',mult:1.32},{id:'legendary',name:'傳說',color:'#efb955',mult:1.5}];

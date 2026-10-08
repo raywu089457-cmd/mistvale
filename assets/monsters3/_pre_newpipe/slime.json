@@ -1,0 +1,100 @@
+{
+ "hero": "slime",
+ "heroHeight": 72,
+ "footFromBottom": 10,
+ "actions": {
+  "idle": {
+   "y": 0,
+   "cell": 128,
+   "frames": 4,
+   "frameTime": 0.2
+  },
+  "walk": {
+   "y": 128,
+   "cell": 128,
+   "frames": 6,
+   "frameTime": 0.1,
+   "cycle": 41
+  },
+  "attack": {
+   "y": 256,
+   "cell": 192,
+   "frames": 8,
+   "frameTime": 0.075,
+   "release": 4,
+   "impact": 5
+  },
+  "hurt": {
+   "y": 448,
+   "cell": 128,
+   "frames": 3,
+   "frameTime": 0.1
+  },
+  "death": {
+   "y": 576,
+   "cell": 128,
+   "frames": 6,
+   "frameTime": 0.12
+  },
+  "idleDown": {
+   "y": 704,
+   "cell": 128,
+   "frames": 4,
+   "frameTime": 0.22
+  },
+  "walkDown": {
+   "y": 832,
+   "cell": 224,
+   "frames": 6,
+   "frameTime": 0.1,
+   "cycle": 41
+  },
+  "idleUp": {
+   "y": 1056,
+   "cell": 128,
+   "frames": 4,
+   "frameTime": 0.22
+  },
+  "walkUp": {
+   "y": 1184,
+   "cell": 160,
+   "frames": 6,
+   "frameTime": 0.1,
+   "cycle": 41
+  },
+  "idleLeft": {
+   "y": 1344,
+   "cell": 128,
+   "frames": 4,
+   "frameTime": 0.2
+  },
+  "walkLeft": {
+   "y": 1472,
+   "cell": 128,
+   "frames": 6,
+   "frameTime": 0.1,
+   "cycle": 41
+  }
+ },
+ "palette": [
+  "#fafbf5",
+  "#ceec9a",
+  "#b5ed59",
+  "#9dde3d",
+  "#95da34",
+  "#8ad12c",
+  "#80c728",
+  "#77bd23",
+  "#6fb522",
+  "#62a52b",
+  "#559230",
+  "#446825",
+  "#37431b",
+  "#2c1208",
+  "#210a04",
+  "#070502"
+ ],
+ "monster": true,
+ "size": 28,
+ "artSize": 96
+}

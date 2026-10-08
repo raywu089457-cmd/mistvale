@@ -30,7 +30,7 @@ def cells(name):
 src = (ROOT / "src/pixel-world.js").read_text(encoding="utf-8")
 i = src.index("const PROP_ATLAS="); PROP = {k: (float(w), float(h)) for k, w, h in re.findall(r"(\w+):\['\w+',([\d.]+),([\d.]+),[\d.]+\]", src[i:i + 4000])}
 CW = {k: float(v) for k, v in re.findall(r"(\w+):(\d+)", re.search(r"conceptBuildingWidth=id=>\(\{([^}]*)\}", src).group(1))}
-ES = {"slime": 28, "wolf": 31, "golem": 33, "boss": 50}
+ES = {"slime": 28, "wolf": 31, "golem": 33, "treant": 50}
 TREE = {"pine", "oak", "birch", "snowpine", "autumnOak"}
 origin = {}   # cell id → 原表檔名
 for sheet, prefix, grid, ids, mirror in asm.SHEETS:
@@ -55,7 +55,7 @@ def crop(atlas, k):
     m = json.loads((A / f"{atlas}.manifest.json").read_text(encoding="utf-8")); c = m["cells"][k]
     return np.asarray(Image.open(A / m["image"]).convert("RGBA"))[c["y"]:c["y"] + c["h"], c["x"]:c["x"] + c["w"]]
 c2 = {}
-for atlas in ["details", "props", "cold", "woods", "flora", "yard", "town", "town2", "monsters", "vfx"]:
+for atlas in ["details", "props", "cold", "woods", "flora", "yard", "town", "town2", "vfx"]:
     for k, c in cells(f"{atlas}@2x").items(): c2[k] = (atlas, c)
 PROP.update(asm.EXTRA_BOX)
 for k, (atlas, c) in c2.items():
@@ -64,10 +64,15 @@ for k, (atlas, c) in c2.items():
     if k in TREE: add("tree", k, origin[k], c["w"], c["h"], 50 * .85, 72 * .85, img)
     elif k.startswith("fx") or k == "arrowFx": add("vfx", k, origin[k], c["w"], c["h"], *PROP[k], img=img)
     elif k in PROP: add("prop", k, origin[k], c["w"], c["h"], *PROP[k], img=img)
-    elif k[:-1] in ES and k[-1] == "0": add("monster", k, origin[k], c["w"], c["h"], ES[k[:-1]], ES[k[:-1]], img)
-# 英雄:hero@4x 是 1x 真像素畫的 ×4;待機畫 21 邏輯單位高
-for cls in asm.CLASSES:
-    m = cells("hero@4x")[cls]; img = crop("hero@4x", cls); add("hero", cls, "-", m["w"], m["h"], lh=21, img=img)
+# 英雄 / 魔物:assets/heroes、assets/monsters3 待機第 1 格(sheet 已是 1:1 真像素,格距 = 1);英雄畫 21 邏輯單位高、魔物畫 size
+def idle0(d, n):
+    m = json.loads((A / d / f"{n}.json").read_text(encoding="utf-8")); a = m["actions"]["idle"]; c = a["cell"]
+    f = np.asarray(Image.open(A / d / f"{n}.png").convert("RGBA"))[a["y"]:a["y"] + c, 0:c]
+    ys, xs = np.nonzero(f[..., 3] > 0); return m, f[ys.min():ys.max() + 1, xs.min():xs.max() + 1]
+for cls in asm.CLASSES + ["archer"]:
+    m, f = idle0("heroes", cls); rows.append(("hero", cls, 1.0, 21 / m["heroHeight"], 21 / m["heroHeight"]))
+for n, sz in ES.items():
+    m, f = idle0("monsters3", n); rows.append(("monster", n, 1.0, sz / max(f.shape[:2]), sz / max(f.shape[:2])))
 # 建築:assets/xilurus/<id>.png = 原表解析度;畫寬 conceptBuildingWidth × 街區縮放約 0.75
 for f in sorted((A / "xilurus").glob("*.png")):
     if f.stem.startswith("tex-"): continue

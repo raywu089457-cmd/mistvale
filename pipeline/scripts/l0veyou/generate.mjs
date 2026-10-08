@@ -28,6 +28,7 @@ await p.locator('button.ratio-btn').filter({hasText:new RegExp('^'+ratio+'$')}).
 // 「多參考圖」若存在且開著就關掉（文件說會用前面的圖當參考、污染風格）
 const multi=await p.evaluate(()=>[...document.querySelectorAll('*')].filter(e=>e.children.length===0&&/多参考图|多參考圖/.test(e.textContent||'')).map(e=>e.parentElement.outerHTML.slice(0,300)));
 if(multi.length)log('multi-ref control:',multi.join(' | '));
+{const clr=p.getByText('清空',{exact:true});for(let i=0;i<4&&await clr.count();i++){await clr.first().click().catch(()=>{});await p.waitForTimeout(500);}}
 if(process.env.REF){await p.locator('input.file-input').setInputFiles(process.env.REF);await p.waitForTimeout(6000);log('ref attached',process.env.REF);}
 const before=new Set(await p.evaluate(()=>[...document.images].map(i=>i.currentSrc||i.src)));
 const ta=p.locator('textarea[aria-label="消息输入框"]');await ta.click();await ta.fill(prompt);await p.waitForTimeout(400);

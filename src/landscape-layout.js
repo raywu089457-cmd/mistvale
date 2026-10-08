@@ -21,6 +21,12 @@ export const SOLID_PROPS=[
 export function arenaAt(x,z,padding=0){return ARENAS.find(a=>((x-a.x)/(a.rx+padding))**2+((z-a.z)/(a.rz+padding))**2<=1)||null;}
 export function arenaContains(id,x,z,padding=0){const a=ARENAS.find(a=>a.id===id);return !!a&&((x-a.x)/(a.rx+padding))**2+((z-a.z)/(a.rz+padding))**2<=1;}
 export function distanceSegment(x,z,a,b){const dx=b.x-a.x,dz=b.z-a.z,t=Math.max(0,Math.min(1,((x-a.x)*dx+(z-a.z)*dz)/(dx*dx+dz*dz||1)));return Math.hypot(x-a.x-t*dx,z-a.z-t*dz);}
+// 各建築圖上「門腳/台階前」相對地基中心的位置(世界單位)。量法:建築圖上台階腳下那一點,換算成地面座標(含立面校正)。
+// 跟建築圖綁在一起;圖或街區大小改了要重量。
+export const DOOR_OFFSET={hall:[.11,2.76],inn:[2.3,1.64],trading:[-.07,3.04],restaurant:[1.08,.79],tavern:[-1.84,3.32],forge:[-1.33,.74],clinic:[-2.74,1.62],academy:[-3.04,.13],training:[-1.47,1.74],sanctuary:[1.4,3.02],house:[-.47,2.68],bounty:[.01,.3],enhancement:[-.47,2.42]};
+export function doorFoot(b,p){const o=DOOR_OFFSET[b.id]||[0,b.d/2+.6];return {x:p.x+o[0],z:p.z+o[1]};}
+// 獵人站的門前位置:門腳,但台階若落在碰撞地基裡,就停在地基外緣(仍在門前小路上)。
+export function doorStand(b,p){const f=doorFoot(b,p);return {x:f.x,z:Math.max(f.z,p.z+b.d/2+.4)};}
 export function getRoads(layout={},levels={}){
  const roads=[];const add=(points,width=1.15,kind='trail')=>{for(let i=1;i<points.length;i++){const a={x:points[i-1][0],z:points[i-1][1]},b={x:points[i][0],z:points[i][1]};roads.push({a,b,width,kind});}};
  // 棋盤格村莊:每條街區邊都是石板街(src/village-grid.js),中央廣場一圈環道+四條放射短街接到廣場四邊。
@@ -33,17 +39,20 @@ export function getRoads(layout={},levels={}){
  // 出村:兩條街穿過柵欄口,路只鋪到門外一點;村外沒有路,自由走。
  for(const e of EXITS)add([[e.street.x,e.street.z],[e.out.x,e.out.z]],GRID.street,'stone');
  const mainStreets=roads.filter(r=>r.kind==='stone');
+ // 門前小路:從建築圖上的台階腳下(doorFoot)筆直往南(+z,門朝畫面左下)接到下一條橫街,不往建築裡延伸。
  for(const b of BUILDINGS){
   if(b.id==='dungeon'||levels[b.id]===0)continue;
-  const p=layout[b.id]||b,door={x:p.x,z:p.z+b.d/2+.6};
-  let junction=null,nearest=Infinity;
-  for(const r of mainStreets){
+  const p=layout[b.id]||b,foot=doorFoot(b,p);
+  let junction=null;
+  const south=STREET_Z.find(z=>z>foot.z+.3);
+  if(south!=null&&foot.x>=X0&&foot.x<=X1)junction={x:foot.x,z:south};
+  else{let nearest=Infinity;for(const r of mainStreets){
    const dx=r.b.x-r.a.x,dz=r.b.z-r.a.z;
-   const t=Math.max(0,Math.min(1,((door.x-r.a.x)*dx+(door.z-r.a.z)*dz)/(dx*dx+dz*dz||1)));
-   const q={x:r.a.x+t*dx,z:r.a.z+t*dz},distance=Math.hypot(q.x-door.x,q.z-door.z);
+   const t=Math.max(0,Math.min(1,((foot.x-r.a.x)*dx+(foot.z-r.a.z)*dz)/(dx*dx+dz*dz||1)));
+   const q={x:r.a.x+t*dx,z:r.a.z+t*dz},distance=Math.hypot(q.x-foot.x,q.z-foot.z);
    if(distance<nearest){nearest=distance;junction=q;}
-  }
-  if(junction)add([[door.x,door.z],[junction.x,junction.z]],.58,'stone');
+  }}
+  if(junction)roads.push({a:{x:foot.x,z:foot.z},b:{x:junction.x,z:junction.z},width:.58,kind:'stone',door:true});
  }
  return fitRoads(roads,layout,levels);
 }

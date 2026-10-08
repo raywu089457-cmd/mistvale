@@ -178,40 +178,30 @@ SHEETS = [  # (表, 暫存 prefix, grid, ids, mirror)
     ("wild-iso-v1-v1.png", "zx-wild", "4x2", ["snowDrift", "frozenPond", "cliffLedge", "fallenLog", "ferns", "flowerYellow", "flowerPink", "flowerBlue"], False),
     ("farm-iso-v1-v1.png", "zx-farm", "4x2", ["flowerWhite", "wheat", "cabbage", "chest", "trough", "scarecrow", "wheelbarrow", "tableSet"], False),
     ("yard-iso-v1-v1.png", "zx-yard", "4x2", ["flowerBox", "purpleBanner", "sacks", "barrel", "bucket", "lamppost", "plot", "campfire"], False),
+    ("props-fix-v1.png", "zx-fix", "4x2", ["hayBale", "archeryTarget", "handCart", "chest", "fruitStand", "barrel", "bucket", "snowDrift"], False),   # 2026-10-06 角度修正:8 個偏弱道具重畫成 2:1 等角 3/4
+    ("animals-hv-v1.png", "zx-animals", "4x1", ["sheep", "goat", "-", "-"], False),   # 2026-10-06 獵魔村風格(REF = hv2/styleref)
     ("vfx-iso-v1-v1.png", "zx-vfx", "4x2", ["fxSlash", "fxOrb", "fxHeal", "fxStar", "fxHit", "fxSparkle", "iconLeather", "arrowFx"], False),
     ("icons-iso-a-v1.png", "zx-icons-a", "4x4", ["gold", "gems", "wood", "ore", "herb", "drink", "bed", "heal", "cloth", "food", "armor", "swords", "hammer", "anvil", "bag", "skull"], False),
     ("icons-iso-b-v1.png", "zx-icons-b", "4x4", ["hunter", "hall", "scroll", "map", "up", "boss", "trade", "horn", "gear", "arrow", "star", "heart", "shield", "crown", "hourglass", "potion"], False),
-    ("mon-slime-iso-v2-v1.png", "zx-slime", "5x1", [f"slime{i}" for i in range(5)], False),
-    ("mon-wolf-iso-v2-v1.png", "zx-wolf", "5x1", [f"wolf{i}" for i in range(5)], True),   # 生出來整排朝左
-    ("mon-golem-iso-v2-v1.png", "zx-golem", "5x1", [f"golem{i}" for i in range(5)], False),
-    ("mon-treant-iso-v2-v1.png", "zx-boss", "5x1", [f"boss{i}" for i in range(5)], False),
-    # 第四批:每種魔物第二張(5 呼吸待機、6 第二走路格、7 出手收招、8 第二受擊格、9 倒下)。以第一張的待機圖當 REF 生,
-    # 合併前依「5 號高度 = 0 號高度」縮放,同一隻魔物換格時大小不跳。
-    *[(f"mon-{t if t != 'boss' else 'treant'}-iso-b-v1.png", f"zx-{t}-b", "5x1", [f"{t}{i}" for i in range(5, 10)], False) for t in ("slime", "wolf", "golem", "boss")],
-    # 第七批:四格走路循環(取代 3/6,另加 10/11);順序＝接地 → 經過 → 另一腳接地 → 經過
-    *[(f"mon-{t if t != 'boss' else 'treant'}-walk4-v1.png", f"zx-{t}-w", "4x1", [f"{t}3", f"{t}6", f"{t}10", f"{t}11"], t in WALK_MIRROR) for t in ("slime", "wolf", "golem", "boss")],
 ]
 # 第二張表的縮放基準:(第二張 prefix, 第二張的基準 id, 第一張 prefix, 第一張的基準 id)
-NORM = [(f"zx-{t}-b", f"{t}5", f"zx-{t}", f"{t}0") for t in ("slime", "wolf", "golem", "boss")]
+NORM: list = []  # 舊 monsters@ 已移除,魔物走 assets/monsters3
 SCALE: dict[str, float] = {}
-WALK_SCALE = {f"zx-{t}-w": t for t in ("slime", "wolf", "golem", "boss")}   # 走路表:四格最長邊中位數 = 舊走路格(3、6)最長邊中位數
+WALK_SCALE: dict = {}
 # 舊圖集名 → 內容。舊名保留,build.mjs / pixel-world.js 的載入清單不用改。
 MERGES = {
     "details": [("zx-trees", ["oak", "pine", "autumnOak"]), ("zx-nature", ["snowpine", "birch", "boulders", "outcrop"]), ("zx-misc", ["cave", "ruin"]),
                 ("zx-props1", ["signpost", "fenceRail"]), ("zx-well", None), ("zx-yard", ["lamppost"])],
-    "props": [("zx-misc", ["sheep", "goat", "garden", "mushroom", "villageBanner", "arenaFlag"]), ("zx-trees", ["bush"]), ("zx-nature", ["cactus"]),
+    "props": [("zx-animals", ["sheep", "goat"]), ("zx-misc", ["garden", "mushroom", "villageBanner", "arenaFlag"]), ("zx-trees", ["bush"]), ("zx-nature", ["cactus"]),
               ("zx-gate", None), ("zx-props2", ["stall"]), ("zx-props1", ["barrels"])],
-    "cold": [("zx-wild", ["snowDrift", "frozenPond", "cliffLedge"]), ("zx-nature", ["iceRocks"])],
+    "cold": [("zx-wild", ["frozenPond", "cliffLedge"]), ("zx-fix", ["snowDrift"]), ("zx-nature", ["iceRocks"])],
     "woods": [("zx-wild", ["fallenLog", "ferns"]), ("zx-trees", ["stump"]), ("zx-nature", ["mossRock"])],
     "flora": [("zx-wild", ["flowerYellow", "flowerPink", "flowerBlue"]), ("zx-farm", ["flowerWhite", "wheat", "cabbage"])],
-    "yard": [("zx-farm", ["chest", "trough", "scarecrow", "wheelbarrow"]), ("zx-props1", ["crates", "hayBale", "firewood", "lantern"])],
-    "town": [("zx-props2", ["archeryTarget", "dummy", "weaponRack", "anvilStump", "bench", "handCart"]), ("zx-farm", ["tableSet"]), ("zx-yard", ["flowerBox"])],
-    "town2": [("zx-yard", ["purpleBanner", "sacks", "barrel", "bucket"]), ("zx-props2", ["fruitStand"]), ("zx-trees", ["flowerBush"])],
+    "yard": [("zx-farm", ["trough", "scarecrow", "wheelbarrow"]), ("zx-props1", ["crates", "firewood", "lantern"]), ("zx-fix", ["chest", "hayBale"])],
+    "town": [("zx-props2", ["dummy", "weaponRack", "anvilStump", "bench"]), ("zx-fix", ["archeryTarget", "handCart"]), ("zx-farm", ["tableSet"]), ("zx-yard", ["flowerBox"])],
+    "town2": [("zx-yard", ["purpleBanner", "sacks"]), ("zx-fix", ["fruitStand", "barrel", "bucket"]), ("zx-trees", ["flowerBush"])],
     "vfx": [("zx-vfx", ["fxSlash", "fxOrb", "fxHeal", "fxStar", "fxHit", "fxSparkle", "iconLeather", "arrowFx"]), ("zx-yard", ["plot"])],
     "icons": [("zx-icons-a", None), ("zx-icons-b", None)],
-    "monsters": [("zx-slime", None), ("zx-wolf", None), ("zx-golem", None), ("zx-boss", None),
-                 ("zx-slime-b", None), ("zx-wolf-b", None), ("zx-golem-b", None), ("zx-boss-b", None),
-                 ("zx-slime-w", None), ("zx-wolf-w", None), ("zx-golem-w", None), ("zx-boss-w", None)],   # 後面的同 id 蓋前面(走路 3/6 換新的)
 }
 
 
@@ -241,16 +231,7 @@ def atlases():
         merge(name, parts)
     for prefix in {p for _, p, *_ in SHEETS}:
         drop(prefix)
-    # 魔物每格記軀幹錨點 ax(格內 px):畫的時候軀幹對齊站位點,不用格寬置中 → 出手/受擊格變寬時身體不會前後跳
-    for lod in ("1x", "2x"):
-        mp = A / f"monsters@{lod}.manifest.json"; m = json.loads(mp.read_text(encoding="utf-8")); im = Image.open(A / m["image"]).convert("RGBA")
-        for k, c in m["cells"].items():
-            c["ax"] = round(torso_x(im.crop((c["x"], c["y"], c["x"] + c["w"], c["y"] + c["h"]))), 1)
-        mp.write_text(json.dumps(m, ensure_ascii=False, indent=1), encoding="utf-8")
-    # 魔物全部在 monsters 圖集(0–4 格);monsteratk 不再需要 → 刪掉,build.mjs 也不再載。
-    for lod in ("1x", "2x"):
-        for ext in ("png", "manifest.json"):
-            (A / f"monsteratk@{lod}.{ext}").unlink(missing_ok=True)
+
 
 
 # ── 3. 英雄 ─────────────────────────────────────────────────────────────
@@ -560,7 +541,7 @@ def tones():
 
 if __name__ == "__main__":
     what = sys.argv[1] if len(sys.argv) > 1 else "all"
-    for step in ["atlases", "heroes", "buildings", "textures", "tones", "title"]:
+    for step in ["atlases", "buildings", "textures", "tones", "title"]:
         if what in (step, "all"):
             print(f"== {step}")
             globals()[step]()

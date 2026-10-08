@@ -2,88 +2,88 @@
  "version": 1,
  "kind": "mistvale-xilurus-town-atlas",
  "image": "town@1x.png",
- "sheetWidth": 346,
- "sheetHeight": 56,
+ "sheetWidth": 356,
+ "sheetHeight": 60,
  "packing": "shelf",
  "generator": "l0veyou.com GPT Image 2(Xilurus 風格)→ pipeline/scripts/xilurus/assemble.py",
  "cells": {
-  "handCart": {
-   "x": 130,
-   "y": 0,
-   "w": 48,
-   "h": 42,
-   "anchor": [
-    154.0,
-    42
-   ]
-  },
   "bench": {
-   "x": 246,
+   "x": 256,
    "y": 0,
    "w": 32,
    "h": 32,
    "anchor": [
-    262.0,
+    272.0,
     32
    ]
   },
   "anvilStump": {
-   "x": 316,
+   "x": 326,
    "y": 0,
    "w": 28,
    "h": 30,
    "anchor": [
-    330.0,
+    340.0,
     30
    ]
   },
   "weaponRack": {
-   "x": 0,
+   "x": 56,
    "y": 0,
    "w": 46,
    "h": 56,
    "anchor": [
-    23.0,
+    79.0,
     56
    ]
   },
   "dummy": {
-   "x": 98,
+   "x": 104,
    "y": 0,
    "w": 30,
    "h": 48,
    "anchor": [
-    113.0,
+    119.0,
     48
    ]
   },
   "archeryTarget": {
-   "x": 48,
+   "x": 0,
    "y": 0,
-   "w": 48,
-   "h": 54,
+   "w": 54,
+   "h": 60,
    "anchor": [
-    72.0,
-    54
+    27.0,
+    60
+   ]
+  },
+  "handCart": {
+   "x": 136,
+   "y": 0,
+   "w": 52,
+   "h": 40,
+   "anchor": [
+    162.0,
+    40
    ]
   },
   "tableSet": {
-   "x": 180,
+   "x": 190,
    "y": 0,
    "w": 64,
    "h": 40,
    "anchor": [
-    212.0,
+    222.0,
     40
    ]
   },
   "flowerBox": {
-   "x": 280,
+   "x": 290,
    "y": 0,
    "w": 34,
    "h": 32,
    "anchor": [
-    297.0,
+    307.0,
     32
    ]
   }

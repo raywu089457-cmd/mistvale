@@ -1,0 +1,109 @@
+{
+ "id": "MONSTER_WOLF_001",
+ "version": "v01",
+ "animation": "hurt",
+ "frames": 4,
+ "layout": {
+  "columns": 4,
+  "rows": 1
+ },
+ "cell": 640,
+ "sheet": [
+  2560,
+  640
+ ],
+ "logicalScale": 4,
+ "logicalCell": 160,
+ "frameTime": 0.1,
+ "loop": false,
+ "facing": "right",
+ "groundY": 608,
+ "axisX": 320,
+ "characterHeight": 328,
+ "anchors": [
+  {
+   "GROUND": [
+    320,
+    608
+   ],
+   "BODY": [
+    322,
+    444
+   ],
+   "HEAD": [
+    322,
+    312
+   ]
+  },
+  {
+   "GROUND": [
+    320,
+    608
+   ],
+   "BODY": [
+    322,
+    444
+   ],
+   "HEAD": [
+    322,
+    316
+   ]
+  },
+  {
+   "GROUND": [
+    320,
+    608
+   ],
+   "BODY": [
+    322,
+    444
+   ],
+   "HEAD": [
+    322,
+    316
+   ]
+  },
+  {
+   "GROUND": [
+    320,
+    608
+   ],
+   "BODY": [
+    322,
+    444
+   ],
+   "HEAD": [
+    322,
+    312
+   ]
+  }
+ ],
+ "palette": [
+  "#23110b",
+  "#301811",
+  "#493027",
+  "#57514a",
+  "#686660",
+  "#807d77",
+  "#8f8c87",
+  "#92714c",
+  "#9b332d",
+  "#b3aa98",
+  "#bf9b6c",
+  "#dc5047",
+  "#e3c393",
+  "#fce1a9",
+  "#fcf8f3"
+ ],
+ "source": {
+  "sheets": [
+   {
+    "rigged": true
+   }
+  ],
+  "unfake": true,
+  "pitch": 5.0
+ },
+ "rig": "rig.json",
+ "anchorsApprox": true
+}

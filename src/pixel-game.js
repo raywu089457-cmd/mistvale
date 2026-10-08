@@ -1,4 +1,4 @@
-import {getRoads,roadGraph,distanceSegment,arenaAt,ARENAS,arenaContains,SOLID_PROPS} from './landscape-layout.js';
+import {getRoads,roadGraph,distanceSegment,arenaAt,ARENAS,arenaContains,SOLID_PROPS,doorStand} from './landscape-layout.js';
 import {WORLD,REGIONS,walkable,inVillage,regionAt} from './overworld.js';
 import {VILLAGE_BOUNDS,EXITS,blockAt,BUILDING_NUDGE} from './village-grid.js';
 import { SKILLS, BUILDINGS, CLASSES, RARITIES, TRAITS, MATERIALS, PRODUCTS, RECIPES, DIFFICULTIES, CAMP, HUNT_ZONE, LEGACY_LAYOUT_V14, LEGACY_LAYOUT_V15, LEGACY_LAYOUT_V16, ART_LAYOUT_HISTORY } from './pixel-data.js';
@@ -14,6 +14,7 @@ const ENEMIES = {
   slime: { hp: 66, attack: 10, speed: 0.85, gold: 18, xp: 22, drops: { flour: 3, herb: 2 } },
   wolf: { hp: 98, attack: 15, speed: 1.7, gold: 26, xp: 32, drops: { leather: 3, cloth: 2 } },
   golem: { hp: 165, attack: 19, speed: 0.68, gold: 38, xp: 44, drops: { ore: 4, wood: 3 } },
+  ogre: { hp: 132, attack: 17, speed: 0.8, gold: 32, xp: 38, drops: { wood: 3, leather: 2, ore: 1 } },  // 獵魔村物語風格試作:直立綠皮食人魔(sprites/characters/MONSTER_OGRE_001)
   boss: { hp: 1150, attack: 28, speed: 0.85, gold: 260, xp: 180, drops: { ore: 15, wood: 10, herb: 8, leather: 10, cloth: 8, flour: 10 } },
 };
 const QUESTS = [
@@ -101,7 +102,7 @@ export function createGame(saved = null) {
 
   function door(buildingId) {
     const b = BUILDING[buildingId], p = buildingPoint(buildingId);
-    return [{ x: p.x, z: p.z + b.d / 2 + 0.6 }, { x: p.x + b.w / 2 + 0.6, z: p.z }, { x: p.x - b.w / 2 - 0.6, z: p.z }, { x: p.x, z: p.z - b.d / 2 - 0.6 }].find(p => !blocked(p)) ?? safePoint(p);
+    return [doorStand(b, p), { x: p.x + b.w / 2 + 0.6, z: p.z }, { x: p.x - b.w / 2 - 0.6, z: p.z }, { x: p.x, z: p.z - b.d / 2 - 0.6 }].find(p => !blocked(p)) ?? safePoint(p);
   }
 
   // 村裡的點:接到最近的路段上(投影點),之後只沿道路圖走;村外的點:直線接到看得到的村外節點。
@@ -189,12 +190,18 @@ export function createGame(saved = null) {
   }
 
   function newHunter(classId, position = CAMP, initialIndex = -1) {
-    const roll = random(), rarity = initialIndex >= 0 ? ['normal', 'rare', 'normal', 'superior', 'rare'][initialIndex] : roll < 0.55 ? 'normal' : roll < 0.82 ? 'rare' : roll < 0.94 ? 'superior' : roll < 0.99 ? 'heroic' : 'legendary';
+    const roll = random(), rarity = initialIndex >= 0 ? ['normal', 'rare', 'normal', 'superior', 'rare'][initialIndex % 5] : roll < 0.55 ? 'normal' : roll < 0.82 ? 'rare' : roll < 0.94 ? 'superior' : roll < 0.99 ? 'heroic' : 'legendary';
     const p = onRoadPoint(safePoint(position));
     const h = { id: id('h'), name: NAMES[state.hunters.length % NAMES.length], classId, rarity, trait: TRAITS[Math.floor(random() * TRAITS.length)].id, level: initialIndex >= 0 ? 3 + initialIndex % 3 : 1, xp: 0, rebirths: 0, skillLevel: 0, weaponLevel: 0, equipment: { weapon: false, armor: false }, gold: 100, inventory: Object.fromEntries(MATERIAL_KEYS.map(key => [key, 0])), satiety: initialIndex >= 0 ? 70 + initialIndex * 4 : 90, mood: initialIndex >= 0 ? 88 - initialIndex * 4 : 90, stamina: initialIndex >= 0 ? 78 + initialIndex * 2 : 90, x: p.x, z: p.z, hp: CLASS[classId].hp, maxHp: CLASS[classId].hp, status: '待機', targetId: null, attackTimer: random() * 0.5, route: [], task: null, serviceProduct: null, actionTimer: 0, trainCooldown: 0, reviveTimer: 0, lastTownVisit: state.time, tradedVisit: false, shoppedVisit: false, servedVisit: [], inTown: true, huntRegion: null };
     updateStats(h); h.hp = h.maxHp; state.hunters.push(h); idleInTown(h); return h;
   }
 
+  // 新職業(獵魔人)上線:名單裡還沒有這個職業的獵人,就保證招募欄第一位是他(新舊存檔都適用)。
+  function offerNewClass() {
+    const c = CLASS.witchhunter; if (!c || !state.visitors?.length) return;
+    if (state.hunters.some(h => h.classId === c.id) || state.visitors.some(v => v.classId === c.id)) return;
+    state.visitors[0] = { id: id('v'), classId: c.id, rarity: 'rare', trait: 'brave', cost: Math.round(c.cost * RARITY.rare.mult) };
+  }
   function newVisitor() {
     const c = CLASSES[Math.floor(random() * CLASSES.length)], roll = random();
     const rarity = roll < 0.55 ? 'normal' : roll < 0.82 ? 'rare' : roll < 0.94 ? 'superior' : roll < 0.99 ? 'heroic' : 'legendary';
@@ -316,7 +323,7 @@ export function createGame(saved = null) {
   }
 
   // 各生態區照原關卡設計出怪:主要魔物＝region.enemy,另有少量次要魔物;強度＝難度倍率 × 該區 risk。
-  const REGION_MIX={meadow:['slime','slime','slime','wolf'],forest:['wolf','wolf','slime','wolf'],taiga:['wolf','wolf','golem','wolf'],snow:['golem','golem','wolf','golem'],
+  const REGION_MIX={meadow:['slime','slime','slime','wolf'],forest:['wolf','ogre','slime','wolf'],taiga:['wolf','ogre','golem','wolf'],snow:['golem','golem','wolf','golem'],
     mountain:['golem','golem','golem','wolf'],desert:['golem','wolf','golem','golem'],birch:['slime','slime','wolf','slime']};
   function spawn(type, position = null, regionId = null) {
     const region=REGIONS.find(r=>r.id===(regionId||(position&&regionAt(position.x,position.z).id)||state.region))||REGIONS[1];
@@ -383,7 +390,7 @@ export function createGame(saved = null) {
       for (const h of alive) h.status = '地下城戰鬥';
     }
     for (const h of alive) if (h.attackTimer === 0) {
-      h.attackTimer = (h.classId === 'sorcerer' ? 1.65 : h.classId === 'ranger' ? 1.2 : 1.1) * (h.trait === 'swift' ? 0.9 : 1);
+      h.attackTimer = (h.classId === 'sorcerer' ? 1.65 : (h.classId === 'ranger' || h.classId === 'witchhunter') ? 1.2 : 1.1) * (h.trait === 'swift' ? 0.9 : 1);
       d.enemyHp = Math.max(0, d.enemyHp - h.attack); effect('slash', door('dungeon'), { value: h.attack });
       if (h.classId === 'darkknight') h.hp = Math.min(h.maxHp, h.hp + h.attack * 0.08);
       if (d.enemyHp <= 0) break;
@@ -480,10 +487,10 @@ export function createGame(saved = null) {
         const sk = SKILLS[h.classId];
         if (sk && h.skillCd === 0 && h.attackTimer === 0) { castSkill(h, target, sk); continue; }
         if (h.attackTimer === 0) {
-          h.attackTimer = (h.classId === 'sorcerer' ? 1.65 : h.classId === 'ranger' || h.classId === 'archer' ? 1.2 : 1.1) * (h.trait === 'swift' ? 0.9 : 1);
+          h.attackTimer = (h.classId === 'sorcerer' ? 1.65 : h.classId === 'ranger' || h.classId === 'archer' || h.classId === 'witchhunter' ? 1.2 : 1.1) * (h.trait === 'swift' ? 0.9 : 1);
           const damage = Math.max(1, Math.round(h.attack * (h.satiety < 15 || h.stamina < 15 ? 0.6 : 1)));
           // 動畫用時間戳(只給畫面看,不影響結算):出手瞬間、命中時刻(遠程要等箭/法球飛到)、攻擊方向。
-          const kind = h.classId === 'sorcerer' ? 'spell' : (h.classId === 'ranger' || h.classId === 'archer') ? 'arrow' : h.classId === 'priest' ? 'holy' : 'slash', delay = kind === 'arrow' ? 0.2 : kind === 'spell' ? 0.25 : kind === 'holy' ? 0.16 : 0.07;
+          const kind = h.classId === 'sorcerer' ? 'spell' : (h.classId === 'ranger' || h.classId === 'archer' || h.classId === 'witchhunter') ? 'arrow' : h.classId === 'priest' ? 'holy' : 'slash', delay = kind === 'arrow' ? 0.2 : kind === 'spell' ? 0.25 : kind === 'holy' ? 0.16 : 0.07;
           h.atkAt = state.time; h.atkX = target.x; h.atkZ = target.z; target.hitAt = state.time + delay; target.hitFromX = h.x; target.hitFromZ = h.z;
           target.hp -= damage; effect(kind, target, { sourceX: h.x, sourceZ: h.z, value: damage, targetId: target.id, delay, cls: h.classId, crit: damage >= h.attack * 1.25 });
           if (h.classId === 'darkknight') h.hp = Math.min(h.maxHp, h.hp + damage * 0.08);
@@ -590,9 +597,10 @@ export function createGame(saved = null) {
     state.arena = { active: false, wins: 0, losses: 0, enemyHp: 0, enemyMaxHp: 0, time: 0, hunterIds: [], cooldown: 0, phase: '待命', attackTimer: 1, opponent: '暮林訓練隊', reward: 0 };
     for (let i = 0; i < 5; i++) newHunter(CLASSES[i % CLASSES.length].id, {x:CAMP.x+i*.6-1.2,z:CAMP.z+i*.2}, i);
     for (let i = 0; i < 3; i++) state.visitors.push(newVisitor());
+    offerNewClass();
     state.wanderers = []; for (let i = 0; i < 4; i++) state.wanderers.push(newWanderer());
     state.wanderKills = 0;
-    for (const t of ['slime', 'slime', 'wolf', 'slime', 'golem']) spawn(t, null, 'meadow');  // 開局草原魔物也在空地內圈出生(原本固定座標,有的在橋頭)
+    for (const t of ['slime', 'slime', 'wolf', 'slime', 'golem', 'ogre']) spawn(t, null, 'meadow');  // 開局草原魔物也在空地內圈出生(原本固定座標,有的在橋頭)
     for (const a of ARENAS) if (a.id !== 'meadow') for (let i = 0; i < 3; i++) spawn(REGION_MIX[a.id][i], null, a.id);  // 每個狩獵區一開始就有魔物
     log('五位獵人抵達暮影村。準備餐點、收購戰利品，讓小鎮繁盛起來。', 'success'); refreshQuest();
   }
@@ -665,7 +673,7 @@ export function createGame(saved = null) {
     state.counts.rebirths = Math.max(state.counts.rebirths, rebirths);
     if (Array.isArray(source.visitors)) {
       const visitors = source.visitors.filter(v => v && own(CLASS, v.classId) && own(RARITY, v.rarity)).slice(0, 3).map(v => ({ id: id('v'), classId: v.classId, rarity: v.rarity, trait: TRAITS.some(t => t.id === v.trait) ? v.trait : 'brave', cost: Math.round(CLASS[v.classId].cost * RARITY[v.rarity].mult) }));
-      while (visitors.length < 3) visitors.push(newVisitor()); state.visitors = visitors;
+      while (visitors.length < 3) visitors.push(newVisitor()); state.visitors = visitors; offerNewClass();
     }
     // 流浪英雄:舊存檔沒有這個欄位就補上(不影響既有獵人與進度)。
     state.wanderers = Array.isArray(source.wanderers) ? source.wanderers.filter(w => w && own(CLASS, w.classId)).map(w => ({ ...newWanderer(), ...w, route: [] })) : [];

@@ -2,28 +2,18 @@
  "version": 1,
  "kind": "mistvale-xilurus-yard-atlas",
  "image": "yard@2x.png",
- "sheetWidth": 496,
+ "sheetWidth": 508,
  "sheetHeight": 96,
  "packing": "shelf",
  "generator": "l0veyou.com GPT Image 2(Xilurus 風格)→ pipeline/scripts/xilurus/assemble.py",
  "cells": {
-  "chest": {
-   "x": 450,
-   "y": 0,
-   "w": 44,
-   "h": 44,
-   "anchor": [
-    472.0,
-    44
-   ]
-  },
   "trough": {
-   "x": 186,
+   "x": 190,
    "y": 0,
    "w": 72,
    "h": 56,
    "anchor": [
-    222.0,
+    226.0,
     56
    ]
   },
@@ -38,32 +28,32 @@
    ]
   },
   "wheelbarrow": {
-   "x": 260,
+   "x": 264,
    "y": 0,
    "w": 72,
    "h": 56,
    "anchor": [
-    296.0,
+    300.0,
     56
    ]
   },
   "crates": {
-   "x": 334,
+   "x": 392,
    "y": 0,
    "w": 52,
    "h": 48,
    "anchor": [
-    360.0,
+    418.0,
     48
    ]
   },
   "firewood": {
-   "x": 388,
+   "x": 446,
    "y": 0,
    "w": 60,
    "h": 48,
    "anchor": [
-    418.0,
+    476.0,
     48
    ]
   },
@@ -80,11 +70,21 @@
   "hayBale": {
    "x": 128,
    "y": 0,
-   "w": 56,
+   "w": 60,
    "h": 60,
    "anchor": [
-    156.0,
+    158.0,
     60
+   ]
+  },
+  "chest": {
+   "x": 338,
+   "y": 0,
+   "w": 52,
+   "h": 52,
+   "anchor": [
+    364.0,
+    52
    ]
   }
  }
