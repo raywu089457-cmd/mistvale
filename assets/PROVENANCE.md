@@ -202,3 +202,12 @@ run_batch6.sh;1:1;每張附第二批該建築圖當參考(ref-bld-*.png)。
 - 出貨腳本 output/l0veyou/prompts/ship_hv.sh;村民表 villagers-v1.png → assets/villagers@1x/@2x(make_combat_art.py villagers)。
 - 羊/山羊:output/l0veyou/animals-hv-v1.png(prompts_hv/animals.txt,REF 同上)→ props@1x/@2x。
 - 2026-10-06:舊版 hero@/heropose@/monsters@ 圖集與其來源原圖已移出專案(work/_archive_old_assets_2026-10-06/)。
+
+
+## 3A 寫實化風格 demo(2026-10-08,未接入遊戲)
+
+用 l0veyou GPT Image 2 生的「3A 寫實風」對照組,只做風格評估用,**沒有接入遊戲**:
+`output/l0veyou/demo-hero-realistic-v1.jpg`(英雄)、`demo-wolf-realistic-v1.jpg`(狼)、`demo-scene-realistic-v1.jpg`(村莊場景)。
+Prompt 在 `output/l0veyou/prompts/demo-*-realistic.txt`(寫實材質、體積光、右上光源、magenta 底)。
+評估結論:大圖品質夠 3A,但遊戲裡角色只有 66px 高,寫實風進遊戲會糊掉,而且 7 頭身跟現有 2 頭身 Q 版不合。
+對照圖在 `output/audit/demo-aaa-compare.png`、`output/audit/demo-aaa-mockup.png`;等使用者選方向(全面寫實 / HD-2D 半寫實 / 只升級特寫)。

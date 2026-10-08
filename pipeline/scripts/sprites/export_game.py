@@ -4,13 +4,16 @@
 舊檔先備份到 <資料夾>/_pre_newpipe/。英雄 skill 重用 attack、victory 重用 idle(新管線尚未有這兩個動作);fx 檔不動。
 四方向(Visual Bible 4.3):idleDown/walkDown/idleUp/walkUp 來自 make_dir.py;idleLeft/walkLeft = 側面逐像素水平鏡像烘入。"""
 import colorsys, json, shutil, sys
+import numpy as np
 from pathlib import Path
 from PIL import Image, ImageOps
 ROOT = Path(__file__).resolve().parents[3]
+sys.path.insert(0, str(ROOT / "pipeline/scripts/sprites"))
+import unfake  # noqa: E402  組完映射回角色色盤(Bible:每角色 ≤16 色)
 sys.path.insert(0, str(ROOT / "pipeline/scripts/heroes"))
 import build_hero as BH  # noqa: E402
 # 新管線色盤的換色色相:祭司只換高飽和金飾(皮膚也是暖色,舊值會把皮膚一起換色);弓手綠衣飽和度較低
-BH.SWAP.update(priest=(45, 12, .8), archer=(115, 30, .18), witchhunter=(180, 12, .3))
+BH.SWAP.update(priest=(45, 12, .8), archer=(115, 30, .18), witchhunter=(180, 12, .15))   # 魔獵人外套是低飽和青(sat .20–.23),門檻 .3 會一個色都抓不到
 HERO_ROWS = ["idle", "walk", "attack", "skill", "hurt", "death", "victory"]
 MON_ROWS = ["idle", "walk", "attack", "hurt", "death"]
 DIRS = ["idleDown", "walkDown", "idleUp", "walkUp"]
@@ -43,6 +46,8 @@ for cls in sys.argv[1:]:
         if a.startswith("idle"): e["frameTime"] = 0.2 if mon else 0.16
         acts[a] = e
     pal = json.loads((d / "palette.json").read_text()); hexs = ["#%02x%02x%02x" % tuple(c[:3]) for c in pal]
+    # Bible 第1節:每角色 ≤16 色(含描邊)、所有動畫共用一份。各格/各表的近似色不映射回色盤會累積到 30+ 色。
+    sheet = unfake.apply_palette(sheet, np.asarray([c[:3] for c in pal], "uint8"))
     if mon:
         meta = {"hero": cls, "heroHeight": 72, "footFromBottom": FOOT, "actions": acts, "palette": hexs, "monster": True, "size": rig["gameSize"], "artSize": rig["artSize"]}
     else:

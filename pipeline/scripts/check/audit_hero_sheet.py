@@ -14,8 +14,8 @@ ROOT = Path(__file__).resolve().parents[3]
 H = ROOT / "assets" / "heroes"
 M = ROOT / "assets" / "monsters3"
 # 格數、英雄每格秒數:Bible 第 4.2 節(精確值;walk 秒數依移動距離、attack 依蓄力,不檢)
-SPEC = {"idle": (4, 4), "walk": (6, 6), "attack": (8, 8), "skill": (10, 10), "hurt": (3, 3), "death": (6, 6), "victory": (4, 4)}
-HERO_FT = {"idle": .22, "skill": .08, "hurt": .1, "death": .12, "victory": .15}
+SPEC = {"idle": (8, 8), "walk": (8, 8), "attack": (8, 10), "skill": (8, 10), "hurt": (4, 4), "death": (8, 8), "victory": (8, 8)}
+HERO_FT = {"idle": .16, "hurt": .1, "death": .12, "victory": .16}
 STANDING = ("idle", "walk", "hurt", "idleDown", "walkDown", "idleUp", "walkUp")   # 勝利:舉弓過頭、跳起來是姿勢本身,不算比例改變
 
 
@@ -34,9 +34,9 @@ MON_FT = {"idle": .2, "hurt": .1, "death": .12}   # 魔物待機 0.2 s(Bible 4.2
 
 
 def four_dir(meta, img):
-    """四方向(上下左右):Down/Up 各有待機 4、走路 6;Left 列存在且是右邊同一格的鏡像(逐像素相等)。"""
+    """四方向(上下左右):Down/Up 各有待機 8、走路 8;Left 列存在且是右邊同一格的鏡像(逐像素相等)。"""
     out = []
-    for name, n in (("idleDown", 4), ("walkDown", 6), ("idleUp", 4), ("walkUp", 6), ("idleLeft", 4), ("walkLeft", 6)):
+    for name, n in (("idleDown", 8), ("walkDown", 8), ("idleUp", 8), ("walkUp", 8), ("idleLeft", 8), ("walkLeft", 8)):
         if meta["actions"].get(name, {}).get("frames") != n: out.append(f"{name}: expected {n} frames")
     for name in ("idle", "walk"):
         a, l = meta["actions"].get(name), meta["actions"].get(name + "Left")
@@ -91,11 +91,15 @@ def audit(hero, d=H):
         if info["outline"] < .55: bad.append(f"outline dark ratio {info['outline']}")
         bad += four_dir(meta, img)
         return bad, info
-    # 5. 角色高 64–90(待機第 1 格,軀幹欄)、站姿類各格 ±12%
+    # 5. 角色高 64–90(待機第 1 格)、站姿類各格軀幹欄 ±12%。
+    #    跨職業的「共用 72±2」改量全身外框:角/披風/武器不在中間 ±10 欄時,軀幹欄會量短(黑騎士全身 72 但中間欄只有 66)。
     idle = meta["actions"]["idle"]; c = idle["cell"]
-    base = body_h(frames(img, idle)[0], c / 2); info["height"] = base
+    base = body_h(frames(img, idle)[0], c / 2)
+    f0m = frames(img, idle)[0][..., 3] > 0
+    ys0 = np.nonzero(f0m.any(1))[0]; full = int(ys0.max() - ys0.min() + 1) if len(ys0) else 0
+    info["height"] = full
     if not 64 <= base <= 90: bad.append(f"idle height {base} px (spec 64-90)")
-    if hero != "priest" and abs(base - 72) > 2: bad.append(f"idle height {base} px; heroes share 72 ±2 (priest 80 is the exception)")
+    if hero != "priest" and abs(full - 72) > 2: bad.append(f"idle height {full} px; heroes share 72 ±2 (priest 80 is the exception)")
     for name in STANDING:
         if name not in meta["actions"]: bad.append(f"missing {name}"); continue
         a = meta["actions"][name]
