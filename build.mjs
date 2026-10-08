@@ -23,8 +23,8 @@ for(const [tag,file] of [['detailsManifest','details@1x.manifest.json'],['detail
   try{const t=await fs.readFile(path.join(root,`assets/${file}`),'utf8');assetScript+=`window.PIXEL_ASSETS=window.PIXEL_ASSETS||{};window.PIXEL_ASSETS.${tag}=${t};`;}catch(e){console.warn('missing detail manifest',file);}
 }
 // l0veyou（GPT Image 2）生的道具／魔物／花草圖集:跟 details 同一個 manifest 契約。
-// Xilurus 風格圖集(pipeline/scripts/xilurus/assemble.py atlases):舊名保留;monsteratk 併入 monsters,stream/villagers 不再使用。
-for(const prefix of ['props','monsters','cold','woods','flora','icons','vfx','yard','town','town2']){
+// Xilurus 風格圖集(pipeline/scripts/xilurus/assemble.py atlases):舊名保留;舊 monsters@/monsteratk/stream 不再使用。
+for(const prefix of ['props','cold','woods','flora','villagers','icons','vfx','yard','town','town2']){
   for(const [suffix,lod] of [['Atlas','1x'],['Atlas2x','2x']]){
     try{const p=await fs.readFile(path.join(root,`assets/${prefix}@${lod}.png`));assetScript+=`window.PIXEL_ASSETS=window.PIXEL_ASSETS||{};window.PIXEL_ASSETS.${prefix}${suffix}='data:image/png;base64,${p.toString('base64')}';`;}catch(e){console.warn('missing atlas',prefix,lod);}
   }
@@ -43,18 +43,8 @@ for(const [tag,file,js] of [['terrainAtlas','terrain-atlas.png',false],['terrain
       +(js?raw.toString('utf8'):`'data:image/png;base64,${raw.toString('base64')}'`)+';';
   }catch(e){console.warn('missing terrain atlas',file);}
 }
-// 角色圖集(獵人六職業)
-for(const [tag,file,js] of [['heroAtlas','hero@1x.png',false],['heroManifest','hero@1x.manifest.json',true],
-                            ['heroAtlas2x','hero@2x.png',false],['heroManifest2x','hero@2x.manifest.json',true],
-                            ['heroposeAtlas','heropose@1x.png',false],['heroposeManifest','heropose@1x.manifest.json',true],
-                            ['heroposeAtlas2x','heropose@2x.png',false],['heroposeManifest2x','heropose@2x.manifest.json',true],
-                            ['heroAtlas4x','hero@4x.png',false],['heroManifest4x','hero@4x.manifest.json',true],['heroposeAtlas4x','heropose@4x.png',false],['heroposeManifest4x','heropose@4x.manifest.json',true]]){
-  try{const raw=await fs.readFile(path.join(root,`assets/${file}`));
-    assetScript+=`window.PIXEL_ASSETS=window.PIXEL_ASSETS||{};window.PIXEL_ASSETS.${tag}=`
-      +(js?raw.toString('utf8'):`'data:image/png;base64,${raw.toString('base64')}'`)+';';
-  }catch(e){console.warn('missing hero atlas',file);}
-}
-// 新規格英雄 sprite sheet(pipeline/ART_BIBLE.md;pipeline/scripts/heroes/build_hero.py 產生)
+// 舊版角色/魔物圖集(hero@、heropose@、monsters@)已移除:英雄走 assets/heroes,魔物走 assets/monsters3。
+// 新規格英雄 sprite sheet(sprites/SPRITE_VISUAL_BIBLE.md §9;pipeline/scripts/heroes/build_hero.py 產生)
 {const dir=path.join(root,'assets/heroes');let files=[];try{files=await fs.readdir(dir);}catch{}
  const sheets={};for(const f of files.filter(f=>f.endsWith('.json')&&!f.endsWith('-fx.json'))){const id=f.slice(0,-5);
   const img=await fs.readFile(path.join(dir,id+'.png')),meta=await fs.readFile(path.join(dir,f),'utf8');sheets[id]={img:'data:image/png;base64,'+img.toString('base64'),meta:JSON.parse(meta)};

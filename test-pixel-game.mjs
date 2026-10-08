@@ -1,5 +1,6 @@
 import assert from 'node:assert/strict';
 import { createGame } from './src/pixel-game.js';
+import { doorStand } from './src/landscape-layout.js';
 import { BUILDINGS, CLASSES, MATERIALS, PRODUCTS } from './src/pixel-data.js';
 
 function run(game, seconds, quiet = false, inspect = null) {
@@ -27,7 +28,7 @@ function assertFiniteEconomy(s) {
 }
 
 const g = createGame();
-assert.equal(g.state.version, 2); assert.equal(g.state.hunters.length, 5); assert.equal(new Set(g.state.hunters.map(h => h.classId)).size, CLASSES.length);
+assert.equal(g.state.version, 2); assert.equal(g.state.hunters.length, 5); assert.equal(new Set(g.state.hunters.map(h => h.classId)).size, 5); assert.ok(g.state.visitors.some(v => v.classId === 'witchhunter'));
 assert.equal(g.state.gold, 1500); assert.equal(g.state.capacity, 8); assert.equal(g.state.visitors.length, 3);
 assert.ok(g.state.hunters.every(h => h.gold === 100 && h.level >= 3 && h.level <= 5));
 assert.equal(g.recruit('__proto__').ok, false); assert.equal(g.recruit('missing').ok, false);
@@ -42,7 +43,7 @@ assert.equal(g.setTradeRequest('ore', -1).ok, false); assert.equal(g.setTradeReq
 
 const service = createGame(), hungry = isolate(service);
 const restaurant=BUILDINGS.find(b=>b.id==='restaurant');
-const mealDoor={x:restaurant.x,z:restaurant.z+restaurant.d/2+.6};
+const mealDoor=doorStand(restaurant,restaurant);
 Object.assign(hungry,mealDoor); hungry.satiety = 5;
 const serviceTotal = totalMoney(service), serviceGold = service.state.gold, mealStock = service.state.stocks.food;
 run(service, 8, true);
@@ -58,14 +59,14 @@ assert.equal(basics.state.gold, basicGold); assert.equal(basics.state.stocks.foo
 const noStock = createGame(), stranded = isolate(noStock); Object.assign(stranded,mealDoor); stranded.satiety = 0; noStock.state.stocks.food = 0; run(noStock, 9, true);
 assert.ok(stranded.satiety > 55, 'Emergency basics avoid empty-stock deadlock'); assert.equal(noStock.state.stocks.food, 0); assert.equal(noStock.state.gold, 1500);
 
-const trading = createGame(), merchant = isolate(trading),market=BUILDINGS.find(b=>b.id==='trading'); const marketDoor={x:market.x,z:market.z+market.d/2+.6}; trading.state.time = 100; Object.assign(merchant,marketDoor); merchant.inventory.ore = 20;
+const trading = createGame(), merchant = isolate(trading),market=BUILDINGS.find(b=>b.id==='trading'); const marketDoor=doorStand(market,market); trading.state.time = 100; Object.assign(merchant,marketDoor); merchant.inventory.ore = 20;
 assert.equal(trading.setTradeRequest('ore', 10).ok, true); const tradeTotal = totalMoney(trading), townOre = trading.state.ore;
 run(trading, 4, true); assert.equal(merchant.inventory.ore, 10); assert.equal(trading.state.ore, townOre + 10); assert.equal(trading.state.tradeRequests.ore, 0);
 assert.equal(trading.state.gold, 1470); assert.equal(merchant.gold, 130); assert.equal(totalMoney(trading), tradeTotal); assert.equal(trading.state.counts.traded, 10);
 const poorTown = createGame(), seller = isolate(poorTown); poorTown.state.time = 100; poorTown.state.gold = 4; Object.assign(seller,marketDoor); seller.inventory.ore = 20;
 run(poorTown, 4, true); assert.equal(poorTown.state.gold, 1); assert.equal(seller.inventory.ore, 19); assert.equal(seller.gold, 103);
 
-const gear = createGame(), buyer = isolate(gear),forge=BUILDINGS.find(b=>b.id==='forge'); gear.state.time = 100; buyer.x = forge.x; buyer.z = forge.z+forge.d/2+.6; buyer.gold = 300;
+const gear = createGame(), buyer = isolate(gear),forge=BUILDINGS.find(b=>b.id==='forge'); gear.state.time = 100; Object.assign(buyer, doorStand(forge,forge)); buyer.gold = 300;
 assert.equal(gear.craftEquipment('weapon').ok, true); assert.equal(gear.craftEquipment('armor').ok, true);
 const gearMoney = totalMoney(gear), attackBefore = buyer.attack, hpBefore = buyer.maxHp; run(gear, 5, true);
 assert.ok(buyer.equipment.weapon && buyer.equipment.armor); assert.equal(gear.state.gearStock.weapon, 0); assert.equal(gear.state.gearStock.armor, 0);

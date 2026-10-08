@@ -1,7 +1,7 @@
 import assert from 'node:assert/strict';
 import {createGame} from './src/pixel-game.js';
 import {BUILDINGS,ART_LAYOUT_HISTORY} from './src/pixel-data.js';
-import {ARENAS,SOLID_PROPS,PALISADE,getRoads,onRoad,arenaAt,arenaContains,keepTallDecoration,canopyObscures,roadGraph,distanceSegment} from './src/landscape-layout.js';
+import {ARENAS,SOLID_PROPS,PALISADE,getRoads,onRoad,arenaAt,arenaContains,keepTallDecoration,canopyObscures,roadGraph,distanceSegment,doorStand,doorFoot} from './src/landscape-layout.js';
 import {walkable,inVillage,WORLD} from './src/overworld.js';
 import {VILLAGE_BOUNDS,STREET_X,STREET_Z,GRID,FENCE,EXITS} from './src/village-grid.js';
 
@@ -38,7 +38,7 @@ for(let i=0;i<BUILDINGS.length;i++){
  }
 }
 for(const b of BUILDINGS.filter(b=>game.state.buildings[b.id]&&b.id!=='dungeon')){
- const p=game.state.layout[b.id];assert.ok(onRoad(p.x,p.z+b.d/2+.6,roads),`${b.name} has a road to its entrance`);
+ const p=game.state.layout[b.id];{const s=doorStand(b,p),f=doorFoot(b,p);assert.ok(onRoad(s.x,s.z,roads),`${b.name} has a road to its entrance`);assert.ok(onRoad(f.x,f.z,roads),`${b.name} door path starts at its steps`);}
 }
 // 村莊四周木柵欄只有兩個出村口:畫面右下(東)與左下(南);道路只到出村口,村外沒有路。
 {const side=(x,z)=>Math.abs(x-FENCE.maxX)<.5?'east':Math.abs(z-FENCE.maxZ)<.5?'south':Math.abs(x-FENCE.minX)<.5?'west':Math.abs(z-FENCE.minZ)<.5?'north':null;
@@ -75,7 +75,7 @@ for(let i=0;i<1800;i++){
  for(const e of game.state.enemies)assert.ok(arenaContains(e.regionId,e.x,e.z,.25),'monsters stay within cleared combat spaces');
 }
 assert.ok(travel>500);assert.equal(roadTravel,travel,`inside the village, hunters walk only on the road centerlines (${roadTravel}/${travel}) ${JSON.stringify(offRoad.slice(0,5))}`);
-const moved=createGame();assert.equal(moved.moveBuilding('bounty',5,17).ok,true);const updated=getRoads(moved.state.layout,moved.state.buildings);{const q=moved.state.layout.bounty,b=BUILDINGS.find(v=>v.id==='bounty');assert.ok(onRoad(q.x,q.z+b.d/2+.6,updated),'moving a facility rebuilds its entrance path');}
+const moved=createGame();assert.equal(moved.moveBuilding('bounty',5,17).ok,true);const updated=getRoads(moved.state.layout,moved.state.buildings);{const q=moved.state.layout.bounty,b=BUILDINGS.find(v=>v.id==='bounty');{const s=doorStand(b,q);assert.ok(onRoad(s.x,s.z,updated),'moving a facility rebuilds its entrance path');}}
 // 搬家吸附到街區正中;搬到別棟建築的街區就互換;廣場不能蓋;大小可調
 {const g=createGame(),hall={...g.state.layout.hall},forge={...g.state.layout.forge};assert.equal(g.moveBuilding('hall',forge.x+1,forge.z-1).ok,true);
  assert.deepEqual([g.state.layout.hall.x,g.state.layout.hall.z],[forge.x,forge.z],'move snaps to the block center');assert.deepEqual([g.state.layout.forge.x,g.state.layout.forge.z],[hall.x,hall.z],'occupied block swaps buildings');
