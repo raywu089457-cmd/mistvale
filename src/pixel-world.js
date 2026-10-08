@@ -11,14 +11,6 @@ const nearFence=(x,z,pad)=>x>FENCE.minX-pad&&x<FENCE.maxX+pad&&z>FENCE.minZ-pad&
 // interpolation. World coordinates are shared with the village simulation.
 const PX = 9, PY = 4.5;
 const ATLAS_ORDER = ['hall','trading','restaurant','inn','tavern','clinic','forge','academy','training','sanctuary','house','bounty','enhancement','dungeon','fountain','well'];
-const palettes = {
-  berserker: ['#713c38','#b35442','#e78451','#ffc184'],
-  ranger: ['#334b35','#548052','#8faf60','#d5d784'],
-  paladin: ['#665740','#b48e45','#e5c269','#ffebac'],
-  sorcerer: ['#4e3b69','#8061a6','#b28bc9','#e2bce6'],
-  darkknight: ['#303c56','#526384','#8a9abb','#c4cbda'],
-  witchhunter: ['#24434a','#3f7f86','#6fa8a8','#c9e0d0'],
-};
 const spriteCache = new Map(), buildingCache = new Map();
 let sharedAtlas = null, atlasAttempt = null;
 
@@ -99,50 +91,10 @@ function heroSprite(classId='berserker',frame=0,facing=1,variant=0,lodScale=hero
     g.globalCompositeOperation='source-over';
     c.baseH=35*resolution;heroUse.atlas++;spriteCache.set(key,c);return c;
   }
-  heroUse.proc++;
-  const c=makeCanvas(28,35),g=c.getContext('2d');g.imageSmoothingEnabled=false;
-  const p=palettes[classId]||palettes.berserker;
-  const outline='#29272d',skin=['#f3c69a','#dfad85','#d59a73'][variant%3],skinShade=['#bd865f','#b37c5a','#ae755a'][variant%3];
-  const bob=frame===1?1:0;
-  g.save();if(facing<0){g.translate(28,0);g.scale(-1,1);}g.translate(0,bob);
-  // Cape, boots, and broad chibi head use one-pixel contour clusters.
-  polygon(g,[[7,17],[18,17],[22,28],[6,29]],outline);
-  polygon(g,[[8,18],[17,18],[20,27],[8,27]],p[0]);
-  pixel(g,9,24,5,6-frame,outline);pixel(g,15,24,5,5+frame,outline);
-  pixel(g,10,25,3,3-frame,'#84705b');pixel(g,16,25,3,2+frame,'#84705b');
-  pixel(g,8,29-frame,6,2,'#392d2a');pixel(g,15,29+frame,6,2,'#392d2a');
-  pixel(g,8,17,12,9,outline);pixel(g,9,18,10,7,p[1]);pixel(g,10,18,3,6,p[2]);pixel(g,10,18,8,2,p[3]);
-  pixel(g,9,23,10,2,'#54422d');pixel(g,13,23,3,2,'#e6ba63');
-  pixel(g,6,18,3,6,outline);pixel(g,7,19,2,4,p[2]);pixel(g,7,23,3,3,skin);
-  pixel(g,19,18,3,6,outline);pixel(g,19,19,2,4,p[2]);pixel(g,20,23,3,3,skin);
-  pixel(g,8,6,12,12,outline);pixel(g,6,9,16,6,outline);pixel(g,7,10,14,5,skinShade);
-  pixel(g,9,7,10,10,skin);pixel(g,8,9,12,6,skin);pixel(g,11,15,7,1,skinShade);
-  pixel(g,11,11,2,2,'#302c30');pixel(g,17,11,2,2,'#302c30');pixel(g,11,11,1,1,'#fff2d0');pixel(g,17,11,1,1,'#fff2d0');
-  pixel(g,10,14,2,1,'#d78d74');pixel(g,18,14,2,1,'#d78d74');
-  if(classId==='ranger') {
-    polygon(g,[[7,10],[6,5],[10,2],[18,3],[21,7],[21,10],[17,7],[12,8]],outline);
-    polygon(g,[[8,7],[9,4],[15,3],[19,6],[20,8],[14,6]],p[1]);pixel(g,10,4,5,2,p[2]);
-    pixel(g,17,1,2,6,'#e0d390');pixel(g,18,1,3,2,'#f2ecd0');
-    line(g,24,13,26,19,'#482d28',2);line(g,26,19,24,27,'#482d28',2);line(g,24,13,24,27,'#efc47b');pixel(g,24,19,3,1,'#faf1c8');
-  } else if(classId==='sorcerer') {
-    polygon(g,[[6,8],[10,6],[13,0],[17,2],[20,7],[23,9],[22,11],[5,11]],outline);
-    polygon(g,[[8,8],[12,6],[14,2],[17,4],[19,8]],p[1]);pixel(g,12,5,2,2,p[2]);pixel(g,7,9,14,1,p[2]);pixel(g,14,8,3,2,'#d6ad50');
-    pixel(g,24,10,2,19,'#503827');pixel(g,25,12,1,15,'#bc9262');pixel(g,22,6,6,6,outline);pixel(g,23,7,4,4,'#8dd7e3');pixel(g,24,7,2,2,'#e6ffff');
-  } else if(classId==='paladin'||classId==='darkknight') {
-    const metal=classId==='paladin'?['#676977','#bbc3cc','#e5e8dd']:['#3e4258','#707e9b','#9fadc4'];
-    polygon(g,[[7,10],[7,5],[10,2],[19,3],[21,6],[21,12],[18,12],[18,8],[10,8],[10,12]],outline);
-    polygon(g,[[8,9],[8,6],[11,3],[18,4],[20,6],[20,10],[18,10],[18,7],[10,7],[10,10]],metal[1]);pixel(g,10,4,7,2,metal[2]);pixel(g,14,3,2,6,metal[2]);
-    pixel(g,9,18,10,6,metal[0]);pixel(g,10,18,8,4,metal[1]);pixel(g,12,18,2,3,metal[2]);
-    polygon(g,[[3,18],[9,17],[12,19],[11,26],[7,29],[3,25]],outline);
-    polygon(g,[[4,19],[9,18],[11,20],[10,25],[7,27],[4,24]],p[1]);line(g,7,19,7,26,p[3]);line(g,4,21,10,21,p[3]);
-    pixel(g,23,11,2,15,outline);pixel(g,24,11,1,12,metal[2]);pixel(g,21,22,6,2,'#d0a64d');pixel(g,23,24,2,4,'#755036');
-    if(classId==='darkknight'){pixel(g,6,4,2,4,'#bbc5d4');pixel(g,20,4,3,2,'#bbc5d4');pixel(g,11,11,2,1,'#e15b5b');pixel(g,17,11,2,1,'#e15b5b');}
-  } else {
-    polygon(g,[[7,9],[6,6],[9,3],[10,1],[13,3],[16,1],[17,3],[20,3],[22,7],[20,10],[18,7],[15,8],[13,6],[10,9]],outline);
-    polygon(g,[[8,6],[10,4],[11,3],[14,5],[17,3],[20,5],[20,7],[17,6],[15,7],[13,5],[10,7]],'#b96938');pixel(g,10,4,3,2,'#e6a054');
-    polygon(g,[[23,8],[26,10],[24,22],[21,22]],outline);polygon(g,[[24,10],[25,11],[23,20],[22,21]],'#b6c3c9');pixel(g,23,12,1,7,'#eef2df');pixel(g,20,22,6,2,'#e1b252');pixel(g,21,24,2,5,'#69452d');
-  }
-  pixel(g,10,9,2,1,'#ffe2b1');pixel(g,16,9,2,1,'#ffe2b1');pixel(g,10,20,2,1,p[3]);pixel(g,17,20,2,1,p[0]);pixel(g,12,25,2,1,'#e4ca85');pixel(g,9,28-frame,3,1,'#a49479');pixel(g,16,28+frame,3,1,'#a49479');g.restore();spriteCache.set(key,c);return c;
+  // 沒有任何程序繪製 fallback(sprites/ 管線是角色素材的唯一來源):
+  // 圖集缺漏就回一張空的透明畫布 —— 寧可看不到角色,也不要畫出跟新規格不一致的舊圖。
+  heroUse.missing++;
+  const c=makeCanvas(28,35);c.baseH=35;spriteCache.set(key,c);return c;
 }
 
 export function spriteDataURL(classId='berserker',rarity='normal') {
@@ -255,7 +207,7 @@ const heroAtlasLod=[];
 // heroSprite 在模組層,看不到閉包裡的 scale —— 用這個模組層變數由 update() 更新。
 // (踩過兩次同樣的坑:h is not defined / scale is not defined)
 let heroLodScale=1;
-const heroUse={calls:0,atlas:0,proc:0};
+const heroUse={calls:0,atlas:0,missing:0};
 const HERO_TINT=['rgba(255,225,190,.10)','rgba(190,215,255,.10)','rgba(255,200,215,.10)'];
 function heroFrameFor(classId,sc){
   const pick=sc>=4.4?4:sc>=2.2?2:1;  // 每邏輯像素的裝置像素數 → 1x/2x/4x
@@ -278,7 +230,7 @@ function ensureHeroAtlas(){
     im.onload=()=>{heroAtlasLod.push({img:im,scale:m.scale>=0.5?4:m.scale>=0.2?2:1,frames:m.cells});
       // spriteCache 只存角色圖。圖集載入前建的程序版會被快取住永遠不換,
       // 所以圖集一到就整批清掉,下一幀全部改用圖集重建。
-      spriteCache.clear();heroUse.atlas=heroUse.proc=0;
+      spriteCache.clear();heroUse.atlas=heroUse.missing=0;
       globalThis.dispatchEvent(new CustomEvent('pixel-assets-ready'));};
     im.onerror=()=>loadedAssetKeys.delete(sheetKey);
     im.src=assets[sheetKey];
@@ -542,39 +494,6 @@ function treeSprite(seed=0,type=0) {
  return c;
 }
 
-const enemyCache=new Map();
-function enemySprite(type='slime',frame=0) {
-  const key=type+frame;if(enemyCache.has(key))return enemyCache.get(key);
-  const c=makeCanvas(54,54),g=c.getContext('2d'),o='#293436';
-  if(type==='slime') {
-    const bob=frame?1:0;polygon(g,[[11,42],[12,32+bob],[16,26+bob],[26,24+bob],[34,28+bob],[37,35],[38,43],[34,46],[15,46]],o);
-    polygon(g,[[13,41],[14,33+bob],[18,28+bob],[26,26+bob],[33,30+bob],[35,36],[36,43],[31,45],[16,44]],'#64a66b');
-    polygon(g,[[28,28+bob],[33,31+bob],[35,36],[35,43],[30,44],[30,39],[32,36]],'#438762');
-    pixel(g,18,29+bob,9,4,'#b8db8e');pixel(g,15,33+bob,4,7,'#94c678');
-    pixel(g,20,28+bob,5,2,'#e0edb2');pixel(g,17,31+bob,3,2,'#d1e6a3');
-    pixel(g,15,37,2,4,'#bddb95');pixel(g,18,40,3,2,'#83ba78');
-    pixel(g,22,36,2,3,'#2e3a39');pixel(g,30,36,2,3,'#2e3a39');
-    pixel(g,22,36,1,1,'#e9f2c9');pixel(g,30,36,1,1,'#e9f2c9');
-    pixel(g,25,41,4,1,'#435247');pixel(g,21,43,12,1,'#44896a');
-    pixel(g,16,44,5,1,'#95c37f');pixel(g,30,42,3,1,'#326950');
-  }else if(type==='wolf') {
-    polygon(g,[[8,37],[5,29],[12,34],[20,28],[33,29],[41,25],[42,33],[46,36],[44,42],[38,42],[35,49],[30,49],[30,42],[20,42],[17,49],[12,49],[13,41]],o);
-    polygon(g,[[10,36],[8,32],[14,36],[22,30],[33,31],[39,28],[40,35],[44,37],[42,40],[35,40],[32,47],[31,40],[19,40],[15,47],[15,39]],'#929b9e');
-    polygon(g,[[12,35],[16,32],[22,31],[28,33],[25,37],[16,38]],'#c7ccbd');
-    pixel(g,19,31,12,4,'#dce0d1');pixel(g,25,35,9,4,'#677580');pixel(g,16,38,9,3,'#78858a');
-    pixel(g,38,33,2,2,'#edb75a');pixel(g,43,37,2,2,'#242b2d');pixel(g,14+(frame?1:0),46,4,2,'#65757b');
-    pixel(g,18,41,4,2,'#b3bec0');pixel(g,29,42,5,2,'#495960');
-  }else if(type==='boss') {
-    polygon(g,[[8,43],[5,28],[9,19],[15,17],[13,7],[22,12],[26,8],[32,12],[43,6],[40,19],[47,23],[50,40],[45,47],[37,45],[35,52],[27,52],[24,47],[21,52],[11,52],[12,46]],o);
-    polygon(g,[[9,39],[9,25],[15,21],[21,18],[30,16],[39,20],[44,25],[47,39],[41,42],[35,39],[33,48],[28,48],[25,43],[20,48],[14,48],[15,40]],'#766559');
-    polygon(g,[[15,9],[20,16],[18,23],[14,18]],'#ccbb90');polygon(g,[[41,9],[35,16],[36,23],[41,18]],'#ccbb90');pixel(g,18,24,19,13,'#977e60');pixel(g,18,26,6,4,'#e98a43');pixel(g,30,26,6,4,'#e98a43');pixel(g,20,27,2,2,'#ffeaaa');pixel(g,32,27,2,2,'#ffeaaa');pixel(g,24,33,8,3,'#3a3634');pixel(g,20,37,16,2,'#d0be96');pixel(g,20,37,3,5,'#f4e6ba');pixel(g,33,37,3,5,'#f4e6ba');pixel(g,11,28,4,10,'#9e8667');pixel(g,41,30,4,8,'#514c47');
-  }else {
-    polygon(g,[[9,43],[9,26],[15,21],[17,12],[33,10],[40,18],[40,26],[46,30],[45,45],[36,47],[34,52],[27,52],[24,46],[21,52],[12,51]],o);
-    polygon(g,[[12,42],[12,28],[19,25],[20,15],[32,13],[37,20],[35,28],[43,32],[42,42],[33,42],[32,49],[28,49],[25,40],[20,48],[15,48]],'#888a7e');
-    polygon(g,[[15,39],[16,28],[21,25],[25,27],[23,34],[19,40]],'#a7aa9e');polygon(g,[[27,15],[32,13],[37,20],[35,28],[30,27]],'#6e7776');
-    polygon(g,[[20,17],[31,15],[34,21],[31,27],[21,26]],'#b5b4a0');pixel(g,22,21,3,3,'#9bd3c5');pixel(g,29,21,3,3,'#9bd3c5');pixel(g,24,32,9,7,'#666f69');pixel(g,27,33,3,4,'#b8ce9f');pixel(g,13,28,5,4,'#b0ad99');pixel(g,36,33,5,3,'#a3a48f');pixel(g,19,43,5,3,'#6c7675');pixel(g,30,44,5,3,'#c1c2b1');
-  }enemyCache.set(key,c);return c;
-}
 
 export function createWorld(canvas,{onSelect=()=>{},onPlace=()=>{},getState=()=>null}={}) {
   ensureAtlas();
@@ -1474,7 +1393,7 @@ export function createWorld(canvas,{onSelect=()=>{},onPlace=()=>{},getState=()=>
     if(MON_SHEET(e.type)){let vdir=old?.vdir||'side';if(old&&moving)vdir=moveDir(e.x-old.x,e.z-old.z,vdir);if(pose.pose!=='idle'||e.engaged)vdir='side';previousPositions.set('enemy:'+e.id,{x:e.x,z:e.z,flip,vdir});
       const [act,i]=monsterSheetPose(e,pose,walking,vdir);drawnFacing.set('enemy:'+e.id,{f:flip?-1:1,frame,act,i,x:e.x,z:e.z,t:state.time});rect=drawMonsterSheet(e.type,p,flip,act,i,1,pose);}  // 新規格 sheet:動作自帶位移/壓扁,不再疊 posed 變形
     else rect=posed(p,pose,q=>drawAtlasMonster(e.type,frame,q,sz,flip));
-    if(!rect){procUse['enemy:'+e.type]=(procUse['enemy:'+e.type]||0)+1;posed(p,pose,q=>drawSprite(enemySprite(e.type,frame%2),q,sz,sz,2,1,'char'));}
+    if(!rect)procUse['enemy-missing:'+e.type]=(procUse['enemy-missing:'+e.type]||0)+1;  // 沒有程序繪製 fallback:sheet 缺了就只記數、不畫
     if(e.hp<e.maxHp||boss||targeted){bar(p.x-(boss?17:10)*scale,p.y-(sz+3)*scale,(boss?34:20)*scale,e.hp/(e.maxHp||1),boss?'#d27967':'#c68764');}}
 
   // ── 戰鬥特效 ──────────────────────────────────────────────────────────
@@ -1626,7 +1545,7 @@ export function createWorld(canvas,{onSelect=()=>{},onPlace=()=>{},getState=()=>
   function update(dt,nextState){if(disposed)return;if(nextState){state=nextState;const key=BUILDINGS.map(b=>`${b.id}:${state.buildings?.[b.id]>0}:${state.layout?.[b.id]?.x??b.x}:${state.layout?.[b.id]?.z??b.z}`).join('|');if(key!==landscapeKey||terrainPatternRev!==lastPatternRev){lastPatternRev=terrainPatternRev;landscapeKey=key;generateGround();}}elapsed+=Math.min(dt||0,.1);heroLodScale=scale*DPRK;ensureAtlas();const t=1-Math.exp(-Math.max(.016,dt||.016)*7);cam.x+=(target.x-cam.x)*t;cam.y+=(target.y-cam.y)*t;render();}
   function setTime(p){phase=typeof p==='number'?((p%1)+1)%1:.15;}
   function setQuality(v){quality=v!==false&&v!=='low';}
-  function dispose(){disposed=true;for(const[type,fn]of[['pointerdown',down],['pointermove',move],['pointerup',up],['pointercancel',up],['wheel',wheel],['pointerdown',stopHomeFraming]])canvas.removeEventListener(type,fn);spriteCache.clear();enemyCache.clear();}
+  function dispose(){disposed=true;for(const[type,fn]of[['pointerdown',down],['pointermove',move],['pointerup',up],['pointercancel',up],['wheel',wheel],['pointerdown',stopHomeFraming]])canvas.removeEventListener(type,fn);spriteCache.clear();}
   const responsiveResize=()=>{resize();if(homeFraming)focusHome();render();};
   function stopHomeFraming(){homeFraming=false;}
   canvas.addEventListener('pointerdown',stopHomeFraming);
