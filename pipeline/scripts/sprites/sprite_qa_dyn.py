@@ -80,4 +80,7 @@ def run(cd: Path, anim: str):
 
 
 if __name__ == "__main__":
+    if len(sys.argv) < 2:
+        print("用法: python pipeline/scripts/sprites/sprite_qa_dyn.py <sheet.png> [action...]")
+        sys.exit(2)
     ok = all([run(Path(sys.argv[1]), a) for a in (sys.argv[2:] or list(SPEC))]); sys.exit(0 if ok else 1)

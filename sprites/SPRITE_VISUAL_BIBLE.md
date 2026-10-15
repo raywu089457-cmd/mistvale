@@ -1,4 +1,12 @@
-# SPRITE VISUAL BIBLE — 暮影村
+> # ⚠️ 本檔已作廢（2026-10-10）
+>
+> 使用者指示：**「不要聖經，取消整個聖經，直接用 RO 風格」**。
+> 本檔（Evil Hunter Tycoon 畫風規格）**不再是權威**，畫風改以**《仙境傳說 Ragnarok Online》角色風格**為準。
+> 下面內容只當歷史紀錄保留；引用它的腳本（`build_hero.py`、`audit_hero_sheet.py`、`make_hv_prompts.py` 等）
+> 裡的比例常數都還在用，要改畫風時請一併重看。
+> 新的生成流程見 [`../pipeline/pixellab.md`](../pipeline/pixellab.md)。
+
+# SPRITE VISUAL BIBLE — 暮影村（已作廢）
 
 本檔只填暮影村的**專案參數**(畫風與尺寸)。製作方法(分層、動畫結構、驗收、命名、版控、AI 生圖規則、流程)一律照
 [`SPRITE_PRODUCTION_PIPELINE.md`](SPRITE_PRODUCTION_PIPELINE.md),本檔不重寫。

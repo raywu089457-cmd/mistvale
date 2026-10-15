@@ -19,6 +19,9 @@ await p.evaluate(()=>{const G=__mistvaleGame,S=G.state,C=['paladin','berserker',
   while(S.hunters.length<10){const src=S.hunters[S.hunters.length%S.hunters.length];S.hunters.push({...JSON.parse(JSON.stringify(src)),id:src.id+'x'+S.hunters.length,classId:C[S.hunters.length%5]});}
   S.hunters.forEach((h,k)=>{if(k%2===0){h.huntRegion='meadow';h.task=null;h.route=[];h.status='出征中';h.x=17+k%3;h.z=2+k%4;}});
   S.enemies.forEach((e,k)=>{e.type=['slime','wolf','golem','boss'][k%4];});G.state.speed=2;});
+// 換完職業先等 1.5 秒再開始量:__mistvaleFacing() 是「最後一次畫出來的動作」,
+// 換職業的那一幀還留著舊職業的動作,馬上量會出現 `archer/walkDownRight act missing` 這種假警報(已驗證是腳本自己的問題)。
+await p.waitForTimeout(1500);
 const r=await p.evaluate(async secs=>{
   const S=()=>__mistvaleGame.state,M={};const sheets=__mistvaleHeroSheets();const bad=[],seen={},want=[];
   const kindOf=(id)=>{if(id.startsWith('enemy:')){const e=S().enemies.find(e=>'enemy:'+e.id===id);return e?(e.type==='boss'?'treant':e.type):null;}const h=S().hunters.find(h=>h.id===id);return h?.classId;};

@@ -22,3 +22,49 @@ __pycache__/
 
 # 像素繪圖工作檔
 diag/__pycache__/
+
+# PixelLab API token（含帳號密鑰，不要進版控）
+.pixellab-token
+
+# Retro Diffusion API token
+.retrodiffusion-token
+# 素材匯出時的自動備份（export_game.py 產生，每次都是舊版素材）
+assets/**/_pre_newpipe/
+# 美術工作檔／實驗產物（體積大、不進版控；已追蹤的舊檔不受影響）
+output/hv-restyle-2026-10-06/
+output/archer-demo/
+output/audit/
+output/audit2/
+output/audit3/
+output/assassin-check/
+output/asf-demo/
+output/pixellab-incoming/
+output/pixellab/
+output/asset-compare/
+output/l0veyou/berserk8/
+output/xilurus-style-demo/
+output/check-*.png
+output/diag-*.png
+output/_chk*.mjs
+output/_pui_check.mjs
+output/_hero-backup-*/
+output/warrior-ro/
+output/warrior-text-v1/
+output/retrodiffusion/
+output/witchhunter/
+output/transfer/
+output/probe-*/
+output/run-*/
+output/pl-walk-*/
+output/neutral/
+output/ref/
+output/input/
+output/readback/
+output/ro-ref/
+output/editor-assets/
+output/equip/
+output/weapon-hand-cache/
+output/basebody/
+output/v2/
+output/single/
+output/_upgrade_*/

@@ -7,7 +7,7 @@ import fs from 'node:fs/promises';
 import path from 'node:path';
 import vm from 'node:vm';
 import crypto from 'node:crypto';
-import {fileURLToPath} from 'node:url';
+import {fileURLToPath,pathToFileURL} from 'node:url';
 
 const root=path.resolve(path.dirname(fileURLToPath(import.meta.url)),'../..');
 const html=await fs.readFile(process.env.HTML||path.resolve(root,'../../outputs/暮影村.html'),'utf8');
@@ -68,12 +68,24 @@ const REQUIRED=['pine','oak','birch','snowpine','boulders','outcrop','cave','rui
  'gold','gems','wood','ore','herb','drink','bed','heal','cloth','food','armor','swords','hammer','anvil','bag','skull','hunter','hall','scroll','map','up','boss','trade','horn','gear','arrow','star','heart','shield'];
 const missing=REQUIRED.filter(id=>!cells.has(id));
 assert.deepEqual(missing,[],'every id the renderer draws exists in the embedded atlases');
-// 5b. 每個角色(英雄/魔物)都要有遊戲會播的動作列
+// 5b. 每個角色(英雄/魔物)都要有遊戲會播的動作列。
+// 例外（2026-10-13 修）：**零件層/身體模板**（basebody、basebody-armour）只有待機＋走路 ——
+// 它們是「開羅式零件」的圖層，遊戲不會拿它們當戰鬥單位，不該被要求 attack/hurt/death。
+// （NPC 專用的職業如 assassin / darkknight 仍照檢查 —— 它們的列本來就齊。）
+const partSheets=new Set();
+for(const e of Object.values(A.heroSheets||{})) for(const p of (e.meta.parts||[])) partSheets.add(p.sheet);
+const isPartsLayer=id=>partSheets.has(id)||!!(A.heroSheets?.[id]?.meta.parts);
 const ACTS={hero:['idle','walk','attack','hurt','death'],monster:['idle','walk','attack','hurt','death']};
 for(const [key,acts] of [['heroSheets',ACTS.hero],['monsterSheets',ACTS.monster]]){
   for(const [id,entry] of Object.entries(A[key]||{})){
+    const rows=Object.keys(entry.meta.actions||{});
+    if(key==='heroSheets'&&isPartsLayer(id)){
+      assert.ok(rows.length>0,`${key}.${id} has no action rows`);
+      console.log(`  ・${id} 是零件層/身體模板（不是戰鬥單位）→ 只檢查有動作列：${rows.join(',')}`);
+      continue;
+    }
     for(const a of acts)assert.ok(entry.meta.actions?.[a],`${key}.${id} has action ${a}`);
-    assert.ok(Object.keys(entry.meta.actions).length>=acts.length,`${key}.${id} actions`);
+    assert.ok(rows.length>=acts.length,`${key}.${id} actions`);
   }
 }
 console.log(`PASS: ${n} embedded assets match their sources; ${REQUIRED.length} required ids present; hero/monster sheets = assets/heroes, assets/monsters3; old atlases not embedded.`);

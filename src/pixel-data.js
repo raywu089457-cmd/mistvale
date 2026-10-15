@@ -23,6 +23,11 @@ export const CLASSES = [
  {id:'archer',name:'弓箭手',tag:'遠程 / 連射',color:'#3fa7a0',hp:96,attack:18,defense:2,speed:2.9,range:5.5,cost:160,desc:'背著大箭袋的輕裝射手，疾風箭雨可同時射穿三個目標。'},
  {id:'witchhunter',name:'獵魔人',tag:'遠程 / 獵魔',color:'#3f7f86',hp:104,attack:22,defense:3,speed:2.8,range:4.8,cost:170,desc:'戴羽飾獵帽、手持連弩的獵魔人，銀弩矢專破魔物要害。'}
 ];
+// 只當流浪英雄、不進招募名單的角色。刻意不放在 CLASSES 裡:CLASSES 的長度會決定流浪英雄與訪客的
+// 擲骰映射,動到它會把決定性模擬的平衡整個推移(見 test-overworld 的各地區生怪數量斷言)。
+export const WANDER_ONLY = [
+ {id:'priest',name:'祭司',tag:'近戰 / 恢復',color:'#b3434a',hp:112,attack:20,defense:4,speed:2.75,range:1.6,cost:175,desc:'披著紅斗篷的暗影祭司，短刃近戰並能自行療傷；放出去流浪時會自己找魔物開打。'}
+];
 // 招牌技能(真的遊戲機制):戰鬥中冷卻好就放,放完 lock 秒內不普攻(播完技能動畫)。
 // kind:multi = 同時打 targets 個最近的魔物;aoe = 打目標與其 radius 內的魔物;single = 單體高倍率;heal = 回復自己。
 export const SKILLS={
@@ -31,7 +36,8 @@ export const SKILLS={
  paladin:{name:'聖盾祈禱',kind:'heal',cd:12,heal:.25,lock:.7,fx:'holy'},
  sorcerer:{name:'流星火球',kind:'aoe',cd:10,mult:1.4,radius:2.6,lock:.8,fx:'spell'},
  witchhunter:{name:'銀弩獵殺',kind:'single',cd:9,mult:2.6,lock:.6,fx:'arrow'},
- archer:{name:'疾風箭雨',kind:'multi',cd:8,mult:1.3,targets:3,lock:.8,release:.32,fx:'gale'}
+ archer:{name:'疾風箭雨',kind:'multi',cd:8,mult:1.3,targets:3,lock:.8,release:.32,fx:'gale'},
+ priest:{name:'暗癒禱言',kind:'heal',cd:10,heal:.28,lock:.7,fx:'holy'}   // WANDER_ONLY 的流浪祭司
 };
 export const RARITIES=[{id:'normal',name:'普通',color:'#d3cab2',mult:1},{id:'rare',name:'稀有',color:'#6fbe8b',mult:1.08},{id:'superior',name:'超級稀有',color:'#6caeee',mult:1.18},{id:'heroic',name:'英雄',color:'#c184e1',mult:1.32},{id:'legendary',name:'傳說',color:'#efb955',mult:1.5}];
 export const TRAITS=[{id:'swift',name:'快手',desc:'攻擊間隔縮短 10%'},{id:'stout',name:'壯碩',desc:'最大生命提高 15%'},{id:'cheerful',name:'樂天',desc:'心情消耗減半'},{id:'frugal',name:'節儉',desc:'生活需求消耗減少 15%'},{id:'brave',name:'勇敢',desc:'攻擊力提高 10%'}];

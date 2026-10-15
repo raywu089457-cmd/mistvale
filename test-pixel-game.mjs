@@ -94,6 +94,15 @@ assert.ok(idle.state.hunters.every(h => h.inTown || h.task), 'Recruited hunters 
 assert.ok(idle.state.counts.services > 0, 'Hunters visibly use town services within 60 seconds');
 assert.ok(Array.isArray(idle.state.wanderers) && idle.state.wanderers.length >= 1, 'Wandering heroes roam the field');
 assert.ok(idle.state.wanderKills > 0, 'Wandering heroes hunt monsters on their own');
+// 流浪英雄:自己的錢包與需求、自己挑狩獵區、缺東西會自己回村買(跟獵人一樣的服務流程)。
+assert.ok(idle.state.wanderers.every(w => Number.isFinite(w.gold) && w.gold >= 0 && Number.isFinite(w.satiety)), 'Wanderers keep their own wallet and needs');
+assert.ok(idle.state.wanderers.every(w => w.huntRegion && w.huntRegion !== 'village'), 'Wanderers pick their own hunting region');
+const roam = createGame();
+run(roam, 300);
+assert.ok(roam.state.wanderers.some(w => w.satiety < 100), 'Wanderer needs drain over time');
+assert.ok(roam.state.wanderers.some(w => w.gold !== 80 || (w.inventory && Object.values(w.inventory).some(v => v > 0))), 'Wanderers earn their own gold and loot');
+assert.ok(roam.state.counts.wandererPurchases > 0, 'Wanderers walk back to town and pay for what they need');
+assert.ok(roam.state.wanderers.every(w => ['meadow', 'forest', 'taiga', 'snow', 'mountain', 'desert', 'birch'].includes(w.huntRegion)), 'Wanderer regions stay in the wild');
 
 // 玩家派指令去哪個區,英雄才會出村打怪。
 const combat = createGame();

@@ -154,4 +154,7 @@ def run(char_dir: Path, anim: str):
 
 
 if __name__ == "__main__":
+    if len(sys.argv) < 2:
+        print("用法: python pipeline/scripts/sprites/sprite_qa.py <sheet.png> [action]")
+        sys.exit(2)
     sys.exit(0 if run(Path(sys.argv[1]), sys.argv[2] if len(sys.argv) > 2 else "idle") else 1)

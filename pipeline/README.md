@@ -16,10 +16,16 @@ AI／工程師，光看這個資料夾就能**完整接手**——知道素材�
 | 檔案 | 內容 |
 |---|---|
 | [`ASSETS.md`](ASSETS.md) | 素材清單：每一張從哪來、狀態、缺口 |
-| [`sprite-gen.md`](sprite-gen.md) | **主管線**：sprite-gen 生圖 → 切格 → 組圖集 → 進遊戲 |
 | [`comfyui.md`](comfyui.md) | **旁支管線**：本機 SD（ComfyUI）生變體／實驗 |
 | [`align.md`](align.md) | **概念圖對齊**：量測（capture/metrics）、概念圖→地面/樹/道具/建築、各階段數字 |
 | [`l0veyou.md`](l0veyou.md) | **替代來源**：l0veyou.com（GPT Image 2）生道具／材質，額度用完時用 |
+| [`pixellab.md`](pixellab.md) | **角色動畫來源（一）**：PixelLab —— 骨架動畫（v1）、純文字建角色 ＋ 動作模版（v2）|
+| [`retrodiffusion.md`](retrodiffusion.md) | **角色動畫來源（二）**：Retro Diffusion —— 一張現成像素圖直接生走路／攻擊，保真度最高 |
+| [`kairo-reference.md`](kairo-reference.md) | **參考架構**：開羅《冒險村物語2》的 6 零件角色動畫系統（逆向筆記）—— 為什麼新裝備不用整套重跑 |
+
+> ⚠️ **2026-10-10：主管線 `sprite-gen` 已移除**（`pipeline/sprite-gen.md` 與 `pipeline/scripts/sprite-gen/` 已刪）。
+> 早期圖集（建築／細節／地形）仍是你用那條管線生的，`manifest.json` 的 `frame_layout` 契約也還在，
+> 但沒有可重跑的文件了；要重生那批圖集得從 git 歷史找回來（`git show HEAD~N:pipeline/sprite-gen.md`）。
 
 報告原文在 [`reports/`](reports/)，可重跑腳本在 [`scripts/`](scripts/)。
 
@@ -27,15 +33,14 @@ AI／工程師，光看這個資料夾就能**完整接手**——知道素材�
 
 ## 兩套管線，一句話分清楚
 
-| | sprite-gen（主管線） | ComfyUI（旁支） |
+| | sprite-gen（已移除 2026-10-10） | ComfyUI（旁支） |
 |---|---|---|
 | 生圖引擎 | **Codex 內建 ImageGen**（ChatGPT／Grok） | 本機 SDXL（離線、免費無限） |
 | 產出 | 建築／細節／地形 **圖集 + manifest** | 現有建築的**變體**、風格實驗 |
 | 額度 | 要 Codex 額度（10/4 前用光了） | 不要錢，只要顯卡（RTX 3070 Ti 8GB） |
 | 現況 | **四階段全做完、已推進正式專案** | 環境修好、配方驗證達標，但沒量產 |
-| 什麼時候用 | 生**全新**素材、重跑整條產線 | 生**現有 12 棟的變體**、或額度用完時 |
 
-**要生新素材 → 走 sprite-gen（主管線）。ComfyUI 只在需要變體或離線時用。**
+**角色／動畫 → 走 PixelLab（[`pixellab.md`](pixellab.md)）。生現有建築的變體 → 走 ComfyUI。**
 
 ---
 
@@ -79,8 +84,8 @@ npm run serve        # 起本地埠 5024（綁 Tailscale 100.79.149.0）
 
 | 東西 | 位置 | 用途 |
 |---|---|---|
-| sprite-gen 工具 | `C:\Users\ray\tools\sprite-gen`（v2.11.0） | 主管線，見它的 `SKILL.md` |
-| sprite-gen 工作現場 | `C:\Users\ray\sprite-demo\mistvale-work\` | 整合腳本＋報告＋對照圖原地 |
+| sprite-gen 工具（**已不再使用**） | `C:\Users\ray\tools\sprite-gen`（v2.11.0） | 早期圖集是用它生的；2026-10-10 從本專案移除 |
+| sprite-gen 工作現場 | `C:\Users\ray\sprite-demo\mistvale-work\` | 早期整合腳本＋報告＋對照圖原地 |
 | buildings POC 圖集 | `C:\Users\ray\sprite-demo\buildings-poc\lod\` | 建築圖集生成結果 |
 | ComfyUI | `D:\AI\ComfyUI`（venv） | 旁支管線 |
 | ComfyUI 配方 | `D:\AI\ComfyUI\projects\mistvale\RECIPE.md` | 已複製到 `reports/RECIPE.md` |
@@ -93,12 +98,12 @@ npm run serve        # 起本地埠 5024（綁 Tailscale 100.79.149.0）
 
 ## 紅旗／已知坑（接手前必讀）
 
-1. **`scripts/sprite-gen/integrate_*.py` 是一次性搬移腳本**，路徑寫死打在
-   `C:\Users\ray\sprite-demo\mistvale-work\proj`（工作副本），**不是**打在這個正式專案。
-   正式專案已經整合完。這些腳本的價值是「記錄整合契約」，想重跑要先改路徑。
+1. **（已刪）`scripts/sprite-gen/integrate_*.py`** 是一次性搬移腳本（2026-10-10 隨 sprite-gen 一起移除，
+   要看得從 git 歷史拿）。它本來就是把 `C:\Users\ray\sprite-demo\mistvale-work\proj`（工作副本）
+   搬進正式專案，正式專案已經整合完。
 2. **快取不失效 = 白做**：`portraitCache` / `spriteCache` 在圖集載入前就烤好會永久佔住舊圖。
    圖集載入後要清快取、快取 key 要分 LOD。這類 bug **不報錯**，要用計數器實測（`atlasUse`）。
-3. **額度**：Codex 額度 10/4 06:08 前用光。要用 sprite-gen 生新圖，先確認額度回來。
+3. **額度**：Codex 額度 10/4 06:08 前用光。要重生圖集得先確認額度回來（且管線文件已移除）。
 4. **21:30 有「別的管道」動過正式專案**（生態系調色 + UI 主題，查過純外觀）。
    如果之後另一個 AI 也動 `pixel-world.js`／`pixel-ui.js`，可能蓋掉素材整合，改前先 diff。
 

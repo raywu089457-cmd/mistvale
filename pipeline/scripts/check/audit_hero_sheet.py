@@ -48,6 +48,8 @@ def four_dir(meta, img):
 
 def audit(hero, d=H):
     meta = json.loads((d / f"{hero}.json").read_text(encoding="utf-8"))
+    if not (d / f"{hero}.png").exists(): return [f"missing {hero}.png"], {}
+    if "idle" not in meta.get("actions", {}): return ["not a hero sheet (no idle action)"], {}
     img = np.asarray(Image.open(d / f"{hero}.png").convert("RGBA"))
     mon = bool(meta.get("monster"))
     bad, info = [], {}
@@ -155,7 +157,11 @@ def audit(hero, d=H):
     for p in H.glob("*.json"):   # 其他英雄(用它們的待機第 1 格)
         k = p.stem
         if k.endswith("-fx") or k == hero: continue
-        m2 = json.loads(p.read_text(encoding="utf-8")); i2 = np.asarray(Image.open(H / f"{k}.png").convert("RGBA")); others[k] = sil(frames(i2, m2["actions"]["idle"])[0])
+        m2 = json.loads(p.read_text(encoding="utf-8"))
+        if "idle" not in m2.get("actions", {}): continue   # 基底身體等無待機列的素材不參與剪影比對
+        try: i2 = np.asarray(Image.open(H / f"{k}.png").convert("RGBA"))
+        except OSError: continue
+        others[k] = sil(frames(i2, m2["actions"]["idle"])[0])
     for k, o in others.items():
         ious[k] = round(float((me & o).sum() / max(1, (me | o).sum())), 2)
     info["silhouetteIoU"] = ious
@@ -176,7 +182,10 @@ def audit_villagers():
 
 
 if __name__ == "__main__":
-    heroes = sys.argv[1:] or [p.stem for p in H.glob("*.json") if not p.stem.endswith("-fx")] + [f"monster:{p.stem}" for p in M.glob("*.json")] + ["villagers"]
+    def _is_hero(stem):
+        try: return "idle" in json.loads((H / f"{stem}.json").read_text(encoding="utf-8")).get("actions", {})
+        except Exception: return False
+    heroes = sys.argv[1:] or [p.stem for p in H.glob("*.json") if not p.stem.endswith("-fx") and _is_hero(p.stem)] + [f"monster:{p.stem}" for p in M.glob("*.json")] + ["villagers"]
     fail = 0
     for h in heroes:
         bad, info = audit_villagers() if h == "villagers" else audit(h.split(":")[1], M) if h.startswith("monster:") else audit(h)
