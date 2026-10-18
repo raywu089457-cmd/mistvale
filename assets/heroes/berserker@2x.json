@@ -1,0 +1,196 @@
+{
+ "hero": "berserker",
+ "heroHeight": 134,
+ "footFromBottom": 16,
+ "actions": {
+  "idle": {
+   "y": 0,
+   "cell": 200,
+   "frames": 1,
+   "frameTime": 0.16
+  },
+  "idleDown": {
+   "y": 200,
+   "cell": 200,
+   "frames": 1,
+   "frameTime": 0.16
+  },
+  "idleUp": {
+   "y": 400,
+   "cell": 200,
+   "frames": 1,
+   "frameTime": 0.16
+  },
+  "walk": {
+   "y": 600,
+   "cell": 200,
+   "frames": 8,
+   "frameTime": 0.125
+  },
+  "walkDown": {
+   "y": 800,
+   "cell": 200,
+   "frames": 8,
+   "frameTime": 0.125
+  },
+  "walkUp": {
+   "y": 1000,
+   "cell": 200,
+   "frames": 8,
+   "frameTime": 0.125
+  },
+  "walkDownRight": {
+   "y": 1200,
+   "cell": 200,
+   "frames": 8,
+   "frameTime": 0.125
+  },
+  "walkUpRight": {
+   "y": 1400,
+   "cell": 200,
+   "frames": 8,
+   "frameTime": 0.125
+  },
+  "walkLeft": {
+   "y": 1600,
+   "cell": 200,
+   "frames": 8,
+   "frameTime": 0.125
+  },
+  "hurt": {
+   "y": 1800,
+   "cell": 200,
+   "frames": 4,
+   "frameTime": 0.1
+  },
+  "victory": {
+   "y": 2000,
+   "cell": 200,
+   "frames": 5,
+   "frameTime": 0.1
+  },
+  "death": {
+   "y": 2200,
+   "cell": 200,
+   "frames": 8,
+   "frameTime": 0.1
+  },
+  "attack": {
+   "y": 2400,
+   "cell": 256,
+   "frames": 9,
+   "head": [
+    [
+     134.0,
+     122
+    ],
+    [
+     129.8,
+     127
+    ],
+    [
+     129.5,
+     130
+    ],
+    [
+     137.8,
+     131
+    ],
+    [
+     146.6,
+     128
+    ],
+    [
+     148.0,
+     128
+    ],
+    [
+     143.3,
+     127
+    ],
+    [
+     138.0,
+     124
+    ],
+    [
+     133.8,
+     122
+    ]
+   ],
+   "frameTime": 0.075,
+   "release": 4,
+   "impact": 5
+  }
+ },
+ "palette": [
+  "#020002",
+  "#060210",
+  "#100411",
+  "#140f15",
+  "#1d161d",
+  "#1e0615",
+  "#262027",
+  "#2d2730",
+  "#2e1226",
+  "#38192c",
+  "#3a2d35",
+  "#41343d",
+  "#443b43",
+  "#452235",
+  "#52464b",
+  "#553446",
+  "#572639",
+  "#594f53",
+  "#644656",
+  "#6b3240",
+  "#75232f",
+  "#763f46",
+  "#765763",
+  "#82454a",
+  "#863847",
+  "#878080",
+  "#896a72",
+  "#90313c",
+  "#954c4e",
+  "#9d7e81",
+  "#9f3440",
+  "#a1434d",
+  "#a25955",
+  "#aa7585",
+  "#b43f46",
+  "#b49390",
+  "#b86a62",
+  "#bd7f77",
+  "#c24e4b",
+  "#cc9094",
+  "#cfaaa0",
+  "#d07e6f",
+  "#d68a7b",
+  "#d9bab1",
+  "#dcd6cf",
+  "#e06d5e",
+  "#ea7a69",
+  "#ec9e86",
+  "#edcdca",
+  "#f0b6a9",
+  "#f2836e",
+  "#f4b094",
+  "#fae7d7",
+  "#fbfbeb",
+  "#fcd3b1",
+  "#fcfbf7",
+  "#fdfce0",
+  "#fe9d83",
+  "#feeec6",
+  "#ffe6be"
+ ],
+ "groups": {
+  "outfit": [
+   42
+  ],
+  "metal": [
+   28
+  ]
+ },
+ "source": "PixelLab 原生 1:1（8 向 rotation + Walking）；cell/foot/heroHeight 一律是 1x 的 2 倍，LOD 切換位置與大小完全相同"
+}

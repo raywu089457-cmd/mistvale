@@ -2,118 +2,118 @@
  "version": 1,
  "kind": "mistvale-xilurus-props-atlas",
  "image": "props@1x.png",
- "sheetWidth": 506,
- "sheetHeight": 350,
+ "sheetWidth": 496,
+ "sheetHeight": 338,
  "packing": "shelf",
  "generator": "l0veyou.com GPT Image 2(Xilurus 風格)→ pipeline/scripts/xilurus/assemble.py",
  "cells": {
   "sheep": {
-   "x": 306,
+   "x": 244,
    "y": 282,
-   "w": 42,
+   "w": 44,
    "h": 42,
    "anchor": [
-    327.0,
+    266.0,
     324
    ]
   },
   "goat": {
-   "x": 256,
+   "x": 194,
    "y": 282,
    "w": 48,
    "h": 50,
    "anchor": [
-    280.0,
+    218.0,
     332
    ]
   },
   "garden": {
-   "x": 58,
+   "x": 0,
    "y": 282,
-   "w": 72,
+   "w": 70,
    "h": 56,
    "anchor": [
-    94.0,
+    35.0,
     338
    ]
   },
   "mushroom": {
-   "x": 350,
+   "x": 290,
    "y": 282,
    "w": 44,
-   "h": 38,
+   "h": 40,
    "anchor": [
-    372.0,
-    320
+    312.0,
+    322
    ]
   },
   "villageBanner": {
-   "x": 450,
+   "x": 382,
    "y": 0,
    "w": 54,
    "h": 100,
    "anchor": [
-    477.0,
+    409.0,
     100
    ]
   },
   "arenaFlag": {
-   "x": 0,
-   "y": 282,
+   "x": 438,
+   "y": 0,
    "w": 56,
-   "h": 68,
+   "h": 70,
    "anchor": [
-    28.0,
-    350
+    466.0,
+    70
    ]
   },
   "bush": {
    "x": 132,
    "y": 282,
    "w": 60,
-   "h": 54,
+   "h": 52,
    "anchor": [
     162.0,
-    336
+    334
    ]
   },
   "cactus": {
-   "x": 280,
+   "x": 300,
    "y": 0,
    "w": 80,
-   "h": 110,
+   "h": 102,
    "anchor": [
-    320.0,
-    110
+    340.0,
+    102
    ]
   },
   "gate": {
    "x": 0,
    "y": 0,
-   "w": 278,
+   "w": 210,
    "h": 280,
    "anchor": [
-    139.0,
+    105.0,
     280
    ]
   },
   "stall": {
-   "x": 362,
+   "x": 212,
    "y": 0,
    "w": 86,
    "h": 110,
    "anchor": [
-    405.0,
+    255.0,
     110
    ]
   },
   "barrels": {
-   "x": 194,
+   "x": 72,
    "y": 282,
-   "w": 60,
+   "w": 58,
    "h": 54,
    "anchor": [
-    224.0,
+    101.0,
     336
    ]
   }

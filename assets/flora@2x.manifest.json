@@ -2,7 +2,7 @@
  "version": 1,
  "kind": "mistvale-xilurus-flora-atlas",
  "image": "flora@2x.png",
- "sheetWidth": 464,
+ "sheetWidth": 460,
  "sheetHeight": 88,
  "packing": "shelf",
  "generator": "l0veyou.com GPT Image 2(Xilurus 風格)→ pipeline/scripts/xilurus/assemble.py",
@@ -40,11 +40,11 @@
   "flowerWhite": {
    "x": 280,
    "y": 0,
-   "w": 80,
-   "h": 68,
+   "w": 76,
+   "h": 72,
    "anchor": [
-    320.0,
-    68
+    318.0,
+    72
    ]
   },
   "wheat": {
@@ -58,12 +58,12 @@
    ]
   },
   "cabbage": {
-   "x": 362,
+   "x": 358,
    "y": 0,
    "w": 100,
    "h": 68,
    "anchor": [
-    412.0,
+    408.0,
     68
    ]
   }
