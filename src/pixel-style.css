@@ -23,7 +23,7 @@
 .world-minimap{position:fixed;right:64px;bottom:184px;padding:3px;border:3px solid #242c20;box-shadow:0 0 0 1px #bea972,inset 0 0 0 1px #acb278;background:#35452f;z-index:4;width:169px}
 .world-minimap canvas{display:block;width:100%;height:113px;image-rendering:pixelated}.world-minimap span{display:flex;justify-content:space-between;font-size:9px;padding:4px 5px;color:#dbd7ae}.world-minimap b{font:11px Consolas;color:#ecd68a}
 .world-map-header{display:flex;justify-content:space-between;align-items:center;font-size:11px;margin-bottom:11px;color:#c5d5b2}.world-map-header b{font:10px Consolas,'Microsoft JhengHei';color:#dccf9f}
-#world-map-canvas{display:block;width:100%;height:310px;image-rendering:pixelated;border:3px solid #1e3026;box-shadow:0 0 0 1px #a3996a;background:#3c6a50;margin:2px 0 18px}
+#world-map-canvas{display:block;width:auto;height:auto;max-width:100%;max-height:310px;image-rendering:pixelated;border:3px solid #1e3026;box-shadow:0 0 0 1px #a3996a;background:#3c6a50;margin:2px auto 18px}
 .region-grid{display:grid;grid-template-columns:repeat(2,1fr);gap:11px}.region-card{border:1px solid #7b90635c;border-left:4px solid var(--biome);background:#243425;padding:13px}.region-card.active{outline:1px solid #dfc680;outline-offset:1px;background:#394b2d}.region-card h3{font-size:15px;color:#eed4a0;letter-spacing:1px}.region-card small{display:block;color:var(--biome);font-size:10px;margin:6px 0}.region-card p{color:#b7c8a4;font-size:10px;line-height:1.7;min-height:33px}.region-card>div{display:flex;gap:7px;margin-top:9px}.region-card .pixel-button{font-size:10px;padding:7px 10px;min-height:29px}.region-card .pixel-button.gold{flex:1}
 .start-panel{box-shadow:0 0 0 2px #c4a768,6px 8px 0 #17251bbb}.start-content{background:linear-gradient(#64724b,#36492f)}
 @media(max-height:780px) and (min-width:901px){#left-panel{max-height:calc(100vh - 190px)}.world-minimap{bottom:175px}}
@@ -136,3 +136,7 @@ html,body{background:#1b3554}
 .equipment-row{background:#2a1609}.stats-grid b{color:#f7e2a8}
 .encounter-banner h3,.quest-list-row h3,.help-card h3,.craft-heading h3,.visitor-card h3,.difficulty-card h3,.region-card h3{color:#f6d98e}
 .log-item{border-bottom-color:#94702c3c}.log-item:before{color:var(--brass)}
+
+/* 派遣視窗:四組分頁與狩獵區按鈕換行,不再因為每顆按鈕 220px 最小寬而被裁掉(手機寬度也一樣) */
+.encounter-actions.dispatch-tabs,.encounter-actions.dispatch-regions{flex-wrap:wrap;margin-top:12px}
+.encounter-actions.dispatch-tabs .pixel-button,.encounter-actions.dispatch-regions .pixel-button{min-width:0;padding:9px 14px;font-size:12px}

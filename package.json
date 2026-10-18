@@ -1,10 +1,10 @@
 {
   "name": "mistvale",
   "version": "1.4.0",
-  "description": "Mistvale pixel hunter village with a three-times-larger biome overworld",
+  "description": "Mistvale pixel hunter village: a compact checkerboard village inside a fence, ringed by seven hunting biomes",
   "main": "index.js",
   "scripts": {
-    "test": "node test-pixel-game.mjs && node test-overworld.mjs && node test-landscape.mjs",
+    "test": "node test-pixel-game.mjs && node test-overworld.mjs && node test-landscape.mjs && node test-village-nav.mjs",
     "build": "node build.mjs",
     "serve": "node server.mjs"
   },

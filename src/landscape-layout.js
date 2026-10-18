@@ -1,60 +1,37 @@
 import {BUILDINGS} from './pixel-data.js';
-import {REGIONS,walkable} from './overworld.js';
-import {STREET_X,STREET_Z,EXITS,EXIT_GAP,FENCE,BUILDING_SLOTS,GRID} from './village-grid.js';
-// 戰鬥空地 z 方向放大(6 → 7.5):魔物 28–33 世界像素寬,原本的空地站不開,戰鬥會疊成一團。
-// 草原空地在 x=19、半徑 5.8:離村莊東柵欄與東門 4 格以上,戰鬥不會擠在門口。
-export const ARENAS=REGIONS.filter(r=>r.id!=='village').map(r=>r.id==='meadow'?{...r,x:19,rx:5.8,rz:7.5}:({...r,rx:r.id==='taiga'?5.7:6.6,rz:7.5}));
-// 實心障礙:中央噴水池、水井廣場的井、村莊四周木柵欄(東、南各留一個出村口)。
-const WELL=BUILDING_SLOTS.well,T=.3;
-const palisade=[];{
- // 一條邊 = 一段長方形;有出口的邊從出口切成兩段(口寬 2×EXIT_GAP)。
- const side=(id,axis,at,lo,hi)=>{const gaps=EXITS.filter(e=>e.side===id).map(e=>axis==='x'?e.z:e.x).sort((a,b)=>a-b);let a=lo;
-  for(const g of [...gaps,Infinity]){const b=Math.min(g-EXIT_GAP,hi);if(b>a)palisade.push(axis==='x'?{id:`palisade-${id}-${palisade.length}`,side:id,minX:at-T,maxX:at+T,minZ:a,maxZ:b}:{id:`palisade-${id}-${palisade.length}`,side:id,minX:a,maxX:b,minZ:at-T,maxZ:at+T});a=g+EXIT_GAP;}};
- side('north','z',FENCE.minZ,FENCE.minX-T,FENCE.maxX+T);side('south','z',FENCE.maxZ,FENCE.minX-T,FENCE.maxX+T);
- side('west','x',FENCE.minX,FENCE.minZ-T,FENCE.maxZ+T);side('east','x',FENCE.maxX,FENCE.minZ-T,FENCE.maxZ+T);}
-export const PALISADE=palisade;
-export const SOLID_PROPS=[
- {id:'fountain',minX:-10,maxX:-6,minZ:0,maxZ:4},
- {id:'well',minX:WELL.x-.6,maxX:WELL.x+.6,minZ:WELL.z-.6,maxZ:WELL.z+.6},
- ...palisade
-];
-export function arenaAt(x,z,padding=0){return ARENAS.find(a=>((x-a.x)/(a.rx+padding))**2+((z-a.z)/(a.rz+padding))**2<=1)||null;}
-export function arenaContains(id,x,z,padding=0){const a=ARENAS.find(a=>a.id===id);return !!a&&((x-a.x)/(a.rx+padding))**2+((z-a.z)/(a.rz+padding))**2<=1;}
+import {walkable} from './overworld.js';
+import {STREET_X,STREET_Z,EXITS,EXIT_GAP,FENCE,GRID,VILLAGE_BOUNDS,BLOCKS,blockAt} from './village-grid.js';
 export function distanceSegment(x,z,a,b){const dx=b.x-a.x,dz=b.z-a.z,t=Math.max(0,Math.min(1,((x-a.x)*dx+(z-a.z)*dz)/(dx*dx+dz*dz||1)));return Math.hypot(x-a.x-t*dx,z-a.z-t*dz);}
 // 各建築圖上「門腳/台階前」相對地基中心的位置(世界單位)。量法:建築圖上台階腳下那一點,換算成地面座標(含立面校正)。
 // 跟建築圖綁在一起;圖或街區大小改了要重量。
 export const DOOR_OFFSET={hall:[.11,2.76],inn:[2.3,1.64],trading:[-.07,3.04],restaurant:[1.08,.79],tavern:[-1.84,3.32],forge:[-1.33,.74],clinic:[-2.74,1.62],academy:[-3.04,.13],training:[-1.47,1.74],sanctuary:[1.4,3.02],house:[-.47,2.68],bounty:[.01,.3],enhancement:[-.47,2.42]};
 export function doorFoot(b,p){const o=DOOR_OFFSET[b.id]||[0,b.d/2+.6];return {x:p.x+o[0],z:p.z+o[1]};}
-// 獵人站的門前位置:門腳,但台階若落在碰撞地基裡,就停在地基外緣(仍在門前小路上)。
+// ── 整個村莊地板鋪滿石板路:能走的鋪面 = 村界內整片(沒有草地與田地了)。畫面(buildVillageLayer)與村內尋路(village-nav)共用這一份。
+export function pavedRings(){return [{minX:VILLAGE_BOUNDS.minX,maxX:VILLAGE_BOUNDS.maxX,minZ:VILLAGE_BOUNDS.minZ,maxZ:VILLAGE_BOUNDS.maxZ}];}
+// 獵人站的門前位置:門腳,但台階若落在碰撞地基裡,就停在地基外緣(仍在鋪面上)。
 export function doorStand(b,p){const f=doorFoot(b,p);return {x:f.x,z:Math.max(f.z,p.z+b.d/2+.4)};}
+// ── 村界木柵欄:沿 FENCE 一圈,東、南各留一個出村口(缺口寬 2×EXIT_GAP)。每段是一個長方形(實心:村內導航與碰撞用,畫面用同一份擺柵欄)。
+const FENCE_T=.3,palisade=[];{
+ const side=(id,axis,at,lo,hi)=>{const gaps=EXITS.filter(e=>e.side===id).map(e=>axis==='x'?e.z:e.x).sort((a,b)=>a-b);let a=lo;
+  for(const g of [...gaps,Infinity]){const b=Math.min(g-EXIT_GAP,hi);if(b>a)palisade.push(axis==='x'?{id:`palisade-${id}-${palisade.length}`,side:id,minX:at-FENCE_T,maxX:at+FENCE_T,minZ:a,maxZ:b}:{id:`palisade-${id}-${palisade.length}`,side:id,minX:a,maxX:b,minZ:at-FENCE_T,maxZ:at+FENCE_T});a=g+EXIT_GAP;}};
+ side('north','z',FENCE.minZ,FENCE.minX-FENCE_T,FENCE.maxX+FENCE_T);side('south','z',FENCE.maxZ,FENCE.minX-FENCE_T,FENCE.maxX+FENCE_T);
+ side('west','x',FENCE.minX,FENCE.minZ-FENCE_T,FENCE.maxZ+FENCE_T);side('east','x',FENCE.maxX,FENCE.minZ-FENCE_T,FENCE.maxZ+FENCE_T);}
+export const PALISADE=palisade;
+// ── 公園池塘:公園街區沒被建築佔用時,有一個池塘。畫面在地面層挖洞畫水,村內尋路把池塘當障礙(整個村莊都是鋪面,池塘不能踩)。
+export function villagePonds(layout={},levels={}){
+ const taken=blk=>BUILDINGS.some(b=>b.id!=='dungeon'&&levels[b.id]!==0&&blockAt((layout[b.id]||b).x,(layout[b.id]||b).z)===blk);
+ return BLOCKS.filter(blk=>blk.use==='park'&&!taken(blk)).map(blk=>({x:blk.x,z:blk.z+.4,rx:2.5,rz:1.9}));}
+// 點(x,z)是否在池塘裡(pad = 往外多留的邊,池塘邊緣有一點起伏)。
+export const inPond=(ponds,x,z,pad=0)=>ponds.some(p=>((x-p.x)/(p.rx+pad))**2+((z-p.z)/(p.rz+pad))**2<1);
 export function getRoads(layout={},levels={}){
  const roads=[];const add=(points,width=1.15,kind='trail')=>{for(let i=1;i<points.length;i++){const a={x:points[i-1][0],z:points[i-1][1]},b={x:points[i][0],z:points[i][1]};roads.push({a,b,width,kind});}};
- // 棋盤格村莊:每條街區邊都是石板街(src/village-grid.js),中央廣場一圈環道+四條放射短街接到廣場四邊。
+ // 棋盤格村莊:每條街區邊(建築之間通道的正中)都是石板街(src/village-grid.js)。整個村莊地板都鋪了石板,街道只是讓道路圖連通。
  const X0=STREET_X[0],X1=STREET_X.at(-1),Z0=STREET_Z[0],Z1=STREET_Z.at(-1);
  for(const x of STREET_X)add([[x,Z0],[x,Z1]],GRID.street,'stone');
  for(const z of STREET_Z)add([[X0,z],[X1,z]],GRID.street,'stone');
- const circle=Array.from({length:13},(_,i)=>[GRID.cx+Math.cos(i*Math.PI/6)*3.6,GRID.cz+Math.sin(i*Math.PI/6)*3.6]);add(circle,.6,'stone');
- const half=GRID.pitch/2;
- for(const [dx,dz] of [[1,0],[-1,0],[0,1],[0,-1]])add([[GRID.cx+dx*3.6,GRID.cz+dz*3.6],[GRID.cx+dx*half,GRID.cz+dz*half]],.7,'stone');
- // 出村:兩條街穿過柵欄口,路只鋪到門外一點;村外沒有路,自由走。
- for(const e of EXITS)add([[e.street.x,e.street.z],[e.out.x,e.out.z]],GRID.street,'stone');
- const mainStreets=roads.filter(r=>r.kind==='stone');
- // 門前小路:從建築圖上的台階腳下(doorFoot)筆直往南(+z,門朝畫面左下)接到下一條橫街,不往建築裡延伸。
- for(const b of BUILDINGS){
-  if(b.id==='dungeon'||levels[b.id]===0)continue;
-  const p=layout[b.id]||b,foot=doorFoot(b,p);
-  let junction=null;
-  const south=STREET_Z.find(z=>z>foot.z+.3);
-  if(south!=null&&foot.x>=X0&&foot.x<=X1)junction={x:foot.x,z:south};
-  else{let nearest=Infinity;for(const r of mainStreets){
-   const dx=r.b.x-r.a.x,dz=r.b.z-r.a.z;
-   const t=Math.max(0,Math.min(1,((foot.x-r.a.x)*dx+(foot.z-r.a.z)*dz)/(dx*dx+dz*dz||1)));
-   const q={x:r.a.x+t*dx,z:r.a.z+t*dz},distance=Math.hypot(q.x-foot.x,q.z-foot.z);
-   if(distance<nearest){nearest=distance;junction=q;}
-  }}
-  if(junction)roads.push({a:{x:foot.x,z:foot.z},b:{x:junction.x,z:junction.z},width:.58,kind:'stone',door:true});
- }
- return fitRoads(roads,layout,levels);
+ // 出村:兩條街穿過出村口,路鋪到村界為止(切平、不圓頭);村外沒有路,自由走。
+ for(const e of EXITS)roads.push({a:{x:e.street.x,z:e.street.z},b:{x:e.edge.x,z:e.edge.z},width:GRID.street,kind:'stone',cap:'butt'});
+ const result=fitRoads(roads,layout,levels);result.paved=pavedRings(layout,levels);return result;
 }
 // 道路圖:把所有路段在交叉點/端點切開,變成「節點 + 邊」。村裡的獵人只沿這張圖走(不穿街區)。
 export function roadGraph(roads){
@@ -73,24 +50,16 @@ export function roadGraph(roads){
  return {nodes,edges,links};
 }
 export function onRoad(x,z,roads,extra=0){return roads.some(r=>distanceSegment(x,z,r.a,r.b)<=r.width+extra);}
+// 能走的鋪面 = 街道 + 整個村莊地板(getRoads 附在陣列上的 .paved)。
+export function onPaved(x,z,roads,extra=0){return onRoad(x,z,roads,extra)||(roads.paved||[]).some(r=>x>=r.minX-extra&&x<=r.maxX+extra&&z>=r.minZ-extra&&z<=r.maxZ+extra);}
 export function roadStyle(x,z,roads){return roads.find(r=>distanceSegment(x,z,r.a,r.b)<=r.width)?.kind||null;}
 export function roadNodes(roads){const map=new Map();for(const r of roads)for(const p of[r.a,r.b])map.set(`${p.x.toFixed(3)},${p.z.toFixed(3)}`,p);return [...map.values()].filter(p=>walkable(p.x,p.z));}
 const iso=(x,z)=>({x:(x-z)*9,y:(x+z)*4.5});
-export function canopyObscures(x,z,size,px,pz,extra=0){const t=iso(x,z),p=iso(px,pz);return Math.abs(t.x-p.x)<26*size+extra&&t.y+4*size>p.y-30-extra&&t.y-74*size<p.y+extra;}
-export function keepTallDecoration(d,roads,layout={}){
- const size=d.size||1;
- if(onRoad(d.x,d.z,roads,2.1)||arenaAt(d.x,d.z,3))return false;
- // Exclude projected crowns too: a tree rooted outside an arena can still cover it.
- for(const a of ARENAS){for(let z=a.z-a.rz;z<=a.z+a.rz;z+=2)for(let x=a.x-a.rx;x<=a.x+a.rx;x+=2){if(arenaContains(a.id,x,z,1)&&canopyObscures(d.x,d.z,size,x,z,5))return false;}}
- for(const r of roads){const n=Math.ceil(Math.hypot(r.b.x-r.a.x,r.b.z-r.a.z)/1.5);for(let i=0;i<=n;i++){const u=i/(n||1);if(canopyObscures(d.x,d.z,size,r.a.x+(r.b.x-r.a.x)*u,r.a.z+(r.b.z-r.a.z)*u,9))return false;}}
- for(const b of BUILDINGS){const p=layout[b.id]||b;if(Math.abs(d.x-p.x)<4&&Math.abs(d.z-p.z)<5)return false;}
- return true;
-}
 
 // Fit paving around the actual saved footprints. Junction endpoints are shared
 // before detouring, so a moved house never leaves its front-door path stranded.
 function fitRoads(roads,layout,levels){
- const rects=BUILDINGS.filter(b=>levels[b.id]!==0).map(b=>{const p=layout[b.id]||b;return {minX:p.x-b.w/2-.45,maxX:p.x+b.w/2+.45,minZ:p.z-b.d/2-.45,maxZ:p.z+b.d/2+.45};}).concat(SOLID_PROPS);
+ const rects=BUILDINGS.filter(b=>levels[b.id]!==0).map(b=>{const p=layout[b.id]||b;return {minX:p.x-b.w/2-.45,maxX:p.x+b.w/2+.45,minZ:p.z-b.d/2-.45,maxZ:p.z+b.d/2+.45};});
  const blocked=p=>rects.some(r=>p.x>r.minX&&p.x<r.maxX&&p.z>r.minZ&&p.z<r.maxZ);
  const clear=(a,b)=>!rects.some(r=>{let near=0,far=1;for(const [key,lo,hi]of [['x',r.minX,r.maxX],['z',r.minZ,r.maxZ]]){const d=b[key]-a[key];if(Math.abs(d)<1e-8){if(a[key]<=lo||a[key]>=hi)return false;}else{let t0=(lo-a[key])/d,t1=(hi-a[key])/d;if(t0>t1)[t0,t1]=[t1,t0];near=Math.max(near,t0);far=Math.min(far,t1);if(near>=far)return false;}}return far>1e-7&&near<1-1e-7;});
  const corners=[];for(const r of rects)for(const x of[r.minX-.05,r.maxX+.05])for(const z of[r.minZ-.05,r.maxZ+.05])if(!blocked({x,z})&&walkable(x,z))corners.push({x,z});

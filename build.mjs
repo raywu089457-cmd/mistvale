@@ -46,9 +46,12 @@ for(const [tag,file,js] of [['terrainAtlas','terrain-atlas.png',false],['terrain
 // 舊版角色/魔物圖集(hero@、heropose@、monsters@)已移除:英雄走 assets/heroes,魔物走 assets/monsters3。
 // 新規格英雄 sprite sheet(sprites/SPRITE_VISUAL_BIBLE.md §9;pipeline/scripts/heroes/build_hero.py 產生)
 {const dir=path.join(root,'assets/heroes');let files=[];try{files=await fs.readdir(dir);}catch{}
- const sheets={};for(const f of files.filter(f=>f.endsWith('.json')&&!f.endsWith('-fx.json'))){const id=f.slice(0,-5);
+ const sheets={};for(const f of files.filter(f=>f.endsWith('.json')&&!f.endsWith('-fx.json')&&!f.includes('@'))){const id=f.slice(0,-5);
   const img=await fs.readFile(path.join(dir,id+'.png')),meta=await fs.readFile(path.join(dir,f),'utf8');sheets[id]={img:'data:image/png;base64,'+img.toString('base64'),meta:JSON.parse(meta)};
-  try{sheets[id].fx='data:image/png;base64,'+(await fs.readFile(path.join(dir,id+'-fx.png'))).toString('base64');sheets[id].fxMeta=JSON.parse(await fs.readFile(path.join(dir,id+'-fx.json'),'utf8'));}catch{}}
+  try{sheets[id].fx='data:image/png;base64,'+(await fs.readFile(path.join(dir,id+'-fx.png'))).toString('base64');sheets[id].fxMeta=JSON.parse(await fs.readFile(path.join(dir,id+'-fx.json'),'utf8'));}catch{}
+  // 高解析 LOD：<id>@2x.png/.json（原生 1:1）。執行時依縮放自動挑，低縮放用 1x（銳利）、放大用 2x（細節）。
+  try{const hi=await fs.readFile(path.join(dir,id+'@2x.png'));const hm=await fs.readFile(path.join(dir,id+'@2x.json'),'utf8');
+    sheets[id].hi={img:'data:image/png;base64,'+hi.toString('base64'),meta:JSON.parse(hm)};}catch{}}
  assetScript+=`window.PIXEL_ASSETS=window.PIXEL_ASSETS||{};window.PIXEL_ASSETS.heroSheets=${JSON.stringify(sheets)};`;
  try{assetScript+=`window.PIXEL_ASSETS.heroAccessories=${JSON.stringify({img:'data:image/png;base64,'+(await fs.readFile(path.join(dir,'accessories.png'))).toString('base64'),meta:JSON.parse(await fs.readFile(path.join(dir,'accessories.meta'),'utf8'))})};`;}catch{}
  // 新規格魔物(assets/monsters3/<魔物>.png/.json)

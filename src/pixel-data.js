@@ -1,4 +1,4 @@
-import {BUILDING_SLOTS} from './village-grid.js';
+import {BUILDING_SLOTS,GRID} from './village-grid.js';
 export const BUILDINGS = [
  {id:'hall',name:'城鎮大廳',x:-16.5,z:-6.5,w:4.4,d:3.6,type:'hall',roof:'#b9543e',cost:{gold:350,wood:45,ore:25},desc:'村莊的中心。升級後開放更高等級的設施。',effect:'其他建築的等級上限'},
  {id:'trading',name:'交易所',x:-21.7,z:3.9,w:4,d:3.5,type:'trading',roof:'#427dc7',cost:{gold:160,wood:30,ore:10},desc:'發布收購委託，用村莊金幣向獵人購買戰利品，補充生產材料。',effect:'獵人出售材料 → 村莊收購'},
@@ -46,7 +46,7 @@ export const PRODUCTS={food:{name:'香烤麵包',building:'restaurant',need:'sat
 export const RECIPES=[{id:'weapon',name:'精鐵武器',type:'weapon',price:85,cost:{ore:12,wood:6},bonus:7},{id:'armor',name:'皮革護甲',type:'armor',price:70,cost:{leather:10,cloth:4},bonus:4}];
 export const DIFFICULTIES=[{id:0,name:'初級',mult:1,rebirths:0},{id:1,name:'普通',mult:1.7,rebirths:1},{id:2,name:'困難',mult:2.8,rebirths:3},{id:3,name:'專家',mult:4.5,rebirths:5},{id:4,name:'噩夢',mult:7,rebirths:10}];
 export const HUNT_ZONE={x:18,z:-1,radius:8};
-export const CAMP={x:-8,z:5.5};
+export const CAMP={x:GRID.cx,z:GRID.cz+.5};   // 營地:村中央的廣場(空的石板地)
 export const SAVE_KEY='mistvale-pixel-v2';
 export const LEGACY_LAYOUT_V15={hall:{x:-20,z:-10},trading:{x:-12,z:-7},restaurant:{x:-12,z:0},inn:{x:-20,z:11},tavern:{x:-3,z:11},clinic:{x:8,z:10},forge:{x:4,z:0},academy:{x:-4,z:-4},training:{x:-3,z:19},sanctuary:{x:7,z:-12},house:{x:-21,z:17},bounty:{x:4,z:18},enhancement:{x:-20,z:-16},dungeon:{x:24,z:-11}};
 export const LEGACY_LAYOUT_V16={hall:{x:-20,z:-10},trading:{x:-12,z:-7},restaurant:{x:-12,z:0},inn:{x:-20,z:11},tavern:{x:-16,z:13},clinic:{x:5,z:10},forge:{x:4,z:0},academy:{x:1,z:-7},training:{x:-3,z:19},sanctuary:{x:5,z:-18},house:{x:-23,z:16},bounty:{x:5,z:17},enhancement:{x:-25,z:-17},dungeon:{x:24,z:-11}};
@@ -71,6 +71,9 @@ for(const change of [
 ART_LAYOUT_HISTORY.push(Object.fromEntries(BUILDINGS.map(b=>[b.id,b.id==='house'?{x:6.2,z:4.2}:{x:b.x,z:b.z}])));
 // 2026-10-03 棋盤格村莊:前一版(概念圖構圖)預設也記進歷史,再把預設位置改成棋盤街區中心(src/village-grid.js)。
 ART_LAYOUT_HISTORY.push(Object.fromEntries(BUILDINGS.map(b=>[b.id,{x:b.x,z:b.z}])));
+// 2026-10-19 村莊收攏成緊湊棋盤、野外縮小一半:棋盤格第一版(街區間距 10.5)的預設佈局也記進歷史,存檔還是這個布局就搬到新預設。
+export const LEGACY_LAYOUT_V17={hall:{x:-18.5,z:-8.5},trading:{x:-18.5,z:2},restaurant:{x:-18.5,z:12.5},inn:{x:-29,z:12.5},tavern:{x:-8,z:12.5},clinic:{x:-8,z:-8.5},forge:{x:-18.5,z:-19},academy:{x:-8,z:-19},training:{x:-39.5,z:-8.5},sanctuary:{x:2.5,z:-19},house:{x:2.5,z:2},bounty:{x:2.5,z:-7.9},enhancement:{x:-29,z:-19},dungeon:{x:24,z:-11}};
+ART_LAYOUT_HISTORY.push(LEGACY_LAYOUT_V17);
 for(const b of BUILDINGS){const slot=BUILDING_SLOTS[b.id];if(slot&&b.id!=='dungeon'){b.x=slot.x;b.z=slot.z;}}
 
 export const LEGACY_LAYOUT_V14={"hall": {"x": -5.0, "z": -8.0}, "trading": {"x": -12.0, "z": -7.0}, "restaurant": {"x": -12.0, "z": 0.0}, "inn": {"x": -12.0, "z": 7.0}, "tavern": {"x": -4.0, "z": 7.0}, "clinic": {"x": 4.0, "z": 7.0}, "forge": {"x": 4.0, "z": 0.0}, "academy": {"x": -4.0, "z": 0.0}, "training": {"x": -3.0, "z": 14.0}, "sanctuary": {"x": 4.0, "z": -8.0}, "house": {"x": -12.0, "z": 14.0}, "bounty": {"x": 5.0, "z": 14.0}, "enhancement": {"x": -12.0, "z": -14.0}, "dungeon": {"x": 24, "z": -11}};

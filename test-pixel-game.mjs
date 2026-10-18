@@ -1,6 +1,7 @@
 import assert from 'node:assert/strict';
 import { createGame } from './src/pixel-game.js';
 import { doorStand } from './src/landscape-layout.js';
+import { blockCenter } from './src/village-grid.js';
 import { BUILDINGS, CLASSES, MATERIALS, PRODUCTS } from './src/pixel-data.js';
 
 function run(game, seconds, quiet = false, inspect = null) {
@@ -84,8 +85,9 @@ assert.equal(buildings.upgrade('forge').ok, true); assert.deepEqual(buildings.ge
 assert.equal(buildings.upgrade('forge').ok, false, 'Hall gates higher building levels'); assert.equal(buildings.upgrade('hall').ok, true); assert.equal(buildings.upgrade('forge').ok, true);
 assert.equal(buildings.upgrade('house').ok, true); assert.equal(buildings.state.capacity, 10); assert.equal(buildings.upgrade('academy').ok, false);
 assert.equal(buildings.construct('academy').ok, true); assert.equal(buildings.construct('academy').ok, false);
-assert.equal(buildings.moveBuilding('bounty', 5, 17).ok, true); assert.equal(buildings.moveBuilding('hall', -8, 2).ok, false, 'plaza stays open'); assert.equal(buildings.moveBuilding('hall', -100, 0).ok, false); assert.equal(buildings.moveBuilding('dungeon', 0, 0).ok, false);
-const movedSaved = createGame(buildings.serialize()); assert.deepEqual(movedSaved.state.layout.bounty, { x: 2.5, z: 13.1 }, 'moves snap to the nearest block (bounty keeps its street-side nudge)');
+const marketBlock = blockCenter(-2, 0), plazaBlock = blockCenter(0, 0);
+assert.equal(buildings.moveBuilding('bounty', marketBlock.x + 1, marketBlock.z - 1).ok, true); assert.equal(buildings.moveBuilding('hall', plazaBlock.x, plazaBlock.z).ok, false, 'plaza stays open'); assert.equal(buildings.moveBuilding('hall', -100, 0).ok, false); assert.equal(buildings.moveBuilding('dungeon', 0, 0).ok, false);
+const movedSaved = createGame(buildings.serialize()); assert.deepEqual(movedSaved.state.layout.bounty, { x: marketBlock.x, z: marketBlock.z }, 'moves snap to the nearest block center');
 
 // 新玩法:招募英雄不自己出村打怪,待機在村內等玩家派指令。
 const idle = createGame(); run(idle, 60, false, assertFiniteEconomy);
@@ -116,6 +118,38 @@ assert.equal(combat.expedition().ok, true); assert.equal(combat.expedition().ok,
 assert.equal(combat.recallHunters().ok, true); assert.ok(combat.state.hunters.every(h => !h.huntRegion), 'Recalled hunters wait for the next order');
 assert.equal(combat.recallHunters().ok, false);
 const healer = combat.state.hunters.find(h => h.hp > 0); healer.hp = healer.maxHp * 0.1; assert.equal(combat.heal().ok, true); assert.ok(healer.hp >= healer.maxHp * 0.54); assert.equal(combat.heal().ok, false);
+// 組隊派遣:四組各自的隊員與狩獵區;同一位獵人只能在一組;各組只打自己區域的魔物;舊存檔的重複名單讀檔時去重。
+const squads = createGame(); const [s0, s1, s2, s3, s4] = squads.state.hunters;
+assert.equal(squads.state.dispatchTeams.length, 4);
+assert.equal(squads.setDispatchTeam(0, { ids: [s0.id, s1.id], region: 'meadow' }).ok, true);
+assert.equal(squads.setDispatchTeam(1, { ids: [s1.id, s2.id], region: 'forest' }).ok, true);
+assert.deepEqual(squads.state.dispatchTeams[0].ids, [s0.id], 'A hunter moves between squads instead of joining two');
+assert.deepEqual(squads.state.dispatchTeams[1].ids, [s1.id, s2.id]);
+assert.equal(squads.setDispatchTeam(2, { ids: [s3.id], region: 'taiga' }).ok, true);
+assert.equal(squads.setDispatchTeam(3, { region: 'village' }).ok, true); assert.equal(squads.state.dispatchTeams[3].region, 'meadow', 'The village is not a hunting region');
+assert.equal(squads.setDispatchTeam(4, { ids: [s4.id] }).ok, false, 'Only four squads exist');
+squads.setDispatchTeam(0, { ids: ['missing'] }); assert.deepEqual(squads.state.dispatchTeams[0].ids, [], 'Unknown hunters are ignored'); squads.setDispatchTeam(0, { ids: [s0.id] });
+assert.equal(squads.dispatchTeam(3).ok, false, 'An empty squad cannot leave town');
+assert.equal(squads.dispatchTeam(0).ok, true); assert.equal(squads.dispatchTeam(1).ok, true); assert.equal(squads.dispatchTeam(2).ok, true);
+assert.equal(s0.huntRegion, 'meadow'); assert.equal(s1.huntRegion, 'forest'); assert.equal(s2.huntRegion, 'forest'); assert.equal(s3.huntRegion, 'taiga'); assert.ok(!s4.huntRegion, 'Hunters outside every squad stay in town');
+const squadTargets = [];
+run(squads, 150, false, state => {
+  assertFiniteEconomy(state);
+  for (const h of state.hunters) {
+    if (!h.huntRegion || !h.targetId) continue;
+    const enemy = state.enemies.find(e => e.id === h.targetId);
+    if (enemy && enemy.type !== 'boss') squadTargets.push(enemy.regionId === h.huntRegion || Math.hypot(h.x - enemy.x, h.z - enemy.z) < 4.6);  // 路上被攔截(4 格內)的別區魔物也會還手;再多留一個 tick 雙方移動的距離(區緊鄰時才看得到)
+  }
+});
+assert.ok(squadTargets.length > 0, 'Dispatched squads pick targets'); assert.ok(squadTargets.every(Boolean), 'Each squad only fights monsters in its own region');
+assert.ok(['meadow', 'forest', 'taiga'].every(r => squads.state.visitedRegions.includes(r)), 'Every dispatched squad reaches its region');
+assert.ok(squads.state.totalKills > 0, 'Squads in several regions earn kills'); assert.ok(!s4.huntRegion, 'The unassigned hunter never leaves for a region');
+const squadLoad = createGame(squads.serialize());
+assert.deepEqual(squadLoad.state.dispatchTeams.map(t => t.ids), squads.state.dispatchTeams.map(t => t.ids)); assert.deepEqual(squadLoad.state.dispatchTeams.map(t => t.region), ['meadow', 'forest', 'taiga', 'meadow']);
+const dupSave = squads.serialize(); dupSave.dispatchTeams[3] = { ids: [s0.id, s4.id], region: 'desert' };
+const dupLoaded = createGame(dupSave);
+assert.deepEqual(dupLoaded.state.dispatchTeams[0].ids, [s0.id], 'The first squad that lists a hunter keeps him'); assert.deepEqual(dupLoaded.state.dispatchTeams[3].ids, [s4.id]); assert.equal(dupLoaded.state.dispatchTeams[3].region, 'desert');
+assert.equal(createGame().dispatchHunters().ok, true, 'The one-click dispatch still sends everyone');
 const dead = createGame(), fallen = isolate(dead); fallen.hp = 0; run(dead, 0.2, true); assert.equal(fallen.status, '復活中'); assert.equal(dead.state.counts.deaths, 1); run(dead, 10, true); assert.ok(fallen.hp > 0 && fallen.reviveTimer === 0);
 
 const dungeon = createGame(); assert.equal(dungeon.startDungeon().ok, false); assert.equal(dungeon.construct('dungeon').ok, true);

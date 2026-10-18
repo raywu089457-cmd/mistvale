@@ -16,7 +16,7 @@ await p.waitForTimeout(1500);
 const shot=async name=>{const f=path.join(outDir,name+'.png');await p.screenshot({path:f});console.log('shot',name);};
 await shot('00-title');
 await p.click('#start-button');
-await p.waitForFunction(()=>globalThis.__mistvaleDetails?.().ready&&globalThis.__mistvaleGame&&globalThis.__mistvaleDecor?.().length>500,null,{timeout:60000});
+await p.waitForFunction(()=>globalThis.__mistvaleDetails?.().ready&&globalThis.__mistvaleGame&&globalThis.__mistvaleDecor?.(),null,{timeout:60000});
 await p.waitForTimeout(2500);
 const regions=['village','meadow','forest','taiga','snow','mountain','desert','birch'];
 const zooms={far:0.9,mid:1.8,close:3.4};
