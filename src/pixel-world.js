@@ -3,7 +3,7 @@ import { BUILDINGS, CLASSES, RARITIES } from './pixel-data.js';
 import {WORLD,REGIONS,biomeAt,BIOME_PALETTE,inVillage} from './overworld.js';
 import {conceptGroundAt} from './concept-ground.js';
 import {TILE,GRID,STREET_X,STREET_Z,VILLAGE_BOUNDS,blockAt} from './village-grid.js';
-import {trackImage} from './asset-loading.js';
+import {trackImage,markPhase} from './asset-loading.js';
 
 // All artwork is rendered to a small integer pixel buffer and enlarged without
 // interpolation. World coordinates are shared with the village simulation.
@@ -242,6 +242,7 @@ function heroFrameFor(classId,sc){
   return alt;
 }
 function ensureHeroAtlas(){
+  markPhase('角色');
   const assets=globalThis.PIXEL_ASSETS||{};
   for(const [sheetKey,manKey] of [['heroAtlas','heroManifest'],['heroAtlas2x','heroManifest2x'],['heroposeAtlas','heroposeManifest'],['heroposeAtlas2x','heroposeManifest2x'],['heroAtlas4x','heroManifest4x'],['heroposeAtlas4x','heroposeManifest4x']]){
     if(!assets[sheetKey]||!assets[manKey]||loadedAssetKeys.has(sheetKey))continue;
@@ -280,6 +281,7 @@ export const MAP_PALETTE=Object.fromEntries(Object.keys(BIOME_PALETTE).map(b=>[b
 export const MAP_ACCENT={grass:'#c6d547',snow:'#dae6f8',desert:'#ffc153',mountain:'#776a67',road:'#be8349',sea:'#1e8193'};
 let terrainPatternRev=0,terrainLoadsPending=0;   // 還在載入的地面貼圖數;全部載完才重畫地面,避免每張貼圖各重畫一次
 function ensureTerrainAtlas(){
+  markPhase('地面材質');
   const assets=globalThis.PIXEL_ASSETS||{};
   if(!assets.terrainAtlas||!assets.terrainManifest||loadedAssetKeys.has('terrainAtlas'))return;
   loadedAssetKeys.add('terrainAtlas');
@@ -366,6 +368,7 @@ function toneFoliage(im,cells){
   return cv;
 }
 function ensureDetailAtlas(){
+  markPhase('樹木與道具');
   const assets=globalThis.PIXEL_ASSETS||{};
   // props / monsters / flora 是 l0veyou 生的圖集,同契約、cell id 不重複,所以共用 detailLod。
   for(const [sheetKey,manKey] of [['detailsAtlas','detailsManifest'],
@@ -582,7 +585,8 @@ export function createWorld(canvas,{onSelect=()=>{},onPlace=()=>{},getState=()=>
   const R=v=>Math.round(v*DPRK)/DPRK;
   canvas.style.imageRendering='pixelated';canvas.style.touchAction='none';screen.imageSmoothingEnabled=false;bg.imageSmoothingEnabled=false;
   let width=800,height=500,scale=.9,elapsed=0,phase=.15,selected=null,placing=null,state={buildings:{},hunters:[],enemies:[],effects:[]},disposed=false,quality=true,baseScale=1.95;
-  let renderDprMax=Math.max(1,Math.min(2.5,globalThis.devicePixelRatio||1)),renderCostMs=0,slowSince=0,adaptFrom=performance.now()+5000;   // 畫布解析度上限:效能不足時降到 1 倍,降了不再升回
+  const renderDprMax=Math.max(1,Math.min(2,globalThis.devicePixelRatio||1));   // 畫布解析度上限:DPR 最多 2 倍,固定不隨效能調整
+  let canvasRect=null;
   const HOME0=(()=>iso((VILLAGE_BOUNDS.minX+VILLAGE_BOUNDS.maxX)/2,(VILLAGE_BOUNDS.minZ+VILLAGE_BOUNDS.maxZ)/2))();   // 村莊中心(初始鏡頭)
   let cam={...HOME0},target={...HOME0},pointer=null,hover=null,lastSource=null,pinchDistance=0,homeFraming=false;
   const uiLabels=[],hits=[],pointers=new Map(),previousPositions=new Map();
@@ -598,6 +602,7 @@ export function createWorld(canvas,{onSelect=()=>{},onPlace=()=>{},getState=()=>
 
   function diamond(ctx,x,z,rx,rz,color){const a=worldPos(x-rx,z-rz),b=worldPos(x+rx,z-rz),c=worldPos(x+rx,z+rz),d=worldPos(x-rx,z+rz);polygon(ctx,[[a.x,a.y],[b.x,b.y],[c.x,c.y],[d.x,d.y]],color);}
   function generateGround(){
+    markPhase('繪製村莊地板');
     // 高細節材質 1 原生像素 = 0.25 畫面單位:桌機地面 4px/單位剛好一比一(關平滑、像素銳利);手機 2px/單位是縮小一半,開平滑才不會閃爍摩爾紋。
     gc.setTransform(GROUND_RES,0,0,GROUND_RES,0,0);gc.imageSmoothingEnabled=GROUND_RES<4;gc.imageSmoothingQuality='high';
     const rand=rnd(349180);decorations.length=0;roads=getRoads(state.layout||{},state.buildings||{});terrainRevision++;
@@ -1677,20 +1682,22 @@ export function createWorld(canvas,{onSelect=()=>{},onPlace=()=>{},getState=()=>
     for(const t of screenTexts)drawScreenText(t,k);
     screen.font=`bold ${Math.round(11*k)}px "Microsoft JhengHei", "Noto Sans TC", sans-serif`;for(const l of uiLabels){const x=Math.round(l.x*k),y=Math.round(l.y*k),tw=screen.measureText(l.text).width;screen.fillStyle='#1c0e06cc';screen.fillRect(x-tw/2-6*k,y-9*k,tw+12*k,19*k);screen.fillStyle='#4a2611e6';screen.fillRect(x-tw/2-5*k,y-8*k,tw+10*k,17*k);screen.fillStyle='#8a5530e6';screen.fillRect(x-tw/2-5*k,y-8*k,tw+10*k,2*k);screen.fillStyle='#dab247aa';screen.fillRect(x-tw/2-4*k,y+8*k,tw+8*k,k);screen.fillStyle=l.color;screen.fillText(l.text,x,y);}screen.restore();
   }
-  function adaptRenderDpr(ms){
-    // 渲染一幀的平滑耗時超過 33 ms(約 30 fps)並持續 3 秒,就把畫布降到 1 倍;降了不再升回。啟動後 5 秒內不判斷(快取還在建立)。
-    renderCostMs=renderCostMs?renderCostMs*.95+ms*.05:ms;
-    if(renderDprMax<=1||performance.now()<adaptFrom)return;
-    if(renderCostMs<=33){slowSince=0;return;}
-    if(!slowSince){slowSince=performance.now();return;}
-    if(performance.now()-slowSince>3000){renderDprMax=1;slowSince=0;resize();}
-  }
-  function update(dt,nextState){if(disposed)return;if(nextState){state=nextState;const key=BUILDINGS.map(b=>`${b.id}:${state.buildings?.[b.id]>0}:${state.layout?.[b.id]?.x??b.x}:${state.layout?.[b.id]?.z??b.z}`).join('|');if(!terrainLoadsPending&&(key!==landscapeKey||terrainPatternRev!==lastPatternRev)){lastPatternRev=terrainPatternRev;landscapeKey=key;generateGround();}}elapsed+=Math.min(dt||0,.1);heroLodScale=scale*DPRK;ensureAtlas();const t=1-Math.exp(-Math.max(.016,dt||.016)*7);cam.x+=(target.x-cam.x)*t;cam.y+=(target.y-cam.y)*t;if(variantJobs.size)pumpVariants();if(hiQueue.length)pumpHi();const r0=performance.now();if(zoomTimer&&previewFits())applyZoomPreview();else{canvas.style.transform='';render();}adaptRenderDpr(performance.now()-r0);}
+  function update(dt,nextState){if(disposed)return;if(nextState){state=nextState;const key=BUILDINGS.map(b=>`${b.id}:${state.buildings?.[b.id]>0}:${state.layout?.[b.id]?.x??b.x}:${state.layout?.[b.id]?.z??b.z}`).join('|');if(!terrainLoadsPending&&(key!==landscapeKey||terrainPatternRev!==lastPatternRev)){lastPatternRev=terrainPatternRev;landscapeKey=key;generateGround();}}elapsed+=Math.min(dt||0,.1);heroLodScale=scale*DPRK;ensureAtlas();const t=1-Math.exp(-Math.max(.016,dt||.016)*7);cam.x+=(target.x-cam.x)*t;cam.y+=(target.y-cam.y)*t;if(variantJobs.size)pumpVariants();if(hiQueue.length)pumpHi();if(zoomTimer&&previewFits())applyZoomPreview();else{canvas.style.transform='';render();}}
   function setTime(p){phase=typeof p==='number'?((p%1)+1)%1:.15;}
   function setQuality(v){quality=v!==false&&v!=='low';}
   // 讀取完成判斷(pixel-ui.js 靠它決定何時進村莊):村莊地板(含地面貼圖)已用貼圖畫好、每棟建築都有 Xilurus 圖(不是程序版)。
   // 圖片本身是否都載完由 asset-loading.js 的 assetProgress() 另外看。
   function assetsReady(){return villageReady&&BUILDINGS.every(b=>atlasCell(b.id)||atlasFrameFor(b.id,false));}
+  // 驗收用:退回程序繪製的建築計數(進村時必須是 0 且不再增加)。
+  // 預熱:把角色與魔物的圖片解碼好(idle 時段一次兩張),進村時才不會停頓。
+  const warmDone=new Set();
+  function warmupAssets(){
+    if(typeof createImageBitmap!=='function')return true;
+    const list=[...Object.values(heroSheets).map(s=>s&&s.img),...Object.values(monsterSheets).map(s=>s&&s.img)].filter(im=>im&&im.complete&&im.naturalWidth&&!warmDone.has(im));
+    if(!list.length)return true;
+    for(const im of list.slice(0,2)){warmDone.add(im);createImageBitmap(im).then(b=>b.close()).catch(()=>{});}
+    return false;
+  }
   function dispose(){disposed=true;for(const[type,fn]of[['pointerdown',down],['pointermove',move],['pointerup',up],['pointercancel',up],['wheel',wheel],['pointerdown',stopHomeFraming]])canvas.removeEventListener(type,fn);spriteCache.clear();}
   const responsiveResize=()=>{resize();if(homeFraming)focusHome();render();};
   function stopHomeFraming(){homeFraming=false;}
@@ -1717,7 +1724,7 @@ export function createWorld(canvas,{onSelect=()=>{},onPlace=()=>{},getState=()=>
       .filter(cls=>heroSheets[cls]&&heroSheets[cls].meta.kind!=='part');   // 零件表不是角色，不要叫進村
     return list.filter(cls=>spawnVillager(cls));
   }
-  resize();render();return{update,resize:responsiveResize,project,assetsReady,focus:(id)=>{homeFraming=false;focus(id);},hitRects:()=>hits.filter(h=>BUILDINGS.some(b=>b.id===h.id)).map(h=>({id:h.id,x:h.x,y:h.y,w:h.w,h:h.h})),buildingScale:id=>effectiveScale(id),lookAt:(x,z,v)=>{homeFraming=false;if(v)scale=Math.max(.48,Math.min(5.4,v));target=iso(x,z);cam={...target};},zoomTo:(v)=>{homeFraming=false;scale=Math.max(.48,Math.min(5.4,v));},getScale:()=>scale,setSelected,zoomBy,placeMode,setTime,setQuality,dispose,spawnVillager,spawnClassVillagers,setPartsVisible:(v)=>{partsVisible=v!==false;},getPartsVisible:()=>partsVisible,landscapeStats:()=>({roads:roads.length,terrainRevision,
+  resize();render();return{update,resize:responsiveResize,project,assetsReady,warmupAssets,focus:(id)=>{homeFraming=false;focus(id);},hitRects:()=>hits.filter(h=>BUILDINGS.some(b=>b.id===h.id)).map(h=>({id:h.id,x:h.x,y:h.y,w:h.w,h:h.h})),buildingScale:id=>effectiveScale(id),lookAt:(x,z,v)=>{homeFraming=false;if(v)scale=Math.max(.48,Math.min(5.4,v));target=iso(x,z);cam={...target};},zoomTo:(v)=>{homeFraming=false;scale=Math.max(.48,Math.min(5.4,v));},getScale:()=>scale,setSelected,zoomBy,placeMode,setTime,setQuality,dispose,spawnVillager,spawnClassVillagers,setPartsVisible:(v)=>{partsVisible=v!==false;},getPartsVisible:()=>partsVisible,landscapeStats:()=>({roads:roads.length,terrainRevision,
     decor:decorations.map(d=>({type:d.type,x:d.x,z:d.z}))})};
 }
 

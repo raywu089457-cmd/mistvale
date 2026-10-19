@@ -1,6 +1,6 @@
 import {WORLD,REGIONS,BIOME_PALETTE,biomeAt} from './overworld.js';
 import {iconCanvas,iconsReady} from './pixel-icons.js';
-import {assetProgress} from './asset-loading.js';
+import {assetProgress,markPhase} from './asset-loading.js';
 import {createGame} from './pixel-game.js';
 import {createPixelWorld,drawPortrait,buildingDataURL,MAP_PALETTE,MAP_ACCENT} from './pixel-world.js';
 import {BUILDINGS,CLASSES,RARITIES,TRAITS,MATERIALS,PRODUCTS,RECIPES,DIFFICULTIES,SAVE_KEY} from './pixel-data.js';
@@ -122,14 +122,26 @@ function frame(now){requestAnimationFrame(frame);if(document.hidden){previous=no
 // 讀取畫面:圖片全部載完(成功或失敗都算完成)、村莊地板與建築都用美術版畫好、圖示換成圖集之後才進村莊。
 // 有圖載入失敗就停在錯誤畫面,不進村、也不會退回程序繪製的陽春素材。
 function bootWhenReady(){
-  const loader=$('#loading'),bar=$('#loading-bar'),label=$('#loading-label'),shownAt=performance.now(),MIN_SHOW_MS=600;   // 快取命中時也讓讀取動畫露一下,不然一閃就過
+  const loader=$('#loading'),bar=$('#loading-bar'),label=$('#loading-label'),phaseEl=$('#loading-phase'),assetEl=$('#loading-asset'),shownAt=performance.now(),MIN_SHOW_MS=600;   // 快取命中時也讓讀取動畫露一下,不然一閃就過
+  let released=false;
+  const seed=el=>{if(el.animate)el.animate([{opacity:.3},{opacity:1}],{duration:180,easing:'ease-out'});};   // 文字變了才寫(避免每幀重排),新文字從 30% 透明淡入
+  const set=(el,text)=>{if(!el||el.textContent===text)return;el.textContent=text;seed(el);};
   const step=()=>{
     const p=assetProgress();
     if(p.failed){loader.classList.add('failed');label.textContent='素材載入失敗，請重新整理';return;}
-    const ready=p.done>=p.total&&world.assetsReady()&&iconsReady();
-    const pct=ready?100:Math.min(99,p.total?Math.round(p.done/p.total*100):0);
-    bar.style.width=`${pct}%`;label.textContent=`載入素材 ${pct}%`;
+    // 圖示的圖集延後到第 2 秒才放行(共 2 張):前面先讓 13 MB 素材解析與各圖集載入取得主執行緒,
+    // 之後的進度輪詢才不會每次都被大張圖的貼上拖住,讀條才會一直動。
+    if(!released&&performance.now()-shownAt>2000){released=true;globalThis.__mistvaleReleaseIcons?.();}
+    const warming=world.assetsReady()&&iconsReady();   // 素材齊了,開始預熱
+    const ready=p.done>=p.total&&warming;
+    // 百分比 = 圖片完成比例;最後一步(預熱)由這裡顯示,不會卡在 99% 不動
+    const pct=ready?100:Math.min(99,Math.round(p.done/Math.max(1,p.total)*100));
+    bar.style.width=`${pct}%`;set(label,`${pct}%`);
+    if(warming)markPhase('預熱角色素材');
+    set(phaseEl,p.phase||'整理素材');
+    set(assetEl,p.queued?'· 正在載入圖示':'· 載入美術素材');
     if(!ready||performance.now()-shownAt<MIN_SHOW_MS){requestAnimationFrame(step);return;}
+    if(!world.warmupAssets()){requestAnimationFrame(step);return;}
     start();
     loader.classList.add('done');setTimeout(()=>loader.remove(),500);
   };
