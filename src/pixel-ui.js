@@ -1,5 +1,6 @@
 import {WORLD,REGIONS,BIOME_PALETTE,biomeAt} from './overworld.js';
-import {iconCanvas} from './pixel-icons.js';
+import {iconCanvas,iconsReady} from './pixel-icons.js';
+import {assetProgress} from './asset-loading.js';
 import {createGame} from './pixel-game.js';
 import {createPixelWorld,drawPortrait,buildingDataURL,MAP_PALETTE,MAP_ACCENT} from './pixel-world.js';
 import {BUILDINGS,CLASSES,RARITIES,TRAITS,MATERIALS,PRODUCTS,RECIPES,DIFFICULTIES,SAVE_KEY} from './pixel-data.js';
@@ -112,12 +113,28 @@ document.addEventListener('keydown',e=>{if(e.target.matches('input,textarea,sele
 $('#modal-backdrop').addEventListener('click',e=>{if(e.target.id==='modal-backdrop')closeModal();});
 try{const saved=(()=>{try{return previewMode?null:JSON.parse(localStorage.getItem(SAVE_KEY)||'null');}catch{return null;}})();game=createGame(saved);game.state.paused=true;document.querySelector('#title-art')?.style.setProperty('background-image',`url(${AS().title||''})`);if(AS().woodui)document.documentElement.style.setProperty('--wood-tex',`url(${AS().woodui})`);setIcons();world=createPixelWorld($('#world'),{getState:()=>game.state,onSelect:handleWorldSelect,onPlace:(id,x,z)=>{const r=game.moveBuilding(id,x,z);logToast(r.message,r.ok);if(r.ok){placing=null;$('#placement').classList.add('hidden');world.placeMode(null);}paint();}});world.setTime(.18);globalThis.__mistvaleView=world;globalThis.__mistvaleGame=game;  // 驗收腳本用(pipeline/scripts/l0veyou/verify_all_regions.js)
 $('#left-panel')?.classList.add('hidden');$('#reopen-left')?.classList.remove('hidden');   // 委託看板預設收起（按鈕可展開）
-window.addEventListener('resize',()=>world.resize());window.addEventListener('pagehide',save);const load=$('#loading');load.style.opacity='0';setTimeout(()=>load.remove(),500);start();   // 沒有開場畫面了：載入完成直接進村莊
+window.addEventListener('resize',()=>world.resize());window.addEventListener('pagehide',save);bootWhenReady();   // 讀取完成才進村莊(見 bootWhenReady)
 let previous=performance.now(),nextFrame=0,frames=0,fpsStart=performance.now();
 // 目標 60 fps：依排程每 1000/60 ms 畫一次，容許 2 ms 的時間抖動（60 Hz 螢幕不會因此掉到 30 fps）；120/144 Hz 螢幕也只畫 60 次
 const FRAME_MS=1000/60;
 function frame(now){requestAnimationFrame(frame);if(document.hidden){previous=now;return;}if(now<nextFrame-2)return;nextFrame=Math.max(nextFrame+FRAME_MS,now);frames++;if(now-fpsStart>2000){document.body.dataset.fps=Math.round(frames*1000/(now-fpsStart));fpsStart=now;frames=0;}const dt=Math.min(.1,(now-previous)/1000);previous=now;if(started)game.tick(dt);world.setTime((game.state.time%240)/240);world.update(game.state.paused?0:dt,game.state);if(now-last>250){paint();last=now;}if(now-lastSave>5000){save();lastSave=now;}}requestAnimationFrame(frame);}catch(err){console.error(err);$('#loading').innerHTML='<b>像素村莊載入失敗，請重新整理</b>';}
 
+// 讀取畫面:圖片全部載完(成功或失敗都算完成)、村莊地板與建築都用美術版畫好、圖示換成圖集之後才進村莊。
+// 有圖載入失敗就停在錯誤畫面,不進村、也不會退回程序繪製的陽春素材。
+function bootWhenReady(){
+  const loader=$('#loading'),bar=$('#loading-bar'),label=$('#loading-label'),shownAt=performance.now(),MIN_SHOW_MS=600;   // 快取命中時也讓讀取動畫露一下,不然一閃就過
+  const step=()=>{
+    const p=assetProgress();
+    if(p.failed){loader.classList.add('failed');label.textContent='素材載入失敗，請重新整理';return;}
+    const ready=p.done>=p.total&&world.assetsReady()&&iconsReady();
+    const pct=ready?100:Math.min(99,p.total?Math.round(p.done/p.total*100):0);
+    bar.style.width=`${pct}%`;label.textContent=`載入素材 ${pct}%`;
+    if(!ready||performance.now()-shownAt<MIN_SHOW_MS){requestAnimationFrame(step);return;}
+    start();
+    loader.classList.add('done');setTimeout(()=>loader.remove(),500);
+  };
+  requestAnimationFrame(step);
+}
 function paintMap(canvas,mini=false){
  if(!canvas)return;const g=canvas.getContext('2d');g.imageSmoothingEnabled=false;const w=canvas.width,h=canvas.height,margin=mini?4:15,sx=(w-margin*2)/WORLD.width,sy=(h-margin*2)/WORLD.height;
  g.fillStyle=MAP_ACCENT.sea;g.fillRect(0,0,w,h);

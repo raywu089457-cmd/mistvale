@@ -3,6 +3,7 @@ import { BUILDINGS, CLASSES, RARITIES } from './pixel-data.js';
 import {WORLD,REGIONS,biomeAt,BIOME_PALETTE,inVillage} from './overworld.js';
 import {conceptGroundAt} from './concept-ground.js';
 import {TILE,GRID,STREET_X,STREET_Z,VILLAGE_BOUNDS,blockAt} from './village-grid.js';
+import {trackImage} from './asset-loading.js';
 
 // All artwork is rendered to a small integer pixel buffer and enlarged without
 // interpolation. World coordinates are shared with the village simulation.
@@ -246,7 +247,7 @@ function ensureHeroAtlas(){
     if(!assets[sheetKey]||!assets[manKey]||loadedAssetKeys.has(sheetKey))continue;
     loadedAssetKeys.add(sheetKey);
     const m=(typeof assets[manKey]==='string')?JSON.parse(assets[manKey]):assets[manKey];
-    const im=new Image();
+    const im=trackImage(new Image());
     im.onload=()=>{heroAtlasLod.push({img:im,scale:m.scale>=0.5?4:m.scale>=0.2?2:1,frames:m.cells});
       // spriteCache 只存角色圖。圖集載入前建的程序版會被快取住永遠不換,
       // 所以圖集一到就整批清掉,下一幀全部改用圖集重建。
@@ -283,7 +284,7 @@ function ensureTerrainAtlas(){
   if(!assets.terrainAtlas||!assets.terrainManifest||loadedAssetKeys.has('terrainAtlas'))return;
   loadedAssetKeys.add('terrainAtlas');
   const m=(typeof assets.terrainManifest==='string')?JSON.parse(assets.terrainManifest):assets.terrainManifest;
-  const im=new Image();
+  const im=trackImage(new Image());
   im.onload=()=>{
     terrainLoadsPending--;
     for(const [name,c] of Object.entries(m.cells)){
@@ -318,7 +319,7 @@ function ensureConceptTextures(){
   const assets=globalThis.PIXEL_ASSETS||{};
   for(const [key,name] of [['conceptStone','stone'],['conceptEarth','earth'],['conceptGrass','grass']]){
     if(!assets[key]||loadedAssetKeys.has(key))continue;loadedAssetKeys.add(key);
-    const im=new Image();im.onload=()=>{terrainLoadsPending--;conceptTex[name]=im;terrainPatternRev++;globalThis.dispatchEvent(new CustomEvent('pixel-assets-ready'));};
+    const im=trackImage(new Image());im.onload=()=>{terrainLoadsPending--;conceptTex[name]=im;terrainPatternRev++;globalThis.dispatchEvent(new CustomEvent('pixel-assets-ready'));};
     terrainLoadsPending++;im.onerror=()=>{loadedAssetKeys.delete(key);terrainLoadsPending--;terrainPatternRev++;};im.src=assets[key];
   }
 }
@@ -327,7 +328,7 @@ function ensurePlazaTile(){
   for(const key of ['plaza','road']){
     if(!assets[key]||loadedAssetKeys.has(key))continue;
     loadedAssetKeys.add(key);
-    const im=new Image();
+    const im=trackImage(new Image());
     // 3/4 俯視的壓扁先在載入時用平滑縮放烘進材質,繪製時 1:1 貼上;不然最近鄰的小數縮放會產生摩爾紋斜條。
     im.onload=()=>{terrainLoadsPending--;const h=Math.max(1,Math.round(im.height*PAVE_SQUASH/.5)),cv=makeCanvas(im.width,h),cx=cv.getContext('2d');cx.imageSmoothingEnabled=true;cx.imageSmoothingQuality='high';cx.drawImage(im,0,0,im.width,h);
       const pat=cx.createPattern(cv,'repeat');if(key==='plaza')plazaPattern=pat;else roadPattern=pat;
@@ -380,7 +381,7 @@ function ensureDetailAtlas(){
     if(!assets[sheetKey]||!assets[manKey]||loadedAssetKeys.has(sheetKey))continue;
     loadedAssetKeys.add(sheetKey);
     const m=(typeof assets[manKey]==='string')?JSON.parse(assets[manKey]):assets[manKey];
-    const im=new Image();
+    const im=trackImage(new Image());
     im.onload=()=>{detailLod.push({img:m.kind==='mistvale-detail-atlas'?toneFoliage(im,m.cells):im,scale:m.scale===0.5?1:2,frames:m.cells});
       globalThis.dispatchEvent(new CustomEvent('pixel-assets-ready'));};
     im.onerror=()=>loadedAssetKeys.delete(sheetKey);
@@ -436,7 +437,7 @@ function ensureAtlasManifest(){
     if(!man||!assets[urlKey]||loadedAssetKeys.has(urlKey))continue;
     loadedAssetKeys.add(urlKey);
     const m=(typeof man==='string')?JSON.parse(man):man;
-    const im=new Image();
+    const im=trackImage(new Image());
     im.onload=()=>{
       const k=(m.scale===0.5)?(1/(ATLAS_REF_WIDTH_1X)):(1/(ATLAS_REF_WIDTH_1X*2));
       atlasLod.push({img:im,k,scale:m.scale===0.5?1:2,frames:m.cells});
@@ -453,18 +454,18 @@ globalThis.__mistvaleHeroLod=()=>({...heroLodUse});  // 使用者決定:新規�
 const heroArt=id=>HERO_H/(heroSheets[id]?.meta.heroHeight||72);  // 1 美術像素 = 幾個邏輯單位
 function ensureHeroSheets(){const A=globalThis.PIXEL_ASSETS?.heroSheets||{};
   for(const [id,v] of Object.entries(A)){if(loadedAssetKeys.has('hs:'+id))continue;loadedAssetKeys.add('hs:'+id);
-    const meta=typeof v.meta==='string'?JSON.parse(v.meta):v.meta,im=new Image(),fx=v.fx?new Image():null;
+    const meta=typeof v.meta==='string'?JSON.parse(v.meta):v.meta,im=trackImage(new Image()),fx=v.fx?trackImage(new Image()):null;
     const hi=v.hi?(typeof v.hi.meta==='string'?{img:v.hi.img,meta:JSON.parse(v.hi.meta)}:v.hi):null;
     im.onload=()=>{heroSheets[id]={...heroSheets[id],img:im,meta,fx,fxMeta:v.fxMeta?(typeof v.fxMeta==='string'?JSON.parse(v.fxMeta):v.fxMeta):null};spriteCache.clear();globalThis.dispatchEvent(new CustomEvent('pixel-assets-ready'));};
     im.onerror=()=>loadedAssetKeys.delete('hs:'+id);im.src=v.img;if(fx)fx.src=v.fx;
-    if(hi){const him=new Image();him.onload=()=>{heroSheets[id]={...heroSheets[id],hi:{img:him,meta:hi.meta}};spriteCache.clear();variantCache.clear();globalThis.dispatchEvent(new CustomEvent('pixel-assets-ready'));};him.src=hi.img;}}}
+    if(hi){const him=trackImage(new Image());him.onload=()=>{heroSheets[id]={...heroSheets[id],hi:{img:him,meta:hi.meta}};spriteCache.clear();variantCache.clear();globalThis.dispatchEvent(new CustomEvent('pixel-assets-ready'));};him.src=hi.img;}}}
 // 模組化配件槽(Accessory/Head):assets/heroes/accessories.png,依稀有度戴在每格的頭頂錨點(meta.actions[act].head)。
-let heroAcc=null;function ensureHeroAcc(){const v=globalThis.PIXEL_ASSETS?.heroAccessories;if(!v||heroAcc||loadedAssetKeys.has('hacc'))return;loadedAssetKeys.add('hacc');const im=new Image();im.onload=()=>{heroAcc={img:im,meta:v.meta};};im.src=v.img;}
+let heroAcc=null;function ensureHeroAcc(){const v=globalThis.PIXEL_ASSETS?.heroAccessories;if(!v||heroAcc||loadedAssetKeys.has('hacc'))return;loadedAssetKeys.add('hacc');const im=trackImage(new Image());im.onload=()=>{heroAcc={img:im,meta:v.meta};};im.src=v.img;}
 const ACC_BY_RARITY={rare:['ribbon','feather'],superior:['flowerCrown','tiara'],heroic:['laurel','horns'],legendary:['crown','halo']};
 function heroAccessory(h){const l=ACC_BY_RARITY[h.rarity];return l?l[hash(h.id||'')%l.length]:null;}
 // 新規格魔物 sheet(assets/monsters3,同英雄規格:1:1 像素、16 色、每列一個動作、軀幹中心=格中線、腳底=格底上 10px;密度跟英雄一樣 72 px = 21 單位)
 const monsterSheets={};function ensureMonsterSheets(){const A=globalThis.PIXEL_ASSETS?.monsterSheets||{};
-  for(const [id,v] of Object.entries(A)){if(loadedAssetKeys.has('ms:'+id))continue;loadedAssetKeys.add('ms:'+id);const im=new Image();im.onload=()=>{monsterSheets[id]={img:im,meta:v.meta};};im.src=v.img;}}
+  for(const [id,v] of Object.entries(A)){if(loadedAssetKeys.has('ms:'+id))continue;loadedAssetKeys.add('ms:'+id);const im=trackImage(new Image());im.onload=()=>{monsterSheets[id]={img:im,meta:v.meta};};im.src=v.img;}}
 const MON_SHEET=t=>monsterSheets[t==='boss'?'treant':t];
 // 新版 sheet 還在解碼:這一幀先不畫(不退回舊程序圖),載好後 pixel-assets-ready 重畫。
 const pendingHero=id=>!heroSheets[id]&&!!globalThis.PIXEL_ASSETS?.heroSheets?.[id];
@@ -547,7 +548,7 @@ function ensureAtlas() {
   // 舊的硬切格圖集載入已由上面的 manifest 圖集取代(列切線原本是猜的)。
 
   for(const b of [...BUILDINGS,{id:'monument'}]){const src=assets[b.id];if(!src||loadedAssetKeys.has(b.id))continue;loadedAssetKeys.add(b.id);
-    const im=new Image();im.onload=()=>{const cell=makeCanvas(im.width,im.height),c=cell.getContext('2d');c.drawImage(im,0,0);const pixels=c.getImageData(0,0,im.width,im.height),d=pixels.data;let x0=im.width,y0=im.height,x1=0,y1=0;
+    const im=trackImage(new Image());im.onload=()=>{const cell=makeCanvas(im.width,im.height),c=cell.getContext('2d');c.drawImage(im,0,0);const pixels=c.getImageData(0,0,im.width,im.height),d=pixels.data;let x0=im.width,y0=im.height,x1=0,y1=0;
       const alphaAsset=globalThis.PIXEL_ASSETS?.alphaAssets?.[b.id];
       for(let y=0;y<im.height;y++)for(let x=0;x<im.width;x++){const j=(y*im.width+x)*4;if(!alphaAsset&&d[j]>160&&d[j+2]>130&&d[j+1]<130&&d[j]>d[j+1]*1.5&&d[j+2]>d[j+1]*1.5)d[j+3]=0;if(!alphaAsset&&b.id==='inn'&&y<im.height*.25&&d[j+1]>100&&d[j+2]>d[j+1]*1.10)d[j+3]=0;if(d[j+3]>32){x0=Math.min(x0,x);x1=Math.max(x1,x);y0=Math.min(y0,y);y1=Math.max(y1,y);}}
       c.putImageData(pixels,0,0);if(x1>x0&&y1>y0){const sourceWidth=x1-x0+1,sourceHeight=y1-y0+1,out=makeCanvas(alphaAsset?sourceWidth:384,alphaAsset?sourceHeight:Math.round(384*sourceHeight/sourceWidth)),g=out.getContext('2d');g.imageSmoothingEnabled=false;g.drawImage(cell,x0,y0,sourceWidth,sourceHeight,0,0,out.width,out.height);sharedAtlas||=new Map();sharedAtlas.set(b.id,out);globalThis.dispatchEvent(new CustomEvent('pixel-assets-ready'));}
@@ -994,7 +995,7 @@ export function createWorld(canvas,{onSelect=()=>{},onPlace=()=>{},getState=()=>
     const fx=BUILDING_FACADE[b.id],pivotY=p.y+9*scale;if(fx){const r=Math.sqrt(fx[0]);g.save();g.translate(R(p.x),R(pivotY));g.transform(1/r,fx[1]/r,0,r,0,0);g.translate(-R(p.x),-R(pivotY));}
     let rect=conceptSprite?drawSprite(conceptSprite,p,conceptWidth*es,conceptWidth*es*conceptSprite.height/conceptSprite.width,9,1,'building'):drawAtlasBuilding(b.id,p,9,es);
     if(fx)g.restore();
-    if(!rect){const sprite=atlasCell(b.id)||buildingSprite(b.id),w=conceptBuildingWidth(b.id);rect=drawSprite(sprite,p,w,w*sprite.height/sprite.width,9,1,'building');}
+    if(!rect){procUse['building-fallback:'+b.id]=(procUse['building-fallback:'+b.id]||0)+1;const sprite=atlasCell(b.id)||buildingSprite(b.id),w=conceptBuildingWidth(b.id);rect=drawSprite(sprite,p,w,w*sprite.height/sprite.width,9,1,'building');}
     // 下面冒煙那段用的是「世界單位」的高度(會再乘 scale),照舊版語意換算回去。
     const h=rect.h/scale;hits.push({id:b.id,...rect});
     // Smoke is made from individual four-pixel clusters and never blurs the art.
@@ -1687,6 +1688,9 @@ export function createWorld(canvas,{onSelect=()=>{},onPlace=()=>{},getState=()=>
   function update(dt,nextState){if(disposed)return;if(nextState){state=nextState;const key=BUILDINGS.map(b=>`${b.id}:${state.buildings?.[b.id]>0}:${state.layout?.[b.id]?.x??b.x}:${state.layout?.[b.id]?.z??b.z}`).join('|');if(!terrainLoadsPending&&(key!==landscapeKey||terrainPatternRev!==lastPatternRev)){lastPatternRev=terrainPatternRev;landscapeKey=key;generateGround();}}elapsed+=Math.min(dt||0,.1);heroLodScale=scale*DPRK;ensureAtlas();const t=1-Math.exp(-Math.max(.016,dt||.016)*7);cam.x+=(target.x-cam.x)*t;cam.y+=(target.y-cam.y)*t;if(variantJobs.size)pumpVariants();if(hiQueue.length)pumpHi();const r0=performance.now();if(zoomTimer&&previewFits())applyZoomPreview();else{canvas.style.transform='';render();}adaptRenderDpr(performance.now()-r0);}
   function setTime(p){phase=typeof p==='number'?((p%1)+1)%1:.15;}
   function setQuality(v){quality=v!==false&&v!=='low';}
+  // 讀取完成判斷(pixel-ui.js 靠它決定何時進村莊):村莊地板(含地面貼圖)已用貼圖畫好、每棟建築都有 Xilurus 圖(不是程序版)。
+  // 圖片本身是否都載完由 asset-loading.js 的 assetProgress() 另外看。
+  function assetsReady(){return villageReady&&BUILDINGS.every(b=>atlasCell(b.id)||atlasFrameFor(b.id,false));}
   function dispose(){disposed=true;for(const[type,fn]of[['pointerdown',down],['pointermove',move],['pointerup',up],['pointercancel',up],['wheel',wheel],['pointerdown',stopHomeFraming]])canvas.removeEventListener(type,fn);spriteCache.clear();}
   const responsiveResize=()=>{resize();if(homeFraming)focusHome();render();};
   function stopHomeFraming(){homeFraming=false;}
@@ -1713,7 +1717,7 @@ export function createWorld(canvas,{onSelect=()=>{},onPlace=()=>{},getState=()=>
       .filter(cls=>heroSheets[cls]&&heroSheets[cls].meta.kind!=='part');   // 零件表不是角色，不要叫進村
     return list.filter(cls=>spawnVillager(cls));
   }
-  resize();render();return{update,resize:responsiveResize,project,focus:(id)=>{homeFraming=false;focus(id);},hitRects:()=>hits.filter(h=>BUILDINGS.some(b=>b.id===h.id)).map(h=>({id:h.id,x:h.x,y:h.y,w:h.w,h:h.h})),buildingScale:id=>effectiveScale(id),lookAt:(x,z,v)=>{homeFraming=false;if(v)scale=Math.max(.48,Math.min(5.4,v));target=iso(x,z);cam={...target};},zoomTo:(v)=>{homeFraming=false;scale=Math.max(.48,Math.min(5.4,v));},getScale:()=>scale,setSelected,zoomBy,placeMode,setTime,setQuality,dispose,spawnVillager,spawnClassVillagers,setPartsVisible:(v)=>{partsVisible=v!==false;},getPartsVisible:()=>partsVisible,landscapeStats:()=>({roads:roads.length,terrainRevision,
+  resize();render();return{update,resize:responsiveResize,project,assetsReady,focus:(id)=>{homeFraming=false;focus(id);},hitRects:()=>hits.filter(h=>BUILDINGS.some(b=>b.id===h.id)).map(h=>({id:h.id,x:h.x,y:h.y,w:h.w,h:h.h})),buildingScale:id=>effectiveScale(id),lookAt:(x,z,v)=>{homeFraming=false;if(v)scale=Math.max(.48,Math.min(5.4,v));target=iso(x,z);cam={...target};},zoomTo:(v)=>{homeFraming=false;scale=Math.max(.48,Math.min(5.4,v));},getScale:()=>scale,setSelected,zoomBy,placeMode,setTime,setQuality,dispose,spawnVillager,spawnClassVillagers,setPartsVisible:(v)=>{partsVisible=v!==false;},getPartsVisible:()=>partsVisible,landscapeStats:()=>({roads:roads.length,terrainRevision,
     decor:decorations.map(d=>({type:d.type,x:d.x,z:d.z}))})};
 }
 

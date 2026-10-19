@@ -1,3 +1,4 @@
+import {trackImage} from './asset-loading.js';
 const cache=new Map();
 // l0veyou 生的圖示圖集(icons@2x,48px 一格)。載入是非同步的:先回傳程序版,圖集好了再把
 // 所有已建立的圖示 canvas 重畫一次,所以 UI 不用等圖集也不會留下程序版。
@@ -9,11 +10,13 @@ function paintAtlas(c,name){const ex=extra[name],f=ex?ex.f:iconFrames?.[ICON_ALI
 // 獸皮圖示在 vfx 圖集(iconLeather),其餘在 icons 圖集;兩張都載完才重畫。
 const extra={};
 (()=>{const a=globalThis.PIXEL_ASSETS||{};if(!a.iconsAtlas2x||!a.iconsManifest2x||typeof Image==='undefined')return;
- const parse=m=>typeof m==='string'?JSON.parse(m):m,m=parse(a.iconsManifest2x),im=new Image();let pending=1;
+ const parse=m=>typeof m==='string'?JSON.parse(m):m,m=parse(a.iconsManifest2x),im=trackImage(new Image());let pending=1;
  const done=()=>{if(--pending)return;iconAtlas=im;iconFrames=m.cells;for(const r of made.splice(0)){const c=r.c.deref();if(c)paintAtlas(c,r.name);}};
- if(a.vfxAtlas2x&&a.vfxManifest2x){pending++;const v=new Image(),vm=parse(a.vfxManifest2x);v.onload=()=>{if(vm.cells.iconLeather)extra.leather={img:v,f:vm.cells.iconLeather};done();};v.onerror=done;v.src=a.vfxAtlas2x;}
+ if(a.vfxAtlas2x&&a.vfxManifest2x){pending++;const v=trackImage(new Image()),vm=parse(a.vfxManifest2x);v.onload=()=>{if(vm.cells.iconLeather)extra.leather={img:v,f:vm.cells.iconLeather};done();};v.onerror=done;v.src=a.vfxAtlas2x;}
  im.onload=done;im.src=a.iconsAtlas2x;})();
 globalThis.__mistvaleIcons=()=>({ready:!!iconAtlas,cells:iconFrames?Object.keys(iconFrames).length:0});
+// 圖示全部換成圖集版才算就緒(沒有圖集的建置不用等)。讀取畫面靠它決定何時進村。
+export function iconsReady(){const a=globalThis.PIXEL_ASSETS||{};return !a.iconsAtlas2x||!!iconAtlas;}
 export function iconCanvas(name){
  if(iconAtlas){const c=document.createElement('canvas');if(paintAtlas(c,name))return c;}
  const c0=proceduralIcon(name);if(!iconAtlas&&typeof WeakRef!=='undefined')made.push({c:new WeakRef(c0),name});return c0;
