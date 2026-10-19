@@ -579,7 +579,7 @@ export function createWorld(canvas,{onSelect=()=>{},onPlace=()=>{},getState=()=>
   let staticGen=0,spgGen=-1,sgGen=-1,spgPrev=[],sgPrev=[],shadowSink=null;
   let compValid=false;   // comp 是否還和上一幀的畫面一致(中間只要有一幀是直接畫到螢幕的,就失效)
   let tileMark=new Uint8Array(0);   // 估計合成範圍面積用的格子標記(重複使用,避免每幀配置)
-  let renderedScale=0,renderedCam={x:0,y:0},zoomTimer=0;   // 縮放預覽:上一次整張重繪時的比例與鏡頭;縮放中只用 CSS 變形預覽,停下來才重繪
+  let renderedScale=0,renderedCam={x:0,y:0},zoomTimer=0,pinching=false,pinchTimer=0;   // 縮放預覽:上一次整張重繪時的比例與鏡頭;縮放中只用 CSS 變形預覽,停下來才重繪
   let g=bg,casting=false,DPRK=1;  // DPRK = 裝置像素 / 邏輯像素(選圖集解析度用)
   // 位置一律取整到裝置像素:CSS 整數座標在 1.25、1.5 倍等非整數 DPR 下會落在半個裝置像素上,平移/縮放時最近鄰取樣的像素模式就跟著跳(抖動)。
   const R=v=>Math.round(v*DPRK)/DPRK;
@@ -818,7 +818,7 @@ export function createWorld(canvas,{onSelect=()=>{},onPlace=()=>{},getState=()=>
   const camPxX=()=>R(width/2-cam.x*scale),camPxY=()=>R(height/2+50-cam.y*scale);
   function screenPoint(x,z,y=0){const p=iso(x,z);return{x:camPxX()+R(p.x*scale),y:camPxY()+Math.round((p.y-y*8)*scale)};}
   function project(x,y=0,z=0){const p=screenPoint(x,z,y);return{x:p.x,y:p.y,visible:p.x>=0&&p.x<=width&&p.y>=0&&p.y<=height};}
-  function viewRect(){if(!zoomTimer)return canvas.getBoundingClientRect();const t=canvas.style.transform;canvas.style.transform='';const r=canvas.getBoundingClientRect();canvas.style.transform=t;return r;}
+  function viewRect(){if(!zoomTimer&&!pinching)return canvas.getBoundingClientRect();const t=canvas.style.transform;canvas.style.transform='';const r=canvas.getBoundingClientRect();canvas.style.transform=t;return r;}
   function unproject(clientX,clientY){const r=viewRect(),sx=(clientX-r.left)*width/r.width,sy=(clientY-r.top)*height/r.height,ix=(sx-width/2)/scale+cam.x,iy=(sy-height/2-50)/scale+cam.y;return{x:(ix/PX+iy/PY)/2,z:(iy/PY-ix/PX)/2,sx,sy};}
   function focusHome(){
     homeFraming=true;
@@ -857,19 +857,23 @@ export function createWorld(canvas,{onSelect=()=>{},onPlace=()=>{},getState=()=>
   // 縮放預覽:縮放進行中不整張重繪,改用 CSS 變形把上一次畫好的畫面放大/縮小到目前的比例與鏡頭(瀏覽器合成,幾乎不花時間);
   // 停止縮放約 260 ms 後才整張重繪一次(滾輪慢慢轉時每格間隔也不會每格都重繪)。變形的位移與比例由「重繪時的鏡頭/比例」換算到「現在的鏡頭/比例」,停下來時畫面不跳。
   function applyZoomPreview(){const f=scale/renderedScale,tx=width/2*(1-f)+(renderedCam.x-cam.x)*scale,ty=(height/2+50)*(1-f)+(renderedCam.y-cam.y)*scale;
-    canvas.style.transformOrigin='0 0';canvas.style.transform=`translate(${tx.toFixed(2)}px,${ty.toFixed(2)}px) scale(${f.toFixed(5)})`;}
-  function endZoomPreview(){zoomTimer=0;canvas.style.transform='';render();}
+    canvas.style.imageRendering='pixelated';canvas.style.transformOrigin='0 0';canvas.style.transform=`translate(${tx.toFixed(2)}px,${ty.toFixed(2)}px) scale(${f.toFixed(5)})`;}
+  function endZoomPreview(){zoomTimer=0;canvas.style.transform='';canvas.style.imageRendering='';render();}
+  // 雙指縮放:手指按在畫面上時只做 CSS 變形預覽、不整張重繪,比例也不設預覽上下限(放得再大也只是預覽)。
+  // 其中一根手指離開後等 120 ms(免得馬上又落下第二根),才依最終比例整張重繪一次。
+  function pinchEnd(){clearTimeout(pinchTimer);pinchTimer=setTimeout(()=>{pinchTimer=0;pinching=false;endZoomPreview();},120);}
   // 預覽變形超過 2.5 倍、或縮到 0.4 倍以下,就整張重繪一次,預覽不會糊成一團。
   const previewFits=()=>{const f=scale/renderedScale;return f>.4&&f<2.5;};
   // 每一次縮放輸入都重新計時(階梯沒變也算):手指還在縮放時就不重繪,停下來約 260 ms 才重繪一次。
-  function zoomBy(factor){homeFraming=false;scale=snapZoom(Math.max(.48,Math.min(5.4,scale*factor)));clearTimeout(zoomTimer);zoomTimer=setTimeout(endZoomPreview,260);}
+  // 滾輪與按鈕:每一步吸附到階梯,停下約 260 ms 才重繪。雙指縮放用 zoomBy(f,false):不吸附、也不排程重繪(見 pinchEnd)。
+  function zoomBy(factor,snap=true){homeFraming=false;const next=Math.max(.48,Math.min(5.4,scale*factor));scale=snap?snapZoom(next):next;if(pinching)return;clearTimeout(zoomTimer);zoomTimer=setTimeout(endZoomPreview,260);}
   function placeMode(id){placing=id;canvas.style.cursor=id?'crosshair':'grab';}
   // 鏡頭範圍由世界大小算出(世界的等角外框再多留一圈,能看到海岸與西側林地)。
   const CAM_X0=(WORLD.minX-WORLD.maxZ)*9-140,CAM_X1=(WORLD.maxX-WORLD.minZ)*9+20,CAM_Y0=(WORLD.minX+WORLD.minZ)*4.5-40,CAM_Y1=(WORLD.maxX+WORLD.maxZ)*4.5+50;
   const clampCam=()=>{target.x=Math.max(CAM_X0,Math.min(CAM_X1,target.x));target.y=Math.max(CAM_Y0,Math.min(CAM_Y1,target.y));};
-  function down(e){if(e.button!==undefined&&e.button!==0&&e.button!==1)return;canvas.setPointerCapture?.(e.pointerId);pointers.set(e.pointerId,{x:e.clientX,y:e.clientY});if(pointers.size===2){const pts=[...pointers.values()];pinchDistance=Math.hypot(pts[0].x-pts[1].x,pts[0].y-pts[1].y);pointer=null;return;}pointer={id:e.pointerId,x:e.clientX,y:e.clientY,startX:e.clientX,startY:e.clientY,moved:false};canvas.style.cursor=placing?'crosshair':'grabbing';}
-  function move(e){hover=unproject(e.clientX,e.clientY);if(pointers.has(e.pointerId))pointers.set(e.pointerId,{x:e.clientX,y:e.clientY});if(pointers.size===2){const pts=[...pointers.values()],dist=Math.hypot(pts[0].x-pts[1].x,pts[0].y-pts[1].y);if(pinchDistance)zoomBy(dist/pinchDistance);pinchDistance=dist;return;}if(!pointer||pointer.id!==e.pointerId)return;const dx=e.clientX-pointer.x,dy=e.clientY-pointer.y;if(Math.hypot(e.clientX-pointer.startX,e.clientY-pointer.startY)>5)pointer.moved=true;target.x-=dx/scale;target.y-=dy/scale;cam={...target};clampCam();pointer.x=e.clientX;pointer.y=e.clientY;}
-  function up(e){const p=pointer;pointers.delete(e.pointerId);pinchDistance=0;pointer=null;canvas.style.cursor=placing?'crosshair':'grab';if(!p||p.moved||zoomTimer)return;const q=unproject(e.clientX,e.clientY);if(placing){onPlace(placing,R(q.x*2)/2,Math.round(q.z*2)/2);return;}for(let i=hits.length-1;i>=0;i--){const hit=hits[i];if(q.sx>=hit.x&&q.sx<=hit.x+hit.w&&q.sy>=hit.y&&q.sy<=hit.y+hit.h){onSelect(hit.id);return;}}onSelect(null);}
+  function down(e){if(e.button!==undefined&&e.button!==0&&e.button!==1)return;canvas.setPointerCapture?.(e.pointerId);pointers.set(e.pointerId,{x:e.clientX,y:e.clientY});if(pointers.size===2){const pts=[...pointers.values()];pinchDistance=Math.hypot(pts[0].x-pts[1].x,pts[0].y-pts[1].y);pinching=true;clearTimeout(zoomTimer);zoomTimer=0;clearTimeout(pinchTimer);pinchTimer=0;pointer=null;return;}pointer={id:e.pointerId,x:e.clientX,y:e.clientY,startX:e.clientX,startY:e.clientY,moved:false};canvas.style.cursor=placing?'crosshair':'grabbing';}
+  function move(e){hover=unproject(e.clientX,e.clientY);if(pointers.has(e.pointerId))pointers.set(e.pointerId,{x:e.clientX,y:e.clientY});if(pointers.size===2){const pts=[...pointers.values()],dist=Math.hypot(pts[0].x-pts[1].x,pts[0].y-pts[1].y);if(pinchDistance)zoomBy(dist/pinchDistance,false);pinchDistance=dist;return;}if(!pointer||pointer.id!==e.pointerId)return;const dx=e.clientX-pointer.x,dy=e.clientY-pointer.y;if(Math.hypot(e.clientX-pointer.startX,e.clientY-pointer.startY)>5)pointer.moved=true;target.x-=dx/scale;target.y-=dy/scale;cam={...target};clampCam();pointer.x=e.clientX;pointer.y=e.clientY;}
+  function up(e){const p=pointer;pointers.delete(e.pointerId);pinchDistance=0;pointer=null;if(pinching&&pointers.size<2)pinchEnd();canvas.style.cursor=placing?'crosshair':'grab';if(!p||p.moved||zoomTimer)return;const q=unproject(e.clientX,e.clientY);if(placing){onPlace(placing,R(q.x*2)/2,Math.round(q.z*2)/2);return;}for(let i=hits.length-1;i>=0;i--){const hit=hits[i];if(q.sx>=hit.x&&q.sx<=hit.x+hit.w&&q.sy>=hit.y&&q.sy<=hit.y+hit.h){onSelect(hit.id);return;}}onSelect(null);}
   function wheel(e){e.preventDefault();const before=unproject(e.clientX,e.clientY);zoomBy(e.deltaY<0?1.1:1/1.1);const after=unproject(e.clientX,e.clientY),b=iso(before.x,before.z),a=iso(after.x,after.z);target.x+=b.x-a.x;target.y+=b.y-a.y;cam={...target};clampCam();}
   canvas.addEventListener('pointerdown',down);canvas.addEventListener('pointermove',move);canvas.addEventListener('pointerup',up);canvas.addEventListener('pointercancel',up);canvas.addEventListener('wheel',wheel,{passive:false});canvas.style.cursor='grab';
 
@@ -1682,7 +1686,7 @@ export function createWorld(canvas,{onSelect=()=>{},onPlace=()=>{},getState=()=>
     for(const t of screenTexts)drawScreenText(t,k);
     screen.font=`bold ${Math.round(11*k)}px "Microsoft JhengHei", "Noto Sans TC", sans-serif`;for(const l of uiLabels){const x=Math.round(l.x*k),y=Math.round(l.y*k),tw=screen.measureText(l.text).width;screen.fillStyle='#1c0e06cc';screen.fillRect(x-tw/2-6*k,y-9*k,tw+12*k,19*k);screen.fillStyle='#4a2611e6';screen.fillRect(x-tw/2-5*k,y-8*k,tw+10*k,17*k);screen.fillStyle='#8a5530e6';screen.fillRect(x-tw/2-5*k,y-8*k,tw+10*k,2*k);screen.fillStyle='#dab247aa';screen.fillRect(x-tw/2-4*k,y+8*k,tw+8*k,k);screen.fillStyle=l.color;screen.fillText(l.text,x,y);}screen.restore();
   }
-  function update(dt,nextState){if(disposed)return;if(nextState){state=nextState;const key=BUILDINGS.map(b=>`${b.id}:${state.buildings?.[b.id]>0}:${state.layout?.[b.id]?.x??b.x}:${state.layout?.[b.id]?.z??b.z}`).join('|');if(!terrainLoadsPending&&(key!==landscapeKey||terrainPatternRev!==lastPatternRev)){lastPatternRev=terrainPatternRev;landscapeKey=key;generateGround();}}elapsed+=Math.min(dt||0,.1);heroLodScale=scale*DPRK;ensureAtlas();const t=1-Math.exp(-Math.max(.016,dt||.016)*7);cam.x+=(target.x-cam.x)*t;cam.y+=(target.y-cam.y)*t;if(variantJobs.size)pumpVariants();if(hiQueue.length)pumpHi();if(zoomTimer&&previewFits())applyZoomPreview();else{canvas.style.transform='';render();}}
+  function update(dt,nextState){if(disposed)return;if(nextState){state=nextState;const key=BUILDINGS.map(b=>`${b.id}:${state.buildings?.[b.id]>0}:${state.layout?.[b.id]?.x??b.x}:${state.layout?.[b.id]?.z??b.z}`).join('|');if(!terrainLoadsPending&&(key!==landscapeKey||terrainPatternRev!==lastPatternRev)){lastPatternRev=terrainPatternRev;landscapeKey=key;generateGround();}}elapsed+=Math.min(dt||0,.1);heroLodScale=scale*DPRK;ensureAtlas();const t=1-Math.exp(-Math.max(.016,dt||.016)*7);cam.x+=(target.x-cam.x)*t;cam.y+=(target.y-cam.y)*t;if(variantJobs.size)pumpVariants();if(hiQueue.length)pumpHi();if(pinching)applyZoomPreview();else if(zoomTimer&&previewFits())applyZoomPreview();else{canvas.style.transform='';render();}}
   function setTime(p){phase=typeof p==='number'?((p%1)+1)%1:.15;}
   function setQuality(v){quality=v!==false&&v!=='low';}
   // 讀取完成判斷(pixel-ui.js 靠它決定何時進村莊):村莊地板(含地面貼圖)已用貼圖畫好、每棟建築都有 Xilurus 圖(不是程序版)。
