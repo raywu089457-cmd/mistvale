@@ -6,7 +6,7 @@ const pw=await import(pathToFileURL(path.join(execSync('npm root -g').toString()
 const root=path.resolve(path.dirname(fileURLToPath(import.meta.url)),'../../..');const html=process.env.HTML||path.resolve(root,'../../outputs/暮影村.html');
 const secs=+(process.argv[2]||60),view=process.argv[3]||'look:19,3,2.6';
 const b=await chromium.launch();const p=await b.newPage({viewport:{width:1440,height:900}});
-await p.goto(pathToFileURL(html).href+'?preview=1',{waitUntil:'load',timeout:180000});await p.waitForTimeout(1500);await p.click('#start-button');
+await p.goto(pathToFileURL(html).href+'?preview=1',{waitUntil:'load',timeout:180000});await p.waitForTimeout(1500);await p.waitForFunction(()=>globalThis.__mistvaleGame&&document.body.dataset.fps!==undefined,null,{timeout:120000});   // 開始畫面已在 2026-10-19 移除,等遊戲自己開好就好
 await p.waitForFunction(()=>globalThis.__mistvaleFacing&&globalThis.__mistvaleDetails?.().ready,null,{timeout:60000});
 const r=await p.evaluate(async([secs,view])=>{const V=__mistvaleView;if(view.startsWith('look:')){const [x,z,s]=view.slice(5).split(',').map(Number);V.lookAt(x,z,s);}
  const hist=new Map(),t0=performance.now();let frames=0;const hits=new Map(),seenHurt=new Map(),dmg=new Set(),hitIds=new Set();

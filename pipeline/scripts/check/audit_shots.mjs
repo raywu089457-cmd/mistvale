@@ -15,7 +15,7 @@ await p.goto(pathToFileURL(html).href+'?preview=1',{waitUntil:'load',timeout:180
 await p.waitForTimeout(1500);
 const shot=async name=>{const f=path.join(outDir,name+'.png');await p.screenshot({path:f});console.log('shot',name);};
 await shot('00-title');
-await p.click('#start-button');
+await p.waitForFunction(()=>globalThis.__mistvaleGame&&document.body.dataset.fps!==undefined,null,{timeout:120000});   // 開始畫面已在 2026-10-19 移除,等遊戲自己開好就好
 await p.waitForFunction(()=>globalThis.__mistvaleDetails?.().ready&&globalThis.__mistvaleGame&&globalThis.__mistvaleDecor?.(),null,{timeout:60000});
 await p.waitForTimeout(2500);
 const regions=['village','meadow','forest','taiga','snow','mountain','desert','birch'];

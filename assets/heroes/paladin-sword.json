@@ -1,0 +1,55 @@
+{
+ "hero": "paladin-sword",
+ "kind": "part",
+ "heroHeight": 67,
+ "footFromBottom": 8,
+ "source": "聖騎士原劍（東向待機圖）RotSprite 旋轉；握把＝手 K 骨架手腕、角度手 K；3 列＝attack/attackLeft/attackUp（attackDown 改用 sprite-gen 整隻角色，不掛零件）",
+ "actions": {
+  "attackLeft": {
+   "y": 160,
+   "cell": 160,
+   "frames": 9,
+   "frameTime": 0.075,
+   "release": 4,
+   "impact": 5,
+   "offset": [
+    [
+     0,
+     0
+    ],
+    [
+     0,
+     0
+    ],
+    [
+     0,
+     0
+    ],
+    [
+     0,
+     0
+    ],
+    [
+     0,
+     0
+    ],
+    [
+     0,
+     0
+    ],
+    [
+     0,
+     0
+    ],
+    [
+     0,
+     0
+    ],
+    [
+     0,
+     0
+    ]
+   ]
+  }
+ }
+}

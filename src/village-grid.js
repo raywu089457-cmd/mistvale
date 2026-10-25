@@ -10,17 +10,21 @@ export const blockCenter=(i,j)=>({x:GRID.cx+GRID.pitchX*i,z:GRID.cz+GRID.pitchZ*
 // 街道中心線:每個街區的四邊(建築之間通道的正中)。
 export const STREET_X=[...GRID.cols.map(i=>GRID.cx+GRID.pitchX*(i-.5)),GRID.cx+GRID.pitchX*(GRID.cols.at(-1)+.5)];
 export const STREET_Z=[...GRID.rows.map(j=>GRID.cz+GRID.pitchZ*(j-.5)),GRID.cz+GRID.pitchZ*(GRID.rows.at(-1)+.5)];
-// 村界 = 最外圈建築的地基再外推 GAP(5 排地磚)。村界上放木柵欄(FENCE,往內縮 .25),兩個出村口是柵欄的缺口。
+// 村界 = 最外圈建築的地基再外推 GAP(5 排地磚)。村界上放木柵欄(FENCE,往內縮 .25),四個出村口(四個方向的正中央)是柵欄的缺口。
 const EDGE={minX:GRID.cx+GRID.pitchX*GRID.cols[0]-CELL.w/2,maxX:GRID.cx+GRID.pitchX*GRID.cols.at(-1)+CELL.w/2,
   minZ:GRID.cz+GRID.pitchZ*GRID.rows[0]-CELL.d/2,maxZ:GRID.cz+GRID.pitchZ*GRID.rows.at(-1)+CELL.d/2};
 export const VILLAGE_BOUNDS={minX:EDGE.minX-GAP,maxX:EDGE.maxX+GAP,minZ:EDGE.minZ-GAP,maxZ:EDGE.maxZ+GAP};
 export const FENCE={minX:VILLAGE_BOUNDS.minX+.25,maxX:VILLAGE_BOUNDS.maxX-.25,minZ:VILLAGE_BOUNDS.minZ+.25,maxZ:VILLAGE_BOUNDS.maxZ-.25};
 export const EXIT_GAP=1.5;            // 出村口:柵欄缺口的半寬(缺口總寬 3 = 6 排地磚)
-// 出村口只有兩個:畫面右下(東側界線)與左下(南側界線),各接一條街。
-// 道路鋪到村界(edge)為止、切平;村外沒有路、自由走。out 是村外的導航出口點,不畫成路。
+// 出村口:四個方向各一個,位置在該側柵欄的**正中央**(剛好落在中央那條街的延伸線上),
+// 所以四個門都接得到街 → 哪個方向都能進出村。道路鋪到村界(edge)為止、切平;村外沒有路、自由走。
+// out 是村外的導航出口點,不畫成路。
+const MID_X=(FENCE.minX+FENCE.maxX)/2,MID_Z=(FENCE.minZ+FENCE.maxZ)/2;   // = STREET_X[2] / STREET_Z[2]
 export const EXITS=[
-  {id:'east',side:'east',x:FENCE.maxX,z:STREET_Z[3],out:{x:VILLAGE_BOUNDS.maxX+.8,z:STREET_Z[3]},street:{x:STREET_X.at(-1),z:STREET_Z[3]},edge:{x:VILLAGE_BOUNDS.maxX,z:STREET_Z[3]}},
-  {id:'south',side:'south',x:STREET_X[3],z:FENCE.maxZ,out:{x:STREET_X[3],z:VILLAGE_BOUNDS.maxZ+.8},street:{x:STREET_X[3],z:STREET_Z.at(-1)},edge:{x:STREET_X[3],z:VILLAGE_BOUNDS.maxZ}}
+  {id:'north',side:'north',x:MID_X,z:FENCE.minZ,out:{x:MID_X,z:VILLAGE_BOUNDS.minZ-.8},street:{x:MID_X,z:STREET_Z[0]},edge:{x:MID_X,z:VILLAGE_BOUNDS.minZ}},
+  {id:'east', side:'east', x:FENCE.maxX,z:MID_Z,out:{x:VILLAGE_BOUNDS.maxX+.8,z:MID_Z},street:{x:STREET_X.at(-1),z:MID_Z},edge:{x:VILLAGE_BOUNDS.maxX,z:MID_Z}},
+  {id:'south',side:'south',x:MID_X,z:FENCE.maxZ,out:{x:MID_X,z:VILLAGE_BOUNDS.maxZ+.8},street:{x:MID_X,z:STREET_Z.at(-1)},edge:{x:MID_X,z:VILLAGE_BOUNDS.maxZ}},
+  {id:'west', side:'west', x:FENCE.minX,z:MID_Z,out:{x:VILLAGE_BOUNDS.minX-.8,z:MID_Z},street:{x:STREET_X[0],z:MID_Z},edge:{x:VILLAGE_BOUNDS.minX,z:MID_Z}}
 ];
 // 街區用途。建築 id 對應 pixel-data 的 BUILDINGS;其他是村莊用地(只畫地面):plaza 是空的廣場,market 是空地,park 有一個池塘。
 // 交易所在廣場西側,酒館、餐廳、旅館在南邊一排,鐵匠/強化/學院在北邊工坊區,

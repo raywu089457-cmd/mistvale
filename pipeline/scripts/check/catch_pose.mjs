@@ -10,7 +10,7 @@ const html=process.env.HTML||path.resolve(root,'../../outputs/暮影村.html');
 const b=await chromium.launch();const p=await b.newPage({viewport:{width:1440,height:900}});
 const errs=[];p.on('pageerror',e=>errs.push(e.message));
 await p.goto(pathToFileURL(html).href+'?preview=1',{waitUntil:'load',timeout:180000});
-await p.waitForTimeout(1500);await p.click('#start-button');
+await p.waitForTimeout(1500);await p.waitForFunction(()=>globalThis.__mistvaleGame&&document.body.dataset.fps!==undefined,null,{timeout:120000});   // 開始畫面已在 2026-10-19 移除,等遊戲自己開好就好
 await p.waitForFunction(()=>globalThis.__mistvaleDetails?.().ready&&globalThis.__mistvaleGame,null,{timeout:60000});
 await p.evaluate(()=>{const V=__mistvaleView,G=__mistvaleGame;V.lookAt(19,3,3.4);G.state.speed=3;
   // 把獵人叫到草原空地打獵(手動指定狩獵區+傳送),才會有打倒目標的歡呼

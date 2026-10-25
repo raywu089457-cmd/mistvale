@@ -137,12 +137,20 @@ idle 表另加:「Use the attached reference image (real Evil Hunter Tycoon game
 | idleDown / idleUp | 8 | 同 idle | 正面 / 背面 |
 | walkDown / walkUp | 8 | 同 walk | 正面 / 背面 |
 | idleLeft / walkLeft | 8 | 同側面 | 側面逐像素水平鏡像烘入 |
+| attackLeft / attackDownLeft / attackUpLeft | 8–10 | 同 attack | 只有真的有 8 方向來源素材的職業才會有;有就**直接播、不鏡像**(見 4.3) |
+
+**身體大小統一(必檢)**：同一位英雄所有動作列的「身體高」(腳底 → 以腳為中線 ±14% 欄位的最上緣,避開劍光/披風) 必須等於 `idle`,
+容差 ±1 px(1x)。來源是 8 方向分別生成的職業每次重接列都要跑一次 `add_attack_dirs8.py --rebuild --write`;
+實測未校正前聖騎士的攻擊列差到 idle 的 0.89×～1.24×(2026-10-22 已校正為全部 63 px)。
 
 英雄格 100、`footFromBottom` 8、`heroHeight` = 待機身高;魔物格 = rig `cell`、`heroHeight` 72、`artSize` = 遊戲尺寸 ×72/21。
 魔物只有 idle / walk / attack / hurt / death(+ 方向列)。
 
 ### 4.3 方向與模組化
 
-- sheet 動作列:`idle walk … idleDown walkDown idleUp walkUp idleLeft walkLeft`;戰鬥維持側面左右。
+- sheet 動作列:`idle walk … idleDown walkDown idleUp walkUp idleLeft walkLeft`;走路/待機的左右:左邊用烘好的 Left 列。
+- **攻擊 8 方向**:有 8 方向來源素材的職業(paladin、berserker)烘 **8 列** `attack attackDownRight attackDown attackDownLeft attackLeft attackUpLeft attackUp attackUpRight`,遊戲選到哪一列就播哪一列,**執行時不翻轉**(`leftRow()` 看到列名以 `Left` 結尾就回傳 `baked`,盾牌/武器不會換手)。
+  只有一列側面 `attack` 的職業(ranger／priest／sorcerer／archer／darkknight／witchhunter)維持舊行為:動作列 + 程式鏡像。
+  列名對照:`east→attack`、`south-east→attackDownRight`、`south→attackDown`、`south-west→attackDownLeft`、`west→attackLeft`、`north-west→attackUpLeft`、`north→attackUp`、`north-east→attackUpRight`。
 - 換色組 `meta.groups`:`outfit`(職業布料色相)與 `metal`(鎧甲/刀刃)。遊戲依 id 從 5 個布料色相挑,買鎧甲→布料更飽和、買武器→金屬變金。
 - 頭部配件槽 `assets/heroes/accessories.png`:依稀有度佩戴(稀有 緞帶/羽飾、超稀 花冠/銀冠、英雄 桂冠/小角、傳說 皇冠/光環),錨點=軀幹中線 ±12% 最上一列。

@@ -4,8 +4,10 @@ import {STREET_X,STREET_Z,EXITS,EXIT_GAP,FENCE,GRID,VILLAGE_BOUNDS,BLOCKS,blockA
 export function distanceSegment(x,z,a,b){const dx=b.x-a.x,dz=b.z-a.z,t=Math.max(0,Math.min(1,((x-a.x)*dx+(z-a.z)*dz)/(dx*dx+dz*dz||1)));return Math.hypot(x-a.x-t*dx,z-a.z-t*dz);}
 // 各建築圖上「門腳/台階前」相對地基中心的位置(世界單位)。量法:建築圖上台階腳下那一點,換算成地面座標(含立面校正)。
 // 跟建築圖綁在一起;圖或街區大小改了要重量。
-export const DOOR_OFFSET={hall:[.11,2.76],inn:[2.3,1.64],trading:[-.07,3.04],restaurant:[1.08,.79],tavern:[-1.84,3.32],forge:[-1.33,.74],clinic:[-2.74,1.62],academy:[-3.04,.13],training:[-1.47,1.74],sanctuary:[1.4,3.02],house:[-.47,2.68],bounty:[.01,.3],enhancement:[-.47,2.42]};
-export function doorFoot(b,p){const o=DOOR_OFFSET[b.id]||[0,b.d/2+.6];return {x:p.x+o[0],z:p.z+o[1]};}
+// 2026-10-20:門口一律是「建築正面(+z 面)的正中央、台階外緣」—— 畫面上的門就畫在那裡,
+// 所以獵人走到這裡看起來才是「站在門口」。以前每棟手調的偏移常常偏到建築側面(甚至隔壁棟前面),
+// 實測後改成同一個規則;要微調就動這裡的 +.55(往門前多遠)。
+export function doorFoot(b,p){return {x:p.x,z:p.z+(b.d||3.6)/2+.55};}
 // ── 整個村莊地板鋪滿石板路:能走的鋪面 = 村界內整片(沒有草地與田地了)。畫面(buildVillageLayer)與村內尋路(village-nav)共用這一份。
 export function pavedRings(){return [{minX:VILLAGE_BOUNDS.minX,maxX:VILLAGE_BOUNDS.maxX,minZ:VILLAGE_BOUNDS.minZ,maxZ:VILLAGE_BOUNDS.maxZ}];}
 // 獵人站的門前位置:門腳,但台階若落在碰撞地基裡,就停在地基外緣(仍在鋪面上)。
@@ -17,9 +19,19 @@ const FENCE_T=.3,palisade=[];{
  side('north','z',FENCE.minZ,FENCE.minX-FENCE_T,FENCE.maxX+FENCE_T);side('south','z',FENCE.maxZ,FENCE.minX-FENCE_T,FENCE.maxX+FENCE_T);
  side('west','x',FENCE.minX,FENCE.minZ-FENCE_T,FENCE.maxZ+FENCE_T);side('east','x',FENCE.maxX,FENCE.minZ-FENCE_T,FENCE.maxZ+FENCE_T);}
 export const PALISADE=palisade;
+// ── 實心佔地(建築、雕像) ────────────────────────────────────────────────
+// 畫面:所有建築都畫成同一個寬度(7.33 個世界單位,見 pixel-world.js 的 uniformBuildingWidth),
+// 佔地(b.w/b.d)只有 3.5–4.4,所以以前角色會走進「看得見的牆」裡。
+// 這裡用固定的一圈實心佔地蓋住牆面、只讓屋簷探出去;街道仍然留得下(街區間距 6.9×6.1,
+// 實心 6.0×4.6 → 兩側各留 0.45/0.75 的走道)。導航、碰撞、畫面共用這一份。
+// 建築碰撞(實心)範圍:對齊「畫面上的地基邊緣」,不是屋簷/整張圖。
+// 建築統一畫成 7.33 單位寬(含屋簷外伸),地基約是它的 0.63 倍寬、0.52 倍深 → 4.6 × 3.8（不可小於建築自己的佔地 4.0 × 3.5）。
+export const SOLID={x:2.3,z:1.9},STATUE={x:.95,z:.7};
+export function buildingSolid(b,p){return {id:b.id,minX:p.x-SOLID.x,maxX:p.x+SOLID.x,minZ:p.z-SOLID.z,maxZ:p.z+SOLID.z};}
+export function statueSolid(plaza){return {id:'statue',minX:plaza.x-STATUE.x,maxX:plaza.x+STATUE.x,minZ:plaza.z-STATUE.z,maxZ:plaza.z+STATUE.z};}
 // ── 公園池塘:公園街區沒被建築佔用時,有一個池塘。畫面在地面層挖洞畫水,村內尋路把池塘當障礙(整個村莊都是鋪面,池塘不能踩)。
 export function villagePonds(layout={},levels={}){
- const taken=blk=>BUILDINGS.some(b=>b.id!=='dungeon'&&levels[b.id]!==0&&blockAt((layout[b.id]||b).x,(layout[b.id]||b).z)===blk);
+ const taken=blk=>BUILDINGS.some(b=>(b.id==='dungeon'||levels[b.id]!==0)&&blockAt((layout[b.id]||b).x,(layout[b.id]||b).z)===blk);   // 地下城入口固定佔用公園街區(還沒蓋時也是工地)→ 那個街區不會有池塘
  return BLOCKS.filter(blk=>blk.use==='park'&&!taken(blk)).map(blk=>({x:blk.x,z:blk.z+.4,rx:2.5,rz:1.9}));}
 // 點(x,z)是否在池塘裡(pad = 往外多留的邊,池塘邊緣有一點起伏)。
 export const inPond=(ponds,x,z,pad=0)=>ponds.some(p=>((x-p.x)/(p.rx+pad))**2+((z-p.z)/(p.rz+pad))**2<1);

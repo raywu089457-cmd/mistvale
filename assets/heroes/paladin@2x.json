@@ -74,6 +74,450 @@
    "cell": 200,
    "frames": 8,
    "frameTime": 0.1
+  },
+  "attack": {
+   "y": 2400,
+   "cell": 320,
+   "frames": 9,
+   "head": [
+    [
+     154.5,
+     180
+    ],
+    [
+     163.5,
+     178
+    ],
+    [
+     142.0,
+     185
+    ],
+    [
+     142.0,
+     185
+    ],
+    null,
+    null,
+    null,
+    [
+     152.0,
+     179
+    ],
+    [
+     154.5,
+     180
+    ]
+   ],
+   "frameTime": 0.075,
+   "release": 4,
+   "impact": 5,
+   "artScale": 0.3551,
+   "bodySource": "sprite-gen 流程重新生成（不參考舊攻擊）：l0veyou GPT Image 2（造型基準＝東向待機圖）→ sprite-gen cutout → grid_snap_downscale＋共用調色盤 → 腳底貼地、後腳跟固定；6 格對 9 格 [0, 1, 2, 2, 3, 4, 4, 5, 0]",
+   "strikeDur": [
+    0.035,
+    0.09,
+    0.075,
+    0.085,
+    0.09
+   ],
+   "windupPow": 0.6,
+   "bakedMotion": true
+  },
+  "attackDownRight": {
+   "y": 2720,
+   "cell": 320,
+   "frames": 9,
+   "head": [
+    [
+     170.8,
+     167
+    ],
+    [
+     165.5,
+     184
+    ],
+    [
+     140.5,
+     164
+    ],
+    [
+     128.8,
+     179
+    ],
+    [
+     159.8,
+     185
+    ],
+    [
+     160.0,
+     169
+    ],
+    [
+     161.0,
+     180
+    ],
+    [
+     165.8,
+     183
+    ],
+    [
+     170.5,
+     167
+    ]
+   ],
+   "frameTime": 0.075,
+   "release": 4,
+   "impact": 5,
+   "artScale": 1.0702
+  },
+  "attackDown": {
+   "y": 3040,
+   "cell": 320,
+   "frames": 9,
+   "head": [
+    [
+     169.0,
+     140
+    ],
+    [
+     139.0,
+     95
+    ],
+    [
+     184.0,
+     111
+    ],
+    [
+     123.5,
+     114
+    ],
+    [
+     156.0,
+     88
+    ],
+    [
+     153.7,
+     150
+    ],
+    null,
+    null,
+    [
+     170.5,
+     140
+    ]
+   ],
+   "frameTime": 0.075,
+   "release": 4,
+   "impact": 5,
+   "artScale": 0.9766,
+   "bodySource": "使用者給的 3×3 套圖（PixelLab 256 畫布、刀光畫在身上）→ sprite-gen unpack-atlas --grid 3x3 ＋ connected_components 拿掉右上角盾牌圖示 → compose-atlas → 等比縮放、腳點貼齊；劍尖低於腳 → 列自帶 footFromBottom",
+   "strikeDur": [
+    0.035,
+    0.09,
+    0.075,
+    0.085,
+    0.09
+   ],
+   "windupPow": 0.6,
+   "bakedMotion": true,
+   "footFromBottom": 55
+  },
+  "attackUpRight": {
+   "y": 3360,
+   "cell": 320,
+   "frames": 9,
+   "head": [
+    [
+     159.5,
+     178
+    ],
+    [
+     159.2,
+     178
+    ],
+    [
+     161.2,
+     178
+    ],
+    [
+     170.1,
+     182
+    ],
+    [
+     187.5,
+     177
+    ],
+    [
+     153.5,
+     179
+    ],
+    [
+     153.5,
+     179
+    ],
+    [
+     156.5,
+     182
+    ],
+    [
+     159.5,
+     178
+    ]
+   ],
+   "frameTime": 0.075,
+   "release": 4,
+   "impact": 5,
+   "artScale": 0.9413
+  },
+  "attackUp": {
+   "y": 3680,
+   "cell": 320,
+   "frames": 9,
+   "head": [
+    [
+     161.0,
+     179
+    ],
+    [
+     195.5,
+     173
+    ],
+    [
+     178.0,
+     147
+    ],
+    [
+     178.0,
+     147
+    ],
+    [
+     154.0,
+     184
+    ],
+    [
+     158.5,
+     193
+    ],
+    [
+     158.5,
+     193
+    ],
+    [
+     160.5,
+     179
+    ],
+    [
+     161.0,
+     179
+    ]
+   ],
+   "frameTime": 0.075,
+   "release": 4,
+   "impact": 5,
+   "artScale": 0.9843,
+   "bodySource": "新管線：sprite-gen（l0veyou GPT，只用北向待機當參考）設計動作 → PixelLab estimate-skeleton → animate-with-skeleton-v3；下劈/命中兩格 PixelLab 畫不出（背面跨身劈），改用 GPT 格鎖 PixelLab 色盤。各格來源：PixelLab 待機／PixelLab／PixelLab／PixelLab／GPT(鎖色)／GPT(鎖色)／GPT(鎖色)／PixelLab／PixelLab 待機",
+   "strikeDur": [
+    0.035,
+    0.09,
+    0.075,
+    0.085,
+    0.09
+   ],
+   "windupPow": 0.6,
+   "bakedMotion": true
+  },
+  "attackLeft": {
+   "y": 4000,
+   "cell": 320,
+   "frames": 9,
+   "head": [
+    [
+     165.0,
+     179
+    ],
+    [
+     155.0,
+     182
+    ],
+    [
+     155.5,
+     185
+    ],
+    [
+     149.5,
+     186
+    ],
+    [
+     122.0,
+     181
+    ],
+    [
+     121.0,
+     184
+    ],
+    [
+     121.0,
+     184
+    ],
+    [
+     150.0,
+     180
+    ],
+    [
+     165.0,
+     179
+    ]
+   ],
+   "artScale": 1.0,
+   "frameTime": 0.075,
+   "release": 4,
+   "impact": 5,
+   "bodySource": "手 K 骨架（slash_pose.py west）→ PixelLab animate-with-skeleton-v3 空手揮砍；手位＝骨架手腕",
+   "strikeDur": [
+    0.035,
+    0.09,
+    0.075,
+    0.085,
+    0.09
+   ],
+   "windupPow": 0.6,
+   "bakedMotion": true
+  },
+  "attackDownLeft": {
+   "y": 4320,
+   "cell": 320,
+   "frames": 9,
+   "head": [
+    [
+     160.8,
+     182
+    ],
+    [
+     144.2,
+     184
+    ],
+    [
+     163.5,
+     165
+    ],
+    [
+     184.5,
+     176
+    ],
+    [
+     184.0,
+     176
+    ],
+    [
+     191.5,
+     145
+    ],
+    [
+     187.8,
+     179
+    ],
+    [
+     185.3,
+     184
+    ],
+    [
+     143.2,
+     183
+    ]
+   ],
+   "artScale": 0.9795,
+   "frameTime": 0.075,
+   "release": 4,
+   "impact": 5
+  },
+  "attackUpLeft": {
+   "y": 4640,
+   "cell": 320,
+   "frames": 9,
+   "head": [
+    [
+     150.0,
+     167
+    ],
+    [
+     166.5,
+     173
+    ],
+    [
+     151.0,
+     179
+    ],
+    [
+     180.0,
+     184
+    ],
+    [
+     147.0,
+     177
+    ],
+    [
+     126.0,
+     186
+    ],
+    [
+     129.0,
+     186
+    ],
+    [
+     158.0,
+     180
+    ],
+    [
+     151.0,
+     167
+    ]
+   ],
+   "artScale": 1.028,
+   "frameTime": 0.075,
+   "release": 4,
+   "impact": 5
+  },
+  "idleLeft": {
+   "y": 4960,
+   "cell": 200,
+   "frames": 1,
+   "frameTime": 0.16
+  },
+  "idleDownRight": {
+   "y": 5160,
+   "cell": 200,
+   "frames": 1,
+   "frameTime": 0.16
+  },
+  "idleUpRight": {
+   "y": 5360,
+   "cell": 200,
+   "frames": 1,
+   "frameTime": 0.16
+  },
+  "idleDownLeft": {
+   "y": 5560,
+   "cell": 200,
+   "frames": 1,
+   "frameTime": 0.16
+  },
+  "idleUpLeft": {
+   "y": 5760,
+   "cell": 200,
+   "frames": 1,
+   "frameTime": 0.16
+  },
+  "walkDownLeft": {
+   "y": 5960,
+   "cell": 200,
+   "frames": 8,
+   "frameTime": 0.125
+  },
+  "walkUpLeft": {
+   "y": 6160,
+   "cell": 200,
+   "frames": 8,
+   "frameTime": 0.125
   }
  },
  "palette": [
@@ -381,5 +825,18 @@
    230
   ]
  },
- "source": "PixelLab 原生 1:1（8 向 rotation + Walking）；cell/foot/heroHeight 一律是 1x 的 2 倍，LOD 切換位置與大小完全相同"
+ "source": "PixelLab 原生 1:1（8 向 rotation + Walking）；cell/foot/heroHeight 一律是 1x 的 2 倍，LOD 切換位置與大小完全相同",
+ "parts": [
+  {
+   "id": "smear",
+   "sheet": "paladin-smear",
+   "order": 1,
+   "shadow": false
+  },
+  {
+   "id": "sword",
+   "sheet": "paladin-sword",
+   "order": 2
+  }
+ ]
 }

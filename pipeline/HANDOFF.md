@@ -1,3 +1,935 @@
+## 2026-10-22（二）：sprite-gen 的影片路徑 → PixelLab 動畫 API
+
+sprite-gen 的動畫是「一張 still → Grok Imagine video → 逐格拆圖 → keying → rows」。PixelLab 沒有影片模型，
+但**不需要**：`POST /v2/characters/animations`（mode `v3`）直接對帳號裡的角色生動畫，回傳的就是**每個方向的幀**。
+
+新增 `sprite_gen/gen/pixellab_animation.py`（副本在 `pipeline/scripts/pixellab/sprite-gen/`），產出**與影片路徑相同形狀**的交付物，
+所以後面的 curation / alpha / atlas 匯出不用改：
+
+```
+<out-dir>/<direction>/00.png … NN.png     每個方向一個資料夾
+<out-dir>/pixellab-animation.json         方向、幀數、action、animation_type、角色 id、計費說明
+```
+
+- 計費：`ceil(size²·frames/65536)` **每方向**（128px·8f = 2、256px·8f = 8）；送出前在 stderr 印出總格數
+- `--dry-run`：只印計畫與計費，完全不呼叫 API（已驗證：5 方向 × 8 幀 @128px = 10 格）
+- 8 方向名稱驗證（`south`…`south-west`），左邊三個方向由遊戲/管線鏡像
+- 動作白名單：walking / walk / attack / skill / idle / death / hurt / victory / run / jump
+- 30 分鐘逾時、429 明確報錯（PixelLab 同帳號一次只能跑一個生成）
+
+**還沒做**：真的生一次動畫（會花額度）。`--dry-run` 已驗證 wiring；要實跑就：
+`python -m sprite_gen.gen.pixellab_animation --character <id> --action walking --out-dir runs/walk`
+
+---
+
+## 2026-10-22：sprite-gen（aldegad/sprite-gen）付費 provider → PixelLab adapter
+
+使用者問「sprite-gen 的付費資源能不能用 PixelLab / l0veyou 取代」。查完的結論：
+
+| sprite-gen 的付費來源 | 用途 | 替代 |
+|---|---|---|
+| `codex`（ChatGPT 訂閱 OAuth `image_gen`） | 生圖（原生 alpha） | ✅ PixelLab `create-character-v3`（原生 alpha） |
+| `grok`（SuperGrok Imagine，JPEG 靠 chroma 去背） | 生圖 | ✅ PixelLab（更好，直接 alpha）；l0veyou（GPT Image 2）補單張 |
+| `openai`（`OPENAI_API_KEY` 逐次計費） | 生圖 | ✅ PixelLab（按 generation 計費） |
+| **Grok Imagine video**（影片→拆幀做走路/攻擊） | 動畫 | ⚠️ PixelLab 沒有影片模型，但不需要：`/v2/characters/animations`（mode v3）直接生 8 方向動畫 |
+| `pixel-draw`（Claude Code 訂閱） | 像素級修圖 | ⚠️ 部分：PixelLab `inpaint`/`rotate`/`estimate-skeleton`；其餘是 sprite-gen 本機後處理 |
+| `sound`（`ELEVENLABS_API_KEY`） | 音效 | ❌ 兩者都沒有 |
+
+**已實作**：`sprite_gen/gen/pixellab_provider.py`（副本存在 `pipeline/scripts/pixellab/sprite-gen/`）
+- 實作 sprite-gen 的 `Provider` 協定（`name` / `transparency` / `generate` / `inspect_facing` / `inspect_image`）
+- `transparency = native`（PixelLab 直接回透明 PNG，不用 chroma key）
+- 流程：`POST /v2/create-character-v3` → 等 `background_job_ids` → `GET /v2/characters/{id}` →
+  下載 south 到 `request.raw`，其餘 7 個方向存成 `<stem>.<direction>.png` 並列在 `ProviderRun.extra["directions"]`
+  （sprite-gen 的 row 管線要同一角色的所有視角，重生一次要再花一次額度）
+- `--ref` → 第一個參考圖當 `reference_image`
+- `--quality` 只接受 `auto|high`、`--resolution` 直接拒絕（**拒絕而不是默默降級**，符合它 repo 的 No Silent Fallback）
+- 沒有 vision 模型 → `inspect_facing` / `inspect_image` 直接報錯並提示改用 codex/grok
+- 已註冊：`PROVIDERS = ("codex","grok","openai","pixellab")` 與 `_make_provider()`
+
+**還沒做**：① 端到端生圖測試（會花額度，且要先把 repo 裝起來跑 CLI）② l0veyou 沒有 API，
+只能做成「瀏覽器 shuttle」而不是 `gen` provider ③ 影片管線沒有替代（改用 PixelLab 動畫 API）。
+
+---
+
+## 2026-10-21：建築碰撞縮到「地基邊緣」
+
+`src/landscape-layout.js` 的 `SOLID`（建築實心範圍，導航與碰撞共用）從 **6.0 × 4.6** 改成 **4.6 × 3.8**
+（`{x:2.3,z:1.9}`）：建築統一畫成 7.33 單位寬（含屋簷外伸），地基約 0.63 倍寬、0.52 倍深，所以碰撞框
+現在剛好貼在石造地基邊緣，不再包含屋簷外伸的部分。
+
+- 下限是建築自己的佔地（4.0 × 3.5）：第一次試 4.4 × 3.45（z 1.72）時 `test-pixel-game` 馬上抓到
+  「獵人穿進酒館佔地」，所以 z 取 1.9 保留一點餘裕。
+- 驗收：把碰撞框畫在畫面上（紅框）目視 → 全部貼在地基邊緣；`npm test` 全過（村內尋路、獵人不穿牆、
+  門口連通、獵人 100% 踩鋪面）。
+
+---
+
+## 2026-10-22：聖騎士攻擊拆成「身體＋劍零件」— 東、西、上、下 4 列已完成（斜角 4 列仍舊圖）
+
+**北向（`attackUp`）最新：新管線，只用北向待機當起始參考**（`paladin-anchor-lab/sg_run/integrate_pl_north.py --write`）：
+l0veyou GPT Image 2（唯一參考＝PixelLab rotation-north，提示詞 `sg_run/north/run/prompts/attack.l0v.txt`，強調嚴格背面）6 格 3×2
+→ sprite-gen cutout、分格 → 256 畫布（比例 2.417、腳點對待機）→ PixelLab estimate-skeleton → animate-with-skeleton-v3（第一格＝rotation-north）。
+PixelLab 畫不出「背面、右手跨身往左劈」的下劈/命中兩格（試 3 輪 ~10 gen：轉側面、正面露臉、殘影、劍位錯；頭部關節照待機背面那組也沒用），
+→ 這兩格改用 GPT 格、色盤鎖到 PixelLab 幀（`build_shared_palette`/`apply_palette` 96 色）。各格：`[待機, PL, PL, PL, GPT, GPT, GPT, PL, 待機]`。
+劍畫在身上 → `paladin-sword` 拿掉 attackUp；`paladin-smear` attackUp＝l0veyou 刀光（劍尖 (177,148)→(95,290)、往左上外凸 50）。
+北向共花約 14.6 gen（token2）。改前素材 `paladin-anchor-lab/backup/pre_north_sg/`。驗收：`npm test` 11 PASS、實機連拍 attackUp 3→8。
+**PixelLab 骨架的弱點**：背面＋手臂被身體擋住的姿勢、估出的臉部關節（耳低於眼→判成正面）都會讓它轉身；正面/側面的大動作沒這問題。
+
+**南向（`attackDown`）最新（2026-10-23）：改用使用者給的 3×3 套圖**（`paladin-anchor-lab/sg_run/integrate_user_south.py --write`）：
+來源 `sg_run/user_south/input_grid.png`（768²＝9 格 PixelLab 256 畫布、真像素、透明底、刀光畫在第 5、6 格）。
+sprite-gen 素材處理：`unpack-atlas --grid 3x3` → 每格用 `connected_components` 拿掉右上角多出來的盾牌圖示（每格同一塊 36×42、不相連）→ `compose-atlas`（`run/sprite-sheet-alpha.png`＋`manifest.json` frame_layout）→ 照 manifest 讀 9 格、等比縮放（身體高 125/63）、腳點貼齊。
+劈下時劍尖往鏡頭方向伸到腳下約 50 px，全域 `footFromBottom` 16 會切掉 → **這列自帶 `footFromBottom`（@2x 55、1x 30）**，引擎 `sheetFrame` 改成 `a.footFromBottom ?? meta.footFromBottom`（其他列不受影響）。
+刀光已在身上 → `paladin-smear` 拿掉 attackDown。改前素材 `sg_run/user_south/backup_before/`。驗收：`npm test` 11 PASS、實機連拍（`capture_seq.mjs` 加 `FAR=-1`＝魔物移到背後，不擋鏡頭）腳點/劍尖都正常。
+
+**南向（上一版）：sprite-gen 設計動作 → PixelLab 成圖**（`paladin-anchor-lab/sg_run/integrate_pl_south.py --write`）：
+分工＝GPT（l0veyou，經 sprite-gen 流程）負責動作設計；PixelLab 負責最後成圖（畫風/色盤/細節跟 PixelLab 做的待機、走路一致）。
+做法：目前南向 8 格（sprite-gen 跳斬）放進 256 畫布、腳點對到 PixelLab 待機 → `estimate-skeleton`（8×0.1 gen）
+→ `animate-with-skeleton-v3`（第一格＝`output/pixellab/paladin-rot-256/rotation-south.png`，動作詞 "jump slash with a longsword"、描述含長劍 → 劍由 PixelLab 畫）
+兩個 seed（各 3 gen）逐格挑：`[待機, s21#1, s7#2, s21#3–7, 待機]`（s7 第 3 格有殘影、第 4 格劍淡掉）。整張 256 等比縮放（0.9766/0.4922）、腳點 (cell/2, cell−F−1)。
+刀光沿用 `paladin-smear` attackDown。共花 6.8 gen（token2）。驗收：`npm test` 11 PASS、實機連拍 attackDown 2→8。
+取捨：畫風一致度最好；但披風甩幅、劍長比 GPT 版保守。上一版（GPT 成圖）素材備份 `paladin-anchor-lab/backup/sg3/`。
+
+**東向（`attack`）現行：sprite-gen 流程重新生成（不參考舊攻擊素材）**（`paladin-anchor-lab/sg_run/integrate_east_sg.py --write`）：
+l0veyou GPT Image 2，單張參考＝東向待機圖（PixelLab rotation-east，洋紅底 2 倍），提示詞 `sg_run/east/run/prompts/attack.l0v2.txt`
+（嚴格側面、6 格 3×2：待機→舉劍往後→劍水平拉到背後蓄力→弓步下劈→最深弓步劍前伸→收）。第一次生成第 2–5 格轉成 3/4 正面，
+加「strict profile」重生後採用 v2。→ sprite-gen cutout → 連通塊分 6 格 → `grid_snap_downscale`（身體高 125/63、64 色）
+→ 腳底（寬度≥5 的最下列）貼 y=303、後腳跟固定在待機位置（弓步身體真的往前）；6 對 9 `[0,1,2,2,3,4,4,5,0]`。
+劍畫在身上 → `paladin-sword` 拿掉 `attack`（該列清空）；`paladin-smear` 的 `attack` 改放 l0veyou 像素刀光（兩端對劍尖 (88,212)→(262,303)、過頂外凸 80）。
+`integrate_dirs.py --write` 已加保護（會把東/南蓋回舊版，要 `--force`）。改前素材備份 `paladin-anchor-lab/backup/pre_east_sg/`。驗收：`npm test` 11 PASS、實機連拍 attack 2→8。
+西向（attackLeft）、北向（attackUp）仍是「模仿 AI＋劍零件」版。
+
+**南向（`attackDown`）現行：動作照「原本 AI 南向跳斬」、sprite-gen 流程重畫**（`paladin-anchor-lab/sg_run/integrate_sg3.py --write`）：
+l0veyou GPT Image 2，單張參考＝原本 AI 那排第 0–7 格（2 倍、4×2、洋紅底，`run3/motion_ref_4x2.png`），提示詞 `run3/prompts/attack.l0v1.txt`
+（逐格照抄姿勢/跳高/劍角/披風，拿掉白色刀弧）→ sprite-gen cutout → 依連通塊分 8 格 → `grid_snap_downscale` 縮到身體高 125/63＋64 色調色盤
+→ 每格對齊原本 AI 同一格（alpha 重疊最大，IoU 0.70–0.83），站著的第 0–3 格腳底貼 y=303、其餘套同一偏差（跳高保留）；8 格對 9 格 `[0..7,0]`。
+刀光：l0veyou 像素刀光，兩端/外凸量自原本第 4 格的白色刀弧，放第 4/5/6 格（`paladin-smear` attackDown）。劍零件仍不畫南向。
+上一版（sprite-gen 自創 6 格動作）素材備份 `backup/sg2/`。生圖用 `pl/gen_l0v2.mjs`（雷見 lab README）。驗收：`npm test` 11 PASS、實機連拍 3→8。
+
+**南向上上版：sprite-gen 流程整隻角色（含劍、自創動作）**（`paladin-anchor-lab/sg_run/`）：
+sprite-gen（`Desktop/Claude code/_ext/sprite-gen`）`prepare` 產生提示詞＋6 格版面 → 用 l0veyou GPT Image 2 生（`pl/gen_l0v.mjs`，自己開分頁、
+開「多参考图」附 2 張參考：洋紅底的南向待機圖＋版面；sprite-gen 原版提示詞 6000 多字送不出去，用濃縮版 `run1/prompts/attack.short.txt`）
+→ `sprite-gen extract`（512 格原尺寸、foot-centroid、腳底對齊）→ `sg_run/integrate_sg.py --write`：sprite-gen 的 `grid_snap_downscale`
+一次縮到身體高 125/63＋64 色共用調色盤，6 格對 9 格 `[0,1,2,2,3,4,4,4,5]`。劍畫在身上 → `paladin-sword`/`paladin-smear` 拿掉 `attackDown`
+（引擎零件層沒有該列就不畫）；`integrate_dirs.py` 已不再處理南向。刀光：`paladin-smear` 的 `attackDown` 改放 l0veyou 生的像素刀光（`sg_test/fx_slash1-3.png`，cutout＋還原真像素），新月兩尖端對到蓄力格/斜劈格的劍尖、外凸壓到 30px，放在第 4（整條）/5（裂開）/6（碎片）格。
+3D 自己 K 版的素材備份在 `paladin-anchor-lab/backup/s3d/`。驗收：`npm test` 11 PASS、實機連拍 attackDown 3→8。
+
+**南向上一版：不參考 AI，3D 骨架自己 K**（`paladin-anchor-lab/south3d.py`）：在 3D 擺 18 關節（X 右、Y 上、Z 往鏡頭），
+用遊戲鏡頭（low top-down，仰角約 30°）投影成 skeleton-v3 的 2D 骨架，正面的扭腰、往鏡頭踏步、手臂前伸都會自然前縮，不會折膝。
+揮法：右手斜劈——蓄力時重心移到後腳、扭腰把右肩往後拉、上身後仰、劍高舉在右肩上方、盾往前護身 → 放招時右腳往前踏、重心下沉、
+腰先轉肩後到、手臂伸直，劍從頭側往前下劈到身體正前（命中＝右肩→手→劍尖一條對角線指向右下）→ 過衝帶到左腰 → 收。
+劍的 3D 方向投影出螢幕角度＋前縮比例（`slash_grip.json` 的 `fore`，`swordfx.Sword.render(..., fore)`）；殘影照手＋劍在 3D 內插的實際軌跡畫
+（`sweep`，`swordfx.smear_path`：新月形、前緣實、拖尾淡、刀口亮線）。身體 `sk/south/out_h1`（seed 7）→ `deplume.py` 擦掉模型多長的紅羽飾
+（正面待機/走路沒有羽飾，攻擊格突然冒出會跳）→ `out_h1c`。花費 6 gen（兩個 seed 各 3，seed 21 會自己畫劍＋殘影不採用）。
+只動 `attackDown` 列與兩張零件表的第 4 列（其他列逐像素比對沒變）；上一版（模仿 AI）的素材備份在 `paladin-anchor-lab/backup/r2/`。
+驗收：`npm test` 全過；`capture_seq.mjs`（`PLACE=1` 把魔物擺到要測的方向——遊戲是斜角座標，正下＝(+0.8,+0.8)）實機連拍確認走 `attackDown` 2→8 格。
+
+**上一版（動作＝模仿原本 AI 生成的攻擊；東、西、上仍是這版）**：4 列的身體動作是「參考動作重定向」——從改動前遊戲裡的 AI 攻擊列
+（`paladin-anchor-lab/backup/paladin@2x`）每格 estimate 骨架（`ref_skel.py`）＋人工讀劍角（`ref_sword.py`，`sk/ref/<dir>/sword_fix.json`），
+`ref_retarget.py <dir>` 做相對重定向（根位移／上身轉角／每根骨頭相對第 0 格的轉角，加到我們的待機骨架；肩寬髖寬保留＝面向不跟著參考轉；
+參考離地時我們也離地），再 skeleton-v3 生空手身體（`sk/<dir>/out_r`）、`integrate_dirs.py --write` 掛劍＋掃掠殘影（`swordfx.smear_sweep`）。
+西向參考本身壞（中途轉身往右刺）→ 用東向鏡像。遮擋：西 1–3、上 5–6。轉超過 180° 的劍角方向依參考刀光人工定（北越頂、南右側下劈）。
+節奏：列上新增 `strikeDur`（出手後 5 格秒數 35/90/75/85/90 ms，總長不變）與 `windupPow 0.6`（早到最大蓄力並停住）；
+`pixel-world.js` sheetPose 支援這兩個欄位，沒有的列行為不變。這輪花費 3.6（estimate 36 格）＋12（生成）gen。
+**修正（同日）**：
+- 重定向改成「末端對齊」（`ref_retarget.py` MODE='ik'）：手、腳位置照參考（相對髖/絕對的變化量），手肘膝蓋用 IK、往參考那側彎，
+  肩/髖也帶入參考的扭轉。舊的「每根骨頭轉角」會丟掉軀幹扭轉，出劍手掉在髖後面（看起來像拖著劍）。北向腳與根位移只取 35%（背面踏步會被畫成蹲馬步）。
+  身體在 `sk/<dir>/out_r2`。
+- 引擎兩個 bug（`pixel-world.js`）：① `leftRow` 把「正上/正下 + 面向左」接成 `attackUpLeft/DownLeft`（斜角舊圖）→ 正上/正下改成鏡像；
+  ② 新增列旗標 `bakedMotion`：素材已有真弓步的列不再疊 `MOTION` 的假前衝與切身體（原本會整個人衝進怪物裡）。
+- 驗收：`capture_seq.mjs`（遊戲 0.15 倍速、只留聖騎士與一隻怪、連拍）＋ `npm test` 11 PASS。
+
+（再上一版「依動畫原則手 K 的力量版」留在 `sk/<dir>/out_p`、骨架備份 `v3bak/`；更早的版本在 `v2bak/`。）
+
+以下是更早的狀態：`attack`／`attackLeft`／`attackUp`／`attackDown` 都是「手 K 骨架 → skeleton-v3 空手身體＋劍零件＋殘影」。
+一次重建 4 列：`paladin-anchor-lab/integrate_dirs.py --write`（取代 integrate_east.py）。零件表 `paladin-sword`／`paladin-smear` 改成 4 列
+（y = 0/cell/2cell/3cell，依上面順序）。各方向骨架與握把：`sk/`（東）、`sk/west|north|south/`（`slash_pose.py <dir>` 產生）。
+劍在身體後面的格（西全部、上 4–6、下 3）在零件表裡已用身體輪廓挖掉，引擎不用分前後。
+西/上/下這輪花費：estimate 0.1×3 ＋ 生成 3×3 = 9.3 gen（token2）。驗收：`npm test` 11 PASS；實機抓到西向弓步突刺、動作實驗室確認上/下有劍與殘影。
+**調整（同日）**：上/下改成「橫掃」——`sweep_pose.py south|north`，手臂用「手腕目標＋兩骨 IK」（不是直接給角度）；
+正面：劍拉到右肩後上方 → 在身體前方由右髖掃過腹前到左側（劍尖朝鏡頭時直直往下）；背面：鏡像，劍越過頭頂（被頭擋住只露上段）掃到左。
+遮擋改成：西只有第 3 格（劍在頭後）、上 4–5 格、下無（原本西「全部遮」會讓劍柄跟手分家）。重生上/下 6 gen。舊版留在 `sk/<dir>/*.v1.*`、`out.v1/`。
+斜角 4 列（attackDownRight/UpRight/DownLeft/UpLeft）還是舊的整張圖（有角頭盔），零件表沒有這些列 → 引擎自動不畫劍零件。
+
+（以下是過程紀錄）
+
+做法（「標記色劍」）：在 256 待機圖把劍塗成洋紅劍身／青護手 → PixelLab 匯入新角色
+`443a1503-e208-455d-89f0-5e9a35049061`（token2，0.25 gen）→ v3 生成東向 6 格（6 gen）→
+從標記色抽握把/角度、挖掉得到空手身體（補洞、去殘影），再把原本的劍按握把逐格旋轉成零件。
+工具與中間檔在 `Desktop/Claude code/paladin-anchor-lab/`（`marker_extract.py`、`integrate_east.py`，README 有說明）。
+
+**改了什麼**
+- `assets/heroes/paladin(.png/@2x)`：`attack` 列（東向）換成空手身體，7 張生成格 → 9 格 `[0,1,2,2,3,4,4,5,6]`
+  （release 4 = 往前揮、impact 5 = 劍到最低）；身體高 63 / 125、腳點 (cell/2, cell−footFromBottom−1)；`head` 重算。
+  `meta.parts = [{id:'sword', sheet:'paladin-sword'}]`。
+- 新增 `assets/heroes/paladin-sword(.png/@2x)`（`kind:'part'`，只有 `attack` 一列、offset 全 0，跟身體同格位）。
+- `src/pixel-world.js` 零件層：身體用 @2x 時零件也用 @2x；零件跟著 `MOTION` 的上半身 ux/uy 位移（不然劍會離手）；
+  動作實驗室預覽也畫零件。
+
+**揮砍改成手 K 劍（同日稍後）**：生成的身體動作太小，劍只是晃一下。改成業界做法——劍是手的子物件，
+握把位置用標記色量到的真實手位，角度逐格手 K：`KEY_ANGLES = [32.6,-60,-110,-165,-70,0,50,75,32.6]`
+（守勢→舉起→拉到頭後→越頂→命中水平前指→下切→收），`integrate_east.py --keyed --write` 產生；第 1 格模型多畫的棕色劍柄已擦掉。
+試過用「弓步＋大弧」重新生成（8 gen）失敗：角色轉向、劍往後揮、洋紅劍身幾乎消失、青色跑到盾牌上 → 動作大時標記色撐不住，不採用。
+
+**揮砍打磨（同日再稍後）**：劍改用 RotSprite（Scale2x×3 → 旋轉 → 取樣，`paladin-anchor-lab/swordfx.py`），1x 直接在 1x 尺寸旋轉；
+新增零件 `paladin-smear(@2x)`（揮砍殘影新月，格 4/5/6，`shadow:false`），`meta.parts = [smear, sword]`；
+`pixel-world.js` 零件層加投影（`part.shadow!==false` 才 `cast`）。`npm test` 11 PASS；實機 1x/@2x 截圖確認殘影、劍、影子。
+
+**全身揮砍（目前版本）**：身體改用「手 K 骨架 → PixelLab `animate-with-skeleton-v3`」生成 9 格空手揮砍
+（`paladin-anchor-lab/slash_pose.py` 定 18 關節姿勢：舉起→過頭→拉後→踏步越頂→弓步前伸→下切→收；`skel.py animate`）。
+3 gen/9 格，面向全程不漂、空手、拳頭剛好在骨架手腕上 → 劍直接掛在手腕（`sk/slash_grip.json`），角度＝同一份手 K。
+`integrate_east.py --keyed --skel --write`。注意：action 寫 "sword slash" 時模型會自己畫一把劍 → 改成 "lunge attack with an empty fist"。
+
+**已知**
+- 其他 7 個攻擊方向仍是舊的整張圖（有角頭盔）；東向這列是紅羽頭盔（跟待機/走路一致）。補齊要約 42 gen。
+- 劍零件沒有投影（`cast` 只畫身體）。
+- 換武器＝換 `paladin-sword` 表，錨點不用動。
+
+**驗收**：`npm test` 全過；實機抓 h3 出手 1x/@2x 各 4 格，劍都在手上；`check_facing` 40 秒 heroWalkBad 0、heroAnimBad 0；
+heroCombatBad 16 是訪客 w10–w13 的既有問題（改動前同條件 14）。
+
+---
+
+## 2026-10-21：角色與建築的互動點改到「門口正前方」（含補血等服務）
+
+問題：`door(buildingId, from)` 會從 **4 個候選點**（門口 `doorStand`、+x、−x、**−z 建築背面**）裡挑「走路最短」的，
+所以獵人常常從後面繞到屋子背面就開始用設施（補血、吃東西、住宿都在背面）。
+
+修正（`src/pixel-game.js` 的 `door()`）：
+- **候選點只剩 3 個**：門口正前方（`doorStand` = 正面 +z 面台階外緣）、+x 側、−x 側；**背面 -z 整個移除**。
+- 側面兩點加 **9 單位懲罰**，所以只有在門口被擋住、或要多繞很遠時才會退到側面。
+- 沒有任何可用點時才退回 `safePoint`。
+
+實測「診所門口」：獵人站在正面台階前（截圖確認，紅十字招牌左側的雙開門 + 階梯前）。
+
+---
+
+## 2026-10-22：AI 獵人／流浪英雄也加「出手後短僵直」
+
+背景：手動操控的「攻擊 CD 0.5 秒 + 出手後 0.65 秒不能走」只作用在玩家那一隻；AI（自動狩獵的獵人與野外流浪英雄）
+本來就進到攻擊距離後站著打，但打完的下一幀就可能立刻走開（目標死掉或跑掉時），看起來像「收招沒收完就走了」。
+
+**做法**
+- `src/pixel-data.js`：新增 `AI_ATTACK_LOCK = 0.15`（秒）。
+- `src/pixel-game.js`
+  - 獵人出手（`attackTimer === 0` 那一段）與流浪英雄出手都加 `h.lockUntil = state.time + AI_ATTACK_LOCK`。
+  - `walk(h, dt)` 最前面加 `if (state.time < (h.lockUntil ?? 0)) return;` → 僵直期間站著收招不移動。
+  - **沒有加攻擊 CD**：下一擊仍然照原本的 `attackTimer`（1.1～1.65 秒）走，DPS 不變。
+- 手動操控不受影響：被操控的獵人跳過 AI（`task === 'pilot'` 直接 continue），僵直用的是 `pilot.lockUntil`。
+
+**驗收**
+- node：拉遠離狩獵區的 AI 獵人會往前走 → 手動把 `lockUntil` 設成 +5 秒後 0.6 秒內位置完全不動 → 解鎖後繼續走 ✓
+- 60 秒自然模擬擊殺數不變（77，與改動前一致 → 確認沒有誤加 CD）；`npm test` 11 項全過
+- `check_anim` 40 秒：閃格 0、走路跳格 0；`check_facing` 40 秒：走路 5404、`heroWalkBad 0`、`heroAnimBad 0`、敵人全 0、隊伍戰鬥 0 錯
+
+---
+
+## 2026-10-22：手動操控的面向 —— 只在「真的走動」時轉，攻擊後的僵直維持原面向
+
+需求：攻擊完後的站立面向要維持攻擊前的面向（僵直），之後要轉向、走路才轉。
+
+**舊行為的問題**：`pilotStep` 每一幀都拿搖桿當面向（`faceX/faceZ = dx,dz`），所以只要手指推著另一個方向，
+下一次空揮就瞬间轉過去 —— 人根本沒走、卻已經面朝那邊，攻擊後的站立也停在那個方向。
+
+**做法**（`src/pixel-game.js`）
+- `pilot.faceX/faceZ` 改成「**最後一次真的走動**的方向」：只在移動區塊真的移位後才更新（擠牆完全走不動就不轉）。
+- 空揮的朝向用這個面向（`h.atkX = h.x + faceX`）；3.2 格內有魔物時仍然朝魔物（打得到才重要）。
+- 僵直期間本来就 `return` 跳過位移，現在連面向也不會被摇桿拖走；鏡頭那側的 `vdir` 只在真的位移時重算，
+  所以僵直中一律畫 `idle` + 攻擊方向的列（不會偷轉）。
+- `pilotState()` 多回 `faceX/faceZ/atkAt/atkX/atkZ`（驗收用）。
+- UI 提示改成「出手後僵直不能走，面向維持到走動才轉」。
+
+**驗收（node）**：往東走 → 把摇桿推到西邊再出手 → `atkX > x`（空揮朝東）、僵直中 `faceX` 維持 > 0.9、
+位置完全不動、僵直結束後 `faceX < -0.5` 且真的往西走。
+
+**驗收（headless 實機）**：走右 → 瞬間把摇桿推左並出手，60fps 連採：
+`aim = (0.71,-0.71)`（= 攻擊前的面向）、`act: attack → idle` 全程 `vdir: side, f: 1`、位置 (6.67,29.33) 不動；
+僵直結束後（~0.69 s）才變成 `walkDown` 並真的位移。
+
+`npm test` 11 項全過；`check_facing` 40 秒：走路 4762、`heroWalkBad 0`、`heroAnimBad 0`、敵人全 0、隊伍戰鬥 0 錯。
+
+---
+
+## 2026-10-22：聖騎士「每個動作身體大小要統一」
+
+問題：同一位英雄的 8 個攻擊方向是 PixelLab 各自生成的，角色在來源圖裡大小不一 —— 舊的 5 列就已經差 ±12%，
+上一輪新增的三個左向列又用錯縮放（把 `cell/256`=0.625 當成藝術倍率，實際表是 0.5），所以左向比 idle **大 24%**（78 px vs 63 px）。
+
+**做法**（`pipeline/scripts/pixellab/add_attack_dirs8.py --rebuild --write`）
+- 量「身體高」：腳底最低點 → 以腳為中線 ±14% 欄位裡最上面的像素（避開劍光弧、披風，所以不同姿勢比得上）。
+- 以 `idle` 的身體高為基準（1x 63 px、@2x 125 px），逐列迭代回推縮放（`s ← s × 目標/量到`，最多 5 次，取最接近的一次）。
+- **位置不動、只改大小**：每格的地面接觸點（腳底 6 列的重心 x）與地面線都沿用現在的值；只有太大/太小才重貼。
+- 大劍光弧的第 4、5 格會貼到 cell 邊界 → 在錨點 ±8 px 內往格內微調，不要切弧光（重貼後 `audit_hero_sheet` 已無 attack 列的 edge 警告）。
+- `meta.actions[act].artScale` 現在記的是**絕對倍率**（來源 256 格 → 表上幾個像素：1x 0.441～0.539、@2x 0.881～1.070）。
+
+**結果（1x / @2x 身體高）**
+
+| 列 | 修正前 | 修正後 |
+|---|---|---|
+| attack | 65 / 130 | **63 / 125** |
+| attackDownRight | 56 / 114 | **63 / 125** |
+| attackDown | 71 / 142 | **63 / 124** |
+| attackDownLeft | 78 / 157 | **63 / 125** |
+| attackLeft | 78 / 158 | **63 / 125** |
+| attackUpLeft | 76 / 152 | **64 / 125** |
+| attackUp | 66 / 133 | **63 / 126** |
+| attackUpRight | 67 / 133 | **63 / 126** |
+
+剩下不在攻擊列的部分:同一輪也把 `walk`、`walkDown`、`walkUp`、`skill`、`idleDown`、`idleUp` 拉到同一個身體高
+（1x 以原地縮放 x0.984～1.033 重採樣、@2x 同理拉到 125；聖騎士沒有烘好的 `walkLeft`，左向是執時镜射，所以自動跟著）。
+最終：**除了 `death`（倒地）以外，所有動作列身體高 = 63 ± 0.6 px（@2x 125 ± 1）**。
+
+⚠ 這幾列的縮放是在烘焙後的表上做的（走路的上下方向來自另一條管線，沒有可直接重貼的來源 → 會多一次重採樣）；
+已在 3× 放大下目視確認盔甲邊線沒有碎掉，實機截圖正常。若以後要從來源重生，走 `build_hero.py` 加 per-row 縮放最乾淨。
+
+**驗收**：`npm test` 11 項全過；`check_facing` 45 秒 → 走路 5852、`heroWalkBad 0`、`heroAnimBad 0`、`enemy*` 全 0，隊伍戰鬥 0 錯；
+`audit_hero_sheet paladin` 的 `idle height 63`、無新增 edge 警告；HTML 15.62 MB。
+
+---
+
+## 2026-10-22：攻擊改成真正的 8 方向素材（不再用程式鏡像）
+
+需求：「不要鏡像，直接套用八方素材」。原本只烘 5 列（東、東南、南、東北、北），左邊三向靠執行時翻轉；
+但 PixelLab 的來源本來就 8 個方向都有，白白丟了三張。
+
+**素材**
+- 新腳本 `pipeline/scripts/pixellab/add_attack_dirs8.py`（`add_attack_dirs.py` 的延伸，只新增不覆蓋既有列）：
+  把 `output/pixellab-incoming/<hero>-attack-8dir/attack-<方向>.png` 接成 8 列，新增
+  `attackLeft`（west）、`attackDownLeft`（south-west）、`attackUpLeft`（north-west）。
+- 對齊（都用「東向列回歸校準」實測，不是猜的）：腳底最低點 → `cell − footFromBottom − 1`；
+  縮放 1x/@2x 固定（paladin 0.625/1.25、berserker 0.5/1.0）；水平兩種模式
+  —— berserker 用整列同一個 dx（回歸相符度 1.000），paladin 逐格用「底部 6 列重心」對齊到
+  **對側列的鏡像重心**（paladin 用固定 dx 只有 0.887，轉向時身體會跳一下）。
+- 新增的 3 列沒有任何一格碰到 cell 邊界（`audit_hero_sheet.py` 對新列 0 個 edge 警告）。
+- 檔案變大：`paladin.png` 1440×2580、`paladin@2x` 2880×4960、`berserker.png` 1152×2352、
+  `berserker@2x` 2304×4448；內嵌 HTML 14.76 → 15.75 MB。
+
+**遊戲**
+- `src/pixel-world.js`
+  - 新增 `ATTACK_ACT` / `ATTACK_FALLBACK`：攻擊/技能用 8 方向列名（`downLeft→DownLeft` 等）；
+    缺列才依序退回右向對角 → 上下 → 側面（那時才鏡像）。走路/待機與魔物仍用舊的 `DIR_ACT`（行為不變）。
+  - `leftRow()`：列名以 `Left` 結尾就直接回傳 `baked`（不再翻）。
+  - `drawSheetHero()`：`act` 已是烘好的左向列時 `facing=1` 且 `baked=true`（不然會翻兩次→面朝反方向，
+    身體位移方向也會相反；配件錨點要用列自己的）。
+
+**驗收**
+- 空揮八向（把一位獵人換成該職業，讀 `__mistvaleFacing()`）：paladin 現在
+  `attack / attackDownRight / attackDown / attackDownLeft / attackLeft / attackUpLeft / attackUp / attackUpRight`
+  八列全中；berserker 左向 = `attackLeft`；ranger（只有一列）仍退回 `attack` + 鏡像（舊行為保留）。
+- 目視：paladin 左向＝來源 `west` 原圖（盾在畫面右、朝左），**不是**右向的鏡像；右向右一樣。
+- `npm test` 11 項全過；`check_facing` 45 秒：走路 6196、heroWalkBad 0、heroAnimBad 0、enemy 0 錯，
+  隊伍戰鬥 0 錯（14 筆全是 `w*` 流浪英雄，舊問題）；`check_anim`：flicker 0、walkSkip 1。
+
+---
+
+## 2026-10-22：手動操控的攻擊節奏——隨時可出手、CD 0.5 秒、動作後僵直
+
+需求：不要「附近有魔物才能攻擊」；攻擊動畫結束後不能馬上走路（要等 0.x 秒）；攻擊要 CD，先統一 0.5 秒。
+
+**做法**
+- `src/pixel-data.js`：新增 `PILOT_ATTACK={cd:0.5,anim:0.45,recover:0.2}`（秒）。`anim` 是攻擊動作長度：
+  攻擊列 `(格數 − release) × frameTime`，8 格職業 0.30 秒、9 格職業 0.375 秒，再加上命中停頓 0.07 秒，
+  取 0.45 當上限；之後再加 0.2 秒收招僵直 → 出手後 0.65 秒內不能走。
+- `src/pixel-game.js`（`pilotStep`）
+  - `pilot` 多了 `readyAt`（CD）、`lockUntil`（僵直）、`faceX/faceZ`（最後走向）。
+  - 出手：只要 `state.time >= readyAt` 就一定播放——`h.atkAt/atkX/atkZ` 都會設。
+    3.2 格內有魔物就朝它並結算傷害（與 AI 相同的傷害／特效／`rewardEnemy`）；沒有魔物就朝最後走的方向空揮，不算傷害。
+  - 僵直：`state.time < lockUntil` 時直接 `return`，跳過位移（搖桿可以一直按著，時間到自動續走）。
+  - 新 API：`pilotCooldown()`（還幾秒能再打）、`pilotLockLeft()`（還幾秒不能走）。
+- `src/pixel-ui.js`：攻擊鈕不再自己用固定 620ms 連打，改成每 90ms 問一次 `pilotCooldown()`（CD 由遊戲邏輯管，不白按）；
+  按鈕内新增 `.ph-cd` 遮罩（從下往上收，剩越多遮越高）＋冷卻時降飽和，看得出來什麼時候能再打。
+- `src/pixel-style.css`：`.ph-cd` 遮罩與 `.ph-btn.cool`。
+- `test-pixel-game.mjs`：新增斷書——空揮也會設 `atkAt/atkX/atkZ`、CD 中的第二下被丟掉、
+  僵直期間推方向不會位移、僵直結束自己續走、CD 到又能出手、`PILOT_ATTACK.cd === 0.5`。
+
+**驗收（headless Chrome + node）**
+- 場上 0 隻魔物：按攻擊 → `atkAt` 1.847（有值）、`atkX` = 角色 x+1（朝最後走向）、`cd` 0.361 ✓；
+  中央放大連拍確認真的在播攻擊動作（待機→揮擊→收招）✓
+- 打完後立刻把搖桿推到極右 0.25 秒：坐標完全不動 ✓；再等 0.9 秒自己繼續走（x 由 -7.75 → -7.03）✓
+- 連按兩下：第二下被 CD 吃掉（`atkAt` 不變）✓；等 0.6 秒再按 → 又能出手 ✓
+- console 例外 0 筆 ✓；`npm test` 全過 ✓
+
+---
+
+## 2026-10-22：手動操控改成手機遊戲式（左下虛擬搖桿 + 右下動作鈕），鏡頭釘住角色本體
+
+需求：操控方式要像手機遊戲——搖桿走路、按鈕出手；而且鏡頭必須把「角色本體」追在畫面正中央。
+
+**做法**
+- `src/pixel-ui.js`（整段 `// ── 手動操控` 重寫）
+  - 新增 `#pilot-hud`：左下圓形搖桿（`pointerdown/move/up` + `setPointerCapture`，多點觸控不互搶）、右下大顆「⚔ 攻擊」與小顆「✕ 離開」。
+    手指在搖桿盤上的位移交給 `world.dirFromScreen()` 換成世界方向 → `game.pilotInput(dx,dz)`；鬆手歸零。
+  - 攻擊鈕：`pointerdown` 立刻出手，按住每 620ms 再出手一次（與 AI 約每秒一次的節奏接近）。
+  - `#pilotlab` 改成畫面頂端的細狀態列（名字／Lv／血條／狀態／換角色／離開）＋「選擇角色」清單；
+    進操控時 `body.piloting` 會把一般 HUD（topbar、底部選單、技能鈕、縮放鈕、任務面板…）收起來，
+    提示訊息 `#toasts` 改貼在狀態列下方，不蓋住畫面中央。
+  - 操控中每 400ms 只更新文字（`pilotStatus()`），不重畫整塊，避免打斷按住螢幕的手指。
+- `src/pixel-world.js`
+  - `setFollow(fn, opts)`：`opts.centerBody` 把**本體中心**（身高 21 邏輯單位的一半）對到畫面正中央，
+    公式 `cam.y = iso.y − h/2 + 50/scale`（`+50` 是 `camPxY` 既有的垂直偏移）；`opts.snap` 每幀直接貼齊，
+    角色不會因為鏡頭 lerp 在走動時漂開。
+  - 新增 `dirFromScreen(dx,dy)`、`followInfo()`；跟隨中拖曳畫布不再改 `target`（避免和跟隨互拉）。
+  - 被操控的獵人腳下多一圈金環（`state.pilot.id`），一眼看得出「中央那一位就是我」。
+- `src/pixel-game.js`
+  - 修一個舊 bug：`step()` 的獵人迴圈沒有跳過 `task==='pilot'` 的獵人，AI 會照自己的路線／狩獵區把人拉走，
+    變成搖桿在和 AI 搶方向。現在需求消耗照算，只跳過決策與走動（狀態固定為「手動操控」）。
+  - `pilotStart()` 訊息改成搖桿版說明。
+- `src/pixel-style.css`：新增 `body.piloting` 與 `#pilot-hud`／`#pilotlab` 樣式（safe-area 內縮、圓形像素按鈕）。
+- `test-pixel-game.mjs`：新增手動操控測試（輸入會推動角色、出手打到最近的魔物、離開後回到 AI、AI 不再移動被操控者）。
+
+**驗收（headless Chrome，430×900 與 1280×800）**
+- 角色投影點：手機 `(252,422)`，期望 `(252,421.95)`；桌機 `(640,436)`，期望 `(640,436.13)` → 本體正中 ✓（`project(h.x,0,h.z)` 對照 `innerHeight/2+10.5×scale`）
+- 拖搖桿往右上 1.4 秒：獵人世界座標由 `(-7.75,5.75)` → `(-9.23,1.31)`，螢幕上仍停在正中 ✓
+- 按攻擊鈕 `pilot.atk` 被消費、遊戲沒被暫停 ✓；鍵盤 ↑ 仍可移動、放開歸零 ✓
+- 「離開」後：`pilot=null`、`body.piloting` 移除、底部選單回來、`followInfo()` 為 null ✓
+- console 例外／錯誤 0 筆 ✓；`npm test` 全過 ✓
+
+---
+
+## 2026-10-21：手動操控時鏡頭置中並跟隨角色
+
+- `src/pixel-world.js`：新增 `world.setFollow(fn)`；`update()` 每幀若有跟隨點就把 `target = iso(x,z)`
+  （沿用原本的鏡頭平滑 lerp），並關掉 `homeFraming`。
+- `src/pixel-ui.js`：手動操控選好角色後 → `lookAt(h.x,h.z,2.1)` + `setFollow(() => 被操控獵人的位置)`；
+  按「結束操控」時 `setFollow(null)`。
+- 驗收：開始操控時角色在畫面 (500,450)（畫布 1000×800 的中心，等角投影固定 +50 垂直偏移），
+  走動 3.5 格後仍在 (500,451) → 鏡頭確實跟著；停止後 `pilotState()` 為 null、0 例外。
+
+---
+
+## 2026-10-21：手動操控獵人（設定 → 手動操控）
+
+需求：直接控制角色在地圖上走動打怪。
+
+**做法（重用現有獵人，不新增單位型別）**
+- `src/pixel-game.js`
+  - `state.pilot = {id, dx, dz, atk}`；`step()` 最前面先跑 `pilotStep(dt)`
+  - 被操控的獵人：`task='pilot'`（跳過 AI）、依輸入速度移動（`walkable` + `blocked` 檢查，卡住時沿單軸滑）、
+    進入野外時同步 `state.region`；按一下出手 → 自動挑 3.2 格內最近的魔物、套用與 AI 相同的傷害/特效/`rewardEnemy`
+  - API：`pilotStart(hunterId)` / `pilotInput(dx,dz)` / `pilotAttack()` / `pilotStop()` / `pilotState()`
+- `src/pixel-ui.js`
+  - 設定面板多一列「手動操控 → 選擇角色」；浮動面板 `#pilotlab`：獵人清單、▲◀▶▼ 方向鈕、出手、結束操控
+  - 鍵盤：WASD／方向鍵移動、空白鍵或 J 出手（原本空白鍵＝暫停，手動操控時改成出手）、放開鍵歸零
+- `src/pixel-style.css`：`#pilotlab` 沿用 `#poselab` 的面板樣式，方向鈕加大。
+
+**驗收（headless）**：面板列出存活獵人 ✓；開始操控後 1.2 秒移動 2.8 格 ✓；對 1.34 格外的魔物出手 → 血量 66→45 ✓；
+結束操控後 `pilotState()` 為 null ✓；console 0 例外 ✓；`npm test` 全過。
+
+---
+
+## 2026-10-21：新增「動作實驗室」（設定 → 動作實驗室）
+
+需求：可以選擇直接控制哪個職業、做遊戲裡有的各種動作；功能放在設定裡。
+
+**做法**
+- `src/pixel-world.js`：新增 `__mistvalePoseLab` API（`info(cls)` / `set(cfg)` / `current()`）與 `posePreview` 狀態；
+  `render()` 在特效之後、夜晚遮罩之前，把選到的那一格**直接畫在畫面中央**（純預覽，不動模擬、不進圖層快取）。
+- `src/pixel-ui.js`：設定面板多一列「動作實驗室 → 打開」；打開後是**浮動面板**（不是 modal，才看得到後面的角色）：
+  - 職業：六個職業按鈕（只有圖已載入的才會列）
+  - 動作：該職業表裡**所有**動作列（待機/待機上下/走 5 方向/攻擊 5 方向/技能/受傷/倒地/勝利…，共 18 列）
+  - 影格滑桿（逐格看）、▶ 播放 / ⏸ 暫停（12 fps 迴圈）、關閉（關閉時清掉預覽）
+- `src/pixel-style.css`：`#poselab` 浮動面板樣式（桌機 bottom 104px、手機 150px）。
+
+**驗收（headless）**：設定裡有入口 ✓、面板 6 職業 / 18 動作 ✓、切 paladin + attackDown + 第 6 格 ✓、
+播放會推進影格 ✓、關閉後面板消失且預覽清空 ✓、console 0 例外 ✓、畫面截圖確認角色出現在中央 ✓、`npm test` 全過。
+
+---
+
+## 2026-10-21：聖騎士 8 方向攻擊動畫接進遊戲（素材來自 PixelLab → Telegram → API 下載）
+
+使用者把 PixelLab「Create」生的 8 張 768×768（3×3、9 幀）聖騎士重劍攻擊傳到 `@Piassisant_bot`，
+本輪用 Bot API 抓下來並接進角色表。
+
+**取圖方法（可重用）**
+- `getUpdates` → `photo`/`document` 的 `file_id` → `getFile` → `https://api.telegram.org/file/bot<token>/<path>`
+- token 在 `~/.pi/telegram-bots.json`（`bots.personal`），下載目錄 `output/tg-incoming/`
+- 像素圖請使用者用「以檔案傳送」，`photo` 會被 Telegram 壓縮
+
+**素材瑕疵與處理**
+- 每格右上角（部分方向在別處）多畫了一個浮空小盾牌 → 用「連通元件 + 只保留最大元件」把孤立小塊（面積 < 主體 30%、
+  位置在主體上緣以上）清掉，共 41 個元件；輸出在 `output/pixellab-incoming/paladin-attack-8dir/attack-<dir>.png`
+
+**接法（每棟都適用的重點）**
+- 遊戲只需要 5 列（east / south-east / south / north-east / north），左邊三格用鏡像 → 8 方向都齊
+- 每格用「腳底最低點 + 底部 6 列的重心」對齊，套同一個縮放（1x 0.5、@2x 1.0），腳底固定在 `cell-1-footFromBottom`
+- **第一次接完出現「sheet 邊框剪切畫面」**：劍光弧比格子大，R/L/T 邊被切掉。改成**攻擊列用比較大的格子**
+  （1x cell 160、@2x cell 320，表寬跟著加寬到 1440 / 2880），角色大小不變、弧光完整；
+  只有 `attackDownRight` 第 5 幀仍溢出左邊 5px，那一列改用 0.47 / 0.94 的縮放
+- 驗證：45 格**沒有任何一格碰到 cell 邊界**；放鬆幀身高 65–67 px（原本 idle 63 px）
+
+**檔案**：`assets/heroes/paladin.{png,json}`（371 KB）、`paladin@2x.{png,json}`（956 KB）；
+`attack/attackDownRight/attackDown/attackUpRight/attackUp` 各 9 幀、`frameTime .075 / release 4 / impact 5`。
+`npm test`、`check_facing`（走路 4761 次 0 錯）全過，HTML 重建 14.74 MB。
+
+---
+
+## 2026-10-20（十二）：「角色跟建築互動的位置」改到每棟的門口正前方
+
+使用者第三次說明需求：*「是角色跟建築做功能互動的地方，要在建築門口前」* —— 指的是**獵人走到建築前面使用它的那個點**
+（`doorFoot` / `doorStand`），不是我前幾輪一直在調的滑鼠點擊框。
+
+**原本的問題**：`DOOR_OFFSET` 是每棟手調的一組偏移，很多棟偏到建築**側面甚至隔壁棟前面**
+（實測把 14 個點畫在地圖上就看得出來：clinic 偏左 2.7、academy 偏左 3.0、forge 偏左 1.3…）。
+
+**改成同一個規則**（`src/landscape-layout.js`）：
+```js
+export function doorFoot(b,p){return {x:p.x, z:p.z+(b.d||3.6)/2+.55};}   // 正面(+z 面)正中央、台階外緣
+```
+畫面上的門就畫在建築正面中央，所以獵人走到這裡看起來就是「站在門口」。
+`doorStand` 沿用（同一點，本來就有夾在地基外緣的保護）。
+
+**驗收**
+| 檢查 | 結果 |
+|---|---|
+| 14 棟的門口點都在鋪面上（`onPaved`） | 14 / 14 ✅ |
+| 門口點沒有落在其他建築的佔地裡 | 14 / 14 ✅ |
+| 把 14 個點畫在地圖上目視 | 都在各棟正面中央、台階前 ✅ |
+| `npm test`（村內尋路、門口連通、獵人踩鋪面 100%） | 全過 ✅ |
+
+（另外前幾輪的滑鼠互動框仍是「建築最下面那一排 + 門口前地面」，選取圈也畫在門口前地面。）
+
+---
+
+## 2026-10-20（十一）：互動點/選取圈總算落在門口前（第三次修）
+
+使用者第二次回報「還是沒有在建築門口前」。回頭看，前兩版**選取圈仍畫在建築中心**
+（`ring(p,31)`，p = 佈局中心），所以就算點得到，畫面上看到的圈也在屋頂/屋身中間 —— 這才是「看起來不在門口」的主因。
+
+**現在的做法**
+1. 互動範圍 = 建築**可見像素最下面那一排**（`spriteBounds(id)` 讀圖集 alpha 算出的外框，取底部 34% 高、
+   近全寬）+ 門口前地面一小塊（從同一條的中線往下延伸）。所以門偏左、偏右、在中間都點得到，屋頂點不到。
+2. **選取圈改畫在門口前的地面**：位置 = 那一條的中線、圖片底端再往下一點（`ring(selRing,17)`），
+   也就是建築正面台階前面。實測大廳的圈正好在雙開門+台階前面。
+3. 試過但**不採用**的兩個來源：`DOOR_OFFSET`（導航站位，很多棟落在隔壁棟前面）、圖片中心（門偏一側就歪）。
+
+**驗收**：14 棟逐一點互動框中心 → **14/14 開到正確建築**；點屋頂（框上方 2 個框高）→ 幾乎都不開；
+選取圈在大廳/鐵匠鋪/治療所都在門口台階前；console 0 例外；`npm test` 全過。
+
+---
+
+## 2026-10-20（十）：建築互動點真的貼到門口（第二次修）
+
+使用者回報「還是有建築互動點沒有在門口」。第一次我用「建築圖中心 + 固定高度」推算，實測有幾棟（大廳、
+學院、治療所、地下城…）的門偏在左邊或右邊，框就落在牆或屋頂上。第二次改用 `DOOR_OFFSET`（導航用）也不行
+——那是獵人站的位置，不是畫面上的門。
+
+**最後做法（用圖自己算,不猜）**：`spriteBounds(id)` 從建築圖集讀每個 cell 的**不透明像素範圍**
+（`getImageData` 找 alpha>40 的外框，算成 0..1 的比例並快取），互動框就取
+「可見範圍的**最下面一排**、橫跨整個可見寬度、高度約 30%（夾在 34·scale～60·scale）」。
+門與台階都在建築最下面那一排，所以哪一棟的門偏左、偏右都涵蓋得到，屋頂永遠不會被點到。
+圖集還沒載好時先回整張矩形且**不快取**，下一幀會重算。
+
+**驗收（14 棟全部,一次腳本跑完）**
+| 檢查 | 結果 |
+|---|---|
+| 依互動框中心點擊 → 開到正確建築 | **14 / 14** ✅ |
+| 點同一棟的屋頂（框上方約 2 個框高處） | **0 / 14** 會開（都不會誤選）✅ |
+| console 例外 | 0 ✅ |
+
+`npm test` 全過。
+
+---
+
+## 2026-10-20（九）：建築互動點改到「門口」
+
+使用者：重新調整每個建築的互動點，要在建築門口。
+
+`drawBuilding()` 原本把**整張建築圖**當點擊框（`hits.push({...rect})`），所以點屋頂、側牆都會選到那一棟，
+而且相鄰建築的圖片框會互相重疊、容易點錯。改成：
+
+- **已建好的建築**：門口框 = 正面中央、貼著地面往上一個門的高度
+  `w = max(34·scale, min(rect.w·0.34, 86·scale))`、`h = max(32·scale, min(rect.h·0.26, 54·scale))`，
+  下緣落在 `p.y + 9·scale`（圖片底端），往下一點點蓋到門前地面，好點。
+- **未建造的工地**：同樣改成正面中央的小框（圖集版與程序版都改）。
+
+驗收：
+| 檢查 | 結果 |
+|---|---|
+| 依 `__mistvaleHits()` 的框中心點擊 hall / trading / restaurant / inn | 都開到正確的建築（城鎮大廳/交易所/餐廳/旅館）✅ |
+| 點畫面中央偏上（舊的整張圖範圍、屋頂位置） | **不會**開檢視面板 ✅ |
+| 框位置目視（把框畫在截圖上） | 都在各棟正面下緣、門與門前地面 ✅ |
+
+**順手修好兩個壞掉的檢查腳本**：`check_zorder.mjs`、`check_anim.mjs` 還在點 2026-10-19 就移除的
+`#start-button`，一路 Timeout。改成等 `__mistvaleGame` 出現（其他六支同病灶的腳本一起改）。
+修好後 `check_zorder` 8 秒 840 對 0 錯、`check_anim` 1801 幀 flicker 0 / walkSkip 3。
+
+---
+
+## 2026-10-20（八）：地下城入口搬進村內公園街區、拿掉四座出村牌樓、補齊所有「按了沒反應」的按鈕
+
+使用者：①地下城入口改在村內湖的位置、取代湖 ②拿掉四個出入口的小牌樓 ③重新檢查每個建築相關按鈕是否正常。
+
+**① 地下城入口 → 公園街區（原池塘位置）**
+- `pixel-data` 的 `DUNGEON_SPOT = blockCenter(1,1)`（= 0.4, 11.1），地下城從 (19,−9.5) 搬進來。
+- `landscape-layout.villagePonds()` 的 `taken()` 把地下城算進去（未建造時也算，因為工地在那裡），
+  所以那個街區不再長池塘；其他公園街區若空著仍會長池塘（機制保留）。
+- 舊存檔：地下城位置本來就是強制回預設值，所以讀舊檔也會在新位置。
+
+**② 出村口不再有小牌樓**：`decorations` 不再推 `{type:'gate'}`；`check_placement.mjs` 改成
+「四邊柵欄 + 四個缺口、**0 座門**」，並保留一段防止牌樓長回來的斷言。
+
+**③ 按鈕全面檢查 —— 抓到 16 個「有按鈕、沒有處理函式」的動作**
+用靜態比對（HTML 裡的 `data-action` vs `doAction` 的分支）找出：
+`selectBuilding, construct, upgrade, moveBuilding, hunter, learnSkill, train, enhanceHunter, reincarnate,
+recruitVisitor, quest, startBoss, setTrade, collectTrade, craftProduct, craftGear`。
+這些是像素版 UI 的按鈕，處理函式只存在舊的 `src/main.js`（非像素版）裡 → 按了完全沒反應。
+已在 `pixel-ui.js` 的 `doAction` 補齊（接到 `game.construct/upgrade/moveBuilding/learnSkill/train/enhance/
+reincarnate/recruit/claimQuest/expedition/setTradeRequest/craft/craftEquipment`）。
+
+**功能驗證（用玩家動線：建造面板 → 選建築 → 建造/升級）**
+| 操作 | 結果 |
+|---|---|
+| 14 棟建築的建造/升級 | 全部成功（等級 +1、訊息正確）✅ |
+| 移動位置 | 進放置模式 → 點地面 → 位置改變 ✅ |
+| 獵人 學技能/修煉/強化/轉世 | 數值都改變 ✅ |
+| 交易所 發布收購 / 查看 | 數量與提示正確 ✅ |
+| 製作 生活物資 / 裝備 | 庫存 +10 / +1 ✅ |
+| 招募 / 委託 / 首領 / 地下城 / 競技場 | 都成功觸發（失敗時也給正確原因）✅ |
+| console 例外 | 0 ✅ |
+
+`npm test` 全過；`check_placement`：擺設 0 件、柵欄 52 段、門 0 座、雕像 1 座。
+
+---
+
+## 2026-10-20（七）：野怪區與村莊等距、鏡頭最遠限制、Minecraft 式地形交界與不規則海岸
+
+使用者：①怪物生成點不要離村界太近 ②每個地形均勻分佈圍繞村莊、各地形交界像 Minecraft 那樣不規則
+③整張地圖邊界是不規則海岸線 ④四周野怪區跟村界距離都要相同 ⑤鏡頭最大不要放太遠。
+
+**改了什麼**
+1. **世界以村莊中心為中心**：`WORLD` 改成由 `VILLAGE_BOUNDS` 中心推導（74 × 69），村界到四邊
+   22.0 / 21.9 / 21.0 / 21.1（改前是 13 / 31 / 20.5 / 21.6）。七個野怪區的縱深因此一致
+   （村界到海岸 15.7～20.7，差距只剩海岸線本身的起伏）。
+2. **不規則海岸線**：`inWorld()` 不再用矩形，而是「離四邊的距離 > 海岸內縮量」；內縮量是四個頻率
+   的正弦（各自轉成 0..1 再加權）映射到 1.6～6.4 格 → 一定有海灣與岬角、又不會有陸地貼在邊界上。
+   世界矩形以外的裝飾陸地（舊的 `coastOut` 與西側深密林長方形）全部移除，外面就是海。
+3. **地形交界不規則**：`ringPhi()` 加上三層正弦擾動（振幅合計約 0.16 rad ≈ 9°，遠小於區間隔 32°以上），
+   邊界不再是從村莊射出的直線。
+4. **每區面積仍相等**：`RING_START` 改成「掃描整片陸地、取 `ringPhi` 的等分位數」→ 七區陸地格數
+   1943–1944（偏差 <0.1%）。
+5. **生怪均勻**：`randomRegionPoint` 離村界至少 3.4 格；`spawn()` 改成抽 6 個候選點、選離其他魔物最遠的
+   那個（藍雜訊式分散，不會兩三隻擠一角）。
+6. **鏡頭最遠 0.75 倍**：`ZOOM_MIN`；下限用 `min(0.75, 目前比例)`，所以手機首頁的 0.65 不會因為
+   按縮小反而放大。`focus('world')`（主世界地圖→全景查看）也一起夾住。
+7. **地下城入口搬到 (19, −9.5)**：原本 (24, −11) 在新海岸線下會泡在海裡（4 × 3.5 的佔地要全在陸地上）。
+   `pixel-data` 的預設與三個 LEGACY 版面一起改，`test-landscape` 的期望值同步更新。
+
+**驗收**：`npm test` 全過（新增「村莊在世界正中央」「地形交界不規則」「北海岸起伏 > 2 格」
+「生怪離村界 > 3」等斷言）；桌機首頁 1.70、最遠 0.75；手機首頁 0.65、最遠 0.65；console 0 錯誤。
+（註：畫面上偶爾看到魔物離村界 < 3 是**追擊移動**造成的，出生點本身仍 ≥ 3.4。）
+
+---
+
+## 2026-10-20（六）：畫質設定收成一條，需要再展開
+
+使用者：「畫質設定收成一條 需要才點開」。
+
+「遊戲設定」現在預設只有三列：
+1. **畫質與效能** —— 一行摘要（`畫質 高 · 解析度 自動 · 幀率 30 · 影子 開 · 夜晚 開`）+「調整」按鈕
+2. 匯出存檔
+3. 重新開始
+
+按「調整」才展開五個選項（畫質 / 解析度 / 幀率 / 動態影子 / 夜晚變暗），按「收起」收回；
+展開狀態存在 `settingsOpen`（不寫進存檔）。改完任何一個選項面板會重繪，摘要立刻更新。
+手機寬度下四顆解析度按鈕在同一行（`@media(max-width:760px)` 的 `.seg` 改成不換行）。
+
+驗收（手機 390×844 模擬）：收起時 3 列、展開時 8 列、改影子後摘要變「影子 關」、再收起仍在、console 0 錯誤。
+
+---
+
+## 2026-10-20（五）：設定面板改成「畫質與效能」選項區
+
+使用者：設定選項刪除前四個(裝備零件層 / 整理村莊 / 派遣獵人出征 / 流浪英雄)，加上可調畫質效能的選項區。
+
+**現在「遊戲設定」的內容**
+| 選項 | 值 | 作用(實作) |
+|---|---|---|
+| 畫質 | 高 / 低 | `world.setQuality()`：粒子、光暈、雪 |
+| 解析度 | 自動 / 1x / 1.5x / 2x | `world.setDpr()`：`renderDprMax` + `resize()` + 整張重畫（自動 = 手機 1.5 / 其他 2） |
+| 幀率 | 30 / 60 | `pixel-ui` 的 `fpsTarget`（暫停時仍降到 10） |
+| 動態影子 | 開 / 關 | `world.setShadows()`：少一層滿版影子貼圖；關掉時 `cast()` 直接跳過 |
+| 夜晚變暗 | 開 / 關 | `world.setNight()`：DOM 覆蓋層不再變暗 |
+| 匯出存檔 / 重新開始 | — | 原樣保留 |
+
+**存檔**：`state.settings = {quality,dpr,fps,shadows,night}`，`pixel-game.js` 的 `normalizeSettings()` 會過濾非法值、
+舊存檔缺欄位就補預設；載入後 `applySettings()` 一次套到世界與幀率。重置村莊也會重新套用。
+
+**驗收**（手機 390×844 DPR3 模擬）：面板只剩上表 7 列、分區標題「畫質與效能」；切 1x → 畫布 390×844、
+2x → 780×1688、自動 → 585×1266；幀率 60 生效；夜晚關 → 覆蓋層 opacity 0；
+影子關 → 地面投影消失（同一畫面差異 29,692 px，其他內容不變）；**重新載入頁面後設定仍在**；console 0 錯誤；
+`npm test` 全過。
+
+---
+
+## 2026-10-20（四）：把渲染路徑「整段還原成原版」來收掉殘影
+
+使用者指示「改回原本不會殘影的時候」。做法：把 `render()` 的合成段**逐字還原成 HEAD 的版本**，
+只留下與畫面正確性無關的最佳化。
+
+**現在的合成（= 原版）**：
+- `paintComp(rects)`：只把動過的範圍重算進 `comp`（地面＋影子＋精靈）
+- 之後 **`comp` 整張貼到螢幕**（一次滿版貼圖）
+- `compValid`：中間只要有一幀走 direct（覆蓋率 >40%）就標記失效，下一幀重做整張
+- 我上一輪加的「合併矩形 (`mergeRects`)」整段刪掉，`paintComp` 直接吃原始的 `compRects`
+
+**保留的最佳化（不影響畫面正確性）**：手機畫布 DPR 上限 1.5、夜晚用 DOM 覆蓋層、
+`ensureAtlas()` 每 10 幀、DOM 面板 400 ms、暫停 10fps、`resize()` 大小沒變就跳過。
+
+**驗收**（`__mistvaleForceFull()` = 逼下一幀整張重畫所有物件，鏡頭不動）：
+| 測試 | 結果 |
+|---|---|
+| region 模式：暫停畫面 vs 整張重畫 | **0 px** |
+| direct 模式：同上 | **0 px** |
+| 注入傷害數字＋治療、等它過期後再比 | **0 px** |
+| 連續 8 張（4 秒）互相關比較 | **全 0** |
+| fps / console 錯誤 | 30 / 0 |
+
+貼圖量 **158 Mpx/s**（原版在 DPR 2 是 279；差異來自手機 DPR 1.5 的上限）。
+
+---
+
+## 2026-10-20（三）：修掉殘影（上一輪省效能的副作用）
+
+使用者回報「會有殘影」。根因是我上一輪把「三層先合成到 comp、再整張貼到螢幕」改成
+「三層直接貼到螢幕、只貼動過的範圍」——**只畫在螢幕上的東西沒有人清**：
+
+- `state.effects`（傷害數字、斬擊、死亡煙、治療、投射物、升級字）
+- `ghostHunter`（被擋住的獵人半透明殘影）
+- 花粉/雪花（每幀都換位置）
+- `uiLabels` / `screenTexts`（建築名牌、地名）
+
+它們畫在**螢幕**上，區域合成只重貼「有單位在動」的矩形，所以舊的像素永遠留在畫面上，
+一路疊上去就是殘影（花粉/特效過期後留下的小點與數字最明顯）。
+
+**修正**：把 `comp` 圖層加回來——
+- 每一幀只把**動過的範圍**重算進 `comp`（三層合成，範圍小 → 便宜）
+- 但 `comp` **整張貼到螢幕**（一次滿版貼圖）→ 螢幕上所有舊像素都會被覆蓋
+- `compValid` 記錄 comp 是否等於「完整的三層合成」；中途只要有一幀走 direct（覆蓋率 >40%）
+  就標記失效，下一幀重做整張，避免貼到不完整的 comp
+- 新增驗收用 hook `__mistvaleForceFull()`：讓下一幀走「整張重畫所有物件」的路徑（不動鏡頭）
+
+**驗收方法（可重複跑）**：暫停 → 等鏡頭收斂 → 截圖 A → 再截 A2（應該與 A 完全相同，證明鏡頭真的停了）
+→ `__mistvaleForceFull()` → 截圖 B → 比對 A2/B。修好後 region 模式與整張重畫 **0 px 差異**；
+另外注入傷害數字/治療特效、等它過期後再比，也是 **0 px**；連續 8 張（4 秒）彼此完全相同 → 沒有東西會累積。
+
+**代價**：每幀多一次滿版貼圖，貼圖量 136 → **158 Mpx/s**（原始未最佳化是 279，仍 −43%）。
+`npm test`、`check_facing`（走路 5076 次 0 錯）全過。
+
+---
+
+## 2026-10-20（續）：顯示總檢查（桌機/手機、白天/夜晚、放大、面板、戰鬥）
+
+使用者要求「測試是否顯示都正常」，所以做了一輪逐項截圖＋量化檢查（headless Chrome，桌機 1440×900 DPR2 與手機 390×844 DPR3）：
+
+| 檢查 | 結果 |
+|---|---|
+| 畫布解析度 | 桌機 2880×1800（DPR 2）、手機 585×1266（DPR 1.5）✅ |
+| 村莊白天 / 近照 / 東門近照 / 最大縮放 | 顏色數 1150–1220、全黑像素 <2.5%、畫面持續在動 ✅ |
+| 夜晚（time=180） | 遮罩 opacity 0.15 → 整張亮度 −13%、藍通道掉得最少（確實是藍色調暗）✅ |
+| 獵人面板 | 名冊 / 頭像 / 數值條正常 ✅ |
+| 野外戰鬥 | 傷害數字、血條、8 方向攻擊、狼與史萊姆 ✅ |
+| 暫停 | 30fps → 10–11fps，恢復後回 24–29fps ✅ |
+| console 錯誤 | 0（40 張連續截圖 + 全程）✅ |
+| 圖層殘影 | 暫停後兩張間隔 1.2 秒 **完全相同（0 px）**；動一下鏡頭逼整張重畫後仍然 **0 px 差異** → 合成/擦除是正確的 ✅ |
+| 1x/2x 英雄表切換 | 在縮放門檻來回掃 16 張，沒有糊掉或拉伸 ✅ |
+
+**這輪檢查順手修掉的顯示 bug**：村莊四座門的 `PROP_ATLAS.gate` 尺寸還是太小（4.6×6.1），
+在 4x 縮放下只有柵欄柱的 1/4 高，看起來像一個玩具小門。改成 **11.5×15.3**（≈3 世界單位寬、比柵欄柱略高），
+現在是橫跨柵欄缺口的正常村門（`npm test`、`check_gates` 仍全過）。
+
+**看到一次、沒能重現的現象**：手機 4x 近照有 1 張截圖出現「斜向糊掉的一條」，之後連續 66 張
+（40 張 soak + 16 張縮放掃描 + 10 張同鏡頭）都沒有再現，且暫停後畫面與整張重畫 0 px 差異，
+判斷是截圖擷取當下的合成時序（或單一特效幀），不是圖層殘影。若之後又看到，先確認是不是只有截圖才有。
+
+---
+
+## 2026-10-20：手機發燙 → 砍掉一半以上的貼圖量
+
+使用者指示：「效能吃緊 手機發燙 找出原因讓手機不發燙」。
+
+**量測方法**（390×844 CSS、DPR 3 手機模擬，抓 canvas API 呼叫量與「被貼上的像素總量」）：
+- 改前：**279 Mpx/s** 的 `drawImage`（每幀約 9.3 Mpx ≈ 7 個滿畫面），其中 240 Mpx/s 是離屏圖層之間的合成；
+  滿版貼圖（≥ 半個畫面）**2029 次/秒**；畫布 780×1688（DPR 2）。
+- 每幀 JS（tick + update + paint）只有 **2.6 ms**、GC 幾乎沒有 → 發燙來源是**貼圖/填充的像素量（GPU 記憶體頻寬）**，不是 JS。
+
+**做了什麼**：
+1. **合成少一層**：以前「三層（地面＋影子＋精靈）先在 comp 合成，再整張複製到螢幕」，等於每幀多一張滿版貼圖。
+   現在直接把三層貼到螢幕（region 模式只裁剪到動過的範圍），`comp` 圖層整張移除（順便少 3 MB 畫布記憶體）。
+2. **手機/觸控裝置畫布解析度上限 2 → 1.5**（`pointer:coarse` 或 `maxTouchPoints>0` 判定）：
+   像素量 4 → 2.25（−44%），最近鄰放大的像素圖看起來幾乎一樣。
+3. **夜晚變暗改成 DOM 覆蓋層**（CSS opacity 交給合成器）：以前每幀對整張畫布 `fillRect` 一次。
+4. **合成矩形合併**：一幀原本有 ~100 個 clip 矩形（每隻會動的東西 × 影子 × 上一幀），合併成 ≤12 個外接矩形。
+5. **`ensureAtlas()` 每 10 幀才檢查一次**（素材只在前幾秒載入），**DOM 面板更新 250 → 400 ms**，
+   **暫停（看選單）時幀率 30 → 10**。
+6. 新增兩個觀察用 hook：`__mistvalePerf()`（合成模式/畫布解析度/夜間值）與 `__mistvaleFrameStats()`（每幀 JS 時間）。
+
+**結果**（同一支手機模擬）：貼圖量 **279 → 136 Mpx/s（−51%）**、畫布 780×1688 → 585×1266（−44% 像素）、
+每幀 JS 2.6–2.8 ms、fps 仍 30。`npm test`、`check_gates`（四門 crossings other 0、off-paved 0）、
+`check_facing`（走路朝向 5076 次 0 錯）全過。
+
+**踩到的坑（留紀錄）**：把 `mergeRects/rectPathMerged` 誤放進 `if(staticKey===vk){…}` 區塊裡、
+外面的合成程式卻用到它 → 每幀丟 `ReferenceError`，而 `requestAnimationFrame(frame)` 排在最前面，
+所以**畫面卡住但看起來不會當**（只有 `__mistvalePerf` 之類的計數在動）。之後改這區塊要記得先看 console 有沒有錯。
+
+---
+
+## 2026-10-20：生怪均勻、到邊界就開打、魔物只守自己的攻擊範圍
+
+使用者指示：「改成怪物生成點均勻分佈在該區域內，並且英雄只要到區域邊界就等於到了，馬上開始尋找怪物攻擊，
+而怪物只會攻擊自己主動攻擊範圍內的敵人」。
+
+- **生怪**（`spawn()`）：以前是「取 6 個候選、挑離其他魔物最遠的那個」——等於一直在挑邊緣點。
+  改成**整區均勻取樣**（`randomRegionPoint()` 本來就是區內 area-uniform 的拒絕取樣），
+  只有跟其他魔物疊在一起（< 1.8 格）才重抽（最多 10 次）。魔物會散在整區，不會擠在一側或繞著中心。
+- **英雄到邊界就算到達**（`step()` 的 `h.rallying` 分支）：以前一定要走到 `regionEdge` 那個**點**，
+  到了才開始 `searchStep()` 隨機晃、還要等魔物進到視野 `SIGHT=12` 才會鎖定。現在：
+  1. 一踩進自己狩獵區（`regionContains`）就結束集結（`rallying=false`、清掉路線）；
+  2. 目標選擇改成「在自己的狩獵區內 → **直接挑最近的魔物**，不受視野 12 限制」。
+  實測（派遣到鐵脊山麓）：踩進區域後 **50 毫秒**就鎖定目標、並直接走過去打。
+- **魔物只打主動攻擊範圍內的敵人**：新增 `AGGRO = {slime 5.5, wolf 8, golem 5, ogre 6.5, boss 15}`。
+  以前是整區找最近的敵人、10 格（首領 18）內就會追過來；現在**超出 AGGRO 一律不鎖定、不追**，
+  沒目標就照原本的巡邏/閒晃。實測（野狼 AGGRO 8）：距離 12／9 完全不出手、距離 6／4 正常開打。
+- **驗收**：`npm test` 全過；`check_gates`（四門 crossings 東 150／西 100／北 73／南 118、other 0、off-paved 0）；
+  `check_facing`（走路朝向 5263 次 0 錯、待機/走路一致 0 錯、戰鬥朝向 548 次 8 次誤差＝流浪英雄被怪物打時的受擊翻面）；
+  `diag/check-hunt3.mjs` 三項全過（生怪點全部在區內、平均半徑與均勻理論值差 12%、
+  49 毫秒鎖定目標、AGGRO 兩側行為正確）。
+
+---
+
+## 2026-10-20：攻擊前後方向一致 ＋ 魔物會打流浪英雄
+
+使用者指示：「攻擊前後的面向姿勢要一樣，開始下一次動作前才換方向」「怪物也要會攻擊流浪英雄」。
+
+- **攻擊後方向會自己跳回側面**（已修）：出手方向本來就鎖在 `atkDirs`（每次攻擊算一次），但攻擊一結束
+  `drawHunterSheet()` 會把 `vdir` 打回 `'side'`，而且 `sheetPose()` 的待機列在戰鬥中強制用側面 `idle`
+  → 打上/打下之後立刻轉回側面，看起來「都只有左右」。
+  現在：攻擊結束後**保留**上一次鎖定的方向（`else ad.mode=''` 不再改 `vdir`），待機列也用
+  `dirSuffix(m,'idle',vdir)`（斜角沒有待機圖 → 退回上/下，預期行為）。方向只在下一個動作
+  （起步走路或下一次出手）才重算。
+  驗收：八個方向逐一「蓄力 → 出手 → 攻擊後 → 待機」採樣，方向家族全部一致（`OK × 8`）。
+- **魔物只打獵人，從來不打流浪英雄**（已修）：魔物的目標清單原本只有 `state.hunters`，而流浪英雄會自己
+  去打魔物 → 看起來像無敵。現在目標 = 獵人 + 流浪英雄（都要求 hp>0 且不在村裡），被打倒時走
+  `downWanderer()`（倒在野外 9 秒自己站起來、`state.wanderDowns` 記數），不會誤用獵人的復活聖所流程。
+  實測 200 秒：流浪英雄被打 **112 次**（4 隻都中過；改前是 0）。
+- **順帶讓八方向攻擊真的看得到**：等空位的魔物以前全部擠在「獵人背對空地中心」同一條線上，
+  打起來刀永遠只有左右。改成在同一個半圈上每隻魔物分到不同方位（±72°，用 id 決定），
+  實測英雄出手的方位分布變成八個扇區都有（左上 16／左 17／右下 20／右 33／上 8／左下 14／右上 7／下 4）。
+- **驗收**：`npm test` 全過；`check_facing`（英雄走路朝向 7442 次 0 錯、走路/待機一致 0 錯、
+  戰鬥朝向 955 次只有 10 次誤差，全是流浪英雄被打時的受擊翻面）；`check-atk8-full` 八方向蓄力 0–3 +
+  出手 4–8 仍全對；`diag-osc` 抖動 40/271394（跟改前同級）。
+
+---
+
+## 2026-10-20：四個方向都有出入口 ＋ 村中央雕像放回來
+
+使用者指示：「改四個方向都要有出入口」「把原本村中央雕像做回來」。
+
+- **原因**：這兩件事都是 `6fd9dad`（村莊收攏成 4×4 棋盤）時拿掉的 ——
+  `EXITS` 只剩東、南兩個出口，`decorations.push({type:'monument',…})` 與 `{type:'gate',…}` 兩行被刪。
+- **四個出口**（`src/village-grid.js`）：`EXITS` 改成北、東、南、西四個，位置在該側柵欄的**正中央**
+  （`MID_X`/`MID_Z`，剛好等於中央那條街 `STREET_X[2]`/`STREET_Z[2]` 的延伸線，所以四個門都接得到街）。
+  柵欄缺口（`PALISADE`）、碰撞、村內外導航、道路（`getRoads` 每個出口一段）都吃同一份 `EXITS`，不用另外改。
+  `pixel-game.js` 的「兩口之間穿村路徑」只在 `GATES.length===2` 時啟用，四個門時自動停用，改走村外節點環。
+- **四座門**（`src/pixel-world.js`）：`PROP_ATLAS.gate` 原本是 `['gate',56,56,4]` —— 圖集門（210×280）被 contain 進
+  56×56 個單位 → 比房子還高的巨門（實測截圖確認）。改成 `['gate',4.6,6.1,0]`（4.6 個單位寬＝門口 3 公尺再外擴一點，
+  底部貼地），並在每個出口放一座（`size` 不指定，交給圖集尺寸）。程序繪製的 `gate` 分支保留當 fallback，
+  改成「兩根門柱在缺口兩端 + 橫樑 + 門牌」，寬度用 `EXIT_GAP`。
+- **中央雕像**：`decorations.push({type:'monument', x:blockCenter(0,0).x, z:blockCenter(0,0).z})` 放回廣場正中；
+  畫法從 `68` 個單位寬（15 倍廣場）改成 **20**（實測約 1.6 個英雄高，塞得進 4.4×3.6 的廣場，底部貼地 .6）。
+  （`__monumentW` 是調校時用的暫時 hook，已移除。）
+### 2026-10-20 追加：雕像與建築全部改成實心
+
+使用者指示：「好改實心 所有建築都要是實心」。
+
+- **問題**：建築的碰撞盒一直是 `b.w × b.d`（3.5–4.4），但畫面把所有建築都畫成 **7.33 個世界單位寬**
+  （`uniformBuildingWidth()` = 最大概念寬 × 0.5），所以角色會走進「看得見的牆」裡；雕像則完全沒有碰撞。
+- **做法**：`landscape-layout.js` 新增單一來源
+  `SOLID={x:3.0,z:2.3}`（實心半寬/半深 → 6.0×4.6）與 `STATUE={x:.95,z:.7}`，
+  以及 `buildingSolid()` / `statueSolid()`。`pixel-game.js` 的 `rects`（`blocked()`、`walkable()`、
+  村內尋路、怪物與流浪英雄移動全部吃這一份）改成用它們，並把廣場中央的雕像加進去。
+  - 街區間距 6.9×6.1、街道 0.8 寬 → 實心 6.0×4.6 之後，兩棟之間還留 0.9（x）/1.5（z）的走道，街道沒有被吃掉。
+  - 建築大小是統一的（`BUILDING_UNIFORM_RATIO`），所以實心佔地也統一，不用逐棟量。
+- **驗收**：
+  - `npm test` 全過。`test-landscape.mjs` 的「實心佔地」改成直接引用 `buildingSolid()/statueSolid()`
+    （以前是自己用 b.w/b.d 重算，改大之後會不一致）。
+  - `check_gates.mjs`：四門 crossings 東 138／西 98／北 69／南 97、**other 0**、off-paved 0
+    → 走道變窄之後仍然走得通。
+  - `check_placement.mjs` exit 0（柵欄 52 段、門 4、雕像 1、其他擺設 0）。
+  - 實機檢查：雕像中心格 `isOpenCell=false`、周圍 1.4 單位處仍可走；英雄在街上的路線段 3150 段全在鋪面上。
+  - `test-landscape.mjs/journal` 更新：柵欄段數 `EXITS.length+4`、缺口量測改成看柵欄走向（東西沿 z）、
+    四個門在畫面四個對角邊上、都在該側正中央。
+  - `check_gates.mjs`：7 個狩獵區各 600 秒，跨村界 **bad 0 / off-paved 0**，
+    四個門都真的被用到（東 159、西 83、北 60、南 120）。
+  - `check_placement.mjs`：柵欄 52 段、門 4 座（各在缺口正中）、雕像 1 座（廣場正中）、其他擺設 0 件 → exit 0。
+  - 截圖確認：雕像站在廣場中央、大小約 1.6 個英雄高；門立在柵欄缺口上（`__mistvaleDetails().proc` 沒有 `gate`，
+    代表用的是圖集素材，不是程序 fallback）。
+
+---
+
+## 2026-10-20：狂戰士攻擊套用到 8 個方向
+
+使用者指示：「狂戰士攻擊八個方向都要應用到」。
+
+- **素材本來就有、只是沒接**：PixelLab 當時生的「Horizontal-greatsword-slash」其實是 8 個方向各一段，
+  只接了 `east` 那一列當 `attack`（對照表在 `output/pixellab-incoming/_atk-map.txt`）。8 個檔案都在
+  桌面 `狂戰-8方向-256/attack/`，這次複製到 `output/pixellab-incoming/berserker-attack-8dir/`
+  （`output/` 不進版控，跟其他生成物一樣）。規格：768×768＝3×3 共 9 格、每格 256。
+- **新腳本** `pipeline/scripts/pixellab/add_attack_dirs.py`：把條圖接成 **5 列**
+  （`attack` 東、`attackDownRight` 東南、`attackDown` 南、`attackUpRight` 東北、`attackUp` 北；
+  左邊三格由 `moveDir()` 對應到右邊的列再鏡像，所以不用另外烘三列）。
+  - 接法沿用原本 `attack` 列的實測值，腳本會先驗證再寫：**用同一套接法重做 east**，
+    跟現有列比對 1x 93.5%、@2x 89.2%（≥85% 才寫檔）。1x＝每格 NEAREST 縮一半貼在 cell 128 的 (2,25)。
+  - **@2x 的位移改成 (4,50)**（原 (4,58)）：50 剛好是 1x 的兩倍，縮放到 2x 門檻換表時角色不會跳 8 px。
+  - 一律原地換掉同格數的列，不留重複列；`head` 配件錨點用 `add_battle_rows.py` 同一套算法重算。
+  - 時間軸不變：`frameTime .075、release 4、impact 5`（9 格）。
+- **程式**（`src/pixel-world.js`）：
+  - `combatPose()` 出手/蓄力時多帶 `vdir=moveDir(目標-自己)`（螢幕空間切 8 個 45° 扇區）。
+  - `sheetPose()` 用 `'attack'+dirSuffix(m,'attack',vdir)` 挑列 —— 素材沒有的方向會自動退回
+    （斜角→上下→側面），所以**其他職業完全沒變**。
+  - `drawHunterSheet()` 出手/蓄力時用攻擊方向挑列（其他戰鬥姿勢仍走側面），朝向判斷改成
+    `sp.act.startsWith('attack')`；`motionOf()` 的後綴拆解支援 `DownRight/UpRight`（上下/斜角不做水平位移）。
+- **修掉一個「只有前段對、尾巴跳回側面」的 bug**：`combatPose()` 的 `pose` 只維持到 0.36 s，
+  但 `sheetPose()` 的出手列會播到 0.445 s（含命中停頓）→ 最後 1–2 格 `vdir` 已經退回 `side`，
+  八方向攻擊的結尾會突然跳成側面那一列。改成 `drawHunterSheet()` 直接用 `h.atkX/atkZ` 算方向，
+  窗期 = 出手動畫全長 0.46 s，不再看 `pose==='strike'`。
+- **驗收（三層）**：
+  1. **方向對應**：八個方向逐一出手，`__mistvaleFacing()` 讀回的列全部正確
+     （東→attack、東南→attackDownRight、南→attackDown、西南→attackDownRight(鏡像)、西→attack(鏡像)、
+     西北→attackUpRight(鏡像)、北→attackUp、東北→attackUpRight）。
+  2. **整段動畫每一格**：把蓄力（`attackTimer` 0.29→0）與出手（`atkAt` 0→0.42 s）兩段都掃過，
+     八個方向都是 **蓄力 0–3 格 + 出手 4–8 格，全部落在同一個方向列**（沒有跳列、沒有缺格）。
+  3. **真實戰鬥**：`game.tick` + `world.update` 快轉 120 秒（先派 5 位獵人去向陽草原），
+     5/5 獵人都出手過；`h:windup`/`h:strike` 姿勢都出現；自然戰鬥中 `attack`、`attackDownRight`、
+     `attackUp` 都完整播過 0–8 格（方向是隨機的，`attackDown` 那次剛好沒發生，由第 2 層補足）。
+  4. `npm test` 全過、無 JS 錯誤。
+### 2026-10-20 追加：方向抖動 / 邊打邊跳的問題
+
+使用者回報：「戰鬥方向還是常常用左右，或不同方向抖動；怪物移動時邊攻擊邊打，動畫會快速跳動」。
+實測（`game.tick`+`world.update` 快轉 120 秒、5 位獵人派去狩獵區）找到三個原因，逐一根治：
+
+1. **只有狂戰士有 8 方向攻擊美術**。`assets/heroes/*.json` 檢查：archer／assassin／darkknight／
+   paladin／priest／ranger／sorcerer／witchhunter 都只有一列側面 `attack`（`dirSuffix` 會自動退回側面，
+   所以它們**一定會用左右**）。這是素材缺口，不是程式問題 —— 要的話得對其他職業跑 PixelLab 8 方向攻擊動畫。
+2. **攻擊方向每幀重算 → 亂跳**（已修）。以前出手方向用「目標當下位置」每幀算一次，魔物一移動就越過
+   45° 扇區邊界，攻擊列每幀換一次；蓄力（0.3 s）與出手（0.445 s）也可能選到不同方向。
+   改成每次攻擊**只在開始時鎖定一次**（`atkDirs` Map，key = 獵人 id）：進入蓄力時算一次、之後不動，
+   出手沿用蓄力鎖定的方向 → 一整段攻擊永遠同一列。實測：相鄰兩幀攻擊列互換 **0 次**（改前有零星）。
+3. **走路/待機每幀互換 → 原地抖**（已修）。兩個來源：
+   - `moveDir()` 對相鄰扇區邊界沒有容錯：角色沿著邊界走、繞障礙左右微調時 `walkDown↔walkDownRight`
+     每幀跳。新增 `moveDirStable()`（離開原方向中心 >30.5° 才換，也就是邊界再多 8°），走路／魔物移動都改用它；
+     攻擊仍用精確的 `moveDir()`（只算一次，不需要容錯）。
+   - 模擬的 `status` 在同一場戰鬥裡會 `戰鬥中 ↔ 追擊中` 每幾幀跳一次，位移也常「一幀有一幀沒有」。
+     新增兩個保持時間：走路 0.18 s（`walkUntil`）、戰鬥 0.3 s（`fightUntil`/`engageUntil`，含待機要用
+     側面還是上下列、目標查找）；`sheetPose()` 多一個 `inFight` 參數吃保持後的狀態。
+   實測 A→B→A（0.15 s 內）抖動次數：**237 → 18**（120 秒、全部角色），剩下的是正常的
+   idle→attack→idle 之類切換。
+
+- **已知小瑕疵**：`attackDown` 第 5、6 格的大劍光弧尾端會碰到 cell 底邊（1x 約 2 px、@2x 約 4 px），
+  `audit_hero_sheet` 會報 `attackDown5/6: touches cell edge`。那是條圖本身的弧線掉到腳下造成的，
+  要完全避開得把整列往上移 3 px（角色會比其他方向高 1 世界單位）—— 目前選擇保留位置一致、接受弧尾被切。
+  （`berserker` 這張表本來就 FAIL 其他項目：idle 1 格、height 63、death 碰邊、色數，都是既有狀態。）
+
+---
+
 ## 2026-10-13：使用者的新「狂戰」（`e88f7207`）8 方向走路動畫
 
 使用者指示：「改用我做的版本 狂戰那個 生八個方向的走路動畫」。

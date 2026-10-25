@@ -1,8 +1,8 @@
 import assert from 'node:assert/strict';
 import { createGame } from './src/pixel-game.js';
-import { doorStand } from './src/landscape-layout.js';
+import { doorStand, buildingSolid } from './src/landscape-layout.js';
 import { blockCenter } from './src/village-grid.js';
-import { BUILDINGS, CLASSES, MATERIALS, PRODUCTS } from './src/pixel-data.js';
+import { BUILDINGS, CLASSES, MATERIALS, PRODUCTS, PILOT_ATTACK, AI_ATTACK_LOCK } from './src/pixel-data.js';
 
 function run(game, seconds, quiet = false, inspect = null) {
   for (let i = 0; i < Math.ceil(seconds * 10); i++) {
@@ -29,7 +29,7 @@ function assertFiniteEconomy(s) {
 }
 
 const g = createGame();
-assert.equal(g.state.version, 2); assert.equal(g.state.hunters.length, 5); assert.equal(new Set(g.state.hunters.map(h => h.classId)).size, 5); assert.ok(g.state.visitors.some(v => v.classId === 'witchhunter'));
+assert.equal(g.state.version, 2); assert.equal(g.state.hunters.length, 5); assert.equal(new Set(g.state.hunters.map(h => h.classId)).size, Math.min(5, CLASSES.length));   // 2026-10-24 遊俠併入弓箭手、移除獵魔人:剩 4 職業,開局 5 人每個職業都有
 assert.equal(g.state.gold, 1500); assert.equal(g.state.capacity, 8); assert.equal(g.state.visitors.length, 3);
 assert.ok(g.state.hunters.every(h => h.gold === 100 && h.level >= 3 && h.level <= 5));
 assert.equal(g.recruit('__proto__').ok, false); assert.equal(g.recruit('missing').ok, false);
@@ -173,7 +173,7 @@ run(navigation, 150, false, state => {
   assertFiniteEconomy(state);
   for (const h of state.hunters) {
     returning ||= h.status === '返村中'; serviceStatus ||= ['用餐中', '飲用中', '休息中', '休養中'].includes(h.status);
-    for (const b of BUILDINGS.filter(b => state.buildings[b.id])) { const p = state.layout[b.id]; assert.ok(!(Math.abs(h.x - p.x) < b.w / 2 + 0.3 && Math.abs(h.z - p.z) < b.d / 2 + 0.3), `${h.name} penetrates ${b.id} at ${h.x},${h.z}`); }
+    for (const b of BUILDINGS.filter(b => state.buildings[b.id])) { const p = state.layout[b.id]; const r = buildingSolid(b, p); assert.ok(!(h.x > r.minX && h.x < r.maxX && h.z > r.minZ && h.z < r.maxZ), `${h.name} penetrates ${b.id} at ${h.x},${h.z}`); }   // 2026-10-24 改用實心佔地(跟 test-landscape、導航、碰撞同一份 SOLID);原本 b.w/b.d+0.3 比導航設計的街區走道(0.45/0.75)還嚴,換了開局職業組合後獵魔人沿城鎮大廳旁走道(離地基 0.05)就被誤判
   }
 }); assert.ok(returning && serviceStatus);
 
@@ -193,6 +193,78 @@ const quests = createGame(); quests.recruit(CLASSES[0].id); assert.equal(quests.
 quests.state.counts.traded = 10; assert.equal(quests.claimQuest().ok, true); quests.upgrade('forge'); assert.equal(quests.claimQuest().ok, true); quests.craftEquipment('weapon'); assert.equal(quests.claimQuest().ok, true);
 quests.state.bossKills = 1; assert.equal(quests.claimQuest().ok, true); quests.state.counts.dungeonWins = 1; assert.equal(quests.claimQuest().ok, true); quests.state.counts.rebirths = 1; assert.equal(quests.claimQuest().ok, true);
 const questGold = quests.state.gold; assert.equal(quests.claimQuest().ok, false); assert.equal(quests.state.gold, questGold); assert.equal(createGame(quests.serialize()).claimQuest().ok, false);
+
+// ── 手動操控(搖桿/動作鈕走的是同一條 API):輸入會推動角色、出手會打到最近的魔物、離開後回到 AI ──
+const manual = createGame(); const mh = isolate(manual);
+assert.equal(manual.pilotState(), null); assert.equal(manual.pilotInput(1, 0), undefined); manual.pilotAttack();
+assert.equal(manual.pilotStart(mh.id).ok, true); assert.equal(manual.pilotInput(0, 0), undefined);
+const startX = mh.x, startZ = mh.z; let moved = false;
+for (const [dx, dz] of [[1, 0], [-1, 0], [0, 1], [0, -1], [1, 1], [-1, -1]]) {
+  manual.pilotInput(dx, dz); for (let i = 0; i < 5; i++) manual.tick(0.1); manual.pilotInput(0, 0);
+  if (Math.hypot(mh.x - startX, mh.z - startZ) > 0.2) { moved = true; break; }
+}
+assert.ok(moved, 'pilot input moves the controlled hunter');
+assert.equal(mh.task, 'pilot'); assert.deepEqual([manual.pilotState().id, manual.pilotState().x], [mh.id, mh.x]);
+mh.x = mh.z = 0; manual.pilotInput(0, 0); run(manual, 6);   // 等野外生一隻魔物
+assert.ok(manual.state.enemies.length > 0, 'field enemy spawned for the manual attack test');
+const target = manual.state.enemies.find(e => e.hp > 0); mh.x = target.x - 1; mh.z = target.z; mh.hp = mh.maxHp; mh.attackTimer = 0;
+const targetHp = target.hp; manual.pilotAttack(); manual.tick(0.05);
+assert.ok(!manual.state.enemies.includes(target) || target.hp < targetHp, 'attack button damages the nearest enemy');
+// 隨時都能出手:附近沒有魔物也照樣播攻擊動作(不算傷害),但兩次出手之間有 0.5 秒 CD
+assert.equal(PILOT_ATTACK.cd, 0.5);
+manual.state.enemies = []; manual.pilotInput(0, 0); manual.tick(0.6);
+manual.pilotAttack(); manual.tick(0.1);
+assert.ok(Number.isFinite(mh.atkAt), 'empty swing still plays the attack animation');
+assert.ok(Number.isFinite(mh.atkX) && Number.isFinite(mh.atkZ), 'empty swing points at the last facing');
+assert.ok(manual.pilotCooldown() > 0, 'attack starts the cooldown');
+const firstAt = mh.atkAt;
+manual.pilotAttack(); manual.tick(0.1);
+assert.equal(mh.atkAt, firstAt, 'pressing again inside the cooldown is ignored');
+// 動作 + 收招僵直期間不能走(CD 0.5 秒 < 僵直 0.65 秒)
+const lockX = mh.x, lockZ = mh.z;
+manual.pilotInput(1, 0); manual.tick(0.3);
+assert.ok(Math.hypot(mh.x - lockX, mh.z - lockZ) < 1e-9, 'no walking while the attack animation and recovery run');
+assert.ok(manual.pilotLockLeft() > 0);
+manual.tick(0.4);
+assert.ok(Math.hypot(mh.x - lockX, mh.z - lockZ) > 0.1, 'walking resumes by itself after the recovery window');
+assert.equal(manual.pilotLockLeft(), 0);
+manual.pilotInput(0, 0); manual.tick(0.2);
+manual.pilotAttack(); manual.tick(0.1);
+assert.ok(mh.atkAt > firstAt, 'attack is available again after the 0.5s cooldown');
+assert.equal(manual.pilotStop().ok, true); assert.equal(manual.state.pilot, null); assert.equal(mh.task, null);
+// 手動操控期間 AI 不能再動這位獵人(不然搖桿的方向會和 AI 的狩獵路線搶)
+assert.equal(manual.pilotStart(mh.id).ok, true); mh.huntRegion = manual.state.region; mh.route = []; mh.targetId = null;
+const holdX = mh.x, holdZ = mh.z; manual.pilotInput(0, 0); run(manual, 3);
+assert.ok(Math.hypot(mh.x - holdX, mh.z - holdZ) < 0.001, 'pilot hunter is not moved by the AI while under manual control');
+assert.equal(mh.status, '手動操控'); manual.pilotStop();
+// 面向只在「真的走動」時更新:站著推搖桿不會轉、空揮維持攻擊前的面向、僵直結束走起來才轉
+const turn = createGame(); const th = isolate(turn); assert.equal(turn.pilotStart(th.id).ok, true);
+th.x = 6; th.z = 30; turn.pilotInput(1, 0); for (let i = 0; i < 6; i++) turn.tick(0.1); turn.pilotInput(0, 0); turn.tick(0.1);
+assert.ok(turn.pilotState().faceX > 0.9, 'walking east sets the facing east');
+const eastX = th.x;
+turn.pilotAttack(); turn.tick(0.1);        // 空揮:朝「最後走的方向」(東)
+let st = turn.pilotState();
+assert.ok(st.atkX > st.x && Math.abs(st.atkZ - st.z) < 1e-6, 'empty swing aims at the pre-attack facing');
+turn.pilotInput(-1, 0); turn.tick(0.2);     // 僵直中把搖桿推到西邊:不得轉向、不得移位
+turn.tick(0.2);
+st = turn.pilotState();
+assert.ok(st.faceX > 0.9, 'facing stays at the pre-attack direction during the recovery');
+assert.ok(Math.abs(st.x - eastX) < 1e-9, 'no movement during the recovery');
+assert.ok(turn.pilotLockLeft() > 0, 'still locked while sampling');
+turn.tick(0.6);                            // 僵直結束、真的走起來 → 轉向
+assert.ok(turn.pilotState().faceX < -0.5, 'walking west after the recovery turns the character');
+assert.ok(turn.pilotState().x < eastX, 'and it actually walks west');
+turn.pilotStop();
+// AI 獵人出手後也有短僵直(站著收招不移動),但沒有額外的攻擊 CD
+assert.equal(AI_ATTACK_LOCK, 0.15);
+const ai = createGame(); const ah = isolate(ai); ah.huntRegion = ai.state.region; ah.route = []; ah.task = null;
+const ax0 = ah.x, az0 = ah.z; run(ai, 1.2);
+assert.ok(Math.hypot(ah.x - ax0, ah.z - az0) > 0.1, 'AI hunter walks toward its hunt region');
+ah.lockUntil = ai.state.time + 5; const lx = ah.x, lz = ah.z; run(ai, 0.6);
+assert.ok(Math.hypot(ah.x - lx, ah.z - lz) < 1e-9, 'AI hunter stands still during the post-attack lock');
+ah.lockUntil = 0; run(ai, 0.6);
+assert.ok(Math.hypot(ah.x - lx, ah.z - lz) > 0.1, 'AI hunter walks again once the lock expires');
+run(manual, 30, false, assertFiniteEconomy);
 
 console.log(`PASS: 5 hunters / ${CLASSES.length} classes, seeded visitors, conservation of personal and village gold, paid and emergency services, bounded trading, crafting and gear purchases, upgrades, training, skills, rebirth, difficulty gates, hunting, field boss, death/revival, dungeon combat and save continuation, NPC arena, navigation, malformed saves, pause, deterministic simulation, all 8 quests. Natural 60s: ${combat.state.totalKills} total kills; ${combat.state.counts.services} services.`);
 

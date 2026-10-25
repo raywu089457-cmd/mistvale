@@ -3,7 +3,7 @@ import {iconCanvas,iconsReady} from './pixel-icons.js';
 import {assetProgress,markPhase} from './asset-loading.js';
 import {createGame} from './pixel-game.js';
 import {createPixelWorld,drawPortrait,buildingDataURL,MAP_PALETTE,MAP_ACCENT} from './pixel-world.js';
-import {BUILDINGS,CLASSES,RARITIES,TRAITS,MATERIALS,PRODUCTS,RECIPES,DIFFICULTIES,SAVE_KEY} from './pixel-data.js';
+import {BUILDINGS,CLASSES,RARITIES,TRAITS,MATERIALS,PRODUCTS,RECIPES,DIFFICULTIES,PILOT_ATTACK,SAVE_KEY} from './pixel-data.js';
 
 const esc=s=>String(s??'').replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
 const fmt=n=>Math.floor(Number(n)||0).toLocaleString('en-US');
@@ -37,7 +37,7 @@ function paintPortraits(){document.querySelectorAll('[data-portrait]').forEach(e
 
 function paintQuest(){const q=game.state.quest;$('#quest-chapter').textContent=`CHAPTER ${String(q.index+1).padStart(2,'0')}`;$('#quest-title').textContent=q.title;$('#quest-desc').textContent=q.description;$('#quest-progress').textContent=`${q.progress}/${q.target}`;$('#quest-fill').style.width=`${Math.min(100,q.progress/q.target*100)}%`;$('#quest-reward').innerHTML=costs(q.reward);$('#quest-button').textContent=q.claimed?'全部委託完成':q.complete?'領取獎勵':'查看委託';$('#quest-button').disabled=q.claimed;}
 function paintInspector(){if(!selected||!BUILDINGS.some(b=>b.id===selected))return;const b=BUILDINGS.find(v=>v.id===selected),s=game.state,l=s.buildings[b.id],p=s.layout[b.id];$('#inspect-title').textContent=b.name;const img=buildingImg(b.id);$('#inspect-content').innerHTML=`<div class="inspect-art">${img?`<img src="${img}" alt="${b.name}">`:iconHTML(b.type)}</div><div class="inspect-level">${l?'建築 Lv.'+l:'尚未建造'}</div><p class="inspect-desc">${b.desc}</p><div class="inspect-effect"><strong>作用</strong><br>${b.effect}</div><div class="cost"><span>需求</span>${costs(l?game.getUpgradeCost(b.id):b.cost)}</div><div class="inspect-actions">${l?`<button class="pixel-button gold" data-action="upgrade" data-id="${b.id}">升級 Lv.${l+1}</button>`:`<button class="pixel-button gold" data-action="construct" data-id="${b.id}">建造</button>`}<button class="move" data-action="moveBuilding" data-id="${b.id}">移動位置</button>${b.id!=='dungeon'?`<span class="inspect-scale">大小 統一 ${Math.round((world?.buildingScale?.(b.id)??1)*100)}%（2026-10-13 起所有建築同一個大小，不再逐棟調整）</span>`:''}</div>`;setIcons($('#inspect-content'));}
-function paint(force=false){const s=game.state;['gold','wood','ore','gems'].forEach(k=>$('#'+k).textContent=fmt(s[k]));$('#population').textContent=`${s.hunters.length}/${s.capacity}`;$('#town-level').textContent=`村莊 Lv.${s.buildings.hall}`;$('#difficulty-name').textContent=DIFFICULTIES[s.difficulty].name;$('#stock-list').innerHTML=resourceRows();$('#mini-roster').innerHTML=miniRoster();paintPortraits();paintQuest();$('#pause').textContent=s.paused?'▶':'Ⅱ';$('#speed').textContent=`${s.speed}×`;$('#pause-label').classList.toggle('hidden',!s.paused);$('#heal-button').disabled=s.healCooldown>0;$('#heal-label').textContent=s.healCooldown>0?`治癒 ${Math.ceil(s.healCooldown)}s`:'治癒';$('#notice-feed').innerHTML=s.log.slice(0,3).map(l=>`<div>${esc(l.text)}</div>`).join('');if(selected)paintInspector();setIcons();document.body.dataset.kills=s.totalKills;document.body.dataset.services=s.counts.services;const landscape=world?.landscapeStats?.();if(landscape){document.body.dataset.trees=landscape.trees;document.body.dataset.arenas=landscape.arenas;document.body.dataset.roads=landscape.roads;}document.body.dataset.worldArea=WORLD.area;document.body.dataset.region=s.region;const rb=$('#region-badge');if(rb)rb.textContent=(REGIONS.find(r=>r.id===s.region)?.name||'向陽草原')+' · 狩獵中';}
+function paint(force=false){const s=game.state;['gold','wood','ore','gems'].forEach(k=>$('#'+k).textContent=fmt(s[k]));$('#population').textContent=`${s.hunters.length}/${s.capacity}`;$('#town-level').textContent=`村莊 Lv.${s.buildings.hall}`;$('#difficulty-name').textContent=DIFFICULTIES[s.difficulty].name;$('#stock-list').innerHTML=resourceRows();$('#mini-roster').innerHTML=miniRoster();paintPortraits();paintQuest();$('#pause').textContent=s.paused?'▶':'Ⅱ';$('#speed').textContent=`${s.speed}×`;$('#pause-label').classList.toggle('hidden',!s.paused);$('#heal-button').disabled=s.healCooldown>0;$('#heal-label').textContent=s.healCooldown>0?`治癒 ${Math.ceil(s.healCooldown)}s`:'治癒';$('#notice-feed').innerHTML=s.log.slice(0,3).map(l=>`<div>${esc(l.text)}</div>`).join('');if(selected)paintInspector();setIcons();document.body.dataset.kills=s.totalKills;document.body.dataset.services=s.counts.services;const landscape=world?.landscapeStats?.();if(landscape){document.body.dataset.trees=landscape.trees;document.body.dataset.arenas=landscape.arenas;document.body.dataset.roads=landscape.roads;}document.body.dataset.worldArea=WORLD.area;document.body.dataset.region=s.region;const rb=$('#region-badge');if(rb)rb.textContent=(REGIONS.find(r=>r.id===s.region)?.name||'向陽草原')+' · 狩獵中';pilotStatus();}
 // 主世界地圖畫布:長寬比跟世界一樣(一格世界單位在畫面上是正方形),四周各留 15 像素邊。
 const WORLD_MAP_H=392,WORLD_MAP_W=Math.round((WORLD_MAP_H-30)*WORLD.width/WORLD.height)+30;
 function modalTitle(t,ic='scroll'){const names={worldmap:'主世界地圖',build:'村莊建設',hunters:'獵人名冊',hunter:'獵人詳情',trade:'交易所',craft:'製作與庫存',dungeon:'地下城遠征',arena:'競技場模擬對戰',quests:'村長委託',inventory:'村莊倉庫',difficulty:'狩獵難度',settings:'遊戲設定',help:'村長入門手札',boss:'地圖首領',dispatch:'派遣出征 · 自由組隊'};$('#modal-title').textContent=names[t]||t;$('#modal-icon').dataset.icon=ic;setIcons($('#modal'));}
@@ -69,7 +69,19 @@ function modalHTML(type){const s=game.state;
  if(type==='quests')return `<div class="quest-list">${s.quest.claimed?'<p class="modal-note">全部委託已完成。新的村莊傳說正在等待被書寫。</p>':`<article class="quest-list-row"><h3>${s.quest.title}</h3><p>${s.quest.description}</p><div class="progress"><span style="width:${s.quest.progress/s.quest.target*100}%"></span><b>${s.quest.progress}/${s.quest.target}</b></div><div class="cost">獎勵 ${costs(s.quest.reward)}</div><button class="pixel-button gold" data-action="quest" ${s.quest.complete?'':'disabled'}>${s.quest.complete?'領取獎勵':'尚未完成'}</button></article>`}</div>`;
  if(type==='inventory')return `<p class="modal-intro">村莊倉庫保存建材、生活物資與鐵匠鋪製作的裝備。</p><div class="materials-grid">${Object.entries({...MATERIALS,food:{name:'香烤麵包'},drink:{name:'莓果飲品'},bed:{name:'舒適床鋪'},bandage:{name:'亞麻繃帶'},weapon:{name:'精鐵武器'},armor:{name:'皮革護甲'}}).map(([id,m])=>`<div class="material-item">${iconHTML(id)}<div><span>${m.name}</span><b>${s[id]??s.stocks?.[id]??s.gearStock?.[id]??0}</b></div></div>`).join('')}</div>`;
  if(type==='difficulty')return `<p class="modal-intro">狩獵難度會提高森林魔物的生命與攻擊。高難度需要完成轉世累計。</p><div class="difficulty-grid">${DIFFICULTIES.map(d=>`<article class="difficulty-card"><i>${iconHTML('skull')}</i><h3>${d.name}</h3><small>魔物強度 ×${d.mult}<br>需要轉世 ${d.rebirths} 次</small><button class="pixel-button ${s.difficulty===d.id?'gold':''}" data-action="setDifficulty" data-id="${d.id}" ${s.difficulty===d.id?'disabled':''}>${s.difficulty===d.id?'目前難度':'選擇'}</button></article>`).join('')}</div>`;
- if(type==='settings')return `<div class="setting-row"><div><strong>裝備零件層</strong><small>開羅式零件表：身體 + 裝備各自一張表，執行期疊起來。切換可看出差別。</small></div><button class="pixel-button" data-action="toggleParts">裝備顯示中</button></div><div class="setting-row"><div><strong>整理村莊</strong><small>每棟建築回到自己街區的格位上（門前小路會跟著變整齊）。只影響位置較亂的存檔；已經排好的不會被動到。</small></div><button class="pixel-button gold" data-action="tidyVillage">整理村莊</button></div><div class="setting-row"><div><strong>派遣獵人出征</strong><small>自己挑要出征哪幾位（自由組隊），再選狩獵區。村內辦事的獵人辦完事後會出發。</small></div><button class="pixel-button" data-action="dispatchHunters">選人派遣</button></div><div class="setting-row"><div><strong>流浪英雄</strong><small>流浪英雄會在野外自己找魔物開打。按鈕可依序把鏡頭帶到每一位身上。</small></div><button class="pixel-button" data-action="peekWanderer">巡視流浪英雄</button></div><div class="setting-row"><div><strong>音效與畫面</strong><small>像素渲染會保持硬邊與原始色塊。</small></div><button class="pixel-button" data-action="quality">切換畫質</button></div><div class="setting-row"><div><strong>匯出存檔</strong><small>將整個村莊、獵人、地下城進度備份成 JSON。</small></div><button class="pixel-button gold" data-action="export">匯出</button></div><div class="setting-row"><div><strong>重新開始</strong><small>清除目前存檔並從五位初始獵人開始。</small></div><button class="pixel-button danger" data-action="reset">重置</button></div>`;
+ if(type==='settings'){const o=(s.settings||{}),on=settingsOpen,seg=(key,opts,cur)=>`<div class="seg" data-key="${key}">${opts.map(([v,label])=>`<button class="pixel-button ${String(cur)===String(v)?'gold':''}" data-action="setOpt" data-key="${key}" data-value="${v}">${label}</button>`).join('')}</div>`;
+   const summary=[`畫質 ${o.quality==='low'?'低':'高'}`,`解析度 ${o.dpr==='auto'?'自動':(o.dpr||'1.5')+'x'}`,`幀率 ${o.fps===60?60:30}`,`影子 ${o.shadows===false?'關':'開'}`,`夜晚 ${o.night===false?'關':'開'}`].join(' · ');
+   return `<div class="setting-row"><div><strong>畫質與效能</strong><small>${summary}</small></div><button class="pixel-button ${on?'gold':''}" data-action="toggleQuality">${on?'收起':'調整'}</button></div>
+   ${on?`<div class="setting-group"><p class="setting-note">手機發燙就往下調：解析度 → 幀率 → 動態影子，這三個最吃電。</p>
+   <div class="setting-row"><div><strong>畫質</strong><small>高：粒子、光暈、雪都開。低：關掉粒子與光暈，最省電。</small></div>${seg('quality',[['high','高'],['low','低']],o.quality||'high')}</div>
+   <div class="setting-row"><div><strong>解析度</strong><small>畫布像素密度。1x 最省電（像素圖邊緣較粗）；2x 最清楚但最燙。</small></div>${seg('dpr',[['auto','自動'],['1','1x'],['1.5','1.5x'],['2','2x']],o.dpr||'auto')}</div>
+   <div class="setting-row"><div><strong>幀率</strong><small>30 幀省電；60 幀順暢，但耗電與發熱大約多一倍。</small></div>${seg('fps',[[30,'30'],[60,'60']],o.fps||30)}</div>
+   <div class="setting-row"><div><strong>動態影子</strong><small>角色與建築的投影。關掉可少一層貼圖，手機明顯更涼。</small></div>${seg('shadows',[[1,'開'],[0,'關']],o.shadows===false?0:1)}</div>
+   <div class="setting-row"><div><strong>夜晚變暗</strong><small>入夜後畫面轉成藍色調。關掉可少一層覆蓋。</small></div>${seg('night',[[1,'開'],[0,'關']],o.night===false?0:1)}</div></div>`:''}
+   <div class="setting-row"><div><strong>手動操控</strong><small>自己下去玩：手機是左下搖桿走路、右下大顆按鈕出手，鏡頭一直把角色固定在畫面中央；電腦用 WASD／方向鍵移動、空白鍵或 J 出手。</small></div><button class="pixel-button gold" data-action="pilotLab">選擇角色</button></div>
+   <div class="setting-row"><div><strong>動作實驗室</strong><small>直接挑一個職業，播放遊戲裡所有動作（待機、走路、攻擊、技能、受傷、倒地、勝利…），可逐格看。</small></div><button class="pixel-button gold" data-action="poseLab">打開</button></div>
+   <div class="setting-row"><div><strong>匯出存檔</strong><small>將整個村莊、獵人、地下城進度備份成 JSON。</small></div><button class="pixel-button gold" data-action="export">匯出</button></div>
+   <div class="setting-row"><div><strong>重新開始</strong><small>清除目前存檔並從五位初始獵人開始。</small></div><button class="pixel-button danger" data-action="reset">重置</button></div>`;}
  if(type==='help')return `<div class="help-grid"><div class="help-card"><h3>村長要做什麼？</h3><p>重建被魔王摧毀的城鎮，建造餐廳、旅館、酒館、治療所與鐵匠鋪，服務獵人的生活需求。</p></div><div class="help-card"><h3>獵人怎麼生活？</h3><p>獵人有自己的金幣、飽食度、心情與精力。他們會狩獵、帶回材料、回村交易，再支付費用吃飯、休息和治療。</p></div><div class="help-card"><h3>怎麼變強？</h3><p>在學院學技能、修煉地訓練、鐵匠鋪購買武器，再到強化精煉所強化。Lv.100 後可到復活聖所轉世。</p></div><div class="help-card"><h3>村外內容</h3><p>委託所追蹤魔物目標，地下城三人遠征，地圖首領討伐，以及修煉地開放的 NPC 競技場模擬對戰。</p></div></div>`;
  if(type==='boss')return `<div class="encounter-banner"><i>${iconHTML('horn')}</i><div><h3>地圖首領：森林魔王</h3><p>吹響號角，召集所有可出征的獵人。首領會帶回大量稀有材料與星晶。</p></div></div><div class="encounter-status">${s.expedition.active?`討伐中 · 生命 ${Math.ceil(s.expedition.bossHp)}/${s.expedition.bossMaxHp}`:s.expedition.cooldown>0?`整備 ${Math.ceil(s.expedition.cooldown)} 秒`:'森林魔王尚未出現'}</div><div class="encounter-actions"><button class="pixel-button gold" data-action="startBoss" ${s.expedition.active||s.expedition.cooldown>0?'disabled':''}>召喚森林魔王</button></div>`;
  return '';
@@ -103,21 +115,202 @@ function doAction(el){const a=el.dataset.action,id=el.dataset.id;let r;
  if(a==='startDispatch'){r=game.dispatchTeam(dispatchTab);logToast(r.message,r.ok);if(r.ok)closeModal();save();paint();return;}
  if(a==='toggleDungeonHunter'){toggleParty('dungeon',id);return;}if(a==='toggleArenaHunter'){toggleParty('arena',id);return;}if(a==='startDungeon'){r=game.startDungeon(game.state.dungeon.hunterIds);logToast(r.message,r.ok);paint();return;}if(a==='startArena'){r=game.startArena(game.state.arena.hunterIds);logToast(r.message,r.ok);paint();return;}
  if(a==='setDifficulty'){r=game.setDifficulty(Number(id));logToast(r.message,r.ok);if(r.ok)closeModal();paint();return;}
- if(a==='quality'){world?.setQuality(false);logToast('已切換像素省電模式。');return;}if(a==='reset'){if(confirm('確定要重置村莊嗎？')){game.reset();started=true;paint(true);logToast('五位獵人重新抵達暮影村。');}return;}
+ if(a==='toggleQuality'){settingsOpen=!settingsOpen;return openModal('settings');}
+ // ── 建築:建造 / 升級 / 移動 / 從建造面板選一棟（2026-10-20 補上：這些按鈕原本沒有任何處理函式，按了不會有反應）
+ if(a==='selectBuilding'){closeModal();inspect(id);return;}
+ if(a==='construct'){r=game.construct(id);logToast(r.message,r.ok);if(r.ok)world?.setSelected(id);paint();save();return;}
+ if(a==='upgrade'){r=game.upgrade(id);logToast(r.message,r.ok);paint();save();return;}
+ if(a==='moveBuilding'){closeModal();placing=id;$('#placement').classList.remove('hidden');world?.placeMode(id);paint();return;}
+ // ── 獵人:詳情 / 學技能 / 修煉 / 強化 / 轉世
+ if(a==='hunter'){openHunter(id);return;}
+ if(a==='learnSkill'){r=game.learnSkill(id);logToast(r.message,r.ok);openHunter(id);paint();return;}
+ if(a==='train'){r=game.train(id);logToast(r.message,r.ok);openHunter(id);paint();return;}
+ if(a==='enhanceHunter'){r=game.enhance(id);logToast(r.message,r.ok);openHunter(id);paint();return;}
+ if(a==='reincarnate'){r=game.reincarnate(id);logToast(r.message,r.ok);openHunter(id);paint();return;}
+ // ── 招募 / 委託 / 首領
+ if(a==='recruitVisitor'){r=game.recruit(id);logToast(r.message,r.ok);paint();save();return;}
+ if(a==='quest'){r=game.claimQuest();logToast(r.message,r.ok);openModal('quests');paint();save();return;}
+ if(a==='startBoss'){r=game.expedition();logToast(r.message,r.ok);closeModal();paint();return;}
+ // ── 交易所 / 製作
+ if(a==='setTrade'){const box=document.querySelector('#trade-'+id);r=game.setTradeRequest(id,Math.round(Number(box?.value??0)));logToast(r.message,r.ok);paint();save();return;}
+ if(a==='collectTrade'){const t=game.state.tradeRequests,pend=Object.entries(t).filter(([,v])=>v>0).map(([k,v])=>`${MATERIALS[k]?.name||k} ${v}`);logToast(pend.length?`收購中：${pend.join('、')}（獵人回村會自動成交）`:'目前沒有發布收購委託。',pend.length>0);return;}
+ if(a==='craftProduct'){r=game.craft(id,Number(el.dataset.batches||1));logToast(r.message,r.ok);paint();save();return;}
+ if(a==='craftGear'){r=game.craftEquipment(id);logToast(r.message,r.ok);paint();save();return;}
+ if(a==='pilotLab'){closeModal();pilotOpen=true;pickOpen=false;pilotPaint();return;}
+ if(a==='poseLab'){closeModal();poseLab.playing=false;clearTimeout(poseLab.timer);poseLabPaint();return;}
+ if(a==='setOpt'){const key=el.dataset.key,raw=el.dataset.value,val=key==='fps'?Number(raw):key==='shadows'||key==='night'?raw==='1':raw;game.setSetting(key,val);applySettings();save();openModal('settings');paint();logToast('已套用：'+({quality:'畫質',dpr:'解析度',fps:'幀率',shadows:'動態影子',night:'夜晚變暗'}[key]||key));return;}if(a==='reset'){if(confirm('確定要重置村莊嗎？')){game.reset();applySettings();started=true;paint(true);logToast('五位獵人重新抵達暮影村。');}return;}
  if(a==='export'){const blob=new Blob([JSON.stringify(game.serialize())],{type:'application/json'}),u=URL.createObjectURL(blob),link=document.createElement('a');link.href=u;link.download='暮影村-像素存檔.json';link.click();setTimeout(()=>URL.revokeObjectURL(u),500);return;}
 }
+// 把 state.settings 套到畫面:畫質、解析度上限、影子、夜晚、幀率
+// ── 動作實驗室:浮動面板,直接在任何畫面上播某個職業的動作(不影響模擬) ──
+let poseLab={cls:'berserker',act:'idle',i:0,playing:false,timer:0};
+let poseLabEl=null;
+function poseLabFrame(){const info=world?.__mistvalePoseLab?.info?.(poseLab.cls)||globalThis.__mistvalePoseLab?.info?.(poseLab.cls);return info?info.actions[poseLab.act]?.frames||1:1;}
+function poseLabApply(){const api=globalThis.__mistvalePoseLab;if(!api)return;api.set({classId:poseLab.cls,act:poseLab.act,i:poseLab.i,facing:1});}
+function poseLabTick(){if(!poseLab.playing)return;const n=poseLabFrame();poseLab.i=(poseLab.i+1)%n;poseLabApply();const info=globalThis.__mistvalePoseLab?.info?.(poseLab.cls);const ft=info?1:1;
+ poseLab.timer=setTimeout(poseLabTick,Math.max(40,1000/12));poseLabPaint();}
+function poseLabPaint(){
+ const api=globalThis.__mistvalePoseLab; if(!api)return;
+ const info=api.info(poseLab.cls);
+ if(!poseLabEl){poseLabEl=document.createElement('div');poseLabEl.id='poselab';document.body.appendChild(poseLabEl);}
+ if(!info){poseLabEl.innerHTML='<b>這個職業的圖還沒載入</b>';return;}
+ const acts=Object.keys(info.actions);
+ if(!acts.includes(poseLab.act))poseLab.act=acts[0];
+ const n=info.actions[poseLab.act]?.frames||1;
+ poseLab.i=Math.max(0,Math.min(n-1,poseLab.i));
+ const clsBtn=CLASSES.map(c=>`<button class="pixel-button ${c.id===poseLab.cls?'gold':''}" data-poselab="cls" data-id="${c.id}">${c.name}</button>`).join('');
+ const actBtn=acts.map(a=>`<button class="pixel-button ${a===poseLab.act?'gold':''}" data-poselab="act" data-id="${a}">${POSE_LABEL[a]||a}</button>`).join('');
+ poseLabEl.innerHTML=`<div class="pl-head"><b>動作實驗室</b><span>${CLASSES.find(c=>c.id===poseLab.cls)?.name||poseLab.cls} · ${POSE_LABEL[poseLab.act]||poseLab.act} · ${n} 格</span>
+  <button class="pixel-button" data-poselab="play">${poseLab.playing?'⏸ 暫停':'▶ 播放'}</button><button class="pixel-button" data-poselab="close">關閉</button></div>
+  <div class="pl-row">${clsBtn}</div>
+  <div class="pl-row">${actBtn}</div>
+  <div class="pl-row pl-frame"><input type="range" min="0" max="${n-1}" value="${poseLab.i}" data-poselab="frame"><b>${poseLab.i+1}/${n}</b></div>`;
+ poseLabApply(); paint();
+}
+const POSE_LABEL={idle:'待機',idleDown:'待機(下)',idleUp:'待機(上)',walk:'走(側)',walkDown:'走(下)',walkDownRight:'走(右下)',walkUp:'走(上)',walkUpRight:'走(右上)',attack:'攻擊(側)',attackDown:'攻擊(下)',attackDownRight:'攻擊(右下)',attackUp:'攻擊(上)',attackUpRight:'攻擊(右上)',skill:'技能',hurt:'受傷',death:'倒地',victory:'勝利',walkLeft:'走(左)',attackLeft:'攻擊(左)'};
+document.addEventListener('click',e=>{
+ const b=e.target.closest('[data-poselab]'); if(!b)return;
+ const kind=b.dataset.poselab;
+ if(kind==='close'){poseLab.playing=false;clearTimeout(poseLab.timer);globalThis.__mistvalePoseLab?.set(null);poseLabEl?.remove();poseLabEl=null;paint();return;}
+ if(kind==='play'){poseLab.playing=!poseLab.playing;if(poseLab.playing)poseLabTick();else clearTimeout(poseLab.timer);poseLabPaint();return;}
+ if(kind==='cls'){poseLab.cls=b.dataset.id;poseLab.act='idle';poseLab.i=0;}
+ if(kind==='act'){poseLab.act=b.dataset.id;poseLab.i=0;}
+ poseLabPaint();
+});
+document.addEventListener('input',e=>{
+ const el=e.target.closest('[data-poselab="frame"]'); if(!el)return;
+ poseLab.i=Number(el.value); poseLabApply(); poseLabPaint();
+});
+// ── 手動操控:手機遊戲式。左下類比搖桿走路、右下大顆攻擊鈕出手,鏡頭把角色本體釘在畫面正中央 ──
+let pilotEl=null,pilotHud=null,stickEl=null,knobEl=null,cdEl=null,stickId=null,atkHold=0,pilotOpen=false,pickOpen=false,pilotShownId=null;
+let elLv=null,elStatus=null,elHp=null,elFill=null,cdCooling=false;
+const pilotKeys=new Set();
+const STICK_R=46,STICK_DEAD=5,ATK_POLL=90;   // 搖桿半徑/死區(px)、按住攻擊鈕時多久檢查一次 CD(ms)
+function pilotAlive(){return (game?.state?.hunters||[]).filter(h=>h.hp>0);}
+function pilotCur(){const p=game?.state?.pilot;return p?(game.state.hunters.find(h=>h.id===p.id)||null):null;}
+// 鏡頭:每幀把「這位角色」交給世界並要求把本體釘在畫面中央(snap),邊走邊打也不會漂走
+function pilotFollow(){
+  const cur=pilotCur(); if(!cur){world?.setFollow(null);return;}
+  const id=cur.id;
+  world?.setFollow(()=>{const q=game.state.hunters.find(v=>v.id===id);return q&&q.hp>0?{x:q.x,z:q.z}:null;},{centerBody:true,snap:true});
+}
+function pilotKnob(dx,dy){if(knobEl)knobEl.style.transform=`translate(${Math.round(dx)}px,${Math.round(dy)}px)`;}
+// 手指在搖桿盤上的位置 → 世界方向。往左上拖就往畫面左上走(等角投影由 dirFromScreen 換算)
+function pilotStickTo(e){
+  if(!stickEl)return;
+  const r=stickEl.getBoundingClientRect(),cx=r.left+r.width/2,cy=r.top+r.height/2;
+  const dx=e.clientX-cx,dy=e.clientY-cy,len=Math.hypot(dx,dy)||1,k=Math.min(1,STICK_R/len);
+  pilotKnob(dx*k,dy*k);
+  if(len<STICK_DEAD||!game?.state?.pilot){game?.pilotInput(0,0);return;}
+  const d=world?.dirFromScreen?.(dx,dy)||{x:dx,z:dy};
+  game.pilotInput(d.x,d.z);
+}
+function pilotStickEnd(){stickId=null;pilotKnob(0,0);if(game?.state?.pilot)game.pilotInput(0,0);}
+function pilotStopAttack(){if(atkHold){clearInterval(atkHold);atkHold=0;}}
+// 攻擊鈕的 CD 遮罩:從下往上収(剩越多遮越高)。每隔一幀更新一次,按住時才看得出什麼時候可以再打。
+function pilotHudTick(){
+  if(!cdEl)return;
+  const cd=game?.pilotCooldown?.()||0;
+  cdEl.style.height=`${Math.round(Math.min(1,cd/PILOT_ATTACK.cd)*100)}%`;
+  if(cdEl.parentElement&&cdCooling!==(cd>0)){cdCooling=cd>0;cdEl.parentElement.classList.toggle('cool',cdCooling);}
+}
+function ensurePilotHud(){
+  if(pilotHud)return;
+  pilotHud=document.createElement('div');pilotHud.id='pilot-hud';
+  pilotHud.innerHTML=`<div class="ph-stick" id="pilot-stick"><span class="ph-base"></span><span class="ph-knob" id="pilot-knob"></span></div>
+    <div class="ph-actions"><button class="ph-btn ghost" data-pilot="stop" aria-label="離開操控">✕<small>離開</small></button><button class="ph-btn" id="pilot-atk" aria-label="出手攻擊"><span class="ph-cd"></span>⚔<small>攻擊</small></button></div>`;
+  document.body.appendChild(pilotHud);
+  stickEl=pilotHud.querySelector('#pilot-stick');knobEl=pilotHud.querySelector('#pilot-knob');cdEl=pilotHud.querySelector('#pilot-atk .ph-cd');
+  stickEl.addEventListener('pointerdown',e=>{e.preventDefault();try{stickEl.setPointerCapture(e.pointerId);}catch{}stickId=e.pointerId;pilotStickTo(e);});
+  stickEl.addEventListener('pointermove',e=>{if(e.pointerId!==stickId)return;e.preventDefault();pilotStickTo(e);});
+  for(const t of ['pointerup','pointercancel','lostpointercapture'])stickEl.addEventListener(t,e=>{if(t==='lostpointercapture'||e.pointerId===stickId)pilotStickEnd();});
+  // 按一下打一次,按住就等 CD 好再打(CD 由遊戲邏輯管,這裡只是不白按)
+  const atk=pilotHud.querySelector('#pilot-atk'),fire=()=>{if(!game?.state?.pilot||(game.pilotCooldown?.()||0)>0)return;game.pilotAttack();try{navigator.vibrate?.(10);}catch{}};
+  atk.addEventListener('pointerdown',e=>{e.preventDefault();fire();pilotStopAttack();atkHold=setInterval(fire,ATK_POLL);});
+  for(const t of ['pointerup','pointercancel','lostpointercapture'])atk.addEventListener(t,pilotStopAttack);
+}
+function pilotPickList(){
+  const cur=pilotCur();
+  return pilotAlive().map(h=>`<button class="pixel-button ${cur&&cur.id===h.id?'gold':''}" data-pilot="go" data-id="${h.id}">${esc(h.name)} · ${CLASSES.find(c=>c.id===h.classId)?.name||h.classId} Lv.${h.level}</button>`).join('');
+}
+function pilotPaint(){
+  const cur=pilotCur(),need=pilotOpen||!!cur;
+  document.body.classList.toggle('piloting',!!cur);
+  if(!need){pilotEl?.remove();pilotEl=null;pilotHud?.remove();pilotHud=null;stickEl=knobEl=cdEl=null;stickId=null;pilotStopAttack();elLv=elStatus=elHp=elFill=null;return;}
+  if(!pilotEl){pilotEl=document.createElement('div');pilotEl.id='pilotlab';document.body.appendChild(pilotEl);}
+  if(!cur){   // 還沒選角色:只列清單
+    pilotHud?.remove();pilotHud=null;stickEl=knobEl=cdEl=null;stickId=null;pilotStopAttack();
+    pilotEl.innerHTML=`<div class="pl-head"><b>手動操控</b><span>選一位獵人開始</span><button class="pixel-button" data-pilot="close">關閉</button></div>
+      <div class="pl-pick">${pilotPickList()||'<small>沒有存活的獵人</small>'}</div>`;
+    elLv=elStatus=elHp=elFill=null;pilotShownId=null;return;
+  }
+  ensurePilotHud();
+  pilotEl.innerHTML=`<div class="pl-head"><b id="pilot-name">${esc(cur.name)}</b><span id="pilot-lv">Lv.${cur.level}</span>
+    <div class="pl-hp progress"><span id="pilot-fill" style="width:${Math.max(0,Math.min(100,cur.hp/cur.maxHp*100))}%"></span><b id="pilot-hp">${Math.round(cur.hp)}/${Math.round(cur.maxHp)}</b></div>
+    <span id="pilot-status">${esc(cur.status)}</span>
+    <button class="pixel-button" data-pilot="pick">換角色</button><button class="pixel-button danger" data-pilot="stop">離開</button></div>
+    ${pickOpen?`<div class="pl-pick">${pilotPickList()}</div>`:''}
+    <small class="pl-tip">左下搖桿移動 · 右下⚔出手（CD 0.5 秒；出手後僵直不能走，面向維持到走動才轉）</small>`;
+  elLv=$('#pilot-lv');elStatus=$('#pilot-status');elHp=$('#pilot-hp');elFill=$('#pilot-fill');pilotShownId=cur.id;
+}
+// 每 400ms 跟著 paint() 更新血條與狀態(只改文字,不重畫整塊,才不會打斷按住螢幕的手指)
+function pilotStatus(){
+  if(!pilotEl)return;
+  const cur=pilotCur();
+  if(!cur){if(pilotShownId!==null)pilotPaint();return;}   // 角色倒下/被收回:立刻把搖桿收起來(不要留一個沒人可控的介面)
+  if(elLv)elLv.textContent=`Lv.${cur.level}`;
+  if(elStatus)elStatus.textContent=cur.status;
+  if(elHp)elHp.textContent=`${Math.round(cur.hp)}/${Math.round(cur.maxHp)}`;
+  if(elFill)elFill.style.width=`${Math.max(0,Math.min(100,cur.hp/cur.maxHp*100))}%`;
+}
+function pilotInputFromKeys(){const k=pilotKeys;const dx=(k.has('right')?1:0)-(k.has('left')?1:0),dz=(k.has('down')?1:0)-(k.has('up')?1:0);game.pilotInput(dx,dz);}
+const PILOT_KEYS={ArrowUp:'up',ArrowDown:'down',ArrowLeft:'left',ArrowRight:'right',w:'up',s:'down',a:'left',d:'right',W:'up',S:'down',A:'left',D:'right'};
+document.addEventListener('keydown',e=>{
+  if(!game?.state?.pilot)return;
+  if(e.target.matches('input,textarea,select'))return;
+  if(e.key===' '||e.key==='j'||e.key==='J'){e.preventDefault();game.pilotAttack();return;}
+  const d=PILOT_KEYS[e.key];if(d){e.preventDefault();pilotKeys.add(d);pilotInputFromKeys();}
+});
+document.addEventListener('keyup',e=>{const d=PILOT_KEYS[e.key];if(d){pilotKeys.delete(d);if(game?.state?.pilot)pilotInputFromKeys();}});
+document.addEventListener('click',e=>{
+  const b=e.target.closest('[data-pilot]'); if(!b)return;
+  const a=b.dataset.pilot;
+  if(a==='close'){pilotOpen=false;pickOpen=false;pilotPaint();return;}
+  if(a==='pick'){pickOpen=!pickOpen;pilotPaint();return;}
+  if(a==='stop'){pilotStopAttack();pilotKeys.clear();game.pilotStop();pilotOpen=false;pickOpen=false;world?.setFollow(null);pilotPaint();return;}
+  if(a==='go'){const r=game.pilotStart(b.dataset.id);logToast(r.message,r.ok);
+    if(r.ok){pilotOpen=true;pickOpen=false;pilotKeys.clear();const h=pilotCur();
+      if(h)world?.lookAt(h.x,h.z,Math.max(1.9,world?.getScale?.()||1.9));
+      pilotFollow();}
+    pilotPaint();return;}
+});
+let settingsOpen=false;   // 設定面板的「畫質與效能」是否展開(預設收成一條)
+function applySettings(){const o=game?.state?.settings||{};world?.setQuality?.(o.quality!=='low');world?.setDpr?.(o.dpr||'auto');world?.setShadows?.(o.shadows!==false);world?.setNight?.(o.night!==false);fpsTarget=o.fps===60?60:30;}
+let fpsTarget=30;
 function openHunter(id){const h=game.state.hunters.find(v=>v.id===id);if(!h)return;modal='hunter-detail';modalTitle('hunter','hunter');$('#modal-content').innerHTML=`<div class="hunter-detail"><div class="detail-avatar"><img src="${portrait(h)}"><h3>${esc(h.name)}</h3><div class="rarity" style="--rarity:${RARITIES.find(r=>r.id===h.rarity)?.color}">${RARITIES.find(r=>r.id===h.rarity)?.name}</div></div><div><div class="detail-header"><strong>${CLASSES.find(c=>c.id===h.classId)?.name} · Lv.${h.level}</strong><span>${esc(h.status)}</span></div><div class="stats-grid"><div>攻擊<b>${h.attack}</b></div><div>防禦<b>${h.defense}</b></div><div>轉世<b>${h.rebirths}</b></div></div>${[['hp','生命','hp'],['satiety','飽食','satiety'],['stamina','精力','stamina'],['mood','心情','mood']].map(([k,n,c])=>`<div class="need-row ${c}"><label>${n}</label><div class="progress"><span style="width:${k==='hp'?h.hp/h.maxHp*100:h[k]}%"></span><b>${Math.floor(k==='hp'?h.hp:h[k])}</b></div></div>`).join('')}<div class="equipment-row">${iconHTML('gold')} 個人金幣 ${fmt(h.gold)}　 ${h.equipment.weapon?'⚔️ 武器':'未裝備武器'}　${h.equipment.armor?'🛡️ 護甲':'未裝備護甲'}</div></div></div><div class="hunter-actions"><button class="pixel-button" data-action="learnSkill" data-id="${h.id}">學習技能<small>學院</small></button><button class="pixel-button" data-action="train" data-id="${h.id}">修煉<small>20 個人金幣</small></button><button class="pixel-button" data-action="enhanceHunter" data-id="${h.id}">強化裝備<small>精煉所</small></button><button class="pixel-button" data-action="reincarnate" data-id="${h.id}">轉世<small>Lv.100</small></button></div>`;setIcons($('#modal-content'));$('#modal-backdrop').classList.remove('hidden');}
 function handleWorldSelect(id){if(!started)return;if(id?.startsWith('hunter:'))openHunter(id.slice(7));else if(id)inspect(id);}
 document.addEventListener('click',e=>{const el=e.target.closest('[data-action]');if(el&&!el.disabled)doAction(el);});
-document.addEventListener('keydown',e=>{if(e.target.matches('input,textarea,select'))return;if(e.key.toLowerCase()==='m'&&started){openModal('worldmap');return;}if(e.key==='Escape'){if(placing){placing=null;$('#placement').classList.add('hidden');world?.placeMode(null);}else closeModal();}if(e.code==='Space'&&!modal&&started){e.preventDefault();game.state.paused=!game.state.paused;paint();}const map={'1':'build','2':'hunters','3':'trade','4':'craft','5':'dungeon','6':'arena','7':'quests'};if(!modal&&map[e.key])openModal(map[e.key]);});
+document.addEventListener('keydown',e=>{if(e.target.matches('input,textarea,select'))return;if(e.key.toLowerCase()==='m'&&started){openModal('worldmap');return;}if(e.key==='Escape'){if(placing){placing=null;$('#placement').classList.add('hidden');world?.placeMode(null);}else closeModal();}if(e.code==='Space'&&!modal&&started){e.preventDefault();if(game.state.pilot){game.pilotAttack();return;}game.state.paused=!game.state.paused;paint();}const map={'1':'build','2':'hunters','3':'trade','4':'craft','5':'dungeon','6':'arena','7':'quests'};if(!modal&&map[e.key])openModal(map[e.key]);});
 $('#modal-backdrop').addEventListener('click',e=>{if(e.target.id==='modal-backdrop')closeModal();});
-try{const saved=(()=>{try{return previewMode?null:JSON.parse(localStorage.getItem(SAVE_KEY)||'null');}catch{return null;}})();game=createGame(saved);game.state.paused=true;document.querySelector('#title-art')?.style.setProperty('background-image',`url(${AS().title||''})`);if(AS().woodui)document.documentElement.style.setProperty('--wood-tex',`url(${AS().woodui})`);setIcons();world=createPixelWorld($('#world'),{getState:()=>game.state,onSelect:handleWorldSelect,onPlace:(id,x,z)=>{const r=game.moveBuilding(id,x,z);logToast(r.message,r.ok);if(r.ok){placing=null;$('#placement').classList.add('hidden');world.placeMode(null);}paint();}});world.setTime(.18);globalThis.__mistvaleView=world;globalThis.__mistvaleGame=game;  // 驗收腳本用(pipeline/scripts/l0veyou/verify_all_regions.js)
+try{const saved=(()=>{try{return previewMode?null:JSON.parse(localStorage.getItem(SAVE_KEY)||'null');}catch{return null;}})();game=createGame(saved);game.state.paused=true;document.querySelector('#title-art')?.style.setProperty('background-image',`url(${AS().title||''})`);if(AS().woodui)document.documentElement.style.setProperty('--wood-tex',`url(${AS().woodui})`);setIcons();world=createPixelWorld($('#world'),{getState:()=>game.state,onSelect:handleWorldSelect,onPlace:(id,x,z)=>{const r=game.moveBuilding(id,x,z);logToast(r.message,r.ok);if(r.ok){placing=null;$('#placement').classList.add('hidden');world.placeMode(null);}paint();}});world.setTime(.18);applySettings();globalThis.__mistvaleView=world;globalThis.__mistvaleGame=game;  // 驗收腳本用(pipeline/scripts/l0veyou/verify_all_regions.js)
 $('#left-panel')?.classList.add('hidden');$('#reopen-left')?.classList.remove('hidden');   // 委託看板預設收起（按鈕可展開）
+// 關掉瀏覽器自己的手勢:雙指縮放頁面、雙擊放大、長按選字/跳選單、下拉重新整理、選取文字。
+// 這些會跟遊戲的拖曳、雙指縮放、點選搶事件(拖到一半頁面跟著縮、長按跳出選單、往下拉就重新整理)。
+// 畫布本身用 touch-action:none 自己處理手勢;這裡擋的是頁面層級的那一些。
+(()=>{const typing=e=>!!e.target?.closest?.('input,textarea,select,[contenteditable]');
+for(const t of ['gesturestart','gesturechange','gestureend'])document.addEventListener(t,e=>e.preventDefault(),{passive:false});   // iOS/macOS 的頁面雙指縮放
+document.addEventListener('contextmenu',e=>{if(!typing(e))e.preventDefault();});
+document.addEventListener('selectstart',e=>{if(!typing(e))e.preventDefault();});
+document.addEventListener('dragstart',e=>{if(!typing(e))e.preventDefault();});
+document.addEventListener('dblclick',e=>{if(!typing(e))e.preventDefault();});})();   // 雙擊放大 / 選字
 window.addEventListener('resize',()=>world.resize());window.addEventListener('pagehide',save);bootWhenReady();   // 讀取完成才進村莊(見 bootWhenReady)
 let previous=performance.now(),nextFrame=0,frames=0,fpsStart=performance.now();
-// 目標 60 fps：依排程每 1000/60 ms 畫一次，容許 2 ms 的時間抖動（60 Hz 螢幕不會因此掉到 30 fps）；120/144 Hz 螢幕也只畫 60 次
-const FRAME_MS=1000/60;
-function frame(now){requestAnimationFrame(frame);if(document.hidden){previous=now;return;}if(now<nextFrame-2)return;nextFrame=Math.max(nextFrame+FRAME_MS,now);frames++;if(now-fpsStart>2000){document.body.dataset.fps=Math.round(frames*1000/(now-fpsStart));fpsStart=now;frames=0;}const dt=Math.min(.1,(now-previous)/1000);previous=now;if(started)game.tick(dt);world.setTime((game.state.time%240)/240);world.update(game.state.paused?0:dt,game.state);if(now-last>250){paint();last=now;}if(now-lastSave>5000){save();lastSave=now;}}requestAnimationFrame(frame);}catch(err){console.error(err);$('#loading').innerHTML='<b>像素村莊載入失敗，請重新整理</b>';}
+// 上限 30 fps：依排程每 1000/30 ms 畫一次，容許 2 ms 的時間抖動；60/120/144 Hz 螢幕都只畫 30 次
+const FRAME_MS=1000/30, PAUSED_MS=1000/10;   // 暫停(在看選單/面板)時降到 10fps:畫面幾乎不動,不必燒 30fps 的電
+const frameMs={avg:0,max:0,n:0};globalThis.__mistvaleFrameStats=()=>({avgMs:+frameMs.avg.toFixed(2),maxMs:+frameMs.max.toFixed(2),frames:frameMs.n});
+function frame(now){requestAnimationFrame(frame);if(document.hidden){previous=now;return;}const frameMsNow=started&&game.state.paused?PAUSED_MS:(fpsTarget===60?1000/60:FRAME_MS);if(now<nextFrame-2)return;nextFrame=Math.max(nextFrame+frameMsNow,now);
+ // 每幀實際花了多少時間(給效能檢查用:手機上這個值決定會不會發燙)
+ const t0=performance.now();try{frames++;if(now-fpsStart>2000){document.body.dataset.fps=Math.round(frames*1000/(now-fpsStart));fpsStart=now;frames=0;}const dt=Math.min(.1,(now-previous)/1000);previous=now;if(started)game.tick(dt);pilotHudTick();world.setTime((game.state.time%240)/240);world.update(game.state.paused?0:dt,game.state);if(now-last>400){paint();last=now;}if(now-lastSave>5000){save();lastSave=now;}}finally{const ms=performance.now()-t0;frameMs.avg=frameMs.avg?frameMs.avg*.9+ms*.1:ms;frameMs.max=Math.max(frameMs.max,ms);frameMs.n++;}}requestAnimationFrame(frame);}catch(err){console.error(err);$('#loading').innerHTML='<b>像素村莊載入失敗，請重新整理</b>';}
 
 // 讀取畫面:圖片全部載完(成功或失敗都算完成)、村莊地板與建築都用美術版畫好、圖示換成圖集之後才進村莊。
 // 有圖載入失敗就停在錯誤畫面,不進村、也不會退回程序繪製的陽春素材。

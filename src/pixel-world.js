@@ -1,8 +1,8 @@
-import {getRoads,roadStyle,onRoad,PALISADE,villagePonds as pondsOf} from './landscape-layout.js';
+import {getRoads,roadStyle,onRoad,PALISADE,villagePonds as pondsOf,doorFoot} from './landscape-layout.js';
 import { BUILDINGS, CLASSES, RARITIES } from './pixel-data.js';
 import {WORLD,REGIONS,biomeAt,BIOME_PALETTE,inVillage} from './overworld.js';
 import {conceptGroundAt} from './concept-ground.js';
-import {TILE,GRID,STREET_X,STREET_Z,VILLAGE_BOUNDS,blockAt} from './village-grid.js';
+import {TILE,GRID,STREET_X,STREET_Z,VILLAGE_BOUNDS,blockAt,blockCenter,EXITS,EXIT_GAP} from './village-grid.js';
 import {trackImage,markPhase} from './asset-loading.js';
 
 // All artwork is rendered to a small integer pixel buffer and enlarged without
@@ -228,6 +228,11 @@ const heroAtlasLod=[];
 // heroSprite 在模組層,看不到閉包裡的 scale —— 用這個模組層變數由 update() 更新。
 // (踩過兩次同樣的坑:h is not defined / scale is not defined)
 let heroLodScale=1;
+// 「正在操作」= 手指拖動/雙指縮放/滾輪/縮放按鈕。操作中不做會卡頓的背景工作(解碼高解析圖、預生成變體),
+// 這些工作等手停下來(<260 ms 無輸入)才跑,縮放的每一幀就只剩繪製。
+let lastInputAt=-1e9;
+const markInput=()=>{lastInputAt=performance.now();};
+const interacting=()=>performance.now()-lastInputAt<260;
 const heroUse={calls:0,atlas:0,missing:0};
 const HERO_TINT=['rgba(255,225,190,.10)','rgba(190,215,255,.10)','rgba(255,200,215,.10)'];
 function heroFrameFor(classId,sc){
@@ -474,17 +479,41 @@ const MON_SHEET=t=>monsterSheets[t==='boss'?'treant':t];
 const pendingHero=id=>!heroSheets[id]&&!!globalThis.PIXEL_ASSETS?.heroSheets?.[id];
 const pendingMon=t=>!MON_SHEET(t)&&!!globalThis.PIXEL_ASSETS?.monsterSheets?.[t==='boss'?'treant':t];
 // 四方向:畫面上的移動量(等角 x 9、y 4.5)哪個軸大 → 上/下 或 左右(側面);沒移動就沿用上一個方向。
+const DIR8=['side','downRight','down','downLeft','sideLeft','upLeft','up','upRight'];
 function moveDir(dx,dz,prev){const Sx=(dx-dz)*9,Sy=(dx+dz)*4.5;if(Math.hypot(Sx,Sy)<.01)return prev||'side';
   // 8 方向:把螢幕空間的角度切成 8 個 45° 扇區(左半邊一律用右半邊的列 + 程式鏡像)
   const k=Math.round(Math.atan2(Sy,Sx)/(Math.PI/4));
-  return ['side','downRight','down','downLeft','sideLeft','upLeft','up','upRight'][((k%8)+8)%8];}
+  return DIR8[((k%8)+8)%8];}
+// 走路用的方向:要「明確」越界才換扇區(距離原方向中心 ≤30.5°,也就是邊界再多 8° 才換)。
+// 純粹用 MoveDir 的話,角色沿著扇區邊界走、或繞障礙物左右微調時,上一幀 walkDown、下一幀 walkDownRight、
+// 再下一幀又 walkDown —— 走路列每幀跳一次,看起來就是方向在抖、動畫在亂閃。
+// 攻擊方向不用這個(出手只有一次,直接取當下方位比較準),所以 moveDir 保持原樣。
+function moveDirStable(dx,dz,prev){const Sx=(dx-dz)*9,Sy=(dx+dz)*4.5;if(Math.hypot(Sx,Sy)<.01)return prev||'side';
+  const a=Math.atan2(Sy,Sx)*180/Math.PI,i=prev?DIR8.indexOf(prev):-1;
+  if(i>=0&&Math.abs(((a-i*45+540)%360)-180)<=30.5)return prev;
+  const k=Math.round(a/45);return DIR8[((k%8)+8)%8];}
 const DIR_ACT={side:'',downRight:'DownRight',down:'Down',downLeft:'DownRight',sideLeft:'',upLeft:'UpRight',up:'Up',upRight:'UpRight'};
 const DIR_FALLBACK={downRight:'Down',downLeft:'Down',upRight:'Up',upLeft:'Up'};
+// 攻擊／技能列:8 個方向都有獨立列(左半邊是烘好的 <動作>Left 列,執行時**不鏡像**)。
+// 少了某一列(例如只有一列側面攻擊的職業)才依序退回右向對角 → 上下 → 側面,那時才用鏡像。
+const ATTACK_ACT={side:'',downRight:'DownRight',down:'Down',downLeft:'DownLeft',sideLeft:'Left',upLeft:'UpLeft',up:'Up',upRight:'UpRight'};
+const ATTACK_FALLBACK={downRight:['Down'],downLeft:['DownRight','Down'],upRight:['Up'],upLeft:['UpRight','Up']};
 // 這張表有沒有「對角的列」?沒有就退回上下、再退回側面(舊素材不需要改就能跑)
-function dirSuffix(m,kind,vdir){const want=DIR_ACT[vdir]??'';if(!want)return '';
-  if(m[kind+want])return want;const fb=DIR_FALLBACK[vdir];if(fb&&m[kind+fb])return fb;return '';}
+function dirSuffix(m,kind,vdir){
+  const attack=kind==='attack'||kind==='skill';
+  const want=(attack?ATTACK_ACT:DIR_ACT)[vdir]??'';
+  if(!want)return '';
+  if(m[kind+want])return want;
+  const fallbacks=attack?(ATTACK_FALLBACK[vdir]||[]):[DIR_FALLBACK[vdir]].filter(Boolean);
+  for(const fb of fallbacks)if(fb&&m[kind+fb])return fb;
+  return '';}
 // 有烘好的左向列(<動作>Left)就直接用,不用即時鏡像
-function leftRow(meta,act,facing){return facing<0&&meta.actions[act+'Left']?[act+'Left',false]:[act,facing<0];}
+// 正上/正下（attackUp、walkDown…）沒有自己的左向版：不能接成 xxxUpLeft（那是斜角列），照走路一樣鏡像就好。
+// 斜向待機／走路:表上有畫好的左斜列(idleDownLeft、walkUpLeft…)就用它(2026-10-24 弓箭手),沒有才把右斜列鏡像。
+function leftRow(meta,act,facing){if(act&&act.endsWith('Left'))return[act,false];
+  if(facing<0){const diag=/^(idle|walk)(Down|Up)Right$/.test(act||'')?act.replace(/Right$/,'Left'):null;if(diag&&meta.actions[diag])return[diag,false];
+    if(!/(Up|Down)$/.test(act||'')&&meta.actions[act+'Left'])return[act+'Left',false];}
+  return[act,facing<0];}
 globalThis.__mistvaleHeroSheets=()=>Object.fromEntries(Object.entries(heroSheets).map(([k,v])=>[k,{w:v.img.width,h:v.img.height,actions:Object.keys(v.meta.actions)}]));
 // 模組化換色(sprites/SPRITE_VISUAL_BIBLE.md §9.3):每職業 meta.groups = outfit(職業代表色布料)/metal(鎧甲、刀刃)。
 // 每位英雄依 id 挑一個布料色相(5 選 1)→ 同職業不同人;買了鎧甲 → 布料更飽和;買了武器 → 金屬變金色。結果整張 sheet 快取。
@@ -540,7 +569,8 @@ function sheetFor(id,act){const hs=heroSheets[id];if(!hs?.meta)return null;const
   const px=(HERO_H/hi.meta.heroHeight)*heroLodScale,prev=!!heroLodOn.get(id),next=prev?px>=.54:px>=.66;if(px>=.46)hiWarm(hi);
   if(next&&hi.meta.actions[actRow(hi.meta.actions,act)]){if(!hi.bmp){heroLodOn.set(id,false);return hs;}heroLodOn.set(id,true);return hi;}
   heroLodOn.set(id,next);return hs;}
-function sheetFrame(id,act,i,look){const hs=sheetFor(id,act);if(!hs?.meta)return null;const meta=hs.meta,a=meta.actions[actRow(meta.actions,act)];if(!a)return null;const f=Math.max(0,Math.min(a.frames-1,i));return{img:variantImg(id,look,hs)||hs.img,sx:f*a.cell,sy:a.y,c:a.cell,foot:a.cell-meta.footFromBottom,art:HERO_H/meta.heroHeight,meta,hi:hs!==heroSheets[id]};}
+// 列有 cols＝格數太多時每 cols 格換一行(2026-10-24 刺客南向 41 格,單行會讓整張表寬 8200 px)。
+function sheetFrame(id,act,i,look){const hs=sheetFor(id,act);if(!hs?.meta)return null;const meta=hs.meta,a=meta.actions[actRow(meta.actions,act)];if(!a)return null;const f=Math.max(0,Math.min(a.frames-1,i));return{img:variantImg(id,look,hs)||hs.img,sx:(a.cols?f%a.cols:f)*a.cell,sy:a.y+(a.cols?Math.floor(f/a.cols):0)*a.cell,c:a.cell,foot:a.cell-(a.footFromBottom??meta.footFromBottom),art:HERO_H/meta.heroHeight,meta,hi:hs!==heroSheets[id]};}   // 列可自帶 footFromBottom（劍尖伸到腳下很低的攻擊列，例：聖騎士 attackDown）
 function ensureAtlas() {
   ensureAtlasManifest();
   ensureDetailAtlas();
@@ -567,25 +597,36 @@ export function createWorld(canvas,{onSelect=()=>{},onPlace=()=>{},getState=()=>
   // 靜止快取(鏡頭連續兩幀不動才錄製,動了立刻停用,見 render):靜態物件整層、靜態影子、地面+海洋+村莊
   const fullStatic=makeCanvas(800,500),fsc=fullStatic.getContext('2d');
   const rdl=makeCanvas(800,500),rdc=rdl.getContext('2d');   // 會動範圍內的重畫暫存層
+  const comp=makeCanvas(800,500),cmp=comp.getContext('2d');   // 地面+影子+精靈的最終合成(整張貼到螢幕)
+  let compValid=false;   // comp 是否等於「上一幀完整的三層合成」;中間只要有一幀直接畫到螢幕就要重做整張
   const shadowStatic=makeCanvas(800,500),ssc=shadowStatic.getContext('2d');
   const bgCache=makeCanvas(800,500),bgc=bgCache.getContext('2d',{alpha:false});
   // 合成快取:靜止時把地面、影子、精靈依序合成在這裡,之後只重算動過的範圍,再整張複製到螢幕(不必每幀三次整張合成)
-  const comp=makeCanvas(800,500),cmp=comp.getContext('2d');
   const staticBox=new Map();   // 錄製時每個靜態裝飾的繪製範圍(CSS px);'always' = 每幀都要畫;'none' = 這個視角看不到
   const staticSide=new Map();   // 錄製時每棟建築的點擊框、標籤與覆蓋層(只和鏡頭與狀態有關,每幀直接補回來,不必重畫)
   let shadowMode='normal',staticKey=null,bgKey=null,lastViewKey='',boxSink=null;
+  let shadowsOn=true,nightOn=true;   // 設定面板:動態影子 / 夜晚變暗
   // 精靈層與影子層保留上一幀的內容:staticGen 是靜態快取的版本;spgGen/sgGen 記下各層和哪一版快取同步;
   // spgPrev/sgPrev 是上一幀會動的範圍(裝置像素);shadowSink 在畫會動物件的影子時收集範圍
   let staticGen=0,spgGen=-1,sgGen=-1,spgPrev=[],sgPrev=[],shadowSink=null;
-  let compValid=false;   // comp 是否還和上一幀的畫面一致(中間只要有一幀是直接畫到螢幕的,就失效)
   let tileMark=new Uint8Array(0);   // 估計合成範圍面積用的格子標記(重複使用,避免每幀配置)
-  let renderedScale=0,renderedCam={x:0,y:0},zoomTimer=0,pinching=false,pinchTimer=0;   // 縮放預覽:上一次整張重繪時的比例與鏡頭;縮放中只用 CSS 變形預覽,停下來才重繪
-  let g=bg,casting=false,DPRK=1;  // DPRK = 裝置像素 / 邏輯像素(選圖集解析度用)
+  let g=bg,casting=false,DPRK=1;  // DPRK = 裝置像素 / 邏輯像素(圖集解析度用)
+  let rectCache=null;   // 畫布在視窗中的位置(縮放/ pointermove 每幀要用;只在 resize 後重讀)
+  const atkDirs=new Map();   // 獵人 id → 這一次攻擊鎖定的方向(蓄力開始就固定,換攻擊才重算)
+  let atlasTick=0;
+  // 夜晚變暗用的覆蓋層(比每幀整張 fillRect 便宜很多;pointer-events:none 不影響操作)
+  const nightLayer=(()=>{const el=document.createElement('div');el.style.cssText='position:fixed;inset:0;pointer-events:none;background:#202b4f;opacity:0;z-index:2';document.body.appendChild(el);return el;})();
+  let nightShown=0,nightLast=0,nightFrames=0;
   // 位置一律取整到裝置像素:CSS 整數座標在 1.25、1.5 倍等非整數 DPR 下會落在半個裝置像素上,平移/縮放時最近鄰取樣的像素模式就跟著跳(抖動)。
   const R=v=>Math.round(v*DPRK)/DPRK;
   canvas.style.imageRendering='pixelated';canvas.style.touchAction='none';screen.imageSmoothingEnabled=false;bg.imageSmoothingEnabled=false;
   let width=800,height=500,scale=.9,elapsed=0,phase=.15,selected=null,placing=null,state={buildings:{},hunters:[],enemies:[],effects:[]},disposed=false,quality=true,baseScale=1.95;
-  const renderDprMax=Math.max(1,Math.min(2,globalThis.devicePixelRatio||1));   // 畫布解析度上限:DPR 最多 2 倍,固定不隨效能調整
+  const coarsePointer=!!(globalThis.matchMedia?.('(pointer:coarse)')?.matches || (globalThis.navigator?.maxTouchPoints||0)>0 || /Mobi|Android|iPhone|iPad/i.test(globalThis.navigator?.userAgent||''));
+// 手機/平板:畫布解析度上限 1.5 倍。這些機器 fill/blit 的像素量直接決定溫度(2 倍 → 4 倍像素),
+// 1.5 倍的像素量只有原本的 56%,像素圖看起來幾乎一樣(最近鄰放大),但記憶體頻寬少快一半。
+const autoDpr=()=>Math.min(coarsePointer?1.5:2,globalThis.devicePixelRatio||1);   // 自動:手機/平板 1.5、其他 2
+let dprCap=null;   // 設定面板指定的上限(null = 自動)
+let renderDprMax=Math.max(1,dprCap||autoDpr());   // 畫布解析度上限(devicePixelRatio 再高也不超過)
   let canvasRect=null;
   const HOME0=(()=>iso((VILLAGE_BOUNDS.minX+VILLAGE_BOUNDS.maxX)/2,(VILLAGE_BOUNDS.minZ+VILLAGE_BOUNDS.maxZ)/2))();   // 村莊中心(初始鏡頭)
   let cam={...HOME0},target={...HOME0},pointer=null,hover=null,lastSource=null,pinchDistance=0,homeFraming=false;
@@ -694,16 +735,11 @@ export function createWorld(canvas,{onSelect=()=>{},onPlace=()=>{},getState=()=>
       gc.save();gc.clip(path);gc.globalAlpha=alpha;gc.scale(TERRAIN_TEX_SCALE,TERRAIN_TEX_SCALE);gc.fillStyle=pat;gc.fillRect(0,0,ground.width/TERRAIN_TEX_SCALE,ground.height/TERRAIN_TEX_SCALE);gc.restore();};
     // 海岸線:世界是一個長方形,海岸原本是四條直線。外圍加一圈「不規則的延伸陸地」(只是風景、不能走,
     // 地圖只會變大),地形接著邊上的生態域;河流一路流進海。visBiome = 畫面上看到的地形(含延伸陸地)。
-    const WW0=WORLD.minZ+12,WW1=WORLD.maxZ-12;   // 西側林地的南北範圍(跟世界大小走)
-    const westWood=(x,z)=>x<WORLD.minX&&x>=WORLD.minX-22&&z>=WW0&&z<WW1;
-    const coastOut=(x,z)=>{const dx=Math.max(WORLD.minX-x,x-(WORLD.maxX-1),0),dz=Math.max(WORLD.minZ-z,z-(WORLD.maxZ-1),0),d=Math.hypot(dx,dz);
-      const n=5+3.2*Math.sin(x*.11+z*.05)+2*Math.sin(z*.21-x*.08+1.7)+1.1*Math.sin((x+z)*.41)+.6*Math.sin((x-z)*.83);return d>0&&d<n;};  // 低頻＝海灣與岬角
-    const visBiome=(x,z)=>{if(x>=WORLD.minX&&x<WORLD.maxX&&z>=WORLD.minZ&&z<WORLD.maxZ)return biomeAt(x,z);if(westWood(x,z))return 'forest';if(!coastOut(x,z))return 'ocean';
-      const cx=Math.max(WORLD.minX+1,Math.min(WORLD.maxX-2,x)),cz=Math.max(WORLD.minZ+1,Math.min(WORLD.maxZ-2,z)),b=biomeAt(cx,cz);
-      return b==='village'?'meadow':b;};
+    // 海岸線由 overworld 的 inWorld() 決定(四面都不規則),世界矩形以外一律是海。
+    const visBiome=(x,z)=>x>=WORLD.minX&&x<WORLD.maxX&&z>=WORLD.minZ&&z<WORLD.maxZ?biomeAt(x,z):'ocean';
     let coastBlobs={};
     if(tiled){const ext=new Map();
-      for(let z=WORLD.minZ-EXT;z<WORLD.maxZ+EXT;z++)for(let x=WORLD.minX-EXT;x<WORLD.maxX+EXT;x++){if(x>=WORLD.minX&&x<WORLD.maxX&&z>=WORLD.minZ&&z<WORLD.maxZ)continue;if(westWood(x,z))continue;
+      for(let z=WORLD.minZ-EXT;z<WORLD.maxZ+EXT;z++)for(let x=WORLD.minX-EXT;x<WORLD.maxX+EXT;x++){if(x>=WORLD.minX&&x<WORLD.maxX&&z>=WORLD.minZ&&z<WORLD.maxZ)continue;
         const b=visBiome(x,z);if(b==='ocean')continue;let a=ext.get(b);if(!a)ext.set(b,a=[]);a.push(x,z);}
       for(const [b,cells] of ext)fillTerrain(cells,.56,b);
       // 圓滑海岸:沿岸每格往海裡長一個圓斑(同地形材質),外圈一道白浪,海岸不再是格子鋸齒。
@@ -717,8 +753,8 @@ export function createWorld(canvas,{onSelect=()=>{},onPlace=()=>{},getState=()=>
     // 海岸:陸地碰到海的地方鋪一條沙岸(沙漠材質,裁在陸地內)再放礁石,不是森林直接切進海裡。
     // 岸的材質跟著地形:草地/林地/沙漠是沙灘,山地是灰碎石岸,雪地直接接到水邊(不鋪黃沙)。
     {const WET2=['ocean'],beach=new Path2D(),shingle=new Path2D(),sr=rnd(6627);let any=false;
-      for(let z=WORLD.minZ-EXT;z<WORLD.maxZ+EXT;z++)for(let x=WORLD.minX-EXT;x<WORLD.maxX+EXT;x++){if(westWood(x,z))continue;const b=visBiome(x,z);if(b==='ocean'||b==='river'||b==='ice'||b==='bridge')continue;
-        for(const [dx,dz] of [[1,0],[-1,0],[0,1],[0,-1]]){if(!WET2.includes(visBiome(x+dx,z+dz))||westWood(x+dx,z+dz))continue;any=true;
+      for(let z=WORLD.minZ-EXT;z<WORLD.maxZ+EXT;z++)for(let x=WORLD.minX-EXT;x<WORLD.maxX+EXT;x++){const b=visBiome(x,z);if(b==='ocean'||b==='river'||b==='ice'||b==='bridge')continue;
+        for(const [dx,dz] of [[1,0],[-1,0],[0,1],[0,-1]]){if(!WET2.includes(visBiome(x+dx,z+dz)))continue;any=true;
           for(let k=0;k<3;k++){const c=worldPos(x+dx*(.25+sr()*.3)+(dz?sr()-.5:0),z+dz*(.25+sr()*.3)+(dx?sr()-.5:0)),r=.3+sr()*.35;if(b==='snow'||b==='taiga')continue;addEllipse(b==='mountain'?shingle:beach,c.x,c.y,r*12.7,r*6.4);}
         }}
       if(any&&groundPatterns.desert){const land=[];for(let z=WORLD.minZ-EXT;z<WORLD.maxZ+EXT;z++)for(let x=WORLD.minX-EXT;x<WORLD.maxX+EXT;x++){const b=visBiome(x,z);if(b!=='ocean'&&b!=='river'&&b!=='ice'&&b!=='bridge')land.push(x,z);}
@@ -744,14 +780,6 @@ export function createWorld(canvas,{onSelect=()=>{},onPlace=()=>{},getState=()=>
         gc.save();gc.setTransform(1,0,0,1,0,0);gc.drawImage(tex,0,0);gc.restore();}
       mask.width=tex.width=0;}   // 釋放暫存畫布
     else{fillCells(roadCells,.6,roadPattern,1,'#7a5a30');fillCells(stoneCells,.6,plazaPattern,1,'#8a7a62');}
-    // Unreachable woodland scenery continues beyond the village's west edge.
-    const woodCells=[];
-    for(let z=WW0;z<WW1;z++)for(let x=WORLD.minX-22;x<WORLD.minX+1;x++){
-      woodCells.push(x,z);rand();  // 原本平塗菱形吃一個亂數;改成整片林地材質,亂數照吃
-
-    }
-    // 西側林地:跟村外森林同一套概念圖對齊的地面(底色+材質),不再是平塗菱形。
-    fillTerrain(woodCells,.56,'forest');
     // 村莊只留建築、地面與村界的木柵欄:公園街區挖一個池塘(水畫在地面層),其餘街區與建築周圍都不擺任何擺設。
     function villagePonds(){
       PONDS.length=0;PONDS.push(...pondsOf(state.layout||{},state.buildings||{}));
@@ -763,6 +791,9 @@ export function createWorld(canvas,{onSelect=()=>{},onPlace=()=>{},getState=()=>
     // 村界木柵欄(跟 PALISADE 同一份):等角木柵(fenceRail,每段約 2 格),南北兩邊沿 x 走(圖翻面)、東西兩邊沿 z 走;出村口是缺口。
     for(const seg of PALISADE){const alongX=seg.side==='north'||seg.side==='south',lo=alongX?seg.minX+.3:seg.minZ+.3,hi=alongX?seg.maxX-.3:seg.maxZ-.3,n=Math.max(1,Math.round((hi-lo)/2)),step=(hi-lo)/n;
       for(let k=0;k<n;k++){const c=lo+step*(k+.5),at=alongX?(seg.minZ+seg.maxZ)/2:(seg.minX+seg.maxX)/2;decorations.push(alongX?{type:'fenceRail',x:c,z:at,variant:1,size:step/2}:{type:'fenceRail',x:at,z:c,variant:0,size:step/2});}}
+    // 村中央的雕像(廣場 0,0 正中):村莊收攏成棋盤時被拿掉,現在放回來。
+    // 廣場只有 4.4×3.6,雕像畫 3.2 個單位寬(約 1.5 個英雄高),不會壓到旁邊的街。
+    {const plaza=blockCenter(0,0);decorations.push({type:'monument',x:plaza.x,z:plaza.z,size:1});}
     decorations.sort((a,b)=>a.x+a.z-b.x-b.z);
     globalThis.__mistvaleDecorations=[...decorations];  // 除錯用:讀街上/場景裡的裝飾(NPC)名單
     buildVillageLayer();
@@ -811,14 +842,14 @@ export function createWorld(canvas,{onSelect=()=>{},onPlace=()=>{},getState=()=>
 
   if(!terrainLoadsPending)generateGround();   // 地面貼圖還在載入就先不畫,載完由 update() 畫一次(避免啟動時重畫好幾次)
 
-  function resize(){if(zoomTimer){clearTimeout(zoomTimer);zoomTimer=0;}canvas.style.transform='';const r=canvas.getBoundingClientRect();const actualWidth=Math.max(320,Math.round(r.width||innerWidth)),actualHeight=Math.max(260,Math.round(r.height||innerHeight));const dpr=renderDprMax;canvas.width=Math.round(actualWidth*dpr);canvas.height=Math.round(actualHeight*dpr);width=actualWidth;height=actualHeight;/* 畫布用裝置解析度:像素圖一樣最近鄰放大,文字直接用高解析畫 */for(const c of [shadowLayer,spriteLayer,shadowStatic,bgCache,fullStatic,rdl,comp]){c.width=canvas.width;c.height=canvas.height;}staticKey=bgKey=null;spgGen=sgGen=-1;compValid=false;  /* 全部用裝置解析度畫(高 DPI 螢幕上像素圖也清楚) */screen.imageSmoothingEnabled=false;bg.imageSmoothingEnabled=false;sg.imageSmoothingEnabled=false;spg.imageSmoothingEnabled=false;cmp.imageSmoothingEnabled=false;const n=2*Math.max(.62,Math.min(1.18,width/1140,(height/2-56)/300));scale*=n/baseScale;baseScale=n;if(!lastSource){scale=n;lastSource=true;}}
+  function resize(){canvas.style.transform='';const r=canvas.getBoundingClientRect();rectCache=r;const actualWidth=Math.max(320,Math.round(r.width||innerWidth)),actualHeight=Math.max(260,Math.round(r.height||innerHeight));if(actualWidth===width&&actualHeight===height&&canvas.width===Math.round(actualWidth*renderDprMax))return;   /* 大小沒變就不重新配置七張畫布(縮放視窗時不白做整張重建) */const dpr=renderDprMax;canvas.width=Math.round(actualWidth*dpr);canvas.height=Math.round(actualHeight*dpr);width=actualWidth;height=actualHeight;/* 畫布用裝置解析度:像素圖一樣最近鄰放大,文字直接用高解析畫 */for(const c of [shadowLayer,spriteLayer,shadowStatic,bgCache,fullStatic,rdl,comp]){c.width=canvas.width;c.height=canvas.height;}staticKey=bgKey=null;spgGen=sgGen=-1;compValid=false;  /* 全部用裝置解析度畫(高 DPI 螢幕上像素圖也清楚) */screen.imageSmoothingEnabled=false;bg.imageSmoothingEnabled=false;sg.imageSmoothingEnabled=false;spg.imageSmoothingEnabled=false;cmp.imageSmoothingEnabled=false;const n=2*Math.max(.62,Math.min(1.18,width/1140,(height/2-56)/300));scale*=n/baseScale;baseScale=n;if(!lastSource){scale=n;lastSource=true;}}
   // 鏡頭位移一律取整數再疊物件自己的整數位移。
   // 舊寫法 Math.round(width/2+(p.x-cam.x)*scale) 把鏡頭的小數和物件自己的小數一起進位:
   // 平移時每個物件的進位時機不同,彼此的相對距離會在 0/1px 之間來回 → 看起來就是地圖物件在抖。
   const camPxX=()=>R(width/2-cam.x*scale),camPxY=()=>R(height/2+50-cam.y*scale);
   function screenPoint(x,z,y=0){const p=iso(x,z);return{x:camPxX()+R(p.x*scale),y:camPxY()+Math.round((p.y-y*8)*scale)};}
   function project(x,y=0,z=0){const p=screenPoint(x,z,y);return{x:p.x,y:p.y,visible:p.x>=0&&p.x<=width&&p.y>=0&&p.y<=height};}
-  function viewRect(){if(!zoomTimer&&!pinching)return canvas.getBoundingClientRect();const t=canvas.style.transform;canvas.style.transform='';const r=canvas.getBoundingClientRect();canvas.style.transform=t;return r;}
+  function viewRect(){return rectCache||(rectCache=canvas.getBoundingClientRect());}   // 快取:每次 pointermove 都 getBoundingClientRect 會強制版面計算,拖動與縮放明顯變重
   function unproject(clientX,clientY){const r=viewRect(),sx=(clientX-r.left)*width/r.width,sy=(clientY-r.top)*height/r.height,ix=(sx-width/2)/scale+cam.x,iy=(sy-height/2-50)/scale+cam.y;return{x:(ix/PX+iy/PY)/2,z:(iy/PY-ix/PX)/2,sx,sy};}
   function focusHome(){
     homeFraming=true;
@@ -847,34 +878,27 @@ export function createWorld(canvas,{onSelect=()=>{},onPlace=()=>{},getState=()=>
   }
   function focus(id){let pos;if(id==='home'||!id){focusHome();return;}if(id==='world'){const X0=(WORLD.minX-WORLD.maxZ)*9,X1=(WORLD.maxX-WORLD.minZ)*9,Y0=(WORLD.minX+WORLD.minZ)*4.5,Y1=(WORLD.maxX+WORLD.maxZ)*4.5;
       const topM=(document.querySelector('#topbar')?.getBoundingClientRect().height||76)+8,bottomM=(document.querySelector('#bottom-bar')?.getBoundingClientRect().height||94)+8;   // 上下列之間的可用高度
-      scale=Math.min((width-24)/(X1-X0),(height-topM-bottomM)/(Y1-Y0));const midY=(topM+height-bottomM)/2;target={x:(X0+X1)/2,y:(Y0+Y1)/2-(midY-(height/2+50))/scale};return;}if(id.startsWith?.('region:'))pos=REGIONS.find(r=>r.id===id.slice(7));else if(id==='hunt')pos=REGIONS.find(r=>r.id===state.region)||REGIONS[1];else if(id.startsWith?.('hunter:'))pos=state.hunters?.find(h=>String(h.id)===id.slice(7));else pos=BUILDINGS.find(b=>b.id===id);if(pos){const override=state.layout?.[id];const p=iso(override?.x??pos.x,override?.z??pos.z);target={x:p.x,y:p.y+(id.startsWith?.('region:')?30:-25)};scale=Math.max(baseScale,Math.min(3.1,baseScale*1.28));}}
+      scale=Math.max(zoomFloor(),Math.min(ZOOM_MAX,(width-24)/(X1-X0),(height-topM-bottomM)/(Y1-Y0)));const midY=(topM+height-bottomM)/2;target={x:(X0+X1)/2,y:(Y0+Y1)/2-(midY-(height/2+50))/scale};return;}if(id.startsWith?.('region:'))pos=REGIONS.find(r=>r.id===id.slice(7));else if(id==='hunt')pos=REGIONS.find(r=>r.id===state.region)||REGIONS[1];else if(id.startsWith?.('hunter:'))pos=state.hunters?.find(h=>String(h.id)===id.slice(7));else pos=BUILDINGS.find(b=>b.id===id);if(pos){const override=state.layout?.[id];const p=iso(override?.x??pos.x,override?.z??pos.z);target={x:p.x,y:p.y+(id.startsWith?.('region:')?30:-25)};scale=Math.max(baseScale,Math.min(3.1,baseScale*1.28));}}
   function setSelected(id){selected=id;}
   // 縮放階梯:每個元素都各自把自己的世界座標四捨五入到整數螢幕像素,所以 scale 每動一點點,
-  // 所有元件都會各自「跳一格」= 縮放時整個畫面在抖。把使用者縮放鎖在等比階梯(約 1.12 倍一階)上,
-  // 位置重排只發生在換階的瞬間,連續 pinch 也不會一直抖。
-  const ZOOM_LADDER=(()=>{const a=[];for(let s=.48;s<=5.4001;s*=1.12)a.push(+s.toFixed(3));return a;})();
+  // 所有元件都會各自「跳一格」= 縮放時整個畫面在抖。把使用者縮放鎖在等比階梯(約 1.05 倍一階)上,
+  // 位置重排只發生在換階的瞬間;階梯夠細(5%),連續 pinch 看起來就是平滑的,不會一格一格跳。
+  const ZOOM_MIN=.75,ZOOM_MAX=5.4;   // 最遠只能放到 0.75 倍(再遠就只會看到一堆海)
+  const ZOOM_LADDER=(()=>{const a=[];for(let s=.48;s<=ZOOM_MAX+.0001;s*=1.05)a.push(+s.toFixed(3));return a;})();
+  // 縮小的下限:0.75,但「首頁剛好放得下整村」如果比 0.75 小(手機),就以現在的比例為下限,不會反而放大。
+  const zoomFloor=()=>Math.min(ZOOM_MIN,scale);
   const snapZoom=v=>{let best=ZOOM_LADDER[0];for(const s of ZOOM_LADDER)if(Math.abs(Math.log(s/v))<Math.abs(Math.log(best/v)))best=s;return best;};
-  // 縮放預覽:縮放進行中不整張重繪,改用 CSS 變形把上一次畫好的畫面放大/縮小到目前的比例與鏡頭(瀏覽器合成,幾乎不花時間);
-  // 停止縮放約 260 ms 後才整張重繪一次(滾輪慢慢轉時每格間隔也不會每格都重繪)。變形的位移與比例由「重繪時的鏡頭/比例」換算到「現在的鏡頭/比例」,停下來時畫面不跳。
-  function applyZoomPreview(){const f=scale/renderedScale,tx=width/2*(1-f)+(renderedCam.x-cam.x)*scale,ty=(height/2+50)*(1-f)+(renderedCam.y-cam.y)*scale;
-    canvas.style.imageRendering='pixelated';canvas.style.transformOrigin='0 0';canvas.style.transform=`translate(${tx.toFixed(2)}px,${ty.toFixed(2)}px) scale(${f.toFixed(5)})`;}
-  function endZoomPreview(){zoomTimer=0;canvas.style.transform='';canvas.style.imageRendering='';render();}
-  // 雙指縮放:手指按在畫面上時只做 CSS 變形預覽、不整張重繪,比例也不設預覽上下限(放得再大也只是預覽)。
-  // 其中一根手指離開後等 120 ms(免得馬上又落下第二根),才依最終比例整張重繪一次。
-  function pinchEnd(){clearTimeout(pinchTimer);pinchTimer=setTimeout(()=>{pinchTimer=0;pinching=false;endZoomPreview();},120);}
-  // 預覽變形超過 2.5 倍、或縮到 0.4 倍以下,就整張重繪一次,預覽不會糊成一團。
-  const previewFits=()=>{const f=scale/renderedScale;return f>.4&&f<2.5;};
-  // 每一次縮放輸入都重新計時(階梯沒變也算):手指還在縮放時就不重繪,停下來約 260 ms 才重繪一次。
-  // 滾輪與按鈕:每一步吸附到階梯,停下約 260 ms 才重繪。雙指縮放用 zoomBy(f,false):不吸附、也不排程重繪(見 pinchEnd)。
-  function zoomBy(factor,snap=true){homeFraming=false;const next=Math.max(.48,Math.min(5.4,scale*factor));scale=snap?snapZoom(next):next;if(pinching)return;clearTimeout(zoomTimer);zoomTimer=setTimeout(endZoomPreview,260);}
+  // 縮放一律吸附到階梯:吸附後比例只會在換階時變一次,每一幀都能直接以當下比例重繪(不靠 CSS 變形拉上一幀的畫面),
+  // 縮放的過程是實時畫面,不會停住不動;換階之間的比例沒變,靜態層快取照樣命中,所以看起來也不抖。
+  function zoomBy(factor){markInput();homeFraming=false;const floor=zoomFloor();scale=Math.max(floor,snapZoom(Math.max(floor,Math.min(ZOOM_MAX,scale*factor))));}
   function placeMode(id){placing=id;canvas.style.cursor=id?'crosshair':'grab';}
   // 鏡頭範圍由世界大小算出(世界的等角外框再多留一圈,能看到海岸與西側林地)。
   const CAM_X0=(WORLD.minX-WORLD.maxZ)*9-140,CAM_X1=(WORLD.maxX-WORLD.minZ)*9+20,CAM_Y0=(WORLD.minX+WORLD.minZ)*4.5-40,CAM_Y1=(WORLD.maxX+WORLD.maxZ)*4.5+50;
   const clampCam=()=>{target.x=Math.max(CAM_X0,Math.min(CAM_X1,target.x));target.y=Math.max(CAM_Y0,Math.min(CAM_Y1,target.y));};
-  function down(e){if(e.button!==undefined&&e.button!==0&&e.button!==1)return;canvas.setPointerCapture?.(e.pointerId);pointers.set(e.pointerId,{x:e.clientX,y:e.clientY});if(pointers.size===2){const pts=[...pointers.values()];pinchDistance=Math.hypot(pts[0].x-pts[1].x,pts[0].y-pts[1].y);pinching=true;clearTimeout(zoomTimer);zoomTimer=0;clearTimeout(pinchTimer);pinchTimer=0;pointer=null;return;}pointer={id:e.pointerId,x:e.clientX,y:e.clientY,startX:e.clientX,startY:e.clientY,moved:false};canvas.style.cursor=placing?'crosshair':'grabbing';}
-  function move(e){hover=unproject(e.clientX,e.clientY);if(pointers.has(e.pointerId))pointers.set(e.pointerId,{x:e.clientX,y:e.clientY});if(pointers.size===2){const pts=[...pointers.values()],dist=Math.hypot(pts[0].x-pts[1].x,pts[0].y-pts[1].y);if(pinchDistance)zoomBy(dist/pinchDistance,false);pinchDistance=dist;return;}if(!pointer||pointer.id!==e.pointerId)return;const dx=e.clientX-pointer.x,dy=e.clientY-pointer.y;if(Math.hypot(e.clientX-pointer.startX,e.clientY-pointer.startY)>5)pointer.moved=true;target.x-=dx/scale;target.y-=dy/scale;cam={...target};clampCam();pointer.x=e.clientX;pointer.y=e.clientY;}
-  function up(e){const p=pointer;pointers.delete(e.pointerId);pinchDistance=0;pointer=null;if(pinching&&pointers.size<2)pinchEnd();canvas.style.cursor=placing?'crosshair':'grab';if(!p||p.moved||zoomTimer)return;const q=unproject(e.clientX,e.clientY);if(placing){onPlace(placing,R(q.x*2)/2,Math.round(q.z*2)/2);return;}for(let i=hits.length-1;i>=0;i--){const hit=hits[i];if(q.sx>=hit.x&&q.sx<=hit.x+hit.w&&q.sy>=hit.y&&q.sy<=hit.y+hit.h){onSelect(hit.id);return;}}onSelect(null);}
-  function wheel(e){e.preventDefault();const before=unproject(e.clientX,e.clientY);zoomBy(e.deltaY<0?1.1:1/1.1);const after=unproject(e.clientX,e.clientY),b=iso(before.x,before.z),a=iso(after.x,after.z);target.x+=b.x-a.x;target.y+=b.y-a.y;cam={...target};clampCam();}
+  function down(e){markInput();if(e.button!==undefined&&e.button!==0&&e.button!==1)return;try{canvas.setPointerCapture?.(e.pointerId);}catch{}   /* 取得到就鎖住指標;某些情況(合成事件、已被取消的指標)會拋錯,不能讓它中斷後面的手勢初始化 */pointers.set(e.pointerId,{x:e.clientX,y:e.clientY});if(pointers.size===2){const pts=[...pointers.values()];pinchDistance=Math.hypot(pts[0].x-pts[1].x,pts[0].y-pts[1].y);pointer=null;return;}pointer={id:e.pointerId,x:e.clientX,y:e.clientY,startX:e.clientX,startY:e.clientY,moved:false};canvas.style.cursor=placing?'crosshair':'grabbing';}
+  function move(e){markInput();hover=unproject(e.clientX,e.clientY);if(pointers.has(e.pointerId))pointers.set(e.pointerId,{x:e.clientX,y:e.clientY});if(pointers.size===2){const pts=[...pointers.values()],dist=Math.hypot(pts[0].x-pts[1].x,pts[0].y-pts[1].y);if(pinchDistance)zoomBy(dist/pinchDistance);pinchDistance=dist;return;}if(!pointer||pointer.id!==e.pointerId)return;const dx=e.clientX-pointer.x,dy=e.clientY-pointer.y;if(Math.hypot(e.clientX-pointer.startX,e.clientY-pointer.startY)>5)pointer.moved=true;if(!followFn){target.x-=dx/scale;target.y-=dy/scale;cam={...target};clampCam();}pointer.x=e.clientX;pointer.y=e.clientY;}   // 跟隨角色時不讓拖曳把鏡頭拉走(下一幀就會被拉回來,只會抖一下)
+  function up(e){const p=pointer;pointers.delete(e.pointerId);pinchDistance=0;pointer=null;canvas.style.cursor=placing?'crosshair':'grab';if(!p||p.moved)return;const q=unproject(e.clientX,e.clientY);if(placing){onPlace(placing,R(q.x*2)/2,Math.round(q.z*2)/2);return;}for(let i=hits.length-1;i>=0;i--){const hit=hits[i];if(q.sx>=hit.x&&q.sx<=hit.x+hit.w&&q.sy>=hit.y&&q.sy<=hit.y+hit.h){onSelect(hit.id);return;}}onSelect(null);}
+  function wheel(e){e.preventDefault();markInput();const before=unproject(e.clientX,e.clientY);zoomBy(e.deltaY<0?1.1:1/1.1);const after=unproject(e.clientX,e.clientY),b=iso(before.x,before.z),a=iso(after.x,after.z);target.x+=b.x-a.x;target.y+=b.y-a.y;cam={...target};clampCam();}
   canvas.addEventListener('pointerdown',down);canvas.addEventListener('pointermove',move);canvas.addEventListener('pointerup',up);canvas.addEventListener('pointercancel',up);canvas.addEventListener('wheel',wheel,{passive:false});canvas.style.cursor='grab';
 
   // 腳底接觸暗(很小、很貼地):真正的影子是 cast() 的剪影投影。
@@ -883,8 +907,8 @@ export function createWorld(canvas,{onSelect=()=>{},onPlace=()=>{},getState=()=>
   // 投影:物件畫出去的同時把它的剪影影子畫進 shadowLayer。cap = 影子最長幾個世界單位(樹冠長、建築短)。
   const SHADOW_CAP={building:32,tree:58,char:40,prop:30},SHADOW_ALPHA=.56;
   function cast(img,sx,sy,sw,sh,dx,dy,dw,dh,flip=false,grounded=true,kind='prop'){
-    if(!casting||!img||sw<2||sh<2||dw<2||dh<2||shadowMode==='skip')return;
-    const wpp=2**(Math.round(Math.log2(dh/scale/sh)*8)/8),s=shadowFor(img,sx,sy,sw,sh,flip,wpp,grounded,SHADOW_CAP[kind]||30),k=dw/s.sw;
+    if(!shadowsOn||!casting||!img||sw<2||sh<2||dw<2||dh<2||shadowMode==='skip')return;
+    const wpp=2**(Math.round(Math.log2(dh/scale/sh)*4)/4),s=shadowFor(img,sx,sy,sw,sh,flip,wpp,grounded,SHADOW_CAP[kind]||30),k=dw/s.sw;
     const x0=Math.round(dx-s.ex*k),y0=Math.round(dy),w=Math.round(s.W*k),h=Math.round(s.H*k);
     if(shadowMode==='record')ssc.drawImage(s.cv,x0,y0,w,h);else{sg.drawImage(s.cv,x0,y0,w,h);if(shadowSink)shadowSink.push(x0,y0,x0+w,y0+h);}
   }
@@ -986,13 +1010,37 @@ export function createWorld(canvas,{onSelect=()=>{},onPlace=()=>{},getState=()=>
     else{const lod=atlasFrameFor(id,false),c=lod?.frames[id];if(!c)return {k:1,c:{x:0,z:0}};const k=BUILDING_WORLD_WIDTH*lod.k*(BUILDING_SCALE[id]||1);f=fitScaleFor(id+'@a',lod.img,c.x,c.y,c.w,c.h,c.w*k,c.h*k,pos);}
     const k=1,r=k/f.k;return {k,c:{x:f.c.x*r,z:f.c.z*r}};}
   function effectiveScale(id){return buildingFit(id).k;}  // 棋盤格:每棟建築畫在自己街區正中
+  // 每棟建築「可見像素」的範圍(0..1,相對圖片)。互動框要貼著建築最下面那一排(門口/台階所在),
+  // 所以要先把透明的留白去掉,不能用整張圖的矩形。
+  const spriteBoundsCache=new Map();
+  globalThis.__mistvaleSpriteBounds=(id)=>spriteBounds(id);
+  function spriteBounds(id){
+    if(spriteBoundsCache.has(id))return spriteBoundsCache.get(id);
+    let sp=null;try{sp=atlasCell(id);}catch{}
+    if(!sp||sp.width<16)return {x0:0,x1:1,y0:0,y1:1};   // 圖集還沒好:先回整張,不快取
+    let out=null;
+    try{
+      const t=document.createElement('canvas');t.width=sp.width;t.height=sp.height;
+      const x=t.getContext('2d',{willReadFrequently:true});x.drawImage(sp,0,0);
+      const W=t.width,H=t.height,d=x.getImageData(0,0,W,H).data;
+      let x0=W,x1=-1,y0=H,y1=-1;
+      for(let y=0;y<H;y++)for(let px=0;px<W;px++){
+        if(d[(y*W+px)*4+3]>40){if(px<x0)x0=px;if(px>x1)x1=px;if(y<y0)y0=y;if(y>y1)y1=y;}
+      }
+      if(x1>=x0&&y1>=y0)out={x0:x0/W,x1:(x1+1)/W,y0:y0/H,y1:(y1+1)/H};
+    }catch{out=null;}
+    if(!out)return {x0:0,x1:1,y0:0,y1:1};
+    spriteBoundsCache.set(id,out);return out;
+  }
   function drawBuilding(b){const layout=state.layout?.[b.id]||b;let p=screenPoint(layout.x,layout.z);const level=getLevel(b.id),s=selected===b.id;
-    if(s)ring(p,31,'#ffdc7b');
+    let selRing=null;   // 選取圈:畫在門口前的地面(畫完建築才知道門口在哪,所以先記下來)
     if(!level){
       // 空地:l0veyou 的施工地基(石基、木樁、繩子、木板堆),取代虛線菱形。
-      if(drawAtlasDetail('plot',p,52,40,10)){textLabel(b.name,p.x,p.y-36*scale,{color:'#dfd6b7'});hits.push({id:b.id,x:p.x-26*scale,y:p.y-30*scale,w:52*scale,h:42*scale});return;}   // 名牌在施工地基上方:緊湊棋盤裡放在地基前面會落到前一棟的屋頂上,跟那一棟的名牌疊在一起
+      if(drawAtlasDetail('plot',p,52,40,10)){textLabel(b.name,p.x,p.y-36*scale,{color:'#dfd6b7'});
+        {const dw=Math.max(40*scale,52*scale*.55),dh=Math.max(32*scale,42*scale*.5);hits.push({id:b.id,x:p.x-dw/2,y:p.y+10*scale-dh,w:dw,h:dh});}return;}   // 互動點在工地正面中央   // 名牌在施工地基上方:緊湊棋盤裡放在地基前面會落到前一棟的屋頂上,跟那一棟的名牌疊在一起
       procUse['plot']=(procUse['plot']||0)+1;
-      const r=24*scale;polygon(g,[[p.x-r,p.y],[p.x,p.y-r*.5],[p.x+r,p.y],[p.x,p.y+r*.5]],'#716b4f99');g.strokeStyle='#c6bc90';g.lineWidth=1;g.setLineDash([3,2]);g.beginPath();g.moveTo(p.x-r,p.y);g.lineTo(p.x,p.y-r*.5);g.lineTo(p.x+r,p.y);g.lineTo(p.x,p.y+r*.5);g.closePath();g.stroke();g.setLineDash([]);textLabel('+',p.x,p.y-7,{size:16,color:'#f1dfab',back:false});textLabel(b.name,p.x,p.y+13,{color:'#dfd6b7'});hits.push({id:b.id,x:p.x-r,y:p.y-r*.6,w:r*2,h:r*1.5});return;
+      const r=24*scale;polygon(g,[[p.x-r,p.y],[p.x,p.y-r*.5],[p.x+r,p.y],[p.x,p.y+r*.5]],'#716b4f99');g.strokeStyle='#c6bc90';g.lineWidth=1;g.setLineDash([3,2]);g.beginPath();g.moveTo(p.x-r,p.y);g.lineTo(p.x,p.y-r*.5);g.lineTo(p.x+r,p.y);g.lineTo(p.x,p.y+r*.5);g.closePath();g.stroke();g.setLineDash([]);textLabel('+',p.x,p.y-7,{size:16,color:'#f1dfab',back:false});textLabel(b.name,p.x,p.y+13,{color:'#dfd6b7'});
+      {const dw=Math.max(34*scale,r*.9),dh=Math.max(30*scale,r*.8);hits.push({id:b.id,x:p.x-dw/2,y:p.y+r*.55-dh,w:dw,h:dh});}return;   // 工地也一樣:互動點在正面中央
     }
     const conceptSprite=atlasCell(b.id);
     const conceptWidth=uniformBuildingWidth();   // 2026-10-13 使用者指定:所有建築同一個大小
@@ -1006,11 +1054,23 @@ export function createWorld(canvas,{onSelect=()=>{},onPlace=()=>{},getState=()=>
     if(fx)g.restore();
     if(!rect){procUse['building-fallback:'+b.id]=(procUse['building-fallback:'+b.id]||0)+1;const sprite=atlasCell(b.id)||buildingSprite(b.id),w=conceptBuildingWidth(b.id);rect=drawSprite(sprite,p,w,w*sprite.height/sprite.width,9,1,'building');}
     // 下面冒煙那段用的是「世界單位」的高度(會再乘 scale),照舊版語意換算回去。
-    const h=rect.h/scale;hits.push({id:b.id,...rect});
+    const h=rect.h/scale;
+    // 互動點(點擊範圍)貼在**建築最下面那一排**:門口、台階都長在這裡(每棟的門偏左或偏右都涵蓋),
+    // 點屋頂或上半部不會選到,也不會像「用圖片中心」那樣落在門旁邊的牆上。
+    {const bb=spriteBounds(b.id);
+     const bx0=rect.x+bb.x0*rect.w,bx1=rect.x+bb.x1*rect.w,by1=rect.y+bb.y1*rect.h;
+     // 互動範圍 = 建築「最下面那一排」整條(門與台階都在這裡,不管門偏左、偏右或在中間),
+     // 選取圈畫在這條的中線、再往下一點(= 門口前的地面)。用圖片可見範圍算,不用佈局座標(那是獵人站位)。
+     const cx2=(bx0+bx1)/2,bw=Math.max(30*scale,(bx1-bx0)*0.9),bh=Math.max(34*scale,Math.min((by1-rect.y)*0.34,64*scale));
+     hits.push({id:b.id,x:cx2-bw/2,y:by1-bh+4*scale,w:bw,h:bh});
+     const pw=Math.max(28*scale,bw*0.62),ph=Math.max(22*scale,bh*0.45);
+     hits.push({id:b.id,x:cx2-pw/2,y:by1+3*scale-ph*.45,w:pw,h:ph});        // 門口前的地面
+     selRing={x:cx2,y:by1+5*scale};}
     // Smoke is made from individual four-pixel clusters and never blurs the art.
     if(!conceptSprite&&['forge','enhancement','restaurant','inn','hall'].includes(b.id)){
       for(let i=0;i<3;i++){const t=(elapsed*.3+i*.33)%1,xx=p.x+(18+t*5)*scale,yy=p.y+(-h+12-t*22)*scale;g.globalAlpha=(1-t)*.4;pixel(g,xx,yy,Math.max(2,4*scale),Math.max(2,3*scale),'#e5dfc8');pixel(g,xx+1,yy-1,Math.max(2,2*scale),1,'#f7ecd5');g.globalAlpha=1;}
     }
+    if(s&&selRing)ring(selRing,17,'#ffdc7b');   // 選取圈在門口前的地面
     // 名牌放在自己屋頂上(圖頂往下 18%):放在地基前緣會被前一排建築蓋住、看起來像別棟的名字。
     if(scale>1.12||s)uiLabels.push({text:`${b.name} Lv.${level}`,x:rect.x+rect.w/2,y:rect.y+rect.h*.18,color:s?'#ffe195':'#fff5d1'});
     const products={restaurant:'food',inn:'bed',tavern:'drink',clinic:'bandage'},pid=products[b.id];
@@ -1023,7 +1083,7 @@ export function createWorld(canvas,{onSelect=()=>{},onPlace=()=>{},getState=()=>
   const padHit=(r,minW,minH)=>{const w=Math.max(r.w,minW),h=Math.max(r.h,minH);return{x:r.x+r.w/2-w/2,y:r.y+r.h-h,w,h};};
   // l0veyou 道具圖集:[cell id, 外框寬, 外框高, 底部偏移]。尺寸照概念圖比例(旗約 75px→19、木桶堆約 45px→11)。
   const PROP_ATLAS={garden:['garden',20,11,1],bush:['bush',12,11,1],mushroom:['mushroom',9,8,1],cactus:['cactus',16,22,2],
-    villageBanner:['villageBanner',12,20,1],arenaFlag:['arenaFlag',11,19,1],gate:['gate',56,56,4],stall:['stall',30,22,2],barrels:['barrels',12,11,1],
+    villageBanner:['villageBanner',12,20,1],arenaFlag:['arenaFlag',11,19,1],gate:['gate',11.5,15.3,0],stall:['stall',30,22,2],barrels:['barrels',12,11,1],
     // yard 圖集:以人物 12.6、木桶堆 11、路燈 15 為尺。
     chest:['chest',8,8,1],crates:['crates',8,10,1],hayBale:['hayBale',9,9.7,1],firewood:['firewood',9,8,1],
     trough:['trough',11,9,1],scarecrow:['scarecrow',11,14,1],lantern:['lantern',8,15,1],wheelbarrow:['wheelbarrow',11,9,1],
@@ -1071,7 +1131,7 @@ export function createWorld(canvas,{onSelect=()=>{},onPlace=()=>{},getState=()=>
       pixel(g,p.x-3*scale,p.y-14*scale,6*scale,12*scale,'#8a6a48');pixel(g,p.x-2*scale,p.y-18*scale,4*scale,4*scale,'#f0c9a0');return;}
     if(d.type==='animal'&&detailFrameFor('sheep')){const goat=d.variant===1,bob=Math.sin(elapsed*2+d.phase)>0?1:0;contact(p,4);
       if(drawAtlasDetail(goat?'goat':'sheep',p,goat?9.5:10,goat?10:8.5,.6-bob*.4,1,Math.sin(elapsed*.21+d.phase*3)<0)){return;}}
-    if(d.type==='monument'){const sp=atlasCell('monument')||buildingSprite('fountain');drawSprite(sp,p,68,68*sp.height/sp.width,8,1,'building');return;}
+    if(d.type==='monument'){const sp=atlasCell('monument')||buildingSprite('fountain');const w=20*(d.size||1);drawSprite(sp,p,w,w*sp.height/sp.width,.6,1,'building');return;}   // 20 = 實測約 1.6 個英雄高,剛好塞進廣場(4.4×3.6)
     if(d.type==='villageBanner'){
       const s=scale,wave=Math.round(Math.sin(elapsed*1.4+d.x));
       pixel(g,p.x,p.y-32*s,2*s,33*s,'#59432e');
@@ -1159,14 +1219,23 @@ export function createWorld(canvas,{onSelect=()=>{},onPlace=()=>{},getState=()=>
     // 要用的話得另外生一張「單柱+左右短橫桿」的可拼接單位。
     if(d.type==='fence'){if(drawAtlasDetail('fence',p,9,12,0))return;pixel(g,p.x-2*scale,p.y-13*scale,4*scale,15*scale,'#67533a');polygon(g,[[p.x-2*scale,p.y-13*scale],[p.x,p.y-17*scale],[p.x+2*scale,p.y-13*scale]],'#67533a');pixel(g,p.x-1*scale,p.y-12*scale,2*scale,12*scale,'#b49a61');line(g,p.x-5*scale,p.y-6*scale,p.x+5*scale,p.y-11*scale,'#6e573a',2*scale);return;}
     if(d.type==='gate'){
-      const s=scale;pixel(g,p.x-3*s,p.y-28*s,6*s,30*s,'#574733');pixel(g,p.x-2*s,p.y-27*s,3*s,28*s,'#b0935e');
-      polygon(g,[[p.x-5*s,p.y-23*s],[p.x,p.y-35*s],[p.x+5*s,p.y-23*s]],'#595a4a');
-      pixel(g,p.x-3*s,p.y-12*s,6*s,2*s,'#554c42');pixel(g,p.x-3*s,p.y-24*s,6*s,2*s,'#554c42');
-      pixel(g,p.x+3*s,p.y-27*s,12*s,2*s,'#dfb653');pixel(g,p.x+3*s,p.y-25*s,10*s,14*s,'#244b87');
-      pixel(g,p.x+4*s,p.y-24*s,2*s,12*s,'#3b77b0');
-      line(g,p.x+8*s,p.y-23*s,p.x+8*s,p.y-14*s,'#eee6c9',s);
-      line(g,p.x+5*s,p.y-22*s,p.x+11*s,p.y-17*s,'#eee6c9',s);
-      line(g,p.x+11*s,p.y-22*s,p.x+5*s,p.y-17*s,'#eee6c9',s);return;
+      // 兩根門柱立在缺口兩端(沿著柵欄的方向),上面架一根橫樑、樑下掛門牌。
+      // 南北兩側的柵欄沿 x 走、東西兩側沿 z 走;橫樑直接用「兩個門柱的螢幕座標」連起來,等角斜度就自動正確。
+      const s=scale,half=EXIT_GAP,ax=d.side==='north'||d.side==='south'?{x:1,z:0}:{x:0,z:1};
+      const pa=screenPoint(d.x-ax.x*half,d.z-ax.z*half),pb=screenPoint(d.x+ax.x*half,d.z+ax.z*half);
+      const postH=3.6*s,pw=Math.max(2,Math.round(.55*s)),beamH=Math.max(1,Math.round(.35*s)),topY=-postH+.5*s;
+      for(const q of [pa,pb]){
+        pixel(g,q.x-pw/2,q.y-postH,pw,postH,'#574733');
+        pixel(g,q.x-pw/2+Math.max(1,Math.round(.15*s)),q.y-postH+.4*s,Math.max(1,pw-Math.round(.3*s)),postH-.6*s,'#b0935e');
+        pixel(g,q.x-pw,q.y-postH-.35*s,pw*2,Math.max(2,Math.round(.35*s)),'#463a2b');
+      }
+      g.fillStyle='#6b5138';g.beginPath();
+      g.moveTo(pa.x,pa.y+topY);g.lineTo(pb.x,pb.y+topY);g.lineTo(pb.x,pb.y+topY+beamH);g.lineTo(pa.x,pa.y+topY+beamH);g.closePath();g.fill();
+      const my=(pa.y+pb.y)/2+topY+beamH+1,mx=(pa.x+pb.x)/2,bw=Math.max(4,Math.round(1.3*s)),bh=Math.max(4,Math.round(1.6*s));
+      pixel(g,mx-bw/2,my,bw,bh,'#244b87');pixel(g,mx-bw/2,my,bw,Math.max(1,Math.round(s)),'#dfb653');
+      line(g,mx,my+.4*s,mx,my+bh-.3*s,'#eee6c9',Math.max(1,Math.round(.16*s)));
+      line(g,mx-.45*s,my+.7*s,mx+.45*s,my+.7*s,'#eee6c9',Math.max(1,Math.round(.16*s)));
+      return;
     }
     if(d.type==='lamp'){
       if(!drawAtlasDetail('lamppost',p,7,15)){pixel(g,p.x,p.y-21*scale,2*scale,22*scale,'#4e4937');pixel(g,p.x-3*scale,p.y-24*scale,8*scale,7*scale,'#454935');pixel(g,p.x-2*scale,p.y-23*scale,6*scale,5*scale,'#e3b96a');pixel(g,p.x-1*scale,p.y-23*scale,2*scale,4*scale,'#ffe6a0');}
@@ -1182,11 +1251,14 @@ export function createWorld(canvas,{onSelect=()=>{},onPlace=()=>{},getState=()=>
   function screenDir(fx,fz,tx,tz){const dx=(tx-fx-(tz-fz))*PX,dy=(tx-fx+(tz-fz))*PY,l=Math.hypot(dx,dy)||1;return{x:dx/l,y:dy/l};}
   // 四格走路循環(左腳著地 → 經過 → 右腳著地 → 經過),每秒 8 格;每格的武器握法一致(l0veyou walk4 表)。
   const walkFrame=(t,seed)=>'walk'+(1+Math.floor(t*8+(seed%4))%4);
+  // 蓄力長度:英雄的攻擊列有 windupFrameTime(蓄力每格秒數)＝蓄力格數 × 每格秒數(蓄力格逐格等速播,sheetPose 用 out.wt 挑格);
+  // 沒有就是原本的 0.3 秒(魔物、其他職業不變)。只影響畫面:出手時間點仍是 attackTimer 歸零那一刻。
+  function windupLen(a,isEnemy){const r=!isEnemy&&heroSheets[a.classId]?.meta.actions.attack;return r?.windupFrameTime?(r.release??1)*r.windupFrameTime:.3;}
   function combatPose(a,isEnemy,target){
     const t=state.time||0,out={pose:'idle',ox:0,oy:0,lean:0,sx:1,sy:1,flash:0,flashColor:'#ffffff',face:0,k:0,atk:0,hit:0};
     const atk=t-(a.atkAt??-99),hit=t-(a.hitAt??-99),engaged=isEnemy?a.engaged:a.status==='戰鬥中';
     out.atk=atk;out.hit=hit;  // 給畫面挑收招格(strike2/7)與第二受擊格(8)
-    const ranged=!isEnemy&&(a.classId==='ranger'||a.classId==='witchhunter'||a.classId==='sorcerer'||a.classId==='priest');
+    const ranged=!isEnemy&&(a.classId==='archer'||a.classId==='sorcerer'||a.classId==='priest');
     const tx=target?.x??(isEnemy?a.facingX:null),tz=target?.z??(isEnemy?a.facingZ:null);
     if(atk>=0&&atk<.36&&a.atkX!=null){const d=screenDir(a.x,a.z,a.atkX,a.atkZ);out.face=d.x;out.pose='strike';
       if(ranged){const k=atk<.06?atk/.06:Math.max(0,1-(atk-.06)/.3);out.k=k;out.ox=-d.x*1.8*k;out.oy=-d.y*.9*k;out.lean=-d.x*.1*k;}
@@ -1194,7 +1266,7 @@ export function createWorld(canvas,{onSelect=()=>{},onPlace=()=>{},getState=()=>
         out.ox=d.x*reach*k;out.oy=d.y*reach*.7*k;out.lean=d.x*.24*k;out.sx=1+.07*k;out.sy=1-.06*k;
         if(isEnemy&&a.type==='slime')out.oy-=7*Math.sin(Math.min(1,atk/.22)*Math.PI);
         if(isEnemy&&a.type==='wolf')out.oy-=3.5*Math.sin(Math.min(1,atk/.2)*Math.PI);}
-    }else if(engaged&&tx!=null&&(a.attackTimer??9)<.3){const d=screenDir(a.x,a.z,tx,tz),k=ease(1-Math.max(0,a.attackTimer)/.3);out.face=d.x;out.pose='windup';out.k=k;
+    }else if(engaged&&tx!=null&&(a.attackTimer??9)<windupLen(a,isEnemy)){const wl=windupLen(a,isEnemy),d=screenDir(a.x,a.z,tx,tz),k=ease(1-Math.max(0,a.attackTimer)/wl);out.face=d.x;out.pose='windup';out.k=k;out.wt=wl-Math.max(0,a.attackTimer);
       out.ox=-d.x*2*k;out.oy=-d.y*k;out.lean=-d.x*.16*k;out.sx=1+.05*k;out.sy=1-.08*k;}
     else if(engaged&&tx!=null)out.face=screenDir(a.x,a.z,tx,tz).x;
     if(hit>=0&&hit<.32&&a.hitFromX!=null){const d=screenDir(a.hitFromX,a.hitFromZ,a.x,a.z),k=hit<.05?hit/.05:Math.max(0,1-(hit-.05)/.27);
@@ -1213,8 +1285,8 @@ export function createWorld(canvas,{onSelect=()=>{},onPlace=()=>{},getState=()=>
   function posed(p,pose,draw){const q={x:R(p.x+pose.ox*scale),y:R(p.y+pose.oy*scale)};g.save();g.translate(q.x,q.y);g.transform(pose.sx,0,-pose.lean,pose.sy,0,0);g.translate(-q.x,-q.y);
     if(pose.flash>0)flashNext={color:pose.flashColor,alpha:Math.min(1,pose.flash*.9)};try{return draw(q);}finally{flashNext=null;g.restore();}}
   // 蓄力時武器/法杖上的光點:近戰一閃、法系聚光。
-  function chargeGlow(h,p,pose,facing){if(pose.pose!=='windup'||!quality)return;const s=scale,k=pose.k,caster=h.classId==='sorcerer'||h.classId==='priest';
-    const x=p.x+(pose.ox+facing*(caster?8:-6))*s,y=p.y+(pose.oy-(caster?17:19))*s,col=h.classId==='sorcerer'?'#d9a8ff':h.classId==='priest'?'#ffe9a0':h.classId==='ranger'||h.classId==='witchhunter'?'#e8f2c0':'#fff4c8';
+  function chargeGlow(h,p,pose,facing){if(pose.pose!=='windup'||!quality||heroSheets[h.classId]?.meta.actions.attack?.fxInSprite)return;const s=scale,k=pose.k,caster=h.classId==='sorcerer'||h.classId==='priest';   // fxInSprite:蓄力的光已畫在攻擊列裡(法師 PixelLab 手上的魔法球),不再疊固定位置的光點
+    const x=p.x+(pose.ox+facing*(caster?8:-6))*s,y=p.y+(pose.oy-(caster?17:19))*s,col=h.classId==='sorcerer'?'#d9a8ff':h.classId==='priest'?'#ffe9a0':h.classId==='archer'?'#e8f2c0':'#fff4c8';
     g.save();g.globalAlpha=.25+.55*k;g.fillStyle=col;const r=(caster?2+3*k:1+2*k)*s;g.beginPath();g.arc(x,y,r,0,Math.PI*2);g.fill();
     g.globalAlpha=.9*k;pixel(g,x-r*1.6,y-.5*s,r*3.2,Math.max(1,s),'#ffffff');pixel(g,x-.5*s,y-r*1.6,Math.max(1,s),r*3.2,'#ffffff');
     if(caster)for(let i=0;i<4;i++){const an=i*1.57+elapsed*6,rr=(7-5*k)*s;pixel(g,x+Math.cos(an)*rr,y+Math.sin(an)*rr*.6,Math.max(1,s),Math.max(1,s),col);}
@@ -1227,6 +1299,15 @@ export function createWorld(canvas,{onSelect=()=>{},onPlace=()=>{},getState=()=>
   // 驗收用:每一隻最後一次畫出來的朝向/姿勢(__mistvaleFacing())。
   globalThis.__mistvaleBuildingSize=id=>{const b=BUILDINGS.find(q=>q.id===id);return b?{w:b.w,d:b.d}:null;};
   let drawOrder=[];globalThis.__mistvaleOrder=()=>drawOrder;  // 驗收用:這一幀實際的畫圖先後
+  // ── 動作實驗室(設定 → 動作實驗室):直接在畫面上播某個職業的某一列動作 ──
+  let posePreview=null;   // {classId, act, i, facing}
+  globalThis.__mistvalePoseLab={
+    info:(cls)=>{const sh=heroSheets[cls];if(!sh?.meta)return null;const m=sh.meta;
+      return {cell:m.cell,heroHeight:m.heroHeight,actions:Object.fromEntries(Object.entries(m.actions).map(([k,v])=>[k,{frames:v.frames,cell:v.cell}]))};},
+    set:(cfg)=>{posePreview=cfg&&heroSheets[cfg.classId]?{classId:cfg.classId,act:cfg.act||'idle',i:Math.max(0,cfg.i|0),facing:cfg.facing||1}:null;},
+    current:()=>posePreview,
+  };
+  globalThis.__mistvaleDoors=()=>BUILDINGS.map(b=>{const p=state.layout?.[b.id]||b,d=doorFoot(b,p);return {id:b.id,x:d.x,z:d.z};});   // 驗收用:各棟門口的 world 座標
   globalThis.__mistvaleHits=()=>hits.map(h=>({id:h.id,x:h.x,y:h.y,w:h.w,h:h.h}));  // 驗收用:畫出來的點擊框(check_zorder.mjs)
   globalThis.__mistvaleDecor=()=>decorations.map(d=>({type:d.type,x:d.x,z:d.z,size:d.size||1,walk:!!d.walk,cls:d.cls,vdir:d.vdir}));  // 驗收用:擺設清單(check_placement.mjs)
   const drawnFacing=new Map();globalThis.__mistvaleFacing=()=>Object.fromEntries(drawnFacing);
@@ -1246,8 +1327,8 @@ export function createWorld(canvas,{onSelect=()=>{},onPlace=()=>{},getState=()=>
     hurt:{fx:[0,-1,-2,-1],ux:[0,-2,-3,-1],uy:[0,1,1,0]},
     victory:{uy:[0,1,0,1,0,1,0,1]}};
   const HIT_STOP=.07;  // 命中格多停 70ms:打擊感
-  function motionOf(act,i,n){const m=MOTION[act.replace(/(Down|Up|Left)$/,'')];if(!m)return null;
-    const at=a=>a?a[Math.min(a.length-1,Math.floor(i*a.length/Math.max(1,n)))]:0,side=!/(Down|Up)$/.test(act);
+  function motionOf(act,i,n){const m=MOTION[act.replace(/(DownRight|UpRight|DownLeft|UpLeft|Down|Up|Left|Right)$/,'')];if(!m)return null;
+    const at=a=>a?a[Math.min(a.length-1,Math.floor(i*a.length/Math.max(1,n)))]:0,side=!/Down|Up/.test(act);   // 上下/斜角列不做水平位移(素材本身已經往前伸)
     return{fx:at(m.fx),ux:side?at(m.ux):0,uy:at(m.uy)};}
   function drawBodySliced(img,sx,sy,c,dx,dy,dw,flip,mo,split,fwd,sc){  // 分上下兩段畫:下段(腳)固定,上段位移
     const u=dw/100,ux=Math.round(mo.ux*u)*fwd,uy=Math.round(mo.uy*u),sp=Math.max(1,Math.min(c-1,Math.round(split)));
@@ -1262,16 +1343,37 @@ export function createWorld(canvas,{onSelect=()=>{},onPlace=()=>{},getState=()=>
     if(h.hp<=0){const dt=8-(h.reviveTimer??8);return{act:'death',i:Math.floor(dt/A('death').frameTime),pose:'dead'};}
     const sk=t-(h.skillAt??-99),skLen=A('skill').frames*A('skill').frameTime;if(sk>=0&&sk<skLen)return{act:'skill',i:Math.floor(sk/A('skill').frameTime),pose:'skill'};
     if(pose.pose==='hurt'||(pose.hit>=0&&pose.hit<A('hurt').frames*A('hurt').frameTime&&pose.pose!=='strike'))return{act:'hurt',i:Math.floor(Math.max(0,pose.hit)/A('hurt').frameTime),pose:'hurt'};
-    let atk=t-(h.atkAt??-99);const rel=A('attack').release??1,ft=A('attack').frameTime,hs=((A('attack').impact||rel+1)-1-rel+1)*ft;
+    // 出招節奏:列上有 strikeDur(出手後每格秒數)就逐格計時(放招格極短、命中格長、收招慢 = 力量感),沒有就每格 frameTime;
+    // windupPow < 1 = 蓄力早早到最大蓄力格並停住(預備動作)。總長不變,不影響戰鬥節奏。
+    const atkAct='attack'+dirSuffix(m,'attack',vdir);
+    let atk=t-(h.atkAt??-99);const AR0=actOf(heroSheets[h.classId].meta,atkAct),AR=AR0?.ownTiming?AR0:A('attack'),rel=AR.release??1,ft=AR.frameTime,sd=AR.strikeDur,imp=(AR.impact||rel+1)-rel,
+      hs=sd?sd.slice(0,imp).reduce((s,v)=>s+v,0):imp*ft,sLen=sd?sd.reduce((s,v)=>s+v,0):(AR.frames-rel)*ft;
     if(atk>=hs+HIT_STOP)atk-=HIT_STOP;else if(atk>=hs)atk=hs;  // 命中格停頓
-    if(atk>=0&&atk<(A('attack').frames-rel)*ft)return{act:'attack',i:rel+Math.floor(atk/ft),pose:'strike'};
-    if(pose.pose==='windup')return{act:'attack',i:Math.min(rel-1,Math.floor(pose.k*rel)),pose:'windup'};
+    // 方向列有 ownTiming:用它自己的節奏(格數跟其他方向不同,例:刺客南向 41 格,總長仍跟其他方向一樣;蓄力長度 release×windupFrameTime 要等於 attack 列的)。
+    // 8 方向攻擊:打向哪裡就用那一列(上/下/兩個斜角;左邊三格由 moveDir 對應到右邊的列再鏡像)。
+    // 素材沒有的方向 dirSuffix 會自己退回(斜角→上下→側面),所以其他職業的表現完全不變。
+    if(atk>=0&&atk<sLen){let i=rel+Math.floor(atk/ft);if(sd){let acc=0;i=rel+sd.length-1;for(let k=0;k<sd.length;k++){acc+=sd[k];if(atk<acc){i=rel+k;break;}}}return{act:atkAct,i,pose:'strike'};}
+    if(pose.pose==='windup')return{act:atkAct,i:Math.min(rel-1,AR.windupFrameTime&&pose.wt!=null?Math.floor(pose.wt/AR.windupFrameTime):Math.floor(Math.pow(pose.k,AR.windupPow||1)*rel)),pose:'windup'};
     if(walking){const w='walk'+dirSuffix(m,'walk',vdir),i=gaitFrame('h'+h.id,h.x,h.z,m[w],(hash(h.id)%97)/97);return{act:w,i,pose:'walk'+(1+i),vdir};}
     if(cheering)return{act:'victory',i:Math.floor((t-(heroMemo.get(h.id).cheer-.9))/A('victory').frameTime),pose:'victory'};
-    const isf=h.status!=='戰鬥中'?dirSuffix(m,'idle',vdir):'';const id='idle'+isf;return{act:id,i:Math.floor(elapsed/m[id].frameTime+hash(h.id))%m[id].frames,pose:'idle',vdir};}
-  function drawSheetHero(h,p,facing,sp,alpha=1,pose=null){const meta=heroSheets[h.classId].meta,key=actRow(meta.actions,sp.act),row=meta.actions[key];let baked=false;{const [a2,fl]=leftRow(meta,sp.act,facing);if(a2!==sp.act){sp={...sp,act:a2};facing=1;baked=true;}}
+    // 待機也用上一次動作(出手/走路)鎖定的方向:攻擊前後姿勢一致,要到下一個動作才換方向。
+    const isf=dirSuffix(m,'idle',vdir);const id='idle'+isf;return{act:id,i:Math.floor(elapsed/m[id].frameTime+hash(h.id))%m[id].frames,pose:'idle',vdir};}
+  // 攻擊逐格播放(攻擊列有 windupFrameTime 才開,目前只有遊俠):畫面一幀最多前進一格,攻擊一開始之後每一格都會畫到。
+  // 遊戲預設 30fps(一幀 33ms)又有 2–3 倍速,照時間算的格常一次跳 2 格以上、中間那格整個沒畫到 → 落後時畫下一格、慢慢追上;
+  // 出手時間結束了還沒播到最後一格,也先播完再換待機/走路/勝利(受擊、技能、倒下不等)。同一個遊戲時間重畫(暫停)停在同一格。
+  const atkSeq=new Map();
+  function noSkip(h,sp){const meta=heroSheets[h.classId].meta;if(!actOf(meta,'attack')?.windupFrameTime)return sp;
+    const L=atkSeq.get(h.id),t=state.time||0,isAtk=/^attack/.test(sp.act);
+    if(actOf(meta,sp.act)?.noSkip===false){atkSeq.set(h.id,{sp,t,last:0});return sp;}   // 這一列不逐格(例:刺客南向 41 格塞在原本的攻擊時長裡)
+    if(L&&t-L.t<.4){
+      if(t===L.t)return L.sp;
+      if(isAtk&&sp.act===L.sp.act&&sp.i>L.sp.i+1)sp={...sp,i:L.sp.i+1};
+      else if(!isAtk&&/^(idle|walk|victory)/.test(sp.act)&&/^attack/.test(L.sp.act)&&L.sp.i<L.last)sp={...L.sp,i:L.sp.i+1};}
+    atkSeq.set(h.id,{sp,t,last:(actOf(meta,sp.act)?.frames||1)-1});return sp;}
+  function drawSheetHero(h,p,facing,sp,alpha=1,pose=null){const meta=heroSheets[h.classId].meta,key=actRow(meta.actions,sp.act),row=meta.actions[key];let baked=!!sp.act&&/Left$/.test(sp.act);if(baked)facing=1;   // 已是烘好的左向列:不要再翻一次(翻了會變成面朝右),配件錨點也用列自己的
+    {const [a2]=leftRow(meta,sp.act,facing);if(a2!==sp.act){sp={...sp,act:a2};facing=1;baked=true;}}
     const f=sheetFrame(h.classId,sp.act,sp.i,h.id?heroLook(h):null);if(!f)return null;heroLodUse[f.hi?'2x':'1x']++;const k=f.art*scale,dw=Math.round(f.c*k),dh=dw;
-    const mo=motionOf(key,sp.i,row?.frames||8),fwd=baked?-1:1,walkDir=facing<0?-1:1;
+    const mo=row?.bakedMotion?null:motionOf(key,sp.i,row?.frames||8),fwd=baked?-1:1,walkDir=facing<0?-1:1;   // bakedMotion：素材本身已有真的踏步/弓步，不再疊執行期的假前衝與切身體
     const q=pose?{x:p.x+Math.round((pose.flash?Math.sin((state.time||0)*95)*.8:0)*scale),y:p.y}:p,dx=R(q.x-f.c/2*k)+(mo?R(mo.fx*dw/100)*(baked?-1:walkDir):0),dy=R(q.y-f.foot*k);
     const split=f.foot-.38*f.meta.heroHeight;
     cast(f.img,f.sx,f.sy,f.c,f.c,dx,dy,dw,dh,facing<0,true,'char');g.save();g.globalAlpha=alpha;
@@ -1280,10 +1382,14 @@ export function createWorld(canvas,{onSelect=()=>{},onPlace=()=>{},getState=()=>
     // 零件層（照開羅《冒險村物語2》的做法）：身體一張表、每個零件自己一張表，
     // 用「逐格位移」offset[frame] 疊在同一個座標系上。換裝備＝只換那張零件表，身體不用重生。
     if(partsVisible){const parts=meta.parts;
-      if(parts)for(const part of parts){const ps=heroSheets[part.sheet];if(!ps)continue;
+      if(parts)for(const part of parts){let ps=heroSheets[part.sheet];if(!ps)continue;
+        if(f.hi&&ps.hi?.meta?.actions[key])ps=ps.hi;   // 身體用 @2x 時零件也用 @2x（兩份表版面是嚴格 2 倍，位置不變）
         const pa=ps.meta.actions[key];if(!pa)continue;
         const pi=Math.max(0,Math.min(pa.frames-1,sp.i)),off=pa.offset?.[pi]||[0,0],pk=(HERO_H/ps.meta.heroHeight)*scale;
-        const px=dx+Math.round(off[0]*pk),py=dy+Math.round(off[1]*pk);
+        // 執行期上半身位移（drawBodySliced 的 ux/uy）：手在上半身，拿在手上的零件要跟著動，不然劍會跟手分開
+        const mux=mo?Math.round(mo.ux*dw/100)*fwd*(facing<0?-1:1):0,muy=mo?Math.round(mo.uy*dw/100):0;
+        const px=dx+Math.round(off[0]*pk)+mux,py=dy+Math.round(off[1]*pk)+muy;
+        if(part.shadow!==false)cast(ps.img,pi*pa.cell,pa.y,pa.cell,pa.cell,px,py,dw,dh,facing<0,true,'char');   // 劍也投影；殘影（shadow:false）不投影
         if(facing<0){g.save();g.translate(px+dw,py);g.scale(-1,1);g.drawImage(ps.img,pi*pa.cell,pa.y,pa.cell,pa.cell,0,0,dw,dh);g.restore();}
         else g.drawImage(ps.img,pi*pa.cell,pa.y,pa.cell,pa.cell,px,py,dw,dh);}}
     if(pose?.flash>0){g.globalAlpha=alpha*pose.flash*.8;const tc=tinted(f.img,f.sx,f.sy,f.c,f.c,pose.flashColor);if(mo)drawBodySliced(tc,0,0,f.c,dx,dy,dw,facing<0,mo,split,fwd);else if(facing<0)g.drawImage(tc,0,0,f.c,f.c,0,0,dw,dh);else g.drawImage(tc,0,0,f.c,f.c,dx,dy,dw,dh);}
@@ -1296,7 +1402,7 @@ export function createWorld(canvas,{onSelect=()=>{},onPlace=()=>{},getState=()=>
   function drawHunter(h,wanderer){if(!Number.isFinite(h.x)||!Number.isFinite(h.z))return;
     if(heroSheets[h.classId])return drawHunterSheet(h,wanderer);if(pendingHero(h.classId))return;const p=screenPoint(h.x,h.z),old=previousPositions.get(h.id),moving=old&&Math.hypot(h.x-old.x,h.z-old.z)>.005;let facing=old?.facing||1;if(old&&Math.abs(h.x-old.x-(h.z-old.z))>.002)facing=h.x-old.x-(h.z-old.z)>0?1:-1;
     const isSelected=selected===`hunter:${h.id}`;
-    contact(p,5);if(isSelected)ring(p,8,'#fff1b0');if(wanderer)ring(p,6,'#7fc4ff');  // 藍圈＝流浪英雄(自己打怪,不是我方單位)
+    contact(p,5);if(state.pilot?.id===h.id)ring(p,9,'#ffd98a');if(isSelected)ring(p,8,'#fff1b0');if(wanderer)ring(p,6,'#7fc4ff');  // 金圈＝我現在操控的這位(釘在畫面正中央那一位)
     // 倒下:用倒地圖(<職業>_dead),半透明等復活;沒有倒地圖才退回把待機圖轉 90°。
     if(h.dead||h.hp<=0){previousPositions.set(h.id,{x:h.x,z:h.z,facing});drawnFacing.set(h.id,{f:facing,pose:(h.reviveTimer??0)>7.55?'falling':'dead',x:h.x,z:h.z,t:state.time});
       heroMemo.set(h.id,{...(heroMemo.get(h.id)||{}),wasDead:true});
@@ -1321,7 +1427,7 @@ export function createWorld(canvas,{onSelect=()=>{},onPlace=()=>{},getState=()=>
     // 復活:剛從倒地回來的 0.6 秒畫「起身」
     {const m=heroMemo.get(h.id)||{};if(m.wasDead){heroMemo.set(h.id,{...m,wasDead:false,getupUntil:(state.time||0)+.6});}}
     const gettingUp=(state.time||0)<(heroMemo.get(h.id)?.getupUntil??-1)&&!walking;
-    const combatPoseName=pose.pose==='strike'&&pose.atk>.2&&!['ranger','witchhunter','sorcerer'].includes(h.classId)?'strike2':pose.pose==='hurt'&&pose.hit>.16?'hurt2':pose.pose;
+    const combatPoseName=pose.pose==='strike'&&pose.atk>.2&&!['archer','sorcerer'].includes(h.classId)?'strike2':pose.pose==='hurt'&&pose.hit>.16?'hurt2':pose.pose;
     const drawPose=pose.pose!=='idle'?combatPoseName:walking?walkFrame(elapsed,hash(h.id)):gettingUp?'getup':cheering?'victory':still&&servicePose?servicePose:breathe;
     drawnFacing.set(h.id,{f:facing,pose:drawPose,x:h.x,z:h.z,t:state.time});
     const sprite=heroSprite(h.classId,frame,facing,hash(h.id)%3,heroLodScale,drawPose),rect=posed(p,pose,q=>drawSprite(sprite,q,21*CHAR_SCALE*sprite.width/(sprite.baseH||sprite.height),21*CHAR_SCALE*sprite.height/(sprite.baseH||sprite.height),1.2,1,'char'));hits.push({id:`hunter:${h.id}`,...padHit(rect,14,18)});  // 圖變小,點擊範圍保底
@@ -1360,21 +1466,44 @@ export function createWorld(canvas,{onSelect=()=>{},onPlace=()=>{},getState=()=>
     return {x:dx,y:dy,w:dw,h:dh};
   }
   const ENEMY_SIZE=type=>type==='boss'?50:(type==='golem'?33:type==='wolf'?31:28)*CHAR_SCALE;
-  function drawHunterSheet(h,wanderer){const p=screenPoint(h.x,h.z),old=previousPositions.get(h.id),moving=old&&Math.hypot(h.x-old.x,h.z-old.z)>.005;let facing=old?.facing||1;
+  function drawHunterSheet(h,wanderer){const p=screenPoint(h.x,h.z),old=previousPositions.get(h.id),
+    step=old?Math.hypot(h.x-old.x,h.z-old.z):0,moving=!!old&&step>.005;let facing=old?.facing||1;
     if(old&&Math.abs(h.x-old.x-(h.z-old.z))>.002)facing=h.x-old.x-(h.z-old.z)>0?1:-1;
-    const isSelected=selected===`hunter:${h.id}`,top=HERO_H;contact(p,5);if(isSelected)ring(p,8,'#fff1b0');if(wanderer)ring(p,6,'#7fc4ff');
-    const target=h.status==='戰鬥中'&&h.targetId?(state.enemies||[]).find(e=>e.id===h.targetId&&e.hp>0):null,pose=h.hp>0?combatPose(h,false,target):{pose:'idle',face:0,flash:0,hit:-1};
-    let vdir=old?.vdir||'side';if(old&&moving)vdir=moveDir(h.x-old.x,h.z-old.z,vdir);
-    if(h.status==='戰鬥中'||pose.pose!=='idle')vdir='side';
-    const walking=moving&&h.status!=='戰鬥中'&&h.hp>0;
+    const isSelected=selected===`hunter:${h.id}`,top=HERO_H;contact(p,5);if(state.pilot?.id===h.id)ring(p,9,'#ffd98a');if(isSelected)ring(p,8,'#fff1b0');if(wanderer)ring(p,6,'#7fc4ff');
+    // 狀態保持:走路 0.18 s、戰鬥 0.3 s。
+    // 模擬的 status 會在同一場戰鬥裡 戰鬥中↔追擊中 每幾幀跳一次,位移也常常一幀有、一幀沒有;
+    // 直接拿當幀的值決定「walk/idle」「側面/上下待機」就會每幀換一格 → 角色看起來在原地抖。
+    const nowT=state.time||0,walkUntil=step>.0008?nowT+.18:(old?.walkUntil||0);
+    const fightUntil=h.status==='戰鬥中'?nowT+.3:(old?.fightUntil||0),inFight=nowT<fightUntil;
+    const target=inFight&&h.targetId?(state.enemies||[]).find(e=>e.id===h.targetId&&e.hp>0):null,pose=h.hp>0?combatPose(h,false,target):{pose:'idle',face:0,flash:0,hit:-1};
+    let vdir=old?.vdir||'side';if(old&&step>.0008)vdir=moveDirStable(h.x-old.x,h.z-old.z,vdir);
+    // 攻擊方向:每一次攻擊只在「開始那一刻」算一次,整段(蓄力+出手)固定不變。
+    // 以前每一幀都用目標當下的位置重算方向 → 魔物一移動就越過扇區邊界,攻擊列每幀換一次,
+    // 動畫看起來就是在亂跳(而且蓄力和出手可能選到不同方向)。方向一旦決定就不再改。
+    const atkT=(state.time||0)-(h.atkAt??-99),armed=atkT>=0&&atkT<.46;   // .46 = 出手動畫全長(含命中停頓)
+    const winding=!armed&&pose.pose==='windup'&&!!target;
+    const ad=atkDirs.get(h.id)||{stamp:-1e9,dir:'side',mode:''};
+    if(armed&&ad.stamp!==(h.atkAt??-99)&&h.atkX!=null){
+      ad.stamp=h.atkAt??-99;
+      // 有蓄力(畫面上先演了 0.3 秒)就沿用蓄力時鎖定的方向,整段攻擊同一列;沒有蓄力才用出手那刻的位置算
+      if(ad.mode!=='windup')ad.dir=moveDir(h.atkX-h.x,h.atkZ-h.z,ad.dir);
+      ad.mode='strike';
+    }
+    if(armed)vdir=ad.dir;
+    else if(winding){
+      if(ad.mode!=='windup'){ad.mode='windup';ad.dir=moveDir(target.x-h.x,target.z-h.z,ad.dir);}   // 蓄力:進入時算一次,之後不動
+      vdir=ad.dir;
+    }else ad.mode='';   // 攻擊結束後「方向不動」:維持出手/走路時鎖定的方向,下一個動作(出手或起步)才重算
+    atkDirs.set(h.id,ad);
+    const walking=(moving||nowT<walkUntil)&&h.hp>0;   // 有動就播走路(含戰鬥中被推開);停下來 0.18 s 內還算走,免得每幀互換
     {const tg=h.targetId,prev=heroMemo.get(h.id);if(prev&&prev.tg&&prev.tg!==tg&&!(state.enemies||[]).some(e=>e.id===prev.tg&&e.hp>0)&&(state.time||0)-(h.atkAt??-99)<.8)heroMemo.set(h.id,{...prev,tg,cheer:(state.time||0)+.9});else heroMemo.set(h.id,{...prev,tg,cheer:prev?.cheer??-1});}
     const cheering=(state.time||0)<(heroMemo.get(h.id)?.cheer??-1)&&!walking;
-    const sp=sheetPose(h,pose,walking,cheering,vdir);
+    const sp=noSkip(h,sheetPose(h,pose,walking,cheering,vdir));
     // 朝向:畫的是戰鬥格(普攻/受擊/技能)才用戰鬥朝向(面向目標/打來的一側);走路/待機一律照移動方向 —— 出手後 0.3–0.36 秒換追下一個目標時,不會倒退走
-    if(['attack','hurt','skill','death'].includes(sp.act)){if(pose.face)facing=pose.face>0?1:-1;
+    if(sp.act.startsWith('attack')||['hurt','skill','death'].includes(sp.act)){if(pose.face)facing=pose.face>0?1:-1;
       {const t=state.time||0,sk=t-(h.skillAt??-99);if(sp.act==='skill'&&sk>=0&&h.atkX!=null){const d=screenDir(h.x,h.z,h.atkX,h.atkZ).x;if(Math.abs(d)>.1)facing=d>0?1:-1;}}}
-    previousPositions.set(h.id,{x:h.x,z:h.z,facing,vdir});{const row=actOf(heroSheets[h.classId].meta,sp.act)||{frames:1};sp.i=Math.max(0,Math.min(row.frames-1,sp.i));}  // 時間超過最後一格就停在最後一格
-    drawnFacing.set(h.id,{f:facing,pose:sp.pose,act:sp.act,i:sp.i,x:h.x,z:h.z,t:state.time});
+    previousPositions.set(h.id,{x:h.x,z:h.z,facing,vdir,walkUntil,fightUntil});{const row=actOf(heroSheets[h.classId].meta,sp.act)||{frames:1};sp.i=Math.max(0,Math.min(row.frames-1,sp.i));}  // 時間超過最後一格就停在最後一格
+    drawnFacing.set(h.id,{f:facing,pose:sp.pose,act:sp.act,i:sp.i,x:h.x,z:h.z,t:state.time,vdir,atkT});
     const rect=drawSheetHero(h,p,facing,sp,h.hp>0?1:.85,pose);if(rect)hits.push({id:`hunter:${h.id}`,...padHit(rect,16,22)});
     if(h.hp<=0){textLabel('✦',p.x,p.y-(top*.4)*scale,{color:'#e7d8ef',back:false});return;}
     const full=(h.hp??1)/(h.maxHp||1);if(full<.99||isSelected||h.status==='戰鬥中')bar(p.x-7*scale,p.y-(top+3)*scale,14*scale,full,full<.35?'#df795c':'#84bf6a');
@@ -1394,7 +1523,8 @@ export function createWorld(canvas,{onSelect=()=>{},onPlace=()=>{},getState=()=>
     if(walking){const w=m['walk'+D]?'walk'+D:'walk';return[w,gaitFrame('e'+e.id,e.x,e.z,m[w],(hash(e.id)%97)/97)];}
     const id=m['idle'+D]&&!e.engaged?'idle'+D:'idle';return[id,Math.floor(elapsed/m[id].frameTime+hash(e.id))%m[id].frames];}
   function drawEnemy(e){if(!Number.isFinite(e.x)||!Number.isFinite(e.z)||e.hp<=0||pendingMon(e.type))return;const p=screenPoint(e.x,e.z),boss=e.type==='boss',sz=ENEMY_SIZE(e.type),seed=hash(e.id)%97;
-    const old=previousPositions.get('enemy:'+e.id),moving=old&&Math.hypot(e.x-old.x,e.z-old.z)>.003,pose=combatPose(e,true,null);
+    const old=previousPositions.get('enemy:'+e.id),step=old?Math.hypot(e.x-old.x,e.z-old.z):0,moving=!!old&&step>.003,pose=combatPose(e,true,null);
+    const nowT=state.time||0,walkUntil=step>.0006?nowT+.2:(old?.walkUntil||0);
     let flip=old?(e.x-old.x-(e.z-old.z)<-.002?true:e.x-old.x-(e.z-old.z)>.002?false:old.flip):false;
     // 停著等空位的魔物(sim 剛更新 facingAt)面向牠盯著的獵人,不會背對戰鬥站著。
     if(!moving&&!pose.face&&e.facingX!=null&&(state.time||0)-(e.facingAt??-9)<.5){const d=screenDir(e.x,e.z,e.facingX,e.facingZ).x;if(Math.abs(d)>.15)flip=d<0;}
@@ -1404,7 +1534,7 @@ export function createWorld(canvas,{onSelect=()=>{},onPlace=()=>{},getState=()=>
     const breathe=Math.sin(elapsed*(e.type==='slime'?5:3)+seed),amp=e.type==='slime'?.07:.025;pose.sy*=1+amp*breathe;pose.sx*=1-amp*.6*breathe;
     // 走路:狼/魔像/領主一直用側面走路圖(3),配步伐上下起伏;史萊姆是跳躍——著地時用壓扁圖(3),騰空時用圓圖(0)。
     const stride=Math.sin(elapsed*(e.type==='wolf'?11:e.type==='slime'?6:7)+seed);
-    const walking=moving&&!e.engaged;  // 近身交戰時的位移是被推開,不播走路
+    const walking=(moving||nowT<walkUntil);   // 停一格不算停(見 walkUntil);有動就播走路
     if(walking&&pose.pose==='idle'){pose.oy-=Math.abs(stride)*(e.type==='slime'?4:e.type==='wolf'?1.8:1);if(e.type!=='slime'){pose.sy*=1-.03*Math.abs(stride);pose.lean+=(flip?-1:1)*.04;}}
     // 0 待機、1 蓄力、2 出手、3 走路、4 受擊(l0veyou monsteratk 圖集)
     // 0 待機/5 呼吸、1 蓄力、2 出手/7 收招、3·6 走路兩格(史萊姆:騰空 0、著地 3、壓扁 6)、4/8 受擊兩格(第四批 monsters 圖集 5–9)
@@ -1420,7 +1550,7 @@ export function createWorld(canvas,{onSelect=()=>{},onPlace=()=>{},getState=()=>
     contact(p,boss?12:7);
     drawnFacing.set('enemy:'+e.id,{f:flip?-1:1,frame,x:e.x,z:e.z,t:state.time});
     let rect;
-    if(MON_SHEET(e.type)){let vdir=old?.vdir||'side';if(old&&moving)vdir=moveDir(e.x-old.x,e.z-old.z,vdir);if(pose.pose!=='idle'||e.engaged)vdir='side';previousPositions.set('enemy:'+e.id,{x:e.x,z:e.z,flip,vdir});
+    if(MON_SHEET(e.type)){let vdir=old?.vdir||'side';if(old&&step>.0006)vdir=moveDirStable(e.x-old.x,e.z-old.z,vdir);if(pose.pose!=='idle'||e.engaged)vdir='side';previousPositions.set('enemy:'+e.id,{x:e.x,z:e.z,flip,vdir,walkUntil});
       const [act,i]=monsterSheetPose(e,pose,walking,vdir);drawnFacing.set('enemy:'+e.id,{f:flip?-1:1,frame,act,i,x:e.x,z:e.z,t:state.time});rect=drawMonsterSheet(e.type,p,flip,act,i,1,pose);}  // 新規格 sheet:動作自帶位移/壓扁,不再疊 posed 變形
     else rect=posed(p,pose,q=>drawAtlasMonster(e.type,frame,q,sz,flip));
     if(!rect)procUse['enemy-missing:'+e.type]=(procUse['enemy-missing:'+e.type]||0)+1;  // 沒有程序繪製 fallback:sheet 缺了就只記數、不畫
@@ -1500,7 +1630,7 @@ export function createWorld(canvas,{onSelect=()=>{},onPlace=()=>{},getState=()=>
     g.save();g.globalAlpha=alpha;g.translate(R(x),R(y));if(rot)g.rotate(rot);if(flip)g.scale(-1,1);g.drawImage(hs.fx,i*c,0,c,c,-c*k/2,-c*k/2,c*k,c*k);g.restore();return true;}
   // 各職業技能特效格(<職業>-fx 表,8 格):fly = 飛行物格、hit = 命中格、self = 英雄身上的格(旋風/聖盾/蓄力)。順序對 make_heroes_v3.py 的 fx_frames。
   // selfY:身上特效的高度(蓄力漩渦在腳邊 2、旋風/聖盾在身體中間 10);selfA:身上特效透明度(聖盾半透明,不蓋掉角色)
-  const SKILL_FX={archer:{fly:[0,1],hit:[3,4,5],self:[6,7],size:14,selfY:2,selfA:.9},ranger:{fly:[2],hit:[3,4,5],self:[6,7],size:16,selfY:2,selfA:.9},sorcerer:{fly:[1,2],hit:[3,4,5],self:[6,7],size:18,selfY:2,selfA:.9},
+  const SKILL_FX={archer:{fly:[0,1],hit:[3,4,5],self:[6,7],size:14,selfY:2,selfA:.9},sorcerer:{fly:[1,2],hit:[3,4,5],self:[6,7],size:18,selfY:2,selfA:.9},
     berserker:{fly:[],hit:[5,6,7],self:[0,1,2,3,4],size:30,selfY:10,selfA:.9},paladin:{fly:[],hit:[6,7],self:[0,1,2,3,4,5],size:28,selfY:10,selfA:.55}};
   function drawSkillSelf(e,age0,p){const cfg=SKILL_FX[e.cls],t=age0-(e.delay||0);if(!cfg||!heroSheets[e.cls]?.fx)return;const len=cfg.self.length*.09;if(t<-.25||t>len)return;
     const i=cfg.self[Math.max(0,Math.min(cfg.self.length-1,Math.floor((t+.25)/(len+.25)*cfg.self.length)))];fxFrame(e.cls,i,p.x,p.y-cfg.selfY*scale,cfg.selfY<5?cfg.size*.9:cfg.size,{alpha:cfg.selfA*(t>len-.1?Math.max(0,(len-t)/.1):1)});}
@@ -1554,16 +1684,20 @@ export function createWorld(canvas,{onSelect=()=>{},onPlace=()=>{},getState=()=>
   }
   // 每幀都要重畫的物件:單位、會動的裝飾、(沒有概念圖時)會冒煙的建築
   const isMoving=item=>item.type==='hunter'||item.type==='wanderer'||item.type==='enemy'||(item.type==='decor'&&(!!item.data.walk||ANIMATED_DECOR.has(item.data.type)))||(item.type==='building'&&!atlasCell(item.data.id)&&['forge','enhancement','restaurant','inn','hall'].includes(item.data.id));
-  // 把地面、影子、精靈依序合成到 comp。rects 是裝置像素範圍(只重算這些範圍),null 表示整張;
-  // 順序和直接畫到螢幕相同,範圍內的結果與直接畫逐像素一致。
+  // 把地面、影子、精靈依序合成到 comp(rects=裝置像素範圍,null=整張)。順序和直接畫到螢幕相同。
   function paintComp(rects){
     cmp.save();cmp.setTransform(1,0,0,1,0,0);cmp.globalAlpha=1;
-    if(rects){devPath(cmp,rects);cmp.clip();}
-    cmp.drawImage(bgCache,0,0);cmp.globalAlpha=SHADOW_ALPHA;cmp.drawImage(shadowLayer,0,0);cmp.globalAlpha=1;cmp.drawImage(spriteLayer,0,0);
+    if(rects&&rects.length){devPath(cmp,rects);cmp.clip();}
+    cmp.drawImage(bgCache,0,0);if(shadowsOn){cmp.globalAlpha=SHADOW_ALPHA;cmp.drawImage(shadowLayer,0,0);cmp.globalAlpha=1;}cmp.drawImage(spriteLayer,0,0);
     cmp.restore();
   }
+  // 驗收/除錯用:逼下一幀整張重畫(檢查「畫面上有沒有殘影」時拿來對照)
+  globalThis.__mistvaleForceFull=()=>{lastViewKey=null;};   // 讓下一幀走「整張重畫所有物件」的路徑(驗收對照用)
+  // 除錯/效能觀察用:目前用了哪一種合成模式、畫布解析度、上一幀的合成範圍數量
+  const perfStat={mode:'-',modeFrames:{direct:0,region:0,full:0},rects:0};
+  globalThis.__mistvalePerf=()=>({...perfStat,canvas:[canvas.width,canvas.height],dpr:renderDprMax,coarse:coarsePointer,scale:+scale.toFixed(2),phase:+phase.toFixed(3),night:+nightLast.toFixed(3)});
   function render(){
-    DPRK=canvas.width/width;renderedScale=scale;renderedCam={x:cam.x,y:cam.y};if(!zoomTimer&&canvas.style.transform)canvas.style.transform='';for(const c of [bg,sg,spg,ssc,bgc,fsc,rdc]){c.setTransform(DPRK,0,0,DPRK,0,0);c.imageSmoothingEnabled=false;}
+    DPRK=canvas.width/width;if(canvas.style.transform)canvas.style.transform='';for(const c of [bg,sg,spg,ssc,bgc,fsc,rdc,cmp]){c.setTransform(DPRK,0,0,DPRK,0,0);c.imageSmoothingEnabled=false;}
     screen.imageSmoothingEnabled=false;g.imageSmoothingEnabled=false;hits.length=0;uiLabels.length=0;screenTexts.length=0;
     const gx=camPxX()+R(-groundOrigin.x*scale),gy=camPxY()+R(-groundOrigin.y*scale);
     // 鏡頭、縮放、畫布大小、地形、村莊都沒變 = 靜止;連續兩幀靜止才錄製,之後每幀直接複製快取
@@ -1608,6 +1742,7 @@ export function createWorld(canvas,{onSelect=()=>{},onPlace=()=>{},getState=()=>
     if(settled&&staticKey!==vk)recordStatic(all,vk);
     let compMode='direct',compRects=null;   // 合成方式:direct=直接畫到螢幕;region=只重算 compRects 範圍;full=整張重算
     if(staticKey===vk){
+      // 只剩「快取層剛重建」才需要整張合成(comp 圖層已移除,compValid 不再有意義)
       const fullRebuild=!compValid||spgGen!==staticGen||sgGen!==staticGen,dirtyPrev=spgPrev.concat(sgPrev);   // 上一幀動過的範圍(下面會還原,先記下)
       const dyn=[];
       for(const item of all)if(isMoving(item)){const q=item.type==='building'?(state.layout?.[item.data.id]||item.data):item.data,p=screenPoint(q.x,q.z);
@@ -1660,11 +1795,15 @@ export function createWorld(canvas,{onSelect=()=>{},onPlace=()=>{},getState=()=>
       finally{casting=false;g=bg;shadowMode='normal';}
     }
     // 影子整層一次壓上地面(重疊處不會疊黑),再蓋上所有物件。
+    perfStat.mode=compMode;perfStat.modeFrames[compMode]=(perfStat.modeFrames[compMode]||0)+1;perfStat.rects=compRects?compRects.length/4:0;
     if(compMode==='direct'){
       if(staticKey===vk)copyLayer(g,bgCache);   // 走快取但範圍太大:背景還沒畫到螢幕上,這裡補上
-      g.save();g.setTransform(1,0,0,1,0,0);g.globalAlpha=SHADOW_ALPHA;g.drawImage(shadowLayer,0,0);g.globalAlpha=1;g.drawImage(spriteLayer,0,0);g.restore();
-      compValid=false;
+      g.save();g.setTransform(1,0,0,1,0,0);if(shadowsOn){g.globalAlpha=SHADOW_ALPHA;g.drawImage(shadowLayer,0,0);g.globalAlpha=1;}g.drawImage(spriteLayer,0,0);g.restore();
+      compValid=false;   // comp 已經不是這一幀的畫面,下一幀要整張重做
     }else{
+      // 原版做法:三層先合成到 comp(只重算動過的範圍),再把 comp 整張貼到螢幕。
+      // 整張貼不可省 —— 特效、傷害數字、花粉/雪、殘影、建築名牌只畫在螢幕上,只有整張覆蓋才會被清掉,
+      // 一旦改成「只貼動過的範圍」,這些東西就會留在畫面上變成殘影(2026-10-20 踩過)。
       paintComp(compMode==='full'?null:compRects);
       g.save();g.setTransform(1,0,0,1,0,0);g.globalAlpha=1;g.drawImage(comp,0,0);g.restore();
       compValid=true;
@@ -1674,10 +1813,33 @@ export function createWorld(canvas,{onSelect=()=>{},onPlace=()=>{},getState=()=>
     for(const f of overlays.splice(0))f();
     if(document.body.dataset.artReview==='1')uiLabels.length=0;
     for(const e of state.effects||[])drawEffect(e);
+    // 動作實驗室預覽:直接把那一格畫在畫面中央(純預覽,不影響模擬)
+    if(posePreview){
+      const sh=heroSheets[posePreview.classId],m=sh&&sh.meta,a=m&&m.actions[posePreview.act];
+      if(a){
+        const idx=Math.max(0,Math.min(a.frames-1,posePreview.i|0)),size=Math.round(190*scale*0.62);
+        const px=Math.round(width/2-size/2),py=Math.round(Math.min(height*0.62,height-170)-size);
+        g.save();g.imageSmoothingEnabled=false;g.globalAlpha=1;
+        const ax=a.cell*(a.cols?idx%a.cols:idx),ay=a.y+(a.cols?Math.floor(idx/a.cols):0)*a.cell;
+        if(posePreview.facing<0){g.translate(px+size,py);g.scale(-1,1);g.drawImage(sh.img,ax,ay,a.cell,a.cell,0,0,size,size);}
+        else g.drawImage(sh.img,ax,ay,a.cell,a.cell,px,py,size,size);
+        g.restore();
+        // 零件層（劍等）：同一格位、同一個框，跟遊戲裡一樣疊在身體上
+        if(partsVisible)for(const part of m.parts||[]){const ps=heroSheets[part.sheet],pa=ps?.meta.actions[posePreview.act];if(!pa)continue;
+          const pi=Math.max(0,Math.min(pa.frames-1,idx));g.save();g.imageSmoothingEnabled=false;
+          if(posePreview.facing<0){g.translate(px+size,py);g.scale(-1,1);g.drawImage(ps.img,pa.cell*pi,pa.y,pa.cell,pa.cell,0,0,size,size);}
+          else g.drawImage(ps.img,pa.cell*pi,pa.y,pa.cell,pa.cell,px,py,size,size);
+          g.restore();}
+      }
+    }
     // Small ambient birds and bright drifting pollen keep the village alive.
     if(quality){for(let i=0;i<12;i++){const x=((elapsed*(2+i%3)+i*79)%width),y=(i*47+Math.sin(elapsed*.5+i)*7)%(height);g.globalAlpha=.4;pixel(g,x,y,1,1,'#f2e9be');}g.globalAlpha=1;}
     const cb=biomeAt((cam.x/PX+cam.y/PY)/2,(cam.y/PY-cam.x/PX)/2);if(quality&&cb==='snow'&&!globalThis.matchMedia?.('(prefers-reduced-motion: reduce)').matches){for(let i=0;i<34;i++){const x=(i*59+Math.sin(elapsed*.4+i)*12+width)%width,y=(i*41+elapsed*(6+i%4))%height;pixel(g,x,y,i%4===0?2:1,1,'#eff5e7');}}
-    const night=phase>.5?Math.sin((phase-.5)*Math.PI*2)*.15:0;if(night>0){g.fillStyle=`rgba(32,43,79,${night})`;g.fillRect(0,0,width,height);}
+    // 夜晚變暗:用 DOM 覆蓋層的 CSS 透明度(合成器做,幾乎不花 GPU),
+    // 以前是每幀對整張畫布 fillRect 一次(手機上等於多一次滿版填色)。
+    const night=nightOn&&phase>.5?Math.sin((phase-.5)*Math.PI*2)*.15:0;
+    nightLast=night;
+    if(Math.abs(night-nightShown)>.008){nightShown=night;nightLayer.style.opacity=night>0?night.toFixed(3):'0';}
     // Placement preview projects to the same coordinate system as simulation.
     if(placing&&hover){const blk=blockAt(hover.x,hover.z),snap=blk&&blk.use!=='plaza'?blk:hover,p=screenPoint(snap.x,snap.z),sp=atlasCell(placing)||buildingSprite(placing),w=conceptBuildingWidth(placing);ring(p,30,'#d8ebac');drawSprite(sp,p,w,w*sp.height/sp.width,9,.55);textLabel('點擊放置 · ESC 取消',p.x,p.y+22,{color:'#e6edbf'});}
     // 地名:拉遠才顯示,畫在戰鬥空地外緣(北邊)而不是空地中央。
@@ -1686,7 +1848,21 @@ export function createWorld(canvas,{onSelect=()=>{},onPlace=()=>{},getState=()=>
     for(const t of screenTexts)drawScreenText(t,k);
     screen.font=`bold ${Math.round(11*k)}px "Microsoft JhengHei", "Noto Sans TC", sans-serif`;for(const l of uiLabels){const x=Math.round(l.x*k),y=Math.round(l.y*k),tw=screen.measureText(l.text).width;screen.fillStyle='#1c0e06cc';screen.fillRect(x-tw/2-6*k,y-9*k,tw+12*k,19*k);screen.fillStyle='#4a2611e6';screen.fillRect(x-tw/2-5*k,y-8*k,tw+10*k,17*k);screen.fillStyle='#8a5530e6';screen.fillRect(x-tw/2-5*k,y-8*k,tw+10*k,2*k);screen.fillStyle='#dab247aa';screen.fillRect(x-tw/2-4*k,y+8*k,tw+8*k,k);screen.fillStyle=l.color;screen.fillText(l.text,x,y);}screen.restore();
   }
-  function update(dt,nextState){if(disposed)return;if(nextState){state=nextState;const key=BUILDINGS.map(b=>`${b.id}:${state.buildings?.[b.id]>0}:${state.layout?.[b.id]?.x??b.x}:${state.layout?.[b.id]?.z??b.z}`).join('|');if(!terrainLoadsPending&&(key!==landscapeKey||terrainPatternRev!==lastPatternRev)){lastPatternRev=terrainPatternRev;landscapeKey=key;generateGround();}}elapsed+=Math.min(dt||0,.1);heroLodScale=scale*DPRK;ensureAtlas();const t=1-Math.exp(-Math.max(.016,dt||.016)*7);cam.x+=(target.x-cam.x)*t;cam.y+=(target.y-cam.y)*t;if(variantJobs.size)pumpVariants();if(hiQueue.length)pumpHi();if(pinching)applyZoomPreview();else if(zoomTimer&&previewFits())applyZoomPreview();else{canvas.style.transform='';render();}}
+  let followFn=null,followOpts={};   // 跟隨:回傳 {x,z} 時每幀把鏡頭目標移到那裡(手動操控用)
+  // 螢幕方向 → 世界方向(手動操控的搖桿用):iso 是 (x−z)*PX、(x+z)*PY,反解回來就是世界方向。
+  // 長度不重要(pilotStep 會自己正規化成單位向量),只有方向要對:手指往右上,角色就往畫面右上走。
+  function dirFromScreen(dx,dy){return{x:(dx/PX+dy/PY)/2,z:(dy/PY-dx/PX)/2};}
+  // 跟隨的鏡頭目標。預設(centerBody)把「角色本體的中心」釘在畫面正中央,不是腳底:
+  // 腳底螢幕 y = height/2 + 50 − cam.y*scale + iso.y*scale,角色身高 = 21 邏輯單位,
+  // 所以 cam.y 要多 50/scale、再減掉半個身高,腳底剛好落在中心下方半個身高處。
+  function followTarget(fp){
+    const p=iso(fp.x,fp.z);
+    if(!followOpts.centerBody)return p;
+    const half=(Number.isFinite(fp.h)?fp.h:HERO_H)/2;
+    return{x:p.x,y:p.y-half+50/scale};
+  }
+  function update(dt,nextState){if(disposed)return;
+    if(followFn){const fp=followFn();if(fp){homeFraming=false;target=followTarget(fp);if(followOpts.snap){cam.x=target.x;cam.y=target.y;}}}if(nextState){state=nextState;const key=BUILDINGS.map(b=>`${b.id}:${state.buildings?.[b.id]>0}:${state.layout?.[b.id]?.x??b.x}:${state.layout?.[b.id]?.z??b.z}`).join('|');if(!terrainLoadsPending&&(key!==landscapeKey||terrainPatternRev!==lastPatternRev)){lastPatternRev=terrainPatternRev;landscapeKey=key;generateGround();}}elapsed+=Math.min(dt||0,.1);heroLodScale=scale*DPRK;if((++atlasTick%10)===0)ensureAtlas();   /* 素材載入只發生在前幾秒:每 10 幀檢查一次就夠 */const t=1-Math.exp(-Math.max(.016,dt||.016)*7);cam.x+=(target.x-cam.x)*t;cam.y+=(target.y-cam.y)*t;if(variantJobs.size&&!interacting())pumpVariants();if(hiQueue.length&&!interacting())pumpHi();render();}
   function setTime(p){phase=typeof p==='number'?((p%1)+1)%1:.15;}
   function setQuality(v){quality=v!==false&&v!=='low';}
   // 讀取完成判斷(pixel-ui.js 靠它決定何時進村莊):村莊地板(含地面貼圖)已用貼圖畫好、每棟建築都有 Xilurus 圖(不是程序版)。
@@ -1728,7 +1904,9 @@ export function createWorld(canvas,{onSelect=()=>{},onPlace=()=>{},getState=()=>
       .filter(cls=>heroSheets[cls]&&heroSheets[cls].meta.kind!=='part');   // 零件表不是角色，不要叫進村
     return list.filter(cls=>spawnVillager(cls));
   }
-  resize();render();return{update,resize:responsiveResize,project,assetsReady,warmupAssets,focus:(id)=>{homeFraming=false;focus(id);},hitRects:()=>hits.filter(h=>BUILDINGS.some(b=>b.id===h.id)).map(h=>({id:h.id,x:h.x,y:h.y,w:h.w,h:h.h})),buildingScale:id=>effectiveScale(id),lookAt:(x,z,v)=>{homeFraming=false;if(v)scale=Math.max(.48,Math.min(5.4,v));target=iso(x,z);cam={...target};},zoomTo:(v)=>{homeFraming=false;scale=Math.max(.48,Math.min(5.4,v));},getScale:()=>scale,setSelected,zoomBy,placeMode,setTime,setQuality,dispose,spawnVillager,spawnClassVillagers,setPartsVisible:(v)=>{partsVisible=v!==false;},getPartsVisible:()=>partsVisible,landscapeStats:()=>({roads:roads.length,terrainRevision,
+  resize();render();return{update,resize:responsiveResize,project,assetsReady,warmupAssets,focus:(id)=>{homeFraming=false;focus(id);},hitRects:()=>hits.filter(h=>BUILDINGS.some(b=>b.id===h.id)).map(h=>({id:h.id,x:h.x,y:h.y,w:h.w,h:h.h})),buildingScale:id=>effectiveScale(id),lookAt:(x,z,v)=>{homeFraming=false;if(v)scale=Math.max(zoomFloor(),Math.min(ZOOM_MAX,v));target=iso(x,z);cam={...target};},zoomTo:(v)=>{homeFraming=false;scale=Math.max(zoomFloor(),Math.min(ZOOM_MAX,v));},getScale:()=>scale,setSelected,zoomBy,placeMode,setTime,setQuality,setFollow:(fn,opts)=>{followFn=typeof fn==='function'?fn:null;followOpts=(followFn&&opts&&typeof opts==='object')?opts:{};},dirFromScreen,followInfo:()=>followFn?(followOpts.centerBody?{centerBody:true,snap:!!followOpts.snap}:{centerBody:false,snap:!!followOpts.snap}):null,setShadows:(v)=>{shadowsOn=v!==false;compValid=false;},setNight:(v)=>{nightOn=v!==false;},
+    setDpr:(v)=>{dprCap=v==='auto'||v==null?null:Math.max(1,Math.min(3,Number(v)||autoDpr()));renderDprMax=Math.max(1,Math.min(dprCap||autoDpr(),globalThis.devicePixelRatio||1));resize();compValid=false;render();},
+    dispose,spawnVillager,spawnClassVillagers,setPartsVisible:(v)=>{partsVisible=v!==false;},getPartsVisible:()=>partsVisible,landscapeStats:()=>({roads:roads.length,terrainRevision,
     decor:decorations.map(d=>({type:d.type,x:d.x,z:d.z}))})};
 }
 

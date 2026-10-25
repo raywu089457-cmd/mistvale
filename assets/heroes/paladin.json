@@ -70,46 +70,52 @@
    "frameTime": 0.1
   },
   "attack": {
-   "y": 1100,
-   "cell": 100,
-   "frames": 8,
+   "y": 1300,
+   "cell": 160,
+   "frames": 9,
    "head": [
     [
-     46.5,
-     26
+     77.5,
+     90
     ],
     [
-     45.5,
-     26
+     80.4,
+     89
     ],
     [
-     44.5,
-     26
+     72.0,
+     92
     ],
     [
-     45.5,
-     27
+     72.0,
+     92
+    ],
+    null,
+    null,
+    null,
+    [
+     75.0,
+     90
     ],
     [
-     46.0,
-     27
-    ],
-    [
-     49.5,
-     27
-    ],
-    [
-     45.5,
-     26
-    ],
-    [
-     45.5,
-     27
+     77.5,
+     90
     ]
    ],
    "frameTime": 0.075,
    "release": 4,
-   "impact": 5
+   "impact": 5,
+   "artScale": 0.1776,
+   "bodySource": "sprite-gen 流程重新生成（不參考舊攻擊）：l0veyou GPT Image 2（造型基準＝東向待機圖）→ sprite-gen cutout → grid_snap_downscale＋共用調色盤 → 腳底貼地、後腳跟固定；6 格對 9 格 [0, 1, 2, 2, 3, 4, 4, 5, 0]",
+   "strikeDur": [
+    0.035,
+    0.09,
+    0.075,
+    0.085,
+    0.09
+   ],
+   "windupPow": 0.6,
+   "bakedMotion": true
   },
   "skill": {
    "y": 1200,
@@ -151,6 +157,408 @@
    ],
    "frameTime": 0.075,
    "release": 4
+  },
+  "attackDownRight": {
+   "y": 1460,
+   "cell": 160,
+   "frames": 9,
+   "head": [
+    [
+     84.1,
+     83
+    ],
+    [
+     81.8,
+     91
+    ],
+    [
+     68.5,
+     82
+    ],
+    [
+     63.3,
+     89
+    ],
+    [
+     79.8,
+     92
+    ],
+    [
+     81.5,
+     84
+    ],
+    [
+     80.1,
+     90
+    ],
+    [
+     76.8,
+     91
+    ],
+    [
+     84.1,
+     83
+    ]
+   ],
+   "frameTime": 0.075,
+   "release": 4,
+   "impact": 5,
+   "artScale": 0.5394
+  },
+  "attackDown": {
+   "y": 1620,
+   "cell": 160,
+   "frames": 9,
+   "head": [
+    [
+     84.0,
+     67
+    ],
+    [
+     68.5,
+     44
+    ],
+    [
+     90.5,
+     53
+    ],
+    [
+     61.5,
+     54
+    ],
+    [
+     79.5,
+     41
+    ],
+    [
+     73.0,
+     72
+    ],
+    null,
+    null,
+    [
+     84.5,
+     68
+    ]
+   ],
+   "frameTime": 0.075,
+   "release": 4,
+   "impact": 5,
+   "artScale": 0.4922,
+   "bodySource": "使用者給的 3×3 套圖（PixelLab 256 畫布、刀光畫在身上）→ sprite-gen unpack-atlas --grid 3x3 ＋ connected_components 拿掉右上角盾牌圖示 → compose-atlas → 等比縮放、腳點貼齊；劍尖低於腳 → 列自帶 footFromBottom",
+   "strikeDur": [
+    0.035,
+    0.09,
+    0.075,
+    0.085,
+    0.09
+   ],
+   "windupPow": 0.6,
+   "bakedMotion": true,
+   "footFromBottom": 30
+  },
+  "attackUpRight": {
+   "y": 1780,
+   "cell": 160,
+   "frames": 9,
+   "head": [
+    [
+     72.0,
+     89
+    ],
+    [
+     75.5,
+     89
+    ],
+    [
+     76.0,
+     89
+    ],
+    [
+     79.5,
+     91
+    ],
+    [
+     90.2,
+     88
+    ],
+    [
+     72.0,
+     89
+    ],
+    [
+     72.0,
+     89
+    ],
+    [
+     74.0,
+     91
+    ],
+    [
+     72.0,
+     89
+    ]
+   ],
+   "frameTime": 0.075,
+   "release": 4,
+   "impact": 5,
+   "artScale": 0.4744
+  },
+  "attackUp": {
+   "y": 1940,
+   "cell": 160,
+   "frames": 9,
+   "head": [
+    [
+     80.0,
+     89
+    ],
+    [
+     85.7,
+     86
+    ],
+    [
+     88.5,
+     72
+    ],
+    [
+     88.5,
+     72
+    ],
+    [
+     77.5,
+     91
+    ],
+    [
+     79.0,
+     96
+    ],
+    [
+     79.0,
+     96
+    ],
+    [
+     80.0,
+     89
+    ],
+    [
+     80.0,
+     89
+    ]
+   ],
+   "frameTime": 0.075,
+   "release": 4,
+   "impact": 5,
+   "artScale": 0.4961,
+   "bodySource": "新管線：sprite-gen（l0veyou GPT，只用北向待機當參考）設計動作 → PixelLab estimate-skeleton → animate-with-skeleton-v3；下劈/命中兩格 PixelLab 畫不出（背面跨身劈），改用 GPT 格鎖 PixelLab 色盤。各格來源：PixelLab 待機／PixelLab／PixelLab／PixelLab／GPT(鎖色)／GPT(鎖色)／GPT(鎖色)／PixelLab／PixelLab 待機",
+   "strikeDur": [
+    0.035,
+    0.09,
+    0.075,
+    0.085,
+    0.09
+   ],
+   "windupPow": 0.6,
+   "bakedMotion": true
+  },
+  "attackLeft": {
+   "y": 2100,
+   "cell": 160,
+   "frames": 9,
+   "head": [
+    [
+     85.0,
+     89
+    ],
+    [
+     79.5,
+     91
+    ],
+    [
+     79.5,
+     92
+    ],
+    [
+     76.5,
+     93
+    ],
+    [
+     62.0,
+     90
+    ],
+    [
+     61.0,
+     90
+    ],
+    [
+     61.0,
+     90
+    ],
+    [
+     76.5,
+     90
+    ],
+    [
+     85.0,
+     89
+    ]
+   ],
+   "artScale": 0.504,
+   "frameTime": 0.075,
+   "release": 4,
+   "impact": 5,
+   "bodySource": "手 K 骨架（slash_pose.py west）→ PixelLab animate-with-skeleton-v3 空手揮砍；手位＝骨架手腕",
+   "strikeDur": [
+    0.035,
+    0.09,
+    0.075,
+    0.085,
+    0.09
+   ],
+   "windupPow": 0.6,
+   "bakedMotion": true
+  },
+  "attackDownLeft": {
+   "y": 2260,
+   "cell": 160,
+   "frames": 9,
+   "head": [
+    [
+     79.0,
+     90
+    ],
+    [
+     71.5,
+     91
+    ],
+    [
+     81.0,
+     82
+    ],
+    [
+     89.9,
+     91
+    ],
+    [
+     90.6,
+     88
+    ],
+    [
+     93.0,
+     71
+    ],
+    [
+     92.5,
+     89
+    ],
+    [
+     91.5,
+     91
+    ],
+    [
+     78.0,
+     90
+    ]
+   ],
+   "artScale": 0.4969,
+   "frameTime": 0.075,
+   "release": 4,
+   "impact": 5
+  },
+  "attackUpLeft": {
+   "y": 2420,
+   "cell": 160,
+   "frames": 9,
+   "head": [
+    [
+     87.9,
+     83
+    ],
+    [
+     91.5,
+     86
+    ],
+    [
+     82.0,
+     88
+    ],
+    [
+     87.5,
+     91
+    ],
+    [
+     77.5,
+     88
+    ],
+    [
+     64.0,
+     92
+    ],
+    [
+     65.0,
+     92
+    ],
+    [
+     80.0,
+     89
+    ],
+    [
+     87.9,
+     83
+    ]
+   ],
+   "artScale": 0.5181,
+   "frameTime": 0.075,
+   "release": 4,
+   "impact": 5
+  },
+  "idleLeft": {
+   "y": 2580,
+   "cell": 100,
+   "frames": 1,
+   "frameTime": 0.16
+  },
+  "walkLeft": {
+   "y": 2680,
+   "cell": 100,
+   "frames": 8,
+   "frameTime": 0.125
+  },
+  "idleDownRight": {
+   "y": 2780,
+   "cell": 100,
+   "frames": 1,
+   "frameTime": 0.16
+  },
+  "idleUpRight": {
+   "y": 2880,
+   "cell": 100,
+   "frames": 1,
+   "frameTime": 0.16
+  },
+  "idleDownLeft": {
+   "y": 2980,
+   "cell": 100,
+   "frames": 1,
+   "frameTime": 0.16
+  },
+  "idleUpLeft": {
+   "y": 3080,
+   "cell": 100,
+   "frames": 1,
+   "frameTime": 0.16
+  },
+  "walkDownLeft": {
+   "y": 3180,
+   "cell": 100,
+   "frames": 8,
+   "frameTime": 0.125
+  },
+  "walkUpLeft": {
+   "y": 3280,
+   "cell": 100,
+   "frames": 8,
+   "frameTime": 0.125
   }
  },
  "palette": [
@@ -409,5 +817,18 @@
    189
   ]
  },
- "source": "PixelLab 匯出（d06dcc3a）：8 方向旋轉 + 走路；2:1 降採樣回原生像素；hurt/victory/death 為確定性合成"
+ "source": "PixelLab 匯出（d06dcc3a）：8 方向旋轉 + 走路；2:1 降採樣回原生像素；hurt/victory/death 為確定性合成",
+ "parts": [
+  {
+   "id": "smear",
+   "sheet": "paladin-smear",
+   "order": 1,
+   "shadow": false
+  },
+  {
+   "id": "sword",
+   "sheet": "paladin-sword",
+   "order": 2
+  }
+ ]
 }

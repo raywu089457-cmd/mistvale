@@ -74,6 +74,448 @@
    "cell": 200,
    "frames": 8,
    "frameTime": 0.1
+  },
+  "attack": {
+   "y": 2400,
+   "cell": 256,
+   "frames": 9,
+   "footFromBottom": 64,
+   "head": [
+    [
+     129.0,
+     67
+    ],
+    [
+     128.0,
+     67
+    ],
+    [
+     127.0,
+     67
+    ],
+    [
+     127.0,
+     67
+    ],
+    [
+     123.0,
+     67
+    ],
+    [
+     134.0,
+     67
+    ],
+    [
+     134.0,
+     67
+    ],
+    [
+     132.0,
+     67
+    ],
+    [
+     129.0,
+     67
+    ]
+   ],
+   "frameTime": 0.075,
+   "release": 5,
+   "impact": 6,
+   "windupFrameTime": 0.075,
+   "bakedMotion": true,
+   "fxInSprite": true
+  },
+  "attackDownRight": {
+   "y": 2656,
+   "cell": 256,
+   "frames": 9,
+   "footFromBottom": 64,
+   "head": [
+    [
+     130.0,
+     65
+    ],
+    [
+     128.5,
+     65
+    ],
+    [
+     128.5,
+     65
+    ],
+    [
+     125.5,
+     63
+    ],
+    [
+     124.0,
+     63
+    ],
+    [
+     140.5,
+     69
+    ],
+    [
+     140.5,
+     69
+    ],
+    [
+     136.0,
+     68
+    ],
+    [
+     130.0,
+     65
+    ]
+   ],
+   "frameTime": 0.075,
+   "release": 5,
+   "impact": 6,
+   "windupFrameTime": 0.075,
+   "bakedMotion": true,
+   "fxInSprite": true
+  },
+  "attackDown": {
+   "y": 2912,
+   "cell": 256,
+   "frames": 9,
+   "footFromBottom": 64,
+   "head": [
+    [
+     127.5,
+     64
+    ],
+    [
+     129.0,
+     65
+    ],
+    [
+     129.0,
+     64
+    ],
+    [
+     127.5,
+     64
+    ],
+    [
+     127.5,
+     64
+    ],
+    [
+     129.5,
+     66
+    ],
+    [
+     129.5,
+     66
+    ],
+    [
+     129.5,
+     65
+    ],
+    [
+     128.0,
+     64
+    ]
+   ],
+   "frameTime": 0.075,
+   "release": 5,
+   "impact": 6,
+   "windupFrameTime": 0.075,
+   "bakedMotion": true,
+   "fxInSprite": true
+  },
+  "attackUpRight": {
+   "y": 3168,
+   "cell": 256,
+   "frames": 9,
+   "footFromBottom": 64,
+   "head": [
+    [
+     129.0,
+     69
+    ],
+    [
+     128.0,
+     69
+    ],
+    [
+     127.0,
+     70
+    ],
+    [
+     126.0,
+     70
+    ],
+    [
+     125.5,
+     70
+    ],
+    [
+     135.5,
+     69
+    ],
+    [
+     135.0,
+     69
+    ],
+    [
+     132.5,
+     69
+    ],
+    [
+     129.0,
+     69
+    ]
+   ],
+   "frameTime": 0.075,
+   "release": 5,
+   "impact": 6,
+   "windupFrameTime": 0.075,
+   "bakedMotion": true,
+   "fxInSprite": true
+  },
+  "attackUp": {
+   "y": 3424,
+   "cell": 256,
+   "frames": 9,
+   "footFromBottom": 64,
+   "head": [
+    [
+     128.0,
+     66
+    ],
+    [
+     130.0,
+     67
+    ],
+    [
+     129.0,
+     68
+    ],
+    [
+     128.5,
+     69
+    ],
+    [
+     127.5,
+     69
+    ],
+    [
+     128.5,
+     69
+    ],
+    [
+     148.5,
+     14
+    ],
+    [
+     150.0,
+     1
+    ],
+    [
+     128.0,
+     66
+    ]
+   ],
+   "frameTime": 0.075,
+   "release": 5,
+   "impact": 6,
+   "windupFrameTime": 0.075,
+   "bakedMotion": true,
+   "fxInSprite": true
+  },
+  "attackDownLeft": {
+   "y": 3680,
+   "cell": 256,
+   "frames": 9,
+   "footFromBottom": 64,
+   "head": [
+    [
+     126.0,
+     65
+    ],
+    [
+     126.0,
+     65
+    ],
+    [
+     128.0,
+     64
+    ],
+    [
+     127.5,
+     64
+    ],
+    [
+     127.5,
+     64
+    ],
+    [
+     126.0,
+     65
+    ],
+    [
+     122.0,
+     68
+    ],
+    [
+     124.5,
+     66
+    ],
+    [
+     126.5,
+     65
+    ]
+   ],
+   "frameTime": 0.075,
+   "release": 5,
+   "impact": 6,
+   "windupFrameTime": 0.075,
+   "bakedMotion": true,
+   "fxInSprite": true
+  },
+  "attackUpLeft": {
+   "y": 3936,
+   "cell": 256,
+   "frames": 9,
+   "footFromBottom": 64,
+   "head": [
+    [
+     126.5,
+     69
+    ],
+    [
+     126.5,
+     69
+    ],
+    [
+     129.0,
+     69
+    ],
+    [
+     128.5,
+     69
+    ],
+    [
+     126.5,
+     69
+    ],
+    [
+     104.5,
+     64
+    ],
+    [
+     119.5,
+     69
+    ],
+    [
+     122.5,
+     69
+    ],
+    [
+     126.5,
+     69
+    ]
+   ],
+   "frameTime": 0.075,
+   "release": 5,
+   "impact": 6,
+   "windupFrameTime": 0.075,
+   "bakedMotion": true,
+   "fxInSprite": true
+  },
+  "attackLeft": {
+   "y": 4192,
+   "cell": 256,
+   "frames": 9,
+   "footFromBottom": 64,
+   "head": [
+    [
+     127.0,
+     67
+    ],
+    [
+     127.5,
+     67
+    ],
+    [
+     128.0,
+     67
+    ],
+    [
+     128.0,
+     67
+    ],
+    [
+     128.0,
+     67
+    ],
+    [
+     119.0,
+     69
+    ],
+    [
+     119.5,
+     69
+    ],
+    [
+     122.5,
+     68
+    ],
+    [
+     127.0,
+     67
+    ]
+   ],
+   "frameTime": 0.075,
+   "release": 5,
+   "impact": 6,
+   "windupFrameTime": 0.075,
+   "bakedMotion": true,
+   "fxInSprite": true
+  },
+  "idleLeft": {
+   "y": 4448,
+   "cell": 200,
+   "frames": 1,
+   "frameTime": 0.16
+  },
+  "idleDownRight": {
+   "y": 4648,
+   "cell": 200,
+   "frames": 1,
+   "frameTime": 0.16
+  },
+  "idleUpRight": {
+   "y": 4848,
+   "cell": 200,
+   "frames": 1,
+   "frameTime": 0.16
+  },
+  "idleDownLeft": {
+   "y": 5048,
+   "cell": 200,
+   "frames": 1,
+   "frameTime": 0.16
+  },
+  "idleUpLeft": {
+   "y": 5248,
+   "cell": 200,
+   "frames": 1,
+   "frameTime": 0.16
+  },
+  "walkDownLeft": {
+   "y": 5448,
+   "cell": 200,
+   "frames": 8,
+   "frameTime": 0.125
+  },
+  "walkUpLeft": {
+   "y": 5648,
+   "cell": 200,
+   "frames": 8,
+   "frameTime": 0.125
   }
  },
  "palette": [

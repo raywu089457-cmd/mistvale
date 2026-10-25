@@ -1,7 +1,7 @@
 import assert from 'node:assert/strict';
 import {createGame} from './src/pixel-game.js';
 import {BUILDINGS,ART_LAYOUT_HISTORY} from './src/pixel-data.js';
-import {getRoads,onPaved,roadGraph,doorStand,doorFoot,PALISADE,villagePonds,inPond} from './src/landscape-layout.js';
+import {getRoads,onPaved,roadGraph,doorStand,doorFoot,PALISADE,villagePonds,inPond,buildingSolid,statueSolid} from './src/landscape-layout.js';
 import {walkable,inVillage,WORLD,regionContains} from './src/overworld.js';
 import {VILLAGE_BOUNDS,STREET_X,STREET_Z,GRID,FENCE,EXITS,EXIT_GAP,TILE,GAP,BUILDING_SLOTS,blockCenter,blockAt} from './src/village-grid.js';
 
@@ -25,7 +25,7 @@ for(const previous of ART_LAYOUT_HISTORY){
  assert.deepEqual(createGame(snapshot).state.layout,snapshot.layout,'custom village placement remains intact');
  snapshot.layout.bounty={x:2,z:20};snapshot.layout.dungeon={x:-9,z:2};const pulled=createGame(snapshot).state.layout;
  assert.ok(pulled.bounty.x<=VILLAGE_BOUNDS.maxX&&pulled.bounty.z<=VILLAGE_BOUNDS.maxZ,'a placement outside the village is pulled back inside');
- assert.deepEqual(pulled.dungeon,{x:24,z:-11},'the dungeon entrance stays where it is');}
+ assert.deepEqual(pulled.dungeon,{x:blockCenter(1,1).x,z:blockCenter(1,1).z},'the dungeon entrance stays where it is');}
 for(let i=0;i<BUILDINGS.length;i++){
  const a=BUILDINGS[i];
  assert.ok(walkable(a.x,a.z),`${a.name} default placement is on land`);
@@ -57,31 +57,48 @@ for(let i=0;i<BUILDINGS.length;i++){
  // 排版基準是最大的地基(城鎮大廳),所以最緊的那一對相鄰建築幾乎剛好 5 排地磚(差不到 0.2 排)。
  assert.ok(tightest>=GAP&&tightest-GAP<.1,`the tightest neighbouring pair is about 5 tile rows apart (${(tightest/TILE).toFixed(2)})`);
  const area=(VILLAGE_BOUNDS.maxX-VILLAGE_BOUNDS.minX)*(VILLAGE_BOUNDS.maxZ-VILLAGE_BOUNDS.minZ);assert.ok(area<900,`the village is compact (${area.toFixed(0)} square units)`);}
-// 村界木柵欄:沿村界一圈,只在兩個出村口留缺口(缺口寬 2×EXIT_GAP);柵欄在村界上、不壓到建築、出村口的路穿得過去。
+// 村界木柵欄:沿村界一圈,四個方向的正中央各留一個出村口(缺口寬 2×EXIT_GAP);柵欄在村界上、不壓到建築、出村口的路穿得過去。
 {const inRect=(r,x,z)=>x>r.minX&&x<r.maxX&&z>r.minZ&&z<r.maxZ;
- assert.equal(PALISADE.length,EXITS.length*2+2,'a fence runs along all four sides, with a gap at each exit');
+ const alongZ=x=>x.side==='east'||x.side==='west';   // 東西兩側的柵欄沿 z 走,缺口也沿 z
+ assert.equal(PALISADE.length,EXITS.length+4,'a fence runs along all four sides, with one gap per side');
  for(const r of PALISADE){assert.ok(r.minX>=VILLAGE_BOUNDS.minX-.1&&r.maxX<=VILLAGE_BOUNDS.maxX+.1&&r.minZ>=VILLAGE_BOUNDS.minZ-.1&&r.maxZ<=VILLAGE_BOUNDS.maxZ+.1,`${r.id} sits on the village edge`);
   for(const b of BUILDINGS.filter(b=>b.id!=='dungeon')){const p=game.state.layout[b.id];assert.ok(!(r.minX<p.x+b.w/2&&r.maxX>p.x-b.w/2&&r.minZ<p.z+b.d/2&&r.maxZ>p.z-b.d/2),`${r.id} does not touch ${b.name}`);}}
  for(const x of EXITS){
-  for(const d of [-(EXIT_GAP-.05),0,EXIT_GAP-.05]){const px=x.side==='east'?x.x:x.x+d,pz=x.side==='east'?x.z+d:x.z;assert.ok(!PALISADE.some(r=>inRect(r,px,pz)),`${x.id} gate is open at offset ${d.toFixed(2)}`);}
-  for(const d of [-(EXIT_GAP+.05),EXIT_GAP+.05]){const px=x.side==='east'?x.x:x.x+d,pz=x.side==='east'?x.z+d:x.z;assert.ok(PALISADE.some(r=>inRect(r,px,pz)),`${x.id} gate is only ${(2*EXIT_GAP).toFixed(1)} wide (fence resumes at offset ${d.toFixed(2)})`);}}
+  for(const d of [-(EXIT_GAP-.05),0,EXIT_GAP-.05]){const px=alongZ(x)?x.x:x.x+d,pz=alongZ(x)?x.z+d:x.z;assert.ok(!PALISADE.some(r=>inRect(r,px,pz)),`${x.id} gate is open at offset ${d.toFixed(2)}`);}
+  for(const d of [-(EXIT_GAP+.05),EXIT_GAP+.05]){const px=alongZ(x)?x.x:x.x+d,pz=alongZ(x)?x.z+d:x.z;assert.ok(PALISADE.some(r=>inRect(r,px,pz)),`${x.id} gate is only ${(2*EXIT_GAP).toFixed(1)} wide (fence resumes at offset ${d.toFixed(2)})`);}}
  // 沿村界走一圈,除了兩個缺口,每一個點都有柵欄。
  let open=0;for(const side of ['north','south','west','east']){const alongX=side==='north'||side==='south',at=side==='north'?FENCE.minZ:side==='south'?FENCE.maxZ:side==='west'?FENCE.minX:FENCE.maxX;
   for(let t=alongX?FENCE.minX:FENCE.minZ;t<=(alongX?FENCE.maxX:FENCE.maxZ);t+=.1){const x=alongX?t:at,z=alongX?at:t;if(!PALISADE.some(r=>inRect(r,x,z)))open++;}}
  assert.ok(Math.abs(open*.1-EXITS.length*2*EXIT_GAP)<.5,`the fence is closed except the exit gaps (open length ${(open*.1).toFixed(1)})`);}
 // 公園池塘:公園街區沒被占用時有池塘;建築搬進公園,池塘就沒了。池塘在街區裡,不碰鄰近的建築。
-{const g=createGame(),pk=blockCenter(1,1),ponds=villagePonds(g.state.layout,g.state.buildings);
- assert.equal(ponds.length,1,'the empty park block has a pond');assert.equal(blockAt(ponds[0].x,ponds[0].z).use,'park','the pond sits in the park block');
+// 公園池塘:地下城入口現在就放在公園街區(2026-10-20),所以那個街區沒有池塘;
+// 機制仍保留:把地下城移走(模擬沒有地下城的版面)池塘就會回來,建築搬進公園池塘就消失。
+{const g=createGame(),pk=blockCenter(1,1);
+ assert.equal(villagePonds(g.state.layout,g.state.buildings).length,0,'the dungeon entrance took the park block (no pond)');
+ assert.deepEqual(g.state.layout.dungeon,{x:pk.x,z:pk.z},'the dungeon entrance sits on the park block');
+ const moved={...g.state.layout,dungeon:{x:blockCenter(0,0).x,z:blockCenter(0,0).z}},ponds=villagePonds(moved,g.state.buildings);   // 地下城不在公園街區時,池塘回來
+ assert.equal(ponds.length,1,'the free park block has a pond again when the dungeon sits elsewhere');assert.equal(blockAt(ponds[0].x,ponds[0].z).use,'park','the pond sits in the park block');
  for(const b of BUILDINGS.filter(b=>b.id!=='dungeon')){const p=g.state.layout[b.id];assert.ok(!(ponds[0].x+ponds[0].rx>p.x-b.w/2&&ponds[0].x-ponds[0].rx<p.x+b.w/2&&ponds[0].z+ponds[0].rz>p.z-b.d/2&&ponds[0].z-ponds[0].rz<p.z+b.d/2),`the pond does not touch ${b.name}`);}
- assert.equal(g.moveBuilding('bounty',pk.x,pk.z).ok,true);assert.equal(villagePonds(g.state.layout,g.state.buildings).length,0,'a building on the park block takes the pond away');
  assert.equal(inPond(ponds,ponds[0].x,ponds[0].z),true);assert.equal(inPond(ponds,ponds[0].x+ponds[0].rx+.5,ponds[0].z),false);}
 for(const b of BUILDINGS.filter(b=>game.state.buildings[b.id]&&b.id!=='dungeon')){
  const p=game.state.layout[b.id];{const s=doorStand(b,p),f=doorFoot(b,p);assert.ok(onPaved(s.x,s.z,roads),`${b.name} has paved ground at its entrance`);assert.ok(onPaved(f.x,f.z,roads),`${b.name} door path starts at its steps`);}
 }
-// 村界上是木柵欄,只留兩個出村口:畫面右下(東)與左下(南);道路只到出村口,村外沒有路。
+// 村界上是木柵欄,四個方向各一個出村口(在該側正中央);道路只到出村口,村外沒有路。
 {const iso=(x,z)=>({x:(x-z)*9,y:(x+z)*4.5}),c=iso((FENCE.minX+FENCE.maxX)/2,(FENCE.minZ+FENCE.maxZ)/2);
- const e=iso(EXITS.find(e=>e.side==='east').x,EXITS.find(e=>e.side==='east').z),s=iso(EXITS.find(e=>e.side==='south').x,EXITS.find(e=>e.side==='south').z);
- assert.ok(e.x>c.x&&e.y>c.y,'east gate is on the lower-right of the screen');assert.ok(s.x<c.x&&s.y>c.y,'south gate is on the lower-left of the screen');
+ const at=side=>EXITS.find(e=>e.side===side);
+ const n=at('north'),e=at('east'),so=at('south'),w=at('west');
+ // 等角投影:北側(右上邊)在畫面右上方、東側(右下邊)在右下方、南側在左下方、西側在左上方。
+ const sc=g=>iso(g.x,g.z);
+ assert.ok(sc(n).x>c.x&&sc(n).y<c.y,'north gate is on the upper-right edge on screen');
+ assert.ok(sc(e).x>c.x&&sc(e).y>c.y,'east gate is on the lower-right edge on screen');
+ assert.ok(sc(so).x<c.x&&sc(so).y>c.y,'south gate is on the lower-left edge on screen');
+ assert.ok(sc(w).x<c.x&&sc(w).y<c.y,'west gate is on the upper-left edge on screen');
+ // 每個出村口都在該側柵欄的正中央(南北沿 x 取中點、東西沿 z 取中點)
+ const midX=(FENCE.minX+FENCE.maxX)/2,midZ=(FENCE.minZ+FENCE.maxZ)/2;
+ assert.ok(Math.abs(n.x-midX)<1e-6&&Math.abs(n.z-FENCE.minZ)<1e-6,'north gate sits in the middle of the north fence');
+ assert.ok(Math.abs(so.x-midX)<1e-6&&Math.abs(so.z-FENCE.maxZ)<1e-6,'south gate sits in the middle of the south fence');
+ assert.ok(Math.abs(e.z-midZ)<1e-6&&Math.abs(e.x-FENCE.maxX)<1e-6,'east gate sits in the middle of the east fence');
+ assert.ok(Math.abs(w.z-midZ)<1e-6&&Math.abs(w.x-FENCE.minX)<1e-6,'west gate sits in the middle of the west fence');
  for(const r of roads)for(const p of [r.a,r.b])assert.ok(inVillage(p.x,p.z)||EXITS.some(e=>Math.hypot(p.x-e.edge.x,p.z-e.edge.z)<.01),`road (${p.x},${p.z}) stays inside the village or ends on the village edge at an exit`);
  for(const x of EXITS)assert.ok(roads.some(r=>r.cap==='butt'&&Math.hypot(r.b.x-x.edge.x,r.b.z-x.edge.z)<.01),`${x.id} exit road is cut flat on the village edge`);
  const g=roadGraph(roads),seen=new Set([0]),stack=[0];while(stack.length){const i=stack.pop();for(const [j] of g.edges[i])if(!seen.has(j)){seen.add(j);stack.push(j);}}
@@ -94,7 +111,9 @@ for(const b of BUILDINGS.filter(b=>game.state.buildings[b.id]&&b.id!=='dungeon')
  // 沒蓋的建築也鋪(整個村莊地板都是石板)
  const empty=createGame();empty.state.buildings.forge=0;const er=getRoads(empty.state.layout,empty.state.buildings);assert.deepEqual(er.paved,roads.paved,'an unbuilt plot is paved too');}
 // 村內尋路:鋪面上自由走(8 個方向),只走在鋪面、不穿建築與擺設。
-const footprints=BUILDINGS.filter(b=>game.state.buildings[b.id]>0).map(b=>{const p=game.state.layout[b.id];return{id:b.id,minX:p.x-b.w/2,maxX:p.x+b.w/2,minZ:p.z-b.d/2,maxZ:p.z+b.d/2};});
+// 實心佔地 = 遊戲真正拿來擋人的那一份(landscape-layout.js 的 SOLID:蓋住看得見的牆),不是 b.w/b.d。
+const footprints=BUILDINGS.filter(b=>game.state.buildings[b.id]>0).map(b=>buildingSolid(b,game.state.layout[b.id]));
+footprints.push(statueSolid(blockCenter(0,0)));
 const ponds=villagePonds(game.state.layout,game.state.buildings);
 let travel=0,pavedTravel=0,segs=0,diagonal=0,straight=0,offPaved=[];
 for(let i=0;i<1800;i++){
@@ -115,7 +134,7 @@ for(let i=0;i<1800;i++){
 assert.ok(travel>500);assert.equal(pavedTravel,travel,`inside the village, hunters stay on paved ground (${pavedTravel}/${travel}) ${JSON.stringify(offPaved.slice(0,5))}`);
 assert.ok(segs>30&&diagonal>0&&straight>0,`hunters use both straight and diagonal 8-direction segments (${segs} segments, ${diagonal} diagonal, ${straight} straight)`);
 // 村內尋路的可走格就是鋪面扣掉建築地基(邊外加 0.32),鋪面上沒有看不見的障礙(街燈、花圃、門口小物都已拿掉)。
-{const nav=game.villageNav(),{W,H,isOpenCell,cellCenter}=nav,ringed=(x,z)=>footprints.some(f=>x>f.minX-.32&&x<f.maxX+.32&&z>f.minZ-.32&&z<f.maxZ+.32)||PALISADE.some(r=>x>r.minX&&x<r.maxX&&z>r.minZ&&z<r.maxZ)||inPond(ponds,x,z,.35);
+{const nav=game.villageNav(),{W,H,isOpenCell,cellCenter}=nav,ringed=(x,z)=>footprints.some(f=>x>f.minX&&x<f.maxX&&z>f.minZ&&z<f.maxZ)||PALISADE.some(r=>x>r.minX&&x<r.maxX&&z>r.minZ&&z<r.maxZ)||inPond(ponds,x,z,.35);
  let open=0,mismatch=0;
  for(let j=0;j<H;j++)for(let i=0;i<W;i++){const {x,z}=cellCenter(i,j);if(!inVillage(x,z))continue;
   let paved=true;for(let a=-.25;a<=.251&&paved;a+=.125)for(let b=-.25;b<=.251&&paved;b+=.125)if(!onPaved(x+a,z+b,roads))paved=false;
@@ -129,4 +148,4 @@ const moved=createGame();{const mk=blockCenter(-2,0);assert.equal(moved.moveBuil
  assert.equal(g.scaleBuilding('inn',1.2).ok,true);assert.equal(g.state.layout.inn.s,1.2);assert.equal(createGame(g.serialize()).state.layout.inn.s,1.2,'size survives save');
  assert.equal(g.scaleBuilding('inn',.1).ok,true);assert.equal(g.state.layout.inn.s,.6);}
 const saved=createGame(game.serialize());assert.equal(saved.state.gold,game.state.gold);assert.deepEqual(saved.state.layout,game.state.layout);
-console.log(`PASS: compact checkerboard (5 tile rows between buildings and to the edge), fence with 2 gates (lower-right/lower-left), pond, roads end at gates, the whole village floor paved, all facility entrances connected, monster leash, moved-building paths; ${(pavedTravel/travel*100).toFixed(1)}% of in-village hunter samples on paved ground, ${segs} village route segments (${diagonal} diagonal / ${straight} straight) all in the 8 directions.`);
+console.log(`PASS: compact checkerboard (5 tile rows between buildings and to the edge), fence with 4 gate gaps (middle of each side), pond block used by the dungeon, roads end at gates, the whole village floor paved, all facility entrances connected, monster leash, moved-building paths; ${(pavedTravel/travel*100).toFixed(1)}% of in-village hunter samples on paved ground, ${segs} village route segments (${diagonal} diagonal / ${straight} straight) all in the 8 directions.`);

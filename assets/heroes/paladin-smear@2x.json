@@ -1,0 +1,149 @@
+{
+ "hero": "paladin-smear",
+ "kind": "part",
+ "heroHeight": 134,
+ "footFromBottom": 16,
+ "source": "揮砍殘影（程式產生）：以握把為圓心、上一格劍角→這一格劍角的新月，不投影",
+ "actions": {
+  "attack": {
+   "y": 0,
+   "cell": 320,
+   "frames": 9,
+   "frameTime": 0.075,
+   "release": 4,
+   "impact": 5,
+   "offset": [
+    [
+     0,
+     0
+    ],
+    [
+     0,
+     0
+    ],
+    [
+     0,
+     0
+    ],
+    [
+     0,
+     0
+    ],
+    [
+     0,
+     0
+    ],
+    [
+     0,
+     0
+    ],
+    [
+     0,
+     0
+    ],
+    [
+     0,
+     0
+    ],
+    [
+     0,
+     0
+    ]
+   ],
+   "source": "l0veyou 像素刀光（sprite-gen cutout＋還原真像素），兩端對到 sprite-gen 東向劍尖軌跡"
+  },
+  "attackLeft": {
+   "y": 320,
+   "cell": 320,
+   "frames": 9,
+   "frameTime": 0.075,
+   "release": 4,
+   "impact": 5,
+   "offset": [
+    [
+     0,
+     0
+    ],
+    [
+     0,
+     0
+    ],
+    [
+     0,
+     0
+    ],
+    [
+     0,
+     0
+    ],
+    [
+     0,
+     0
+    ],
+    [
+     0,
+     0
+    ],
+    [
+     0,
+     0
+    ],
+    [
+     0,
+     0
+    ],
+    [
+     0,
+     0
+    ]
+   ]
+  },
+  "attackUp": {
+   "y": 640,
+   "cell": 320,
+   "frames": 9,
+   "frameTime": 0.075,
+   "release": 4,
+   "impact": 5,
+   "offset": [
+    [
+     0,
+     0
+    ],
+    [
+     0,
+     0
+    ],
+    [
+     0,
+     0
+    ],
+    [
+     0,
+     0
+    ],
+    [
+     0,
+     0
+    ],
+    [
+     0,
+     0
+    ],
+    [
+     0,
+     0
+    ],
+    [
+     0,
+     0
+    ],
+    [
+     0,
+     0
+    ]
+   ],
+   "source": "l0veyou 像素刀光（sprite-gen cutout＋還原真像素），兩端對北向劍尖軌跡"
+  }
+ }
+}

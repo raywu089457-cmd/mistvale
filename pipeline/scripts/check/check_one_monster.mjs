@@ -6,7 +6,7 @@ const root=path.resolve(path.dirname(fileURLToPath(import.meta.url)),'../../..')
 const type=process.argv[2]||'ogre',secs=+(process.argv[3]||120),out=path.join(root,'output/audit',type);fs.mkdirSync(out,{recursive:true});for(const f of fs.readdirSync(out))fs.unlinkSync(path.join(out,f));
 const b=await chromium.launch({channel:'chromium'});const p=await b.newPage({viewport:{width:1280,height:800}});
 const errs=[];p.on('pageerror',e=>errs.push(e.message));
-await p.goto(pathToFileURL(html).href+'?preview=1',{waitUntil:'load',timeout:180000});await p.waitForTimeout(1500);await p.click('#start-button');
+await p.goto(pathToFileURL(html).href+'?preview=1',{waitUntil:'load',timeout:180000});await p.waitForTimeout(1500);await p.waitForFunction(()=>globalThis.__mistvaleGame&&document.body.dataset.fps!==undefined,null,{timeout:120000});   // 開始畫面已在 2026-10-19 移除,等遊戲自己開好就好
 await p.waitForFunction(t=>globalThis.__mistvaleFacing&&globalThis.__mistvaleGame&&globalThis.PIXEL_ASSETS?.monsterSheets?.[t],type,{timeout:60000});
 const n=await p.evaluate(t=>__mistvaleGame.state.enemies.filter(e=>e.type===t).length,type);
 const meta=await p.evaluate(t=>PIXEL_ASSETS.monsterSheets[t].meta.actions,type);

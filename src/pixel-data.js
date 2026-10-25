@@ -1,4 +1,6 @@
-import {BUILDING_SLOTS,GRID} from './village-grid.js';
+import {BUILDING_SLOTS,GRID,blockCenter} from './village-grid.js';
+// 地下城入口固定在公園街區(1,1):蓋起來之後原本的池塘就讓給它。
+const DUNGEON_SPOT=blockCenter(1,1);
 export const BUILDINGS = [
  {id:'hall',name:'城鎮大廳',x:-16.5,z:-6.5,w:4.4,d:3.6,type:'hall',roof:'#b9543e',cost:{gold:350,wood:45,ore:25},desc:'村莊的中心。升級後開放更高等級的設施。',effect:'其他建築的等級上限'},
  {id:'trading',name:'交易所',x:-21.7,z:3.9,w:4,d:3.5,type:'trading',roof:'#427dc7',cost:{gold:160,wood:30,ore:10},desc:'發布收購委託，用村莊金幣向獵人購買戰利品，補充生產材料。',effect:'獵人出售材料 → 村莊收購'},
@@ -13,15 +15,16 @@ export const BUILDINGS = [
  {id:'house',name:'獵人小屋',x:4.6,z:0.6,w:3.6,d:3.2,type:'house',roof:'#438eba',cost:{gold:180,wood:40,ore:10},desc:'為前來村莊的冒險者提供居所。升級可增加獵人上限。',effect:'每級增加 2 位獵人名額'},
  {id:'bounty',name:'委託所',x:-1.2,z:-0.5,w:3.2,d:3,type:'bounty',roof:'#cc9c39',cost:{gold:170,wood:25,ore:10},desc:'追蹤獵魔委託並領取完成獎勵。',effect:'討伐委託與章節目標'},
  {id:'enhancement',name:'強化精煉所',x:-16,z:20,w:4,d:3.2,type:'enhancement',roof:'#bd5c43',cost:{gold:300,wood:30,ore:45},desc:'消耗村莊資源，強化獵人武器；最高可達 +10。',effect:'裝備每次強化提升攻擊'},
- {id:'dungeon',name:'地下城入口',x:24,z:-11,w:4,d:3.5,type:'dungeon',roof:'#756577',cost:{gold:380,wood:25,ore:60},desc:'派遣獵人挑戰地下城，逐層取得稀有資源。',effect:'三人小隊闖關探險'}
+ {id:'dungeon',name:'地下城入口',x:DUNGEON_SPOT.x,z:DUNGEON_SPOT.z,w:4,d:3.5,type:'dungeon',roof:'#756577',cost:{gold:380,wood:25,ore:60},desc:'派遣獵人挑戰地下城，逐層取得稀有資源。',effect:'三人小隊闖關探險'}
 ];
+// 2026-10-24 遊俠(ranger)併入弓箭手(archer):兩個職業是同一個角色(PixelLab 788cd873),只留弓箭手;同日移除獵魔人(witchhunter)、加入刺客(assassin)。
+// 舊存檔的遊俠、獵魔人讀檔時都轉成弓箭手(pixel-game.js restore;獵魔人也是遠程,弓箭手最接近)。
 export const CLASSES = [
  {id:'berserker',name:'狂戰士',tag:'近戰 / 爆發',color:'#d77a58',hp:140,attack:19,defense:4,speed:2.65,range:1.2,cost:120,desc:'揮舞巨劍的近戰獵人。'},
- {id:'ranger',name:'遊俠',tag:'遠程 / 迅捷',color:'#72aa58',hp:92,attack:20,defense:2,speed:3,range:5,cost:150,desc:'從遠處以箭矢精準攻擊。'},
  {id:'paladin',name:'聖騎士',tag:'近戰 / 防禦',color:'#daaf48',hp:168,attack:15,defense:8,speed:2.25,range:1.3,cost:150,desc:'以厚重鎧甲守護隊伍。'},
  {id:'sorcerer',name:'魔法師',tag:'遠程 / 魔法',color:'#b080ce',hp:84,attack:27,defense:1,speed:2.4,range:4.5,cost:180,desc:'操縱元素，發射強大的魔法。'},
  {id:'archer',name:'弓箭手',tag:'遠程 / 連射',color:'#3fa7a0',hp:96,attack:18,defense:2,speed:2.9,range:5.5,cost:160,desc:'背著大箭袋的輕裝射手，疾風箭雨可同時射穿三個目標。'},
- {id:'witchhunter',name:'獵魔人',tag:'遠程 / 獵魔',color:'#3f7f86',hp:104,attack:22,defense:3,speed:2.8,range:4.8,cost:170,desc:'戴羽飾獵帽、手持連弩的獵魔人，銀弩矢專破魔物要害。'}
+ {id:'assassin',name:'刺客',tag:'近戰 / 暗殺',color:'#7a6a9c',hp:100,attack:23,defense:2,speed:3.1,range:1.2,cost:160,desc:'披著兜帽的刺客，以匕首連刺快速解決魔物，暗影衝刺可重創單一目標。'},   // 2026-10-24 使用者要刺客回來:PixelLab 3d3020ce(assets/heroes/assassin,8 向走路＋攻擊/技能列),數值是新訂的
 ];
 // 只當流浪英雄、不進招募名單的角色。刻意不放在 CLASSES 裡:CLASSES 的長度會決定流浪英雄與訪客的
 // 擲骰映射,動到它會把決定性模擬的平衡整個推移(見 test-overworld 的各地區生怪數量斷言)。
@@ -32,11 +35,10 @@ export const WANDER_ONLY = [
 // kind:multi = 同時打 targets 個最近的魔物;aoe = 打目標與其 radius 內的魔物;single = 單體高倍率;heal = 回復自己。
 export const SKILLS={
  berserker:{name:'旋風斬',kind:'aoe',cd:9,mult:1.5,radius:2.4,lock:.7,fx:'slash'},
- ranger:{name:'穿心箭',kind:'single',cd:8,mult:2.3,lock:.6,fx:'arrow'},
  paladin:{name:'聖盾祈禱',kind:'heal',cd:12,heal:.25,lock:.7,fx:'holy'},
  sorcerer:{name:'流星火球',kind:'aoe',cd:10,mult:1.4,radius:2.6,lock:.8,fx:'spell'},
- witchhunter:{name:'銀弩獵殺',kind:'single',cd:9,mult:2.6,lock:.6,fx:'arrow'},
  archer:{name:'疾風箭雨',kind:'multi',cd:8,mult:1.3,targets:3,lock:.8,release:.32,fx:'gale'},
+ assassin:{name:'暗影衝刺',kind:'single',cd:8,mult:2.4,lock:.6,fx:'slash'},
  priest:{name:'暗癒禱言',kind:'heal',cd:10,heal:.28,lock:.7,fx:'holy'}   // WANDER_ONLY 的流浪祭司
 };
 export const RARITIES=[{id:'normal',name:'普通',color:'#d3cab2',mult:1},{id:'rare',name:'稀有',color:'#6fbe8b',mult:1.08},{id:'superior',name:'超級稀有',color:'#6caeee',mult:1.18},{id:'heroic',name:'英雄',color:'#c184e1',mult:1.32},{id:'legendary',name:'傳說',color:'#efb955',mult:1.5}];
@@ -46,12 +48,18 @@ export const PRODUCTS={food:{name:'香烤麵包',building:'restaurant',need:'sat
 export const RECIPES=[{id:'weapon',name:'精鐵武器',type:'weapon',price:85,cost:{ore:12,wood:6},bonus:7},{id:'armor',name:'皮革護甲',type:'armor',price:70,cost:{leather:10,cloth:4},bonus:4}];
 export const DIFFICULTIES=[{id:0,name:'初級',mult:1,rebirths:0},{id:1,name:'普通',mult:1.7,rebirths:1},{id:2,name:'困難',mult:2.8,rebirths:3},{id:3,name:'專家',mult:4.5,rebirths:5},{id:4,name:'噩夢',mult:7,rebirths:10}];
 export const HUNT_ZONE={x:18,z:-1,radius:8};
+// 手動操控的攻擊節奏(秒)。動畫本身 = (攻擊列格數 − 出手格數) × 每格時間 + 命中停頓
+// = 最長 (9−4)×0.075 + 0.07 ≈ 0.445;這裡取 0.45 蓋掉所有職業。
+// 攻擊 CD 0.5 秒(兩次出手最短間隔);動作結束後再加 0.2 秒僵直,期間不能走。
+export const PILOT_ATTACK={cd:0.5,anim:0.45,recover:0.2};
+// AI 獵人／流浪英雄出手後的短僵直(秒):這段時間不移動(收招感),但不受攻擊 CD 限制。
+export const AI_ATTACK_LOCK=0.15;
 export const CAMP={x:GRID.cx,z:GRID.cz+.5};   // 營地:村中央的廣場(空的石板地)
 export const SAVE_KEY='mistvale-pixel-v2';
-export const LEGACY_LAYOUT_V15={hall:{x:-20,z:-10},trading:{x:-12,z:-7},restaurant:{x:-12,z:0},inn:{x:-20,z:11},tavern:{x:-3,z:11},clinic:{x:8,z:10},forge:{x:4,z:0},academy:{x:-4,z:-4},training:{x:-3,z:19},sanctuary:{x:7,z:-12},house:{x:-21,z:17},bounty:{x:4,z:18},enhancement:{x:-20,z:-16},dungeon:{x:24,z:-11}};
-export const LEGACY_LAYOUT_V16={hall:{x:-20,z:-10},trading:{x:-12,z:-7},restaurant:{x:-12,z:0},inn:{x:-20,z:11},tavern:{x:-16,z:13},clinic:{x:5,z:10},forge:{x:4,z:0},academy:{x:1,z:-7},training:{x:-3,z:19},sanctuary:{x:5,z:-18},house:{x:-23,z:16},bounty:{x:5,z:17},enhancement:{x:-25,z:-17},dungeon:{x:24,z:-11}};
+export const LEGACY_LAYOUT_V15={hall:{x:-20,z:-10},trading:{x:-12,z:-7},restaurant:{x:-12,z:0},inn:{x:-20,z:11},tavern:{x:-3,z:11},clinic:{x:8,z:10},forge:{x:4,z:0},academy:{x:-4,z:-4},training:{x:-3,z:19},sanctuary:{x:7,z:-12},house:{x:-21,z:17},bounty:{x:4,z:18},enhancement:{x:-20,z:-16},dungeon:{x:19,z:-9.5}};
+export const LEGACY_LAYOUT_V16={hall:{x:-20,z:-10},trading:{x:-12,z:-7},restaurant:{x:-12,z:0},inn:{x:-20,z:11},tavern:{x:-16,z:13},clinic:{x:5,z:10},forge:{x:4,z:0},academy:{x:1,z:-7},training:{x:-3,z:19},sanctuary:{x:5,z:-18},house:{x:-23,z:16},bounty:{x:5,z:17},enhancement:{x:-25,z:-17},dungeon:{x:19,z:-9.5}};
 // v1.6 前的預設布局（概念圖重排前）：存檔還是這個布局就自動搬到新預設。
-export const ART_LAYOUT_HISTORY=[{hall:{x:-17,z:-7},trading:{x:-24,z:0},restaurant:{x:-18,z:2},inn:{x:-20,z:11},tavern:{x:-10,z:14},clinic:{x:-23,z:16},forge:{x:-11,z:-15},academy:{x:-3,z:-15},training:{x:-26,z:-6},sanctuary:{x:5,z:-18},house:{x:5,z:10},bounty:{x:1,z:1},enhancement:{x:-16,z:20},dungeon:{x:24,z:-11}}];
+export const ART_LAYOUT_HISTORY=[{hall:{x:-17,z:-7},trading:{x:-24,z:0},restaurant:{x:-18,z:2},inn:{x:-20,z:11},tavern:{x:-10,z:14},clinic:{x:-23,z:16},forge:{x:-11,z:-15},academy:{x:-3,z:-15},training:{x:-26,z:-6},sanctuary:{x:5,z:-18},house:{x:5,z:10},bounty:{x:1,z:1},enhancement:{x:-16,z:20},dungeon:{x:19,z:-9.5}}];
 let artLayout={...LEGACY_LAYOUT_V16};
 for(const change of [
  {bounty:{x:0,z:6}},
@@ -72,7 +80,7 @@ ART_LAYOUT_HISTORY.push(Object.fromEntries(BUILDINGS.map(b=>[b.id,b.id==='house'
 // 2026-10-03 棋盤格村莊:前一版(概念圖構圖)預設也記進歷史,再把預設位置改成棋盤街區中心(src/village-grid.js)。
 ART_LAYOUT_HISTORY.push(Object.fromEntries(BUILDINGS.map(b=>[b.id,{x:b.x,z:b.z}])));
 // 2026-10-19 村莊收攏成緊湊棋盤、野外縮小一半:棋盤格第一版(街區間距 10.5)的預設佈局也記進歷史,存檔還是這個布局就搬到新預設。
-export const LEGACY_LAYOUT_V17={hall:{x:-18.5,z:-8.5},trading:{x:-18.5,z:2},restaurant:{x:-18.5,z:12.5},inn:{x:-29,z:12.5},tavern:{x:-8,z:12.5},clinic:{x:-8,z:-8.5},forge:{x:-18.5,z:-19},academy:{x:-8,z:-19},training:{x:-39.5,z:-8.5},sanctuary:{x:2.5,z:-19},house:{x:2.5,z:2},bounty:{x:2.5,z:-7.9},enhancement:{x:-29,z:-19},dungeon:{x:24,z:-11}};
+export const LEGACY_LAYOUT_V17={hall:{x:-18.5,z:-8.5},trading:{x:-18.5,z:2},restaurant:{x:-18.5,z:12.5},inn:{x:-29,z:12.5},tavern:{x:-8,z:12.5},clinic:{x:-8,z:-8.5},forge:{x:-18.5,z:-19},academy:{x:-8,z:-19},training:{x:-39.5,z:-8.5},sanctuary:{x:2.5,z:-19},house:{x:2.5,z:2},bounty:{x:2.5,z:-7.9},enhancement:{x:-29,z:-19},dungeon:{x:19,z:-9.5}};
 ART_LAYOUT_HISTORY.push(LEGACY_LAYOUT_V17);
 for(const b of BUILDINGS){const slot=BUILDING_SLOTS[b.id];if(slot&&b.id!=='dungeon'){b.x=slot.x;b.z=slot.z;}}
 
