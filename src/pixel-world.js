@@ -566,7 +566,10 @@ function sheetFor(id,act){const hs=heroSheets[id];if(!hs?.meta)return null;const
   if(!hi?.meta)return hs;
   // 進入 0.66、退出 0.54（雙門檻）＝縮放在門檻附近來回時不會一直切換；兩份表的 cell/foot/heroHeight 是嚴格的 2 倍關係，
   // 所以真的切換時位置與大小完全不變，只差解析度。
-  const px=(HERO_H/hi.meta.heroHeight)*heroLodScale,prev=!!heroLodOn.get(id),next=prev?px>=.54:px>=.66;if(px>=.46)hiWarm(hi);
+  // 預先轉 2x 表(hiWarm)只在接近切換門檻時才做:轉一張要在主執行緒解碼整張 2x 表(現在 8 方向列加完約 1300–1800 萬像素,
+  // 手機 4 倍降速一張 0.2–0.5 秒)。以前 0.46 就開始轉 → 手機進「手動操控」(鏡頭拉近到 1.9,px 約 0.45–0.5)每一職業都轉一次、
+  // 連卡好幾下,但那個縮放根本用不到 2x 表(要 0.66 才切)。2026-10-25 使用者回報「操控角色後常常卡頓」。
+  const px=(HERO_H/hi.meta.heroHeight)*heroLodScale,prev=!!heroLodOn.get(id),next=prev?px>=.54:px>=.66;if(px>=.6)hiWarm(hi);
   if(next&&hi.meta.actions[actRow(hi.meta.actions,act)]){if(!hi.bmp){heroLodOn.set(id,false);return hs;}heroLodOn.set(id,true);return hi;}
   heroLodOn.set(id,next);return hs;}
 // 列有 cols＝格數太多時每 cols 格換一行(2026-10-24 刺客南向 41 格,單行會讓整張表寬 8200 px)。
@@ -1566,14 +1569,19 @@ let renderDprMax=Math.max(1,dprCap||autoDpr());   // 畫布解析度上限(devic
   // 命中火花:幾顆像素往外噴、受重力落下。
   function sparks(x,y,age,seed,n,cols,speed=26){if(age>.45)return;const s=scale,r=rnd(seed);for(let i=0;i<n;i++){const an=r()*Math.PI*2,v=(.5+r())*speed,px=x+Math.cos(an)*v*age*s,py=y+(Math.sin(an)*v*.6*age+60*age*age)*s,sz=Math.max(1,Math.round((r()<.3?2:1)*s));
     g.globalAlpha=Math.max(0,1-age/.45);pixel(g,px,py,sz,sz,cols[i%cols.length]);}g.globalAlpha=1;}
+  // 投射物大小＝攻擊動畫裡的大小(2026-10-25 使用者:「取消改用原本的素材,縮小到跟攻擊動畫內的大小一樣」):
+  // 法師手上的魔法球直徑約 26 px(@2x 表,身高 132 px)＝4.1 單位 → fxOrb(球本體約佔圖寬 80–90%)畫 5(原本 11);
+  // 弓手拉滿弓的箭(箭尖到拉弦手)約 80 px(@2x 表,身高 134 px)＝12.5 單位 → arrowFx(箭沿圖的對角線,長＝邊長×1.29)畫 9.7(原本 13)。
+  // 球的程序光圈與拖尾跟著同比例縮。
+  const ORB_SIZE=5,ORB_K=ORB_SIZE/11,ARROW_SIZE=9.7,ARROW_K=ARROW_SIZE/13;
   function drawProjectile(e,u,p){const s=scale,a=screenPoint(e.sourceX??e.x,e.sourceZ??e.z),lob=e.type==='arrow'?Math.sin(u*Math.PI)*5:Math.sin(u*Math.PI)*2;
     const at=v=>({x:a.x+(p.x-a.x)*v,y:a.y+(p.y-a.y)*v-(12+(e.type==='arrow'?lob:lob))*s});const q=at(u);
     if(e.type==='arrow'){const prev=at(Math.max(0,u-.12)),ang=Math.atan2(q.y-prev.y,q.x-prev.x);
       g.save();g.globalAlpha=.55;g.strokeStyle='#fff6d8';g.lineWidth=Math.max(1,s*.8);g.beginPath();g.moveTo(prev.x,prev.y);g.lineTo(q.x,q.y);g.stroke();g.restore();
-      if(!fxSprite('arrowFx',q.x,q.y,13,{rot:ang+Math.PI/4})){line(g,q.x-Math.cos(ang)*6*s,q.y-Math.sin(ang)*6*s,q.x,q.y,'#513e2e',2*s);}return;}
-    if(e.type==='spell'){for(let i=4;i>=1;i--){const t=at(Math.max(0,u-i*.06));g.globalAlpha=.12*(5-i);g.fillStyle='#c79cff';g.beginPath();g.arc(t.x,t.y,(2+(4-i)*.6)*s,0,Math.PI*2);g.fill();}g.globalAlpha=1;
-      g.save();g.globalAlpha=.35;g.fillStyle='#e7cfff';g.beginPath();g.arc(q.x,q.y,7*s,0,Math.PI*2);g.fill();g.restore();
-      if(!fxSprite('fxOrb',q.x,q.y,11,{rot:elapsed*6})){pixel(g,q.x-3*s,q.y-3*s,6*s,6*s,'#8a68b9');}return;}
+      if(!fxSprite('arrowFx',q.x,q.y,ARROW_SIZE,{rot:ang+Math.PI/4})){line(g,q.x-Math.cos(ang)*6*ARROW_K*s,q.y-Math.sin(ang)*6*ARROW_K*s,q.x,q.y,'#513e2e',Math.max(1,2*ARROW_K*s));}return;}
+    if(e.type==='spell'){for(let i=4;i>=1;i--){const t=at(Math.max(0,u-i*.06));g.globalAlpha=.12*(5-i);g.fillStyle='#c79cff';g.beginPath();g.arc(t.x,t.y,(2+(4-i)*.6)*ORB_K*s,0,Math.PI*2);g.fill();}g.globalAlpha=1;
+      g.save();g.globalAlpha=.35;g.fillStyle='#e7cfff';g.beginPath();g.arc(q.x,q.y,7*ORB_K*s,0,Math.PI*2);g.fill();g.restore();
+      if(!fxSprite('fxOrb',q.x,q.y,ORB_SIZE,{rot:elapsed*6})){const r=3*ORB_K*s;pixel(g,q.x-r,q.y-r,2*r,2*r,'#8a68b9');}return;}
     if(e.type==='holy'){g.save();g.globalAlpha=.25+.5*u;g.fillStyle='#fff3c0';g.beginPath();g.ellipse(p.x,p.y,10*s*u,4*s*u,0,0,Math.PI*2);g.fill();g.restore();}
   }
   function drawSlash(e,age,p){const s=scale,src=screenPoint(e.sourceX??e.x,e.sourceZ??e.z),fromRight=src.x>p.x,r=rnd(hash(e.id)),tilt=(r()-.5)*.8;

@@ -396,3 +396,23 @@ npm test
   刺客南西走路有兩次生成，用 ac3bf8ab（斗篷擺動跟東南一樣）。聖騎士 @2x walkUpRight 跟 d06dcc3a 來源不同（之前被改過），沒動它。備份 `output/pixellab-anim-test/_backup_before_dirrows_<職業>/`。
 - 驗證：`paladin-anchor-lab/dirfix/after_attack.mjs`（5 職業 × 4 斜向，魔物定住在斜對角，記錄兩次攻擊之間站著的畫面）：20 組全部 OK（右斜＝idle<斜向>、左斜＝同一列 f<0 → 畫好的左斜列）。
   `SHOTS=1` 截實機圖 → `dirfix/after_attack_sheet.png`（已傳 TG）。`npm test` 11 PASS。
+
+### 22. 法師魔法球、弓箭手箭矢改用動畫裡擷取的圖 ✅（2026-10-25，未 commit）
+- 使用者：「魔法師的魔法球丟出去的素材改用剛剛生成的素材內擷取，弓箭的箭矢也是一樣方法擷取」。
+- `pipeline/scripts/pixellab/extract_projectiles.py`：
+  - 球＝法師 south-west 第 6 格離手的球（跟身體分開的連通塊 26×26，原樣取出）。
+  - 箭＝弓箭手 @2x attack 第 5 格，握弓手右邊的箭頭＋箭桿（原樣），後半段被手臂擋住 → 用同一格箭桿像素往左接長到 80 px；看不到羽毛就不加。
+  - 放在職業表最下面一列，meta `projectile {x,y,w,h,from}`；1x 每 2 px 取 1，起點選留下最多深色外框的那組（箭桿深-淺-深，取錯只剩淺色一條）。
+- 引擎 `classProjectile`（pixel-world.js，drawProjectile 前）：攻擊者職業有 `projectile` 就畫它，跟角色同一個像素密度、同一套 1x/2x；箭依飛行方向旋轉、球不轉；
+  球不再疊程序光圈與拖尾；箭保留原本淡白色的飛行線。沒有 projectile 的職業照舊用 vfx 圖集。技能走同一個 drawProjectile 的也會用到。
+- 驗證：`paladin-anchor-lab/projfx/proj_still.mjs`（定格：每 5 ms 把投射物放回 20%／45%／70% 進度），前後對照 `projfx/proj_compare.png`（已傳 TG）。`npm test` 11 PASS。
+- 注意：球照「手上那顆」的大小畫，比原本的 fxOrb 光球小很多；要放大要另外決定倍數。
+
+### 23. 撤回 22，改回原本的魔法球／箭，縮小到動畫裡的大小 ✅（2026-10-25，未 commit）
+- 使用者：「取消改用原本的素材，縮小到跟攻擊動畫內的大小一樣」。
+- 撤回：法師／弓箭手 4 張表與 json 從 `output/pixellab-anim-test/_backup_before_projectile_<職業>/` 還原（8 方向列都還在，只少了 projectile 那一列）；
+  `extract_projectiles.py` 與引擎 `classProjectile` 刪掉。
+- 縮小（pixel-world.js drawProjectile 上方 `ORB_SIZE`／`ARROW_SIZE`）：
+  - 球：動畫裡手上的球直徑約 26 px（@2x，身高 132）＝4.1 單位；fxOrb 球本體約佔圖 80–90% → 畫 5（原本 11），程序光圈與拖尾同比例縮（×5/11）。
+  - 箭：拉滿弓的箭（箭尖到拉弦手）約 80 px（@2x，身高 134）＝12.5 單位；arrowFx 箭沿對角線、長＝邊長×1.29 → 畫 9.7（原本 13）。
+- 驗證：`projfx/proj_still.mjs` 三組對照 `projfx/size_compare.png`（原本／22 的擷取圖＝動畫大小／這次），大小跟動畫裡相符（已傳 TG）。`npm test` 11 PASS。
