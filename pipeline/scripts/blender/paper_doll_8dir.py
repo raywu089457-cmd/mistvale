@@ -97,10 +97,11 @@ def make_material(img) -> bpy.types.Material:
     return m
 
 
-def quad(name, x0, y0, x1, y1, uv, material):
-    """一塊矩形平面：世界座標 (x0,y0)-(x1,y1)（y 由下往上）,UV 給 image 的子區。"""
+def quad(name, x0, y0, x1, y1, uv, material, depth=0.0):
+    """一塊矩形平面：世界座標 (x0,y0)-(x1,y1)（y 由下往上）,UV 給 image 的子區。
+    depth < 0 = 比較靠近相機（相機在 −Y 往 +Y 看）→ 用來讓身體蓋住腿塊的接縫。"""
     mesh = bpy.data.meshes.new(name)
-    verts = [(x0, 0, y0), (x1, 0, y0), (x1, 0, y1), (x0, 0, y1)]
+    verts = [(x0, depth, y0), (x1, depth, y0), (x1, depth, y1), (x0, depth, y1)]
     faces = [(0, 1, 2, 3)]
     mesh.from_pydata(verts, [], faces)
     mesh.update()
@@ -127,16 +128,19 @@ def build_doll(img_path: Path):
     axis = (x0 + x1) / 2
     # 圖片座標 → 世界座標（翻 y：圖片 y 由上往下,世界 z 由下往上）
     wz = lambda py: (H - py)
+    # 接縫：腿塊往上多留 OVER px、頭塊往下多留 OVER px，身體畫在最前面蓋住接縫
+    OVER = max(2, round(ch * .05))                 # 上下重疊（蓋住腰與脖子接縫）
+    OVERX = max(2, round((x1 - x0) * .06))         # 左右重疊（兩腿擺開時中線不會露縫）
     parts = {
-        "head": (x0, y0, x1, int(y_neck)),
-        "body": (x0, int(y_neck), x1, int(y_hip)),
-        "legL": (x0, int(y_hip), int(axis), y1),
-        "legR": (int(axis), int(y_hip), x1, y1),
+        "legR":  (int(axis), int(y_hip) - OVER, x1, y1, 0.2),          # 後
+        "legL":  (x0, int(y_hip) - OVER, int(axis) + OVERX, y1, -0.2),  # 前（往右多留一點蓋住中線）
+        "head":  (x0, y0, x1, int(y_neck) + OVER, -0.8),
+        "body":  (x0, int(y_neck), x1, int(y_hip) + OVER, -0.8),
     }
     obs = {}
-    for name, (px0, py0, px1, py1) in parts.items():
+    for name, (px0, py0, px1, py1, dep) in parts.items():
         uv = (px0 / W, (H - py1) / H, px1 / W, (H - py0) / H)
-        obs[name] = quad(name, px0, wz(py1), px1, wz(py0), uv, mat)
+        obs[name] = quad(name, px0, wz(py1), px1, wz(py0), uv, mat, dep)
 
     # ---- 骨架：hips(根) → spine → head；hips → thighL / thighR ----
     arm = bpy.data.armatures.new("doll")
@@ -209,14 +213,14 @@ def key(rig, frame, pose):
 
 def walk_frames(rig):
     """8 格走路：腿在螢幕平面內前後擺（繞 Y 軸），髖部上下顛，身體微微前傾。"""
-    plan = [(22, -22, 0), (12, -12, 1), (0, 0, 2), (-12, 12, 1),
-            (-22, 22, 0), (-12, 12, 1), (0, 0, 2), (12, -12, 1)]   # 左腿, 右腿, 下沉
+    plan = [(28, -28, 0), (15, -15, 1), (0, 0, 2), (-15, 15, 1),
+            (-28, 28, 0), (-15, 15, 1), (0, 0, 2), (15, -15, 1)]   # 左腿, 右腿, 下沉
     for i, (l, r, sink) in enumerate(plan, start=1):
         key(rig, i, {"thigh.L": (0, l, 0), "thigh.R": (0, r, 0),
                      "spine": (0, 1.5 if i % 2 else -1.5, 0), "head": (0, -1 if i % 2 else 1, 0)})
         # 髖部上下顛（用骨頭位移,不動旋轉）
         hips = rig.pose.bones["hips"]
-        hips.location = (0, -sink * 0.6, 0)
+        hips.location = (0, -sink * 2.2, 0)
         hips.keyframe_insert("location", frame=i)
     return len(plan)
 
@@ -237,7 +241,9 @@ def main():
     rig, tex, geo = build_doll(first)
     sc = bpy.context.scene
 
-    for act, maker in (("walk", walk_frames), ("attack", attack_frames)):
+    only = [a.split("=")[1] for a in ARGS if a.startswith("--only=")]
+    todo = [(a, m) for a, m in (("walk", walk_frames), ("attack", attack_frames)) if not only or a in only]
+    for act, maker in todo:
         rig.animation_data_create()
         rig.animation_data.action = bpy.data.actions.new(act)
         n = maker(rig)

@@ -46,29 +46,36 @@ DIRS = [
     ("north-east", "UpRight",    "attackUpRight"),
 ]
 
-# id: (中文名, 地形, gameSize, 走法)  step = 左右腳交替, hop = 整體彈跳(沒有腳的)
+# id: (中文名, 地形, gameSize, archetype, 手持武器)
+# archetype 借用 Sprixen 動畫 API 的分類(2026-10-27 評估):不同骨架要用不同走路物理,
+# 只分 step/hop 太粗 —— 四足的步幅可以更大、無腳的要用壓扁彈跳、藤蔓類是左右擺。
+#   biped  人形直立(兩條腿交替)
+#   quad   四足(前後腳交替 + 身體上下顛)
+#   blob   無腳/圓身(壓扁→彈起)
+#   sway   藤蔓/植物(左右擺動 + 微幅上下)
+# weapon: 只影響走路時「武器不換手」的檢查(素材的武器像素是黏在身上的,8 個方向都烘好就不會被鏡像)
 MONS = {
-    "sprout":     ("花芽妖",   "meadow",   22, "hop"),
-    "ram":        ("捲角羊",   "meadow",   24, "step"),
-    "mole":       ("鼴鼠",     "meadow",   24, "step"),
-    "shroom":     ("蕈菇怪",   "forest",   22, "hop"),
-    "boar":       ("野豬",     "forest",   26, "step"),
-    "vine":       ("藤鞭怪",   "forest",   28, "step"),
-    "wolfman":    ("灰毛狼人", "taiga",    29, "step"),
-    "moss":       ("苔蘚巨魔", "taiga",    31, "step"),
-    "snowhare":   ("雪兔",     "taiga",    22, "hop"),
-    "yeti":       ("霜雪怪",   "snow",     33, "step"),
-    "snowman":    ("雪人哨兵", "snow",     26, "step"),
-    "icebeetle":  ("冰甲蟲",   "snow",     23, "hop"),
-    "kobold":     ("礦穴地精", "mountain", 23, "step"),
-    "boulder":    ("岩塊怪",   "mountain", 31, "step"),
-    "goat":       ("鐵角羊",   "mountain", 26, "step"),
-    "mummy":      ("木乃伊",   "desert",   28, "step"),
-    "cactus":     ("仙人掌怪", "desert",   24, "hop"),
-    "scorpion":   ("沙蠍",     "desert",   26, "step"),
-    "floraspirit":("花妖精",   "birch",    22, "hop"),
-    "birchling":  ("白樺樹精", "birch",    27, "hop"),
-    "stag":       ("白樺雄鹿", "birch",    28, "step"),
+    "sprout":     ("花芽妖",   "meadow",   22, "blob",  None),
+    "ram":        ("捲角羊",   "meadow",   24, "quad",  None),
+    "mole":       ("鼴鼠",     "meadow",   24, "quad",  None),
+    "shroom":     ("蕈菇怪",   "forest",   22, "blob",  None),
+    "boar":       ("野豬",     "forest",   26, "quad",  None),
+    "vine":       ("藤鞭怪",   "forest",   28, "sway",  None),
+    "wolfman":    ("灰毛狼人", "taiga",    29, "biped", "axe"),
+    "moss":       ("苔蘚巨魔", "taiga",    31, "biped", "club"),
+    "snowhare":   ("雪兔",     "taiga",    22, "blob",  None),
+    "yeti":       ("霜雪怪",   "snow",     33, "biped", "ice-club"),
+    "snowman":    ("雪人哨兵", "snow",     26, "biped", "spear"),
+    "icebeetle":  ("冰甲蟲",   "snow",     23, "blob",  None),
+    "kobold":     ("礦穴地精", "mountain", 23, "biped", "pickaxe"),
+    "boulder":    ("岩塊怪",   "mountain", 31, "biped", None),
+    "goat":       ("鐵角羊",   "mountain", 26, "quad",  None),
+    "mummy":      ("木乃伊",   "desert",   28, "biped", "khopesh"),
+    "cactus":     ("仙人掌怪", "desert",   24, "blob",  None),
+    "scorpion":   ("沙蠍",     "desert",   26, "quad",  None),
+    "floraspirit":("花妖精",   "birch",    22, "biped", "wand"),
+    "birchling":  ("白樺樹精", "birch",    27, "sway",  None),
+    "stag":       ("白樺雄鹿", "birch",    28, "quad",  None),
 }
 
 
@@ -139,9 +146,11 @@ class Mon:
         al = key[..., 3] > 0
         ys, xs = np.nonzero(al)
         self.top, self.bot = int(ys.min()), int(ys.max())
-        self.foot = self.bot + 1
         self.h = self.bot - self.top + 1
-        self.knee = self.foot - max(4, round(self.h * .1))
+        self.ground = self.bot + 1                     # 地線（內容底邊的下一列）
+        # foot = 腳踝分割列（要落在內容「裡面」,腳的左右位移才有像素可移;以前設成 ground 等於整段是空的）
+        self.foot = self.ground - max(2, round(self.h * .10))
+        self.knee = self.foot - max(4, round(self.h * .18))
         band = al[max(0, self.bot - 5):self.bot + 1]
         cols = np.nonzero(band.any(0))[0]
         runs = np.split(cols, np.nonzero(np.diff(cols) > 1)[0] + 1)
@@ -171,11 +180,12 @@ class Mon:
 
     # --- 動作 ---
     def walk(self, stride=None):
-        W = stride or max(4, int(round(self.a * .10)))
-        k = self.k
-        sink = [0, max(1, round(k)), 0, max(-2, -round(k))]
+        """人形:前後腳交替 + 抬腳 + 身體上下顛 + 上半身微幅反向擺。"""
+        a = self.a
+        W = stride or max(4, int(round(a * .11)))
+        lift = max(1, round(a * .035))
         A, Bf = [W, W // 2, 0, -(W // 2)], [-W, -(W // 2), 0, W // 2]
-        lift = [0, 0, max(1, round(k)), 0]
+        sink = [0, max(1, round(a * .012)), 0, -max(1, round(a * .012))]
         out = []
         for k in range(8):
             h, p = divmod(k, 4)
@@ -184,14 +194,54 @@ class Mon:
             rx = ax + (self.xl + self.xr) / 2 - self.xr
             lx = bx + (self.xl + self.xr) / 2 - self.xl
             right_swing = h == 1
+            swing_lift = 0 if p == 0 else lift if p == 2 else lift // 2
+            fR = (int(round(rx)), -swing_lift if right_swing else 0)
+            fL = (int(round(lx)), 0 if right_swing else -swing_lift)
+            lean = round(a * .012) * (1 if k in (1, 2) else -1 if k in (5, 6) else 0)
+            out.append(self.compose(sink[p], feet=(fL, fR), lean_=lean))
+        return out
+
+    def quad(self):
+        """四足:步幅比人形大、抬腳低、身體上下顛(前後腳交替 = 小跑步)。"""
+        a = self.a
+        W = max(5, int(round(a * .13)))
+        A, B = [W, W // 2, 0, -(W // 2)], [-W, -(W // 2), 0, W // 2]
+        lift = [0, 0, max(1, round(a * .02)), 0]
+        bob = [0, max(1, round(a * .015)), 0, -max(1, round(a * .015))]
+        out = []
+        for k in range(8):
+            h, p = divmod(k, 4)
+            ax = A[p] if h == 0 else B[p]
+            bx = B[p] if h == 0 else A[p]
+            rx = ax + (self.xl + self.xr) / 2 - self.xr
+            lx = bx + (self.xl + self.xr) / 2 - self.xl
+            right_swing = h == 1
             fR = (int(round(rx)), -lift[p] if right_swing else 0)
             fL = (int(round(lx)), 0 if right_swing else -lift[p])
-            out.append(self.compose(sink[p], feet=(fL, fR)))
+            out.append(self.compose(0, feet=(fL, fR), dy=bob[p] * (1 if h == 0 else 1)))
+        return out
+
+    def sway(self):
+        """藤蔓/植物:腳不離地,身體左右擺 + 一點上下起伏(沒有膝蓋可以彎)。"""
+        a = self.a
+        amp = max(1, round(a * .05))
+        import math
+        out = []
+        for k in range(8):
+            lean = round(amp * math.sin(2 * math.pi * k / 8))
+            dy = -max(1, round(a * .02)) if k in (2, 6) else (-1 if k in (1, 5) else 0)
+            out.append(self.compose(0, lean_=lean, dy=dy))
         return out
 
     def hop(self):
-        k = self.k
-        return [self.compose(round(2 * k), dy=-round(h * k)) for h in [0, 1, 2, 3, 3, 2, 1, 0]]
+        """無腳/圓身:壓扁 → 彈起。加入一點左右擺,8 格才不會兩兩重複(彈跳本身是對稱的)。"""
+        a = self.a
+        lift = [0, 1, 2, 3, 3, 2, 1, 0]
+        squash = [3, 2, 1, 0, 0, 1, 2, 3]
+        sway = [0, 1, 1, 0, 0, -1, -1, 0]
+        return [self.compose(round(sq * a * .012), lean_=round(sw * a * .008),
+                             dy=-round(li * a * .026))
+                for li, sq, sw in zip(lift, squash, sway)]
 
     def attack(self):
         """1 待機 2 預備 3 蓄力 4 起手 5 出手(release) 6 命中 7 收招 8 回待機。dx/lean/sink 都是 art 的比例。"""
@@ -287,11 +337,12 @@ def load_walk(src: Path, d: str, s: float, cell: int) -> list[np.ndarray] | None
     cols = np.nonzero(band.any(0))[0]
     cx = float(cols.mean()) if len(cols) else (x0 + x1) / 2
     dx = int(round(cell / 2 - cx))
+    _, fy0, _, fy1 = bbox(fr[0])
+    dy0 = cell - FOOT - (fy1 - fy0)          # 整列共用第 0 格的腳底位置 → 保留抬腳與身體上下顛
     out = []
     for b in fr:
         bx0, by0, bx1, by1 = bbox(b)
-        dx = int(round(cell / 2 - cx))
-        dy = cell - FOOT - (by1 - by0)
+        dy = dy0 - (by0 - fy0)               # 相對第 0 格的高度差（不逐格貼地）
         canvas = Image.new("RGBA", (cell, cell), (0, 0, 0, 0))
         canvas.alpha_composite(Image.fromarray(b[by0:by1, bx0:bx1], "RGBA"), (dx, dy))
         out.append(np.asarray(quantize(canvas)).copy())
@@ -299,7 +350,7 @@ def load_walk(src: Path, d: str, s: float, cell: int) -> list[np.ndarray] | None
 
 
 def build(mid: str, write: bool, walk_src: Path | None = None) -> None:
-    cn, region, gameSize, mode = MONS[mid]
+    cn, region, gameSize, arch, weapon = MONS[mid]
     art = round(gameSize * 72 / 21)
     imgs = load_dirs(mid)
     raw = {d: fill_transparent(np.asarray(im).copy()) for d, im in imgs.items()}
@@ -335,15 +386,18 @@ def build(mid: str, write: bool, walk_src: Path | None = None) -> None:
         M = Mon(keys[d], art)
         rows.append(("idle" + suffix, [M.compose(0)], {"frames": 1, "frameTime": TIMING["idle"]}))
         wf = load_walk(walk_src, d, s, cell) if walk_src else None
-        if wf:
-            rows.append(("walk" + suffix, wf, {"frames": len(wf), "frameTime": TIMING["walk"], "cycle": 85}))
-        else:
-            rows.append(("walk" + suffix, (M.hop() if mode == "hop" else M.walk()), {"frames": 8, "frameTime": TIMING["walk"], "cycle": 85}))
+        if not wf:
+            wf = {"blob": M.hop, "quad": M.quad, "sway": M.sway}.get(arch, M.walk)()
+        rows.append(("walk" + suffix, wf, {"frames": len(wf), "frameTime": TIMING["walk"], "cycle": 85}))
         rows.append((atk, M.attack(), {"frames": 8, "frameTime": TIMING["attack"], "release": 4, "impact": 5}))
     Me = Mon(keys["east"], art)
     rows.append(("hurt", Me.hurt(), {"frames": 4, "frameTime": TIMING["hurt"]}))
     rows.append(("death", Me.death(), {"frames": 8, "frameTime": TIMING["death"]}))
 
+    if weapon:   # 拿武器的角色:8 個方向的 walk/attack 都必須存在,否則引擎會鏡像 → 武器換手
+        have = {n for n, _, _ in rows}
+        missing = [x for x in ("walkLeft", "walkUpLeft", "walkDownLeft", "attackLeft", "attackUpLeft", "attackDownLeft") if x not in have]
+        assert not missing, f"{mid}: 拿 {weapon} 但缺 {missing} → 左向會被鏡像、武器換手"
     sheet = Image.new("RGBA", (cell * 8, cell * len(rows)), (0, 0, 0, 0))
     acts = {}
     for r, (name, frames, spec) in enumerate(rows):
@@ -356,11 +410,11 @@ def build(mid: str, write: bool, walk_src: Path | None = None) -> None:
             head.append([cell / 2, int(ys.min())] if len(ys) else None)
         acts[name] = {"y": r * cell, "cell": cell, "frames": len(frames), **spec, "head": head}
     meta = {"hero": mid, "heroHeight": 72, "footFromBottom": FOOT, "actions": acts, "monster": True,
-            "size": gameSize, "artSize": art,
+            "size": gameSize, "artSize": art, "archetype": arch, **({"weapon": weapon} if weapon else {}),
             "source": f"PixelLab 8 方向旋轉(每方向 1 張 256)+ 程式化 walk/attack/hurt/death;cell {cell}"}
     out_png, out_json = HEROES / f"{mid}.png", HEROES / f"{mid}.json"
     prev = HEROES / "_prev8dir" / f"{mid}.png"
-    print(f"{mid:12s} cell={cell} art={art} sheet={sheet.size} rows={len(rows)}")
+    print(f"{mid:12s} {arch:5s} cell={cell} art={art} rows={len(rows)} weapon={weapon or '-'}")
     if write:
         prev.parent.mkdir(exist_ok=True)
         if out_png.exists() and not prev.exists():
