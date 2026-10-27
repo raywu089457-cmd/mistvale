@@ -450,7 +450,7 @@
     ],
     [
      57.0,
-     20
+     19
     ],
     [
      57.0,
@@ -831,5 +831,7 @@
  "monster": true,
  "size": 26,
  "artSize": 89,
+ "archetype": "biped",
+ "weapon": "spear",
  "source": "PixelLab 8 方向旋轉(每方向 1 張 256)+ 程式化 walk/attack/hurt/death;cell 114"
 }

@@ -2,11 +2,14 @@
 // 每個動作截一張特寫、被打倒時截死亡三張 → output/audit/<type>/。獵人先在旁邊觀察 25 秒(待機/四方向走路),再出征。
 import path from 'node:path';import fs from 'node:fs';import {pathToFileURL,fileURLToPath} from 'node:url';import {execSync} from 'node:child_process';
 const pw=await import(pathToFileURL(path.join(execSync('npm root -g').toString().trim(),'playwright','index.js')).href);const {chromium}=pw.default||pw;
-const root=path.resolve(path.dirname(fileURLToPath(import.meta.url)),'../../..');const html=process.env.HTML||path.resolve(root,'../../outputs/暮影村.html');
+const root=path.resolve(path.dirname(fileURLToPath(import.meta.url)),'../../..');
+// 2026-10-27:大張圖改成外部檔(media/),用 file:// 開會被 canvas 判成跨來源(getImageData 會壞) → 預設走本機 server
+const html=process.env.HTML||'http://100.79.149.0:5024/';
+const isUrl=/^https?:/.test(html);
 const type=process.argv[2]||'ogre',secs=+(process.argv[3]||120),out=path.join(root,'output/audit',type);fs.mkdirSync(out,{recursive:true});for(const f of fs.readdirSync(out))fs.unlinkSync(path.join(out,f));
 const b=await chromium.launch({channel:'chromium'});const p=await b.newPage({viewport:{width:1280,height:800}});
 const errs=[];p.on('pageerror',e=>errs.push(e.message));
-await p.goto(pathToFileURL(html).href+'?preview=1',{waitUntil:'load',timeout:180000});await p.waitForTimeout(1500);await p.waitForFunction(()=>globalThis.__mistvaleGame&&document.body.dataset.fps!==undefined,null,{timeout:120000});   // 開始畫面已在 2026-10-19 移除,等遊戲自己開好就好
+await p.goto((isUrl?html:pathToFileURL(html).href)+'?preview=1',{waitUntil:'load',timeout:180000});await p.waitForTimeout(1500);await p.waitForFunction(()=>globalThis.__mistvaleGame&&document.body.dataset.fps!==undefined,null,{timeout:120000});   // 開始畫面已在 2026-10-19 移除,等遊戲自己開好就好
 await p.waitForFunction(t=>globalThis.__mistvaleFacing&&globalThis.__mistvaleGame&&globalThis.PIXEL_ASSETS?.monsterSheets?.[t],type,{timeout:60000});
 const n=await p.evaluate(t=>__mistvaleGame.state.enemies.filter(e=>e.type===t).length,type);
 const meta=await p.evaluate(t=>PIXEL_ASSETS.monsterSheets[t].meta.actions,type);

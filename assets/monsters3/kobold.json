@@ -454,7 +454,7 @@
     ],
     [
      51.0,
-     20
+     19
     ],
     [
      51.0,
@@ -831,5 +831,7 @@
  "monster": true,
  "size": 23,
  "artSize": 79,
+ "archetype": "biped",
+ "weapon": "pickaxe",
  "source": "PixelLab 8 方向旋轉(每方向 1 張 256)+ 程式化 walk/attack/hurt/death;cell 102"
 }

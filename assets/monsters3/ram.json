@@ -831,5 +831,6 @@
  "monster": true,
  "size": 24,
  "artSize": 82,
+ "archetype": "quad",
  "source": "PixelLab 8 方向旋轉(每方向 1 張 256)+ 程式化 walk/attack/hurt/death;cell 104"
 }

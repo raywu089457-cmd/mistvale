@@ -1,5 +1,23 @@
 # CHANGELOG — sprites
 
+## 2026-10-27 — 借用 Sprixen 的三個概念（archetype 走路 / 武器鎖手 / Blender 8 向）
+
+- **archetype 走路**（`build_monster_8dir.py`）：原本只分 step / hop，改成跟 Sprixen 動畫 API 同一套分類
+  `biped`（人形兩腿交替）／`quad`（四足、步幅大身體上下顛）／`blob`（無腳壓扁彈跳）／`sway`（藤蔓左右擺）。
+  順手修掉一個真 bug：`Mon.foot` 原本設在地線以下 → 腳的左右位移對到空集合，走路其實只有「上下動」；
+  改成腳踝分割列（內容裡）之後，biped/quad 每隻都有 8 個不重複的走路格。
+  21 隻的分類：biped 7、quad 6、blob 6、sway 2。`assets/monsters3/*.json` 多了 `archetype`。
+- **武器鎖在右手**：拿武器的角色（狼人斧、巨魔木棒、霜雪怪冰棍、雪人冰矛、地精鎬、木乃伊彎刀、花妖精樹枝）
+  在 builder 裡斷言 8 個方向的 walk/attack 列都必須存在 —— 少一列引擎就會鏡像 → 武器換手。JSON 另存 `weapon`。
+- **Blender → 8 方向渲圖**（`pipeline/blender/README.md`、`pipeline/scripts/blender/render_8dir.py`、
+  `pixelize_renders.py`）：程式組 low-poly 骨架 → walk/attack 各 8 格 → 8 台正交相機 → Workbench 硬邊渲圖
+  → 壓成我們的格子規格。動作品質比程式化位移好（膝蓋真的會彎、8 方向同一個角色），
+  但方塊人的畫風跟手繪魔物不同，要正式用需要 low-poly 模型。
+- 檢查腳本（`check_one_monster` / `check_sprites_ingame` / `check_death_ingame`）預設改走本機 server：
+  大張圖改成 `media/` 外部檔後，`file://` 開會被 canvas 判成跨來源、`getImageData` 會壞。
+- `npm test` 11 PASS；實機 ram / kobold / vine 三隻 8 方向走路、斜向待機、攻擊、受擊、死亡全播到，無錯誤。
+
+
 ## 2026-10-26(晚)— 野外只留新魔物、出怪數量加大
 
 - 使用者：「舊怪物移除只留新的，還有增加各區怪物生成數量」。

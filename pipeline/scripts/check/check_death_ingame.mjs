@@ -3,11 +3,12 @@
 // 用法:node build.mjs 後 node pipeline/scripts/check/check_death_ingame.mjs [秒數=120]
 import path from 'node:path';import fs from 'node:fs';import {pathToFileURL,fileURLToPath} from 'node:url';import {execSync} from 'node:child_process';
 const pw=await import(pathToFileURL(path.join(execSync('npm root -g').toString().trim(),'playwright','index.js')).href);const {chromium}=pw.default||pw;
+const isUrl=/^https?:/.test(process.env.HTML||'');
 const root=path.resolve(path.dirname(fileURLToPath(import.meta.url)),'../../..');const html=process.env.HTML||path.resolve(root,'../../outputs/暮影村.html');
 const secs=+(process.argv[2]||120),out=path.join(root,'output/audit/sprites');fs.mkdirSync(out,{recursive:true});
 const b=await chromium.launch({channel:'chromium'});const p=await b.newPage({viewport:{width:1280,height:800}});
 const errs=[];p.on('pageerror',e=>errs.push(e.message));
-await p.goto(pathToFileURL(html).href+'?preview=1',{waitUntil:'load',timeout:180000});await p.waitForTimeout(1500);await p.waitForFunction(()=>globalThis.__mistvaleGame&&document.body.dataset.fps!==undefined,null,{timeout:120000});   // 開始畫面已在 2026-10-19 移除,等遊戲自己開好就好
+await p.goto((isUrl?html:pathToFileURL(html).href)+'?preview=1',{waitUntil:'load',timeout:180000});await p.waitForTimeout(1500);await p.waitForFunction(()=>globalThis.__mistvaleGame&&document.body.dataset.fps!==undefined,null,{timeout:120000});   // 開始畫面已在 2026-10-19 移除,等遊戲自己開好就好
 await p.waitForFunction(()=>globalThis.__mistvaleFacing&&globalThis.__mistvaleGame&&Object.keys(globalThis.__mistvaleHeroSheets?.()||{}).length>=7,null,{timeout:60000});
 await p.evaluate(()=>{const S=__mistvaleGame.state,C=['paladin','berserker','archer','ranger','sorcerer'];
   while(S.hunters.length<10){const src=S.hunters[0];S.hunters.push({...JSON.parse(JSON.stringify(src)),id:src.id+'x'+S.hunters.length});}
