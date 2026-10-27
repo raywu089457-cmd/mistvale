@@ -477,9 +477,10 @@ function ensureHeroSheets(){const A=globalThis.PIXEL_ASSETS?.heroSheets||{};
   for(const [id,v] of Object.entries(A)){if(loadedAssetKeys.has('hs:'+id))continue;loadedAssetKeys.add('hs:'+id);
     const meta=typeof v.meta==='string'?JSON.parse(v.meta):v.meta,im=trackImage(new Image()),fx=v.fx?trackImage(new Image()):null;
     const hi=v.hi?(typeof v.hi.meta==='string'?{img:v.hi.img,meta:JSON.parse(v.hi.meta)}:v.hi):null;
-    im.onload=()=>{heroSheets[id]={...heroSheets[id],img:im,meta,fx,fxMeta:v.fxMeta?(typeof v.fxMeta==='string'?JSON.parse(v.fxMeta):v.fxMeta):null};spriteCache.clear();globalThis.dispatchEvent(new CustomEvent('pixel-assets-ready'));};
+    // @2x(hi)只在 heroSheets[id] 建立時登記「來源」,真正下載由 hiWarm 觸發(放大到門檻才載)
+    im.onload=()=>{heroSheets[id]={...heroSheets[id],img:im,meta,fx,fxMeta:v.fxMeta?(typeof v.fxMeta==='string'?JSON.parse(v.fxMeta):v.fxMeta):null,...(hi?{hi:{meta:hi.meta,src:hi.img}}:{})};spriteCache.clear();globalThis.dispatchEvent(new CustomEvent('pixel-assets-ready'));};
     im.onerror=()=>loadedAssetKeys.delete('hs:'+id);im.src=v.img;if(fx)fx.src=v.fx;
-    if(hi){const him=trackImage(new Image());him.onload=()=>{heroSheets[id]={...heroSheets[id],hi:{img:him,meta:hi.meta}};spriteCache.clear();variantCells.clear();variantCellPx=0;globalThis.dispatchEvent(new CustomEvent('pixel-assets-ready'));};him.src=hi.img;}}}
+  }}
 // 模組化配件槽(Accessory/Head):assets/heroes/accessories.png,依稀有度戴在每格的頭頂錨點(meta.actions[act].head)。
 let heroAcc=null;function ensureHeroAcc(){const v=globalThis.PIXEL_ASSETS?.heroAccessories;if(!v||heroAcc||loadedAssetKeys.has('hacc'))return;loadedAssetKeys.add('hacc');const im=trackImage(new Image());im.onload=()=>{heroAcc={img:im,meta:v.meta};};im.src=v.img;}
 const ACC_BY_RARITY={rare:['ribbon','feather'],superior:['flowerCrown','tiara'],heroic:['laurel','horns'],legendary:['crown','halo']};
@@ -590,7 +591,11 @@ const hiQueue=[];let hiTick=0;
 // 有換色外觀的英雄還要整張重新換色一份(pumpVariants 每幀做 64 列,iPhone 上每幀 20 ms 以上、持續幾十秒,縮回來也還在做),
 // 記憶體一下多出好幾百 MB → 實測掉到 6–16 fps、還有一次卡住 16 秒。手機畫布上限 1.5 倍,2x 表的細節在手機上本來就看不太出來。
 let heroHiAllowed=true;
-function hiWarm(hi){if(hi.bmp||hi.bmpPending)return;hi.bmpPending=true;if(typeof createImageBitmap!=='function'){hi.bmp=true;return;}hiQueue.push(hi);}
+// hi.src 還沒下載過 → 先建立 Image 開始載入(onload 後才排隊轉 ImageBitmap;轉好才切到 2x 表)
+function hiWarm(hi){if(hi.bmp||hi.bmpPending)return;hi.bmpPending=true;
+  if(!hi.img){if(!hi.src){hi.bmp=true;return;}const im=trackImage(new Image());
+    im.onload=()=>{hi.img=im;hi.onloadDone=true;hiWarm(hi);};im.onerror=()=>{hi.bmp=true;};im.src=hi.src;return;}
+  if(typeof createImageBitmap!=='function'){hi.bmp=true;return;}hiQueue.push(hi);}
 function pumpHi(){if(!hiQueue.length||++hiTick%8)return;const hi=hiQueue.shift();createImageBitmap(hi.img).then(b=>{hi.img=b;hi.bmp=true;}).catch(()=>{hi.bmp=true;});}
 function sheetFor(id,act){const hs=heroSheets[id];if(!hs?.meta)return null;const hi=hs.hi;
   if(!hi?.meta||!heroHiAllowed)return hs;
@@ -1558,7 +1563,13 @@ let renderDprMax=Math.max(1,dprCap||autoDpr());   // 畫布解析度上限(devic
     if(pose.pose==='hurt')return['hurt',Math.floor(Math.max(0,pose.hit)/m.hurt.frameTime)];
     if(walking){const w=m['walk'+D]?'walk'+D:'walk';return[w,gaitFrame('e'+e.id,e.x,e.z,m[w],(hash(e.id)%97)/97)];}
     const id=m['idle'+D]&&!e.engaged?'idle'+D:'idle';return[id,Math.floor(elapsed/m[id].frameTime+hash(e.id))%m[id].frames];}
-  function drawEnemy(e){if(!Number.isFinite(e.x)||!Number.isFinite(e.z)||e.hp<=0||pendingMon(e.type))return;const p=screenPoint(e.x,e.z),boss=e.type==='boss',sz=ENEMY_SIZE(e.type),seed=hash(e.id)%97;
+  function drawEnemy(e){
+    if(!Number.isFinite(e.x)||!Number.isFinite(e.z)||e.hp<=0)return;
+    // 2026-10-27:先看畫面外就return —— pendingMon 會觸發 MON_SHEET(開始下載),
+    // 以前每隻魔物都先過 pendingMon,所以 21 種 sheet 全部在開場被抓下來(5.6 MB)。
+    const p0=screenPoint(e.x,e.z);
+    if(p0.x<-360*DPRK||p0.x>width+360*DPRK||p0.y<-420*DPRK||p0.y>height+420*DPRK)return;
+    if(pendingMon(e.type))return;const p=p0,boss=e.type==='boss',sz=ENEMY_SIZE(e.type),seed=hash(e.id)%97;
     const old=previousPositions.get('enemy:'+e.id),step=old?Math.hypot(e.x-old.x,e.z-old.z):0,moving=!!old&&step>.003,pose=combatPose(e,true,null);
     const nowT=state.time||0,walkUntil=step>.0006?nowT+.2:(old?.walkUntil||0);
     let flip=old?(e.x-old.x-(e.z-old.z)<-.002?true:e.x-old.x-(e.z-old.z)>.002?false:old.flip):false;

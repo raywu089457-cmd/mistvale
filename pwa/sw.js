@@ -1,5 +1,5 @@
 // Mistvale service worker — 讓遊戲能離線玩（cache-first）
-const CACHE = 'mistvale-v2';   // 2026-10-15:改版號讓舊快取作廢(以前 cache-first 會一直吐舊素材)
+const CACHE = 'mistvale-v3';   // 2026-10-27:大張圖改成 media/ 外部檔,改版號讓舊快取作廢   // 2026-10-15:改版號讓舊快取作廢(以前 cache-first 會一直吐舊素材)
 const ASSETS = ['./', './index.html', './manifest.webmanifest', './apple-touch-icon.png'];
 
 self.addEventListener('install', (e) => {

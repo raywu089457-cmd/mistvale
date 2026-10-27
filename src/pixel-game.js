@@ -912,7 +912,8 @@ export function createGame(saved = null) {
       if (w && c) { w.classId = 'priest'; w.huntRegion = bestRegionFor(w).id; updateStats(w); w.hp = w.maxHp; } }
     state.wanderKills = 0;
     for (let i = 0; i < 10; i++) { const m = mixOf('meadow'); spawn(m[Math.floor(random() * m.length)], null, 'meadow'); }  // 開局草原就有 10 隻
-    for (const a of REGIONS) if (a.id !== 'village' && a.id !== 'meadow') { const mix = mixOf(a.id); preloadMix(mix); for (let i = 0; i < 5; i++) spawn(mix[Math.floor(random() * mix.length)], null, a.id); }  // 其他狩獵區各 5 隻
+    // 其他狩獵區各 5 隻;*不*預先下載牠們的 sheet(21 隻要 5.6 MB)——真的畫到或進區時才載。
+    for (const a of REGIONS) if (a.id !== 'village' && a.id !== 'meadow') { const mix = mixOf(a.id); for (let i = 0; i < 5; i++) spawn(mix[Math.floor(random() * mix.length)], null, a.id); }
     log('五位獵人抵達暮影村。準備餐點、收購戰利品，讓小鎮繁盛起來。', 'success'); refreshQuest();
   }
 

@@ -40,6 +40,8 @@ jobs:
         run: |
           mkdir -p site
           cp dist/*.html site/index.html
+          # 2026-10-27:大張圖是外部檔案(dist/media),要一起帶上,不然遊戲看不到角色/魔物
+          cp -r dist/media site/media
           cp -r pwa/. site/
           cp -r ota/. site/
           echo "Site contents:" && ls -la site

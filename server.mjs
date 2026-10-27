@@ -18,6 +18,15 @@ http.createServer(async(req,res)=>{
         await fs.appendFile(path.join(dir,`perf-${new Date().toISOString().slice(0,10)}.jsonl`),JSON.stringify(rec)+'\n');}catch{}
       res.writeHead(204).end();return;
     }
+    // 2026-10-27:大張圖改成外部檔案(build.mjs → <out>/media/...),要真的送出去,不能回 HTML。
+    const urlPath=decodeURIComponent(new URL(req.url,'http://x').pathname);
+    if(urlPath.startsWith('/media/')){
+      const rel=urlPath.slice('/media/'.length).split('/').filter(s=>s&&s!=='..'&&s!=='.');
+      const file=await fs.readFile(path.join(root,'media',...rel));
+      const type=rel.at(-1).endsWith('.json')?'application/json; charset=utf-8':(MIME[path.extname(rel.at(-1))]||'application/octet-stream');
+      res.writeHead(200,{'Content-Type':type,'Cache-Control':'no-cache'});
+      res.end(file);return;
+    }
     const name=path.basename(new URL(req.url,'http://x').pathname);
     if(name&&/^(sw\.js|manifest\.webmanifest|icon-192\.png|icon-512\.png|icon-maskable-512\.png|apple-touch-icon\.png)$/.test(name)){
       const file=await fs.readFile(path.join(PWA,name));
