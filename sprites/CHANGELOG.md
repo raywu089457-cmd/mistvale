@@ -1,5 +1,13 @@
 # CHANGELOG — sprites
 
+## 2026-10-27(深夜後) — 紙偶走路退回程式化
+
+- 使用者看過實機後判定紙偶效果不好 → **kobold / wolfman / moss / snowman / mummy 全部退回 `build_monster_8dir.py` 的程式化走路**
+  （重跑 builder → to_webp → build，8 格不重複、無碰邊，實機 kobold/mummy 正常）。
+- 21 隻現在統一用程式化走路（biped / quad / blob / sway 四種骨架）。
+- `pipeline/blender/README.md` 加上「紙偶不採用」的結論與三條實測原因；程式留著當紀錄，不接進遊戲。
+
+
 ## 2026-10-27(深夜) — 紙偶走路接進 5 隻人形魔物
 
 - `paper_doll_8dir.py` 補強：腿塊／頭塊往身體多留 5% 重疊＋左右各留 6%（兩腿擺開時中線不會露縫）、
