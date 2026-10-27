@@ -1,5 +1,19 @@
 # CHANGELOG — sprites
 
+## 2026-10-27(晚) — 牧師 8 方向 + 紙偶骨架（立體骨架貼 2D 素材）
+
+- **牧師**（`build_priest_8dir.py`）：桌面的 8 方向待機 + 模板生的 8 方向走路（5 向 + 3 向鏡像）＋下載區的 8 方向攻擊
+  → `assets/heroes/priest.*`（28 列：idle 8 向、walk 8 向、attack 8 向、hurt/death/victory/skill）。
+  沒有新素材的 hurt/death/victory 用 idle 做程式化位移（畫風不會變成兩個人）；skill 直接指向攻擊列。
+  角色高 71 px 跟舊版一致；攻擊列 cell 128（法杖與法球會伸出身體）。JSON 補上 `palette`（variantMap 需要）。
+- **紙偶管線**（`pipeline/scripts/blender/paper_doll_8dir.py`）：把 8 方向待機圖切成頭／身／左腿／右腿四塊，
+  貼在 3D 骨架骨頭上（剛性權重），在螢幕平面內繞 Y 軸擺動，**正交相機**拍回 → 保留原畫但有真骨架帶動。
+  8 方向共用一副骨架、只換貼圖。第一版踩到「透明像素變黑方塊」→ 材質要 Alpha→Mix(Transparent)。
+  實測 kobold：腿真的前後擺，跟程式化位移並排差別很明顯（`output/paperdoll/_compare_kobold.gif`）。
+  限制：長袍角色（牧師）看不到腿；髖部接縫在擺幅大時會露縫。尚未接進遊戲。
+- `npm test` 11 PASS。線上首頁 0.73 MB。
+
+
 ## 2026-10-27 — 借用 Sprixen 的三個概念（archetype 走路 / 武器鎖手 / Blender 8 向）
 
 - **archetype 走路**（`build_monster_8dir.py`）：原本只分 step / hop，改成跟 Sprixen 動畫 API 同一套分類

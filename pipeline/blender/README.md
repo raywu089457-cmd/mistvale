@@ -30,3 +30,26 @@ python pipeline/scripts/blender/pixelize_renders.py output/blender8 --game-size 
 
 現況：21 隻仍用 `build_monster_8dir.py` 的程式化走路（archetype：biped / quad / blob / sway），
 Blender 這條線留著當之後要做真走路／攻擊的工具。
+
+---
+
+# 紙偶：立體骨架 ＋ 貼上 2D 素材 ＋ 正交(2D)鏡頭
+
+```bash
+"/c/Program Files/Blender Foundation/Blender 5.2/blender.exe" -b -P pipeline/scripts/blender/paper_doll_8dir.py     -- output/l0veyou/mon8/kobold output/paperdoll/kobold --neck=0.42 --hip=0.66
+```
+
+做什麼：把**已經有的手繪 8 方向待機圖**切成四塊（頭 / 身含手臂 / 左腿 / 右腿），
+貼在 3D 骨架的骨頭上（每個部位剛性綁一根骨），骨頭在 3D 空間轉（螢幕平面內 = 繞 Y 軸），
+再用**正交相機**拍回來 → 得到「真骨架帶動、但保留原畫」的平面動畫。素材風格 100% 不變、成本 0。
+
+- 切法不需要美術標註：頸線 = 內容高度 38%（`--neck`）、髖線 62%（`--hip`），腿在中線左右切開。
+- 8 個方向共用同一副骨架／同一份幾何，只換貼圖（`image.filepath` + reload）→ 每個方向都是同一個角色。
+- 走路 = 兩腿繞 Y 軸前後擺（±22°）＋髖部上下顛；攻擊 = 軀幹後仰蓄力 → 前傾出手 → 回正。
+- 材質：Image Texture(Closest) → Emission，Alpha → Mix(Transparent) —— 少了這個透明混合，
+  透明像素會被畫成黑色方塊（第一版就踩到）。EEVEE、taa=1、filter=0.01 → 硬邊像素。
+
+已知限制：
+1. **長袍角色（牧師）看不到腿** —— 袍子是一整塊，腿擺動被蓋住；這類角色用程式化的身體起伏反而正確。
+2. 髖部接縫在擺動大時會露出一點縫（剛性切塊）。要更好就把腿塊往上多留 2–3 px 並讓身體塊後畫（或做羽化權重）。
+3. 目前產出是 `output/paperdoll/`，還沒接進遊戲；接法是 `pixelize_renders.py` 壓成格子 → `build_monster_8dir.py --walk-src`。
