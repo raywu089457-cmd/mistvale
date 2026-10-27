@@ -255,6 +255,38 @@ turn.tick(0.6);                            // 僵直結束、真的走起來 →
 assert.ok(turn.pilotState().faceX < -0.5, 'walking west after the recovery turns the character');
 assert.ok(turn.pilotState().x < eastX, 'and it actually walks west');
 turn.pilotStop();
+// 手動操控法師:魔法球真的會飛(PILOT_ORB)——空打朝目前面向的角度(不吸附 8 方向)、路徑上碰到的魔物都打(穿透)、飛完射程就消失
+{
+  const orb = createGame(); const oh = isolate(orb); oh.classId = 'sorcerer'; oh.x = 6; oh.z = 30;
+  oh.huntRegion = null; orb.state.spawnTimer = 0; run(orb, 0);
+  // 借一隻真的魔物當範本(野外生怪),複製成三隻擺在固定位置
+  const gen = createGame(); const gh = isolate(gen); gh.x = gh.z = 0; run(gen, 6); const proto = gen.state.enemies.find(e => e.hp > 0);
+  assert.ok(proto, 'template enemy spawned for the orb test');
+  assert.equal(orb.pilotStart(oh.id).ok, true);
+  const ux = 2 / Math.sqrt(5), uz = 1 / Math.sqrt(5), px = -uz, pz = ux;   // 面向 26.6°(介於東與東南之間)
+  orb.state.pilot.faceX = ux; orb.state.pilot.faceZ = uz;
+  const at = (along, side) => ({ x: oh.x + ux * along + px * side, z: oh.z + uz * along + pz * side });
+  const spots = { onPath: at(3.6, 0), nearPath: at(4.3, 0.5), offPath: at(3.8, 1.6) };   // 都在 3.2 格外(不會被自動瞄準)
+  const foes = Object.fromEntries(Object.entries(spots).map(([k, p], i) => [k, { ...proto, id: `orbtest${i}`, ...p, hp: proto.maxHp ?? proto.hp, attackTimer: 9, rewarded: false }]));
+  orb.state.enemies = Object.values(foes); const hp0 = Object.fromEntries(Object.entries(foes).map(([k, e]) => [k, e.hp]));
+  const pin = () => { for (const [k, e] of Object.entries(foes)) { Object.assign(e, spots[k]); e.attackTimer = 9; } };
+  orb.pilotAttack(); pin(); orb.tick(0.02);
+  assert.equal(orb.state.shots.length, 1, 'the sorcerer fires one flying orb');
+  assert.ok(Math.abs(Math.atan2(orb.state.shots[0].dz, orb.state.shots[0].dx) - Math.atan2(uz, ux)) < 1e-6, 'empty-air orb flies at the exact facing angle');
+  for (let i = 0; i < 12; i++) { pin(); orb.tick(0.05); }
+  assert.ok(foes.onPath.hp < hp0.onPath, 'orb hits the monster on its path');
+  assert.ok(foes.nearPath.hp < hp0.nearPath, 'orb hits a monster within its radius of the path');
+  assert.equal(foes.offPath.hp, hp0.offPath, 'orb misses a monster outside its radius');
+  assert.equal(foes.onPath.hp, hp0.onPath - orb.state.hunters[0].attack, 'each monster is hit once per orb');
+  assert.equal(orb.state.shots.length, 0, 'orb disappears after its range');
+  // 3.2 格內有魔物:照舊自動瞄準牠(方向朝魔物,不是面向)
+  orb.tick(0.6); const near = { ...proto, id: 'orbtestNear', x: oh.x, z: oh.z - 2, hp: 200, attackTimer: 9, rewarded: false };
+  orb.state.enemies = [near]; orb.pilotAttack(); orb.tick(0.02);
+  assert.ok(orb.state.shots.length === 1 && orb.state.shots[0].dz < -0.99, 'orb aims at the monster in range');
+  for (let i = 0; i < 6; i++) { near.x = oh.x; near.z = oh.z - 2; near.attackTimer = 9; orb.tick(0.05); }
+  assert.ok(near.hp < 200, 'aimed orb hits the monster');
+  orb.pilotStop();
+}
 // AI 獵人出手後也有短僵直(站著收招不移動),但沒有額外的攻擊 CD
 assert.equal(AI_ATTACK_LOCK, 0.15);
 const ai = createGame(); const ah = isolate(ai); ah.huntRegion = ai.state.region; ah.route = []; ah.task = null;

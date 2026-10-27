@@ -42,8 +42,8 @@ assert.ok(seaSamples>150,`the coastline cuts into the world rect (${seaSamples} 
  assert.ok(mx-mn>4,`the biome border is irregular (${(mx-mn).toFixed(1)} world units)`);}
 for(const region of REGIONS.slice(1)){
  const game=createGame();assert.equal(game.exploreRegion(region.id).ok,true);assert.equal(game.state.region,region.id);
- assert.ok(game.state.visitedRegions.includes(region.id));assert.equal(game.state.enemies.filter(e=>e.regionId===region.id).length,6);
- // 魔物生在整個地形上,不是擠在中心:6 隻之間最遠的兩隻要隔得開。
+ assert.ok(game.state.visitedRegions.includes(region.id));assert.equal(game.state.enemies.filter(e=>e.regionId===region.id).length,12);
+ // 魔物生在整個地形上,不是擠在中心:12 隻之間最遠的兩隻要隔得開。
  const pts=game.state.enemies.filter(e=>e.regionId===region.id).map(e=>[e.x,e.z]);let spread=0;
  // 出生點要和村莊圍籬保持距離(玩家一走出門不該直接撞到怪)。
  for(const [x,z] of pts){const d=Math.hypot(Math.max(VILLAGE_BOUNDS.minX-x,x-VILLAGE_BOUNDS.maxX,0),Math.max(VILLAGE_BOUNDS.minZ-z,z-VILLAGE_BOUNDS.maxZ,0));assert.ok(d>3,`${region.id} monsters keep their distance from the village (${d.toFixed(1)})`);}

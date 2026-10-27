@@ -2,7 +2,7 @@ import {getRoads,onPaved,doorStand,PALISADE,villagePonds,inPond,buildingSolid,st
 import {createVillageNav} from './village-nav.js';
 import {WORLD,REGIONS,walkable,inVillage,regionAt,regionContains,regionEdge,regionCenter,randomRegionPoint,wildAt} from './overworld.js';
 import {VILLAGE_BOUNDS,EXITS,blockAt,BUILDING_NUDGE,BUILDING_SLOTS,blockCenter} from './village-grid.js';
-import { SKILLS, BUILDINGS, CLASSES, WANDER_ONLY, RARITIES, TRAITS, MATERIALS, PRODUCTS, RECIPES, DIFFICULTIES, CAMP, HUNT_ZONE, PILOT_ATTACK, AI_ATTACK_LOCK, LEGACY_LAYOUT_V14, LEGACY_LAYOUT_V15, LEGACY_LAYOUT_V16, ART_LAYOUT_HISTORY } from './pixel-data.js';
+import { SKILLS, BUILDINGS, CLASSES, WANDER_ONLY, RARITIES, TRAITS, MATERIALS, PRODUCTS, RECIPES, DIFFICULTIES, CAMP, HUNT_ZONE, PILOT_ATTACK, PILOT_ORB, AI_ATTACK_LOCK, LEGACY_LAYOUT_V14, LEGACY_LAYOUT_V15, LEGACY_LAYOUT_V16, ART_LAYOUT_HISTORY } from './pixel-data.js';
 
 const mapById = list => Object.assign(Object.create(null), Object.fromEntries(list.map(item => [item.id, item])));
 const CLASS = mapById([...CLASSES, ...WANDER_ONLY]), BUILDING = mapById(BUILDINGS), RARITY = mapById(RARITIES), RECIPE = mapById(RECIPES);
@@ -15,12 +15,35 @@ const NAMES = ['艾登', '莉雅', '羅恩', '賽琳', '伊諾', '芙蕾雅', '�
 const SIGHT = 12;
 // 魔物的「主動攻擊範圍」(世界單位):超出這個距離的敵人不會被追、也不會被鎖定。
 // 獵人的視野 SIGHT 比它大很多 → 獵人會主動找上門,魔物只在自己地盤上迎戰。
-const AGGRO = { slime: 5.5, wolf: 8, golem: 5, ogre: 6.5, boss: 15 };
+const AGGRO = { boss: 15,
+  // 2026-10-26 新增 21 隻(8 方向素材):主動攻擊範圍照體型/速度給
+  sprout: 5, ram: 6.5, mole: 4.5, shroom: 5, boar: 7.5, vine: 4.5, wolfman: 8.5, moss: 6, snowhare: 7,
+  yeti: 7, snowman: 5, icebeetle: 4.5, kobold: 6, boulder: 4.5, goat: 7, mummy: 5.5, cactus: 4, scorpion: 6.5,
+  floraspirit: 5.5, birchling: 5, stag: 8 };
 const ENEMIES = {
-  slime: { hp: 66, attack: 10, speed: 0.85, gold: 18, xp: 22, drops: { flour: 3, herb: 2 } },
-  wolf: { hp: 98, attack: 15, speed: 1.7, gold: 26, xp: 32, drops: { leather: 3, cloth: 2 } },
-  golem: { hp: 165, attack: 19, speed: 0.68, gold: 38, xp: 44, drops: { ore: 4, wood: 3 } },
-  ogre: { hp: 132, attack: 17, speed: 0.8, gold: 32, xp: 38, drops: { wood: 3, leather: 2, ore: 1 } },  // 獵魔村物語風格試作:直立綠皮食人魔(sprites/characters/MONSTER_OGRE_001)
+  // 2026-10-26:舊的 slime / wolf / golem / ogre 從出怪表移除,野外只留 8 方向新魔物(王還是 treant)。
+  // 21 隻用 PixelLab 8 方向素材做的(每區 3 隻;數值從小型到大型排) ----
+  sprout: { hp: 60, attack: 9, speed: 0.9, gold: 16, xp: 20, drops: { flour: 3, herb: 2 } },
+  ram: { hp: 88, attack: 13, speed: 1.25, gold: 22, xp: 27, drops: { flour: 2, leather: 2 } },
+  mole: { hp: 75, attack: 11, speed: 0.8, gold: 20, xp: 24, drops: { flour: 2, ore: 1 } },
+  shroom: { hp: 70, attack: 12, speed: 0.7, gold: 20, xp: 25, drops: { herb: 3, flour: 1 } },
+  boar: { hp: 105, attack: 16, speed: 1.5, gold: 26, xp: 31, drops: { leather: 3, wood: 1 } },
+  vine: { hp: 95, attack: 14, speed: 0.62, gold: 24, xp: 29, drops: { wood: 3, herb: 2 } },
+  wolfman: { hp: 120, attack: 17, speed: 1.55, gold: 30, xp: 36, drops: { leather: 3, cloth: 1 } },
+  moss: { hp: 150, attack: 18, speed: 0.7, gold: 34, xp: 40, drops: { wood: 3, herb: 2, ore: 1 } },
+  snowhare: { hp: 85, attack: 13, speed: 1.8, gold: 24, xp: 28, drops: { leather: 2, cloth: 2 } },
+  yeti: { hp: 200, attack: 22, speed: 0.65, gold: 44, xp: 52, drops: { ore: 3, leather: 3, wood: 2 } },
+  snowman: { hp: 140, attack: 15, speed: 0.75, gold: 32, xp: 37, drops: { ore: 2, cloth: 2 } },
+  icebeetle: { hp: 160, attack: 16, speed: 0.6, gold: 34, xp: 39, drops: { ore: 3, herb: 1 } },
+  kobold: { hp: 100, attack: 15, speed: 1.1, gold: 26, xp: 30, drops: { ore: 3, wood: 1 } },
+  boulder: { hp: 210, attack: 23, speed: 0.5, gold: 46, xp: 54, drops: { ore: 5, wood: 1 } },
+  goat: { hp: 130, attack: 18, speed: 1.4, gold: 30, xp: 35, drops: { leather: 2, ore: 2 } },
+  mummy: { hp: 130, attack: 17, speed: 0.9, gold: 32, xp: 36, drops: { cloth: 3, herb: 1 } },
+  cactus: { hp: 150, attack: 16, speed: 0.5, gold: 32, xp: 37, drops: { herb: 4, flour: 1 } },
+  scorpion: { hp: 145, attack: 19, speed: 1.05, gold: 34, xp: 39, drops: { herb: 2, leather: 2 } },
+  floraspirit: { hp: 70, attack: 11, speed: 1.3, gold: 22, xp: 26, drops: { herb: 4 } },
+  birchling: { hp: 110, attack: 14, speed: 0.85, gold: 26, xp: 31, drops: { wood: 3, herb: 2 } },
+  stag: { hp: 125, attack: 16, speed: 1.5, gold: 30, xp: 34, drops: { leather: 3, herb: 1 } },
   boss: { hp: 1150, attack: 28, speed: 0.85, gold: 260, xp: 180, drops: { ore: 15, wood: 10, herb: 8, leather: 10, cloth: 8, flour: 10 } },
 };
 const QUESTS = [
@@ -454,7 +477,11 @@ export function createGame(saved = null) {
 
   const wandererOf = who => (state.wanderers || []).includes(who);
   // 流浪英雄被魔物打倒:沒有復活聖所接引,倒在野外喘一下,幾秒後自己站起來(身上的東西留著)。
-  const ENEMY_NAME = { slime: '史萊姆', wolf: '野狼', golem: '魔像', ogre: '食人魔', boss: '森林領主' };
+  const ENEMY_NAME = { boss: '森林領主',
+    sprout: '花芽妖', ram: '捲角羊', mole: '鼴鼠', shroom: '蕈菇怪', boar: '野豬', vine: '藤鞭怪',
+    wolfman: '灰毛狼人', moss: '苔蘚巨魔', snowhare: '雪兔', yeti: '霜雪怪', snowman: '雪人哨兵', icebeetle: '冰甲蟲',
+    kobold: '礦穴地精', boulder: '岩塊怪', goat: '鐵角羊', mummy: '木乃伊', cactus: '仙人掌怪', scorpion: '沙蠍',
+    floraspirit: '花妖精', birchling: '白樺樹精', stag: '白樺雄鹿' };
   function downWanderer(w, by) {
     w.hp = 0; w.reviveTimer = 9; w.task = null; w.route = []; w.targetId = null; w.status = '倒下';
     w.mood = Math.max(0, w.mood - 10); state.wanderDowns = (state.wanderDowns || 0) + 1;
@@ -471,9 +498,15 @@ export function createGame(saved = null) {
     effect('heal', h); returnToTown(h);
   }
 
-  // 各生態區照原關卡設計出怪:主要魔物＝region.enemy,另有少量次要魔物;強度＝難度倍率 × 該區 risk。
-  const REGION_MIX={meadow:['slime','slime','slime','wolf'],forest:['wolf','ogre','slime','wolf'],taiga:['wolf','ogre','golem','wolf'],snow:['golem','golem','wolf','golem'],
-    mountain:['golem','golem','golem','wolf'],desert:['golem','wolf','golem','golem'],birch:['slime','slime','wolf','slime']};
+  // 各生態區出怪:每區 3 隻新怪(小/中/大)＋ 1 隻舊怪保留(權重用重複項調整)。強度＝難度倍率 × 該區 risk。
+  // 每區只有 3 種(小/中/大),權重 3:3:2 —— 舊的 slime/wolf/golem 不再出現。
+  const REGION_MIX={meadow:['sprout','sprout','sprout','ram','ram','ram','mole','mole'],forest:['shroom','shroom','shroom','boar','boar','boar','vine','vine'],
+    taiga:['snowhare','snowhare','snowhare','wolfman','wolfman','wolfman','moss','moss'],snow:['icebeetle','icebeetle','icebeetle','snowman','snowman','snowman','yeti','yeti'],
+    mountain:['kobold','kobold','kobold','goat','goat','goat','boulder','boulder'],desert:['cactus','cactus','cactus','scorpion','scorpion','scorpion','mummy','mummy'],
+    birch:['floraspirit','floraspirit','floraspirit','stag','stag','stag','birchling','birchling']};
+  const mixOf = id => REGION_MIX[id] || REGION_MIX.meadow;
+  // 進區前先把該區會出現的魔物 sheet 叫回來(像素世界是「用到才載」,26 種全載會吃掉 280 MB)。
+  const preloadMix = mix => { try { globalThis.__mistvalePreloadMonsters?.(mix); } catch { } };
   function spawn(type, position = null, regionId = null) {
     const region = REGIONS.find(r => r.id === (regionId || (position && regionAt(position.x, position.z).id) || state.region)) || REGIONS[1];
     // 出生點在整個狩獵區裡「均勻」取(area-uniform 取樣),只有跟其他魔物疊在一起(<1.8)才重抽,
@@ -619,7 +652,12 @@ export function createGame(saved = null) {
         h.atkAt = state.time;
         h.atkX = inRange ? target.x : h.x + (pilot.faceX ?? 1);
         h.atkZ = inRange ? target.z : h.z + (pilot.faceZ ?? 0);
-        if (inRange) {
+        if (h.classId === 'sorcerer') {   // 法師:發出真的會飛的魔法球(PILOT_ORB),路徑上碰到的魔物都打;沒有目標就朝目前面向的角度飛
+          const l = Math.hypot(h.atkX - h.x, h.atkZ - h.z) || 1, dx = (h.atkX - h.x) / l, dz = (h.atkZ - h.z) / l, range = CLASS.sorcerer?.range || 4.5;
+          const damage = Math.max(1, Math.round(h.attack));
+          (state.shots ??= []).push({ x: h.x, z: h.z, dx, dz, left: range, ownerId: h.id, dmg: damage, crit: damage >= h.attack * 1.25, hit: [] });
+          effect('spell', { x: h.x + dx * range, z: h.z + dz * range }, { sourceX: h.x, sourceZ: h.z, delay: range / PILOT_ORB.speed, cls: h.classId, value: 0, noImpact: true });   // 飛行畫面(同速度);命中由 stepShots 判定
+        } else if (inRange) {
           const damage = Math.max(1, Math.round(h.attack));
           const kind = h.classId === 'sorcerer' ? 'spell' : h.classId === 'archer' ? 'arrow' : h.classId === 'priest' ? 'holy' : h.classId === 'assassin' ? 'hit' : 'slash';   // 刺客:刀光是攻擊列自己畫的(PixelLab X 字斬),遊戲只補命中火花
           const delay = kind === 'arrow' ? 0.2 : kind === 'spell' ? 0.25 : kind === 'holy' ? 0.16 : 0.07;
@@ -647,16 +685,37 @@ export function createGame(saved = null) {
     return true;
   }
 
+  // 手動操控法師的魔法球:沿直線飛,每一步掃「魔物到這段路徑的距離 ≤ 作用半徑」,每隻只打一次(穿透),飛完射程就消失。
+  // 命中時才扣血、才出命中特效與傷害數字(位置在魔物身上)。王不算(手動出手本來就不瞄準王)。
+  function stepShots(dt) {
+    const shots = state.shots; if (!shots?.length) return;
+    for (const s of shots) {
+      const d = Math.min(s.left, PILOT_ORB.speed * dt);
+      for (const e of state.enemies) {
+        if (e.hp <= 0 || e.type === 'boss' || s.hit.includes(e.id)) continue;
+        const t = Math.max(0, Math.min(d, (e.x - s.x) * s.dx + (e.z - s.z) * s.dz));
+        if (Math.hypot(e.x - (s.x + s.dx * t), e.z - (s.z + s.dz * t)) > PILOT_ORB.radius) continue;
+        s.hit.push(e.id); e.hp -= s.dmg; e.hitAt = state.time; e.hitFromX = s.x; e.hitFromZ = s.z;
+        effect('spell', e, { sourceX: e.x, sourceZ: e.z, value: s.dmg, targetId: e.id, delay: 0, cls: 'sorcerer', crit: s.crit });
+        const owner = state.hunters.find(q => q.id === s.ownerId);
+        if (e.hp <= 0 && owner) rewardEnemy(e, owner);
+      }
+      s.x += s.dx * d; s.z += s.dz * d; s.left -= d;
+    }
+    state.shots = shots.filter(s => s.left > 1e-6);
+  }
+
   function step(dt) {
     if (pilotStep(dt)) { /* 手動模式:只跑環境與其他單位 */ }
+    stepShots(dt);
     state.time += dt; state.day = Math.floor(state.time / 240) + 1;
     state.healCooldown = Math.max(0, state.healCooldown - dt); state.expedition.cooldown = Math.max(0, state.expedition.cooldown - dt); state.dungeon.cooldown = Math.max(0, state.dungeon.cooldown - dt); state.arena.cooldown = Math.max(0, state.arena.cooldown - dt);
     // 定時生怪:每個狩獵區都有自己的族群。目前狩獵區 4.5 秒補一隻、上限 8;其他區 8 秒補一隻、上限 3(野外面積砍一半後,沒人在打的區魔物也跟著減半,畫面才不會擠成一團)。
     state.spawnTimer += dt;
-    if (state.spawnTimer >= 4.5) { state.spawnTimer -= 4.5; const n = state.enemies.filter(e => e.hp > 0 && e.type !== 'boss' && e.regionId === state.region).length; if (n < 8) { const mix = REGION_MIX[state.region] || REGION_MIX.meadow; spawn(mix[Math.floor(random() * mix.length)], null, state.region); } }
+    if (state.spawnTimer >= 2.5) { state.spawnTimer -= 2.5; const n = state.enemies.filter(e => e.hp > 0 && e.type !== 'boss' && e.regionId === state.region).length; if (n < 14) { const mix = REGION_MIX[state.region] || REGION_MIX.meadow; spawn(mix[Math.floor(random() * mix.length)], null, state.region); } }
     state.regionSpawn ??= {};
     for (const a of REGIONS) { if (a.id === 'village' || a.id === state.region) continue; state.regionSpawn[a.id] = (state.regionSpawn[a.id] || 0) + dt; if (state.regionSpawn[a.id] < 8) continue; state.regionSpawn[a.id] = 0;
-      if (state.enemies.filter(e => e.hp > 0 && e.type !== 'boss' && e.regionId === a.id).length < 3) { const mix = REGION_MIX[a.id]; spawn(mix[Math.floor(random() * mix.length)], null, a.id); } }
+      if (state.enemies.filter(e => e.hp > 0 && e.type !== 'boss' && e.regionId === a.id).length < 6) { const mix = REGION_MIX[a.id]; spawn(mix[Math.floor(random() * mix.length)], null, a.id); } }
     for (const h of state.hunters) {
       h.attackTimer = Math.max(0, h.attackTimer - dt); h.trainCooldown = Math.max(0, h.trainCooldown - dt);
       if (h.hp <= 0) { if (h.task !== 'dungeon' && h.task !== 'arena') { if (h.task !== 'revive') died(h); h.reviveTimer = Math.max(0, h.reviveTimer - dt); if (h.reviveTimer === 0) revive(h); } continue; }
@@ -852,8 +911,8 @@ export function createGame(saved = null) {
     { const w = state.wanderers[state.wanderers.length - 1], c = CLASS.priest;
       if (w && c) { w.classId = 'priest'; w.huntRegion = bestRegionFor(w).id; updateStats(w); w.hp = w.maxHp; } }
     state.wanderKills = 0;
-    for (const t of ['slime', 'slime', 'wolf', 'slime', 'golem', 'ogre']) spawn(t, null, 'meadow');  // 開局草原魔物也在空地內圈出生(原本固定座標,有的在橋頭)
-    for (const a of REGIONS) if (a.id !== 'village' && a.id !== 'meadow') for (let i = 0; i < 2; i++) spawn(REGION_MIX[a.id][i], null, a.id);  // 每個狩獵區一開始就有魔物
+    for (let i = 0; i < 10; i++) { const m = mixOf('meadow'); spawn(m[Math.floor(random() * m.length)], null, 'meadow'); }  // 開局草原就有 10 隻
+    for (const a of REGIONS) if (a.id !== 'village' && a.id !== 'meadow') { const mix = mixOf(a.id); preloadMix(mix); for (let i = 0; i < 5; i++) spawn(mix[Math.floor(random() * mix.length)], null, a.id); }  // 其他狩獵區各 5 隻
     log('五位獵人抵達暮影村。準備餐點、收購戰利品，讓小鎮繁盛起來。', 'success'); refreshQuest();
   }
 
@@ -946,7 +1005,7 @@ export function createGame(saved = null) {
     if (!oldMap && Array.isArray(source.enemies)) for (const raw of source.enemies.filter(e => e && own(ENEMIES, e.type) && e.type !== 'boss').slice(0, 40)) {
       const e = spawn(raw.type, { x: number(raw.x,16,WORLD.minX+1,WORLD.maxX-1), z: number(raw.z,-2,WORLD.minZ+1,WORLD.maxZ-1) }); e.hp = number(raw.hp, e.maxHp, 1, e.maxHp); e.attackTimer = number(raw.attackTimer, 1, 0, 2); e.age = number(raw.age, 0, 0, 1e7);
     }
-    if (!state.enemies.length) { spawn('slime', null, 'meadow'); spawn('wolf', null, 'meadow'); }
+    if (!state.enemies.length) { const m = mixOf('meadow'); for (let i = 0; i < 6; i++) spawn(m[Math.floor(random() * m.length)], null, 'meadow'); }
     state.expedition.cooldown = number(source.expedition?.cooldown, 0, 0, 60);
     if (source.expedition?.active === true) { const boss = spawn('boss', regionCenter(state.region) || REGIONS[1]); boss.hp = number(source.expedition.bossHp, boss.maxHp, 1, boss.maxHp); Object.assign(state.expedition, { active: true, bossHp: boss.hp, bossMaxHp: boss.maxHp, elapsed: number(source.expedition.elapsed, 0, 0, 210) }); }
     const rawDungeon = source.dungeon, d = state.dungeon;
@@ -963,7 +1022,7 @@ export function createGame(saved = null) {
       Object.assign(a, { active: true, phase: '集結中', hunterIds: arenaIds, time: number(rawArena.time, 0, 0, 120), enemyMaxHp: 720 + Math.min(10, a.wins) * 130, attackTimer: number(rawArena.attackTimer, 1, 0, 2) }); a.enemyHp = number(rawArena.enemyHp, a.enemyMaxHp, 1, a.enemyMaxHp);
       for (const h of state.hunters.filter(h => arenaIds.includes(h.id))) { h.task = 'arena'; h.status = '競技場模擬集結'; h.destination = 'training'; route(h, [door('training', h)]); }
     }
-    state.effects = []; state.log = []; log('存檔已載入。獵人重新整隊，村莊繼續運作。', 'success'); refreshQuest();
+    state.effects = []; state.shots = []; state.log = []; log('存檔已載入。獵人重新整隊，村莊繼續運作。', 'success'); refreshQuest();
   }
 
   function getUpgradeCost(buildingId) {
@@ -1110,7 +1169,7 @@ export function createGame(saved = null) {
       const difficulty = DIFFICULTIES.find(d => d.id === difficultyId); if (!difficulty) return result(false, '找不到這個狩獵難度。');
       if (state.expedition.active || state.dungeon.active || state.arena.active) return result(false, '討伐、地下城或對戰進行中，請結束後再切換難度。');
       const rebirths = state.hunters.reduce((sum, h) => sum + h.rebirths, 0); if (rebirths < difficulty.rebirths) return result(false, `${difficulty.name}難度需要全體獵人累計 ${difficulty.rebirths} 次轉世。`);
-      state.difficulty = difficulty.id; state.enemies = []; for (let i = 0; i < 5; i++) spawn(i % 3 === 0 ? 'golem' : i % 3 === 1 ? 'slime' : 'wolf');
+      state.difficulty = difficulty.id; state.enemies = []; const dm = mixOf(state.region || 'meadow'); for (let i = 0; i < 8; i++) spawn(dm[Math.floor(random() * dm.length)], null, state.region && state.region !== 'village' ? state.region : 'meadow');
       for (const h of state.hunters) h.targetId = null; log(`狩獵難度切換為「${difficulty.name}」。`, 'warning'); return result(true, `已切換為${difficulty.name}難度。`);
     },
     setTradeRequest(materialId, amount) {
@@ -1174,7 +1233,7 @@ export function createGame(saved = null) {
       const region=REGIONS.find(r=>r.id===regionId&&r.id!=='village');if(!region)return result(false,'請選擇村外的生態區。');
       if(state.expedition.active)return result(false,'請先結束目前的首領討伐。');
       state.region=region.id;state.rally=null;if(!state.visitedRegions.includes(region.id))state.visitedRegions.push(region.id);
-      state.enemies=state.enemies.filter(e=>e.type==='boss'||e.regionId!==region.id);for(let i=0;i<6;i++)spawn(i<4?region.enemy:i===4?'slime':'wolf',null,region.id);
+      state.enemies=state.enemies.filter(e=>e.type==='boss'||e.regionId!==region.id);const mix=mixOf(region.id);preloadMix(mix);for(let i=0;i<12;i++)spawn(mix[Math.floor(random()*mix.length)],null,region.id);
       // 給「所有」存活獵人下指令(正在村內辦事的也先記下,辦完就出發),不要漏掉。
       for(const h of state.hunters)if(h.hp>0){h.huntRegion=region.id;h.targetId=null;if(!h.task){h.rallying=true;h.status='出征中';route(h,[regionEdge(region.id)]);}}
       log(`已派遣獵人前往${region.name}。隊伍會經由橋樑穿越河流。`,'success');return result(true,`出發探索${region.name}！`);
@@ -1189,7 +1248,8 @@ export function createGame(saved = null) {
       if (!state.visitedRegions.includes(region.id)) state.visitedRegions.push(region.id);
       // 該區魔物不足就先補到 6 隻,才不會派出去沒東西打
       const alive = state.enemies.filter(e => e.hp > 0 && e.regionId === region.id).length;
-      for (let i = alive; i < 6; i++) spawn(i < 4 ? region.enemy : (i === 4 ? 'slime' : 'wolf'), null, region.id);
+      const mix = mixOf(region.id); preloadMix(mix);
+      for (let i = alive; i < 12; i++) spawn(mix[Math.floor(random() * mix.length)], null, region.id);
       const chosen = Array.isArray(hunterIds) && hunterIds.length ? new Set(hunterIds) : null;
       let n = 0;
       for (const h of state.hunters) if (h.hp > 0 && (!chosen || chosen.has(h.id))) {
@@ -1228,7 +1288,7 @@ export function createGame(saved = null) {
       if(!n)return result(false,'目前沒有正在出征的獵人。');
       log(`已召回 ${n} 位獵人回村待機。`,'success');return result(true,`${n} 位獵人回村待機。`);
     },
-    serialize() { return JSON.parse(JSON.stringify({ ...state, effects: [], log: [], hunters: state.hunters.map(({ route, ...h }) => h) })); },
+    serialize() { return JSON.parse(JSON.stringify({ ...state, effects: [], shots: [], log: [], hunters: state.hunters.map(({ route, ...h }) => h) })); },
     pilotStart(hunterId) { const h = state.hunters.find(q => q.id === hunterId); if (!h) return result(false, '找不到這位獵人。'); if (h.hp <= 0) return result(false, '這位獵人倒下了。'); state.pilot = { id: h.id, dx: 0, dz: 0, atk: false, readyAt: 0, lockUntil: 0, faceX: 1, faceZ: 0 }; h.task = 'pilot'; h.status = '手動操控'; h.route = []; return result(true, `開始操控 ${h.name}。`); },
     pilotInput(dx, dz) { if (state.pilot) { state.pilot.dx = dx || 0; state.pilot.dz = dz || 0; } },
     pilotAttack() { if (state.pilot) state.pilot.atk = true; },

@@ -47,12 +47,21 @@ function iso(x,z) { return {x:(x-z)*PX,y:(x+z)*PY}; }
 // grounded=false(建築、圍籬、攤位):每一欄最低的像素是地面,牆腳沿著等角斜邊。
 const SHADOW_SX=.62,SHADOW_SY=.2,SHADOW_RGB=[34,26,58];
 const shadowCache=new WeakMap();
+// 手機/平板(觸控)省記憶體(2026-10-26 真機 iPhone 卡頓):createWorld 依 coarsePointer 設定。
+// 影響:不用 2x 英雄表(heroHiAllowed)、影子用一半解析度、影子與換色格的記憶體上限較小。
+let lowMemDevice=false;
+// 影子快取有上限(以前永遠不清:手機模擬玩 2 分鐘 941 張≈95 MB 還在長)。全部影子排一條 LRU,
+// 總像素超過上限就丟最久沒畫到的(之後又用到再算一次)。上限:桌機 3200 萬像素(≈128 MB,實測 2 分鐘約用 2400 萬)、手機 600 萬(半解析度約 1000 張)。
+const shadowLru=new Map();let shadowPx=0,shadowMade=0;
+const SHADOW_BUDGET=()=>lowMemDevice?6e6:32e6;
+function shadowTouch(r){shadowLru.delete(r);shadowLru.set(r,1);}
 function shadowFor(img,sx,sy,sw,sh,flip,wpp,grounded,capWorld){
   let m=shadowCache.get(img);if(!m){m=new Map();shadowCache.set(img,m);}
-  const key=`${sx},${sy},${sw},${sh},${flip?1:0},${wpp},${grounded?1:0},${capWorld}`;let r=m.get(key);if(r)return r;
+  const key=`${sx},${sy},${sw},${sh},${flip?1:0},${wpp},${grounded?1:0},${capWorld}`;let r=m.get(key);if(r){shadowTouch(r);return r;}
   // 影子用最長邊 ≤128px 的縮小版算(Xilurus 圖集一格 250–350px,畫面上只有 40–60px):
   // 原尺寸影子每幀被大幅縮小重畫,桌機 30→23fps;影子本來就是半透明剪影,縮小看不出差別。
-  const f=Math.min(1,128/Math.max(sw,sh)),SW=sw,SH=sh;sw=Math.max(2,Math.round(sw*f));sh=Math.max(2,Math.round(sh*f));wpp/=sw/SW;
+  // 手機再減半(最長邊 ≤64px):影子是半透明剪影、畫面上只有幾十個像素,記憶體與計算都變 1/4。
+  const f=Math.min(1,(lowMemDevice?64:128)/Math.max(sw,sh)),SW=sw,SH=sh;sw=Math.max(2,Math.round(sw*f));sh=Math.max(2,Math.round(sh*f));wpp/=sw/SW;
   const src=makeCanvas(sw,sh),sc=src.getContext('2d',{willReadFrequently:true});sc.drawImage(img,sx,sy,SW,SH,0,0,sw,sh);
   const a=sc.getImageData(0,0,sw,sh).data,cap=capWorld/wpp,ex=Math.ceil(cap*SHADOW_SX)+2,ey=Math.ceil(cap*SHADOW_SY)+2,W=sw+ex,H=sh+ey,out=new Uint8ClampedArray(W*H);
   const base=new Int32Array(sw).fill(-1);let bottom=-1;
@@ -67,8 +76,12 @@ function shadowFor(img,sx,sy,sw,sh,flip,wpp,grounded,capWorld){
     if((u&&d)||(l&&r)){let s=0,n=0;if(u){s+=u;n++;}if(d){s+=d;n++;}if(l){s+=l;n++;}if(r){s+=r;n++;}out[i]=s/n;}}}
   const cv=makeCanvas(W,H),cx=cv.getContext('2d'),id=cx.createImageData(W,H);
   for(let i=0;i<out.length;i++){if(!out[i])continue;id.data[i*4]=SHADOW_RGB[0];id.data[i*4+1]=SHADOW_RGB[1];id.data[i*4+2]=SHADOW_RGB[2];id.data[i*4+3]=out[i];}
-  cx.putImageData(id,0,0);r={cv,ex,W,H,sw};m.set(key,r);return r;
+  cx.putImageData(id,0,0);r={cv,ex,W,H,sw,m,key};m.set(key,r);
+  shadowLru.set(r,1);shadowPx+=W*H;shadowMade++;
+  while(shadowPx>SHADOW_BUDGET()&&shadowLru.size>1){const old=shadowLru.keys().next().value;shadowLru.delete(old);old.m.delete(old.key);shadowPx-=old.W*old.H;}
+  return r;
 }
+globalThis.__mistvaleShadows=()=>({n:shadowLru.size,mpx:+(shadowPx/1e6).toFixed(2),budget:SHADOW_BUDGET()/1e6,made:shadowMade});
 
 function heroSprite(classId='berserker',frame=0,facing=1,variant=0,lodScale=heroLodScale,pose='idle') {
   heroUse.calls++;
@@ -466,15 +479,20 @@ function ensureHeroSheets(){const A=globalThis.PIXEL_ASSETS?.heroSheets||{};
     const hi=v.hi?(typeof v.hi.meta==='string'?{img:v.hi.img,meta:JSON.parse(v.hi.meta)}:v.hi):null;
     im.onload=()=>{heroSheets[id]={...heroSheets[id],img:im,meta,fx,fxMeta:v.fxMeta?(typeof v.fxMeta==='string'?JSON.parse(v.fxMeta):v.fxMeta):null};spriteCache.clear();globalThis.dispatchEvent(new CustomEvent('pixel-assets-ready'));};
     im.onerror=()=>loadedAssetKeys.delete('hs:'+id);im.src=v.img;if(fx)fx.src=v.fx;
-    if(hi){const him=trackImage(new Image());him.onload=()=>{heroSheets[id]={...heroSheets[id],hi:{img:him,meta:hi.meta}};spriteCache.clear();variantCache.clear();globalThis.dispatchEvent(new CustomEvent('pixel-assets-ready'));};him.src=hi.img;}}}
+    if(hi){const him=trackImage(new Image());him.onload=()=>{heroSheets[id]={...heroSheets[id],hi:{img:him,meta:hi.meta}};spriteCache.clear();variantCells.clear();variantCellPx=0;globalThis.dispatchEvent(new CustomEvent('pixel-assets-ready'));};him.src=hi.img;}}}
 // 模組化配件槽(Accessory/Head):assets/heroes/accessories.png,依稀有度戴在每格的頭頂錨點(meta.actions[act].head)。
 let heroAcc=null;function ensureHeroAcc(){const v=globalThis.PIXEL_ASSETS?.heroAccessories;if(!v||heroAcc||loadedAssetKeys.has('hacc'))return;loadedAssetKeys.add('hacc');const im=trackImage(new Image());im.onload=()=>{heroAcc={img:im,meta:v.meta};};im.src=v.img;}
 const ACC_BY_RARITY={rare:['ribbon','feather'],superior:['flowerCrown','tiara'],heroic:['laurel','horns'],legendary:['crown','halo']};
 function heroAccessory(h){const l=ACC_BY_RARITY[h.rarity];return l?l[hash(h.id||'')%l.length]:null;}
 // 新規格魔物 sheet(assets/monsters3,同英雄規格:1:1 像素、16 色、每列一個動作、軀幹中心=格中線、腳底=格底上 10px;密度跟英雄一樣 72 px = 21 單位)
-const monsterSheets={};function ensureMonsterSheets(){const A=globalThis.PIXEL_ASSETS?.monsterSheets||{};
-  for(const [id,v] of Object.entries(A)){if(loadedAssetKeys.has('ms:'+id))continue;loadedAssetKeys.add('ms:'+id);const im=trackImage(new Image());im.onload=()=>{monsterSheets[id]={img:im,meta:v.meta};};im.src=v.img;}}
-const MON_SHEET=t=>monsterSheets[t==='boss'?'treant':t];
+// 2026-10-26:魔物 26 種(每種約 8–18 MB 解碼後),全部開場載入會吃掉 280 MB → 改成**用到哪一種才載哪一種**(MON_SHEET 觸發)。
+const monsterSheets={};let monsterReq=new Set();
+function ensureMonsterSheet(id){const A=globalThis.PIXEL_ASSETS?.monsterSheets||{};const v=A[id];if(!v||loadedAssetKeys.has('ms:'+id))return;
+  loadedAssetKeys.add('ms:'+id);const im=trackImage(new Image());im.onload=()=>{monsterSheets[id]={img:im,meta:v.meta};globalThis.dispatchEvent(new CustomEvent('pixel-assets-ready'));};im.onerror=()=>{loadedAssetKeys.delete('ms:'+id);};im.src=v.img;}
+function ensureMonsterSheets(){for(const id of monsterReq)ensureMonsterSheet(id);}
+const MON_SHEET=t=>{const id=t==='boss'?'treant':t;monsterReq.size<64&&monsterReq.add(id);ensureMonsterSheet(id);return monsterSheets[id];};
+// 進區前先叫齊該區魔物的 sheet(只會載入真的會用到的種類)。
+globalThis.__mistvalePreloadMonsters=(ids)=>{for(const id of ids||[]){if(!id)continue;monsterReq.add(id);ensureMonsterSheet(id);}};
 // 新版 sheet 還在解碼:這一幀先不畫(不退回舊程序圖),載好後 pixel-assets-ready 重畫。
 const pendingHero=id=>!heroSheets[id]&&!!globalThis.PIXEL_ASSETS?.heroSheets?.[id];
 const pendingMon=t=>!MON_SHEET(t)&&!!globalThis.PIXEL_ASSETS?.monsterSheets?.[t==='boss'?'treant':t];
@@ -516,33 +534,40 @@ function leftRow(meta,act,facing){if(act&&act.endsWith('Left'))return[act,false]
   return[act,facing<0];}
 globalThis.__mistvaleHeroSheets=()=>Object.fromEntries(Object.entries(heroSheets).map(([k,v])=>[k,{w:v.img.width,h:v.img.height,actions:Object.keys(v.meta.actions)}]));
 // 模組化換色(sprites/SPRITE_VISUAL_BIBLE.md §9.3):每職業 meta.groups = outfit(職業代表色布料)/metal(鎧甲、刀刃)。
-// 每位英雄依 id 挑一個布料色相(5 選 1)→ 同職業不同人;買了鎧甲 → 布料更飽和;買了武器 → 金屬變金色。結果整張 sheet 快取。
-const OUTFIT_SHIFT=[0,40,120,200,280],variantCache=new Map(),variantJobs=new Map();
+// 每位英雄依 id 挑一個布料色相(5 選 1)→ 同職業不同人;買了鎧甲 → 布料更飽和;買了武器 → 金屬變金色。
+// 換色改成「畫到哪一格才換那一格」(2026-10-26 手機卡頓):以前每個外觀把整張表複製一份換色(1x 一張 10–20 MB、約 7 張 ≈ 95 MB;
+// 2x 一張 40–73 MB,而且要分段做幾十秒),現在只換真的畫到的格(1x 一格 100×100)。換色表(每職業×外觀一個小 Map)照舊。
+// 換好的格排一條 LRU,總像素超過上限丟最久沒畫到的:桌機 1600 萬像素、手機 400 萬(1x 約 400 格)。
+// 每幀最多新換 VARIANT_PER_FRAME 格(換一格:畫入、讀回、換色、寫回);超過的這一幀先用原色,下一幀補上(只在開場一大群英雄同時出現時才會碰到)。
+const OUTFIT_SHIFT=[0,40,120,200,280],variantMaps=new Map(),variantCells=new Map();let variantCellPx=0,variantNew=0,variantMade=0;
+const VARIANT_PER_FRAME=12,VARIANT_BUDGET=()=>lowMemDevice?4e6:16e6;
 function rgb2hsl(r,g,b){r/=255;g/=255;b/=255;const mx=Math.max(r,g,b),mn=Math.min(r,g,b),l=(mx+mn)/2;if(mx===mn)return[0,0,l];const d=mx-mn,s=l>.5?d/(2-mx-mn):d/(mx+mn);let h=mx===r?(g-b)/d+(g<b?6:0):mx===g?(b-r)/d+2:(r-g)/d+4;return[h/6,s,l];}
 function hsl2rgb(h,s,l){const f=n=>{const k=(n+h*12)%12,a=s*Math.min(l,1-l);return Math.round(255*(l-a*Math.max(-1,Math.min(k-3,9-k,1))));};return[f(0),f(8),f(4)];}
 function heroLook(h){return{shift:OUTFIT_SHIFT[hash(h.id||'')%OUTFIT_SHIFT.length],rich:!!h.equipment?.armor,gold:!!h.equipment?.weapon};}
-// 變色版:整張 sheet 逐像素換色,2x 圖約 4–6 百萬像素,一次做完會卡住好幾秒(放大到 2x 時最明顯)。
-// 改成背景分段做:第一次要用時只登記工作,之後每幀最多處理 64 列;做好前先用原色的圖(英雄短暫用原色),做好才換上。
-function variantImg(id,look,sheet){const hs=sheet||heroSheets[id];if(!hs||!look||(!look.shift&&!look.rich&&!look.gold))return hs?.img;const lod=hs===heroSheets[id]?'1x':'2x';const key=`${id}:${lod}:${look.shift}:${+look.rich}:${+look.gold}`;
-  if(variantCache.has(key))return variantCache.get(key);
-  if(!variantJobs.has(key))variantJobs.set(key,{key,hs,look});
-  return hs.img;}
 // 調色表用數字鍵(r<<16|g<<8|b),不再逐像素拼字串。
 const colorKey=c=>(c[0]<<16)|(c[1]<<8)|c[2];
-function pumpVariants(){const first=variantJobs.values().next();if(first.done)return;const job=first.value;
-  if(!job.c){const {hs,look}=job,m=hs.meta,pal=m.palette.map(c=>[1,3,5].map(i=>parseInt(c.slice(i,i+2),16))),map=new Map();
-    for(const i of m.groups?.outfit||[]){const [h,s,l]=rgb2hsl(...pal[i]);map.set(colorKey(pal[i]),hsl2rgb((h+look.shift/360)%1,Math.min(1,s*(look.rich?1.25:1)),l*(look.rich?.9:1)));}
-    if(look.gold)for(const i of m.groups?.metal||[]){const [,,l]=rgb2hsl(...pal[i]);map.set(colorKey(pal[i]),hsl2rgb(45/360,.7,Math.min(.85,l*.95+.05)));}
-    Object.assign(job,{map,c:makeCanvas(hs.img.width,hs.img.height),row:0});job.x=job.c.getContext('2d',{willReadFrequently:true});}
-  // 一段一段(64 列)畫入、讀回、換色、寫回,不一次讀回整張 2x 圖(約 6 百萬像素,單次讀回會卡住幾百毫秒)。
-  const {map,c,x,row}=job,W=c.width,H=c.height,y1=Math.min(H,row+64),h=y1-row;
-  x.drawImage(job.hs.img,0,row,W,h,0,row,W,h);
-  const strip=x.getImageData(0,row,W,h),p=strip.data;
+function variantMap(hs,look){const m=hs.meta,pal=m.palette.map(c=>[1,3,5].map(i=>parseInt(c.slice(i,i+2),16))),map=new Map();
+  for(const i of m.groups?.outfit||[]){const [h,s,l]=rgb2hsl(...pal[i]);map.set(colorKey(pal[i]),hsl2rgb((h+look.shift/360)%1,Math.min(1,s*(look.rich?1.25:1)),l*(look.rich?.9:1)));}
+  if(look.gold)for(const i of m.groups?.metal||[]){const [,,l]=rgb2hsl(...pal[i]);map.set(colorKey(pal[i]),hsl2rgb(45/360,.7,Math.min(.85,l*.95+.05)));}
+  return map;}
+let variantScratch=null;
+// 回傳換好色的一格(canvas,原點 0,0、大小 c×c);不用換色(沒有外觀)或這幀額度用完 → null(呼叫端用原圖)。
+function variantCell(id,look,hs,sx,sy,c){if(!look||(!look.shift&&!look.rich&&!look.gold))return null;
+  const mk=`${id}:${hs===heroSheets[id]?'1x':'2x'}:${look.shift}:${+look.rich}:${+look.gold}`,key=`${mk}:${sx},${sy},${c}`;
+  let cv=variantCells.get(key);if(cv){variantCells.delete(key);variantCells.set(key,cv);return cv;}
+  if(variantNew>=VARIANT_PER_FRAME)return null;variantNew++;
+  let map=variantMaps.get(mk);if(!map){map=variantMap(hs,look);variantMaps.set(mk,map);}
+  // 讀回用共用的暫存畫布(willReadFrequently);換好再畫進一般畫布,遊戲每幀畫的是一般畫布(不是讀回用的軟體畫布)。
+  if(!variantScratch||variantScratch.width<c||variantScratch.height<c){variantScratch=makeCanvas(Math.max(c,variantScratch?.width||0),Math.max(c,variantScratch?.height||0));variantScratch.x=variantScratch.getContext('2d',{willReadFrequently:true});}
+  const x=variantScratch.x;x.clearRect(0,0,c,c);x.drawImage(hs.img,sx,sy,c,c,0,0,c,c);
+  const d=x.getImageData(0,0,c,c),p=d.data;
   for(let k=0;k<p.length;k+=4){if(!p[k+3])continue;const n=map.get((p[k]<<16)|(p[k+1]<<8)|p[k+2]);if(n){p[k]=n[0];p[k+1]=n[1];p[k+2]=n[2];}}
-  x.putImageData(strip,0,row);
-  job.row=y1;
-  if(y1>=H){variantCache.set(job.key,c);variantJobs.delete(job.key);}}
-globalThis.__mistvaleVariants=()=>[...variantCache.keys()];
+  x.putImageData(d,0,0);cv=makeCanvas(c,c);cv.getContext('2d').drawImage(variantScratch,0,0,c,c,0,0,c,c);
+  variantCells.set(key,cv);variantCellPx+=c*c;variantMade++;
+  while(variantCellPx>VARIANT_BUDGET()&&variantCells.size>1){const [k0,v0]=variantCells.entries().next().value;variantCells.delete(k0);variantCellPx-=v0.width*v0.height;}
+  return cv;}
+globalThis.__mistvaleVariants=()=>[...variantMaps.keys()];
+globalThis.__mistvaleVariantCells=()=>({n:variantCells.size,mpx:+(variantCellPx/1e6).toFixed(2),budget:VARIANT_BUDGET()/1e6,made:variantMade});
 // 動作列退回:新素材(PixelLab 滙出)只有待機＋走路,沒有攻擊／技能列。
 // 少一列時退回「最接近的現有列」,而不是整隻不畫 —— sheetFrame 以前直接回 null,就是「人消失」。
 // 順序:完全同名 → 去掉方向字尾 → 同方向的待機 → 待機 → 走路 → 表上第一列。
@@ -560,10 +585,15 @@ const heroLodOn=new Map();   // 每個職業目前是否用 @2x（遲滯用，�
 // 改成轉成 ImageBitmap(像素常駐、取樣不再重新解碼)。轉一張要占主執行緒(1 倍速約 20 ms、4 倍降速約 70 ms),五位英雄同一幀一起轉會卡 300 多 ms,
 // 所以縮放接近 2x 門檻(約 70%)就開始排隊,每 8 幀轉一張;還沒轉好的職業先用 1x 表(兩份表的版面是嚴格 2 倍關係,只差解析度)。只有縮放到那裡才會轉,平常不佔記憶體。
 const hiQueue=[];let hiTick=0;
+// 手機/平板(觸控)不用 2x 英雄表,放大時用 1x 表放大畫(2026-10-26 真機 iPhone 實測,?perf=1 回報):
+// 放大到 3 倍以上切到 2x 表時,每張 2x 表(1300–1800 萬像素,解碼 40–73 MB)要轉 ImageBitmap,
+// 有換色外觀的英雄還要整張重新換色一份(pumpVariants 每幀做 64 列,iPhone 上每幀 20 ms 以上、持續幾十秒,縮回來也還在做),
+// 記憶體一下多出好幾百 MB → 實測掉到 6–16 fps、還有一次卡住 16 秒。手機畫布上限 1.5 倍,2x 表的細節在手機上本來就看不太出來。
+let heroHiAllowed=true;
 function hiWarm(hi){if(hi.bmp||hi.bmpPending)return;hi.bmpPending=true;if(typeof createImageBitmap!=='function'){hi.bmp=true;return;}hiQueue.push(hi);}
 function pumpHi(){if(!hiQueue.length||++hiTick%8)return;const hi=hiQueue.shift();createImageBitmap(hi.img).then(b=>{hi.img=b;hi.bmp=true;}).catch(()=>{hi.bmp=true;});}
 function sheetFor(id,act){const hs=heroSheets[id];if(!hs?.meta)return null;const hi=hs.hi;
-  if(!hi?.meta)return hs;
+  if(!hi?.meta||!heroHiAllowed)return hs;
   // 進入 0.66、退出 0.54（雙門檻）＝縮放在門檻附近來回時不會一直切換；兩份表的 cell/foot/heroHeight 是嚴格的 2 倍關係，
   // 所以真的切換時位置與大小完全不變，只差解析度。
   // 預先轉 2x 表(hiWarm)只在接近切換門檻時才做:轉一張要在主執行緒解碼整張 2x 表(現在 8 方向列加完約 1300–1800 萬像素,
@@ -573,7 +603,7 @@ function sheetFor(id,act){const hs=heroSheets[id];if(!hs?.meta)return null;const
   if(next&&hi.meta.actions[actRow(hi.meta.actions,act)]){if(!hi.bmp){heroLodOn.set(id,false);return hs;}heroLodOn.set(id,true);return hi;}
   heroLodOn.set(id,next);return hs;}
 // 列有 cols＝格數太多時每 cols 格換一行(2026-10-24 刺客南向 41 格,單行會讓整張表寬 8200 px)。
-function sheetFrame(id,act,i,look){const hs=sheetFor(id,act);if(!hs?.meta)return null;const meta=hs.meta,a=meta.actions[actRow(meta.actions,act)];if(!a)return null;const f=Math.max(0,Math.min(a.frames-1,i));return{img:variantImg(id,look,hs)||hs.img,sx:(a.cols?f%a.cols:f)*a.cell,sy:a.y+(a.cols?Math.floor(f/a.cols):0)*a.cell,c:a.cell,foot:a.cell-(a.footFromBottom??meta.footFromBottom),art:HERO_H/meta.heroHeight,meta,hi:hs!==heroSheets[id]};}   // 列可自帶 footFromBottom（劍尖伸到腳下很低的攻擊列，例：聖騎士 attackDown）
+function sheetFrame(id,act,i,look){const hs=sheetFor(id,act);if(!hs?.meta)return null;const meta=hs.meta,a=meta.actions[actRow(meta.actions,act)];if(!a)return null;const f=Math.max(0,Math.min(a.frames-1,i)),sx=(a.cols?f%a.cols:f)*a.cell,sy=a.y+(a.cols?Math.floor(f/a.cols):0)*a.cell,vc=variantCell(id,look,hs,sx,sy,a.cell);return{img:vc||hs.img,sx:vc?0:sx,sy:vc?0:sy,c:a.cell,foot:a.cell-(a.footFromBottom??meta.footFromBottom),art:HERO_H/meta.heroHeight,meta,hi:hs!==heroSheets[id]};}   // 列可自帶 footFromBottom（劍尖伸到腳下很低的攻擊列，例：聖騎士 attackDown）
 function ensureAtlas() {
   ensureAtlasManifest();
   ensureDetailAtlas();
@@ -625,6 +655,7 @@ export function createWorld(canvas,{onSelect=()=>{},onPlace=()=>{},getState=()=>
   canvas.style.imageRendering='pixelated';canvas.style.touchAction='none';screen.imageSmoothingEnabled=false;bg.imageSmoothingEnabled=false;
   let width=800,height=500,scale=.9,elapsed=0,phase=.15,selected=null,placing=null,state={buildings:{},hunters:[],enemies:[],effects:[]},disposed=false,quality=true,baseScale=1.95;
   const coarsePointer=!!(globalThis.matchMedia?.('(pointer:coarse)')?.matches || (globalThis.navigator?.maxTouchPoints||0)>0 || /Mobi|Android|iPhone|iPad/i.test(globalThis.navigator?.userAgent||''));
+  heroHiAllowed=!coarsePointer;lowMemDevice=coarsePointer;   // 手機/平板:不用 2x 英雄表(見 heroHiAllowed)、影子半解析度與較小的記憶體上限(見 lowMemDevice)
 // 手機/平板:畫布解析度上限 1.5 倍。這些機器 fill/blit 的像素量直接決定溫度(2 倍 → 4 倍像素),
 // 1.5 倍的像素量只有原本的 56%,像素圖看起來幾乎一樣(最近鄰放大),但記憶體頻寬少快一半。
 const autoDpr=()=>Math.min(coarsePointer?1.5:2,globalThis.devicePixelRatio||1);   // 自動:手機/平板 1.5、其他 2
@@ -1468,7 +1499,9 @@ let renderDprMax=Math.max(1,dprCap||autoDpr());   // 畫布解析度上限(devic
     g.globalAlpha=ga;
     return {x:dx,y:dy,w:dw,h:dh};
   }
-  const ENEMY_SIZE=type=>type==='boss'?50:(type==='golem'?33:type==='wolf'?31:28)*CHAR_SCALE;
+  // 尺寸直接用 sheet 的 gameSize（舊的 slime/wolf/golem 已下架）；沒載到就用 28 頂著
+  const ENEMY_SIZE=type=>{const id=type==='boss'?'treant':type;const m=monsterSheets[id]?.meta;
+    return (type==='boss'?50:(m?.size||28))*CHAR_SCALE;};
   function drawHunterSheet(h,wanderer){const p=screenPoint(h.x,h.z),old=previousPositions.get(h.id),
     step=old?Math.hypot(h.x-old.x,h.z-old.z):0,moving=!!old&&step>.005;let facing=old?.facing||1;
     if(old&&Math.abs(h.x-old.x-(h.z-old.z))>.002)facing=h.x-old.x-(h.z-old.z)>0?1:-1;
@@ -1604,7 +1637,7 @@ let renderDprMax=Math.max(1,dprCap||autoDpr());   // 畫布解析度上限(devic
       if(a>0){g.save();g.globalAlpha=a;for(let i=-1;i<=1;i++){const x0=p.x+(i*3-dir*5)*s,y0=cy-(6+i)*s,x1=x0+dir*10*t*s*(boss?1.5:1),y1=y0+9*t*s*(boss?1.5:1);line(g,x0,y0,x1,y1,'#c8322a',Math.max(2,2*s));line(g,x0,y0,x1,y1,'#fff0e0',Math.max(1,s*.8));}g.restore();}
       if(age<.12)fxSprite('fxHit',p.x,cy,(boss?10:7)+age*30,{alpha:.85*(1-age/.12)});sparks(p.x,cy,age,hash(e.id),7,['#ffd0b8','#e8584a']);}
   }
-  function drawDeath(e,age,p){if(pendingMon(e.enemyType||'slime'))return;const type=e.enemyType||'slime',sz=ENEMY_SIZE(type),s=scale,t=Math.max(0,(age-.1)/.6);
+  function drawDeath(e,age,p){if(pendingMon(e.enemyType||'sprout'))return;const type=e.enemyType||'sprout',sz=ENEMY_SIZE(type),s=scale,t=Math.max(0,(age-.1)/.6);
     if(MON_SHEET(type)){const m=MON_SHEET(type).meta.actions.death,i=Math.floor(age/m.frameTime),fade=age<1.1?1:Math.max(0,1-(age-1.1)/.5);if(fade>0)drawMonsterSheet(type,p,!!e.flipHint,'death',i,fade,{flash:age<.1?1:0,flashColor:'#ffffff'});return;}
     // 倒下:先第二受擊格(8)一下,再倒地屍體圖(9)躺著淡出;朝向沿用受擊時(面向打倒牠的獵人)。沒有 8/9 格才退回壓扁受擊圖。
     if(detailFrameFor(type+'9')){const fade=age<1.1?1:Math.max(0,1-(age-1.1)/.5),pose={pose:'hurt',ox:0,oy:0,lean:0,sx:1,sy:1,flash:age<.12?1:0,flashColor:'#ffffff'};
@@ -1625,6 +1658,7 @@ let renderDprMax=Math.max(1,dprCap||autoDpr());   // 畫布解析度上限(devic
     if(e.type==='skillSelf'){drawSkillSelf(e,age0,p);return;}
     if(e.type==='skillfx'||e.type==='gale'){drawSkillFx(e,age0,delay,p);if(age>=0&&(e.value||e.text))damageText(e,age,p);g.globalAlpha=1;return;}
     if(age<0){if(e.type==='arrow'||e.type==='spell'||e.type==='holy')drawProjectile(e,Math.min(1,age0/Math.max(.01,delay)),p);return;}
+    if(e.noImpact)return;   // 只負責飛行畫面(手動操控法師的魔法球飛完射程就消失;命中特效由打到的那一刻另外出)
     const fade=Math.max(0,1-age/1.5);if(!fade)return;
     if(e.type==='death'){drawDeath(e,age,p);return;}
     if(e.type==='slash')drawSlash(e,age,p);
@@ -1870,7 +1904,7 @@ let renderDprMax=Math.max(1,dprCap||autoDpr());   // 畫布解析度上限(devic
     return{x:p.x,y:p.y-half+50/scale};
   }
   function update(dt,nextState){if(disposed)return;
-    if(followFn){const fp=followFn();if(fp){homeFraming=false;target=followTarget(fp);if(followOpts.snap){cam.x=target.x;cam.y=target.y;}}}if(nextState){state=nextState;const key=BUILDINGS.map(b=>`${b.id}:${state.buildings?.[b.id]>0}:${state.layout?.[b.id]?.x??b.x}:${state.layout?.[b.id]?.z??b.z}`).join('|');if(!terrainLoadsPending&&(key!==landscapeKey||terrainPatternRev!==lastPatternRev)){lastPatternRev=terrainPatternRev;landscapeKey=key;generateGround();}}elapsed+=Math.min(dt||0,.1);heroLodScale=scale*DPRK;if((++atlasTick%10)===0)ensureAtlas();   /* 素材載入只發生在前幾秒:每 10 幀檢查一次就夠 */const t=1-Math.exp(-Math.max(.016,dt||.016)*7);cam.x+=(target.x-cam.x)*t;cam.y+=(target.y-cam.y)*t;if(variantJobs.size&&!interacting())pumpVariants();if(hiQueue.length&&!interacting())pumpHi();render();}
+    if(followFn){const fp=followFn();if(fp){homeFraming=false;target=followTarget(fp);if(followOpts.snap){cam.x=target.x;cam.y=target.y;}}}if(nextState){state=nextState;const key=BUILDINGS.map(b=>`${b.id}:${state.buildings?.[b.id]>0}:${state.layout?.[b.id]?.x??b.x}:${state.layout?.[b.id]?.z??b.z}`).join('|');if(!terrainLoadsPending&&(key!==landscapeKey||terrainPatternRev!==lastPatternRev)){lastPatternRev=terrainPatternRev;landscapeKey=key;generateGround();}}elapsed+=Math.min(dt||0,.1);heroLodScale=scale*DPRK;if((++atlasTick%10)===0)ensureAtlas();   /* 素材載入只發生在前幾秒:每 10 幀檢查一次就夠 */const t=1-Math.exp(-Math.max(.016,dt||.016)*7);cam.x+=(target.x-cam.x)*t;cam.y+=(target.y-cam.y)*t;variantNew=0;   /* 每幀新換色格的額度歸零(variantCell) */if(hiQueue.length&&!interacting())pumpHi();render();}
   function setTime(p){phase=typeof p==='number'?((p%1)+1)%1:.15;}
   function setQuality(v){quality=v!==false&&v!=='low';}
   // 讀取完成判斷(pixel-ui.js 靠它決定何時進村莊):村莊地板(含地面貼圖)已用貼圖畫好、每棟建築都有 Xilurus 圖(不是程序版)。

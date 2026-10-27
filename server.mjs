@@ -11,6 +11,13 @@ const MIME={'.js':'text/javascript; charset=utf-8','.webmanifest':'application/m
 http.createServer(async(req,res)=>{
   try{
     if(req.url.startsWith('/favicon')){res.writeHead(204).end();return;}
+    // 2026-10-26:效能回報(遊戲網址加 ?perf=1 時每 3 秒 POST 一次)→ 一行一筆寫進 output/perf-log/perf-<日期>.jsonl
+    if(req.method==='POST'&&req.url.startsWith('/perf')){
+      let body='';for await(const c of req){body+=c;if(body.length>65536)break;}
+      try{const rec=JSON.parse(body);rec.ip=req.socket.remoteAddress;const dir=path.join(project,'output','perf-log');await fs.mkdir(dir,{recursive:true});
+        await fs.appendFile(path.join(dir,`perf-${new Date().toISOString().slice(0,10)}.jsonl`),JSON.stringify(rec)+'\n');}catch{}
+      res.writeHead(204).end();return;
+    }
     const name=path.basename(new URL(req.url,'http://x').pathname);
     if(name&&/^(sw\.js|manifest\.webmanifest|icon-192\.png|icon-512\.png|icon-maskable-512\.png|apple-touch-icon\.png)$/.test(name)){
       const file=await fs.readFile(path.join(PWA,name));

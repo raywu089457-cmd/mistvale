@@ -64,14 +64,14 @@ function regionGeometry(id){
 export function regionEdge(id){const g=regionGeometry(id);return g?{x:g.edge.x,z:g.edge.z}:null;}
 export function regionCenter(id){const g=regionGeometry(id);return g?{x:g.center.x,z:g.center.z}:null;}
 const REGION_BASE=[
- {id:'village',name:'暮影村',subtitle:'平原聚落',x:VC.x,z:VC.z,color:'#bcb79a',description:'整片石板地與獵人歸來的家。',enemy:'slime',risk:0},
- {id:'meadow',name:'向陽草原',subtitle:'草原 · 初階狩獵',color:'#86ad5a',description:'野花與羊群之間，史萊姆正在草叢裡聚集。',enemy:'slime',risk:1},
- {id:'forest',name:'橡木密林',subtitle:'森林 · 木材與獸皮',color:'#4d8350',description:'茂密樹冠與蕈菇，狼群在林間巡行。',enemy:'wolf',risk:1.15},
- {id:'taiga',name:'霜杉林地',subtitle:'針葉林 · 北方荒野',color:'#487d70',description:'針葉樹與苔石覆蓋的冷涼森林。',enemy:'wolf',risk:1.25},
- {id:'snow',name:'白霜雪原',subtitle:'雪地 · 冰河與松林',color:'#cee4df',description:'積雪堆在杉樹上，冰晶映出淡藍色晨光。',enemy:'golem',risk:1.5},
- {id:'mountain',name:'鐵脊山麓',subtitle:'山地 · 礦脈與洞穴',color:'#a7a8a1',description:'層疊岩壁、鐵礦與古老礦坑，石巨人在此守望。',enemy:'golem',risk:1.65},
- {id:'desert',name:'赤金沙地',subtitle:'沙漠 · 仙人掌與遺跡',color:'#d7b778',description:'仙人掌與砂岩遺跡點綴暖色沙丘。',enemy:'golem',risk:1.4},
- {id:'birch',name:'白樺花原',subtitle:'白樺林 · 藥草與花海',color:'#a9bd68',description:'白樺樹與花海環繞南方原野。',enemy:'slime',risk:1.1}
+ {id:'village',name:'暮影村',subtitle:'平原聚落',x:VC.x,z:VC.z,color:'#bcb79a',description:'整片石板地與獵人歸來的家。',enemy:'sprout',risk:0},
+ {id:'meadow',name:'向陽草原',subtitle:'草原 · 初階狩獵',color:'#86ad5a',description:'野花與羊群之間，花芽妖和捲角羊正在草叢裡聚集。',enemy:'sprout',risk:1},
+ {id:'forest',name:'橡木密林',subtitle:'森林 · 木材與獸皮',color:'#4d8350',description:'茂密樹冠與蕈菇，野豬在藤蔓間橫衝直撞。',enemy:'boar',risk:1.15},
+ {id:'taiga',name:'霜杉林地',subtitle:'針葉林 · 北方荒野',color:'#487d70',description:'針葉樹與苔石覆蓋的冷涼森林，灰毛狼人成群出沒。',enemy:'wolfman',risk:1.25},
+ {id:'snow',name:'白霜雪原',subtitle:'雪地 · 冰河與松林',color:'#cee4df',description:'積雪堆在杉樹上，霜雪怪踏雪而來、冰甲蟲在冰河邊爬行。',enemy:'snowman',risk:1.5},
+ {id:'mountain',name:'鐵脊山麓',subtitle:'山地 · 礦脈與洞穴',color:'#a7a8a1',description:'層疊岩壁、鐵礦與古老礦坑，礦穴地精與岩塊怪在此盤據。',enemy:'goat',risk:1.65},
+ {id:'desert',name:'赤金沙地',subtitle:'沙漠 · 仙人掌與遺跡',color:'#d7b778',description:'仙人掌與砂岩遺跡點綴暖色沙丘，木乃伊在遺跡裡醒著。',enemy:'scorpion',risk:1.4},
+ {id:'birch',name:'白樺花原',subtitle:'白樺林 · 藥草與花海',color:'#a9bd68',description:'白樺樹與花海環繞南方原野，白樺雄鹿在花間巡守。',enemy:'stag',risk:1.1}
 ];
 // 每個狩獵區的 x,z = 區的中心(由扇形算出),村莊維持原位。
 export const REGIONS=REGION_BASE.map(r=>r.id==='village'?r:{...r,...regionCenter(r.id)});

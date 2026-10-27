@@ -1,0 +1,4 @@
+Same creature, same colours, same pixel size, same low top-down 3/4 view; it never turns toward the viewer. Animate ONE 8-frame walk cycle on the spot: no travel, no camera move.
+f1 standing; f2 weight down, front foot planted; f3 passing, back foot lifted; f4 weight up; f5 opposite contact; f6 weight down; f7 passing, other foot lifted; f8 weight up back to f1.
+With legs: alternate left and right clearly, small knee bends, body bobs 1-2 px, arms swing a little. Without legs (blob, bug, tree, snowman, spirit): keep the body rigid and bounce instead - squash 1 px on the contact frames, lift 2 px on the passing frames.
+A weapon or prop stays gripped in the same hand and only swings with the arm. No new effects, dust, cast shadow, text, outline change or new colours; keep the outline weight and the shading identical. Background perfectly flat magenta #FF00FF, nothing touching the canvas edge.

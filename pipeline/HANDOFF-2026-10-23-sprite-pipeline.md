@@ -416,3 +416,24 @@ npm test
   - 球：動畫裡手上的球直徑約 26 px（@2x，身高 132）＝4.1 單位；fxOrb 球本體約佔圖 80–90% → 畫 5（原本 11），程序光圈與拖尾同比例縮（×5/11）。
   - 箭：拉滿弓的箭（箭尖到拉弦手）約 80 px（@2x，身高 134）＝12.5 單位；arrowFx 箭沿對角線、長＝邊長×1.29 → 畫 9.7（原本 13）。
 - 驗證：`projfx/proj_still.mjs` 三組對照 `projfx/size_compare.png`（原本／22 的擷取圖＝動畫大小／這次），大小跟動畫裡相符（已傳 TG）。`npm test` 11 PASS。
+
+### 24. 法師：刪掉被圖框切掉的魔法球；手動操控的魔法球改成真的會飛、路徑上都打 ✅（2026-10-25，未 commit）
+- 使用者：「法師攻擊動畫的魔法球刪除被圖框遮住的部分，然後空打時候要朝攻擊方向發射魔法球，朝攻擊時候當下的朝向角度發射，球體設定一個作用範圍，路徑上碰到的怪物要被攻擊到」。
+- 動畫：`pipeline/scripts/pixellab/clean_edge_fx.py`（特效色＝色相 245–335° 且飽和度 ≥0.7，或近白；碰到 256 畫布邊的特效連通塊整塊刪，
+  加上跟身體分開又碰邊的 <200 px 碎片）→ `named-clean/`；刪了西北 6（−2123 px）、西北 7、北 7、東北 5（−2540）、東北 6（−485）。
+  用 `add_attack_rows_gif.py --src …/named-clean`（其他參數同 §20）原地重接 8 列；北 7 的頭飾錨點順便修好（原本被上緣碎片誤判）。備份 `_backup_before_edgeclean_sorcerer/`。
+- 手動操控法師（`pixel-game.js` pilotStep／`stepShots`，常數 `PILOT_ORB` in pixel-data.js）：出手不再瞬間扣血，改成發一顆真的會飛的球
+  （`state.shots`；存檔不存）。3.2 格內有魔物就朝牠，沒有就朝 `pilot.faceX/faceZ` 的角度（不吸附 8 方向）；速度 12 格/秒、飛法師射程 4.5 格；
+  每一步掃「魔物到這段路徑距離 ≤ 0.7 格」，每隻打一次（穿透），王不算；命中才扣血＋命中特效＋傷害數字。飛行畫面是同速度的 spell 特效（`noImpact`，飛完不爆）。
+  AI 控制的法師不變。
+- 測試：test-pixel-game.mjs 新增一段（空打角度、路徑上兩隻都中、偏離 1.6 格不中、每隻只中一次、飛完消失、3.2 格內自動瞄準）。`npm test` 11 PASS。
+  實機：`paladin-anchor-lab/projfx/pilot_orb_shots.mjs`（路徑上兩隻石魔像各 −34、偏離的史萊姆沒中），圖已傳 TG。
+
+### 25. 手機卡頓：真機回報＋手機關 2x＋影子／換色記憶體上限 ✅（2026-10-26，未 commit）
+- 真機量測：網址加 `?perf=1` → 左上綠字，每 3 秒 POST `/perf`（server.mjs 寫 `output/perf-log/perf-<UTC日期>.jsonl`）。
+- 觸控裝置不用 2x 英雄表（`heroHiAllowed=!coarsePointer`）：iPhone 放大時掉到 6–16 fps 的主因。
+- 影子快取改成有上限的 LRU（手機 600 萬像素、桌機 3200 萬；手機影子半解析度 64 px）。`__mistvaleShadows()` 看數量。
+- 英雄換色（外觀 shift/rich/gold）改成「用到哪一格才換那一格」（`variantCell`，每幀最多新換 12 格，手機上限 400 萬像素、桌機 1600 萬），
+  取代整張表換色（`variantImg`/`pumpVariants`）。`__mistvaleVariantCells()` 看數量。
+- 驗證：`npm test` 11 PASS；桌機逐像素 S2/S5/S6/S7 相同，S1 差在舊版換色未完成時先畫原色、S3/S4 腳底邊緣 13 px；
+  手機模擬記憶體：影子約 95 MB 還在長 → 約 24 MB 封頂，換色約 95 MB+ → 約 16 MB 封頂；封頂後重建量影子約 4.6 張/秒、換色約 2.3 格/秒。

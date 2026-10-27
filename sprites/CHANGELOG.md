@@ -1,5 +1,40 @@
 # CHANGELOG — sprites
 
+## 2026-10-26(晚)— 野外只留新魔物、出怪數量加大
+
+- 使用者：「舊怪物移除只留新的，還有增加各區怪物生成數量」。
+- `pixel-game.js`：`ENEMIES`/`AGGRO`/`ENEMY_NAME` 拿掉 slime / wolf / golem / ogre（王還是 `boss`→treant）；
+  `REGION_MIX` 每區只剩 3 種新魔物（小/中/大，權重 3:3:2）。存檔還原本來就有 `own(ENEMIES, type)` 過濾 → 舊存檔裡的舊魔物會自動消失。
+- 出怪量：進區 6→**12**、自然補充每 4.5 s／上限 8 → **每 2.5 s／上限 14**、非當前區維持 3→**6**、
+  開局草原 6→**10**、其他區各 2→**5**；難度切換與空表回填也改成從各區 mix 抽。
+- 舊素材移到 `output/removed-old-monsters/`（slime/wolf/golem/ogre 的 png+json，treant 保留給世界王）。
+- `pixel-world.js`：`ENEMY_SIZE` 改成讀 sheet 的 `meta.size`（原本是 slime/wolf/golem 的硬編碼）。
+- `test-overworld.mjs`：每區進場魔物數 6→12。`npm test` 11 PASS。
+- 單檔 build 26.3 → **25.7 MB**（少了 4 隻舊魔物）；草原同時 11 隻在畫面、30 fps。
+
+
+## 2026-10-26 — 21 隻新魔物(8 方向素材)上線
+
+- **素材**：使用者在 PixelLab 網站用「Rotate」把 21 張怪物正面概念圖轉成 8 方向（768×768＝3×3、每格 256、8 格有內容）。
+  每隻怪物切 8 張放桌面資料夾（`<中文>-<id>-8方向-256`），順序＝由正面起順時針（cell0 南、2 東、4 北、6 西），
+  用「臉朝哪邊＋武器在哪隻手」在 5 隻怪物上驗證過。
+- **新腳本 `pipeline/scripts/sprites/build_monster_8dir.py`**：8 方向站姿 → 遊戲用 sheet。
+  來源只有每個方向一張站姿，所以 walk / attack / hurt / death **全部是同一份像素的整數位移**
+  （膝蓋帶壓縮、腳左右平移、上半身整列傾斜、整體位移），沒有縮放與插值 → 不會糊、不會多出新顏色。
+  - 8 個方向用同一個縮放比 s = artSize／最大內容邊長（體型一致）；透明處先填最近色再 LANCZOS，避免邊緣變黑；
+    縮放後 median-cut 到 32 色、alpha 只留 0/255。
+  - 格子 = 內容 + 14% 邊距後取偶數（比固定 144/176 省記憶體：sprout 98、yeti 146）。
+  - 每列用腳底 6 列重心對到格中線、腳底對到 ground 線；位移超出邊距的格會整體推回（`clamp`）。
+  - 走路：`step`（左右腳交替，四足/人形）或 `hop`（整體彈跳，史萊姆型/無腳）；攻擊 8 格 release 4 / impact 5。
+  - 26 列／隻：idle×8 方向、walk×8、attack×8、hurt、death（死亡＝沉入地面，遊戲本來就會淡出）。
+- **遊戲**：`pixel-game.js` 加 21 筆 `ENEMIES`／`AGGRO`／`ENEMY_NAME`；`REGION_MIX` 改成每個地形 3 隻新怪（小中大）＋ 1 隻舊怪；
+  `exploreRegion`／`dispatchHunters` 改從 mix 抽（不再固定 `region.enemy`）；`overworld.js` 的地區說明與代表怪更新。
+- **記憶體**：26 種魔物 sheet 解碼後約 280 MB → `pixel-world.js` 改成**用到才載**（`ensureMonsterSheet(id)`＋
+  `__mistvalePreloadMonsters()` 讓進區前先叫齊），開場不再全部解碼。單檔 build 26.3 MB（新增素材 6.6 MB PNG）。
+- **驗收**：`check_one_monster.mjs` 跑 kobold / yeti / cactus → 8 方向 walk、斜向 idle、attack、hurt、death 全播到，
+  無缺動作／無越界／無 page error；21 隻 × 26 列全部沒有格子碰邊。`npm test` 11 PASS。
+
+
 ## 2026-10-07(夜)— 獵魔村物語怪物風格試作:食人魔 ogre
 
 - 從實機截圖(`webref/s5.png`)整理野外怪物風格 → Visual Bible 2.2 節(直立人形、偏灰低飽和、小黑點眼、與英雄同尺度)。

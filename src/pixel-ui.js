@@ -308,9 +308,24 @@ let previous=performance.now(),nextFrame=0,frames=0,fpsStart=performance.now();
 // 上限 30 fps：依排程每 1000/30 ms 畫一次，容許 2 ms 的時間抖動；60/120/144 Hz 螢幕都只畫 30 次
 const FRAME_MS=1000/30, PAUSED_MS=1000/10;   // 暫停(在看選單/面板)時降到 10fps:畫面幾乎不動,不必燒 30fps 的電
 const frameMs={avg:0,max:0,n:0};globalThis.__mistvaleFrameStats=()=>({avgMs:+frameMs.avg.toFixed(2),maxMs:+frameMs.max.toFixed(2),frames:frameMs.n});
+// 效能回報(只有網址加 ?perf=1 才開,平常完全不跑):實機每 3 秒把「每幀 JS 毫秒」與「畫面間隔」統計 POST 到本機服務 /perf,
+// 左上角小字顯示 fps／JS。2026-10-26 使用者回報手機卡頓,用來量真機(模擬器量不到真機 GPU 與記憶體)。
+const perfProbe=new URLSearchParams(location.search).has('perf')?{js:[],iv:[],last:0,t0:performance.now(),hud:null}:null;
+function perfSample(now,ms){const P=perfProbe;if(P.last)P.iv.push(now-P.last);P.last=now;P.js.push(ms);if(now-P.t0<3000)return;
+  const q=(a,p)=>{const s=[...a].sort((x,y)=>x-y);return s.length?+s[Math.min(s.length-1,Math.floor(p*s.length))].toFixed(1):0;};
+  const s=game?.state||{},pf=globalThis.__mistvalePerf?.()||{},pil=s.pilot?(s.hunters||[]).find(h=>h.id===s.pilot.id):null;
+  const rep={t:new Date().toISOString(),secs:+((now-P.t0)/1000).toFixed(1),frames:P.js.length,fps:+(P.js.length*1000/(now-P.t0)).toFixed(1),
+    js:{p50:q(P.js,.5),p95:q(P.js,.95),max:q(P.js,1)},iv:{p50:q(P.iv,.5),p95:q(P.iv,.95),max:q(P.iv,1),over50:P.iv.filter(v=>v>50).length,over100:P.iv.filter(v=>v>100).length},
+    canvas:pf.canvas,dprCap:pf.dpr,scale:pf.scale,mode:pf.mode,modeFrames:pf.modeFrames,lod:globalThis.__mistvaleHeroLod?.(),
+    pilot:pil?pil.classId:null,paused:!!s.paused,speed:s.speed,enemies:(s.enemies||[]).filter(e=>e.hp>0).length,wanderers:(s.wanderers||[]).length,hunters:(s.hunters||[]).length,
+    dpr:devicePixelRatio,view:[innerWidth,innerHeight],cores:navigator.hardwareConcurrency,mem:navigator.deviceMemory,ua:navigator.userAgent};
+  fetch('/perf',{method:'POST',body:JSON.stringify(rep),keepalive:true}).catch(()=>{});
+  if(!P.hud){P.hud=document.createElement('div');P.hud.style.cssText='position:fixed;left:4px;top:4px;z-index:99999;font:11px/1.3 monospace;color:#0f0;background:#000a;padding:2px 4px;pointer-events:none;white-space:pre';document.body.appendChild(P.hud);}
+  P.hud.textContent=`${rep.fps}fps JS ${rep.js.p50}/${rep.js.p95}ms 間隔p95 ${rep.iv.p95} >50:${rep.iv.over50}`;
+  P.js=[];P.iv=[];P.t0=now;}
 function frame(now){requestAnimationFrame(frame);if(document.hidden){previous=now;return;}const frameMsNow=started&&game.state.paused?PAUSED_MS:(fpsTarget===60?1000/60:FRAME_MS);if(now<nextFrame-2)return;nextFrame=Math.max(nextFrame+frameMsNow,now);
  // 每幀實際花了多少時間(給效能檢查用:手機上這個值決定會不會發燙)
- const t0=performance.now();try{frames++;if(now-fpsStart>2000){document.body.dataset.fps=Math.round(frames*1000/(now-fpsStart));fpsStart=now;frames=0;}const dt=Math.min(.1,(now-previous)/1000);previous=now;if(started)game.tick(dt);pilotHudTick();world.setTime((game.state.time%240)/240);world.update(game.state.paused?0:dt,game.state);if(now-last>400){paint();last=now;}if(now-lastSave>5000){save();lastSave=now;}}finally{const ms=performance.now()-t0;frameMs.avg=frameMs.avg?frameMs.avg*.9+ms*.1:ms;frameMs.max=Math.max(frameMs.max,ms);frameMs.n++;}}requestAnimationFrame(frame);}catch(err){console.error(err);$('#loading').innerHTML='<b>像素村莊載入失敗，請重新整理</b>';}
+ const t0=performance.now();try{frames++;if(now-fpsStart>2000){document.body.dataset.fps=Math.round(frames*1000/(now-fpsStart));fpsStart=now;frames=0;}const dt=Math.min(.1,(now-previous)/1000);previous=now;if(started)game.tick(dt);pilotHudTick();world.setTime((game.state.time%240)/240);world.update(game.state.paused?0:dt,game.state);if(now-last>400){paint();last=now;}if(now-lastSave>5000){save();lastSave=now;}}finally{const ms=performance.now()-t0;frameMs.avg=frameMs.avg?frameMs.avg*.9+ms*.1:ms;frameMs.max=Math.max(frameMs.max,ms);frameMs.n++;if(perfProbe)perfSample(now,ms);}}requestAnimationFrame(frame);}catch(err){console.error(err);$('#loading').innerHTML='<b>像素村莊載入失敗，請重新整理</b>';}
 
 // 讀取畫面:圖片全部載完(成功或失敗都算完成)、村莊地板與建築都用美術版畫好、圖示換成圖集之後才進村莊。
 // 有圖載入失敗就停在錯誤畫面,不進村、也不會退回程序繪製的陽春素材。
