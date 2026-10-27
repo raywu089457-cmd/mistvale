@@ -21,3 +21,28 @@
 ### 已知問題
 - 金色面板偏亮、偏平：當 CTA 的「按下去」重量感不夠 → 之後要加深主色（或程式加內陰影）
 - 這是「靜止態」；hover／按下／停用三態還沒生（可以程式做，省 30 次生成）
+
+## 2026-10-27 第二發：整組 UI 零件（一發 16 件）
+
+- `POST /v2/generate-ui-v2`、**512×512**、一次產 4 個變體，其中第 0 張就是一整張 **4×4 UI kit**。
+- 花費：**25 generations**（941.65 → 916.65）。平均 **1.6 次／零件**，比一個一個生便宜 6 倍。
+- prompt 寫法：明確列出「4×4 格、每格一個零件、不要文字、不要編號」，並逐格描述內容；
+  `target_palette` 鎖 12 色（木頭／黃銅／金／藍寶石）。
+- 切圖：`ui-assets/parts/*.png`（16 件，自動去邊）
+  `btn-primary` `btn-secondary` `btn-close` `chip`
+  `panel-large` `panel-small` `bar-health` `bar-progress`
+  `tab-idle` `tab-active` `slot` `tooltip`
+  `icon-coin` `icon-gem` `icon-wood` `icon-ore`
+- 預覽：`ui-assets/index.html`（零件總覽 ＋ 用這批零件排出來的視窗）
+
+### 用起來的狀況
+- 面板框可以當 **9-slice**（`border-image: url(panel-large.png) 14 fill stretch`），四角黃銅支架不會變形
+- 按鈕／tab／chip／slot／icon 都可以直接用；按鈕目前只有「靜止態」
+- 還缺：hover／按下／停用三態、稀有度徽章、小地圖框、下拉選單、勾選框、捲軸、貨幣增減數字
+
+### 花費累計
+| 項目 | generations |
+|---|---|
+| 主按鈕 4 變體（128×64） | 10 |
+| 整組 16 件（512×512） | 25 |
+| **合計** | **35**（剩 916.65） |

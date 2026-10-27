@@ -1,0 +1,95 @@
+<!doctype html><html lang="zh-Hant"><head><meta charset="utf-8">
+<title>PixelLab UI 零件組（一發 25 次生成）</title>
+<style>
+*{box-sizing:border-box;margin:0}
+body{background:#1a1512 url(../ui-mockups/world.jpg) center/cover fixed;color:#f2e7c9;
+  font-family:'Noto Sans TC','Microsoft JhengHei',sans-serif;padding:26px}
+body:before{content:'';position:fixed;inset:0;background:rgba(16,10,6,.82);z-index:-1}
+h1{font-size:20px;letter-spacing:4px;margin-bottom:4px;color:#f3d993}
+p.sub{font-size:11.5px;opacity:.62;margin-bottom:20px;line-height:1.7}
+h2{font-size:13px;letter-spacing:3px;color:#e6c479;margin:26px 0 12px;border-left:3px solid #a8844e;padding-left:9px}
+.grid{display:grid;grid-template-columns:repeat(8,1fr);gap:14px}
+figure{background:linear-gradient(#3a2816,#241809);border:2px solid #1c130a;border-radius:3px;padding:8px;
+  box-shadow:inset 0 0 0 1px #8f7038}
+figure .box{height:92px;display:grid;place-items:center;background:rgba(0,0,0,.28);border-radius:2px}
+figure img{image-rendering:pixelated;max-width:100%;max-height:78px}
+figcaption{text-align:center;font-size:9px;letter-spacing:.5px;margin-top:7px;color:#cbb489;font-family:Consolas,monospace}
+/* 組起來的樣子 */
+.demo{display:flex;gap:22px;flex-wrap:wrap;align-items:flex-start}
+.modal{width:430px;padding:0;border:16px solid transparent;border-image:url(parts/panel-large.png) 18 fill stretch;
+  border-radius:0;image-rendering:pixelated}
+.modal h3{font-size:15px;letter-spacing:2px;color:#f3d993;padding:2px 0 10px;border-bottom:1px solid rgba(200,160,90,.25)}
+.modal p{font-size:11.5px;line-height:1.85;color:#d8caae;padding:10px 0}
+.row{display:flex;gap:10px;align-items:center}
+.chipbox{position:relative;display:inline-grid;place-items:center}
+.chipbox img.bg{width:150px;image-rendering:pixelated}
+.chipbox span{position:absolute;display:flex;align-items:center;gap:6px;font-size:12px;color:#f3d993}
+.chipbox img.ic{width:16px;height:16px;image-rendering:pixelated}
+.btnwrap{position:relative;display:inline-grid;place-items:center;cursor:pointer}
+.btnwrap img{width:190px;image-rendering:pixelated}
+.btnwrap b{position:absolute;font-size:13px;letter-spacing:2px}
+.btnwrap.sec b{color:#e6d3a8}
+.btnwrap.pri b{color:#3c2a12}
+.btnwrap:active{transform:translateY(2px)}
+.tabs{display:flex;gap:6px;margin-bottom:10px}
+.tabs div{position:relative;display:grid;place-items:center}
+.tabs img{width:112px;image-rendering:pixelated}
+.tabs b{position:absolute;font-size:11.5px;letter-spacing:2px}
+.tabs .on b{color:#3c2a12} .tabs .off b{color:#d6c39a}
+.prog{position:relative;display:grid;place-items:center;width:100%}
+.prog img{width:100%;image-rendering:pixelated}
+.prog i{position:absolute;left:8px;right:8px;height:7px;border-radius:2px;background:linear-gradient(#c9a468,#8f6f34);
+  box-shadow:inset 0 0 0 1px #2a1c10}
+.slots{display:flex;gap:8px}
+.slots .s{position:relative;display:grid;place-items:center}
+.slots img.box{width:64px;image-rendering:pixelated}
+.slots img.ic{position:absolute;width:40px;image-rendering:pixelated}
+.slots img.ic.sm{width:34px}
+.tip{position:relative;display:grid;place-items:center;width:200px}
+.tip img{width:100%;image-rendering:pixelated}
+.tip span{position:absolute;top:14px;font-size:11px;color:#e2d2ab}
+.close{top:0;right:0;position:absolute;width:26px;image-rendering:pixelated}
+.hint{font-size:10px;color:#a08f6f;margin-top:10px}
+</style></head><body>
+<h1>PixelLab UI 零件組</h1>
+<p class="sub">一發 512×512、25 generations，回來 16 個零件（4×4），已自動切開並去邊。下面兩段：零件總覽、實際組起來的樣子。</p>
+
+<h2>零件總覽（16 件）</h2>
+<div class="grid"><figure><div class="box"><img src="parts/btn-primary.png" alt="btn-primary"></div><figcaption>btn-primary</figcaption></figure><figure><div class="box"><img src="parts/btn-secondary.png" alt="btn-secondary"></div><figcaption>btn-secondary</figcaption></figure><figure><div class="box"><img src="parts/btn-close.png" alt="btn-close"></div><figcaption>btn-close</figcaption></figure><figure><div class="box"><img src="parts/chip.png" alt="chip"></div><figcaption>chip</figcaption></figure><figure><div class="box"><img src="parts/panel-large.png" alt="panel-large"></div><figcaption>panel-large</figcaption></figure><figure><div class="box"><img src="parts/panel-small.png" alt="panel-small"></div><figcaption>panel-small</figcaption></figure><figure><div class="box"><img src="parts/bar-health.png" alt="bar-health"></div><figcaption>bar-health</figcaption></figure><figure><div class="box"><img src="parts/bar-progress.png" alt="bar-progress"></div><figcaption>bar-progress</figcaption></figure><figure><div class="box"><img src="parts/tab-idle.png" alt="tab-idle"></div><figcaption>tab-idle</figcaption></figure><figure><div class="box"><img src="parts/tab-active.png" alt="tab-active"></div><figcaption>tab-active</figcaption></figure><figure><div class="box"><img src="parts/slot.png" alt="slot"></div><figcaption>slot</figcaption></figure><figure><div class="box"><img src="parts/tooltip.png" alt="tooltip"></div><figcaption>tooltip</figcaption></figure><figure><div class="box"><img src="parts/icon-coin.png" alt="icon-coin"></div><figcaption>icon-coin</figcaption></figure><figure><div class="box"><img src="parts/icon-gem.png" alt="icon-gem"></div><figcaption>icon-gem</figcaption></figure><figure><div class="box"><img src="parts/icon-wood.png" alt="icon-wood"></div><figcaption>icon-wood</figcaption></figure><figure><div class="box"><img src="parts/icon-ore.png" alt="icon-ore"></div><figcaption>icon-ore</figcaption></figure></div>
+
+<h2>組起來的樣子</h2>
+<div class="demo">
+  <div class="modal">
+    <img class="close" src="parts/btn-close.png" alt="">
+    <h3>領取委託獎勵</h3>
+    <div class="tabs">
+      <div class="on"><img src="parts/tab-active.png"><b>獎勵</b></div>
+      <div class="off"><img src="parts/tab-idle.png"><b>紀錄</b></div>
+    </div>
+    <p>完成「第一次遠征」可獲得下列獎勵。領取後委託會推進到下一章。</p>
+    <div class="row" style="margin-bottom:12px">
+      <span class="chipbox"><img class="bg" src="parts/chip.png"><span><img class="ic" src="parts/icon-coin.png">150</span></span>
+      <span class="chipbox"><img class="bg" src="parts/chip.png"><span><img class="ic" src="parts/icon-gem.png">3</span></span>
+      <span class="chipbox"><img class="bg" src="parts/chip.png"><span><img class="ic" src="parts/icon-wood.png">30</span></span>
+    </div>
+    <div class="slots" style="margin-bottom:12px">
+      <span class="s"><img class="box" src="parts/slot.png"><img class="ic" src="parts/icon-coin.png"></span>
+      <span class="s"><img class="box" src="parts/slot.png"><img class="ic sm" src="parts/icon-gem.png"></span>
+      <span class="s"><img class="box" src="parts/slot.png"><img class="ic sm" src="parts/icon-ore.png"></span>
+      <span class="s"><img class="box" src="parts/slot.png"><img class="ic sm" src="parts/icon-wood.png"></span>
+    </div>
+    <div class="prog" style="margin-bottom:8px"><img src="parts/bar-health.png"></div>
+    <div class="prog" style="margin-bottom:14px"><img src="parts/bar-progress.png"></div>
+    <div class="tip" style="margin-bottom:14px"><img src="parts/tooltip.png"><span>完成度 62%</span></div>
+    <div class="row" style="justify-content:flex-end">
+      <span class="btnwrap sec"><img src="parts/btn-secondary.png"><b>稍後</b></span>
+      <span class="btnwrap pri"><img src="parts/btn-primary.png"><b>確認領取</b></span>
+    </div>
+  </div>
+  <div>
+    <div class="hint">用同一批零件排出來的視窗：面板框當外框、tab 分頁、chip 顯示資源、slot 放物品、<br>
+    血條當進度、tooltip 當提示、兩顆按鈕分主次。<br><br>
+    按鈕與 tab 都已經是「可以按」的樣子（按下會位移 2 px）。</div>
+  </div>
+</div>
+</body></html>
