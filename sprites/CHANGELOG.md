@@ -1,5 +1,15 @@
 # CHANGELOG — sprites
 
+## 2026-10-27(深夜後 2) — 低模 3D 渲圖：管線通、模型不採用
+
+- 新增 `pipeline/scripts/blender/render_kobold.py`：用基本幾何體照 sprite 造型拼低模地精
+  （大頭／尖耳／礦工帽＋蠟燭／圍裙／小鎬，顏色取自 sprite 代表色），走 walk/attack → 8 方向正交渲圖。
+- 用 `pixelize_renders.py` 壓成 79 px 後跟手繪 sprite 並排（`output/kobold3d/_compare_vs_sprite.png`）：
+  明顯是「一堆方塊」，三輪調整（2.6 頭身比例、去掉重複 gamma、零件互相重疊補縫）都救不回來。
+- 結論寫進 `pipeline/blender/README.md`：管線（骨架／8 方向一致／武器不換手／格子規格）沒問題，
+  缺的是真正的低模建模。遊戲維持手繪 sprite + 程式化走路，**沒有動任何資源**。
+
+
 ## 2026-10-27(深夜後) — 紙偶走路退回程式化
 
 - 使用者看過實機後判定紙偶效果不好 → **kobold / wolfman / moss / snowman / mummy 全部退回 `build_monster_8dir.py` 的程式化走路**

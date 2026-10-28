@@ -1,0 +1,175 @@
+<!doctype html><html lang="zh-Hant"><head><meta charset="utf-8">
+<title>絹本 · 墨印（Paper & Ink） — 暮影村 UI 風格稿</title>
+<style>
+*{box-sizing:border-box;margin:0;padding:0}
+html,body{width:100%;height:100%;overflow:hidden;background:#11151a;
+  font-family:'Noto Sans TC','Microsoft JhengHei','PingFang TC',system-ui,sans-serif;
+  -webkit-font-smoothing:antialiased}
+#stage{position:fixed;inset:0;background:url(world.jpg) center/cover no-repeat;image-rendering:pixelated}
+#stage:after{content:'';position:absolute;inset:0;pointer-events:none;background:radial-gradient(ellipse at 50% 45%,transparent 50%,rgba(30,22,12,.42) 100%);}
+button{font:inherit;color:inherit;background:none;border:0;cursor:pointer}
+.k{font-family:Consolas,Menlo,monospace;letter-spacing:.5px}
+/* ---------- 上方資源列 ---------- */
+#top{position:absolute;top:0;left:0;right:0;display:flex;align-items:center;gap:14px;padding:10px 18px;__TOPBAR__}
+.badge{display:flex;align-items:center;gap:10px;padding:6px 14px 6px 8px;background:linear-gradient(#fffdf5,#efe7d3);border:2px solid #2a2218;box-shadow:2px 3px 0 rgba(20,14,6,.28);color:#2a2218;}
+.crest{width:42px;height:42px;display:grid;place-items:center;background:#b4402f;color:#fff6e2;border:2px solid #7d2b1f;}
+.crest svg{width:26px;height:26px;fill:currentColor}
+.badge b{display:block;font-size:22px;letter-spacing:5px;color:#241d14;letter-spacing:5px;}
+.badge small{display:block;font-size:9px;letter-spacing:2px;opacity:.72;margin-top:2px}
+.purse{display:flex;gap:6px;margin-left:4px}
+.chip{display:flex;align-items:center;gap:9px;padding:8px 14px;min-width:104px;background:linear-gradient(#fffdf6,#efe7d3);border:2px solid #2a2218;color:#3a3126;box-shadow:1px 2px 0 rgba(20,14,6,.22);}
+.chip.gold{min-width:164px}
+.chip i{display:grid;place-items:center;width:22px;height:22px;flex:none}
+.chip i svg{width:22px;height:22px;fill:currentColor}
+.chip>span{display:flex;flex-direction:column;gap:2px;line-height:1}
+.chip span span{font-size:9px;letter-spacing:1.5px;opacity:.62}
+.chip b{font-size:17px;letter-spacing:.5px;color:#8c3a2a;}
+.right{margin-left:auto;display:flex;align-items:center;gap:8px}
+.mini{padding:8px 12px;display:flex;align-items:center;gap:7px;font-size:12px;background:#fffdf6;border:2px solid #2a2218;color:#3a3126;box-shadow:1px 2px 0 rgba(20,14,6,.2);}
+.sq{width:34px;height:34px;display:grid;place-items:center;background:#fffdf6;border:2px solid #2a2218;color:#3a3126;box-shadow:1px 2px 0 rgba(20,14,6,.2);}
+.sq svg{width:18px;height:18px;fill:currentColor}
+/* ---------- 左側委託 ---------- */
+#quest{position:absolute;left:18px;top:86px;width:246px;background:linear-gradient(160deg,rgba(252,248,238,.98),rgba(240,232,214,.98));border:2px solid #2a2218;box-shadow:3px 5px 0 rgba(18,12,4,.3),inset 0 0 0 3px rgba(255,255,255,.5);color:#2a2218;}
+.ph{display:flex;align-items:center;gap:8px;padding:9px 12px;background:linear-gradient(#efe6d0,#e0d4b8);border-bottom:2px solid #2a2218;color:#241d14;letter-spacing:3px;}
+.ph b{font-size:12px;letter-spacing:2px;flex:1}
+.ph em{font-style:normal;font-size:16px;opacity:.6}
+.pb{padding:14px}
+.eyebrow{font-family:Consolas,monospace;font-size:9px;letter-spacing:2px;color:#b4402f;}
+#quest h2{font-size:17px;letter-spacing:1px;margin:8px 0 7px;color:#241d14;}
+#quest p{font-size:11.5px;line-height:1.75;color:#4a4034;}
+.bar{height:14px;margin:12px 0 6px;position:relative;background:#e6dcc4;border:2px solid #2a2218;box-shadow:inset 0 0 0 1px #fff;}
+.bar span{position:absolute;inset:0 auto 0 0;width:50%;background:#b4402f;}
+.bar b{position:absolute;inset:0;display:grid;place-items:center;font-size:10px;font-family:Consolas,monospace}
+.reward{display:flex;gap:14px;font-size:11px;align-items:center;color:#b4402f;;margin-top:4px}
+.reward i{display:inline-grid;place-items:center;width:16px;height:16px;margin-right:4px;vertical-align:-3px}
+.reward i svg{width:16px;height:16px;fill:currentColor}
+.btn{display:flex;align-items:center;justify-content:center;gap:9px;width:100%;padding:13px;font-size:13.5px;letter-spacing:1.5px;margin-top:14px;background:#b4402f;border:2px solid #6f2418;color:#fff6e6;box-shadow:2px 3px 0 rgba(18,12,4,.3);letter-spacing:2px;font-weight:700;}
+.btn:after{content:'›';font-size:17px;line-height:0;opacity:.75}
+/* ---------- 右側獵人 ---------- */
+#hero{position:absolute;right:18px;top:86px;width:214px;background:linear-gradient(160deg,rgba(252,248,238,.98),rgba(240,232,214,.98));border:2px solid #2a2218;box-shadow:3px 5px 0 rgba(18,12,4,.3),inset 0 0 0 3px rgba(255,255,255,.5);color:#2a2218;}
+.avatar{height:118px;display:grid;place-items:center;position:relative;background:radial-gradient(ellipse at 50% 65%,rgba(180,64,47,.14),transparent 70%);}
+.avatar:before{content:'';position:absolute;inset:14px 34px;border:1px dashed currentColor;opacity:.12;border-radius:6px}
+.avatar svg{width:80px;height:80px;fill:currentColor;opacity:.85}
+.hn{text-align:center;padding:2px 12px 12px}
+.hn b{font-size:15px;color:#241d14;}
+.hn small{display:block;font-size:9.5px;letter-spacing:1px;margin-top:4px;opacity:.66}
+.stats{display:flex;gap:6px;padding:0 12px 12px}
+.stats div{flex:1;text-align:center;padding:7px 3px;background:rgba(255,255,255,.55);border:1px solid #2a2218;color:#3a3126;}
+.stats b{display:block;font-family:Consolas,monospace;font-size:14px}
+.stats span{font-size:8px;letter-spacing:1px;opacity:.6}
+/* ---------- 下方動作列 ---------- */
+#dock{position:absolute;bottom:0;left:0;right:0;display:flex;justify-content:center;gap:8px;padding:12px 18px 16px;background:linear-gradient(#f7f1e2,#e6dcc4);border-top:3px solid #2a2218;box-shadow:0 -3px 12px rgba(20,14,6,.3);}
+.act{width:96px;padding:10px 6px 9px;display:flex;flex-direction:column;align-items:center;gap:6px;position:relative;background:#fffdf6;border:2px solid #2a2218;color:#3a3126;box-shadow:2px 3px 0 rgba(20,14,6,.22);}
+.act svg{width:29px;height:29px;fill:none;stroke:currentColor;stroke-width:1.7;stroke-linejoin:round;stroke-linecap:round}
+.act b{font-size:12px;letter-spacing:2px}
+.act.on:after{content:'';position:absolute;left:50%;bottom:-6px;width:26px;height:3px;transform:translateX(-50%);background:currentColor;opacity:.9}
+.act .t{position:absolute;top:5px;right:6px;font-family:Consolas,monospace;font-size:8px;opacity:.5}
+.act:hover{background:#f3ead6;color:#241d14;}
+.act.on{background:#b4402f;border-color:#6f2418;color:#fff6e6;}
+.play{display:flex;gap:6px;align-items:center;margin-left:10px;padding-left:12px;border-left:2px solid #2a2218;}
+.play button{width:38px;height:32px;display:grid;place-items:center;font-size:13px;background:#efe6d0;border:2px solid #2a2218;color:#3a3126;}
+/* ---------- toast ---------- */
+#toast{position:absolute;left:50%;top:78px;transform:translateX(-50%);padding:10px 18px;font-size:12px;display:flex;gap:9px;align-items:center;background:rgba(252,248,238,.98);border:2px solid #2a2218;color:#2a2218;box-shadow:3px 5px 0 rgba(18,12,4,.3);}
+#toast b{color:#b4402f;}
+/* ---------- modal ---------- */
+#veil{position:absolute;inset:0;background:rgba(8,10,12,.55);display:none;place-items:center;padding:24px}
+#veil.open{display:grid}
+#modal{width:min(760px,100%);max-height:86vh;display:flex;flex-direction:column;background:linear-gradient(160deg,rgba(252,248,238,.98),rgba(240,232,214,.98));border:2px solid #2a2218;box-shadow:3px 5px 0 rgba(18,12,4,.3),inset 0 0 0 3px rgba(255,255,255,.5);color:#2a2218;}
+#modal .ph{padding:12px 16px}
+#modal .ph b{font-size:16px;letter-spacing:3px}
+#modal .pb{padding:20px;overflow:auto}
+.grid{display:grid;grid-template-columns:repeat(3,1fr);gap:11px}
+.card{padding:12px;display:flex;gap:10px;align-items:center;background:rgba(255,255,255,.6);border:1px solid #2a2218;}
+.card svg{width:34px;height:34px;flex:none;fill:currentColor;opacity:.9}
+.card b{display:block;font-size:12.5px}
+.card small{display:block;font-size:9.5px;opacity:.66;margin-top:3px}
+.foot{display:flex;gap:9px;justify-content:flex-end;margin-top:18px}
+.btn.ghost{background:#fffdf6;border:2px solid #2a2218;color:#3a3126;box-shadow:2px 3px 0 rgba(18,12,4,.22);}
+.hint{position:absolute;left:50%;bottom:96px;transform:translateX(-50%);font-size:10px;letter-spacing:1px;opacity:.45}
+@media(max-width:900px){#quest{width:190px;padding:0}#hero{display:none}.chip{min-width:70px;padding:6px 8px}.chip.gold{min-width:104px}}
+</style></head><body>
+
+<div id="stage">
+  <header id="top">
+    <button class="badge">
+      <span class="crest"><svg viewBox="0 0 24 24"><path d="M12 2 4 6v6c0 5 3.4 8.4 8 10 4.6-1.6 8-5 8-10V6z"/></svg></span>
+      <span><b>暮影村</b><small>村莊 Lv.3 · 平原聚落</small></span>
+    </button>
+    <div class="purse">
+      <span class="chip gold"><i><svg viewBox="0 0 24 24"><circle cx="12" cy="12" r="8"/></svg></i><span><span>村莊金庫</span><b class="k">1,500</b></span></span>
+      <span class="chip"><i><svg viewBox="0 0 24 24"><path d="M12 3 5 12l7 9 7-9z"/></svg></i><span><span>星晶</span><b class="k">20</b></span></span>
+      <span class="chip"><i><svg viewBox="0 0 24 24"><rect x="4" y="8" width="16" height="8" rx="1"/></svg></i><span><span>木材</span><b class="k">160</b></span></span>
+      <span class="chip"><i><svg viewBox="0 0 24 24"><path d="M6 18 12 4l6 14z"/></svg></i><span><span>鐵礦</span><b class="k">120</b></span></span>
+    </div>
+    <div class="right">
+      <button class="mini"><span>初級</span><span style="opacity:.5">▼</span></button>
+      <button class="mini"><span class="k">5 / 8</span><span style="opacity:.6;font-size:10px">獵人</span></button>
+      <button class="sq"><svg viewBox="0 0 24 24"><path d="M12 8a4 4 0 1 0 0 8 4 4 0 0 0 0-8zm9 4-2.2-.9-.6-1.5 1.1-2.1-1.7-1.7-2.1 1.1-1.5-.6L13 4h-2l-.9 2.3-1.5.6-2.1-1.1-1.7 1.7 1.1 2.1-.6 1.5L3 12l2.2.9.6 1.5-1.1 2.1 1.7 1.7 2.1-1.1 1.5.6L11 20h2l.9-2.3 1.5-.6 2.1 1.1 1.7-1.7-1.1-2.1.6-1.5z"/></svg></button>
+    </div>
+  </header>
+
+  <aside id="quest">
+    <div class="ph"><b>村長委託</b><em>−</em></div>
+    <div class="pb">
+      <div class="eyebrow">CHAPTER 03 · 主線</div>
+      <h2>第一次遠征</h2>
+      <p>派出 2 位獵人到橡木密林，帶回 6 份皮革與 1 柄精鐵武器。</p>
+      <div class="bar"><span></span><b>1 / 2</b></div>
+      <div class="reward"><span><i><svg viewBox="0 0 24 24"><circle cx="12" cy="12" r="7"/></svg></i>150</span><span><i><svg viewBox="0 0 24 24"><rect x="5" y="9" width="14" height="7" rx="1"/></svg></i>30</span></div>
+      <button class="btn" onclick="openModal()">領取獎勵</button>
+    </div>
+  </aside>
+
+  <aside id="hero">
+    <div class="ph"><b>獵人</b><em>×</em></div>
+    <div class="avatar"><svg viewBox="0 0 24 24"><path d="M12 3 6 7v5c0 4 2.6 6.8 6 8 3.4-1.2 6-4 6-8V7z"/></svg></div>
+    <div class="hn"><b>狂戰士 · 阿爾文</b><small>Lv.14 · 稀有 · 狩獵中</small></div>
+    <div class="stats">
+      <div><b>312</b><span>HP</span></div>
+      <div><b>38</b><span>ATK</span></div>
+      <div><b>2.4</b><span>SPD</span></div>
+    </div>
+  </aside>
+
+  <div id="toast">獵人 <b>阿爾文</b> 帶回 皮革 ×3 · 金幣 ×26</div>
+
+  <nav id="dock">
+    <button class="act on"><svg viewBox="0 0 24 24"><path d="M4 20h16M6 20V9l6-5 6 5v11"/></svg><b>建設</b><span class="t">1</span></button>
+    <button class="act"><svg viewBox="0 0 24 24"><circle cx="12" cy="8" r="3.4"/><path d="M5 20c0-4 3.2-6 7-6s7 2 7 6"/></svg><b>獵人</b><span class="t">2</span></button>
+    <button class="act"><svg viewBox="0 0 24 24"><path d="M4 8h11l4 4-4 4H4z"/><path d="M8 8v8"/></svg><b>交易</b><span class="t">3</span></button>
+    <button class="act"><svg viewBox="0 0 24 24"><path d="M5 19 19 5M9 5H5v4M15 19h4v-4"/></svg><b>製作</b><span class="t">4</span></button>
+    <button class="act"><svg viewBox="0 0 24 24"><path d="M12 3v8M6 21v-4a6 6 0 0 1 12 0v4z"/></svg><b>地下城</b><span class="t">5</span></button>
+    <button class="act"><svg viewBox="0 0 24 24"><path d="M6 4l4 16M18 4l-4 16M4 9h16"/></svg><b>競技場</b><span class="t">6</span></button>
+    <button class="act"><svg viewBox="0 0 24 24"><path d="M7 3h10v18l-5-3-5 3z"/></svg><b>委託</b><span class="t">7</span></button>
+    <div class="play">
+      <button>Ⅱ</button><button>1×</button>
+      <span style="font-size:8px;opacity:.5;width:100%;text-align:center;margin-top:3px">自動儲存</span>
+    </div>
+  </nav>
+
+  <div class="hint">拖曳平移 · 滾輪縮放 · 點選建築／獵人</div>
+
+  <div id="veil" onclick="if(event.target.id==='veil')closeModal()">
+    <section id="modal">
+      <div class="ph"><b>委託獎勵</b><em onclick="closeModal()">×</em></div>
+      <div class="pb">
+        <p style="font-size:12px;line-height:1.8;opacity:.8;margin-bottom:16px">完成「第一次遠征」可獲得下列獎勵，領取後委託會推進到下一章。</p>
+        <div class="grid">
+          <div class="card"><svg viewBox="0 0 24 24"><circle cx="12" cy="12" r="7"/></svg><div><b>金幣 ×150</b><small>村莊金庫</small></div></div>
+          <div class="card"><svg viewBox="0 0 24 24"><rect x="5" y="9" width="14" height="7" rx="1"/></svg><div><b>麵粉 ×30</b><small>生活物資</small></div></div>
+          <div class="card"><svg viewBox="0 0 24 24"><path d="M12 3 5 12l7 9 7-9z"/></svg><div><b>星晶 ×3</b><small>稀有</small></div></div>
+        </div>
+        <div class="foot"><button class="btn ghost" style="width:auto;margin:0;padding:11px 20px" onclick="closeModal()">稍後再說</button><button class="btn" style="width:auto;margin:0;padding:11px 26px" onclick="closeModal()">確認領取</button></div>
+      </div>
+    </section>
+  </div>
+</div>
+<script>
+function openModal(){document.getElementById('veil').classList.add('open')}
+function closeModal(){document.getElementById('veil').classList.remove('open')}
+document.querySelectorAll('#dock .act').forEach(b=>b.addEventListener('click',()=>{
+  document.querySelectorAll('#dock .act').forEach(x=>x.classList.remove('on'));b.classList.add('on');openModal();}));
+</script>
+
+<div style="position:fixed;left:12px;bottom:104px;font-size:10px;letter-spacing:1px;opacity:.55;pointer-events:none">風格稿：絹本 · 墨印（Paper & Ink）</div>
+</body></html>

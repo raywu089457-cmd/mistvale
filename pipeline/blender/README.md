@@ -67,3 +67,21 @@ Blender 這條線留著當之後要做真走路／攻擊的工具。
 程式碼與說明留在這裡當紀錄；**遊戲目前 21 隻全部用 `build_monster_8dir.py` 的程式化走路**
 （archetype：biped / quad / blob / sway）。要重啟這條線的話，前提是先有 low-poly 模型（第 1 節的路線），
 而不是拿平面圖切塊。
+
+---
+
+## ❌ 2026-10-27 低模 3D 路線：管線通，但**模型不行**
+
+`render_kobold.py` 用基本幾何體照 sprite 造型拼一隻地精（大頭＋尖耳＋礦工帽＋蠟燭＋圍裙＋小鎬），
+顏色直接取 sprite 代表色，走同一套 walk/attack → 8 方向正交渲圖 → `pixelize_renders.py` 壓成格子規格。
+**結果**：壓到 79 px 後看起來是「一堆方塊」，跟手繪 sprite 差很多（`output/kobold3d/_compare_vs_sprite.png`）。
+
+兩個實測結論：
+1. **管線沒問題**（骨架、8 方向一致、武器不換手、格子規格都對），壞在「用程式拼方塊」取代真正的建模。
+2. 迭代三次（比例、顏色 gamma、零件互相重疊補縫）都救不回來 —— 低模要好看需要真正的建模
+   （subdiv 雕刻＋retopo，一隻幾小時），或改買/套 low-poly 素材包（風格會變成 3D 渲圖風）。
+
+**建議**：走路要更好，優先序是
+① 維持現況（手繪 sprite + 程式化走路，已上線）
+② PixelLab v3 文字動畫（`output/l0veyou/mon8_walk/WALK-PROMPT.txt`，約 16 次生成／隻）
+③ 真的找人/自己建模再走 3D 渲圖

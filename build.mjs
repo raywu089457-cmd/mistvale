@@ -76,6 +76,12 @@ try{assetScript+=`window.PIXEL_ASSETS=window.PIXEL_ASSETS||{};window.PIXEL_ASSET
   for(const f of mf.filter(f=>f.endsWith('.json'))){const id=f.slice(0,-5);
     ms[id]={img:await media(path.join(md,id+'.png'),`monsters3/${id}.png`),meta:JSON.parse(await fs.readFile(path.join(md,f),'utf8'))};}
   assetScript+=`window.PIXEL_ASSETS.monsterSheets=${JSON.stringify(ms)};`;}}
+
+// 2026-10-28:PixelLab 生的 UI 零件（assets/ui/,每個 0.3–0.8 KB → 直接內嵌成 data URI）
+{const ud=path.join(root,'assets/ui');let uf=[];try{uf=await fs.readdir(ud);}catch{}
+ const ui={};for(const f of uf.filter(f=>f.endsWith('.png'))){const id=f.slice(0,-4);
+   ui[id]=await media(path.join(ud,f),`ui/${f}`);}
+ assetScript+=`window.PIXEL_ASSETS.ui=${JSON.stringify(ui)};`;}
 html=html.replace('/*__STYLE__*/',()=>css).replace('/*__ASSETS__*/',()=>assetScript).replace('/*__SCRIPT__*/',()=>ui.outputFiles[0].text.replaceAll('</script','<\\/script'));
 for (const block of html.matchAll(/<script>([\s\S]*?)<\/script>/g)) new vm.Script(block[1]);
 const file=path.join(out,'暮影村.html');await fs.writeFile(file,html,'utf8');
