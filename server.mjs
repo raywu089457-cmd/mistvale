@@ -7,7 +7,7 @@ const root=path.basename(path.dirname(project))==='work'?path.resolve(project,'.
 // service worker 註冊不起來、手機加到主畫面的圖示也是舊的)。
 const PWA=path.join(project,'pwa');
 const MIME={'.js':'text/javascript; charset=utf-8','.webmanifest':'application/manifest+json; charset=utf-8',
-            '.png':'image/png','.json':'application/json; charset=utf-8','.html':'text/html; charset=utf-8'};
+            '.png':'image/png','.webp':'image/webp','.json':'application/json; charset=utf-8','.html':'text/html; charset=utf-8'};
 http.createServer(async(req,res)=>{
   try{
     if(req.url.startsWith('/favicon')){res.writeHead(204).end();return;}
