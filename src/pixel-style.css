@@ -386,5 +386,25 @@ i[data-icon],span[data-icon]{width:22px;height:22px}
 .toast.error{border-image:var(--ui-toast-err) 12 fill stretch;background:none;color:#ffd9c8}
 .pixel-button.danger{border-image:var(--ui-btn-danger) 12 fill stretch;background:none}
 .pixel-button.danger:hover:not(:disabled){border-image:var(--ui-btn-danger) 12 fill stretch;filter:brightness(1.08)}
-#loading .loading-bar{border:0;background:var(--ui-load-trough) center/100% 100% no-repeat;box-shadow:none;height:22px}
-#loading .loading-bar span{inset:4px;background:var(--ui-load-fill) center/100% 100% no-repeat;border:0;height:14px}
+/* 載入條維持上一版樣式（使用者指定） */
+/* ===== 2026-10-28(7)：按鈕大小與邊緣裁切檢修 ===== */
+/* 1) 下方動作列：內容比按鈕高 5px（文字被切）→ 加高列、縮圖示、標籤不換行 */
+#bottom-bar{height:100px;padding-top:8px}
+#bottom-bar>button{padding:1px 2px 3px;justify-content:center}
+#bottom-bar [data-icon]{flex:0 0 24px;width:24px;height:24px}
+#bottom-bar b{line-height:1.05;white-space:nowrap}
+/* 2) 手機：世界地圖鍵會壓到右上「村莊／狩獵區」→ 往下挪開 */
+@media(max-width:760px){
+  .world-map-trigger{top:252px;right:10px}
+  #bottom-bar>button b{font-size:10px;letter-spacing:0;white-space:nowrap}
+  #bottom-bar{height:146px}
+  .treasury>button{padding:4px 6px}
+  .treasury b{font-size:11px}
+  .treasury>button:first-child{min-width:96px}
+  .treasury [data-icon]{flex:0 0 18px;width:18px;height:18px}
+}
+/* 3) 技能鍵：內容溢出 3px → 放大一點、標籤不換行 */
+.skill{min-height:66px}
+.skill b{white-space:nowrap}
+/* 關閉鍵（×）字高 28 > 框 25，會溢出 3px */
+.modal-title>button{line-height:1;padding:0;display:grid;place-items:center;font-size:20px}
