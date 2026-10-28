@@ -1,4 +1,4 @@
-## 2026-10-27：世界繪製 WebGL2 階段 0+1（`?renderer=gl`，預設仍是 2D）
+## 2026-10-27：世界繪製 WebGL2 階段 0+1（2026-10-28 起預設 GL，`?renderer=2d` 改回 2D；拿不到 WebGL2 自動退回 2D）
 
 - `src/gl-renderer.js`：實例化四邊形批次器（矩陣/uv/預乘色/閃色，一次 16 張材質、依呼叫順序切批次；材質延遲上傳、預乘、NEAREST、
   超過 MAX_TEXTURE_SIZE 自動切塊、閒置 90 幀以上且總量超過預算才回收）＋「長得像 CanvasRenderingContext2D 的轉接物件」

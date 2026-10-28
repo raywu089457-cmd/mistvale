@@ -1,4 +1,4 @@
-// gl-renderer.js — 世界畫面的 WebGL2 繪製(階段 1,網址 ?renderer=gl 才開)。
+// gl-renderer.js — 世界畫面的 WebGL2 繪製(預設開啟,網址 ?renderer=2d 改回 Canvas 2D)。
 // ① 實例化四邊形批次器:每個實例 = 材質格(uv)+ 2x3 仿射矩陣 + 預乘顏色/透明度 + 閃色;一次最多綁 16 張材質,
 //    依呼叫順序切批次(順序跟 2D 一模一樣)。材質 = 圖片/畫布/ImageBitmap 延遲上傳(預乘 alpha、NEAREST),
 //    超過 MAX_TEXTURE_SIZE 的大圖(地面畫布)自動切塊。

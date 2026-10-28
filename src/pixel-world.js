@@ -54,7 +54,7 @@ let lowMemDevice=false;
 // 影子快取有上限(以前永遠不清:手機模擬玩 2 分鐘 941 張≈95 MB 還在長)。全部影子排一條 LRU,
 // 總像素超過上限就丟最久沒畫到的(之後又用到再算一次)。上限:桌機 3200 萬像素(≈128 MB,實測 2 分鐘約用 2400 萬)、手機 600 萬(半解析度約 1000 張)。
 const shadowLru=new Map();let shadowPx=0,shadowMade=0;
-// GL 模式(?renderer=gl):快取丟掉的畫布要一併釋放 GPU 材質(createWorld 設定;2D 模式是 null)
+// GL 模式(預設;?renderer=2d 關閉):快取丟掉的畫布要一併釋放 GPU 材質(createWorld 設定;2D 模式是 null)
 let texRelease=null;
 const SHADOW_BUDGET=()=>lowMemDevice?6e6:32e6;
 function shadowTouch(r){shadowLru.delete(r);shadowLru.set(r,1);}
@@ -632,10 +632,10 @@ function ensureAtlas() {
 
 export function createWorld(canvas,{onSelect=()=>{},onPlace=()=>{},getState=()=>null}={}) {
   ensureAtlas();
-  // 繪製後端:預設 Canvas 2D;網址 ?renderer=gl 改用 WebGL2(gl-renderer.js,階段 1)。getContext 只能叫一次,所以先決定模式。
+  // 繪製後端:預設 WebGL2(gl-renderer.js;2026-10-28 使用者實機試過後改為預設);網址 ?renderer=2d 改回 Canvas 2D。getContext 只能叫一次,所以先決定模式。
   // GL 模式:原畫布底下墊一張 WebGL 畫布畫世界;原畫布照舊收輸入事件,改成透明、只畫文字。拿不到 WebGL2 → 照舊 2D。
   // GL 模式每幀整張重畫(不走靜止快取/髒矩形/comp):地面 → 影子 FBO 以 .56 壓上 → 物件 → 殘影/覆蓋層/特效/粒子 → 文字(2D 層)。
-  const glWanted=(()=>{try{return new URLSearchParams(globalThis.location?.search||'').get('renderer')==='gl';}catch{return false;}})();
+  const glWanted=(()=>{try{return new URLSearchParams(globalThis.location?.search||'').get('renderer')!=='2d';}catch{return true;}})();
   let glCanvas=null,glr=null;
   if(glWanted){glCanvas=makeCanvas(canvas.width||800,canvas.height||500);glCanvas.setAttribute('aria-hidden','true');glCanvas.style.cssText='position:fixed;left:0;top:0;pointer-events:none;image-rendering:pixelated';
     glr=createGLRenderer(glCanvas,{onLost:()=>useGL(false),onRestored:()=>useGL(true)});if(glr&&canvas.parentNode)canvas.parentNode.insertBefore(glCanvas,canvas);else glr=glCanvas=null;}
