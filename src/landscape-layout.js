@@ -1,5 +1,5 @@
 import {BUILDINGS} from './pixel-data.js';
-import {walkable} from './overworld.js';
+import {walkable,RING_ROAD,RING_ROAD_HALF,nearestRingRoad} from './overworld.js';
 import {STREET_X,STREET_Z,EXITS,EXIT_GAP,FENCE,GRID,VILLAGE_BOUNDS,BLOCKS,blockAt} from './village-grid.js';
 export function distanceSegment(x,z,a,b){const dx=b.x-a.x,dz=b.z-a.z,t=Math.max(0,Math.min(1,((x-a.x)*dx+(z-a.z)*dz)/(dx*dx+dz*dz||1)));return Math.hypot(x-a.x-t*dx,z-a.z-t*dz);}
 // 各建築圖上「門腳/台階前」相對地基中心的位置(世界單位)。量法:建築圖上台階腳下那一點,換算成地面座標(含立面校正)。
@@ -43,6 +43,12 @@ export function getRoads(layout={},levels={}){
  for(const z of STREET_Z)add([[X0,z],[X1,z]],GRID.street,'stone');
  // 出村:兩條街穿過出村口,路鋪到村界為止(切平、不圓頭);村外沒有路,自由走。
  for(const e of EXITS)roads.push({a:{x:e.street.x,z:e.street.z},b:{x:e.edge.x,z:e.edge.z},width:GRID.street,kind:'stone',cap:'butt'});
+ // 2026-10-28:環村道路(圍籬外側一圈)＋四個出村口接上環的短引道。kind:'ring' 讓村莊鋪面與村內測試把它排除。
+ for(let i=0;i<RING_ROAD.length;i++){const a=RING_ROAD[i],b=RING_ROAD[(i+1)%RING_ROAD.length];
+   roads.push({a:{x:a.x,z:a.z},b:{x:b.x,z:b.z},width:RING_ROAD_HALF,kind:'ring',cap:'round'});}
+ for(const e of EXITS){const r=nearestRingRoad(e.out.x,e.out.z);
+   const nx=RING_ROAD[Math.round(r.index)%RING_ROAD.length]||RING_ROAD[0];
+   roads.push({a:{x:e.out.x,z:e.out.z},b:{x:nx.x,z:nx.z},width:1.1,kind:'ring',cap:'round'});}
  const result=fitRoads(roads,layout,levels);result.paved=pavedRings(layout,levels);return result;
 }
 // 道路圖:把所有路段在交叉點/端點切開,變成「節點 + 邊」。村裡的獵人只沿這張圖走(不穿街區)。

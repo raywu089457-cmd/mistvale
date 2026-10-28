@@ -95,6 +95,79 @@ export function randomRegionPoint(id,rnd=Math.random){
  for(let i=0;i<400;i++){
   const x=WORLD.minX+1+rnd()*(WORLD.maxX-WORLD.minX-2),z=WORLD.minZ+1+rnd()*(WORLD.maxZ-WORLD.minZ-2);
   const nearVillage=x>VILLAGE_BOUNDS.minX-PAD&&x<VILLAGE_BOUNDS.maxX+PAD&&z>VILLAGE_BOUNDS.minZ-PAD&&z<VILLAGE_BOUNDS.maxZ+PAD;
-  if(!nearVillage&&regionContains(id,x,z))return {x,z};}
+  // 環村道路上不生怪(2026-10-28):安全走廊上站著一隻怪會很怪
+  if(!nearVillage&&!onRingRoad(x,z,1.4)&&regionContains(id,x,z))return {x,z};}
  return regionCenter(id);}
 export const BIOME_PALETTE={village:'#719b55',meadow:'#8caf5d',forest:'#356b3d',taiga:'#527c68',snow:'#d9e8df',mountain:'#a09e91',desert:'#e0bb73',birch:'#9fbd67',river:'#3395bd',ice:'#94cbd3',bridge:'#a77b50',ocean:'#3d7488'};
+
+// ── 環村道路(2026-10-28) ───────────────────────────────────────────────
+// 沿著圍籬外側一圈的封閉道路,四個出村口各有短引道接上來。
+// 英雄出村→別的狩獵區一律先走這條路(見 pixel-game 的 ringWaypoints),而且**路上的獵物不會被魔物鎖定**
+// (pixel-game 的索敵會跳過 onRingRoad 的位置),所以移動途中不會被路邊的怪騷擾。
+export const RING_ROAD_OFFSET = 3.4;     // 離村界多遠(留一段草地把道路跟圍籬分開)
+export const RING_ROAD_HALF = 1.05;      // 道路半寬(格)
+export const RING_ROAD = (() => {
+  // 矩形外擴 o，四角用「半徑 o 的四分之一圓」收邊：整圈每個點都離村界 o 格，
+  // 不會像切角那樣把斜線切進村莊的角落（實測切角會在角落變成 0 距離）。
+  const b = VILLAGE_BOUNDS, o = RING_ROAD_OFFSET;
+  const x0 = b.minX - o, x1 = b.maxX + o, z0 = b.minZ - o, z1 = b.maxZ + o;
+  const arc = (cx, cz, a0) => {
+    const pts = [];
+    for (let k = 0; k <= 8; k++) {
+      const a = a0 + (Math.PI / 2) * (k / 8);
+      pts.push({ x: cx + o * Math.cos(a), z: cz + o * Math.sin(a) });
+    }
+    return pts;
+  };
+  const edge = (ax, az, bx, bz) => {
+    const len = Math.hypot(bx - ax, bz - az), steps = Math.max(1, Math.round(len / 2));
+    const pts = [];
+    for (let k = 0; k < steps; k++) pts.push({ x: ax + (bx - ax) * k / steps, z: az + (bz - az) * k / steps });
+    return pts;
+  };
+  const pts = [];
+  // 上邊（z0）由左往右 → 右上圓角 → 右邊 → 右下 → 下邊 → 左下 → 左邊 → 左上
+  pts.push(...edge(b.minX, z0, b.maxX, z0), ...arc(b.maxX, b.minZ, -Math.PI / 2));
+  pts.push(...edge(x1, b.minZ, x1, b.maxZ), ...arc(b.maxX, b.maxZ, 0));
+  pts.push(...edge(b.maxX, z1, b.minX, z1), ...arc(b.minX, b.maxZ, Math.PI / 2));
+  pts.push(...edge(x0, b.maxZ, x0, b.minZ), ...arc(b.minX, b.minZ, Math.PI));
+  return pts;
+})();
+function segDist(x, z, a, b) {
+  const dx = b.x - a.x, dz = b.z - a.z, len = dx * dx + dz * dz;
+  const t = len ? Math.max(0, Math.min(1, ((x - a.x) * dx + (z - a.z) * dz) / len)) : 0;
+  return Math.hypot(x - a.x - t * dx, z - a.z - t * dz);
+}
+// 到環村道路的距離(格)
+export function ringRoadDistance(x, z) {
+  let best = Infinity;
+  for (let i = 0; i < RING_ROAD.length; i++) {
+    const d = segDist(x, z, RING_ROAD[i], RING_ROAD[(i + 1) % RING_ROAD.length]);
+    if (d < best) best = d;
+  }
+  return best;
+}
+// 環上離 (x,z) 最近的一點(回傳索引,之後沿著索引走)
+export function nearestRingRoad(x, z) {
+  let best = Infinity, index = 0;
+  for (let i = 0; i < RING_ROAD.length; i++) {
+    const a = RING_ROAD[i], b = RING_ROAD[(i + 1) % RING_ROAD.length];
+    const dx = b.x - a.x, dz = b.z - a.z, len = dx * dx + dz * dz;
+    const t = len ? Math.max(0, Math.min(1, ((x - a.x) * dx + (z - a.z) * dz) / len)) : 0;
+    const px = a.x + t * dx, pz = a.z + t * dz, d = Math.hypot(x - px, z - pz);
+    if (d < best) { best = d; index = i + t; }
+  }
+  return { index, distance: best };
+}
+// 是否站在環村道路上(含額外容差)
+export function onRingRoad(x, z, extra = 0) { return ringRoadDistance(x, z) <= RING_ROAD_HALF + extra; }
+// 環上第 index 個點(自動取整與繞回)
+export function ringPointAt(index) { const n = RING_ROAD.length; return { ...RING_ROAD[mod(Math.round(index), n)] }; }
+// 從 a 沿著環走到索引 b 的路徑點(走較短的一側)
+export function ringRoadPath(a, b) {
+  const n = RING_ROAD.length, ia = Math.round(a), ib = Math.round(b);
+  const fwd = mod(ib - ia, n), back = n - fwd, dir = fwd <= back ? 1 : -1, steps = Math.min(fwd, back);
+  const out = [];
+  for (let k = 1; k <= steps; k++) out.push({ ...RING_ROAD[mod(ia + dir * k, n)] });
+  return out;
+}

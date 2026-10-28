@@ -1,5 +1,21 @@
 # CHANGELOG — sprites
 
+## 2026-10-28 — 環村道路（安全走廊）
+
+- `src/overworld.js`：`RING_ROAD` ＝ 圍籬外 **3.4 格**的一圈封閉道路（矩形外擴＋四角半徑 3.4 的四分之一圓收邊，
+  所以整圈每個點都離村界一樣遠；切角版本會在角落切進村莊，實測距離 0），半寬 1.05。
+  另提供 `ringRoadDistance / nearestRingRoad / ringPointAt / ringRoadPath / onRingRoad`。
+- `src/landscape-layout.js`：`getRoads()` 加入環的 60 段＋四個出村口的引道，kind 標成 `'ring'`
+  （村莊鋪面與村內道路測試會排除它）。
+- `src/pixel-game.js`：跨區移動一律 `ringWaypoints()` —— 先走到最近的環上點、沿環（取較短一側）走到最靠近目的地的位置、
+  再切進地形；`depart / exploreRegion / dispatchHunters / 流浪英雄` 共 6 個呼叫點都改走環。
+  **魔物索敵會跳過站在環上的獵物**（安全走廊），實測：把獵人釘在環上、魔物放在旁邊 2 格，120 幀內 engaged = 0、無傷害。
+- `randomRegionPoint`：環村道路上不生怪（`onRingRoad(x,z,1.4)` 排除）。
+- 渲染：環走「土路」材質（跟村內石板區隔）；一開始用石板會跟村莊鋪面糊在一起。
+- `test-landscape.mjs`：新增環的驗收（存在、封閉、在世界內、離村界 0.7–6.0、四個出村口都有引道），
+  村內道路連通性改成只算非 ring 段。`npm test` 11 PASS。
+
+
 ## 2026-10-27(深夜後 2) — 低模 3D 渲圖：管線通、模型不採用
 
 - 新增 `pipeline/scripts/blender/render_kobold.py`：用基本幾何體照 sprite 造型拼低模地精

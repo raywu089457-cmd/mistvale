@@ -1,6 +1,6 @@
 import {getRoads,onPaved,doorStand,PALISADE,villagePonds,inPond,buildingSolid,statueSolid} from './landscape-layout.js';
 import {createVillageNav} from './village-nav.js';
-import {WORLD,REGIONS,walkable,inVillage,regionAt,regionContains,regionEdge,regionCenter,randomRegionPoint,wildAt} from './overworld.js';
+import {WORLD,REGIONS,walkable,inVillage,regionAt,regionContains,regionEdge,regionCenter,randomRegionPoint,wildAt,nearestRingRoad,ringRoadPath,ringPointAt,onRingRoad} from './overworld.js';
 import {VILLAGE_BOUNDS,EXITS,blockAt,BUILDING_NUDGE,BUILDING_SLOTS,blockCenter} from './village-grid.js';
 import { SKILLS, BUILDINGS, CLASSES, RARITIES, TRAITS, MATERIALS, PRODUCTS, RECIPES, DIFFICULTIES, CAMP, HUNT_ZONE, PILOT_ATTACK, PILOT_ORB, AI_ATTACK_LOCK, KITE, PROVOKE, LEGACY_LAYOUT_V14, LEGACY_LAYOUT_V15, LEGACY_LAYOUT_V16, ART_LAYOUT_HISTORY } from './pixel-data.js';
 
@@ -208,6 +208,16 @@ export function createGame(saved = null) {
     return vnav.nearestOpen(p.x, p.z) ?? p;
   }
 
+  // 2026-10-28:跨區移動一律先沿「環村道路」走,再從最靠近目的地的位置切進地形。
+  // waypoints = 環上最近的點 → 沿環(走較短的一側) → 目的地。
+  // 這條路同時是安全走廊:魔物索敵會跳過站在環上的獵物(pixel-game 的 onRingRoad 檢查)。
+  function ringWaypoints(from, target) {
+    if (!target) return [];
+    const a = nearestRingRoad(from.x, from.z), b = nearestRingRoad(target.x, target.z);
+    const ring = ringRoadPath(a.index, b.index);
+    if (ring.length > 12) ring.length = 12;                 // 太遠就取樣,不要塞幾十個點
+    return [ringPointAt(a.index), ...ring.filter((_, i) => i % 2 === 0), { x: target.x, z: target.z }];
+  }
   function route(h, points) {
     h.route = []; let from = { x: h.x, z: h.z };
     for (const point of points) {
@@ -247,7 +257,7 @@ export function createGame(saved = null) {
     if (state.time < (u.routeRetryAt ?? 0)) return;   // 找不到路就隔幾秒再試,不要每一幀都重算
     if (!regionContains(rid, u.x, u.z)) {
       u.status = '前往' + (REGIONS.find(r => r.id === rid)?.name ?? '狩獵區');
-      if (!u.route.length && !route(u, [regionEdge(rid) ?? { x: u.x, z: u.z }])) u.routeRetryAt = state.time + 4;
+      if (!u.route.length && !route(u, ringWaypoints({ x: u.x, z: u.z }, regionEdge(rid) ?? { x: u.x, z: u.z }))) u.routeRetryAt = state.time + 4;
       return;
     }
     u.status = '搜尋中';
@@ -262,8 +272,9 @@ export function createGame(saved = null) {
     if (!h.huntRegion) { idleInTown(h); return; }
     h.task = null; h.serviceProduct = null; h.serviceStarted = false; h.destination = null; h.inTown = false; h.targetId = null; h.rallying = false; h.status = '出征中'; h.lastTownVisit = state.time;
     const region = REGIONS.find(r => r.id === h.huntRegion);
-    const target = state.rally ?? (region ? regionEdge(region.id) : regionEdge('meadow'));
-    route(h,[target]);
+    // 集結點(玩家指定的)照原樣走;否則先沿環村道路走,再切進目的地
+    if (state.rally) { route(h, [state.rally]); return; }
+    route(h, ringWaypoints({ x: h.x, z: h.z }, region ? regionEdge(region.id) : regionEdge('meadow')));
   }
 
   // 普攻間隔(秒,未含快手特性):野外 AI 與地下城共用。遠程施法較慢;祭司介於弓箭手與法師之間。
@@ -413,7 +424,7 @@ export function createGame(saved = null) {
   }
   function wandererDepart(w) {
     w.task = null; w.serviceProduct = null; w.serviceStarted = false; w.destination = null; w.inTown = false; w.targetId = null; w.status = '出征中'; w.lastTownVisit = state.time;
-    route(w, [regionEdge(w.huntRegion) ?? REGIONS[1]]);
+    route(w, ringWaypoints({ x: w.x, z: w.z }, regionEdge(w.huntRegion) ?? REGIONS[1]));
   }
 
   function trade(h) {
@@ -852,7 +863,8 @@ export function createGame(saved = null) {
       const aggro = AGGRO[enemy.type] ?? 6;
       // 挨打後(PROVOKE.time 秒內)對遠程獵物的範圍放大到 PROVOKE.aggro:遠遠放箭的人也會被追;近戰獵物照原本的範圍。
       const provoked = state.time - (enemy.hitAt ?? -99) < PROVOKE.time, reachOf = q => provoked && isRanged(q) ? Math.max(aggro, PROVOKE.aggro) : aggro;
-      const target = prey.filter(q => distance(enemy, q) <= reachOf(q)).sort((a, b) => distance(enemy, a) - distance(enemy, b))[0];
+      // 走在環村道路上的獵物不算目標:出村趕路時不會被路邊的怪追(安全走廊)
+      const target = prey.filter(q => !onRingRoad(q.x, q.z) && distance(enemy, q) <= reachOf(q)).sort((a, b) => distance(enemy, a) - distance(enemy, b))[0];
       if(!target || !regionContains(enemy.regionId||state.region,target.x,target.z)){enemy.engaged=false;
         // 閒晃:沒有獵人時在自己的狩獵區裡慢慢走到隨機一點、停一下再換點(不會只站在原地)。
         const rid=enemy.regionId;
@@ -914,7 +926,7 @@ export function createGame(saved = null) {
       const region = REGIONS.find(r => r.id === w.huntRegion) || REGIONS[1];
       if (!regionContains(region.id, w.x, w.z)) {      // 還沒進自己的狩獵區 → 先走到區的邊緣
         w.status = '前往' + region.name;
-        if (!w.route.length) route(w, [regionEdge(region.id)]);
+        if (!w.route.length) route(w, ringWaypoints({ x: w.x, z: w.z }, regionEdge(region.id)));
         walk(w, dt); continue;
       }
       w.regionId = region.id;
@@ -1299,7 +1311,7 @@ export function createGame(saved = null) {
       state.region=region.id;state.rally=null;if(!state.visitedRegions.includes(region.id))state.visitedRegions.push(region.id);
       state.enemies=state.enemies.filter(e=>e.type==='boss'||e.regionId!==region.id);const mix=mixOf(region.id);preloadMix(mix);for(let i=0;i<12;i++)spawn(mix[Math.floor(random()*mix.length)],null,region.id);
       // 給「所有」存活獵人下指令(正在村內辦事的也先記下,辦完就出發),不要漏掉。
-      for(const h of state.hunters)if(h.hp>0){h.huntRegion=region.id;h.targetId=null;if(!h.task){h.rallying=true;h.status='出征中';route(h,[regionEdge(region.id)]);}}
+      for(const h of state.hunters)if(h.hp>0){h.huntRegion=region.id;h.targetId=null;if(!h.task){h.rallying=true;h.status='出征中';route(h,ringWaypoints({x:h.x,z:h.z},regionEdge(region.id)));}}
       log(`已派遣獵人前往${region.name}。隊伍會經由橋樑穿越河流。`,'success');return result(true,`出發探索${region.name}！`);
     },
     dispatchHunters(regionId = null, hunterIds = null) {
@@ -1318,7 +1330,7 @@ export function createGame(saved = null) {
       let n = 0;
       for (const h of state.hunters) if (h.hp > 0 && (!chosen || chosen.has(h.id))) {
         h.huntRegion = region.id; h.targetId = null;
-        if (!h.task) { h.rallying = true; h.status = '出征中'; route(h, [regionEdge(region.id)]); }
+        if (!h.task) { h.rallying = true; h.status = '出征中'; route(h, ringWaypoints({ x: h.x, z: h.z }, regionEdge(region.id))); }
         n++;
       }
       if (!n) return result(false, chosen ? '選到的獵人目前都不能出征（可能已倒下）。' : '目前沒有可以出征的獵人。');

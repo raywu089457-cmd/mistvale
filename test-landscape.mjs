@@ -99,9 +99,22 @@ for(const b of BUILDINGS.filter(b=>game.state.buildings[b.id]&&b.id!=='dungeon')
  assert.ok(Math.abs(so.x-midX)<1e-6&&Math.abs(so.z-FENCE.maxZ)<1e-6,'south gate sits in the middle of the south fence');
  assert.ok(Math.abs(e.z-midZ)<1e-6&&Math.abs(e.x-FENCE.maxX)<1e-6,'east gate sits in the middle of the east fence');
  assert.ok(Math.abs(w.z-midZ)<1e-6&&Math.abs(w.x-FENCE.minX)<1e-6,'west gate sits in the middle of the west fence');
- for(const r of roads)for(const p of [r.a,r.b])assert.ok(inVillage(p.x,p.z)||EXITS.some(e=>Math.hypot(p.x-e.edge.x,p.z-e.edge.z)<.01),`road (${p.x},${p.z}) stays inside the village or ends on the village edge at an exit`);
+ // 村內道路:兩端一定要在村內或在出村口;環村道路(kind:'ring')在圍籬外,另外驗。
+ for(const r of roads.filter(r=>r.kind!=='ring'))for(const p of [r.a,r.b])assert.ok(inVillage(p.x,p.z)||EXITS.some(e=>Math.hypot(p.x-e.edge.x,p.z-e.edge.z)<.01),`road (${p.x},${p.z}) stays inside the village or ends on the village edge at an exit`);
+ // 2026-10-28:環村道路 = 圍籬外一圈的封閉道路(離村界 2.1 格),四個出村口都有引道接上去。
+ {const ring=roads.filter(r=>r.kind==='ring');
+  assert.ok(ring.length>40,'the ring road around the village exists');
+  for(const r of ring)for(const p of [r.a,r.b]){
+   assert.ok(walkable(p.x,p.z),`ring road point (${p.x.toFixed(1)},${p.z.toFixed(1)}) is on walkable land`);
+   const dx=Math.max(VILLAGE_BOUNDS.minX-p.x,0,p.x-VILLAGE_BOUNDS.maxX),dz=Math.max(VILLAGE_BOUNDS.minZ-p.z,0,p.z-VILLAGE_BOUNDS.maxZ);
+   assert.ok(Math.hypot(dx,dz)>=0.7&&Math.hypot(dx,dz)<=6.0,`ring road stays just outside the fence (${Math.hypot(dx,dz).toFixed(2)})`);}
+  // 封閉:每個端點都被兩段以上連到(環 + 引道)
+  const count=new Map();for(const r of ring)for(const p of [r.a,r.b]){const k=`${p.x.toFixed(2)},${p.z.toFixed(2)}`;count.set(k,(count.get(k)||0)+1);}
+  assert.ok([...count.values()].filter(v=>v>=2).length>40,'the ring road is a closed loop');
+  // 四個出村口都有引道接到環上(村內 → 環 → 野外)
+  for(const e of EXITS)assert.ok(ring.some(r=>Math.hypot(r.a.x-e.out.x,r.a.z-e.out.z)<.02),`${e.id} gate has a spur onto the ring road`);}
  for(const x of EXITS)assert.ok(roads.some(r=>r.cap==='butt'&&Math.hypot(r.b.x-x.edge.x,r.b.z-x.edge.z)<.01),`${x.id} exit road is cut flat on the village edge`);
- const g=roadGraph(roads),seen=new Set([0]),stack=[0];while(stack.length){const i=stack.pop();for(const [j] of g.edges[i])if(!seen.has(j)){seen.add(j);stack.push(j);}}
+ const g=roadGraph(roads.filter(r=>r.kind!=='ring')),seen=new Set([0]),stack=[0];while(stack.length){const i=stack.pop();for(const [j] of g.edges[i])if(!seen.has(j)){seen.add(j);stack.push(j);}}
  assert.equal(seen.size,g.nodes.length,'village road network is connected');}
 // 整個村莊地板鋪滿石板:每棟建築的四邊都貼著鋪面。
 {const paved=roads.paved||[];
@@ -148,4 +161,4 @@ const moved=createGame();{const mk=blockCenter(-2,0);assert.equal(moved.moveBuil
  assert.equal(g.scaleBuilding('inn',1.2).ok,true);assert.equal(g.state.layout.inn.s,1.2);assert.equal(createGame(g.serialize()).state.layout.inn.s,1.2,'size survives save');
  assert.equal(g.scaleBuilding('inn',.1).ok,true);assert.equal(g.state.layout.inn.s,.6);}
 const saved=createGame(game.serialize());assert.equal(saved.state.gold,game.state.gold);assert.deepEqual(saved.state.layout,game.state.layout);
-console.log(`PASS: compact checkerboard (5 tile rows between buildings and to the edge), fence with 4 gate gaps (middle of each side), pond block used by the dungeon, roads end at gates, the whole village floor paved, all facility entrances connected, monster leash, moved-building paths; ${(pavedTravel/travel*100).toFixed(1)}% of in-village hunter samples on paved ground, ${segs} village route segments (${diagonal} diagonal / ${straight} straight) all in the 8 directions.`);
+console.log(`PASS: compact checkerboard (5 tile rows between buildings and to the edge), fence with 4 gate gaps (middle of each side), pond block used by the dungeon, roads end at gates, ring road outside the fence, the whole village floor paved, all facility entrances connected, monster leash, moved-building paths; ${(pavedTravel/travel*100).toFixed(1)}% of in-village hunter samples on paved ground, ${segs} village route segments (${diagonal} diagonal / ${straight} straight) all in the 8 directions.`);
