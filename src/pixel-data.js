@@ -22,15 +22,19 @@ export const BUILDINGS = [
 export const CLASSES = [
  {id:'berserker',name:'狂戰士',tag:'近戰 / 爆發',color:'#d77a58',hp:140,attack:19,defense:4,speed:2.65,range:1.2,cost:120,desc:'揮舞巨劍的近戰獵人。'},
  {id:'paladin',name:'聖騎士',tag:'近戰 / 防禦',color:'#daaf48',hp:168,attack:15,defense:8,speed:2.25,range:1.3,cost:150,desc:'以厚重鎧甲守護隊伍。'},
- {id:'sorcerer',name:'魔法師',tag:'遠程 / 魔法',color:'#b080ce',hp:84,attack:27,defense:1,speed:2.4,range:4.5,cost:180,desc:'操縱元素，發射強大的魔法。'},
- {id:'archer',name:'弓箭手',tag:'遠程 / 連射',color:'#3fa7a0',hp:96,attack:18,defense:2,speed:2.9,range:5.5,cost:160,desc:'背著大箭袋的輕裝射手，疾風箭雨可同時射穿三個目標。'},
+ // 2026-10-27 使用者要遠程射程拉遠:法師 4.5→6、弓箭手 5.5→7.5、祭司 4→5.5(各約 +33~38%)。
+ // 上限考量:SIGHT 12 格(獵人看得到的距離)、被打的魔物會追到 PROVOKE.aggro 9 格 → 最遠 7.5 仍在魔物會反擊的範圍內,不會白打。
+ // 傷害維持不變:遠程拉開距離(KITE)時不能出手,用損失的輸出換少挨打;近戰數值完全不動。
+ {id:'sorcerer',name:'魔法師',tag:'遠程 / 魔法',color:'#b080ce',hp:84,attack:27,defense:1,speed:2.4,range:6,cost:180,desc:'操縱元素，發射強大的魔法。'},
+ {id:'archer',name:'弓箭手',tag:'遠程 / 連射',color:'#3fa7a0',hp:96,attack:18,defense:2,speed:2.9,range:7.5,cost:160,desc:'背著大箭袋的輕裝射手，疾風箭雨可同時射穿三個目標。'},
  {id:'assassin',name:'刺客',tag:'近戰 / 暗殺',color:'#7a6a9c',hp:100,attack:23,defense:2,speed:3.1,range:1.2,cost:160,desc:'披著兜帽的刺客，以匕首連刺快速解決魔物，暗影衝刺可重創單一目標。'},   // 2026-10-24 使用者要刺客回來:PixelLab 3d3020ce(assets/heroes/assassin,8 向走路＋攻擊/技能列),數值是新訂的
+ // 2026-10-27 使用者要祭司能正常招募:原本只在 WANDER_ONLY 當流浪英雄(已移除)。放在最後 → 開局 5 人仍是前 5 職業,
+ // 祭司由 offerNewClass 保證出現在招募欄第一位。素材是白袍金杖、法杖發光球(Bible §priest、assets/heroes/priest 攻擊列),
+ // 所以改成遠程施法(原本的「紅斗篷短刃近戰」是舊素材的設定);pixel-world.js 早就把 priest 當遠程(後座/蓄力光)。
+ // 數值:遠程化後下修生命/攻擊/防禦,定位在弓箭手與法師之間、以自療換輸出。
+ {id:'priest',name:'祭司',tag:'遠程 / 恢復',color:'#b3434a',hp:104,attack:17,defense:3,speed:2.75,range:5.5,cost:175,desc:'白袍金杖的祭司，從遠處擲出聖光球攻擊魔物，暗癒禱言可以替自己回復生命。'},
 ];
-// 只當流浪英雄、不進招募名單的角色。刻意不放在 CLASSES 裡:CLASSES 的長度會決定流浪英雄與訪客的
-// 擲骰映射,動到它會把決定性模擬的平衡整個推移(見 test-overworld 的各地區生怪數量斷言)。
-export const WANDER_ONLY = [
- {id:'priest',name:'祭司',tag:'近戰 / 恢復',color:'#b3434a',hp:112,attack:20,defense:4,speed:2.75,range:1.6,cost:175,desc:'披著紅斗篷的暗影祭司，短刃近戰並能自行療傷；放出去流浪時會自己找魔物開打。'}
-];
+// 注意:CLASSES 的長度決定訪客與流浪英雄的擲骰映射(newVisitor / newWanderer),增減職業會讓決定性模擬整個重排。
 // 招牌技能(真的遊戲機制):戰鬥中冷卻好就放,放完 lock 秒內不普攻(播完技能動畫)。
 // kind:multi = 同時打 targets 個最近的魔物;aoe = 打目標與其 radius 內的魔物;single = 單體高倍率;heal = 回復自己。
 export const SKILLS={
@@ -39,7 +43,7 @@ export const SKILLS={
  sorcerer:{name:'流星火球',kind:'aoe',cd:10,mult:1.4,radius:2.6,lock:.8,fx:'spell'},
  archer:{name:'疾風箭雨',kind:'multi',cd:8,mult:1.3,targets:3,lock:.8,release:.32,fx:'gale'},
  assassin:{name:'暗影衝刺',kind:'single',cd:8,mult:2.4,lock:.6,fx:'slash'},
- priest:{name:'暗癒禱言',kind:'heal',cd:10,heal:.28,lock:.7,fx:'holy'}   // WANDER_ONLY 的流浪祭司
+ priest:{name:'暗癒禱言',kind:'heal',cd:10,heal:.28,lock:.7,fx:'holy'}
 };
 export const RARITIES=[{id:'normal',name:'普通',color:'#d3cab2',mult:1},{id:'rare',name:'稀有',color:'#6fbe8b',mult:1.08},{id:'superior',name:'超級稀有',color:'#6caeee',mult:1.18},{id:'heroic',name:'英雄',color:'#c184e1',mult:1.32},{id:'legendary',name:'傳說',color:'#efb955',mult:1.5}];
 export const TRAITS=[{id:'swift',name:'快手',desc:'攻擊間隔縮短 10%'},{id:'stout',name:'壯碩',desc:'最大生命提高 15%'},{id:'cheerful',name:'樂天',desc:'心情消耗減半'},{id:'frugal',name:'節儉',desc:'生活需求消耗減少 15%'},{id:'brave',name:'勇敢',desc:'攻擊力提高 10%'}];
@@ -55,11 +59,26 @@ export const PILOT_ATTACK={cd:0.5,anim:0.45,recover:0.2};
 // 手動操控的法師魔法球(2026-10-25 使用者:「空打時候要朝攻擊方向發射魔法球,朝攻擊時候當下的朝向角度發射,
 // 球體設定一個作用範圍,路徑上碰到的怪物要被攻擊到」):真的會飛的球,不再是出手瞬間就扣血。
 // 方向:3.2 格內有魔物就朝牠(跟原本一樣自動瞄準),沒有就朝目前面向的角度(不吸附 8 方向)。
-// 速度 12 格/秒(原本特效 0.25 秒飛 3.2 格),飛完法師射程(CLASSES sorcerer range 4.5 格)就消失;
+// 速度 12 格/秒(原本特效 0.25 秒飛 3.2 格),飛完法師射程(CLASSES sorcerer range,2026-10-27 起 6 格)就消失;
 // 作用半徑 0.7 格(球本身約 0.15 格＋魔物身體約 0.55 格),路徑上碰到的每隻魔物各打一次(穿透)。
 export const PILOT_ORB={speed:12,radius:.7};
 // AI 獵人／流浪英雄出手後的短僵直(秒):這段時間不移動(收招感),但不受攻擊 CD 限制。
 export const AI_ATTACK_LOCK=0.15;
+// 遠程風箏(2026-10-27 使用者:「敵人靠近到一定距離後他要會自己拉開距離」):AI 獵人與流浪英雄的遠程職業(射程 ≥ 3)才有;
+// 近戰職業、手動操控(pilot)完全不走這段。距離門檻都是「乘以自己的射程」。
+// enter:最近的魔物進到 射程×0.4 以內就開始後撤(弓箭手 3、法師 2.4、祭司 2.2;都在魔物近身 1.7 之外)。
+// exit:拉到 射程×0.65 以外(弓箭手 4.9、法師 3.9、祭司 3.6)才停 —— 進出門檻不同 = 遲滯,不會在邊界上一進一出抖動。
+// minTime / maxTime:一次後撤至少走 0.35 秒、最多 1 秒(快的魔物追得上也不會一直逃、一直不出手)。
+// cooldown:後撤結束後 2.5 秒內不再後撤,原地出手(保證拉開後真的有打,也讓快的魔物有機會咬到遠程)。
+// stuckRest:被逼到牆角/區界走不了 → 2.5 秒內原地開打,不每幀重試(不抖動)。
+// afterShot:出手後 0.45 秒(= 攻擊動畫全長,PILOT_ATTACK.anim)才開始走,免得攻擊動作還沒播完就滑步;同時也蓋過 AI_ATTACK_LOCK。
+// windup:下一箭/法球再 0.55 秒內就要出手(畫面正在播蓄力;最長是弓箭手 7 格 × 0.075 = 0.525 秒)→ 先打完這一下再撤,
+//   不然蓄力動作會在後撤時繼續播完(倒退滑步)。出手 → 收招 afterShot → 才開始走,節奏是「射一箭、退一步」。
+// look:往前多探 0.6 格檢查牆/區界,貼牆時改走斜角或側面,不會一步一停。
+export const KITE={enter:.4,exit:.65,minTime:.35,maxTime:1,cooldown:2.5,stuckRest:2.5,afterShot:.45,windup:.55,look:.6};
+// 被打的魔物會反擊:最近 4 秒內挨過打,對「遠程」獵物的主動攻擊範圍至少 9 格(> 弓箭手射程 7.5)。
+// 不然射程拉遠後,遠程站在小魔物的主動攻擊範圍(4~8.5 格)外放箭,魔物完全不還手。近戰獵物的判定不變。
+export const PROVOKE={time:4,aggro:9};
 export const CAMP={x:GRID.cx,z:GRID.cz+.5};   // 營地:村中央的廣場(空的石板地)
 export const SAVE_KEY='mistvale-pixel-v2';
 export const LEGACY_LAYOUT_V15={hall:{x:-20,z:-10},trading:{x:-12,z:-7},restaurant:{x:-12,z:0},inn:{x:-20,z:11},tavern:{x:-3,z:11},clinic:{x:8,z:10},forge:{x:4,z:0},academy:{x:-4,z:-4},training:{x:-3,z:19},sanctuary:{x:7,z:-12},house:{x:-21,z:17},bounty:{x:4,z:18},enhancement:{x:-20,z:-16},dungeon:{x:19,z:-9.5}};

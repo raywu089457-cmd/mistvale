@@ -2,7 +2,8 @@ import assert from 'node:assert/strict';
 import { createGame } from './src/pixel-game.js';
 import { doorStand, buildingSolid } from './src/landscape-layout.js';
 import { blockCenter } from './src/village-grid.js';
-import { BUILDINGS, CLASSES, MATERIALS, PRODUCTS, PILOT_ATTACK, AI_ATTACK_LOCK } from './src/pixel-data.js';
+import { BUILDINGS, CLASSES, MATERIALS, PRODUCTS, PILOT_ATTACK, AI_ATTACK_LOCK, KITE } from './src/pixel-data.js';
+import { regionCenter, regionContains, walkable } from './src/overworld.js';
 
 function run(game, seconds, quiet = false, inspect = null) {
   for (let i = 0; i < Math.ceil(seconds * 10); i++) {
@@ -41,6 +42,44 @@ assert.equal(g.claimQuest().ok, true); assert.equal(g.claimQuest().ok, false);
 assert.equal(g.craft('food', 2).ok, true); assert.equal(g.state.stocks.food, 50); assert.equal(g.state.counts.foodCrafted, 20); assert.equal(g.claimQuest().ok, true);
 assert.equal(g.craft('__proto__').ok, false); assert.equal(g.craft('food', -1).ok, false); assert.equal(g.craft('food', 0.5).ok, false);
 assert.equal(g.setTradeRequest('ore', -1).ok, false); assert.equal(g.setTradeRequest('__proto__', 20).ok, false);
+
+// ── 祭司(priest)是正式可招募職業(2026-10-27,原本只當流浪英雄):不在開局 5 人裡,但招募欄第一位保證是稀有祭司;
+// 遠程施法(白袍金杖發聖光球,跟 pixel-world.js 的遠程後座/蓄力光一致);可存讀檔;舊存檔沒有祭司訪客會補上,舊的固定流浪祭司射程跟著更新。
+{
+  const PRIEST = CLASSES.find(c => c.id === 'priest');
+  assert.ok(PRIEST && PRIEST.range > 3, 'priest is a ranged recruitable class');
+  const pg = createGame();
+  assert.ok(!pg.state.hunters.some(h => h.classId === 'priest'), 'the opening party keeps the first five classes');
+  assert.deepEqual([pg.state.visitors[0].classId, pg.state.visitors[0].rarity], ['priest', 'rare'], 'the new class is offered first');
+  const pv = { ...pg.state.visitors[0] }; assert.equal(pg.recruit(pv.id).ok, true);
+  const ph = pg.state.hunters.at(-1); assert.equal(ph.classId, 'priest'); assert.equal(ph.range, PRIEST.range);
+  assert.ok(!pg.state.visitors.some(v => v.classId === 'priest' && v.rarity === 'rare' && v.trait === 'brave' && v.id === pv.id), 'the recruited visitor leaves the board');
+  assert.equal(pg.recruit('priest').ok, true, 'priest can also be hired by class id'); assert.equal(pg.state.hunters.at(-1).classId, 'priest');
+  ph.level = 12; pg.state.hunters.at(-1).level = 7;
+  const pgLoad = createGame(pg.serialize()), lp = pgLoad.state.hunters.find(h => h.id === ph.id);
+  assert.ok(lp && lp.classId === 'priest' && lp.level === 12 && lp.range === PRIEST.range, 'a recruited priest survives save/load');
+  assert.equal(pgLoad.state.hunters.filter(h => h.classId === 'priest').length, 2);
+  assert.deepEqual(pgLoad.state.visitors.map(v => v.classId), pg.state.visitors.map(v => v.classId), 'owning a priest stops the forced offer');
+  // 舊存檔:訪客裡沒有祭司、流浪英雄裡有一位舊版近戰射程(1.75)的固定流浪祭司
+  const old = createGame().serialize();
+  old.visitors = old.visitors.map(v => ({ ...v, classId: 'berserker' })); old.wanderers[0] = { ...old.wanderers[0], classId: 'priest', range: 1.75 };
+  const migrated = createGame(old);
+  assert.equal(migrated.state.visitors[0].classId, 'priest', 'old saves get the priest offered on load');
+  assert.equal(migrated.state.wanderers[0].classId, 'priest'); assert.equal(migrated.state.wanderers[0].range, PRIEST.range, 'the old melee wandering priest becomes ranged');
+  // 野外 AI:祭司站在射程內遠遠出手(聖光球),不會走到近戰距離才打;普攻間隔 1.4 秒(快手 ×0.9)
+  const pc = createGame(); pc.recruit(pc.state.visitors[0].id); const pr = pc.state.hunters.at(-1); pc.state.hunters = [pr];
+  pr.satiety = pr.mood = pr.stamina = 100; pr.hp = pr.maxHp;
+  assert.equal(pc.exploreRegion('meadow').ok, true);
+  const shots = [], timers = []; let lastAt = null;
+  run(pc, 90, false, state => {
+    pr.satiety = pr.mood = pr.stamina = 100; pr.hp = pr.maxHp;
+    if (pr.atkAt != null && pr.atkAt !== lastAt) { lastAt = pr.atkAt; shots.push(Math.hypot(pr.atkX - pr.x, pr.atkZ - pr.z)); timers.push(pr.attackTimer); }
+  });
+  assert.ok(shots.length >= 3, `the priest attacks in the field (${shots.length})`);
+  assert.ok(shots.some(d => d > 2.2), `the priest attacks from range (max ${Math.max(...shots).toFixed(2)})`);
+  const interval = 1.4 * (pr.trait === 'swift' ? 0.9 : 1);
+  assert.ok(timers.every(t => t <= interval + 1e-9) && timers.some(t => t > interval - 0.11), `priest attack interval is ${interval} (${timers.map(t => t.toFixed(2)).join('/')})`);
+}
 
 const service = createGame(), hungry = isolate(service);
 const restaurant=BUILDINGS.find(b=>b.id==='restaurant');
@@ -296,6 +335,160 @@ ah.lockUntil = ai.state.time + 5; const lx = ah.x, lz = ah.z; run(ai, 0.6);
 assert.ok(Math.hypot(ah.x - lx, ah.z - lz) < 1e-9, 'AI hunter stands still during the post-attack lock');
 ah.lockUntil = 0; run(ai, 0.6);
 assert.ok(Math.hypot(ah.x - lx, ah.z - lz) > 0.1, 'AI hunter walks again once the lock expires');
+// ── 遠程射程拉遠＋風箏(2026-10-27):遠程被近身會自己往外拉開距離,拉開後照樣出手;近戰、手動操控完全不受影響;
+// 走投無路(四面被包)就原地開打、不抖動;只在自己的狩獵區裡走;出手後的收招(KITE.afterShot ≥ AI_ATTACK_LOCK)不走。
+{
+  const RANGE = Object.fromEntries(CLASSES.map(c => [c.id, c.range]));
+  assert.deepEqual([RANGE.archer, RANGE.sorcerer, RANGE.priest], [7.5, 6, 5.5], 'ranged classes shoot farther (archer 7.5 / sorcerer 6 / priest 5.5)');
+  assert.ok(['berserker', 'paladin', 'assassin'].every(id => RANGE[id] < 3), 'melee ranges are unchanged');
+  assert.ok(KITE.enter < KITE.exit && KITE.afterShot >= AI_ATTACK_LOCK && KITE.cooldown > 0, 'kite thresholds have hysteresis and respect the attack lock');
+  // 每個遠程職業「出手 → 收招」後,離下一次蓄力還有空檔可以起步後撤(快手 ×0.9 也一樣)
+  for (const [cls, iv] of [['archer', 1.2], ['sorcerer', 1.65], ['priest', 1.4]]) assert.ok(iv * 0.9 - KITE.afterShot > KITE.windup, `${cls} has a window to start retreating between shots`);
+  const C = regionCenter('meadow');
+  // 一位獵人站在草原中央、只有一隻(打不死的)魔物;needs 每 tick 補滿,不會回村
+  const setup = (classId, foeOffsets = [[1.4, 0]]) => {
+    const g = createGame(); g.state.gold = 99999; assert.equal(g.recruit(classId).ok, true);
+    const h = g.state.hunters.at(-1); g.state.hunters = [h]; g.state.wanderers = [];
+    Object.assign(h, { x: C.x, z: C.z, huntRegion: 'meadow', inTown: false, rallying: false, route: [], task: null, targetId: null, attackTimer: 0.5 });
+    const proto = g.state.enemies.find(e => e.regionId === 'meadow');
+    g.state.enemies = foeOffsets.map(([dx, dz], i) => ({ ...proto, id: `kite${i}`, x: C.x + dx, z: C.z + dz, hp: 99999, maxHp: 99999, rewarded: false, attackTimer: 9 }));
+    return { g, h };
+  };
+  const tickKeep = (g, h, n, each) => { for (let i = 0; i < n; i++) { g.state.spawnTimer = 0; g.state.regionSpawn = {}; h.hp = h.maxHp; h.satiety = h.mood = h.stamina = 100; g.tick(0.1); each?.(i); } };
+  const nearest = (g, h) => Math.min(...g.state.enemies.map(e => Math.hypot(e.x - h.x, e.z - h.z)));
+
+  // 1) 每個遠程職業被近身(1.4 格)都會拉開距離,走的是自己的速度,不離開狩獵區、不踩到不能走的地
+  for (const cls of ['archer', 'sorcerer', 'priest']) {
+    const { g, h } = setup(cls), d0 = nearest(g, h); let maxD = d0, retreating = 0, maxStep = 0, px = h.x, pz = h.z;
+    tickKeep(g, h, 25, () => {
+      maxD = Math.max(maxD, nearest(g, h)); if (h.status === '後撤中') retreating++;
+      maxStep = Math.max(maxStep, Math.hypot(h.x - px, h.z - pz)); px = h.x; pz = h.z;
+      assert.ok(walkable(h.x, h.z) && regionContains('meadow', h.x, h.z), `${cls} kites inside its hunt region`);
+    });
+    assert.ok(retreating > 0, `${cls} switches to retreating when a monster is close`);
+    assert.ok(maxD > d0 + 1 && maxD > h.range * KITE.enter, `${cls} opens the distance past its retreat threshold (${d0.toFixed(2)} → ${maxD.toFixed(2)})`);
+    assert.ok(maxStep <= h.speed * 0.1 + 1e-6, `${cls} retreats at its own walking speed (${maxStep.toFixed(3)} per 0.1 s)`);
+  }
+
+  // 2) 拉開之後照樣出手(而且是在拉開的距離出手);出手後的收招期間不移動;後撤次數受冷卻限制(不在門檻上抖)
+  {
+    const { g, h } = setup('archer'); const shots = []; let last = null, kites = 0, prevKiting = false, lockedMoves = 0, px = h.x, pz = h.z;
+    tickKeep(g, h, 120, () => {
+      const t = g.state.time;
+      if (h.atkAt != null && h.atkAt !== last) { last = h.atkAt; shots.push(Math.hypot(h.atkX - h.x, h.atkZ - h.z)); }
+      if (h.kiting && !prevKiting) kites++; prevKiting = !!h.kiting;
+      // 這一 tick 的模擬時間還在收招(出手後 afterShot 秒內,含 AI_ATTACK_LOCK)→ 位置不能變。spread 只推「戰鬥中」的獵人,這裡只有一位獵人。
+      const a = h.atkAt ?? -99;
+      if (t > a + 1e-9 && t < a + KITE.afterShot - 1e-9 && Math.hypot(h.x - px, h.z - pz) > 1e-9) lockedMoves++;
+      px = h.x; pz = h.z;
+    });
+    assert.ok(kites >= 1, 'the archer kited at least once in 12 s');
+    assert.ok(shots.length >= 5, `the archer keeps shooting after opening the distance (${shots.length} shots)`);
+    assert.ok(shots.some(d => d > h.range * KITE.enter), `and shoots from the opened distance (max ${Math.max(...shots).toFixed(2)})`);
+    assert.equal(lockedMoves, 0, 'no kiting movement during the post-attack recovery');
+    assert.ok(kites <= Math.ceil(12 / (KITE.cooldown + KITE.minTime)) + 1, `kite episodes are rate limited by the cooldown (${kites} in 12 s)`);
+  }
+
+  // 2b) 剛出手(收招中)被近身:afterShot 秒內站著不動(AI_ATTACK_LOCK 也包含在內),之後才開始拉開
+  {
+    const { g, h } = setup('archer'); h.atkAt = g.state.time; h.atkX = h.x + 1.4; h.atkZ = h.z; h.lockUntil = g.state.time + AI_ATTACK_LOCK; h.attackTimer = 1.2;
+    const x0 = h.x, z0 = h.z, t0 = g.state.time; let movedEarly = 0, movedLater = false;
+    tickKeep(g, h, 12, () => { const d = Math.hypot(h.x - x0, h.z - z0); if (g.state.time < t0 + KITE.afterShot - 1e-9) movedEarly = Math.max(movedEarly, d); else if (d > 0.2) movedLater = true; });
+    assert.equal(movedEarly, 0, 'no retreat step while the attack animation / lock is still playing');
+    assert.ok(movedLater, 'the archer retreats once the recovery is over');
+  }
+
+  // 2c) 快要出手(蓄力中)時魔物近身:先把這一下打出去,不會帶著蓄力動作開始後撤
+  {
+    const { g, h } = setup('archer'); h.attackTimer = 0.3; let firstMoveAt = null, shotAt = null; const x0 = h.x, z0 = h.z;
+    tickKeep(g, h, 15, () => { if (shotAt == null && h.atkAt != null) shotAt = h.atkAt; if (firstMoveAt == null && Math.hypot(h.x - x0, h.z - z0) > 1e-9) firstMoveAt = g.state.time; });
+    assert.ok(shotAt != null && firstMoveAt != null && firstMoveAt >= shotAt + KITE.afterShot - 1e-9, `fires the pending shot before retreating (shot ${shotAt?.toFixed(2)}, first step ${firstMoveAt?.toFixed(2)})`);
+  }
+
+  // 3) 近戰職業完全不後撤:站著打,狀態一直是「戰鬥中」,不寫 kiting 欄位
+  for (const cls of ['berserker', 'paladin', 'assassin']) {
+    const { g, h } = setup(cls, [[0.5, 0]]); const x0 = h.x, z0 = h.z; let moved = 0;   // 魔物貼在 0.5 格:遠程早就後撤了
+    tickKeep(g, h, 30, () => { assert.notEqual(h.status, '後撤中', `${cls} never retreats`); moved = Math.max(moved, Math.hypot(h.x - x0, h.z - z0)); });
+    assert.ok(moved < 0.05, `${cls} holds its ground (${moved.toFixed(3)})`);
+    assert.equal(h.kiting, undefined, `${cls} carries no kite state`);
+    assert.ok(h.atkAt != null, `${cls} still attacks`);
+  }
+
+  // 4) 四面被包(走哪個方向都更靠近某隻魔物)= 走投無路:原地開打,位置完全不動、狀態不在戰鬥中/後撤中之間來回跳
+  {
+    // 五隻魔物圍成缺一角的圈(0°~240°):往缺口(300°)走也會更靠近 240° 與 0° 那兩隻 → 每個方向都不行
+    const ring = Array.from({ length: 5 }, (_, i) => [Math.cos(i * Math.PI / 3) * 1.5, Math.sin(i * Math.PI / 3) * 1.5]);
+    const { g, h } = setup('archer', ring); const pins = g.state.enemies.map(e => ({ x: e.x, z: e.z }));
+    const x0 = h.x, z0 = h.z; let flips = 0, prev = null, last = null, shots = 0;
+    tickKeep(g, h, 60, () => {
+      g.state.enemies.forEach((e, i) => Object.assign(e, pins[i]));   // 包圍網不散
+      if (prev && prev !== h.status) flips++; prev = h.status;
+      if (h.atkAt != null && h.atkAt !== last) { last = h.atkAt; shots++; }
+    });
+    assert.ok(Math.hypot(h.x - x0, h.z - z0) < 1e-9, 'a surrounded archer does not move at all');
+    assert.equal(flips, 0, `a surrounded archer does not flip between fighting and retreating (${flips})`);
+    assert.equal(h.status, '戰鬥中'); assert.ok(shots >= 3, `a surrounded archer fights in place (${shots} shots)`);
+  }
+
+  // 5) 背對區界:往村莊那側(草原中央往 +z 是村界)、海岸(−z)、隔壁的白樺花原(−x)各試一次。只沿著區內可走的地面撤,不進村、不下海、不跑進別區;
+  //    卡住就原地打,同一次後撤裡不會一前一後地來回抖動
+  for (const [bdx, bdz, label] of [[0, 1, 'village side'], [0, -1, 'coast'], [-1, 0, 'neighbour region']]) {
+    const { g, h } = setup('archer');
+    // 從草原中央往外找到「再走 0.6 格就出區」的位置,魔物放在內側 → 撤退方向正對區界
+    let t = 0; while (t < 40 && regionContains('meadow', C.x + bdx * (t + .6), C.z + bdz * (t + .6))) t += .1;
+    const ex = C.x + bdx * t, ez = C.z + bdz * t; Object.assign(h, { x: ex, z: ez });
+    Object.assign(g.state.enemies[0], { x: ex - bdx * 1.4, z: ez - bdz * 1.4 });
+    let reversals = 0, lastDir = null;
+    tickKeep(g, h, 50, () => {
+      assert.ok(walkable(h.x, h.z) && regionContains('meadow', h.x, h.z), `kiting never leaves the region at its border (${label})`);
+      if (h.kiteDir) { if (lastDir && lastDir.x * h.kiteDir.x + lastDir.z * h.kiteDir.z < -0.5) reversals++; lastDir = h.kiteDir; } else lastDir = null;   // 同一次後撤內不得急轉回頭
+    });
+    assert.equal(reversals, 0, `retreat direction never snaps back and forth (${label})`);
+  }
+
+  // 6) 手動操控的遠程不會被 AI 拉走:魔物貼身、搖桿不動 → 位置不變、不會進入後撤
+  {
+    const { g, h } = setup('archer'); assert.equal(g.pilotStart(h.id).ok, true); g.pilotInput(0, 0);
+    const x0 = h.x, z0 = h.z;
+    tickKeep(g, h, 20, () => { assert.equal(h.status, '手動操控'); assert.ok(!h.kiting, 'pilot never kites'); });
+    assert.ok(Math.hypot(h.x - x0, h.z - z0) < 1e-9, 'a piloted ranged hunter is not moved by the kite AI');
+    g.pilotStop();
+  }
+
+  // 7) 流浪英雄(遠程)也會拉開距離;存讀檔後的暫態後撤狀態不會殘留
+  {
+    const g = createGame(); g.state.hunters = []; const w = g.state.wanderers[0]; g.state.wanderers = [w];
+    Object.assign(w, { classId: 'archer', range: RANGE.archer, speed: CLASSES.find(c => c.id === 'archer').speed, huntRegion: 'meadow', regionId: 'meadow', x: C.x, z: C.z, task: null, route: [], regionCheckAt: 1e9, attackTimer: 0.5, satiety: 100, stamina: 100, mood: 100 });
+    const proto = g.state.enemies.find(e => e.regionId === 'meadow');
+    g.state.enemies = [{ ...proto, id: 'wkite', x: C.x + 1.4, z: C.z, hp: 99999, maxHp: 99999, rewarded: false, attackTimer: 9 }];
+    const d0 = nearest(g, w); let maxD = d0, saw = false;
+    for (let i = 0; i < 25; i++) { g.state.spawnTimer = 0; g.state.regionSpawn = {}; w.hp = w.maxHp; w.satiety = w.stamina = w.mood = 100; g.tick(0.1); maxD = Math.max(maxD, nearest(g, w)); if (w.status === '後撤中') saw = true;
+      assert.ok(regionContains('meadow', w.x, w.z), 'wandering archer kites inside its region'); }
+    assert.ok(saw && maxD > d0 + 1, `a ranged wanderer opens the distance too (${d0.toFixed(2)} → ${maxD.toFixed(2)})`);
+    w.kiting = true; w.kiteDir = { x: 1, z: 0 };
+    const back = createGame(g.serialize()).state.wanderers.find(q => q.id === w.id);
+    assert.ok(back && back.kiting === false && back.kiteDir === null && back.range === RANGE.archer, 'a reloaded wanderer starts without a stale retreat');
+  }
+
+  // 8) 舊存檔(射程還是舊值、沒有任何 kite 欄位)讀進來:射程跟著職業表更新
+  {
+    const old = createGame(); old.state.gold = 99999; old.recruit('sorcerer'); const raw = old.serialize();
+    const sh = raw.hunters.find(h => h.classId === 'sorcerer'); sh.range = 4.5; delete sh.kiting;
+    const ow = raw.wanderers[0]; ow.classId = 'archer'; ow.range = 5.5; for (const k of ['kiting', 'kiteDir', 'kiteStart', 'kiteSeen', 'kiteReadyAt']) delete ow[k];
+    const loaded = createGame(raw);
+    assert.equal(loaded.state.hunters.find(h => h.id === sh.id).range, RANGE.sorcerer, 'old saves pick up the new sorcerer range');
+    assert.equal(loaded.state.wanderers.find(q => q.id === ow.id).range, RANGE.archer, 'old saves pick up the new archer range for wanderers');
+  }
+
+  // 9) 挨打的魔物會反擊遠遠放箭的遠程(PROVOKE):原本在主動攻擊範圍外,挨打後會追過來
+  {
+    const { g, h } = setup('archer', [[6.8, 0]]); const e = g.state.enemies[0]; e.type = 'cactus'; e.attackTimer = 9;   // 仙人掌主動範圍 4 格
+    h.attackTimer = 9; tickKeep(g, h, 10); const idleD = nearest(g, h);
+    e.hitAt = g.state.time; const before = nearest(g, h); tickKeep(g, h, 10, () => { h.attackTimer = 9; });
+    assert.ok(idleD > 4, 'an unprovoked cactus ignores the far archer');
+    assert.ok(nearest(g, h) < before - 0.2, `a provoked monster chases the ranged attacker (${before.toFixed(2)} → ${nearest(g, h).toFixed(2)})`);
+  }
+}
 run(manual, 30, false, assertFiniteEconomy);
 
 console.log(`PASS: 5 hunters / ${CLASSES.length} classes, seeded visitors, conservation of personal and village gold, paid and emergency services, bounded trading, crafting and gear purchases, upgrades, training, skills, rebirth, difficulty gates, hunting, field boss, death/revival, dungeon combat and save continuation, NPC arena, navigation, malformed saves, pause, deterministic simulation, all 8 quests. Natural 60s: ${combat.state.totalKills} total kills; ${combat.state.counts.services} services.`);

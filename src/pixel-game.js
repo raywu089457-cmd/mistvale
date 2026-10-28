@@ -2,10 +2,10 @@ import {getRoads,onPaved,doorStand,PALISADE,villagePonds,inPond,buildingSolid,st
 import {createVillageNav} from './village-nav.js';
 import {WORLD,REGIONS,walkable,inVillage,regionAt,regionContains,regionEdge,regionCenter,randomRegionPoint,wildAt} from './overworld.js';
 import {VILLAGE_BOUNDS,EXITS,blockAt,BUILDING_NUDGE,BUILDING_SLOTS,blockCenter} from './village-grid.js';
-import { SKILLS, BUILDINGS, CLASSES, WANDER_ONLY, RARITIES, TRAITS, MATERIALS, PRODUCTS, RECIPES, DIFFICULTIES, CAMP, HUNT_ZONE, PILOT_ATTACK, PILOT_ORB, AI_ATTACK_LOCK, LEGACY_LAYOUT_V14, LEGACY_LAYOUT_V15, LEGACY_LAYOUT_V16, ART_LAYOUT_HISTORY } from './pixel-data.js';
+import { SKILLS, BUILDINGS, CLASSES, RARITIES, TRAITS, MATERIALS, PRODUCTS, RECIPES, DIFFICULTIES, CAMP, HUNT_ZONE, PILOT_ATTACK, PILOT_ORB, AI_ATTACK_LOCK, KITE, PROVOKE, LEGACY_LAYOUT_V14, LEGACY_LAYOUT_V15, LEGACY_LAYOUT_V16, ART_LAYOUT_HISTORY } from './pixel-data.js';
 
 const mapById = list => Object.assign(Object.create(null), Object.fromEntries(list.map(item => [item.id, item])));
-const CLASS = mapById([...CLASSES, ...WANDER_ONLY]), BUILDING = mapById(BUILDINGS), RARITY = mapById(RARITIES), RECIPE = mapById(RECIPES);
+const CLASS = mapById(CLASSES), BUILDING = mapById(BUILDINGS), RARITY = mapById(RARITIES), RECIPE = mapById(RECIPES);
 const RESOURCE_KEYS = ['gold', 'wood', 'ore', 'herb', 'cloth', 'flour', 'leather', 'gems'];
 const MATERIAL_KEYS = Object.keys(MATERIALS), PRODUCT_KEYS = Object.keys(PRODUCTS);
 const UNBUILT = new Set(['academy', 'training', 'enhancement', 'dungeon']);
@@ -266,6 +266,12 @@ export function createGame(saved = null) {
     route(h,[target]);
   }
 
+  // 普攻間隔(秒,未含快手特性):野外 AI 與地下城共用。遠程施法較慢;祭司介於弓箭手與法師之間。
+  const attackInterval = h => (h.classId === 'sorcerer' ? 1.65 : h.classId === 'priest' ? 1.4 : h.classId === 'archer' ? 1.2 : 1.1) * (h.trait === 'swift' ? 0.9 : 1);
+  // 普攻特效種類與命中延遲(遠程要等箭/法球飛到;只影響畫面):手動操控、獵人 AI、流浪英雄共用。
+  // 刺客:刀光是攻擊列自己畫的(PixelLab X 字斬),遊戲只補命中火花。
+  const ATTACK_FX_DELAY = { arrow: 0.2, spell: 0.25, holy: 0.16, hit: 0.07, slash: 0.07 };
+  const attackFx = classId => { const kind = classId === 'sorcerer' ? 'spell' : classId === 'archer' ? 'arrow' : classId === 'priest' ? 'holy' : classId === 'assassin' ? 'hit' : 'slash'; return { kind, delay: ATTACK_FX_DELAY[kind] }; };
   function newHunter(classId, position = CAMP, initialIndex = -1) {
     const roll = random(), rarity = initialIndex >= 0 ? ['normal', 'rare', 'normal', 'superior', 'rare'][initialIndex % 5] : roll < 0.55 ? 'normal' : roll < 0.82 ? 'rare' : roll < 0.94 ? 'superior' : roll < 0.99 ? 'heroic' : 'legendary';
     const p = onRoadPoint(safePoint(position));
@@ -273,10 +279,10 @@ export function createGame(saved = null) {
     updateStats(h); h.hp = h.maxHp; state.hunters.push(h); idleInTown(h); return h;
   }
 
-  // 新職業(獵魔人)上線:名單裡還沒有這個職業的獵人,就保證招募欄第一位是他(新舊存檔都適用)。
-  // 新職業上架時,把第一位訪客換成它(稀有)。2026-10-24 獵魔人已移除 → CLASS.witchhunter 不存在,這裡直接返回;下次有新職業再換 id。
+  // 新職業上架:名單裡還沒有這個職業的獵人(也沒有這個職業的訪客),就把招募欄第一位換成它(稀有;新舊存檔都適用)。
+  // 2026-10-27 祭司(priest)從流浪限定改成可招募 → 這裡指向 priest;下次有新職業再換 id。
   function offerNewClass() {
-    const c = CLASS.witchhunter; if (!c || !state.visitors?.length) return;
+    const c = CLASS.priest; if (!c || !state.visitors?.length) return;
     if (state.hunters.some(h => h.classId === c.id) || state.visitors.some(v => v.classId === c.id)) return;
     state.visitors[0] = { id: id('v'), classId: c.id, rarity: 'rare', trait: 'brave', cost: Math.round(c.cost * RARITY.rare.mult) };
   }
@@ -453,6 +459,58 @@ export function createGame(saved = null) {
     }
   }
 
+  // ── 遠程風箏(KITE,pixel-data.js 有門檻說明):魔物近身就往遠離牠們的方向拉開距離,拉開後再出手。 ──
+  // 只給 AI 控制的遠程職業(射程 ≥ 3)用;近戰職業直接返回 false(不寫任何欄位),手動操控在呼叫前就跳過了。
+  // 回傳 true = 這一幀在後撤(呼叫者不要出手、狀態設成「後撤中」);false = 照常戰鬥。
+  // 狀態欄位(都是暫態,不進存檔結構):kiting、kiteStart、kiteSeen、kiteDir、kiteReadyAt(下一次可以後撤的時間)。
+  // 畫面:狀態不是「戰鬥中」→ 不播蓄力,照移動方向播 walk;停下來出手時攻擊方向由 atkX/atkZ 決定,會轉回目標。
+  const isRanged = u => (CLASS[u.classId]?.range ?? 0) >= 3;
+  const KITE_ANGLES = [0, 25, 50, 75, 100].map(a => a * Math.PI / 180);
+  const kiteHeld = u => state.time < (u.lockUntil ?? 0) || state.time - (u.atkAt ?? -99) < KITE.afterShot || state.time - (u.skillAt ?? -99) < (SKILLS[u.classId]?.lock ?? 0);
+  function endKite(u, rest) { u.kiting = false; u.kiteDir = null; u.kiteReadyAt = state.time + rest; return false; }
+  function kiteStep(u, dt, regionId) {
+    if (!isRanged(u)) return false;
+    const t = state.time;
+    if (u.kiting && t - (u.kiteSeen ?? -99) > 0.5) { u.kiting = false; u.kiteDir = null; }   // 中途去做別的事(換目標、回村)又回來:不接續舊的後撤
+    if (!regionId) { if (u.kiting) endKite(u, 0); return false; }
+    const exit = u.range * KITE.exit, threats = [];
+    let near = Infinity, vx = 0, vz = 0;
+    for (const e of state.enemies) {
+      if (e.hp <= 0 || e.rewarded) continue;
+      const d = distance(u, e); if (d >= exit) continue;
+      threats.push(e); near = Math.min(near, d);
+      const w = 1 / Math.max(0.25, d * d), l = Math.max(1e-6, d); vx += (u.x - e.x) / l * w; vz += (u.z - e.z) / l * w;   // 越近的魔物推得越用力
+    }
+    if (u.kiting) {
+      const el = t - u.kiteStart;
+      if ((near >= exit && el >= KITE.minTime) || el >= KITE.maxTime) return endKite(u, KITE.cooldown);
+    } else {
+      if (near >= u.range * KITE.enter || t < (u.kiteReadyAt ?? 0) || kiteHeld(u) || (u.attackTimer ?? 0) <= KITE.windup) return false;   // 蓄力中(快出手了)先打完這一下
+      u.kiting = true; u.kiteStart = t; u.kiteDir = null;
+    }
+    u.kiteSeen = t;
+    if (kiteHeld(u)) return true;   // 收招中:站著,不出手也不走
+    const vl = Math.hypot(vx, vz);
+    let bx, bz;
+    if (vl > 1e-6) { bx = vx / vl; bz = vz / vl; } else if (u.kiteDir) { bx = u.kiteDir.x; bz = u.kiteDir.z; } else return endKite(u, KITE.cooldown);
+    const step = (u.speed ?? CLASS[u.classId].speed) * dt, floor = Math.min(near, exit) - 1e-6;
+    const minD = p => threats.reduce((m, e) => Math.min(m, distance(p, e)), Infinity);
+    const ok = (dx, dz) => {
+      const p = { x: u.x + dx * step, z: u.z + dz * step }, ahead = Math.max(step, KITE.look), q = { x: u.x + dx * ahead, z: u.z + dz * ahead };
+      return regionContains(regionId, p.x, p.z) && regionContains(regionId, q.x, q.z) && !blocked(p) && !blocked(q) && lineClear(u, q) && minD(p) >= floor ? p : null;
+    };
+    // 方向:先沿用上一幀的方向(還大致朝外就不換,走路方向才穩定),不行再從「正後方」往兩側每 25° 找,先試上一次偏的那一側。
+    const prev = u.kiteDir, cands = [];
+    if (prev && prev.x * bx + prev.z * bz > 0.5) cands.push([prev.x, prev.z]);
+    const side = prev && (bx * prev.z - bz * prev.x) > 0 ? -1 : 1;
+    for (const a of KITE_ANGLES) for (const s of a ? [side, -side] : [1]) { const c = Math.cos(a * s), sn = Math.sin(a * s); cands.push([bx * c - bz * sn, bx * sn + bz * c]); }
+    for (const [dx, dz] of cands) {
+      const p = ok(dx, dz); if (!p) continue;
+      u.x = p.x; u.z = p.z; u.kiteDir = { x: dx, z: dz }; return true;
+    }
+    return endKite(u, KITE.stuckRest);   // 走投無路(牆角、區界、前後都有魔物):原地開打,2.5 秒內不再試
+  }
+
   // 招牌技能:結算當下扣血(跟普攻一樣),畫面用 skillAt / effect 延遲對到放出格。
   function castSkill(h, target, sk) {
     const t = state.time, release = sk.release ?? .25, base = Math.max(1, Math.round(h.attack * (h.satiety < 15 || h.stamina < 15 ? 0.6 : 1)));
@@ -585,7 +643,7 @@ export function createGame(saved = null) {
       for (const h of alive) h.status = '地下城戰鬥';
     }
     for (const h of alive) if (h.attackTimer === 0) {
-      h.attackTimer = (h.classId === 'sorcerer' ? 1.65 : h.classId === 'archer' ? 1.2 : 1.1) * (h.trait === 'swift' ? 0.9 : 1);
+      h.attackTimer = attackInterval(h);
       d.enemyHp = Math.max(0, d.enemyHp - h.attack); effect('slash', door('dungeon'), { value: h.attack });
       if (h.classId === 'darkknight') h.hp = Math.min(h.maxHp, h.hp + h.attack * 0.08);
       if (d.enemyHp <= 0) break;
@@ -619,7 +677,7 @@ export function createGame(saved = null) {
     const party = state.hunters.filter(h => a.hunterIds.includes(h.id)), alive = party.filter(h => h.hp > 0);
     if (!alive.length || a.time >= 120) { endArena(false); return; }
     if (a.phase === '集結中') { if (alive.some(h => h.route.length)) return; a.phase = '對戰中'; for (const h of alive) h.status = '競技場模擬對戰'; }
-    for (const h of alive) if (h.attackTimer === 0) { h.attackTimer = (h.classId === 'sorcerer' ? 1.6 : 1.1) * (h.trait === 'swift' ? 0.9 : 1); a.enemyHp = Math.max(0, a.enemyHp - h.attack); effect('slash', door('training'), { value: h.attack }); if (a.enemyHp <= 0) { endArena(true); return; } }
+    for (const h of alive) if (h.attackTimer === 0) { h.attackTimer = (h.classId === 'sorcerer' ? 1.6 : h.classId === 'priest' ? 1.4 : 1.1) * (h.trait === 'swift' ? 0.9 : 1); a.enemyHp = Math.max(0, a.enemyHp - h.attack); effect('slash', door('training'), { value: h.attack }); if (a.enemyHp <= 0) { endArena(true); return; } }
     a.attackTimer = Math.max(0, a.attackTimer - dt);
     if (a.attackTimer === 0) {
       a.attackTimer = 1.1; const target = alive[Math.floor(random() * alive.length)];
@@ -659,8 +717,7 @@ export function createGame(saved = null) {
           effect('spell', { x: h.x + dx * range, z: h.z + dz * range }, { sourceX: h.x, sourceZ: h.z, delay: range / PILOT_ORB.speed, cls: h.classId, value: 0, noImpact: true });   // 飛行畫面(同速度);命中由 stepShots 判定
         } else if (inRange) {
           const damage = Math.max(1, Math.round(h.attack));
-          const kind = h.classId === 'sorcerer' ? 'spell' : h.classId === 'archer' ? 'arrow' : h.classId === 'priest' ? 'holy' : h.classId === 'assassin' ? 'hit' : 'slash';   // 刺客:刀光是攻擊列自己畫的(PixelLab X 字斬),遊戲只補命中火花
-          const delay = kind === 'arrow' ? 0.2 : kind === 'spell' ? 0.25 : kind === 'holy' ? 0.16 : 0.07;
+          const { kind, delay } = attackFx(h.classId);
           target.hitAt = state.time + delay; target.hitFromX = h.x; target.hitFromZ = h.z;
           target.hp -= damage;
           effect(kind, target, { sourceX: h.x, sourceZ: h.z, value: damage, targetId: target.id, delay, cls: h.classId, crit: damage >= h.attack * 1.25 });
@@ -757,13 +814,15 @@ export function createGame(saved = null) {
       if (target && !inVillage(h.x,h.z) && distance(h, target) <= h.range && (wildAt(h.x, h.z) || distance(h, target) <= 1.9)) {
         h.status = '戰鬥中'; h.route = [];
         h.skillCd = Math.max(0, (h.skillCd ?? 3) - dt);
+        // 遠程被近身 → 先拉開距離(只在目前所在的狩獵區裡走,不進村、不出區;近戰職業 kiteStep 直接 false)
+        { const kr = inHuntRegion ? h.huntRegion : regionAt(h.x, h.z)?.id; if (kiteStep(h, dt, kr && kr !== 'village' ? kr : null)) { h.status = '後撤中'; continue; } }
         const sk = SKILLS[h.classId];
         if (sk && h.skillCd === 0 && h.attackTimer === 0) { castSkill(h, target, sk); continue; }
         if (h.attackTimer === 0) {
-          h.attackTimer = (h.classId === 'sorcerer' ? 1.65 : h.classId === 'archer' ? 1.2 : 1.1) * (h.trait === 'swift' ? 0.9 : 1);
+          h.attackTimer = attackInterval(h);
           const damage = Math.max(1, Math.round(h.attack * (h.satiety < 15 || h.stamina < 15 ? 0.6 : 1)));
           // 動畫用時間戳(只給畫面看,不影響結算):出手瞬間、命中時刻(遠程要等箭/法球飛到)、攻擊方向。
-          const kind = h.classId === 'sorcerer' ? 'spell' : h.classId === 'archer' ? 'arrow' : h.classId === 'priest' ? 'holy' : h.classId === 'assassin' ? 'hit' : 'slash', delay = kind === 'arrow' ? 0.2 : kind === 'spell' ? 0.25 : kind === 'holy' ? 0.16 : 0.07;
+          const { kind, delay } = attackFx(h.classId);
           h.atkAt = state.time; h.atkX = target.x; h.atkZ = target.z; target.hitAt = state.time + delay; target.hitFromX = h.x; target.hitFromZ = h.z;
           h.lockUntil = state.time + AI_ATTACK_LOCK;   // 收招僵直:這段時間站著不動(沒有 CD,下一擊照原本的 attackTimer)
           target.hp -= damage; effect(kind, target, { sourceX: h.x, sourceZ: h.z, value: damage, targetId: target.id, delay, cls: h.classId, crit: damage >= h.attack * 1.25 });
@@ -791,7 +850,9 @@ export function createGame(saved = null) {
       const prey = state.hunters.filter(h => h.hp > 0 && !inVillage(h.x,h.z) && h.task !== 'dungeon' && h.task !== 'arena');
       for (const w of state.wanderers || []) if (w.hp > 0) prey.push(w);
       const aggro = AGGRO[enemy.type] ?? 6;
-      const target = prey.filter(q => distance(enemy, q) <= aggro).sort((a, b) => distance(enemy, a) - distance(enemy, b))[0];
+      // 挨打後(PROVOKE.time 秒內)對遠程獵物的範圍放大到 PROVOKE.aggro:遠遠放箭的人也會被追;近戰獵物照原本的範圍。
+      const provoked = state.time - (enemy.hitAt ?? -99) < PROVOKE.time, reachOf = q => provoked && isRanged(q) ? Math.max(aggro, PROVOKE.aggro) : aggro;
+      const target = prey.filter(q => distance(enemy, q) <= reachOf(q)).sort((a, b) => distance(enemy, a) - distance(enemy, b))[0];
       if(!target || !regionContains(enemy.regionId||state.region,target.x,target.z)){enemy.engaged=false;
         // 閒晃:沒有獵人時在自己的狩獵區裡慢慢走到隨機一點、停一下再換點(不會只站在原地)。
         const rid=enemy.regionId;
@@ -863,13 +924,16 @@ export function createGame(saved = null) {
       }
       const d = distance(w, target); w.facingX = target.x; w.facingZ = target.z; w.facingAt = state.time;
       if (d <= w.range) {
-        w.status = '戰鬥中'; w.route = [];
+        w.route = [];
+        if (kiteStep(w, dt, region.id)) { w.status = '後撤中'; continue; }   // 遠程流浪英雄被近身:先拉開距離(只在自己的狩獵區裡)
+        w.status = '戰鬥中';
         if (w.attackTimer === 0) {
           w.attackTimer = 1.2 * (w.trait === 'swift' ? 0.9 : 1);
           const damage = Math.max(1, Math.round(w.attack * 0.9));
           w.atkAt = state.time; w.atkX = target.x; w.atkZ = target.z; w.lockUntil = state.time + AI_ATTACK_LOCK;
-          target.hitAt = state.time + 0.12; target.hitFromX = w.x; target.hitFromZ = w.z;
-          target.hp -= damage; effect('slash', target, { sourceX: w.x, sourceZ: w.z, value: damage, targetId: target.id, delay: 0.12 });
+          const { kind, delay } = attackFx(w.classId);   // 跟獵人同一套特效:遠程職業(弓箭手/法師/祭司)畫飛行物,不再一律近戰刀光
+          target.hitAt = state.time + delay; target.hitFromX = w.x; target.hitFromZ = w.z;
+          target.hp -= damage; effect(kind, target, { sourceX: w.x, sourceZ: w.z, value: damage, targetId: target.id, delay, cls: w.classId });
           if (target.hp <= 0) {
             wandererLoot(target, w);
             w.xp += 12; state.wanderKills = (state.wanderKills || 0) + 1;
@@ -905,11 +969,8 @@ export function createGame(saved = null) {
     for (let i = 0; i < 5; i++) newHunter(CLASSES[i % CLASSES.length].id, {x:CAMP.x+i*.6-1.2,z:CAMP.z+i*.2}, i);
     for (let i = 0; i < 3; i++) state.visitors.push(newVisitor());
     offerNewClass();
+    // 流浪英雄的職業由 newWanderer 從 CLASSES 擲骰(祭司已是正式職業,不再固定塞一位流浪祭司)。
     state.wanderers = []; for (let i = 0; i < 4; i++) state.wanderers.push(newWanderer());
-    // 固定一位流浪祭司(WANDER_ONLY):只換職業與數值、不動地區與座標,
-    // 所以 4 位流浪英雄的擲骰、位置與其他三位完全不受影響。
-    { const w = state.wanderers[state.wanderers.length - 1], c = CLASS.priest;
-      if (w && c) { w.classId = 'priest'; w.huntRegion = bestRegionFor(w).id; updateStats(w); w.hp = w.maxHp; } }
     state.wanderKills = 0;
     for (let i = 0; i < 10; i++) { const m = mixOf('meadow'); spawn(m[Math.floor(random() * m.length)], null, 'meadow'); }  // 開局草原就有 10 隻
     // 其他狩獵區各 5 隻;*不*預先下載牠們的 sheet(21 隻要 5.6 MB)——真的畫到或進區時才載。
@@ -996,7 +1057,9 @@ export function createGame(saved = null) {
     state.dispatchTeams = normalizeTeams(source.dispatchTeams);
     // 流浪英雄:舊存檔沒有這個欄位就補上(不影響既有獵人與進度)。
     state.wanderers = Array.isArray(source.wanderers) ? source.wanderers.filter(w => w && own(CLASS, w.classId)).map(w => {
-      const base = { ...newWanderer(), ...w, speed: CLASS[w.classId].speed, route: [] };
+      // 射程跟速度一樣以職業表為準:舊存檔的固定流浪祭司存的是近戰射程 1.75,祭司改遠程後要跟著更新。
+      // kiting/kiteDir 是暫態(遠程後撤中),讀檔一律從「沒在後撤」開始。
+      const base = { ...newWanderer(), ...w, speed: CLASS[w.classId].speed, range: Math.max(CLASS[w.classId].range, 1.75), route: [], kiting: false, kiteDir: null };
       if (oldMap) { const f = newWanderer(); Object.assign(base, { x: f.x, z: f.z, regionId: f.regionId, huntRegion: f.huntRegion, targetId: null, task: null, destination: null, inTown: false, serviceProduct: null, status: '遊蕩中' }); }
       return base;
     }) : [];
