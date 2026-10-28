@@ -310,3 +310,19 @@ body.piloting .toast{font-size:10px;padding:7px 11px;max-width:min(420px,calc(10
 .building-card.unbuilt{border-image:var(--ui-slot) 14 fill stretch}
 .square{border-width:3px 8px;padding:0 1px}
 .square i,.square canvas{width:20px;height:20px}
+/* ===== 2026-10-28(3)：細像素零件（程式畫，1 px 細節；AI 的像素塊固定 7–11 px 到不了這個密度） ===== */
+.game-panel,#modal{border-width:16px;border-image:var(--ui-panel) 16 fill stretch}
+.pixel-button{border-width:10px;border-image:var(--ui-btn-secondary) 10 fill stretch;min-height:40px}
+.pixel-button.gold,.pixel-button:hover:not(:disabled){border-image:var(--ui-btn-primary) 10 fill stretch}
+.pixel-button:active:not(:disabled){border-image:var(--ui-btn-primary) 10 fill stretch;filter:brightness(.94)}
+.pixel-button:disabled{border-image:var(--ui-btn-secondary) 10 fill stretch;filter:grayscale(.55) brightness(.9)}
+.treasury>button{border-width:4px 10px;border-image:var(--ui-chip) 6 12 fill stretch}
+#bottom-bar>button{border-width:10px;border-image:var(--ui-tab) 10 fill stretch}
+#bottom-bar>button.on,#bottom-bar>button.active,#bottom-bar>button:hover{border-image:var(--ui-tab-on) 10 fill stretch}
+.hunter-card,.visitor-card,.craft-card,.quest-list-row,.material-item,.party-pick{border-width:12px;border-image:var(--ui-panel) 16 fill stretch}
+.building-card{border-width:10px;border-image:var(--ui-panel) 16 fill stretch}
+/* 2026-10-28(3) 收尾：右上小方鍵回到乾淨的方框（九宮格會把圖示擠掉）；下方動作列提亮 */
+.square{border:2px solid #1c130a;background:linear-gradient(#4a3320,#2c1e0f);box-shadow:inset 0 0 0 1px #a8844e;padding:0}
+.square i canvas,.square canvas{width:20px;height:20px;filter:brightness(1.15)}
+#bottom-bar>button i canvas{filter:brightness(1.2) contrast(1.05)}
+#bottom-bar>button b{color:#fbeecb}
