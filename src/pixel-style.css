@@ -408,3 +408,16 @@ i[data-icon],span[data-icon]{width:22px;height:22px}
 .skill b{white-space:nowrap}
 /* 關閉鍵（×）字高 28 > 框 25，會溢出 3px */
 .modal-title>button{line-height:1;padding:0;display:grid;place-items:center;font-size:20px}
+/* ===== 2026-10-28(8)：手機版細節修正 ===== */
+/* 村莊徽章：`.town-badge>i` 的藍色漸層蓋掉了圖示（特異性較高）→ 提高權重讓圖示回來 */
+.town-badge>i[data-icon]{background:var(--ui-ic-hall) center/contain no-repeat;background-color:#262e24}
+/* 金庫「＋」：之前是 AI 的 plus 零件被拉成直條 → 改成資源條外框 + 我們自己的 plus 圖示 */
+.treasury>button.plus{border:4px 8px solid transparent;border-image:var(--ui-chip) 6 12 fill stretch;
+  color:#f0d79c;font-size:0;padding:0;min-width:30px;max-width:32px}
+.treasury>button.plus:before{content:'';width:16px;height:16px;background:var(--ui-ic-plus) center/contain no-repeat;image-rendering:pixelated}
+/* iPhone 瀏海／Home 指示條：上下留安全區，避免被系統 UI 蓋住 */
+@supports(padding:max(0px)){
+  #topbar{padding-top:max(9px,env(safe-area-inset-top))}
+  #bottom-bar{padding-bottom:max(12px,env(safe-area-inset-bottom))}
+  .map-hint{bottom:max(4px,env(safe-area-inset-bottom))}
+}
