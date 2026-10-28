@@ -4,6 +4,7 @@ import {WORLD,REGIONS,biomeAt,BIOME_PALETTE,inVillage} from './overworld.js';
 import {conceptGroundAt} from './concept-ground.js';
 import {TILE,GRID,STREET_X,STREET_Z,VILLAGE_BOUNDS,blockAt,blockCenter,EXITS,EXIT_GAP} from './village-grid.js';
 import {trackImage,markPhase} from './asset-loading.js';
+import {createGLRenderer,tagPattern} from './gl-renderer.js';
 
 // All artwork is rendered to a small integer pixel buffer and enlarged without
 // interpolation. World coordinates are shared with the village simulation.
@@ -53,6 +54,8 @@ let lowMemDevice=false;
 // 影子快取有上限(以前永遠不清:手機模擬玩 2 分鐘 941 張≈95 MB 還在長)。全部影子排一條 LRU,
 // 總像素超過上限就丟最久沒畫到的(之後又用到再算一次)。上限:桌機 3200 萬像素(≈128 MB,實測 2 分鐘約用 2400 萬)、手機 600 萬(半解析度約 1000 張)。
 const shadowLru=new Map();let shadowPx=0,shadowMade=0;
+// GL 模式(預設;?renderer=2d 關閉):快取丟掉的畫布要一併釋放 GPU 材質(createWorld 設定;2D 模式是 null)
+let texRelease=null;
 const SHADOW_BUDGET=()=>lowMemDevice?6e6:32e6;
 function shadowTouch(r){shadowLru.delete(r);shadowLru.set(r,1);}
 function shadowFor(img,sx,sy,sw,sh,flip,wpp,grounded,capWorld){
@@ -78,7 +81,7 @@ function shadowFor(img,sx,sy,sw,sh,flip,wpp,grounded,capWorld){
   for(let i=0;i<out.length;i++){if(!out[i])continue;id.data[i*4]=SHADOW_RGB[0];id.data[i*4+1]=SHADOW_RGB[1];id.data[i*4+2]=SHADOW_RGB[2];id.data[i*4+3]=out[i];}
   cx.putImageData(id,0,0);r={cv,ex,W,H,sw,m,key};m.set(key,r);
   shadowLru.set(r,1);shadowPx+=W*H;shadowMade++;
-  while(shadowPx>SHADOW_BUDGET()&&shadowLru.size>1){const old=shadowLru.keys().next().value;shadowLru.delete(old);old.m.delete(old.key);shadowPx-=old.W*old.H;}
+  while(shadowPx>SHADOW_BUDGET()&&shadowLru.size>1){const old=shadowLru.keys().next().value;shadowLru.delete(old);old.m.delete(old.key);shadowPx-=old.W*old.H;texRelease?.(old.cv);}
   return r;
 }
 globalThis.__mistvaleShadows=()=>({n:shadowLru.size,mpx:+(shadowPx/1e6).toFixed(2),budget:SHADOW_BUDGET()/1e6,made:shadowMade});
@@ -321,7 +324,7 @@ function ensureTerrainAtlas(){
         for(let i=0;i<data.length;i+=4)for(let k=0;k<3;k++)data[i+k]=Math.max(0,Math.min(255,(data[i+k]-mean[k])/sd[k]*tone.sd[k]+tone.mean[k]));
         cx.putImageData(pixels,0,0);
       }
-      groundPatterns[name]=cx.createPattern(cv,'repeat');
+      groundPatterns[name]=tagPattern(cx.createPattern(cv,'repeat'),cv);   // tagPattern:GL 模式用 pattern 時找得到來源圖
     }
     terrainPatternRev++;   // generateGround 會偵測到這個變化並重畫
     globalThis.dispatchEvent(new CustomEvent('pixel-assets-ready'));
@@ -565,7 +568,7 @@ function variantCell(id,look,hs,sx,sy,c){if(!look||(!look.shift&&!look.rich&&!lo
   for(let k=0;k<p.length;k+=4){if(!p[k+3])continue;const n=map.get((p[k]<<16)|(p[k+1]<<8)|p[k+2]);if(n){p[k]=n[0];p[k+1]=n[1];p[k+2]=n[2];}}
   x.putImageData(d,0,0);cv=makeCanvas(c,c);cv.getContext('2d').drawImage(variantScratch,0,0,c,c,0,0,c,c);
   variantCells.set(key,cv);variantCellPx+=c*c;variantMade++;
-  while(variantCellPx>VARIANT_BUDGET()&&variantCells.size>1){const [k0,v0]=variantCells.entries().next().value;variantCells.delete(k0);variantCellPx-=v0.width*v0.height;}
+  while(variantCellPx>VARIANT_BUDGET()&&variantCells.size>1){const [k0,v0]=variantCells.entries().next().value;variantCells.delete(k0);variantCellPx-=v0.width*v0.height;texRelease?.(v0);}
   return cv;}
 globalThis.__mistvaleVariants=()=>[...variantMaps.keys()];
 globalThis.__mistvaleVariantCells=()=>({n:variantCells.size,mpx:+(variantCellPx/1e6).toFixed(2),budget:VARIANT_BUDGET()/1e6,made:variantMade});
@@ -629,9 +632,22 @@ function ensureAtlas() {
 
 export function createWorld(canvas,{onSelect=()=>{},onPlace=()=>{},getState=()=>null}={}) {
   ensureAtlas();
-  const screen=canvas.getContext('2d',{alpha:false}),bg=screen;   // 世界直接畫在可見的畫布上(不再先畫到暫存層、最後整張複製)
+  // 繪製後端:預設 WebGL2(gl-renderer.js;2026-10-28 使用者實機試過後改為預設);網址 ?renderer=2d 改回 Canvas 2D。getContext 只能叫一次,所以先決定模式。
+  // GL 模式:原畫布底下墊一張 WebGL 畫布畫世界;原畫布照舊收輸入事件,改成透明、只畫文字。拿不到 WebGL2 → 照舊 2D。
+  // GL 模式每幀整張重畫(不走靜止快取/髒矩形/comp):地面 → 影子 FBO 以 .56 壓上 → 物件 → 殘影/覆蓋層/特效/粒子 → 文字(2D 層)。
+  const glWanted=(()=>{try{return new URLSearchParams(globalThis.location?.search||'').get('renderer')!=='2d';}catch{return true;}})();
+  let glCanvas=null,glr=null;
+  if(glWanted){glCanvas=makeCanvas(canvas.width||800,canvas.height||500);glCanvas.setAttribute('aria-hidden','true');glCanvas.style.cssText='position:fixed;left:0;top:0;pointer-events:none;image-rendering:pixelated';
+    glr=createGLRenderer(glCanvas,{onLost:()=>useGL(false),onRestored:()=>useGL(true)});if(glr&&canvas.parentNode)canvas.parentNode.insertBefore(glCanvas,canvas);else glr=glCanvas=null;}
+  const glKeep=glr;   // 繪製器本體:context 遺失時 glr 設 null 退回 2D,恢復後再接回
+  texRelease=glKeep?src=>glKeep.release(src):null;
+  const screen=canvas.getContext('2d',{alpha:!!glr});   // 2D:世界直接畫在可見的畫布上;GL:只畫文字(要透明)
   // 物件先畫到 spriteLayer、影子畫到 shadowLayer;地面 → 整層影子 → 物件。g 指向「目前在畫的那一層」。
-  const shadowLayer=makeCanvas(800,500),sg=shadowLayer.getContext('2d'),spriteLayer=makeCanvas(800,500),spg=spriteLayer.getContext('2d');
+  // GL 模式 bg/spg 是主清單的兩個轉接物件(各自的狀態,同一條清單)、sg 是影子 FBO 的清單。
+  const shadowLayer=makeCanvas(800,500),sg2d=shadowLayer.getContext('2d'),spriteLayer=makeCanvas(800,500),spg2d=spriteLayer.getContext('2d');
+  const glMain=glKeep?.ctx('main'),glSprite=glKeep?.ctx('main'),glShadow=glKeep?.ctx('shadow');
+  let bg=glr?glMain:screen,sg=glr?glShadow:sg2d,spg=glr?glSprite:spg2d;
+  let groundGen=0,glGroundSeen=-1;   // 地面/村莊層重畫的版本:GL 模式看到版本變了就讓舊材質失效重傳
   // 靜止快取(鏡頭連續兩幀不動才錄製,動了立刻停用,見 render):靜態物件整層、靜態影子、地面+海洋+村莊
   const fullStatic=makeCanvas(800,500),fsc=fullStatic.getContext('2d');
   const rdl=makeCanvas(800,500),rdc=rdl.getContext('2d');   // 會動範圍內的重畫暫存層
@@ -847,6 +863,7 @@ let renderDprMax=Math.max(1,dprCap||autoDpr());   // 畫布解析度上限(devic
   const PONDS=[];  // 沒被建築佔用的公園街區才有池塘(villagePonds 重算)
   const pondPath=(path,p,grow=0)=>{for(let i=0;i<=40;i++){const t=i/40*Math.PI*2,r=1+.08*Math.sin(3*t+1),q=iso(p.x+Math.cos(t)*(p.rx+grow)*r,p.z+Math.sin(t)*(p.rz+grow)*r);i?path.lineTo(q.x,q.y):path.moveTo(q.x,q.y);}path.closePath();};
   function buildVillageLayer(){
+    groundGen++;   // 只在 generateGround 最後呼叫:地面與村莊層都換了(GL 材質要重傳)
     villageReady=false;if(!conceptTex.grass||!conceptTex.earth||!conceptTex.stone)return;
     vc.setTransform(1,0,0,1,0,0);vc.clearRect(0,0,villageLayer.width,villageLayer.height);
     vc.setTransform(VRES,0,0,VRES,-VBOX.x0*VRES,-VBOX.y0*VRES);vc.imageSmoothingEnabled=VRES<4;vc.imageSmoothingQuality='high';
@@ -881,7 +898,14 @@ let renderDprMax=Math.max(1,dprCap||autoDpr());   // 畫布解析度上限(devic
 
   if(!terrainLoadsPending)generateGround();   // 地面貼圖還在載入就先不畫,載完由 update() 畫一次(避免啟動時重畫好幾次)
 
-  function resize(){canvas.style.transform='';const r=canvas.getBoundingClientRect();rectCache=r;const actualWidth=Math.max(320,Math.round(r.width||innerWidth)),actualHeight=Math.max(260,Math.round(r.height||innerHeight));if(actualWidth===width&&actualHeight===height&&canvas.width===Math.round(actualWidth*renderDprMax))return;   /* 大小沒變就不重新配置七張畫布(縮放視窗時不白做整張重建) */const dpr=renderDprMax;canvas.width=Math.round(actualWidth*dpr);canvas.height=Math.round(actualHeight*dpr);width=actualWidth;height=actualHeight;/* 畫布用裝置解析度:像素圖一樣最近鄰放大,文字直接用高解析畫 */for(const c of [shadowLayer,spriteLayer,shadowStatic,bgCache,fullStatic,rdl,comp]){c.width=canvas.width;c.height=canvas.height;}staticKey=bgKey=null;spgGen=sgGen=-1;compValid=false;  /* 全部用裝置解析度畫(高 DPI 螢幕上像素圖也清楚) */screen.imageSmoothingEnabled=false;bg.imageSmoothingEnabled=false;sg.imageSmoothingEnabled=false;spg.imageSmoothingEnabled=false;cmp.imageSmoothingEnabled=false;const n=2*Math.max(.62,Math.min(1.18,width/1140,(height/2-56)/300));scale*=n/baseScale;baseScale=n;if(!lastSource){scale=n;lastSource=true;}}
+  function resize(){canvas.style.transform='';const r=canvas.getBoundingClientRect();rectCache=r;if(glCanvas)glBox(r);const actualWidth=Math.max(320,Math.round(r.width||innerWidth)),actualHeight=Math.max(260,Math.round(r.height||innerHeight));if(actualWidth===width&&actualHeight===height&&canvas.width===Math.round(actualWidth*renderDprMax))return;   /* 大小沒變就不重新配置七張畫布(縮放視窗時不白做整張重建) */const dpr=renderDprMax;canvas.width=Math.round(actualWidth*dpr);canvas.height=Math.round(actualHeight*dpr);width=actualWidth;height=actualHeight;/* 畫布用裝置解析度:像素圖一樣最近鄰放大,文字直接用高解析畫 */sizeLayers();staticKey=bgKey=null;spgGen=sgGen=-1;compValid=false;  /* 全部用裝置解析度畫(高 DPI 螢幕上像素圖也清楚) */screen.imageSmoothingEnabled=false;bg.imageSmoothingEnabled=false;sg.imageSmoothingEnabled=false;spg.imageSmoothingEnabled=false;cmp.imageSmoothingEnabled=false;const n=2*Math.max(.62,Math.min(1.18,width/1140,(height/2-56)/300));scale*=n/baseScale;baseScale=n;if(!lastSource){scale=n;lastSource=true;}}
+  // 2D 的七張暫存層跟畫布同大;GL 模式用不到,縮成 1×1 省記憶體(退回 2D 時再放大)
+  function sizeLayers(){const w=glr?1:canvas.width,h=glr?1:canvas.height;for(const c of [shadowLayer,spriteLayer,shadowStatic,bgCache,fullStatic,rdl,comp]){c.width=w;c.height=h;}}
+  // WebGL 畫布疊在原畫布正下方(同一個框,不收事件)
+  function glBox(r){const s=glCanvas.style,w=Math.max(320,Math.round(r.width||innerWidth)),h=Math.max(260,Math.round(r.height||innerHeight));s.left=(r.left||0)+'px';s.top=(r.top||0)+'px';s.width=w+'px';s.height=h+'px';}
+  // 切換 GL/2D(context 遺失/恢復):換掉各層的繪圖對象,快取全部作廢
+  function useGL(on){glr=on?glKeep:null;bg=glr?glMain:screen;sg=glr?glShadow:sg2d;spg=glr?glSprite:spg2d;g=bg;if(glCanvas)glCanvas.style.display=glr?'':'none';
+    staticKey=bgKey=null;spgGen=sgGen=-1;compValid=false;lastViewKey='';glGroundSeen=-1;sizeLayers();sg2d.imageSmoothingEnabled=spg2d.imageSmoothingEnabled=cmp.imageSmoothingEnabled=false;}
   // 鏡頭位移一律取整數再疊物件自己的整數位移。
   // 舊寫法 Math.round(width/2+(p.x-cam.x)*scale) 把鏡頭的小數和物件自己的小數一起進位:
   // 平移時每個物件的進位時機不同,彼此的相對距離會在 0/1px 之間來回 → 看起來就是地圖物件在抖。
@@ -1748,8 +1772,13 @@ let renderDprMax=Math.max(1,dprCap||autoDpr());   // 畫布解析度上限(devic
   globalThis.__mistvaleForceFull=()=>{lastViewKey=null;};   // 讓下一幀走「整張重畫所有物件」的路徑(驗收對照用)
   // 除錯/效能觀察用:目前用了哪一種合成模式、畫布解析度、上一幀的合成範圍數量
   const perfStat={mode:'-',modeFrames:{direct:0,region:0,full:0},rects:0};
-  globalThis.__mistvalePerf=()=>({...perfStat,canvas:[canvas.width,canvas.height],dpr:renderDprMax,coarse:coarsePointer,scale:+scale.toFixed(2),phase:+phase.toFixed(3),night:+nightLast.toFixed(3)});
+  // 除錯:GL 繪製器狀態(批次數、實例數、材質數與 MB、不支援的呼叫計數);2D 模式回 {mode:'2d'}
+  globalThis.__mistvaleGL=()=>glr?{mode:'gl',...glr.stats()}:{mode:glKeep?'2d (gl lost)':'2d'};
+  // 驗收用(gl_compare):固定世界時鐘(花粉、脈動等跟 elapsed 走的動態),兩種繪製器才能比同一幀
+  globalThis.__mistvaleClock=v=>{if(Number.isFinite(v))elapsed=v;return elapsed;};
+  globalThis.__mistvalePerf=()=>({...perfStat,renderer:glr?'gl':'2d',texts:screenTexts.length+uiLabels.length,canvas:[canvas.width,canvas.height],dpr:renderDprMax,coarse:coarsePointer,scale:+scale.toFixed(2),phase:+phase.toFixed(3),night:+nightLast.toFixed(3)});
   function render(){
+    if(glr){glr.begin(canvas.width,canvas.height);if(glGroundSeen!==groundGen){glGroundSeen=groundGen;glr.invalidate(ground);glr.invalidate(villageLayer);}}
     DPRK=canvas.width/width;if(canvas.style.transform)canvas.style.transform='';for(const c of [bg,sg,spg,ssc,bgc,fsc,rdc,cmp]){c.setTransform(DPRK,0,0,DPRK,0,0);c.imageSmoothingEnabled=false;}
     screen.imageSmoothingEnabled=false;g.imageSmoothingEnabled=false;hits.length=0;uiLabels.length=0;screenTexts.length=0;
     const gx=camPxX()+R(-groundOrigin.x*scale),gy=camPxY()+R(-groundOrigin.y*scale);
@@ -1757,7 +1786,7 @@ let renderDprMax=Math.max(1,dprCap||autoDpr());   // 畫布解析度上限(devic
     // 建築的等級與位置也要算進去:地面重算可能要等貼圖載完才會跑,不能只靠 terrainRevision
     const bsig=BUILDINGS.map(b=>{const p=state.layout?.[b.id]||b;return JSON.stringify([getLevel(b.id),state.buildings?.[b.id]??null,p]);}).join('|');
     // 選取的建築(光圈)與畫質設定也會改變靜態層的畫法,所以一起算進去
-    const vk=[camPxX(),camPxY(),scale,width,height,canvas.width,terrainRevision,terrainPatternRev,villageReady,detailLod.length,atlasLod.length,sharedAtlas?.size||0,bsig,selected,quality].join('|'),settled=vk===lastViewKey;lastViewKey=vk;
+    const vk=[camPxX(),camPxY(),scale,width,height,canvas.width,terrainRevision,terrainPatternRev,villageReady,detailLod.length,atlasLod.length,sharedAtlas?.size||0,bsig,selected,quality].join('|'),settled=!glr&&vk===lastViewKey;lastViewKey=vk;   // GL 模式不走靜止快取
     // 地面+海洋+村莊(地面縮放是最貴的一次大面積繪製)。走快取的那幀背景只留在快取層,合成時才用到,不先畫到螢幕上
     const replayNow=settled||staticKey===vk;
     if(bgKey===vk){if(!replayNow)copyLayer(g,bgCache);}
@@ -1771,6 +1800,7 @@ let renderDprMax=Math.max(1,dprCap||autoDpr());   // 畫布解析度上限(devic
     if(villageReady)g.drawImage(villageLayer,camPxX()+R(VBOX.x0*scale),camPxY()+R(VBOX.y0*scale),Math.round(VBOX.w*scale),Math.round(VBOX.h*scale));
     }finally{g=prev;}
     if(rec)bgKey=vk;}
+    if(glr&&shadowsOn)glr.composite(SHADOW_ALPHA);   // GL:影子 FBO(物件那一輪才畫進去,present 時先算好)壓在地面上、物件底下
     const all=[];
     // 會動的單位跟建築的前後:單一 x+z 排序鍵對「點 vs 長方形佔地」會錯(站在建築西南側、已經在南牆前面的人被屋子蓋住)。
     // 正確判定:從單位往鏡頭方向(+x,+z 對角)射出,射線穿過佔地 → 在建築後面;否則在前面。只調整畫面上可能重疊的建築。
@@ -1842,14 +1872,16 @@ let renderDprMax=Math.max(1,dprCap||autoDpr());   // 畫布解析度上限(devic
         compMode=tiles<.4*TW*TH?'region':'direct';}
     }else{
       spgGen=sgGen=-1;   // 整張重畫後,兩層就不再對應任何快取版本
-      sg.clearRect(0,0,width,height);spg.clearRect(0,0,width,height);
+      if(!glr){sg.clearRect(0,0,width,height);spg.clearRect(0,0,width,height);}   // GL 的清單每幀 begin() 就清空(spg 跟地面同一條清單,不能清)
       g=spg;casting=true;
       try{for(const item of all){shadowMode='normal';if(item.type==='decor')drawDecoration(item.data);else if(item.type==='building')drawBuilding(item.data);else if(item.type==='hunter')drawHunter(item.data);else if(item.type==='wanderer')drawHunter(item.data,true);else drawEnemy(item.data);}}
       finally{casting=false;g=bg;shadowMode='normal';}
     }
     // 影子整層一次壓上地面(重疊處不會疊黑),再蓋上所有物件。
+    if(glr)compMode='gl';
     perfStat.mode=compMode;perfStat.modeFrames[compMode]=(perfStat.modeFrames[compMode]||0)+1;perfStat.rects=compRects?compRects.length/4:0;
-    if(compMode==='direct'){
+    if(compMode==='gl'){}   // GL:影子與物件已經依序排在主清單裡
+    else if(compMode==='direct'){
       if(staticKey===vk)copyLayer(g,bgCache);   // 走快取但範圍太大:背景還沒畫到螢幕上,這裡補上
       g.save();g.setTransform(1,0,0,1,0,0);if(shadowsOn){g.globalAlpha=SHADOW_ALPHA;g.drawImage(shadowLayer,0,0);g.globalAlpha=1;}g.drawImage(spriteLayer,0,0);g.restore();
       compValid=false;   // comp 已經不是這一幀的畫面,下一幀要整張重做
@@ -1897,9 +1929,10 @@ let renderDprMax=Math.max(1,dprCap||autoDpr());   // 畫布解析度上限(devic
     if(placing&&hover){const blk=blockAt(hover.x,hover.z),snap=blk&&blk.use!=='plaza'?blk:hover,p=screenPoint(snap.x,snap.z),sp=atlasCell(placing)||buildingSprite(placing),w=conceptBuildingWidth(placing);ring(p,30,'#d8ebac');drawSprite(sp,p,w,w*sp.height/sp.width,9,.55);textLabel('點擊放置 · ESC 取消',p.x,p.y+22,{color:'#e6edbf'});}
     // 地名:拉遠才顯示,畫在戰鬥空地外緣(北邊)而不是空地中央。
     if(scale<1.2){for(const r of REGIONS){const p=screenPoint(r.x,r.z);textLabel(r.name,p.x,p.y-6,{color:'#ffe6a6',size:8});}}
-    screen.setTransform(1,0,0,1,0,0);const k=canvas.width/width;screen.save();screen.textAlign='center';screen.textBaseline='middle';
+    screen.setTransform(1,0,0,1,0,0);if(glr)screen.clearRect(0,0,canvas.width,canvas.height);const k=canvas.width/width;screen.save();screen.textAlign='center';screen.textBaseline='middle';
     for(const t of screenTexts)drawScreenText(t,k);
     screen.font=`bold ${Math.round(11*k)}px "Microsoft JhengHei", "Noto Sans TC", sans-serif`;for(const l of uiLabels){const x=Math.round(l.x*k),y=Math.round(l.y*k),tw=screen.measureText(l.text).width;screen.fillStyle='#1c0e06cc';screen.fillRect(x-tw/2-6*k,y-9*k,tw+12*k,19*k);screen.fillStyle='#4a2611e6';screen.fillRect(x-tw/2-5*k,y-8*k,tw+10*k,17*k);screen.fillStyle='#8a5530e6';screen.fillRect(x-tw/2-5*k,y-8*k,tw+10*k,2*k);screen.fillStyle='#dab247aa';screen.fillRect(x-tw/2-4*k,y+8*k,tw+8*k,k);screen.fillStyle=l.color;screen.fillText(l.text,x,y);}screen.restore();
+    if(glr)glr.present();
   }
   let followFn=null,followOpts={};   // 跟隨:回傳 {x,z} 時每幀把鏡頭目標移到那裡(手動操控用)
   // 螢幕方向 → 世界方向(手動操控的搖桿用):iso 是 (x−z)*PX、(x+z)*PY,反解回來就是世界方向。
@@ -1931,7 +1964,7 @@ let renderDprMax=Math.max(1,dprCap||autoDpr());   // 畫布解析度上限(devic
     for(const im of list.slice(0,2)){warmDone.add(im);createImageBitmap(im).then(b=>b.close()).catch(()=>{});}
     return false;
   }
-  function dispose(){disposed=true;for(const[type,fn]of[['pointerdown',down],['pointermove',move],['pointerup',up],['pointercancel',up],['wheel',wheel],['pointerdown',stopHomeFraming]])canvas.removeEventListener(type,fn);spriteCache.clear();}
+  function dispose(){disposed=true;for(const[type,fn]of[['pointerdown',down],['pointermove',move],['pointerup',up],['pointercancel',up],['wheel',wheel],['pointerdown',stopHomeFraming]])canvas.removeEventListener(type,fn);spriteCache.clear();glCanvas?.remove();if(texRelease&&glKeep)texRelease=null;}
   const responsiveResize=()=>{resize();if(homeFraming)focusHome();render();};
   function stopHomeFraming(){homeFraming=false;}
   canvas.addEventListener('pointerdown',stopHomeFraming);

@@ -68,3 +68,6 @@ output/basebody/
 output/v2/
 output/single/
 output/_upgrade_*/
+
+# gl_compare.mjs 的截圖輸出(每次重跑都會覆蓋)
+output/gl-compare/

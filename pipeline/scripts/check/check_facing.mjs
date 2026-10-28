@@ -7,9 +7,10 @@ const pw=await import(pathToFileURL(path.join(execSync('npm root -g').toString()
 const {chromium}=pw.default||pw;
 const html=process.env.HTML||path.resolve(path.dirname(new URL(import.meta.url).pathname.replace(/^\/([A-Za-z]:)/,'$1')),'../../../../../outputs/暮影村.html');
 const secs=+(process.argv[2]||60),view=process.argv[3]||'world',shots=process.argv[4];
-const b=await chromium.launch();const p=await b.newPage({viewport:{width:1440,height:900}});
+// 2026-10-27 起大圖是 media/ 外部檔:file:// 開要允許同資料夾存取,不然畫布被污染(getImageData 失敗、角色與影子畫不出來)
+const b=await chromium.launch({args:['--allow-file-access-from-files']});const p=await b.newPage({viewport:{width:1440,height:900}});
 const errs=[];p.on('pageerror',e=>errs.push(e.message));
-await p.goto(pathToFileURL(html).href+'?preview=1',{waitUntil:'load',timeout:180000});
+await p.goto(pathToFileURL(html).href+'?preview=1'+(process.env.RENDERER?'&renderer='+process.env.RENDERER:''),{waitUntil:'load',timeout:180000});
 await p.waitForTimeout(1500);
 // 開場畫面已經拿掉了(載入完成直接進村):有 #start-button 才按,沒有就等遊戲自己起來。
 if(await p.$('#start-button'))await p.waitForFunction(()=>globalThis.__mistvaleGame&&document.body.dataset.fps!==undefined,null,{timeout:120000});   // 開始畫面已在 2026-10-19 移除,等遊戲自己開好就好

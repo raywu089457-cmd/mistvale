@@ -1,3 +1,17 @@
+## 2026-10-27：世界繪製 WebGL2 階段 0+1（2026-10-28 起預設 GL，`?renderer=2d` 改回 2D；拿不到 WebGL2 自動退回 2D）
+
+- `src/gl-renderer.js`：實例化四邊形批次器（矩陣/uv/預乘色/閃色，一次 16 張材質、依呼叫順序切批次；材質延遲上傳、預乘、NEAREST、
+  超過 MAX_TEXTURE_SIZE 自動切塊、閒置 90 幀以上且總量超過預算才回收）＋「長得像 CanvasRenderingContext2D 的轉接物件」
+  （drawImage 3/5/9、fillRect（純色/pattern）、路徑 fill/stroke/虛線近似、變形、save/restore；不支援的呼叫計數在 `__mistvaleGL().unsupported`）。
+- `pixel-world.js`：網址 `?renderer=gl` 才開。原畫布底下墊 WebGL 畫布，原畫布照舊收事件、改透明只畫文字；GL 模式不走靜止快取/髒矩形/comp，
+  每幀：地面（海＋ocean pattern、地面/村莊大畫布切塊）→ 影子 FBO ×.56 → 物件（同一個 `all` 順序、同一批 draw 函式）→ 殘影/覆蓋層/特效/粒子 → 文字。
+  context 遺失自動退回 2D、恢復後接回。2D 路徑不變。
+- 驗收：`node pipeline/scripts/check/gl_compare.mjs`（8 場景 2d/gl 截圖＋差異圖＋每幀時間，輸出 `output/gl-compare/`，不進 git）。
+- check_facing / check_anim 啟動加 `--allow-file-access-from-files`（10-27 起大圖是 media/ 外部檔，file:// 開會污染畫布），`RENDERER=gl` 可指定繪製器。
+- 已知：GL 材質約 250–400 MB（地面畫布整張上傳）；無頭 SwiftShader 下 GL 一幀 120–180 ms（JS 只 1–2 ms），真機要另量。
+
+---
+
 ## 2026-10-22（二）：sprite-gen 的影片路徑 → PixelLab 動畫 API
 
 sprite-gen 的動畫是「一張 still → Grok Imagine video → 逐格拆圖 → keying → rows」。PixelLab 沒有影片模型，
