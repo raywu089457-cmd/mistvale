@@ -1,4 +1,5 @@
 import {getRoads,roadStyle,onRoad,PALISADE,villagePonds as pondsOf,doorFoot} from './landscape-layout.js';
+import {RING_ROAD,onRingRoad} from './overworld.js';
 import { BUILDINGS, CLASSES, RARITIES } from './pixel-data.js';
 import {WORLD,REGIONS,biomeAt,BIOME_PALETTE,inVillage} from './overworld.js';
 import {conceptGroundAt} from './concept-ground.js';
@@ -1371,6 +1372,7 @@ let renderDprMax=Math.max(1,dprCap||autoDpr());   // 畫布解析度上限(devic
     set:(cfg)=>{posePreview=cfg&&heroSheets[cfg.classId]?{classId:cfg.classId,act:cfg.act||'idle',i:Math.max(0,cfg.i|0),facing:cfg.facing||1}:null;},
     current:()=>posePreview,
   };
+  globalThis.__mistvaleRing=()=>({points:RING_ROAD,onRoad:(x,z,extra=0)=>onRingRoad(x,z,extra)});   // 驗收用:環村道路
   globalThis.__mistvaleDoors=()=>BUILDINGS.map(b=>{const p=state.layout?.[b.id]||b,d=doorFoot(b,p);return {id:b.id,x:d.x,z:d.z};});   // 驗收用:各棟門口的 world 座標
   globalThis.__mistvaleHits=()=>hits.map(h=>({id:h.id,x:h.x,y:h.y,w:h.w,h:h.h}));  // 驗收用:畫出來的點擊框(check_zorder.mjs)
   globalThis.__mistvaleDecor=()=>decorations.map(d=>({type:d.type,x:d.x,z:d.z,size:d.size||1,walk:!!d.walk,cls:d.cls,vdir:d.vdir}));  // 驗收用:擺設清單(check_placement.mjs)
