@@ -327,49 +327,8 @@ body.piloting .toast{font-size:10px;padding:7px 11px;max-width:min(420px,calc(10
 #bottom-bar>button i canvas{filter:brightness(1.2) contrast(1.05)}
 #bottom-bar>button b{color:#fbeecb}
 
-/* ===== 2026-10-28(4)：圖示改成程式畫的 16×16（1 px 描邊），取代 AI 生的小圖 ===== */
-[data-icon]{display:inline-flex;align-items:center;justify-content:center;background:center/contain no-repeat;image-rendering:pixelated}
-[data-icon] canvas,[data-icon] img{display:none!important}
-i[data-icon],span[data-icon]{width:22px;height:22px}
-.inline-icon[data-icon]{width:1.05em;height:1.05em}
-.panel-title i[data-icon]{width:20px;height:20px}
-#bottom-bar [data-icon]{width:26px;height:26px}
-.treasury [data-icon]{width:20px;height:20px}
-.cost [data-icon]{width:15px;height:15px}
-.skill [data-icon]{width:26px;height:26px}
-.stock-item [data-icon]{width:20px;height:20px}
-.material-item [data-icon]{width:26px;height:26px}
-.trade-table [data-icon]{width:20px;height:20px}
-[data-icon="anvil"]{background-image:var(--ui-ic-anvil)}
-[data-icon="arrow"]{background-image:var(--ui-ic-arrow)}
-[data-icon="bandage"]{background-image:var(--ui-ic-bandage)}
-[data-icon="bed"]{background-image:var(--ui-ic-bed)}
-[data-icon="boss"]{background-image:var(--ui-ic-boss)}
-[data-icon="close"]{background-image:var(--ui-ic-close)}
-[data-icon="cloth"]{background-image:var(--ui-ic-cloth)}
-[data-icon="drink"]{background-image:var(--ui-ic-drink)}
-[data-icon="dungeon"]{background-image:var(--ui-ic-dungeon)}
-[data-icon="flour"]{background-image:var(--ui-ic-flour)}
-[data-icon="food"]{background-image:var(--ui-ic-food)}
-[data-icon="gear"]{background-image:var(--ui-ic-gear)}
-[data-icon="gems"]{background-image:var(--ui-ic-gems)}
-[data-icon="gold"]{background-image:var(--ui-ic-gold)}
-[data-icon="hall"]{background-image:var(--ui-ic-hall)}
-[data-icon="hammer"]{background-image:var(--ui-ic-hammer)}
-[data-icon="heal"]{background-image:var(--ui-ic-heal)}
-[data-icon="herb"]{background-image:var(--ui-ic-herb)}
-[data-icon="horn"]{background-image:var(--ui-ic-horn)}
-[data-icon="hunter"]{background-image:var(--ui-ic-hunter)}
-[data-icon="leather"]{background-image:var(--ui-ic-leather)}
-[data-icon="map"]{background-image:var(--ui-ic-map)}
-[data-icon="ore"]{background-image:var(--ui-ic-ore)}
-[data-icon="plus"]{background-image:var(--ui-ic-plus)}
-[data-icon="scroll"]{background-image:var(--ui-ic-scroll)}
-[data-icon="skull"]{background-image:var(--ui-ic-skull)}
-[data-icon="swords"]{background-image:var(--ui-ic-swords)}
-[data-icon="trade"]{background-image:var(--ui-ic-trade)}
-[data-icon="up"]{background-image:var(--ui-ic-up)}
-[data-icon="wood"]{background-image:var(--ui-ic-wood)}
-[data-icon="settings"]{background-image:var(--ui-ic-gear)}
-[data-icon="weapon"]{background-image:var(--ui-ic-swords)}
-.building-card [data-icon]{width:22px;height:22px}
+/* 圖示不要被 flex 壓扁（下方動作列高度固定時 icon 會被壓成 17px → 看起來像一條線） */
+[data-icon]{flex:0 0 auto}
+[data-icon],.inline-icon[data-icon]{min-width:18px;min-height:18px}
+#bottom-bar [data-icon]{flex:0 0 26px;width:26px;height:26px}
+.treasury [data-icon]{flex:0 0 20px}
