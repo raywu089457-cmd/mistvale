@@ -421,3 +421,206 @@ i[data-icon],span[data-icon]{width:22px;height:22px}
   #bottom-bar{padding-bottom:max(12px,env(safe-area-inset-bottom))}
   .map-hint{bottom:max(4px,env(safe-area-inset-bottom))}
 }
+/* ===== 2026-10-28(9)：手機 UI 檢查修正（Claude code/mistvale-ui-audit/audit.mjs 量出來的錯誤） ===== */
+/* 1) 右側按鈕互相蓋住：手機的位置統一在下面「2026-10-28(10) 手機版面重排」重排。
+      桌機：「主世界地圖」也壓到「狩獵區」下緣 14px（零件版按鈕變高）→ 往下挪 */
+@media(min-width:761px) and (min-height:521px){.world-map-trigger{top:155px}}
+/*    桌機矮視窗（高 ≤780）：技能鍵壓到下方選單 2px → 往上挪 */
+@media(max-height:780px) and (min-width:901px){.skill-buttons{bottom:104px}}
+/*    手動操控：提示訊息壓到上方操控面板下緣 9–12px → 往下挪 */
+body.piloting #toasts{top:calc(98px + env(safe-area-inset-top))}
+@media(max-width:760px){body.piloting #toasts{top:calc(106px + env(safe-area-inset-top))}}
+/* 2) 建築資訊面板：橫向時比螢幕高 → 在 (10) 裡限高、面板內捲動 */
+/* 4) 進度條：底圖 bar.png（104×27）整張拉伸，空槽在 x 8–95、y 7–19 → 填色用百分比對齊空槽；
+      JS 給的 width:X% 是整條寬的百分比 → scaleX(88/104) 從左邊縮回空槽寬（滿格剛好填滿空槽） */
+.progress>span{inset:25.9% auto 25.9% 7.7%;max-width:100%;transform:scaleX(.846);transform-origin:0 50%}
+/* 5) 手機瀏覽器的 vh 是「網址列收起來」的高度；遊戲頁不能捲、網址列一直在 → 高的視窗上下被切。
+      支援 dvh 的瀏覽器改用實際可視高度（上面各條 vh 規則照抄一份） */
+@supports(height:100dvh){
+  .start-panel{max-height:94dvh}
+  #modal{max-height:90dvh}
+  #left-panel{max-height:calc(100dvh - 207px)}
+  @media(max-height:780px) and (min-width:901px){#left-panel{max-height:calc(100dvh - 190px)}}
+  @media(max-width:760px){#modal{max-height:92dvh}#inspector{max-height:calc(100dvh - 278px)}#left-panel{max-height:calc(100dvh - 295px)}}
+}
+/* 6) 建設視窗：卡片圖固定 115px 寬，把兩欄撐得比容器寬 15px（右欄貼邊）→ 欄寬可縮、圖跟著縮 */
+@media(max-width:760px){
+  .building-grid{grid-template-columns:repeat(2,minmax(0,1fr))}
+  .building-card img{width:100%;max-width:115px}
+}
+/* 7) 地圖提示壓到下方選單按鈕 → 貼齊最底（按鈕下面留的 12px 裡）；觸控裝置的文字在 pixel-ui.js 換掉 */
+.map-hint{bottom:1px;line-height:10px}
+@supports(padding:max(0px)){.map-hint{bottom:max(1px,calc(env(safe-area-inset-bottom) - 11px))}}
+/* 8) Toast 底圖左邊的圓點落在九宮格中間格，被拉成一團色塊 → 只用外框（不 fill），中間改純色 */
+.toast{border-image:var(--ui-toast-ok) 12 stretch;background:#4a3320 padding-box}
+.toast.error{border-image:var(--ui-toast-err) 12 stretch;background:#4a3320 padding-box}
+/* 9) 手動操控的攻擊鍵：⚔ 在 iPhone 會變彩色 emoji 蓋住「攻擊」→ 改用遊戲自己的劍圖示 */
+#pilot-hud .ph-btn i[data-icon]{width:34px;height:34px}
+#pilot-hud .ph-btn.cool i[data-icon]{opacity:.75}
+/* ===== 2026-10-28(10)：手機版面重排（窄橫向＋UX 檢查 10–17；量測 Claude code/mistvale-ui-audit/audit.mjs） =====
+   直向手機（寬 ≤760、高 >520）與橫向手機（高 ≤520）各一套：上方列、下方選單都變一排或變矮，
+   右上一排＝村莊／狩獵區／地圖／暫停／速度，右下＝縮放＋技能鍵，建築資訊在直向改成下方抽屜。
+   --tb／--bb＝上方列／下方選單高度（含瀏海與 Home 指示條的安全區）。 */
+/* 觸控裝置：沒有鍵盤 → 不顯示快捷鍵提示（下方選單 1–7、主世界地圖 M） */
+@media(pointer:coarse){kbd{display:none!important}}
+/* 金庫「＋」圖示太小（約 7px，看起來像 ÷）→ 放大 */
+.treasury>button.plus:before{width:22px;height:22px}
+/* 手動操控面板半透明，底下的資源列透出來 → 不透明 */
+#pilotlab{background:linear-gradient(#3a4034,#2b3128)}
+
+/* ---------- 直向手機（寬 ≤760、高 >520） ---------- */
+@media(max-width:760px) and (min-height:521px){
+  :root{--tb:calc(82px + max(6px,env(safe-area-inset-top)));--bb:calc(56px + max(6px,env(safe-area-inset-bottom)))}
+  /* 上方列 111 → 88px：兩排都變矮，按鈕 38px 高 */
+  #topbar{height:var(--tb);padding:max(6px,env(safe-area-inset-top)) 8px 6px;gap:6px}
+  .town-badge{min-width:0;height:38px;gap:6px}
+  .town-badge>i{width:32px;height:32px}
+  .town-badge strong{font-size:17px;letter-spacing:2px}
+  .town-badge small{font-size:10px;margin-top:1px}
+  .top-controls{margin-top:0;gap:4px}
+  .top-controls .square,.difficulty-button,.population{height:38px}
+  .top-controls .square{width:40px}
+  .difficulty-button{font-size:11px}
+  .population{font-size:12px}
+  .treasury{top:calc(42px + max(6px,env(safe-area-inset-top)));left:8px;right:8px;height:36px;gap:4px}
+  .treasury>button{height:36px}
+  .treasury>button:first-child{min-width:88px}
+  .treasury small{display:none}
+  .treasury b{font-size:12px}
+  /* 下方選單 146 → 62px：七個功能排成一排（圖示在上、字在下）；暫停／速度移到右上 */
+  #bottom-bar{height:var(--bb);grid-template-columns:repeat(7,1fr);gap:3px;padding:5px 5px max(6px,env(safe-area-inset-bottom))}
+  #bottom-bar>button{min-height:0;height:auto;flex-direction:column;gap:2px;padding:0;border-width:5px}
+  #bottom-bar [data-icon]{flex:0 0 22px;width:22px;height:22px}
+  #bottom-bar>button b{font-size:10px;letter-spacing:0}
+  .map-hint{display:none}
+  /* 右上一排：村莊、狩獵區、地圖、暫停、速度（44px 方鍵，圖示＋字） */
+  .play-controls{position:fixed;top:calc(var(--tb) + 6px);right:8px;display:flex;gap:5px;width:auto;margin:0;z-index:5}
+  .play-controls>button{width:44px;height:44px;font-size:16px}
+  .play-controls>small{display:none}
+  .world-map-trigger{top:calc(var(--tb) + 6px);right:106px}
+  .zone-tools{top:calc(var(--tb) + 6px);right:155px;flex-direction:row;gap:5px}
+  .zone-tools .pixel-button,.world-map-trigger{width:44px;height:44px;min-width:0;min-height:0;padding:0;border-width:5px;
+    display:flex;flex-direction:column;align-items:center;justify-content:center;gap:1px;font-size:10px;letter-spacing:0;white-space:nowrap;box-shadow:none}
+  .zone-tools [data-icon],.world-map-trigger [data-icon]{width:20px;height:20px}
+  .world-map-trigger .wm-long{display:none}
+  /* 左上：任務捲軸鍵；展開的任務面板放在右上那排下面 */
+  .reopen-left{left:8px;top:calc(var(--tb) + 6px);width:44px;height:44px}
+  #left-panel{left:8px;top:calc(var(--tb) + 56px);width:min(230px,calc(100vw - 16px));
+    max-height:calc(100vh - var(--tb) - var(--bb) - 64px);max-height:calc(100dvh - var(--tb) - var(--bb) - 64px)}
+  /* 右下：技能鍵橫排，縮放鍵直排在它上面（40px） */
+  .skill-buttons{right:8px;bottom:calc(var(--bb) + 8px);flex-direction:row;gap:5px}
+  .skill{width:54px;height:52px;min-width:0;min-height:0;padding:0;border-width:6px}
+  .skill [data-icon]{width:22px;height:22px}
+  .skill b{font-size:10px}
+  .view-tools{right:8px;bottom:calc(var(--bb) + 66px);flex-direction:column;gap:5px}
+  .view-tools .square{width:40px;height:40px;font-size:20px}
+  /* 底部訊息：左下、避開右下技能鍵 */
+  .notice-feed{left:8px;bottom:calc(var(--bb) + 8px);width:calc(100% - 140px);max-width:calc(100vw - 140px)}
+  .notice-feed div{font-size:10px}
+  /* 首領血條、暫停字樣：放在右上那排下面 */
+  #boss-bar{top:calc(var(--tb) + 58px);left:60px;transform:none;width:calc(100% - 120px)}
+  #pause-label{top:calc(var(--tb) + 58px)}
+  #toasts{top:calc(var(--tb) + 58px)}
+  /* 建築資訊：改成下方抽屜（原本蓋住 80–90% 畫面） */
+  #inspector{top:auto;bottom:calc(var(--bb) + 6px);left:8px;right:8px;width:auto;
+    max-height:min(56vh,calc(100vh - var(--tb) - var(--bb) - 20px));max-height:min(56dvh,calc(100dvh - var(--tb) - var(--bb) - 20px))}
+  #inspector .panel-body{grid-template-columns:76px 1fr;gap:6px 10px;padding:8px 10px 10px}
+  .inspect-art{height:64px}
+  .inspect-art img{height:64px;width:72px}
+  .inspect-desc,.inspect-effect{font-size:11px;line-height:1.55}
+  .inspect-effect{padding:6px 0}
+  #inspector .cost{grid-column:1/-1;margin:0}
+}
+
+/* ---------- 橫向手機（高 ≤520，寬窄都用這套） ---------- */
+@media(max-height:520px){
+  :root{--tb:calc(44px + max(4px,env(safe-area-inset-top)));--bb:calc(44px + max(4px,env(safe-area-inset-bottom)))}
+  /* 上方列一排：徽章、資源、難度、人數、設定 */
+  #topbar{height:var(--tb);padding:max(4px,env(safe-area-inset-top)) max(8px,env(safe-area-inset-right)) 4px max(8px,env(safe-area-inset-left));
+    align-items:center;gap:6px}
+  .town-badge{min-width:0;height:36px;gap:6px}
+  .town-badge>i{width:32px;height:32px}
+  .town-badge strong{font-size:16px;letter-spacing:2px}
+  .town-badge small{font-size:10px;margin-top:1px}
+  .treasury{position:static;height:36px;max-width:none;gap:4px}
+  .treasury>button{height:36px;min-width:0}
+  .treasury>button:first-child{min-width:0}
+  .treasury small{display:none}
+  .treasury b{font-size:12px}
+  .top-controls{margin:0;gap:4px}
+  .top-controls .square,.difficulty-button,.population{height:36px}
+  .top-controls .square{width:40px}
+  /* 下方選單一排：圖示＋字並排；暫停／速度移到右上 */
+  #bottom-bar{height:var(--bb);display:grid;grid-template-columns:repeat(7,1fr);gap:4px;
+    padding:4px max(8px,env(safe-area-inset-right)) max(4px,env(safe-area-inset-bottom)) max(8px,env(safe-area-inset-left))}
+  #bottom-bar>button{width:auto;min-height:0;height:auto;flex-direction:row;justify-content:center;gap:5px;padding:0 3px;border-width:5px}
+  #bottom-bar [data-icon]{flex:0 0 20px;width:20px;height:20px}
+  #bottom-bar>button b{font-size:11px;letter-spacing:1px}
+  .map-hint{display:none}
+  .play-controls{position:fixed;top:calc(var(--tb) + 6px);right:max(8px,env(safe-area-inset-right));display:flex;gap:5px;width:auto;margin:0;z-index:5}
+  .play-controls>button{width:42px;height:42px;font-size:16px}
+  .play-controls>small{display:none}
+  .world-map-trigger{top:calc(var(--tb) + 6px);right:calc(max(8px,env(safe-area-inset-right)) + 94px)}
+  .zone-tools{top:calc(var(--tb) + 6px);right:calc(max(8px,env(safe-area-inset-right)) + 141px);flex-direction:row;gap:5px}
+  .zone-tools .pixel-button,.world-map-trigger{width:42px;height:42px;min-width:0;min-height:0;padding:0;border-width:5px;
+    display:flex;flex-direction:column;align-items:center;justify-content:center;gap:1px;font-size:10px;letter-spacing:0;white-space:nowrap;box-shadow:none}
+  .zone-tools [data-icon],.world-map-trigger [data-icon]{width:18px;height:18px}
+  .world-map-trigger .wm-long{display:none}
+  .reopen-left{left:max(8px,env(safe-area-inset-left));top:calc(var(--tb) + 6px);width:42px;height:42px}
+  #left-panel{left:max(8px,env(safe-area-inset-left));top:calc(var(--tb) + 6px);width:220px;
+    max-height:calc(100vh - var(--tb) - var(--bb) - 12px);max-height:calc(100dvh - var(--tb) - var(--bb) - 12px)}
+  #region-badge{top:calc(var(--tb) + 6px)}
+  .skill-buttons{right:max(8px,env(safe-area-inset-right));bottom:calc(var(--bb) + 6px);flex-direction:row;gap:5px}
+  .skill{width:54px;height:48px;min-width:0;min-height:0;padding:0;border-width:6px}
+  .skill [data-icon]{width:20px;height:20px}
+  .skill b{font-size:10px}
+  .view-tools{right:calc(max(8px,env(safe-area-inset-right)) + 119px);bottom:calc(var(--bb) + 10px);flex-direction:row;gap:5px}
+  .view-tools .square{width:40px;height:40px;font-size:20px}
+  #boss-bar,#pause-label{top:calc(var(--tb) + 56px)}
+  #toasts{top:calc(var(--tb) + 56px)}
+  #inspector{top:calc(var(--tb) + 6px);right:max(8px,env(safe-area-inset-right));left:auto;width:250px;
+    max-height:calc(100vh - var(--tb) - var(--bb) - 12px);max-height:calc(100dvh - var(--tb) - var(--bb) - 12px);overflow:auto}
+}
+/* 很窄的橫向（寬 ≤700）：徽章只留圖示 */
+@media(max-height:520px) and (max-width:700px){.town-badge>span{display:none}}
+
+/* ---------- 手機（直向＋橫向）共用：視窗內容的字與按鈕 ---------- */
+@media(max-width:760px),(max-height:520px){
+  /* 點擊範圍：視窗 ×、面板 ×／− 放大到 36px（外框不變大，用負邊距吃掉） */
+  .modal-title>button{width:36px;height:36px}
+  .panel-title>button{width:36px;height:36px;margin:-8px -6px -8px auto;display:grid;place-items:center}
+  /* 字太小：最小 10px */
+  .hunter-card small,.hunter-card .rarity,.hunter-card .status,.need-row label,.need-row .progress b,.stats-grid div,
+  .detail-avatar .rarity,.detail-header span,.equipment-row,.hunter-actions small,.trade-table th,.trade-table td,
+  .difficulty-card small,.setting-row small,.setting-group>h3,.seg .pixel-button,.building-card small,.party-pick span,
+  .party-pick b,.region-card small,.world-map-header b,#pause-label small,.quest-panel p,#quest-chapter,#quest-progress{font-size:10px}
+  .hunter-card h3{font-size:12px}
+  .hunter-card small,.hunter-card .rarity{white-space:nowrap}
+  .hunter-card{border-width:8px;padding:8px 6px}
+  /* 獵人名冊：說明一行、三個按鈕下一行平分（原本被擠成一字一行） */
+  .modal-toolbar{flex-wrap:wrap}
+  .modal-toolbar>span{flex:1 0 100%}
+  .modal-toolbar .pixel-button{flex:1 1 0;white-space:nowrap;padding:8px 4px;font-size:11px}
+  /* 交易所材料卡：圖示左邊，名稱／數量／價格疊在右邊（原本「亞/麻/布」「2金/幣/份」） */
+  .material-item{display:grid;grid-template-columns:auto 1fr;align-items:center;column-gap:8px;row-gap:2px;border-width:8px;padding:6px 8px}
+  .material-item>[data-icon]{grid-row:span 2}
+  .material-item>div,.material-item span,.material-item>small{white-space:nowrap}
+  .material-item span,.material-item>small{font-size:10px}
+  /* 手動操控面板：血條可縮、狀態字不被截；按鈕字 10px */
+  #pilotlab .pl-hp{flex:1 1 60px;width:auto;min-width:56px}
+  #pilotlab .pl-head #pilot-status{flex:0 0 auto}
+  #pilotlab .pixel-button,#pilotlab .pl-head .pixel-button,#pilotlab .pl-pick .pixel-button{font-size:10px;min-height:32px}
+  #pilotlab .pl-tip,#pilotlab .pl-hp b{font-size:10px}
+  /* 設定、交易所：按鈕字 9 → 10px，數量輸入框 26 → 32px 高；製作分頁 30 → 34px 高 */
+  .setting-row .pixel-button,.trade-table .pixel-button,.trade-footer .pixel-button,.trade-footer span{font-size:10px}
+  .trade-table input{height:32px;font-size:12px}
+  .trade-table .pixel-button{min-height:32px}
+  .tabs>button{min-height:34px}
+  #inspector .inspect-actions>button{min-height:34px}
+}
+
+/* 存檔失敗（「請匯出存檔」）一定要看得到：手機版把字收起來了，失敗時改成紅字貼在暫停／速度下面 */
+@media(max-width:760px),(max-height:520px){
+  .play-controls>small.warn{display:block;position:absolute;top:100%;right:0;margin-top:4px;width:auto;white-space:nowrap;
+    font-size:11px;color:#ffb39a;background:#2a1609e6;padding:3px 6px;border:1px solid #c78162}
+}
