@@ -624,3 +624,100 @@ body.piloting #toasts{top:calc(98px + env(safe-area-inset-top))}
   .play-controls>small.warn{display:block;position:absolute;top:100%;right:0;margin-top:4px;width:auto;white-space:nowrap;
     font-size:11px;color:#ffb39a;background:#2a1609e6;padding:3px 6px;border:1px solid #c78162}
 }
+
+/* ===== 2026-10-29 Pixen 零件（PixelLab text-to-image `create_image_pixen`，1 generation／張 2×2，原生 1 px 細節） =====
+   零件：assets/ui/px-*.png（舊零件留著；要退回只要拿掉這一段）。九宮格切角＝零件自己的黃銅角寬：
+   視窗 22、卡片 16、按鈕 12、方塊 18、提示板 14、凹槽 8。桌機 border 寬＝切角（1:1 不縮放，像素不變形）；
+   手機沿用 (10) 的 border 寬（零件縮小顯示，版面不動）。 */
+/* 視窗：木框＋黃銅角；內側用深色底（不用零件的中間色），卡片的中棕色才浮得出來、字也比較好讀 */
+.game-panel,#modal{border-image:var(--ui-px-window) 22 stretch;background:#2a1c12 padding-box}
+/* 按鈕：次要＝木、主要＝金、危險＝紅；滑過變亮、按下變暗、停用變灰（同一張圖，不再滑過就變成金色主按鈕） */
+.pixel-button,.pixel-button.blue,.pixel-button:hover:not(:disabled),.pixel-button:active:not(:disabled),.pixel-button:disabled{border-image:var(--ui-px-btn-wood) 12 fill stretch}
+.pixel-button.gold,.pixel-button.gold:hover:not(:disabled),.pixel-button.gold:active:not(:disabled){border-image:var(--ui-px-btn-gold) 12 fill stretch}
+.pixel-button.danger,.pixel-button.danger:hover:not(:disabled),.pixel-button.danger:active:not(:disabled){border-image:var(--ui-px-btn-red) 12 fill stretch}
+.pixel-button:hover:not(:disabled){filter:brightness(1.12)}
+.pixel-button:active:not(:disabled){filter:brightness(.9)}
+.pixel-button:disabled{filter:grayscale(.75) brightness(.78);opacity:1}
+.pixel-button.danger{color:#ffe9dc;text-shadow:0 1px #3a0d08}
+/* 建築資訊的「移動位置」：原本是扁平的綠條 → 跟其他次要按鈕同一套木按鈕 */
+.inspect-actions .move{border:9px solid transparent;border-image:var(--ui-px-btn-wood) 12 fill stretch;background:none;box-shadow:none;color:#f4e6c2;text-shadow:0 1px #2a1a0c}
+.inspect-actions .move:hover{filter:brightness(1.12)}
+/* 目前區域徽章：原本是藍色方塊（整套 UI 唯一的藍）→ 跟資源欄同一個凹槽 */
+#region-badge{border:8px solid transparent;border-image:var(--ui-px-trough) 8 fill stretch;background:none;box-shadow:none;padding:0 10px;color:#f6e3b0;text-shadow:0 1px #1d120a}
+/* 關閉鍵：黃銅 × 方塊 */
+#modal [data-action=close],#inspector [data-action=closeInspector]{background:var(--ui-px-btn-x) center/100% 100% no-repeat;border:0;border-image:none;
+  box-shadow:none;color:transparent;font-size:0;image-rendering:pixelated}
+#modal [data-action=close]:hover,#inspector [data-action=closeInspector]:hover{filter:brightness(1.15)}
+/* 卡片：細木框＋黃銅角釘、平滑深色底（字好讀）；選取＝金色外光 */
+.hunter-card,.building-card,.building-card.unbuilt,.visitor-card,.craft-card,.quest-list-row,.material-item,.region-card,.party-pick{border-image:var(--ui-px-card) 16 fill stretch;background:none}
+.party-pick.selected,.region-card.active{border-image:var(--ui-px-card) 16 fill stretch;box-shadow:0 0 0 2px #e7be5e,0 0 12px #e7be5e55}
+/* 資源欄、難度、人口：凹槽（深色內凹＋黃銅邊） */
+.treasury>button,.treasury>button.plus,.difficulty-button,.population{border-image:var(--ui-px-trough) 8 fill stretch;background:none}
+/* 進度條：凹槽當底；填色對齊凹槽內側（106×32 的內側 x 7–98、y 7–24） */
+.progress{background:var(--ui-px-trough) center/100% 100% no-repeat}
+.progress>span{inset:21.9% auto 21.9% 6.6%;transform:scaleX(.868);transform-origin:0 50%}
+/* 下方選單、技能鍵：木方塊＋黃銅角；目前這頁＝金方塊 */
+#bottom-bar>button,#bottom-bar>button:hover{border-image:var(--ui-px-tile) 18 fill stretch}
+#bottom-bar>button:hover{filter:brightness(1.12)}
+#bottom-bar>button.on,#bottom-bar>button.active{border-image:var(--ui-px-tile-on) 18 fill stretch;filter:none}
+.skill{border-image:var(--ui-px-tile) 18 fill stretch}
+.skill:hover:not(:disabled){filter:brightness(1.12)}
+/* 小方鍵（設定、任務捲軸、縮放、說明、暫停、速度）：同一塊木方塊。
+   有 data-icon 的方鍵圖示畫在 background 上 → 不用 fill（不然會蓋掉圖示），中間補木色 */
+.square,.play-controls>button{border:8px solid transparent;box-shadow:none;padding:0}
+.square:not([data-icon]),.play-controls>button{border-image:var(--ui-px-tile) 18 fill stretch;background:none;color:#f6e3b0;text-shadow:0 1px #1d120a}
+.square[data-icon]{border-image:var(--ui-px-tile) 18 stretch;background-color:#4f3627;background-clip:padding-box}
+.square:hover,.play-controls>button:hover{filter:brightness(1.12)}
+/* 提示：木板＋黃銅邊；錯誤＝紅邊 */
+.toast,.toast.error{background:none}
+.toast{border-image:var(--ui-px-toast) 14 fill stretch}
+.toast.error{border-image:var(--ui-px-toast-err) 14 fill stretch}
+/* 分頁（製作視窗等）：選中原本是藍色（整套 UI 外的顏色）→ 未選＝木按鈕、選中＝金按鈕 */
+.tabs{border-bottom-color:#5a3a24}
+.tabs button{border:9px solid transparent;border-image:var(--ui-px-btn-wood) 12 fill stretch;background:none;color:#f4e6c2;text-shadow:0 1px #2a1a0c;padding:2px 12px}
+.tabs button.active{border-image:var(--ui-px-btn-gold) 12 fill stretch;background:none;color:#3a2a11;text-shadow:0 1px #ffeeb8}
+.tabs button:hover:not(.active){filter:brightness(1.12)}
+/* 獵人詳情的頭像底：原本是藍色光暈（舊主題剩下的）→ 暖色光暈＋深色底 */
+.detail-avatar{background:radial-gradient(ellipse at 50% 70%,#e7be5e26,transparent 70%),#1d140c;border-color:#94702c80}
+/* 獵人詳情的數值格、交易所的數量欄：原本是細線方框 → 卡片框／凹槽，跟其他零件一致 */
+.stats-grid div{border:8px solid transparent;border-image:var(--ui-px-card) 16 fill stretch;background:none;padding:2px 6px}
+.trade-table input{border:6px solid transparent;border-image:var(--ui-px-trough) 8 fill stretch;background:none;color:#f6e3b0;padding:0 4px}
+/* 桌機：border 寬＝切角，1:1 */
+@media(min-width:761px) and (min-height:521px){
+  .game-panel,#modal{border-width:22px}
+  .pixel-button{border-width:12px}
+  .hunter-card,.building-card,.visitor-card,.craft-card,.quest-list-row,.material-item,.party-pick{border-width:16px}
+  .treasury>button,.difficulty-button,.population{border-width:8px}
+  .treasury>button.plus{border-width:8px 6px}
+  #bottom-bar>button{border-width:18px}
+  .skill{border-width:12px}
+  .inspect-actions .move{border-width:12px}
+  .toast{border-width:14px}
+  .tabs button{border-width:12px}
+  #modal [data-action=close],#inspector [data-action=closeInspector]{width:34px;height:33px}
+}
+/* 桌機字太小（量到一百多處 8–10px）：桌機最小 11px（手機的 10px 見上面）；提示 toast 12px。
+   只挑量到的元素，原本就比較大的標題、數字不受影響；鍵盤提示 kbd、裝飾符號 ▼◆ 不算 */
+@media(min-width:761px) and (min-height:521px){
+  .hunter-card small,.hunter-card .rarity,.hunter-card .status,.detail-avatar .rarity,.detail-header span,.hunter-actions small,
+  .need-row label,.need-row .progress b,.stats-grid div,.setting-row small,.building-card small,.difficulty-card small,.region-card small,
+  .trade-table th,.trade-table td,.trade-table .pixel-button,.difficulty-card .pixel-button,.region-card .pixel-button,.world-map-header .pixel-button,
+  .craft-card p,.modal-note,.material-item span,.material-item small,
+  #inspector .inspect-effect,.inspect-effect strong,.inspect-actions .move,
+  .quest-panel p,.quest-panel em,#quest-chapter,#quest-progress,.mini-hunter strong,.mini-hunter p,.mini-hunter small,.stock-note,
+  #pilotlab .pixel-button,#pilotlab .pl-tip,#pilot-hp,
+  .zone-tools .pixel-button,.world-map-trigger span,#region-badge,#town-level,.notice-feed div,#pause-label small{font-size:11px}
+  .hunter-card h3{font-size:13px}
+  .skill b,#save-label,.map-hint{font-size:10px}
+  .toast{font-size:12px}
+  body.piloting .toast{font-size:11px}
+  #pilotlab .pl-head .pixel-button,#pilotlab .pl-pick .pixel-button,#pilotlab .pl-hp b{font-size:11px}
+  .mini-hunter strong small{font-size:11px}
+  .treasury small{display:none}   /* 「村莊金庫」8px 小字：金幣圖示已經說明（手機版也拿掉了） */
+}
+/* 開發者作弊區塊（設定頁） */
+.cheat-grid{display:grid;grid-template-columns:repeat(2,1fr);gap:8px;margin:10px 0 4px}
+.cheat-grid .pixel-button{flex-direction:column;align-items:flex-start;gap:3px;min-height:52px;padding:9px 12px;font-size:12px;text-align:left}
+.cheat-grid .pixel-button small{font-size:9px;font-weight:400;opacity:.72}
+.dev-row strong{color:#f0c98a}
+@media(max-width:760px){.cheat-grid{grid-template-columns:1fr}}

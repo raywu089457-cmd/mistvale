@@ -349,8 +349,8 @@ export function createGame(saved = null) {
     }
     return teams;
   };
-  function newWanderer() {
-    const c = CLASSES[Math.floor(random() * CLASSES.length)], roll = random();
+  function newWanderer(classId = null) {
+    const c = CLASSES.find(v => v.id === classId) || CLASSES[Math.floor(random() * CLASSES.length)], roll = random();
     const rarity = roll < 0.6 ? 'normal' : roll < 0.9 ? 'rare' : 'superior';
     const region = REGIONS[1 + Math.floor(random() * Math.max(1, REGIONS.length - 1))] || REGIONS[1];
     const p = safePoint({ x: region.x - 4 + random() * 8, z: region.z - 4 + random() * 8 });
@@ -978,11 +978,13 @@ export function createGame(saved = null) {
     rebuildNavigation();
     state.visitors = [];
     state.arena = { active: false, wins: 0, losses: 0, enemyHp: 0, enemyMaxHp: 0, time: 0, hunterIds: [], cooldown: 0, phase: '待命', attackTimer: 1, opponent: '暮林訓練隊', reward: 0 };
-    for (let i = 0; i < 5; i++) newHunter(CLASSES[i % CLASSES.length].id, {x:CAMP.x+i*.6-1.2,z:CAMP.z+i*.2}, i);
+    // 2026-10-28:開局每個職業各一隻(職業數變動時自動跟著長)
+    CLASSES.forEach((c, i) => newHunter(c.id, {x:CAMP.x+i*.55-1.6,z:CAMP.z+Math.sin(i)*.35}, i));
     for (let i = 0; i < 3; i++) state.visitors.push(newVisitor());
     offerNewClass();
     // 流浪英雄的職業由 newWanderer 從 CLASSES 擲骰(祭司已是正式職業,不再固定塞一位流浪祭司)。
-    state.wanderers = []; for (let i = 0; i < 4; i++) state.wanderers.push(newWanderer());
+    // 2026-10-28:流浪英雄也改成每個職業各一隻(沒指定職業時仍隨機)
+    state.wanderers = []; for (const c of CLASSES) state.wanderers.push(newWanderer(c.id));
     state.wanderKills = 0;
     for (let i = 0; i < 10; i++) { const m = mixOf('meadow'); spawn(m[Math.floor(random() * m.length)], null, 'meadow'); }  // 開局草原就有 10 隻
     // 其他狩獵區各 5 隻;*不*預先下載牠們的 sheet(21 隻要 5.6 MB)——真的畫到或進區時才載。
@@ -1373,6 +1375,44 @@ export function createGame(saved = null) {
     pilotStop() { const p = state.pilot; if (!p) return result(false, '目前沒有在操控角色。'); state.pilot = null; const h = state.hunters.find(q => q.id === p.id); if (h) { h.task = null; h.status = '待命'; idleInTown(h); } return result(true, '結束手動操控。'); },
     pilotState() { const p = state.pilot; if (!p) return null; const h = state.hunters.find(q => q.id === p.id); return h ? { id: h.id, x: h.x, z: h.z, hp: h.hp, faceX: p.faceX, faceZ: p.faceZ, atkAt: h.atkAt, atkX: h.atkX, atkZ: h.atkZ } : null; },
     setSetting(key, value) { state.settings = normalizeSettings({ ...state.settings, [key]: value }); return { ...state.settings }; },
-    reset() { fresh(); return result(true, '新村莊已建立，五位獵人準備出發。'); },
+    reset() { fresh(); return result(true, '新村莊已建立，各職業獵人準備出發。'); },
+    // ── 開發者作弊（設定頁的「開發者作弊」區塊呼叫；只動玩家存檔，不影響模擬規則） ──
+    cheat(name) {
+      const s2 = state;
+      switch (name) {
+        case 'resources':
+          s2.gold += 10000; s2.gems += 100;
+          for (const k of Object.keys(s2.materials || {})) s2.materials[k] = (s2.materials[k] || 0) + 500;
+          for (const k of Object.keys(s2.stocks || {})) s2.stocks[k] = (s2.stocks[k] || 0) + 50;
+          Object.keys(MATERIAL_KEYS).forEach(k => { s2[k] = (s2[k] || 0) + 500; });
+          return result(true, '金幣 +10,000、星晶 +100、素材／物資各 +500');
+        case 'levels':
+          for (const h of [...s2.hunters, ...(s2.wanderers || [])]) { h.level = Math.min(100, h.level + 10); h.xp = 0; updateStats(h); h.hp = h.maxHp; }
+          return result(true, '所有獵人／流浪英雄 +10 級（上限 100）');
+        case 'buildings':
+          for (const b of BUILDINGS) s2.buildings[b.id] = Math.max(5, s2.buildings[b.id] || 0);
+          return result(true, '所有建築解鎖並升到 Lv.5');
+        case 'quest':
+          if (!s2.quest) return result(false, '目前沒有委託');
+          s2.quest.progress = s2.quest.target; s2.quest.complete = true;
+          return result(true, '當前委託已完成，可以領取獎勵');
+        case 'heal':
+          for (const h of [...s2.hunters, ...(s2.wanderers || [])]) { h.hp = h.maxHp; h.reviveTimer = 0; if (h.status === '復活中' || h.status === '倒下') h.status = '待機'; }
+          return result(true, '所有獵人／流浪英雄回滿血並復活');
+        case 'clear':
+          { const before = s2.enemies.filter(e => e.type !== 'boss').length;
+            s2.enemies = s2.enemies.filter(e => e.type === 'boss');
+            return result(true, `清空場上 ${before} 隻魔物`); }
+        case 'wanderer':
+          { const have = new Set((s2.wanderers || []).map(w => w.classId));
+            const pick = CLASSES.find(c => !have.has(c.id)) || CLASSES[Math.floor(random() * CLASSES.length)];
+            s2.wanderers.push(newWanderer(pick.id));
+            return result(true, `多一位流浪英雄：${pick.name}`); }
+        case 'all':
+          { const out = ['resources', 'levels', 'buildings', 'quest', 'heal'].map(k => this.cheat(k).message);
+            return result(true, '一次套用：' + out.join('／')); }
+        default: return result(false, '未知的作弊指令');
+      }
+    },
   };
 }

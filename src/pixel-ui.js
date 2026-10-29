@@ -80,6 +80,18 @@ function modalHTML(type){const s=game.state;
    <div class="setting-row"><div><strong>夜晚變暗</strong><small>入夜後畫面轉成藍色調。關掉可少一層覆蓋。</small></div>${seg('night',[[1,'開'],[0,'關']],o.night===false?0:1)}</div></div>`:''}
    <div class="setting-row"><div><strong>手動操控</strong><small>自己下去玩：手機是左下搖桿走路、右下大顆按鈕出手，鏡頭一直把角色固定在畫面中央；電腦用 WASD／方向鍵移動、空白鍵或 J 出手。</small></div><button class="pixel-button gold" data-action="pilotLab">選擇角色</button></div>
    <div class="setting-row"><div><strong>動作實驗室</strong><small>直接挑一個職業，播放遊戲裡所有動作（待機、走路、攻擊、技能、受傷、倒地、勝利…），可逐格看。</small></div><button class="pixel-button gold" data-action="poseLab">打開</button></div>
+   <div class="setting-row dev-row"><div><strong>開發者作弊</strong><small>只在設定頁出現，直接改存檔（不影響模擬規則）。測試數值、跳過等待、驗收畫面時用。</small></div><button class="pixel-button ${devOpen?'gold':''}" data-action="toggleDev">${devOpen?'收起':'打開'}</button></div>
+   ${devOpen?`<div class="setting-group dev-group"><p class="setting-note">⚠ 會直接改目前存檔。想保留原本進度，先用下面的「匯出存檔」備份。</p>
+   <div class="cheat-grid">
+     <button class="pixel-button" data-action="cheat" data-id="resources">資源滿載<small>金幣／星晶／素材 +500</small></button>
+     <button class="pixel-button" data-action="cheat" data-id="levels">全員 +10 級<small>上限 Lv.100，順便回滿血</small></button>
+     <button class="pixel-button" data-action="cheat" data-id="buildings">建築全 Lv.5<small>包含未建造的設施</small></button>
+     <button class="pixel-button" data-action="cheat" data-id="quest">完成當前委託<small>可直接領獎勵</small></button>
+     <button class="pixel-button" data-action="cheat" data-id="heal">全員回血復活<small>含流浪英雄</small></button>
+     <button class="pixel-button" data-action="cheat" data-id="clear">清空場上魔物<small>首領保留</small></button>
+     <button class="pixel-button" data-action="cheat" data-id="wanderer">多一位流浪英雄<small>優先補缺少的職業</small></button>
+     <button class="pixel-button gold" data-action="cheat" data-id="all">以上全部<small>一次套用</small></button>
+   </div></div>`:''}
    <div class="setting-row"><div><strong>匯出存檔</strong><small>將整個村莊、獵人、地下城進度備份成 JSON。</small></div><button class="pixel-button gold" data-action="export">匯出</button></div>
    <div class="setting-row"><div><strong>重新開始</strong><small>清除目前存檔並從五位初始獵人開始。</small></div><button class="pixel-button danger" data-action="reset">重置</button></div>`;}
  if(type==='help')return `<div class="help-grid"><div class="help-card"><h3>怎麼操作？</h3><p>${matchMedia('(pointer:coarse)').matches?'單指拖曳平移、雙指縮放':'拖曳平移、滾輪縮放'}；點建築看資訊與升級，點獵人看詳情。下方選單是村莊各項功能。</p></div><div class="help-card"><h3>村長要做什麼？</h3><p>重建被魔王摧毀的城鎮，建造餐廳、旅館、酒館、治療所與鐵匠鋪，服務獵人的生活需求。</p></div><div class="help-card"><h3>獵人怎麼生活？</h3><p>獵人有自己的金幣、飽食度、心情與精力。他們會狩獵、帶回材料、回村交易，再支付費用吃飯、休息和治療。</p></div><div class="help-card"><h3>怎麼變強？</h3><p>在學院學技能、修煉地訓練、鐵匠鋪購買武器，再到強化精煉所強化。Lv.100 後可到復活聖所轉世。</p></div><div class="help-card"><h3>村外內容</h3><p>委託所追蹤魔物目標，地下城三人遠征，地圖首領討伐，以及修煉地開放的 NPC 競技場模擬對戰。</p></div></div>`;
@@ -138,12 +150,15 @@ function doAction(el){const a=el.dataset.action,id=el.dataset.id;let r;
  if(a==='craftGear'){r=game.craftEquipment(id);logToast(r.message,r.ok);paint();save();return;}
  if(a==='pilotLab'){closeModal();pilotOpen=true;pickOpen=false;pilotPaint();return;}
  if(a==='poseLab'){closeModal();poseLab.playing=false;clearTimeout(poseLab.timer);poseLabPaint();return;}
+ if(a==='toggleDev'){devOpen=!devOpen;return openModal('settings');}
+ if(a==='cheat'){const r2=game.cheat(id);logToast(r2.message,r2.ok);save();paint();openModal('settings');return;}
  if(a==='setOpt'){const key=el.dataset.key,raw=el.dataset.value,val=key==='fps'?Number(raw):key==='shadows'||key==='night'?raw==='1':raw;game.setSetting(key,val);applySettings();save();openModal('settings');paint();logToast('已套用：'+({quality:'畫質',dpr:'解析度',fps:'幀率',shadows:'動態影子',night:'夜晚變暗'}[key]||key));return;}if(a==='reset'){if(confirm('確定要重置村莊嗎？')){game.reset();applySettings();started=true;paint(true);logToast('五位獵人重新抵達暮影村。');}return;}
  if(a==='export'){const blob=new Blob([JSON.stringify(game.serialize())],{type:'application/json'}),u=URL.createObjectURL(blob),link=document.createElement('a');link.href=u;link.download='暮影村-像素存檔.json';link.click();setTimeout(()=>URL.revokeObjectURL(u),500);return;}
 }
 // 把 state.settings 套到畫面:畫質、解析度上限、影子、夜晚、幀率
 // ── 動作實驗室:浮動面板,直接在任何畫面上播某個職業的動作(不影響模擬) ──
 let poseLab={cls:'berserker',act:'idle',i:0,playing:false,timer:0};
+let devOpen=false;   // 設定頁「開發者作弊」是否展開
 let poseLabEl=null;
 function poseLabFrame(){const info=world?.__mistvalePoseLab?.info?.(poseLab.cls)||globalThis.__mistvalePoseLab?.info?.(poseLab.cls);return info?info.actions[poseLab.act]?.frames||1:1;}
 function poseLabApply(){const api=globalThis.__mistvalePoseLab;if(!api)return;api.set({classId:poseLab.cls,act:poseLab.act,i:poseLab.i,facing:1});}

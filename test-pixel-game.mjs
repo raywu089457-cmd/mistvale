@@ -30,7 +30,7 @@ function assertFiniteEconomy(s) {
 }
 
 const g = createGame();
-assert.equal(g.state.version, 2); assert.equal(g.state.hunters.length, 5); assert.equal(new Set(g.state.hunters.map(h => h.classId)).size, Math.min(5, CLASSES.length));   // 2026-10-24 遊俠併入弓箭手、移除獵魔人:剩 4 職業,開局 5 人每個職業都有
+assert.equal(g.state.version, 2); assert.equal(g.state.hunters.length, CLASSES.length); assert.equal(new Set(g.state.hunters.map(h => h.classId)).size, CLASSES.length);   // 2026-10-28 使用者:開局預設各職業一隻
 assert.equal(g.state.gold, 1500); assert.equal(g.state.capacity, 8); assert.equal(g.state.visitors.length, 3);
 assert.ok(g.state.hunters.every(h => h.gold === 100 && h.level >= 3 && h.level <= 5));
 assert.equal(g.recruit('__proto__').ok, false); assert.equal(g.recruit('missing').ok, false);
@@ -49,25 +49,30 @@ assert.equal(g.setTradeRequest('ore', -1).ok, false); assert.equal(g.setTradeReq
   const PRIEST = CLASSES.find(c => c.id === 'priest');
   assert.ok(PRIEST && PRIEST.range > 3, 'priest is a ranged recruitable class');
   const pg = createGame();
-  assert.ok(!pg.state.hunters.some(h => h.classId === 'priest'), 'the opening party keeps the first five classes');
-  assert.deepEqual([pg.state.visitors[0].classId, pg.state.visitors[0].rarity], ['priest', 'rare'], 'the new class is offered first');
+  // 2026-10-28 使用者改規則:開局每個職業各一隻(祭司也在裡面)、流浪英雄也各一隻
+  assert.equal(pg.state.hunters.length, CLASSES.length, 'the opening party has one hero per class');
+  assert.deepEqual(pg.state.hunters.map(h => h.classId), CLASSES.map(c => c.id), 'opening party follows the class list order');
+  assert.deepEqual(pg.state.wanderers.map(w => w.classId), CLASSES.map(c => c.id), 'wanderers cover every class too');
+  assert.ok(!pg.state.visitors.some(v => v.classId === 'priest' && v.rarity === 'rare' && v.trait === 'brave' && v.cost === Math.round(PRIEST.cost * RARITY.rare.mult)), 'a class you already own is not force-offered');
   const pv = { ...pg.state.visitors[0] }; assert.equal(pg.recruit(pv.id).ok, true);
-  const ph = pg.state.hunters.at(-1); assert.equal(ph.classId, 'priest'); assert.equal(ph.range, PRIEST.range);
-  assert.ok(!pg.state.visitors.some(v => v.classId === 'priest' && v.rarity === 'rare' && v.trait === 'brave' && v.id === pv.id), 'the recruited visitor leaves the board');
+  const ph = pg.state.hunters.at(-1); assert.equal(ph.classId, pv.classId, 'the recruited visitor joins with its own class');
+  assert.ok(!pg.state.visitors.some(v => v.id === pv.id), 'the recruited visitor leaves the board');
   assert.equal(pg.recruit('priest').ok, true, 'priest can also be hired by class id'); assert.equal(pg.state.hunters.at(-1).classId, 'priest');
-  ph.level = 12; pg.state.hunters.at(-1).level = 7;
-  const pgLoad = createGame(pg.serialize()), lp = pgLoad.state.hunters.find(h => h.id === ph.id);
+  const ph2 = pg.state.hunters.at(-1); ph2.level = 12;
+  const pgLoad = createGame(pg.serialize()), lp = pgLoad.state.hunters.find(h => h.id === ph2.id);
   assert.ok(lp && lp.classId === 'priest' && lp.level === 12 && lp.range === PRIEST.range, 'a recruited priest survives save/load');
-  assert.equal(pgLoad.state.hunters.filter(h => h.classId === 'priest').length, 2);
+  assert.equal(pgLoad.state.hunters.length, CLASSES.length + 2);
   assert.deepEqual(pgLoad.state.visitors.map(v => v.classId), pg.state.visitors.map(v => v.classId), 'owning a priest stops the forced offer');
   // 舊存檔:訪客裡沒有祭司、流浪英雄裡有一位舊版近戰射程(1.75)的固定流浪祭司
   const old = createGame().serialize();
+  // 模擬「改版前」的存檔:隊伍裡還沒有祭司(新版開局已經每個職業一隻)
+  old.hunters = old.hunters.filter(h => h.classId !== 'priest');
   old.visitors = old.visitors.map(v => ({ ...v, classId: 'berserker' })); old.wanderers[0] = { ...old.wanderers[0], classId: 'priest', range: 1.75 };
   const migrated = createGame(old);
   assert.equal(migrated.state.visitors[0].classId, 'priest', 'old saves get the priest offered on load');
   assert.equal(migrated.state.wanderers[0].classId, 'priest'); assert.equal(migrated.state.wanderers[0].range, PRIEST.range, 'the old melee wandering priest becomes ranged');
   // 野外 AI:祭司站在射程內遠遠出手(聖光球),不會走到近戰距離才打;普攻間隔 1.4 秒(快手 ×0.9)
-  const pc = createGame(); pc.recruit(pc.state.visitors[0].id); const pr = pc.state.hunters.at(-1); pc.state.hunters = [pr];
+  const pc = createGame(); pc.recruit('priest'); const pr = pc.state.hunters.at(-1); pc.state.hunters = [pr];   // 直接指定職業招募（開局已經有祭司，訪客第一位不再是祭司）
   pr.satiety = pr.mood = pr.stamina = 100; pr.hp = pr.maxHp;
   assert.equal(pc.exploreRegion('meadow').ok, true);
   const shots = [], timers = []; let lastAt = null;
@@ -226,7 +231,7 @@ run(bad, 30, false, assertFiniteEconomy); assert.equal(createGame('{oops').state
 const paused = createGame(); paused.state.paused = true; const beforePause = JSON.stringify(paused.serialize()); paused.tick(10); assert.equal(JSON.stringify(paused.serialize()), beforePause);
 paused.state.paused = false; paused.state.speed = 2; paused.tick(2); assert.ok(Math.abs(paused.state.time - 4) < 1e-8); paused.tick(NaN); paused.tick(-1); assert.ok(Math.abs(paused.state.time - 4) < 1e-8);
 const deterministicA = createGame(), deterministicB = createGame(); run(deterministicA, 90); run(deterministicB, 90); assert.deepEqual(deterministicA.serialize(), deterministicB.serialize());
-const sameObject = loaded.state; loaded.reset(); assert.equal(loaded.state, sameObject); assert.equal(loaded.state.gold, 1500); assert.equal(loaded.state.hunters.length, 5);
+const sameObject = loaded.state; loaded.reset(); assert.equal(loaded.state, sameObject); assert.equal(loaded.state.gold, 1500); assert.equal(loaded.state.hunters.length, CLASSES.length);
 
 const quests = createGame(); quests.recruit(CLASSES[0].id); assert.equal(quests.claimQuest().ok, true); quests.craft('food', 2); assert.equal(quests.claimQuest().ok, true);
 quests.state.counts.traded = 10; assert.equal(quests.claimQuest().ok, true); quests.upgrade('forge'); assert.equal(quests.claimQuest().ok, true); quests.craftEquipment('weapon'); assert.equal(quests.claimQuest().ok, true);
@@ -491,5 +496,5 @@ assert.ok(Math.hypot(ah.x - lx, ah.z - lz) > 0.1, 'AI hunter walks again once th
 }
 run(manual, 30, false, assertFiniteEconomy);
 
-console.log(`PASS: 5 hunters / ${CLASSES.length} classes, seeded visitors, conservation of personal and village gold, paid and emergency services, bounded trading, crafting and gear purchases, upgrades, training, skills, rebirth, difficulty gates, hunting, field boss, death/revival, dungeon combat and save continuation, NPC arena, navigation, malformed saves, pause, deterministic simulation, all 8 quests. Natural 60s: ${combat.state.totalKills} total kills; ${combat.state.counts.services} services.`);
+console.log(`PASS: ${CLASSES.length} hunters / ${CLASSES.length} classes, seeded visitors, conservation of personal and village gold, paid and emergency services, bounded trading, crafting and gear purchases, upgrades, training, skills, rebirth, difficulty gates, hunting, field boss, death/revival, dungeon combat and save continuation, NPC arena, navigation, malformed saves, pause, deterministic simulation, all 8 quests. Natural 60s: ${combat.state.totalKills} total kills; ${combat.state.counts.services} services.`);
 
