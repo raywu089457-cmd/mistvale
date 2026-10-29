@@ -169,20 +169,20 @@ html,body{background:#1b3554}
 @media(max-width:760px){.setting-group>h3{font-size:11px}.seg{gap:4px;flex-wrap:nowrap}.seg .pixel-button{min-height:26px;padding:6px 6px;font-size:9px;min-width:0}.setting-row{gap:8px}.setting-row>div{min-width:0}}
 
 /* 動作實驗室(設定 → 動作實驗室):浮動面板,不擋住後面的角色 */
-#poselab,#pilotlab{position:fixed;left:50%;bottom:104px;transform:translateX(-50%);z-index:26;width:min(720px,calc(100vw - 24px));
+#pilotlab{position:fixed;left:50%;bottom:104px;transform:translateX(-50%);z-index:26;width:min(720px,calc(100vw - 24px));
  background:#2a1609f2;border:2px solid #b08a3a;box-shadow:0 0 0 2px #140a04,4px 5px #00000055;padding:10px 12px;display:flex;flex-direction:column;gap:8px}
-#poselab .pl-head,#pilotlab .pl-head{display:flex;align-items:center;gap:8px;font-size:11px;color:#f0dcae}
-#poselab .pl-head b,#pilotlab .pl-head b{font-size:13px;color:#ffd98a;letter-spacing:1px}
-#poselab .pl-head span,#pilotlab .pl-head span{flex:1;color:#cbb894}
-#poselab .pl-head .pixel-button,#pilotlab .pl-head .pixel-button{min-height:26px;padding:5px 10px;font-size:10px}
-#poselab .pl-row,#pilotlab .pl-row{display:flex;flex-wrap:wrap;gap:5px;align-items:center}
-#poselab .pixel-button,#pilotlab .pixel-button{min-height:24px;padding:4px 8px;font-size:9px}
-#poselab .pl-frame{gap:10px}
+#pilotlab .pl-head{display:flex;align-items:center;gap:8px;font-size:11px;color:#f0dcae}
+#pilotlab .pl-head b{font-size:13px;color:#ffd98a;letter-spacing:1px}
+#pilotlab .pl-head span{flex:1;color:#cbb894}
+#pilotlab .pl-head .pixel-button{min-height:26px;padding:5px 10px;font-size:10px}
+#pilotlab .pl-row{display:flex;flex-wrap:wrap;gap:5px;align-items:center}
+#pilotlab .pixel-button{min-height:24px;padding:4px 8px;font-size:9px}
+
 #pilotlab .pl-pad{gap:8px}#pilotlab .pl-pad .pixel-button{min-width:44px;font-size:13px}#pilotlab .pl-pad small{color:#cbb894;font-size:9px}
 #pilotlab{bottom:120px}
-#poselab .pl-frame input{flex:1;accent-color:#d4b062}
-#poselab .pl-frame b{font:11px Consolas;color:#ffd98a}
-@media(max-width:760px){#poselab,#pilotlab{bottom:150px;padding:8px;gap:6px}#poselab .pixel-button,#pilotlab .pixel-button{font-size:8px;padding:4px 6px}}
+
+
+@media(max-width:760px){#pilotlab{bottom:150px;padding:8px;gap:6px}#pilotlab .pixel-button{font-size:8px;padding:4px 6px}}
 
 /* ── 手動操控:手機遊戲式(左下類比搖桿 + 右下動作鈕),角色本體固定在畫面正中央 ──
    進入操控時把一般遊戲 HUD 收起來,畫面只剩搖桿、攻擊鈕與一條狀態列,手指不會擋住角色。 */
@@ -721,3 +721,127 @@ body.piloting #toasts{top:calc(98px + env(safe-area-inset-top))}
 .cheat-grid .pixel-button small{font-size:9px;font-weight:400;opacity:.72}
 .dev-row strong{color:#f0c98a}
 @media(max-width:760px){.cheat-grid{grid-template-columns:1fr}}
+
+/* ===== 2026-10-29(2)：拿掉村莊／狩獵區鍵、治癒鍵、動作實驗室之後的版面；左上委託面板收合／展開 ===== */
+/* 桌機：主世界地圖鍵補到原本村莊／狩獵區那一格；建築資訊放到地圖鍵下面（以前會把右上的鍵蓋住） */
+@media(min-width:761px) and (min-height:521px){
+  .world-map-trigger{top:91px}
+  /* 建築資訊高約 460px：底部要停在右下那排（縮放＋召喚首領）上面 → 縮放鍵改成橫排、跟召喚首領同一列，右邊整欄留給建築資訊 */
+  #inspector{top:155px;max-height:calc(100vh - 340px);max-height:calc(100dvh - 340px);overflow:auto}
+  .view-tools{flex-direction:row;right:104px;bottom:111px;gap:6px;align-items:flex-end}
+  /* 左上面板：三塊（委託／生活物資／獵人動態）疊在一起 → 用細框、加寬，品名不再被擠成兩行（「香烤麵／包」） */
+  #left-panel{width:240px}
+  #left-panel .game-panel{border-width:16px;border-image:var(--ui-px-card) 16 stretch;background:#2a1c12 padding-box}
+  .stock-item{min-height:32px}                 /* 品名不再換行後一列只剩 28px → 補到 32 */
+  .notice-feed{left:268px}                     /* 左下訊息讓開加寬後的委託面板（17＋240） */
+  #toasts{top:128px}                           /* 提示放在區域徽章（89–120）下面，不要蓋住它 */
+}
+@media(min-width:761px) and (min-height:521px) and (max-height:780px){
+  .view-tools{bottom:104px}
+  /* 矮螢幕建築資訊改成跟手機一樣的兩欄（圖在左、說明在右、兩顆按鈕並排），升級鍵不會被擠到要捲才看得到 */
+  #inspector{width:300px}
+  #inspector .panel-body{display:grid;grid-template-columns:88px 1fr;gap:6px 10px;padding:10px}
+  .inspect-art{height:76px;grid-row:span 2;margin:0}.inspect-art img{height:74px;width:86px}
+  .inspect-level{margin:0;text-align:left;align-self:end}.inspect-desc{align-self:start}
+  .inspect-effect{grid-column:span 2;margin:2px 0}
+  .inspect-actions{grid-column:span 2;grid-template-columns:1fr 1fr;margin:0;gap:6px}.inspect-actions .cost{grid-column:span 2}
+}
+/* 面板標題上的小鍵（委託「−」、生活物資「＋」、獵人動態「☷」）：原本是 22px 的裸字 → 木方塊，桌機 32px、手機 36px */
+.panel-title>button:not([data-action=closeInspector]):not([data-action=close]){border:6px solid transparent;border-image:var(--ui-px-tile) 18 fill stretch;background:none;
+  box-shadow:none;color:#f6e3b0;text-shadow:0 1px #1d120a;padding:0;display:grid;place-items:center;font-size:16px;line-height:1}
+.panel-title>button:not([data-action=closeInspector]):not([data-action=close]):hover{filter:brightness(1.12)}
+@media(min-width:761px) and (min-height:521px){.panel-title>button:not([data-action=closeInspector]):not([data-action=close]){width:32px;height:32px;margin:-5px -4px -5px auto}}
+/* 手機直向：右上那排少了兩顆鍵 → 委託面板直接從捲軸鍵的位置展開（以前往下讓 50px 留一塊空白）；寬度讓開右上的地圖鍵 */
+@media(max-width:760px) and (min-height:521px){
+  #left-panel{top:calc(var(--tb) + 6px);width:min(230px,calc(100vw - 164px))}
+}
+/* 展開：從左上角（捲軸鍵的位置）長出來；收起後捲軸鍵淡入。系統設定「減少動態」就不播 */
+@keyframes mvPanelIn{from{opacity:0;transform:translateY(-4px) scale(.96)}to{opacity:1;transform:none}}
+#left-panel:not(.hidden){animation:mvPanelIn .16s ease-out;transform-origin:0 0}
+.reopen-left:not(.hidden){animation:mvPanelIn .14s ease-out;transform-origin:0 0}
+@media(prefers-reduced-motion:reduce){#left-panel:not(.hidden),.reopen-left:not(.hidden){animation:none}}
+
+/* ===== 2026-10-29(3)：第二批 Pixen 素材（帳號 2）— 圖示、徽章、讀取背景、橫幅，與各子介面 ===== */
+/* 圖示：32px Pixen 圖示（assets/ui/px-ic-*.png）取代 16px 程式畫的；舊檔留著 */
+[data-icon="hammer"]{background-image:var(--ui-px-ic-hammer)}[data-icon="anvil"]{background-image:var(--ui-px-ic-anvil)}[data-icon="dungeon"]{background-image:var(--ui-px-ic-dungeon)}[data-icon="swords"]{background-image:var(--ui-px-ic-swords)}[data-icon="scroll"]{background-image:var(--ui-px-ic-scroll)}[data-icon="map"]{background-image:var(--ui-px-ic-map)}
+[data-icon="gold"]{background-image:var(--ui-px-ic-gold)}[data-icon="gems"]{background-image:var(--ui-px-ic-gems)}[data-icon="wood"]{background-image:var(--ui-px-ic-wood)}[data-icon="ore"]{background-image:var(--ui-px-ic-ore)}[data-icon="gear"]{background-image:var(--ui-px-ic-gear)}[data-icon="skull"]{background-image:var(--ui-px-ic-skull)}
+[data-icon="horn"]{background-image:var(--ui-px-ic-horn)}[data-icon="hall"]{background-image:var(--ui-px-ic-hall)}[data-icon="herb"]{background-image:var(--ui-px-ic-herb)}[data-icon="cloth"]{background-image:var(--ui-px-ic-cloth)}[data-icon="flour"]{background-image:var(--ui-px-ic-flour)}[data-icon="leather"]{background-image:var(--ui-px-ic-leather)}
+[data-icon="food"]{background-image:var(--ui-px-ic-food)}[data-icon="drink"]{background-image:var(--ui-px-ic-drink)}[data-icon="bed"]{background-image:var(--ui-px-ic-bed)}[data-icon="bandage"]{background-image:var(--ui-px-ic-bandage)}[data-icon="heal"]{background-image:var(--ui-px-ic-heal)}[data-icon="star"]{background-image:var(--ui-px-ic-star)}
+[data-icon="up"]{background-image:var(--ui-px-ic-up)}[data-icon="plus"]{background-image:var(--ui-px-ic-plus)}[data-icon="close"]{background-image:var(--ui-px-ic-close)}[data-icon="arrow"]{background-image:var(--ui-px-ic-arrow)}[data-icon="boss"]{background-image:var(--ui-px-ic-boss)}[data-icon="bag"]{background-image:var(--ui-px-ic-bag)}
+[data-icon="hunter"]{background-image:var(--ui-px-ic-hunter)}[data-icon="trade"]{background-image:var(--ui-px-ic-trade)}[data-icon="pouch"]{background-image:var(--ui-px-ic-pouch)}[data-icon="population"]{background-image:var(--ui-px-ic-population)}[data-icon="board"]{background-image:var(--ui-px-ic-board)}[data-icon="trophy"]{background-image:var(--ui-px-ic-trophy)}
+[data-icon="potion"]{background-image:var(--ui-px-ic-potion)}[data-icon="lock"]{background-image:var(--ui-px-ic-lock)}[data-icon="check"]{background-image:var(--ui-px-ic-check)}[data-icon="help"]{background-image:var(--ui-px-ic-help)}[data-icon="flag"]{background-image:var(--ui-px-ic-flag)}[data-icon="gift"]{background-image:var(--ui-px-ic-gift)}
+[data-icon="compass"]{background-image:var(--ui-px-ic-compass)}[data-icon="torch"]{background-image:var(--ui-px-ic-torch)}[data-icon="chest"]{background-image:var(--ui-px-ic-chest)}[data-icon="search"]{background-image:var(--ui-px-ic-search)}[data-icon="diff-0"]{background-image:var(--ui-px-ic-diff-0)}[data-icon="diff-1"]{background-image:var(--ui-px-ic-diff-1)}
+[data-icon="diff-2"]{background-image:var(--ui-px-ic-diff-2)}[data-icon="diff-3"]{background-image:var(--ui-px-ic-diff-3)}[data-icon="diff-4"]{background-image:var(--ui-px-ic-diff-4)}[data-icon="hp"]{background-image:var(--ui-px-ic-hp)}[data-icon="satiety"]{background-image:var(--ui-px-ic-satiety)}[data-icon="stamina"]{background-image:var(--ui-px-ic-stamina)}
+[data-icon="mood"]{background-image:var(--ui-px-ic-mood)}[data-icon="atk"]{background-image:var(--ui-px-ic-atk)}[data-icon="def"]{background-image:var(--ui-px-ic-def)}[data-icon="rebirth"]{background-image:var(--ui-px-ic-rebirth)}[data-icon="upgrade"]{background-image:var(--ui-px-ic-upgrade)}[data-icon="quest"]{background-image:var(--ui-px-ic-quest)}
+[data-icon="crown"]{background-image:var(--ui-px-ic-crown)}[data-icon="time"]{background-image:var(--ui-px-ic-time)}[data-icon="settings"]{background-image:var(--ui-px-ic-gear)}[data-icon="weapon"]{background-image:var(--ui-px-ic-swords)}
+/* 徽章：區域 8＋職業 6＋地下城、競技場（64px，assets/ui/px-em-*.png） */
+[data-icon="em-village"]{background-image:var(--ui-px-em-village)}[data-icon="em-meadow"]{background-image:var(--ui-px-em-meadow)}[data-icon="em-birch"]{background-image:var(--ui-px-em-birch)}[data-icon="em-forest"]{background-image:var(--ui-px-em-forest)}
+[data-icon="em-taiga"]{background-image:var(--ui-px-em-taiga)}[data-icon="em-desert"]{background-image:var(--ui-px-em-desert)}[data-icon="em-snow"]{background-image:var(--ui-px-em-snow)}[data-icon="em-mountain"]{background-image:var(--ui-px-em-mountain)}
+[data-icon="em-berserker"]{background-image:var(--ui-px-em-berserker)}[data-icon="em-paladin"]{background-image:var(--ui-px-em-paladin)}[data-icon="em-sorcerer"]{background-image:var(--ui-px-em-sorcerer)}[data-icon="em-archer"]{background-image:var(--ui-px-em-archer)}
+[data-icon="em-assassin"]{background-image:var(--ui-px-em-assassin)}[data-icon="em-priest"]{background-image:var(--ui-px-em-priest)}[data-icon="em-dungeon"]{background-image:var(--ui-px-em-dungeon)}[data-icon="em-arena"]{background-image:var(--ui-px-em-arena)}
+
+/* 讀取畫面：村莊黃昏插圖當背景（變數在 JS 初始化後才有 → 先用底色，圖出來再補上），中間暗一點讓讀取條好讀 */
+#loading{background-color:#1a100a;background-image:var(--ui-px-loading-bg,none);background-size:cover;background-position:center 40%;background-repeat:no-repeat;image-rendering:pixelated}
+#loading::before{content:'';position:absolute;inset:0;pointer-events:none;
+  background:radial-gradient(ellipse at 50% 52%,#120a0599 0,#120a0540 38%,#0000 60%),linear-gradient(#120a0533,#0000 30%,#0000 62%,#120a05e6)}
+#loading .loading-plate{position:relative;z-index:1;padding:14px 22px 10px;border:14px solid transparent;background:#1d120ae0;border-image:var(--ui-px-toast,none) 14 fill stretch;box-shadow:0 8px 24px #000a}   /* 插圖很花，字和讀取條放在木牌上才看得清楚（讀取條本身不變） */
+#loading .loading-title{font-size:18px;color:#f6e3b0;text-shadow:0 2px #000}
+#loading #loading-label{font-size:12px;color:#e9d6a8}
+/* 地下城／競技場：標題區是插圖橫幅，字在左側暗處 */
+.encounter-banner.dungeon,.encounter-banner.arena{position:relative;min-height:132px;align-items:flex-end;padding:18px 20px;background-size:cover;background-position:center;
+  image-rendering:pixelated;border:3px solid #1d120a;box-shadow:inset 0 0 0 1px #c9a45e99,0 3px 10px #0007}
+.encounter-banner.dungeon{background-image:linear-gradient(90deg,#0d0805f2 0,#0d0805c8 42%,#0d080522 78%,#0d080500),var(--ui-px-banner-dungeon)}
+.encounter-banner.arena{background-image:linear-gradient(90deg,#1a0f07f2 0,#1a0f07c8 42%,#1a0f0722 78%,#1a0f0700),var(--ui-px-banner-arena)}
+.encounter-banner.dungeon>i,.encounter-banner.arena>i{display:none}
+.encounter-banner.dungeon h3,.encounter-banner.arena h3{text-shadow:0 2px #000}
+.encounter-banner.dungeon p,.encounter-banner.arena p{max-width:58%;text-shadow:0 1px #000;color:#f0dfb8}
+@media(max-width:760px),(max-height:520px){.encounter-banner.dungeon p,.encounter-banner.arena p{max-width:none}}
+/* 主世界地圖：地圖加木框；區域卡左邊放區域徽章 */
+#world-map-canvas{border:12px solid transparent;border-image:var(--ui-px-card) 16 stretch;box-shadow:0 4px 12px #0008}
+.region-card .region-emblem{float:left;width:46px;height:46px;min-width:0;min-height:0;margin:0 10px 4px 0;image-rendering:pixelated}   /* 要比 i[data-icon]{22px} 優先 */
+.region-card h3,.region-card small{overflow:hidden}
+/* 上方區域徽章前面放目前區域的小徽章 */
+#region-badge::before{content:'';display:inline-block;width:18px;height:18px;margin-right:6px;vertical-align:-4px;background:center/contain no-repeat;image-rendering:pixelated}
+body[data-region="village"] #region-badge::before{background-image:var(--ui-px-em-village)}body[data-region="meadow"] #region-badge::before{background-image:var(--ui-px-em-meadow)}
+body[data-region="birch"] #region-badge::before{background-image:var(--ui-px-em-birch)}body[data-region="forest"] #region-badge::before{background-image:var(--ui-px-em-forest)}
+body[data-region="taiga"] #region-badge::before{background-image:var(--ui-px-em-taiga)}body[data-region="desert"] #region-badge::before{background-image:var(--ui-px-em-desert)}
+body[data-region="snow"] #region-badge::before{background-image:var(--ui-px-em-snow)}body[data-region="mountain"] #region-badge::before{background-image:var(--ui-px-em-mountain)}
+
+/* 難度：目前難度的卡片發光、按鈕維持金色（以前是停用的灰框）；圖示 40px */
+.difficulty-card i [data-icon]{width:40px;height:40px}
+.difficulty-card.current{box-shadow:0 0 0 2px #e7be5e,0 0 14px #e7be5e66}
+.difficulty-card .pixel-button.gold:disabled{filter:none;opacity:1;color:#3a2a11;cursor:default}
+/* 獵人卡右上角職業徽章；獵人詳情的職業徽章、數值與需求圖示 */
+.hunter-card .class-emblem{position:absolute;top:6px;right:6px;width:26px;height:26px;min-width:0;min-height:0;image-rendering:pixelated}
+.detail-header strong .inline-icon[data-icon]{width:24px;height:24px;margin-right:6px;vertical-align:-6px}
+.stats-grid .inline-icon[data-icon],.need-row .inline-icon[data-icon]{width:16px;height:16px;min-width:16px;min-height:16px;margin-right:4px;vertical-align:-3px}
+.need-row label{width:auto;min-width:58px;display:flex;align-items:center}
+/* 手動操控面板：跟其他面板同一套木框 */
+#pilotlab{border:16px solid transparent;border-image:var(--ui-px-window) 22 stretch;background:#2a1c12 padding-box;box-shadow:0 6px 18px #0009}
+@media(max-width:760px),(max-height:520px){#pilotlab{border-width:12px}}
+/* 操控面板加了木框變高 → 操控中的提示往下讓（桌機多 32px、手機多 24px） */
+body.piloting #toasts{top:calc(132px + env(safe-area-inset-top))}
+@media(max-width:760px),(max-height:520px){body.piloting #toasts{top:calc(130px + env(safe-area-inset-top))}}
+
+/* 圖示大小：Pixen 圖示是 32px，原本 24px 的下方選單看起來太小太暗 → 桌機 28px；資源欄 22px；村莊徽章換新圖示 */
+.town-badge>i[data-icon]{background-image:var(--ui-px-ic-hall)}
+@media(min-width:761px) and (min-height:521px){#bottom-bar [data-icon]{flex:0 0 28px;width:28px;height:28px}.treasury [data-icon]{flex:0 0 22px;width:22px;height:22px}}
+
+/* ===== 2026-10-30 地下城橫條戰鬥畫面 ===== */
+.dungeon-strip{display:block;width:100%;aspect-ratio:12/5;max-height:300px;margin:8px 0 6px;background:#1a100a;border:12px solid transparent;border-image:var(--ui-px-card) 16 stretch;image-rendering:pixelated;box-sizing:border-box}
+.dungeon-controls{display:flex;flex-wrap:wrap;align-items:center;justify-content:space-between;gap:8px;margin:6px 0 10px}
+.dungeon-controls .floor-pick{display:flex;align-items:center;gap:6px}
+.dungeon-controls .floor-pick span{color:#e9d6a8;font-size:12px}
+.dungeon-controls .floor-pick b{min-width:64px;text-align:center;color:#f6e3b0}
+.dungeon-controls .floor-pick .pixel-button{min-width:36px;padding-left:8px;padding-right:8px}
+.dungeon-controls [data-action=dgAuto] [data-icon]{width:16px;height:16px;margin-right:4px;vertical-align:-3px}
+@media(max-width:760px),(max-height:520px){.dungeon-strip{aspect-ratio:2/1;border-width:8px}.dungeon-controls{justify-content:center}}
+
+/* ===== 2026-10-30 離線收益 ===== */
+.offline-calc{position:fixed;left:50%;top:42%;transform:translate(-50%,-50%);z-index:60;padding:14px 26px 10px;border:14px solid transparent;border-image:var(--ui-px-toast,none) 14 fill stretch;background:#1d120ae0;color:#f6e3b0;text-align:center;box-shadow:0 8px 24px #000a}
+.offline-calc b{display:block;font-size:15px}.offline-calc small{color:#e9d6a8}
+.offline-kills{display:flex;align-items:center;gap:8px;margin:4px 0 10px;color:#f6e3b0}
+.offline-kills [data-icon]{width:22px;height:22px}
+.offline-h{margin:12px 0 6px;color:#f6e3b0;font-size:13px}
+.offline-levels{margin:0;padding-left:18px;color:#e9d6a8;columns:2;font-size:12px}
+@media(max-width:760px){.offline-levels{columns:1}}

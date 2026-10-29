@@ -1,10 +1,11 @@
 import {getRoads,roadStyle,onRoad,PALISADE,villagePonds as pondsOf,doorFoot} from './landscape-layout.js';
 import {RING_ROAD,onRingRoad} from './overworld.js';
-import { BUILDINGS, CLASSES, RARITIES } from './pixel-data.js';
+import { BUILDINGS, CLASSES, RARITIES, MONSTER_RANGED, MSHOT_IMPACT } from './pixel-data.js';
 import {WORLD,REGIONS,biomeAt,BIOME_PALETTE,inVillage} from './overworld.js';
 import {conceptGroundAt} from './concept-ground.js';
 import {TILE,GRID,STREET_X,STREET_Z,VILLAGE_BOUNDS,blockAt,blockCenter,EXITS,EXIT_GAP} from './village-grid.js';
 import {trackImage,markPhase} from './asset-loading.js';
+import {pickHeroLine} from './hero-chatter.js';
 import {createGLRenderer,tagPattern} from './gl-renderer.js';
 
 // All artwork is rendered to a small integer pixel buffer and enlarged without
@@ -477,10 +478,16 @@ function ensureAtlasManifest(){
 const heroSheets={},HERO_H=21,heroLodUse={ '1x':0, '2x':0 };
 globalThis.__mistvaleHeroLod=()=>({...heroLodUse});  // 使用者決定:新規格英雄在遊戲裡維持原本角色大小(待機身高 21 邏輯單位,跟舊英雄一樣)
 const heroArt=id=>HERO_H/(heroSheets[id]?.meta.heroHeight||72);  // 1 美術像素 = 幾個邏輯單位
+// 2026-10-30 使用者:「所有英雄動畫播放 fps 也相同」→ 走路列一律每格 0.125 秒(8 fps)、照時間播(拿掉祭司走路列
+// 依移動距離推進的 cycle,不然走路動畫的快慢跟著步幅變);倒下列一律 0.1 秒。其他動作各職業本來就一樣
+// (待機 0.16、攻擊／技能 0.075、受擊／勝利 0.1)。改的是執行期 meta,不動 sheet 檔。
+const HERO_FT={walk:.125,death:.1};
+function unifyHeroTiming(meta){for(const [k,a] of Object.entries(meta?.actions||{})){if(!a||typeof a!=='object')continue;
+  if(/^walk/.test(k)){a.frameTime=HERO_FT.walk;delete a.cycle;}else if(k==='death')a.frameTime=HERO_FT.death;}return meta;}
 function ensureHeroSheets(){const A=globalThis.PIXEL_ASSETS?.heroSheets||{};
   for(const [id,v] of Object.entries(A)){if(loadedAssetKeys.has('hs:'+id))continue;loadedAssetKeys.add('hs:'+id);
-    const meta=typeof v.meta==='string'?JSON.parse(v.meta):v.meta,im=trackImage(new Image()),fx=v.fx?trackImage(new Image()):null;
-    const hi=v.hi?(typeof v.hi.meta==='string'?{img:v.hi.img,meta:JSON.parse(v.hi.meta)}:v.hi):null;
+    const meta=unifyHeroTiming(typeof v.meta==='string'?JSON.parse(v.meta):v.meta),im=trackImage(new Image()),fx=v.fx?trackImage(new Image()):null;
+    const hi=v.hi?(typeof v.hi.meta==='string'?{img:v.hi.img,meta:JSON.parse(v.hi.meta)}:v.hi):null;if(hi)unifyHeroTiming(hi.meta);
     // @2x(hi)只在 heroSheets[id] 建立時登記「來源」,真正下載由 hiWarm 觸發(放大到門檻才載)
     im.onload=()=>{heroSheets[id]={...heroSheets[id],img:im,meta,fx,fxMeta:v.fxMeta?(typeof v.fxMeta==='string'?JSON.parse(v.fxMeta):v.fxMeta):null,...(hi?{hi:{meta:hi.meta,src:hi.img}}:{})};spriteCache.clear();globalThis.dispatchEvent(new CustomEvent('pixel-assets-ready'));};
     im.onerror=()=>loadedAssetKeys.delete('hs:'+id);im.src=v.img;if(fx)fx.src=v.fx;
@@ -494,6 +501,8 @@ function heroAccessory(h){const l=ACC_BY_RARITY[h.rarity];return l?l[hash(h.id||
 const monsterSheets={};let monsterReq=new Set();
 function ensureMonsterSheet(id){const A=globalThis.PIXEL_ASSETS?.monsterSheets||{};const v=A[id];if(!v||loadedAssetKeys.has('ms:'+id))return;
   loadedAssetKeys.add('ms:'+id);const im=trackImage(new Image());im.onload=()=>{monsterSheets[id]={img:im,meta:v.meta};globalThis.dispatchEvent(new CustomEvent('pixel-assets-ready'));};im.onerror=()=>{loadedAssetKeys.delete('ms:'+id);};im.src=v.img;}
+// 遠程魔物的飛行物(assets/ui/fx-mshots.png:8 格 32×32 橫排,l0veyou GPT Image 2 生)。開場就載(很小、內嵌)。
+let mshotImg=null;function mshotSheet(){if(!mshotImg){const src=globalThis.PIXEL_ASSETS?.ui?.['fx-mshots'];if(!src)return null;mshotImg=trackImage(new Image());mshotImg.src=src;}return mshotImg.complete&&mshotImg.naturalWidth?mshotImg:null;}
 function ensureMonsterSheets(){for(const id of monsterReq)ensureMonsterSheet(id);}
 const MON_SHEET=t=>{const id=t==='boss'?'treant':t;monsterReq.size<64&&monsterReq.add(id);ensureMonsterSheet(id);return monsterSheets[id];};
 // 進區前先叫齊該區魔物的 sheet(只會載入真的會用到的種類)。
@@ -618,7 +627,7 @@ function ensureAtlas() {
   ensureDetailAtlas();
   ensureTerrainAtlas();
   ensurePlazaTile();ensureConceptTextures();
-  ensureHeroAtlas();ensureHeroSheets();ensureHeroAcc();ensureMonsterSheets();
+  ensureHeroAtlas();ensureHeroSheets();ensureHeroAcc();ensureMonsterSheets();mshotSheet();
   const assets=globalThis.PIXEL_ASSETS||{};
   // 舊的硬切格圖集載入已由上面的 manifest 圖集取代(列切線原本是猜的)。
 
@@ -1027,11 +1036,30 @@ let renderDprMax=Math.max(1,dprCap||autoDpr());   // 畫布解析度上限(devic
   // 文字一律排進 screenTexts,最後在裝置解析度的畫布上畫(高清、永遠在最上層)。
   const screenTexts=[];
   function textLabel(text,x,y,opts={}){if(document.body.dataset.artReview==='1')return;screenTexts.push({text,x,y,alpha:g.globalAlpha,...opts});}
-  function drawScreenText(t,k){const {text,x:x0,y:y0,color='#fff7d9',size=7,back=true,alpha=1}=t,x=Math.round(x0*k),y=Math.round(y0*k);screen.globalAlpha=alpha;
+  function drawScreenText(t,k){if(t.bubble){drawBubble(t,k);return;}const {text,x:x0,y:y0,color='#fff7d9',size=7,back=true,alpha=1}=t,x=Math.round(x0*k),y=Math.round(y0*k);screen.globalAlpha=alpha;
     screen.font=`bold ${Math.round(size*2*k)}px "Microsoft JhengHei", "Noto Sans TC", sans-serif`;const tw=Math.ceil(screen.measureText(text).width);
     if(back){screen.fillStyle='#1c0e06cc';screen.fillRect(x-tw/2-5*k,y-10*k,tw+10*k,21*k);screen.fillStyle='#4a2611e6';screen.fillRect(x-tw/2-4*k,y-9*k,tw+8*k,19*k);screen.fillStyle='#8a5530e6';screen.fillRect(x-tw/2-4*k,y-9*k,tw+8*k,2*k);screen.fillStyle='#dab247aa';screen.fillRect(x-tw/2-3*k,y+9*k,tw+6*k,k);}
     else{screen.lineWidth=Math.max(2,2.6*k);screen.strokeStyle='#1c0e06';screen.lineJoin='round';screen.strokeText(text,x,y);}
     screen.fillStyle=color;screen.fillText(text,x,y);screen.globalAlpha=1;}
+  // 英雄對話框:奶油色像素泡泡(切角、深棕外框)＋往下的小尾巴,字畫在螢幕解析度那層(清楚)。
+  function drawBubble(t,k){const x=Math.round(t.x*k),y=Math.round(t.y*k),fs=Math.round(11*k),u=Math.max(1,Math.round(k));screen.globalAlpha=t.alpha??1;
+    screen.font=`bold ${fs}px "Microsoft JhengHei", "Noto Sans TC", sans-serif`;const tw=Math.ceil(screen.measureText(t.text).width),w=tw+12*u,h=fs+10*u,bx=Math.round(x-w/2),by=Math.round(y-h);
+    const box=(dx,dy,ww,hh,c)=>{screen.fillStyle=c;screen.fillRect(dx+2*u,dy,ww-4*u,hh);screen.fillRect(dx,dy+2*u,ww,hh-4*u);screen.fillRect(dx+u,dy+u,ww-2*u,hh-2*u);};
+    box(bx-2*u,by-2*u,w+4*u,h+4*u,'#3a2414');box(bx,by,w,h,'#fff4dc');screen.fillStyle='#e8d3a8';screen.fillRect(bx+2*u,by+h-2*u,w-4*u,u);   // 底邊一條陰影:有厚度
+    screen.fillStyle='#3a2414';for(let i=0;i<4;i++)screen.fillRect(x-(4-i)*u-u,by+h+i*u,(4-i)*2*u+2*u,u);screen.fillStyle='#fff4dc';for(let i=0;i<3;i++)screen.fillRect(x-(3-i)*u,by+h-u+i*u,(3-i)*2*u,u);
+    screen.textAlign='center';screen.textBaseline='middle';screen.fillStyle='#3a2414';screen.fillText(t.text,x,by+h/2+u);screen.globalAlpha=1;}
+  // 誰在說話:每位英雄每 14–28 秒(流浪英雄 22–36 秒)講一句、停 3.4 秒;畫面上同時最多 3 個泡泡,只算看得到的人;
+  // 拉得太遠(scale 小)不講,免得滿畫面字。時間用畫面時間(elapsed:暫停就停、不受 2–3 倍速影響,字才讀得完)。
+  const chatter=new Map(),CHAT_SHOW=3.4,CHAT_MAX=3;
+  function drawChatter(){if(scale<1.1||document.body.dataset.artReview==='1')return;const t=elapsed,night=nightOn&&phase>.55&&phase<.95;
+    const who=[...(state.hunters||[]).map(h=>[h,false]),...(state.wanderers||[]).map(w=>[w,true])].filter(([h])=>Number.isFinite(h.x)&&Number.isFinite(h.z));
+    const seen=[];for(const [h,wd] of who){const p=screenPoint(h.x,h.z);if(p.x>-30&&p.x<width+30&&p.y>20&&p.y<height+40)seen.push([h,wd,p]);}
+    let showing=seen.filter(([h])=>t<(chatter.get(h.id)?.until??0)).length;
+    for(const [h,wd,p] of seen){let c=chatter.get(h.id);if(!c){c={next:t+3+(hash(h.id)%160)/10,until:0,text:'',last:''};chatter.set(h.id,c);}
+      if(t>=c.until&&t>=c.next){if(showing<CHAT_MAX){const line=pickHeroLine(h,{wanderer:wd,night,rnd:Math.random,last:c.last});
+          if(line){c.text=line;c.last=line;c.until=t+CHAT_SHOW;c.next=t+(wd?22:14)+Math.random()*14;showing++;}else c.next=t+6;}else c.next=t+1.5+Math.random()*2.5;}
+      if(t<c.until){const left=c.until-t,a=Math.min(1,(CHAT_SHOW-left)/.18,left/.35);textLabel(c.text,p.x,p.y-(HERO_H+18)*scale,{bubble:true,alpha:a});}}}
+  globalThis.__mistvaleChatter=()=>[...chatter].map(([id,c])=>({id,text:c.text,showing:elapsed<c.until}));   // 驗收用
   // 物件那一輪(casting)裡畫的血條、名牌延後到最上層:不會被後畫的魔物、樹蓋住。
   const overlays=[];
   function bar(x,y,w,frac,color){if(casting){overlays.push(()=>bar(x,y,w,frac,color));return;}pixel(g,x-1,y-1,w+2,6,'#1c0e06dd');pixel(g,x,y,w,4,'#5a2f14');pixel(g,x,y,Math.max(0,w*Math.min(1,frac)),4,color);pixel(g,x,y,Math.max(0,w*Math.min(1,frac)),2,shade(color,25));}
@@ -1665,6 +1693,96 @@ let renderDprMax=Math.max(1,dprCap||autoDpr());   // 畫布解析度上限(devic
     if(age<.12)fxSprite('fxHit',p.x,cy,7+age*34,{alpha:.85*(1-age/.12)});
     sparks(p.x,cy,age,hash(e.id),9,['#fff7d0','#ffd56a','#ff9c4a']);
     if(e.cls==='paladin'&&age<.3){g.save();g.globalAlpha=.6*(1-age/.3);g.strokeStyle='#fff2b0';g.lineWidth=Math.max(1,s);g.beginPath();g.ellipse(p.x,p.y,(6+age*40)*s,(2.5+age*16)*s,0,0,Math.PI*2);g.stroke();g.restore();}}
+  // 遠程魔物的飛行物:離手(release)前不畫;飛行中沿直線或拋物線(lob)前進,圓的東西會轉、細長的順著方向;打到後放塵爆。
+  function mshotFrame(i,x,y,size,rot=0,alpha=1,flipY=false){const im=mshotSheet();if(!im)return false;const k=size*scale/32;
+    g.save();g.globalAlpha=alpha;g.translate(R(x),R(y));if(rot)g.rotate(rot);if(flipY)g.scale(1,-1);g.drawImage(im,i*32,0,32,32,-16*k,-16*k,32*k,32*k);g.restore();return true;}
+  let lastShot=null;globalThis.__mistvaleLastShot=()=>lastShot;
+  function drawMonsterShot(e,age0,delay,p){const cfg=MONSTER_RANGED[e.by]||{},rel=e.release||0,s=scale,size=cfg.size||10;if(age0<rel)return;
+    const a=screenPoint(e.sourceX??e.x,e.sourceZ??e.z),y0=a.y-9*s,y1=p.y-11*s,at=v=>({x:a.x+(p.x-a.x)*v,y:y0+(y1-y0)*v-Math.sin(v*Math.PI)*(cfg.lob||0)*s});
+    if(age0<delay){const u=Math.min(1,(age0-rel)/Math.max(.01,delay-rel)),q=at(u),q0=at(Math.max(0,u-.04)),ang=Math.atan2(q.y-q0.y,q.x-q0.x);
+      g.save();g.globalAlpha=.28;g.fillStyle='#000';g.beginPath();g.ellipse(a.x+(p.x-a.x)*u,a.y+(p.y-a.y)*u,size*.32*s,size*.12*s,0,0,Math.PI*2);g.fill();g.restore();   // 地上的影子:看得出拋物線
+      lastShot={x:q.x,y:q.y,ax:a.x,ay:a.y,bx:p.x,by:p.y,type:e.by,id:e.id};   // 驗收用(__mistvaleLastShot):最後一次畫飛行物的螢幕位置
+      if(!mshotFrame(e.shot??0,q.x,q.y,size,cfg.spin?age0*9:ang,1,!cfg.spin&&Math.cos(ang)<0)){g.fillStyle='#e9e0c8';g.fillRect(q.x-2*s,q.y-2*s,4*s,4*s);}return;}
+    const t=age0-delay;if(t<.32)mshotFrame(MSHOT_IMPACT,p.x,y1,size*(1.1+t*3),0,1-t/.32);}
+  // ── 地下城橫條戰鬥畫面(2026-10-30 使用者:「地下城要做出來橫條戰鬥畫面,近戰前排遠程後排」) ──
+  // 彈窗裡的 canvas:左邊英雄(近戰前排、遠程後排)面向右,右邊魔物(近戰在前、遠程在後)面向左;用遊戲本身的英雄/魔物 sheet。
+  // 背景 = l0veyou(GPT Image 2)生的地下城走廊側面圖(assets/ui/dg-strip-bg),左右鏡像接成無縫,「前進中」時往左捲。
+  // 動作全由 state.dungeon.events 推出來:hit/skill(英雄出手 → 魔物)、hurt(魔物出手 → 英雄)、heal(祭司補血)、clear(過層)。
+  // 畫的時候把 g / scale 暫時換成這張 canvas(繪圖函式都畫在 g 上),畫完換回來;影子(cast)關掉。
+  let dgBgImg=null,dgScroll=0,dgLastNow=0;
+  function dgBackground(){if(!dgBgImg){const src=globalThis.PIXEL_ASSETS?.ui?.['dg-strip-bg'];if(!src)return null;dgBgImg=new Image();dgBgImg.src=src;}return dgBgImg.complete&&dgBgImg.naturalWidth?dgBgImg:null;}
+  const DG_RANGED=new Set(['archer','sorcerer','priest']);
+  const DG_HERO_SLOTS={front:[[.41,.76],[.33,.82],[.36,.69]],back:[[.21,.73],[.13,.80],[.16,.67]]};
+  const DG_FOE_SLOTS={front:[[.63,.76],[.71,.82],[.68,.69]],back:[[.84,.73],[.91,.80],[.88,.67]]};
+  const DG_SHOT={archer:'#fff3c9',sorcerer:'#c79cff',priest:'#ffe58a'};
+  function drawDungeonStrip(cv,st){
+    const d=st?.dungeon;if(!cv||!d)return;
+    const dpr=Math.min(2,globalThis.devicePixelRatio||1),cw=Math.round(cv.clientWidth*dpr),ch=Math.round(cv.clientHeight*dpr);if(!cw||!ch)return;
+    if(cv.width!==cw||cv.height!==ch){cv.width=cw;cv.height=ch;}
+    const ctx=cv.getContext('2d'),W=cw,H=ch,t=st.time||0,ev=d.events||[];ctx.imageSmoothingEnabled=false;
+    const now=performance.now(),dtR=dgLastNow?Math.min(.1,(now-dgLastNow)/1000):0;dgLastNow=now;
+    const marching=d.phase==='前進中'||d.phase==='集結中';if(marching&&!st.paused)dgScroll+=dtR*W*.16;
+    const bgi=dgBackground();
+    if(bgi){const bw=bgi.naturalWidth*H/bgi.naturalHeight,off=((dgScroll%(bw*2))+bw*2)%(bw*2);
+      for(let k=0,x=-off;x<W;k++,x+=bw){if(k%2){ctx.save();ctx.translate(Math.round(x+bw),0);ctx.scale(-1,1);ctx.drawImage(bgi,0,0,Math.ceil(bw)+1,H);ctx.restore();}else ctx.drawImage(bgi,Math.round(x),0,Math.ceil(bw)+1,H);}}
+    else{ctx.fillStyle='#24180f';ctx.fillRect(0,0,W,H);}
+    const party=(st.hunters||[]).filter(h=>d.hunterIds?.includes(h.id)),foes=(d.foes||[]);
+    const pos=new Map(),place=(list,slots,isFoe)=>{let f=0,b=0;for(const u of list){const back=isFoe?u.ranged:DG_RANGED.has(u.classId),sl=back?slots.back[b++%3]:slots.front[f++%3];pos.set(u.id,{x:sl[0]*W,y:sl[1]*H});}};
+    place(party,DG_HERO_SLOTS,false);place(foes,DG_FOE_SLOTS,true);
+    const lastEv=(pred)=>{for(let i=ev.length-1;i>=0;i--)if(pred(ev[i]))return ev[i];return null;};
+    const land=e=>e.t+(e.shot?.3:.12);   // 出手 → 打到(遠程要飛 0.3 秒)
+    const saveG=g,saveScale=scale,saveCast=casting,saveK=DPRK;
+    g=ctx;scale=H/68;casting=false;DPRK=1;
+    try{
+      const units=[];
+      for(const h of party){const p=pos.get(h.id);if(p)units.push({y:p.y,draw:()=>dgHero(h,p)});}
+      for(const f of foes){const p=pos.get(f.id);if(p)units.push({y:p.y,draw:()=>dgFoe(f,p)});}
+      units.sort((a,b)=>a.y-b.y).forEach(u=>u.draw());
+      // 飛行物(英雄的箭/法球/聖光、遠程魔物的飛行物)與數字
+      for(const e of ev){const a=pos.get(e.a),b=pos.get(e.b),age=t-e.t;if(age<0||age>1.6)continue;
+        if(e.shot&&a&&b&&age<.3){const u=age/.3,ay=a.y-11*scale,by=b.y-11*scale,x=a.x+(b.x-a.x)*u,y=ay+(by-ay)*u-Math.sin(u*Math.PI)*(e.k==='hurt'?(MONSTER_RANGED[e.shot]?.lob||0)*scale*.6:2*scale);
+          if(e.k==='hurt'){const c=MONSTER_RANGED[e.shot];if(!c||!mshotFrame(c.shot,x,y,c.size*.9,c.spin?age*9:Math.atan2(by-ay,b.x-a.x),1,!c.spin&&b.x<a.x))ctx.fillRect(x-2,y-2,4,4);}
+          else{ctx.save();ctx.fillStyle=DG_SHOT[e.shot]||'#fff';ctx.shadowColor=ctx.fillStyle;ctx.shadowBlur=6*dpr;if(e.shot==='archer'){ctx.fillRect(x-7*dpr,y-1*dpr,14*dpr,2*dpr);}else{ctx.beginPath();ctx.arc(x,y,3.5*dpr,0,Math.PI*2);ctx.fill();}ctx.restore();}}
+        const la=t-land(e);if(la<0||la>1.1||!b)continue;
+        if(e.k==='heal'){ctx.save();ctx.globalAlpha=Math.max(0,1-la/.8);ctx.fillStyle='#b9f5a8';for(let i=0;i<6;i++){const r=(hash(e.t+':'+i)%100)/100,x=b.x+(r-.5)*16*scale,y=b.y-(6+la*30+i*3)*scale;ctx.fillRect(x,y,2*dpr,2*dpr);}ctx.restore();}
+        const txt=(e.k==='heal'?'+':'')+e.v,col=e.k==='heal'?'#a6f59a':e.k==='hurt'?'#ff8a6e':e.k==='skill'?'#ffd75e':'#fff3d0',rise=Math.min(1,la/.7)*14*scale,pop=la<.12?1+.6*(1-la/.12):1;
+        dgText(txt,b.x+((hash(e.t)%11)-5)*scale,b.y-(27*scale)-rise,{size:Math.round((e.k==='skill'?13:11)*dpr*pop),color:col,alpha:Math.max(0,1-Math.max(0,la-.7)/.4)});}
+      // 上方資訊:層數/波數、狀態、自動續戰
+      const top=Math.round(15*dpr);
+      dgText(`第 ${d.floor} 層 · 第 ${Math.max(1,d.wave||1)}/3 波`,10*dpr,top,{size:Math.round(13*dpr),color:'#f6e3b0',align:'left'});
+      dgText(d.phase+(d.auto?' · 自動續戰':''),W-10*dpr,top,{size:Math.round(12*dpr),color:d.auto?'#ffe08a':'#e9d6a8',align:'right'});
+      const clr=lastEv(e=>e.k==='clear');
+      if(clr&&t-clr.t<2.2){const a=Math.min(1,(2.2-(t-clr.t))/.4);dgText(`第 ${clr.v} 層突破！`,W/2,H*.38,{size:Math.round(22*dpr),color:'#ffe08a',alpha:a});}
+      if(d.phase==='集結中')dgText('小隊正前往地下城入口…',W/2,H*.38,{size:Math.round(14*dpr),color:'#f0dfb8'});
+    }finally{g=saveG;scale=saveScale;casting=saveCast;DPRK=saveK;}
+    function dgText(txt,x,y,{size=12,color='#fff',align='center',alpha=1}={}){ctx.save();ctx.globalAlpha=alpha;ctx.font=`bold ${size}px "Noto Sans TC","PingFang TC","Microsoft JhengHei",sans-serif`;ctx.textAlign=align;ctx.textBaseline='middle';
+      ctx.lineWidth=Math.max(2,size/4);ctx.strokeStyle='#120a05';ctx.strokeText(txt,x,y);ctx.fillStyle=color;ctx.fillText(txt,x,y);ctx.restore();}
+    function hpBar(x,y,w,ratio,color){const h=Math.max(3,Math.round(3*dpr));ctx.fillStyle='#120a05cc';ctx.fillRect(Math.round(x-w/2)-1,Math.round(y)-1,Math.round(w)+2,h+2);ctx.fillStyle='#3a2416';ctx.fillRect(Math.round(x-w/2),Math.round(y),Math.round(w),h);ctx.fillStyle=color;ctx.fillRect(Math.round(x-w/2),Math.round(y),Math.round(w*Math.max(0,Math.min(1,ratio))),h);}
+    function dgHero(h,p){const m=heroSheets[h.classId]?.meta?.actions;if(!m)return;
+      const A=n=>actOf(heroSheets[h.classId].meta,n)||m.idle,atk=lastEv(e=>e.a===h.id&&(e.k==='hit'||e.k==='skill'||e.k==='heal')),hurt=lastEv(e=>e.b===h.id&&e.k==='hurt');
+      let act='idle',i=0;
+      if(h.hp<=0){act='death';i=A('death').frames-1;}
+      else if(atk&&(atk.k==='skill'||atk.k==='heal')&&t-atk.t<A('skill').frames*A('skill').frameTime){act='skill';i=Math.floor((t-atk.t)/A('skill').frameTime);}
+      else if(atk&&atk.k==='hit'&&t-atk.t<A('attack').frames*A('attack').frameTime){act='attack';i=Math.floor((t-atk.t)/A('attack').frameTime);}
+      else if(hurt&&t-land(hurt)>=0&&t-land(hurt)<A('hurt').frames*A('hurt').frameTime){act='hurt';i=Math.floor((t-land(hurt))/A('hurt').frameTime);}
+      else if(marching){act='walk';i=Math.floor(t/A('walk').frameTime)%A('walk').frames;}
+      else{const id=m.idle?'idle':Object.keys(m)[0];act=id;i=Math.floor(t/m[id].frameTime+hash(h.id))%m[id].frames;}
+      ctx.save();ctx.globalAlpha=.3;ctx.fillStyle='#000';ctx.beginPath();ctx.ellipse(p.x,p.y,9*scale,2.6*scale,0,0,Math.PI*2);ctx.fill();ctx.restore();
+      drawSheetHero(h,p,1,{act,i},h.hp>0?1:.75);
+      if(h.hp>0)hpBar(p.x,p.y-26*scale,14*scale,h.hp/h.maxHp,h.hp/h.maxHp>.35?'#7ccf6a':'#e0533f');
+      dgText(h.name,p.x,p.y+5*scale,{size:Math.round(10*dpr),color:'#f6e3b0'});}
+    function dgFoe(f,p){const ms=MON_SHEET(f.type);if(!ms)return;const m=ms.meta.actions,big=f.big?1.3:1;
+      const atk=lastEv(e=>e.a===f.id&&e.k==='hurt'),hit=lastEv(e=>e.b===f.id&&(e.k==='hit'||e.k==='skill'));
+      let act='idle',i=0,alpha=1,flash=0;
+      if(f.hp<=0){const dt=hit?t-land(hit):9,dd=m.death||m.hurt;if(dt>1.3)return;act=m.death?'death':'hurt';i=Math.min(dd.frames-1,Math.floor(Math.max(0,dt)/dd.frameTime));alpha=dt<.9?1:Math.max(0,1-(dt-.9)/.4);}
+      else if(atk&&t-atk.t<m.attack.frames*m.attack.frameTime){act='attack';i=Math.floor((t-atk.t)/m.attack.frameTime);}
+      else if(hit&&t-land(hit)>=0&&t-land(hit)<m.hurt.frames*m.hurt.frameTime){act='hurt';i=Math.floor((t-land(hit))/m.hurt.frameTime);}
+      else{act='idle';i=Math.floor(t/m.idle.frameTime+hash(f.id))%m.idle.frames;}
+      if(hit&&t-land(hit)>=0&&t-land(hit)<.12)flash=1-(t-land(hit))/.12;
+      ctx.save();ctx.globalAlpha=.3*alpha;ctx.fillStyle='#000';ctx.beginPath();ctx.ellipse(p.x,p.y,10*scale*big,2.8*scale*big,0,0,Math.PI*2);ctx.fill();ctx.restore();
+      const s0=scale;scale*=big;try{drawMonsterSheet(f.type,p,true,act,i,alpha,flash?{flash,flashColor:'#ffffff'}:null);}finally{scale=s0;}
+      if(f.hp>0)hpBar(p.x,p.y-(30*big)*scale,16*scale*big,f.hp/f.maxHp,'#e0533f');}
+  }
   function drawImpact(e,age,p){const s=scale,cy=p.y-11*s;
     if(e.type==='arrow'){if(age<.14)fxSprite('fxHit',p.x,cy,8+age*50,{alpha:1-age/.14});sparks(p.x,cy,age,hash(e.id),6,['#fff4c8','#e8d090']);return;}
     if(e.type==='spell'){const t=Math.min(1,age/.35);g.save();g.globalAlpha=.7*(1-t);g.strokeStyle='#b98aff';g.lineWidth=Math.max(1,2*s*(1-t));g.beginPath();g.ellipse(p.x,p.y,(4+16*t)*s,(1.8+7*t)*s,0,0,Math.PI*2);g.stroke();g.restore();
@@ -1695,6 +1813,7 @@ let renderDprMax=Math.max(1,dprCap||autoDpr());   // 畫布解析度上限(devic
     if(e.type==='skillName'){if(age<1.1){const a=Math.min(1,(1.1-age)*3);g.globalAlpha=a;textLabel(e.text,p.x,p.y-(30+age*10)*scale,{size:11,color:e.color||'#bdf4ff'});g.globalAlpha=1;}return;}
     if(e.type==='skillSelf'){drawSkillSelf(e,age0,p);return;}
     if(e.type==='skillfx'||e.type==='gale'){drawSkillFx(e,age0,delay,p);if(age>=0&&(e.value||e.text))damageText(e,age,p);g.globalAlpha=1;return;}
+    if(e.type==='mshot'){drawMonsterShot(e,age0,delay,p);if(age>=0&&e.value)damageText(e,age,p);g.globalAlpha=1;return;}
     if(age<0){if(e.type==='arrow'||e.type==='spell'||e.type==='holy')drawProjectile(e,Math.min(1,age0/Math.max(.01,delay)),p);return;}
     if(e.noImpact)return;   // 只負責飛行畫面(手動操控法師的魔法球飛完射程就消失;命中特效由打到的那一刻另外出)
     const fade=Math.max(0,1-age/1.5);if(!fade)return;
@@ -1901,6 +2020,7 @@ let renderDprMax=Math.max(1,dprCap||autoDpr());   // 畫布解析度上限(devic
     for(const f of overlays.splice(0))f();
     if(document.body.dataset.artReview==='1')uiLabels.length=0;
     for(const e of state.effects||[])drawEffect(e);
+    drawChatter();
     // 動作實驗室預覽:直接把那一格畫在畫面中央(純預覽,不影響模擬)
     if(posePreview){
       const sh=heroSheets[posePreview.classId],m=sh&&sh.meta,a=m&&m.actions[posePreview.act];
@@ -1995,7 +2115,7 @@ let renderDprMax=Math.max(1,dprCap||autoDpr());   // 畫布解析度上限(devic
   }
   resize();render();return{update,resize:responsiveResize,project,assetsReady,warmupAssets,focus:(id)=>{homeFraming=false;focus(id);},hitRects:()=>hits.filter(h=>BUILDINGS.some(b=>b.id===h.id)).map(h=>({id:h.id,x:h.x,y:h.y,w:h.w,h:h.h})),buildingScale:id=>effectiveScale(id),lookAt:(x,z,v)=>{homeFraming=false;if(v)scale=Math.max(zoomFloor(),Math.min(ZOOM_MAX,v));target=iso(x,z);cam={...target};},zoomTo:(v)=>{homeFraming=false;scale=Math.max(zoomFloor(),Math.min(ZOOM_MAX,v));},getScale:()=>scale,setSelected,zoomBy,placeMode,setTime,setQuality,setFollow:(fn,opts)=>{followFn=typeof fn==='function'?fn:null;followOpts=(followFn&&opts&&typeof opts==='object')?opts:{};},dirFromScreen,followInfo:()=>followFn?(followOpts.centerBody?{centerBody:true,snap:!!followOpts.snap}:{centerBody:false,snap:!!followOpts.snap}):null,setShadows:(v)=>{shadowsOn=v!==false;compValid=false;},setNight:(v)=>{nightOn=v!==false;},
     setDpr:(v)=>{dprCap=v==='auto'||v==null?null:Math.max(1,Math.min(3,Number(v)||autoDpr()));renderDprMax=Math.max(1,Math.min(dprCap||autoDpr(),globalThis.devicePixelRatio||1));resize();compValid=false;render();},
-    dispose,spawnVillager,spawnClassVillagers,setPartsVisible:(v)=>{partsVisible=v!==false;},getPartsVisible:()=>partsVisible,landscapeStats:()=>({roads:roads.length,terrainRevision,
+    dispose,drawDungeonStrip,spawnVillager,spawnClassVillagers,setPartsVisible:(v)=>{partsVisible=v!==false;},getPartsVisible:()=>partsVisible,landscapeStats:()=>({roads:roads.length,terrainRevision,
     decor:decorations.map(d=>({type:d.type,x:d.x,z:d.z}))})};
 }
 

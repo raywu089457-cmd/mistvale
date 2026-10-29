@@ -1,9 +1,11 @@
 import assert from 'node:assert/strict';
-import { createGame } from './src/pixel-game.js';
+import { createGame, OFFLINE } from './src/pixel-game.js';
 import { doorStand, buildingSolid } from './src/landscape-layout.js';
 import { blockCenter } from './src/village-grid.js';
 import { BUILDINGS, CLASSES, MATERIALS, PRODUCTS, PILOT_ATTACK, AI_ATTACK_LOCK, KITE } from './src/pixel-data.js';
-import { regionCenter, regionContains, walkable } from './src/overworld.js';
+import { regionCenter, regionContains, walkable, RING_ROAD, onRingRoad } from './src/overworld.js';
+import { MONSTER_RANGED } from './src/pixel-data.js';
+import { pickHeroLine, CHATTER_LINES } from './src/hero-chatter.js';
 
 function run(game, seconds, quiet = false, inspect = null) {
   for (let i = 0; i < Math.ceil(seconds * 10); i++) {
@@ -317,7 +319,7 @@ turn.pilotStop();
   orb.pilotAttack(); pin(); orb.tick(0.02);
   assert.equal(orb.state.shots.length, 1, 'the sorcerer fires one flying orb');
   assert.ok(Math.abs(Math.atan2(orb.state.shots[0].dz, orb.state.shots[0].dx) - Math.atan2(uz, ux)) < 1e-6, 'empty-air orb flies at the exact facing angle');
-  for (let i = 0; i < 12; i++) { pin(); orb.tick(0.05); }
+  for (let i = 0; i < 14; i++) { pin(); orb.tick(0.05); }   // 0.7 秒 × 12 格/秒 = 8.4 格 > 射程 7.5(2026-10-30 遠程統一 7.5)
   assert.ok(foes.onPath.hp < hp0.onPath, 'orb hits the monster on its path');
   assert.ok(foes.nearPath.hp < hp0.nearPath, 'orb hits a monster within its radius of the path');
   assert.equal(foes.offPath.hp, hp0.offPath, 'orb misses a monster outside its radius');
@@ -344,7 +346,8 @@ assert.ok(Math.hypot(ah.x - lx, ah.z - lz) > 0.1, 'AI hunter walks again once th
 // 走投無路(四面被包)就原地開打、不抖動;只在自己的狩獵區裡走;出手後的收招(KITE.afterShot ≥ AI_ATTACK_LOCK)不走。
 {
   const RANGE = Object.fromEntries(CLASSES.map(c => [c.id, c.range]));
-  assert.deepEqual([RANGE.archer, RANGE.sorcerer, RANGE.priest], [7.5, 6, 5.5], 'ranged classes shoot farther (archer 7.5 / sorcerer 6 / priest 5.5)');
+  assert.deepEqual([RANGE.archer, RANGE.sorcerer, RANGE.priest], [7.5, 7.5, 7.5], 'all ranged classes share one basic-attack range (2026-10-30: 7.5)');
+  assert.equal(new Set(CLASSES.map(c => c.speed)).size, 1, 'every class walks at the same speed (2026-10-30)');
   assert.ok(['berserker', 'paladin', 'assassin'].every(id => RANGE[id] < 3), 'melee ranges are unchanged');
   assert.ok(KITE.enter < KITE.exit && KITE.afterShot >= AI_ATTACK_LOCK && KITE.cooldown > 0, 'kite thresholds have hysteresis and respect the attack lock');
   // 每個遠程職業「出手 → 收招」後,離下一次蓄力還有空檔可以起步後撤(快手 ×0.9 也一樣)
@@ -496,5 +499,95 @@ assert.ok(Math.hypot(ah.x - lx, ah.z - lz) > 0.1, 'AI hunter walks again once th
 }
 run(manual, 30, false, assertFiniteEconomy);
 
+// ── 2026-10-30 ─────────────────────────────────────────────────────────────
+{
+  const C = regionCenter('meadow');
+  // 祭司:冷卻好就自動補「射程內生命比例最低」的隊友;招募的獵人優先,流浪英雄要等沒有招募的獵人需要補才輪到
+  const g = createGame(); const pr = g.state.hunters.find(h => h.classId === 'priest'); assert.ok(pr, 'the start roster has a priest');
+  const [a, b] = g.state.hunters.filter(h => h !== pr), w = g.state.wanderers[0];
+  g.state.hunters = [pr, a, b]; g.state.wanderers = [w]; g.state.enemies = []; g.state.spawnTimer = -99; g.state.regionSpawn = {};
+  for (const [u, dx, frac] of [[pr, 0, 1], [a, 2, 0.5], [b, -2, 0.3], [w, 1, 0.1]]) Object.assign(u, { x: C.x + dx, z: C.z, task: 'pilot', route: [], hp: Math.round(u.maxHp * frac) });
+  pr.task = null; pr.huntRegion = null; pr.inTown = false; pr.skillCd = 0; pr.attackTimer = 0; pr.lockUntil = 0; pr.satiety = pr.stamina = pr.mood = 100;
+  const hpB = b.hp, hpA = a.hp, hpW = w.hp; g.tick(0.1);
+  assert.ok(b.hp > hpB && a.hp === hpA, `the priest heals the recruited hunter with the lowest HP ratio (${hpB} → ${b.hp})`);
+  assert.equal(w.hp, hpW, 'a wanderer waits while a recruited hunter needs healing');
+  assert.ok(pr.skillCd > 0, 'the heal goes on cooldown');
+  pr.skillCd = 0; pr.attackTimer = 0; pr.lockUntil = 0; a.hp = a.maxHp; b.hp = b.maxHp; g.tick(0.1);
+  assert.ok(w.hp > hpW, 'with every recruited hunter healthy, the priest heals the wanderer');
+  pr.skillCd = 0; pr.attackTimer = 0; pr.lockUntil = 0; w.hp = w.maxHp; const cd0 = pr.skillCd; g.tick(0.1);
+  assert.equal(pr.skillCd, 0, 'nobody hurt → no heal is wasted'); void cd0;
+}
+{
+  // 遠程魔物:每區一隻;飛行物打到才扣血;站在環村道路上的獵人不會被瞄準
+  const RANGED = Object.keys(MONSTER_RANGED); assert.equal(RANGED.length, 7, 'one ranged monster per hunting region');
+  const g = createGame(); const C = regionCenter('meadow'), h = g.state.hunters[0];
+  g.state.hunters = [h]; g.state.wanderers = []; g.state.spawnTimer = -999; g.state.regionSpawn = Object.fromEntries(['meadow', 'birch', 'forest', 'taiga', 'desert', 'snow', 'mountain'].map(k => [k, -999]));
+  const proto = g.state.enemies.find(e => e.regionId === 'meadow');
+  Object.assign(h, { x: C.x, z: C.z, task: 'pilot', route: [], hp: h.maxHp });
+  g.state.enemies = [{ ...proto, id: 'rng', type: 'sprout', x: C.x + 4, z: C.z, hp: 999, maxHp: 999, attack: 30, attackTimer: 0, rewarded: false }];
+  const keep = () => { g.state.spawnTimer = -999; for (const k in g.state.regionSpawn) g.state.regionSpawn[k] = -999; g.state.enemies = g.state.enemies.filter(e => e.id === 'rng'); };
+  keep(); g.tick(0.1);
+  const shot = g.state.effects.find(e => e.type === 'mshot'); assert.ok(shot && shot.by === 'sprout', 'the ranged monster throws from 4 cells away');
+  assert.equal(h.hp, h.maxHp, 'no damage before the projectile lands');
+  for (let i = 0; i < 12; i++) { keep(); g.tick(0.1); }
+  assert.ok(h.hp < h.maxHp, `damage lands with the projectile (${h.hp}/${h.maxHp})`);
+  // 環村道路上:同一隻魔物就在 4 格外,也不出手
+  const road = RING_ROAD.find(p => regionContains('meadow', p.x, p.z) && regionContains('meadow', p.x + 0.1, p.z + 3.5) && !onRingRoad(p.x + 0.1, p.z + 3.5, 0.6));
+  assert.ok(road, 'found a ring-road point in the meadow');
+  Object.assign(h, { x: road.x, z: road.z, hp: h.maxHp }); g.state.effects = [];
+  Object.assign(g.state.enemies[0], { x: road.x + 0.1, z: road.z + 3.5, attackTimer: 0 });
+  for (let i = 0; i < 30; i++) { keep(); g.tick(0.1); }
+  assert.equal(h.hp, h.maxHp, 'a hunter walking on the ring road is never attacked');
+  assert.ok(!g.state.effects.some(e => e.type === 'mshot' || e.type === 'hit'), 'no monster attack is aimed at the road');
+  // 自然遊玩 40 秒:魔物不在路上(生怪避開、走路與推擠都不上路)
+  const n = createGame(); for (const u of n.state.hunters) u.huntRegion = 'meadow'; run(n, 40);
+  assert.ok(n.state.enemies.every(e => !onRingRoad(e.x, e.z, 0.3)), 'monsters stay off the ring road');
+}
+{
+  // 地下城:自動續戰一層接一層、可以選起始層、魔物先打前排
+  const g = createGame(); assert.equal(g.construct('dungeon').ok, true);
+  const party = ['paladin', 'archer', 'priest'].map(c => g.state.hunters.find(h => h.classId === c));
+  for (const h of party) { h.attack = 400; h.maxHp = h.hp = 5000; }
+  assert.equal(g.setDungeonAuto(true).ok, true);
+  assert.equal(g.startDungeon(party.map(h => h.id)).ok, true); assert.equal(g.state.dungeon.floor, 1);
+  assert.ok(g.state.dungeon.foes.length >= 1 && g.state.dungeon.foes.every(f => f.hp > 0), 'a wave of real monsters is lined up');
+  const hurtTargets = new Set();
+  run(g, 90, false, s => { for (const e of s.dungeon.events || []) if (e.k === 'hurt') hurtTargets.add(e.b); });
+  assert.ok(g.state.dungeon.bestFloor >= 2 && g.state.dungeon.active, `auto-continue keeps clearing floors (best ${g.state.dungeon.bestFloor})`);
+  assert.deepEqual([...hurtTargets], [party[0].id], 'monsters only hit the front row while the melee hunter stands');
+  g.setDungeonAuto(false); run(g, 90);
+  assert.equal(g.state.dungeon.active, false, 'turning auto off ends the run after the current floor');
+  const best = g.state.dungeon.bestFloor; g.state.dungeon.cooldown = 0;
+  assert.equal(g.setDungeonStart(1).ok, true); assert.equal(g.state.dungeon.startFloor, 1);
+  g.setDungeonStart(999); assert.equal(g.state.dungeon.startFloor, 0, 'past the newest floor clamps to "newest"');
+  for (const h of party) { h.hp = h.maxHp; h.task = null; }
+  assert.equal(g.startDungeon(party.map(h => h.id), 2).ok, true); assert.equal(g.state.dungeon.floor, 2, 'the run starts from the chosen floor');
+  const saved = createGame(g.serialize()); assert.equal(saved.state.dungeon.floor, 2); assert.equal(saved.state.dungeon.events.length, 0); assert.ok(saved.state.dungeon.foes.length >= 1, 'the current wave survives save/load');
+  assert.ok(best >= 2);
+}
+{
+  // 英雄對話框:每句都短;需求優先;倒下說倒下的話
+  const all = Object.values(CHATTER_LINES).flatMap(v => Array.isArray(v) ? v : Object.values(v).flat());
+  assert.ok(all.every(l => l.replace('{region}', '向陽草原').length <= 12), 'every chatter line is short (≤ 12 characters)');
+  let i = 0; const rnd = () => [0.1, 0.0, 0.5][i++ % 3];
+  const hungry = { hp: 100, maxHp: 100, satiety: 5, stamina: 90, mood: 90, status: '待機' };
+  assert.ok(CHATTER_LINES.NEED.hungry.includes(pickHeroLine(hungry, { rnd })), 'a starving hunter talks about food');
+  assert.ok(CHATTER_LINES.STATUS.revive.includes(pickHeroLine({ hp: 0, maxHp: 100, status: '復活中' }, { rnd: () => 0.3 })), 'a fallen hunter says a fallen line');
+  assert.ok(pickHeroLine({ hp: 100, maxHp: 100, status: '前往白霜雪原' }, { rnd: () => 0.45 }).length > 0);
+}
+{
+  // 離線掛機:前 OFFLINE.sample 秒真的模擬,其餘外推;最多 8 小時;金幣守恆(獵人錢包花光就沒了)
+  const g = createGame(); for (const h of g.state.hunters) h.huntRegion = 'meadow'; run(g, 20);
+  const day0 = g.state.day, k0 = g.state.totalKills, snap = g.offlineSnapshot(); g.simulate(OFFLINE.sample);
+  const sum = g.offlineFinish(snap, 10 * 3600);
+  assert.equal(sum.seconds, OFFLINE.max, 'offline progress is capped at 8 hours'); assert.equal(sum.capped, true);
+  assert.ok(g.state.day > day0 + 100 && g.state.totalKills > k0 + 1000, `8 hours of hunting happened (day ${g.state.day}, kills ${g.state.totalKills})`);
+  assertFiniteEconomy(g.state); assert.ok(sum.levels.length > 0, 'hunters level up while offline');
+  const idle = createGame(); run(idle, 5); const W = () => idle.state.hunters.reduce((n, h) => n + h.gold, 0);
+  const s2 = idle.offlineSnapshot(), v0 = idle.state.gold, w0 = W(); idle.simulate(OFFLINE.sample);
+  const flow = (idle.state.gold - v0) + (W() - w0); idle.offlineFinish(s2, 3 * 3600);
+  assert.ok(Math.abs((idle.state.gold + W()) - (v0 + w0 + flow * (3 * 3600 / OFFLINE.sample))) <= idle.state.hunters.length + 2, 'village + hunter gold is extrapolated together (no gold from nothing)');
+  assert.ok(idle.state.hunters.every(h => h.gold >= 0)); assertFiniteEconomy(idle.state);
+}
 console.log(`PASS: ${CLASSES.length} hunters / ${CLASSES.length} classes, seeded visitors, conservation of personal and village gold, paid and emergency services, bounded trading, crafting and gear purchases, upgrades, training, skills, rebirth, difficulty gates, hunting, field boss, death/revival, dungeon combat and save continuation, NPC arena, navigation, malformed saves, pause, deterministic simulation, all 8 quests. Natural 60s: ${combat.state.totalKills} total kills; ${combat.state.counts.services} services.`);
 
