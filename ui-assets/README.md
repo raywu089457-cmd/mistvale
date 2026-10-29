@@ -86,3 +86,32 @@ AI 生的零件保留在 `ui-assets/parts/`，小尺寸元素（稀有度徽章�
 - 第三發 `generate-ui-v2`（512×256、**25 generations**）：Toast 底板×3（黃銅/紅/琥珀）、緞帶標題、
   載入條空槽＋金填充、危險按鈕、清單框。已接：Toast（成功／錯誤）、載入條、`.pixel-button.danger`。
 - 累計花費：**145 generations**（剩 806.65）。
+
+## 2026-10-29 — Pixen 文字生圖：便宜又是 1 px 細節，外框全面換新
+
+- 走 PixelLab **MCP**（`https://api.pixellab.ai/mcp`，`ui-assets/pixen/mcp.py` 直接講 JSON-RPC）的 `create_image_pixen`：
+  **1 generation／張**，256×256＋`no_background` 一張出 2×2 四個零件（`sheets.py` 有 prompt 與 seed）。
+- 關鍵發現：Pixen 出圖是**原生 1 px 像素**（色塊長度中位數 2 px、46% 是單一像素），不是 `generate-ui-v2` 的 7–11 px 大塊
+  → 上面 (3) 說「AI 做不到建築密度」那個問題，換 Pixen 就解了，外框不必再用程式畫。
+- 生了 4 張（`pixen/kit1.png`、`buttons.png`、`frames.png`、`bars.png`），共 **4 generations**＋試 Pixflux 1 次（帳號 1 的每日紅利，沒花錢）。
+  Pixflux（加 `color_image` 鎖色）顏色很搭但形狀全變方框、背景沒去 → 不用。
+- 切出來的零件 `assets/ui/px-*.png`（舊零件都留著）；`prep_parts.py` 另外用本機調色做兩個變體（不花錢）：
+  `px-tile-on`（木方塊→金，亮度對應金按鈕自己的顏色）、`px-toast-err`（黃銅邊→紅）。
+- 九宮格切角（零件原尺寸）：視窗 22、卡片 16、按鈕 12、木方塊 18、提示板 14、凹槽 8。
+  桌機 border 寬＝切角（1:1，像素不變形）；手機沿用原本的 border 寬（縮小顯示，版面不動）。
+
+| 零件 | 用在 |
+|---|---|
+| `px-window` | 視窗、建築資訊、委託面板（內側改深色 #2a1c12，卡片才浮得出來） |
+| `px-card` | 獵人／建築／製作／訪客卡、材料、隊伍選擇（選取＝金色外光） |
+| `px-btn-wood` / `gold` / `red` | 次要／主要／危險按鈕（滑過變亮、按下變暗、停用變灰；不再「滑過就變金色」） |
+| `px-btn-x` | 視窗與建築資訊的關閉鍵 |
+| `px-trough` | 上方資源欄、難度、人口、區域徽章（原本唯一的藍色）、進度條底 |
+| `px-tile` / `px-tile-on` | 下方選單（目前這頁＝金）、技能鍵、小方鍵（設定、縮放、說明、暫停、速度） |
+| `px-toast` / `px-toast-err` | 提示 |
+| （同上零件） | 分頁（未選＝木按鈕、選中＝金按鈕，原本選中是藍色）、獵人詳情數值格（卡片框）、交易數量欄（凹槽） |
+
+- 舊主題剩下的藍色一併拿掉：區域徽章、分頁、獵人詳情頭像底（改暖色光暈）。
+
+- 同一批也做了可讀性：桌機量到一百多處 8–10px 的字 → 最小 11px（toast 12px），只挑量到的元素（`#modal small` 這種大範圍會把 17px 的數值也縮小，別用）；「村莊金庫」小字桌機也拿掉。
+- 驗收：`Claude code/mistvale-ui-audit/audit.mjs`（加了 desktop-1440x900／1280x720），跟換之前比沒有新的蓋住／超出／截斷。
