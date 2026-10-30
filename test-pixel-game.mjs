@@ -665,5 +665,46 @@ const MID = { level: 30, equipment: { weapon: true, armor: true }, weaponLevel: 
   assert.ok(gold[3] > gold[2] * 1.8, `the first clear of a new floor pays double (${gold[2]} → ${gold[3]})`);
   assert.ok(gold[3] < gold[4] && gold[4] < gold[5]);
 }
+{
+  // 離線 + 地下城:前 120 秒照常;之後如果小隊還在地下城,只跑地下城把這次探險打完(打得到哪層算哪層),不照速率線性外推
+  const mk = () => partyGame(['paladin', 'archer', 'priest'], MID);
+  const { g, party } = mk(), d = g.state.dungeon; for (const h of g.state.hunters) if (!party.includes(h)) h.huntRegion = 'meadow';
+  g.setDungeonAuto(true); assert.equal(g.startDungeon(party.map(h => h.id)).ok, true); run(g, 5);
+  const M = () => g.state.gold + g.state.hunters.reduce((n, h) => n + h.gold, 0);
+  const snap = g.offlineSnapshot(), m0 = M(); g.simulate(OFFLINE.sample);
+  const flowS = M() - m0, wS = g.state.counts.dungeonWins, bestS = d.bestFloor; assert.ok(d.active && bestS >= 2, `the run is still going after the real sample (best ${bestS})`);
+  const sum = g.offlineFinish(snap, 3 * 3600), f = (3 * 3600 - OFFLINE.sample) / OFFLINE.sample;
+  assert.equal(d.active, false, 'the run ended during the offline time (wipe / time-out)');
+  assert.ok(d.bestFloor > bestS, `the dungeon kept going offline (${bestS} → ${d.bestFloor})`);
+  assert.equal(sum.dungeon.cleared, g.state.counts.dungeonWins - snap.dg.wins); assert.equal(sum.dungeon.cleared, d.bestFloor, 'every cleared floor was really fought (no extrapolated wins)');
+  assert.ok(party.every(h => h.task !== 'dungeon'));
+  // 同一隊、同樣的起點在線上打:到達的樓層要差不多(離線不會打得比較深)
+  const { g: live, party: lp } = mk(), ld = live.state.dungeon; live.setDungeonAuto(true); live.startDungeon(lp.map(h => h.id));
+  live.state.hunters = live.state.hunters.filter(h => lp.includes(h)); live.state.wanderers = [];
+  for (let i = 0; i < 40000 && ld.active; i++) { live.state.enemies = []; live.tick(0.1); }
+  assert.ok(Math.abs(d.bestFloor - ld.bestFloor) <= 3, `offline best floor ${d.bestFloor} ≈ live ${ld.bestFloor}`);
+  // 金幣守恆:非地下城的金幣流照速率外推,地下城的金幣只算真的打到的(前 120 秒 + 離線續打)
+  const expect = m0 + flowS + (flowS - sum.dungeon.sampleGold) * f + (sum.dungeon.gold - sum.dungeon.sampleGold);
+  assert.ok(Math.abs(M() - expect) <= g.state.hunters.length + 2, `gold is conserved with a dungeon run offline (${M()} vs ${Math.round(expect)})`);
+  assert.ok(sum.dungeon.gold > sum.dungeon.sampleGold, 'floors cleared offline paid out');
+  assertFiniteEconomy(g.state); void wS;
+}
+{
+  // 流浪英雄的擊倒也算進「擊倒魔物」(線上與離線),不重複算;存檔會留著
+  const idle = createGame(); run(idle, 40);
+  assert.equal(idle.state.totalKills, 0); assert.ok(idle.state.wanderKills > 0);
+  const loaded = createGame(idle.serialize()); assert.equal(loaded.state.wanderKills, idle.state.wanderKills, 'wanderer kills survive save/load');
+  const oldSave = idle.serialize(); delete oldSave.wanderKills; assert.equal(createGame(oldSave).state.wanderKills, 0, 'an old save without the field loads as 0');
+  // 每隻倒下的魔物只算一次:畫面上的「倒下」特效數 = 獵人擊倒 + 流浪英雄擊倒的增加量
+  const g = createGame(); for (const h of g.state.hunters) h.huntRegion = 'meadow'; run(g, 15);
+  const before = new Set(g.state.effects.filter(e => e.type === 'death').map(e => e.id)), seen = new Set(), k0 = g.state.totalKills + g.state.wanderKills;
+  run(g, 45, false, s => { for (const e of s.effects) if (e.type === 'death' && !before.has(e.id)) seen.add(e.id); });
+  const k1 = g.state.totalKills + g.state.wanderKills; assert.ok(g.state.wanderKills > 0 && g.state.totalKills > 0);
+  assert.equal(seen.size, k1 - k0, `every kill is counted exactly once (${seen.size} deaths, ${k1 - k0} counted)`);
+  const w0 = g.state.wanderKills, h0 = g.state.totalKills, snap = g.offlineSnapshot(); g.simulate(OFFLINE.sample);
+  const wS = g.state.wanderKills - w0, hS = g.state.totalKills - h0, sum = g.offlineFinish(snap, 3600), f = (3600 - OFFLINE.sample) / OFFLINE.sample;
+  assert.equal(sum.wanderKills, g.state.wanderKills - w0); assert.equal(sum.hunterKills, g.state.totalKills - h0); assert.equal(sum.kills, sum.hunterKills + sum.wanderKills, 'the offline 「擊倒魔物」 = hunters + wanderers');
+  assert.ok(Math.abs(sum.wanderKills - wS * (1 + f)) <= 1 && Math.abs(sum.hunterKills - hS * (1 + f)) <= 1, 'wanderer kills are extrapolated like hunter kills');
+}
 console.log(`PASS: ${CLASSES.length} hunters / ${CLASSES.length} classes, seeded visitors, conservation of personal and village gold, paid and emergency services, bounded trading, crafting and gear purchases, upgrades, training, skills, rebirth, difficulty gates, hunting, field boss, death/revival, dungeon combat and save continuation, NPC arena, navigation, malformed saves, pause, deterministic simulation, all 8 quests. Natural 60s: ${combat.state.totalKills} total kills; ${combat.state.counts.services} services.`);
 

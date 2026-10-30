@@ -845,3 +845,5 @@ body.piloting #toasts{top:calc(132px + env(safe-area-inset-top))}
 .offline-h{margin:12px 0 6px;color:#f6e3b0;font-size:13px}
 .offline-levels{margin:0;padding-left:18px;color:#e9d6a8;columns:2;font-size:12px}
 @media(max-width:760px){.offline-levels{columns:1}}
+.offline-kills small{color:#cdbf95;font-size:11px}
+.modal-note.roster-kills{margin:0 0 12px;text-align:left}

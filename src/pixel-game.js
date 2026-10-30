@@ -656,6 +656,9 @@ export function createGame(saved = null) {
   // d.auto = 自動續戰:打完一層、三人都還站著 → 休整 3 秒(回 20% 生命)直接打下一層;關掉就打完這層回村。
   // d.startFloor = 下次出發從第幾層開始(0 = 最新一層 = 最高紀錄 +1)。d.events = 給畫面播動畫/數字的最近事件(不存檔)。
   const DG_TIERS = ['meadow', 'birch', 'forest', 'taiga', 'desert', 'snow', 'mountain'];
+  // 離線期間的地下城帳本(不存檔):offlineSnapshot 開帳、offlineFinish 結帳。記下過層給的村莊資源、小隊金幣與經驗、過層數,
+  // 外推時先把這些扣掉(地下城收益不照線性速率外推,改成真的把這次探險打完,見 offlineFinish)。
+  let dgLedger = null;
   function dgWave(floor, wave) {
     const mix = REGION_MIX[DG_TIERS[Math.floor((floor - 1) / 3) % DG_TIERS.length]], small = mix[0], mid = mix[3], big = mix[6];
     const types = wave === 1 ? [small, small] : wave === 2 ? (floor >= 5 ? [mid, small, small] : [mid, small]) : (floor >= 10 ? [big, mid] : [big]);
@@ -686,7 +689,11 @@ export function createGame(saved = null) {
     d.reward = dgReward(floor, first);
     for (const [key, amount] of Object.entries(d.reward)) state[key] += amount;
     const heroGold = Math.round(DUNGEON.heroGold * dgScale(floor, DUNGEON.heroGoldGrow)), heroXp = Math.round(DUNGEON.heroXp * dgScale(floor, DUNGEON.heroXpGrow));
-    for (const h of party) if (h.hp > 0) { h.gold += heroGold; gainXp(h, heroXp); }
+    if (dgLedger) { dgLedger.wins++; for (const [key, amount] of Object.entries(d.reward)) dgLedger.res[key] = (dgLedger.res[key] || 0) + amount; }
+    for (const h of party) if (h.hp > 0) {
+      const xp0 = dgLedger ? lifetimeXp(h) : 0; h.gold += heroGold; gainXp(h, heroXp);
+      if (dgLedger) { const e = dgLedger.heroes[h.id] ||= { gold: 0, xp: 0 }; e.gold += heroGold; e.xp += lifetimeXp(h) - xp0; }
+    }
     log(`地下城第 ${floor} 層突破${first ? '（首次通關，獎勵加倍）' : ''}！村莊獲得 ${d.reward.gold} 金幣、${d.reward.ore} 鐵礦與 ${d.reward.gems} 晶石。`, 'success'); effect('victory', door('dungeon'));
     dgEvent('clear', null, null, floor);
     if (d.auto && floor < 100 && party.every(h => h.hp > 0)) {
@@ -752,6 +759,13 @@ export function createGame(saved = null) {
       if (tg.hp === 0) died(tg);
     }
     dgSync();
+  }
+
+  // 離線外推時只跑地下城(其餘照速率外推):小隊的攻擊間隔、走到入口、體力消耗都跟 step() 裡 task === 'dungeon' 那段一樣。
+  function stepDungeonOnly(dt) {
+    state.time += dt; state.dungeon.cooldown = Math.max(0, state.dungeon.cooldown - dt);
+    for (const h of state.hunters) { if (h.task !== 'dungeon') continue; h.attackTimer = Math.max(0, h.attackTimer - dt); if (h.hp > 0) { walk(h, dt); h.stamina = Math.max(0, h.stamina - dt * 0.2); } }
+    stepDungeon(dt);
   }
 
   function endArena(won) {
@@ -1057,7 +1071,7 @@ export function createGame(saved = null) {
           const { kind, delay } = attackFx(w.classId);   // 跟獵人同一套特效:遠程職業(弓箭手/法師/祭司)畫飛行物,不再一律近戰刀光
           target.hitAt = state.time + delay; target.hitFromX = w.x; target.hitFromZ = w.z;
           target.hp -= damage; effect(kind, target, { sourceX: w.x, sourceZ: w.z, value: damage, targetId: target.id, delay, cls: w.classId });
-          if (target.hp <= 0) {
+          if (target.hp <= 0 && !target.rewarded) {   // 已經算給別人的不重算(wandererLoot / rewardEnemy 都會標 rewarded)
             wandererLoot(target, w);
             w.xp += 12; state.wanderKills = (state.wanderKills || 0) + 1;
             while (w.xp >= 40 && w.level < 60) { w.xp -= 40; w.level++; updateStats(w, true); }
@@ -1131,7 +1145,7 @@ export function createGame(saved = null) {
     state.time = number(source.time, 0, 0, 240 * 99999); state.day = Math.floor(state.time / 240) + 1;
     state.paused = source.paused === true; state.speed = integer(source.speed, 1, 1, 3); state.seed = integer(source.seed, 918273, 0, 4294967295); state.nextId = integer(source.nextId, state.nextId, state.nextId, 1e9);
     for (const key of ['totalKills', 'bossKills', 'recruited']) state[key] = integer(source[key], 0, 0, 1e7);
-    state.kills = state.totalKills;
+    state.kills = state.totalKills; state.wanderKills = integer(source.wanderKills, 0, 0, 1e9);   // 流浪英雄的擊倒數(原本沒讀回來,讀檔就歸零);舊存檔沒有 → 0
     state.buildings.hall = integer(source.buildings?.hall, 1, 1, 5);
     for (const b of BUILDINGS) if (b.id !== 'hall') state.buildings[b.id] = integer(source.buildings?.[b.id], UNBUILT.has(b.id) ? 0 : 1, UNBUILT.has(b.id) ? 0 : 1, Math.min(5, state.buildings.hall + 1));
     state.capacity = 8 + (state.buildings.house - 1) * 2;
@@ -1421,39 +1435,54 @@ export function createGame(saved = null) {
     // ── 離線／背景掛機(2026-10-30 使用者:「離線後也等同掛機要持續計算各種數據,最大八小時」) ──
     // 8 小時照 0.1 秒一步完整模擬要好幾分鐘(桌機實測 600 秒 ≈ 7.7 秒)→ 先真的模擬前 OFFLINE.sample 秒(UI 分段呼叫 simulate,畫面不卡),
     // 其餘時間照這段的「每秒淨變化」外推:村莊資源、商品庫存、擊倒數、各項統計(只外推增加的)、每位獵人的經驗(會升級)與個人金幣;
-    // 遊戲時間、天數、冷卻照實際經過。用完的東西(淨變化是負的)外推到 0 為止。地下城最高樓層不外推(只算真的模擬到的)。
+    // 遊戲時間、天數、冷卻照實際經過。用完的東西(淨變化是負的)外推到 0 為止。流浪英雄的擊倒數也外推(「擊倒魔物」= 獵人 + 流浪英雄)。
+    // 地下城(2026-10-30 續):樓層越深越難,不能照前 120 秒的速率線性外推(會算出打不過的樓層)。改成:前 120 秒照常,
+    // 之後如果小隊還在地下城,就只跑地下城的戰鬥把這次探險真的打完(全滅、超時或關掉自動續戰才停,最多到離線時間用完),
+    // 打得到哪層就是哪層;這段的獎勵照實際入帳,並從其他收益的外推速率裡扣掉(帳本 dgLedger),不會重複算。
     offlineSnapshot() {
-      return { res: Object.fromEntries(RESOURCE_KEYS.map(k => [k, state[k]])), stocks: { ...state.stocks }, kills: state.totalKills, counts: { ...state.counts },
+      dgLedger = { res: {}, wins: 0, heroes: {} };
+      return { res: Object.fromEntries(RESOURCE_KEYS.map(k => [k, state[k]])), stocks: { ...state.stocks }, kills: state.totalKills, wander: state.wanderKills || 0, counts: { ...state.counts },
+        dg: { best: state.dungeon.bestFloor, wins: state.counts.dungeonWins },
         hunters: Object.fromEntries(state.hunters.map(h => [h.id, { xp: lifetimeXp(h), gold: h.gold, level: h.level, rebirths: h.rebirths }])), time: state.time };
     },
     simulate(seconds) { let left = number(seconds, 0, 0, OFFLINE.max); while (left > 1e-7) { const d = Math.min(0.1, left); step(d); left -= d; } },
     offlineFinish(snap, totalSeconds) {
       const total = number(totalSeconds, 0, 0, OFFLINE.max), sampled = Math.max(0, state.time - snap.time), rest = Math.max(0, total - sampled), f = sampled >= 1 ? rest / sampled : 0;
+      const L = dgLedger || { res: {}, wins: 0, heroes: {} }, dgRes = k => L.res[k] || 0, dgHero = (h, k) => L.heroes[h.id]?.[k] || 0;
+      const dgSampleGold = dgRes('gold') + Object.values(L.heroes).reduce((n, e) => n + e.gold, 0);
       if (f > 0) {
-        for (const k of RESOURCE_KEYS) if (k !== 'gold') state[k] = Math.max(0, Math.round(state[k] + (state[k] - snap.res[k]) * f));
+        for (const k of RESOURCE_KEYS) if (k !== 'gold') state[k] = Math.max(0, Math.round(state[k] + (state[k] - snap.res[k] - dgRes(k)) * f));
         for (const k of Object.keys(state.stocks)) state.stocks[k] = Math.max(0, Math.round(state.stocks[k] + (state.stocks[k] - (snap.stocks[k] ?? 0)) * f));
         state.totalKills += Math.round(Math.max(0, state.totalKills - snap.kills) * f); state.kills = state.totalKills;
-        for (const [k, v] of Object.entries(state.counts)) if (typeof v === 'number' && typeof snap.counts[k] === 'number' && v > snap.counts[k]) state.counts[k] = Math.round(v + (v - snap.counts[k]) * f);
-        // 金幣要守恆:獵人花在村裡的錢 = 村莊收入,錢包花光就沒了 → 「村莊＋獵人」一起外推,每位獵人的錢包到 0 為止,剩下的算村莊的
+        state.wanderKills = (state.wanderKills || 0) + Math.round(Math.max(0, (state.wanderKills || 0) - (snap.wander || 0)) * f);
+        for (const [k, v] of Object.entries(state.counts)) { const dv = typeof v === 'number' && typeof snap.counts[k] === 'number' ? v - snap.counts[k] - (k === 'dungeonWins' ? L.wins : 0) : 0; if (dv > 0) state.counts[k] = Math.round(v + dv * f); }
+        // 金幣要守恆:獵人花在村裡的錢 = 村莊收入,錢包花光就沒了 → 「村莊＋獵人」一起外推,每位獵人的錢包到 0 為止,剩下的算村莊的(地下城給的金幣先扣掉)
         const both = state.hunters.filter(h => snap.hunters[h.id]), w0 = both.reduce((n, h) => n + snap.hunters[h.id].gold, 0), w1 = both.reduce((n, h) => n + h.gold, 0);
-        const pooled = state.gold + w1 + ((state.gold - snap.res.gold) + (w1 - w0)) * f;
+        const pooled = state.gold + w1 + ((state.gold - snap.res.gold) + (w1 - w0) - dgSampleGold) * f;
         let wallets = 0;
         for (const h of state.hunters) {
           const s0 = snap.hunters[h.id]; if (!s0) { wallets += h.gold; continue; }
-          const xp = lifetimeXp(h) - s0.xp; if (xp > 0 && h.rebirths === s0.rebirths) gainXp(h, Math.round(xp * f));
-          h.gold = Math.max(0, Math.round(h.gold + (h.gold - s0.gold) * f)); if (both.includes(h)) wallets += h.gold;
+          const xp = lifetimeXp(h) - s0.xp - dgHero(h, 'xp'); if (xp > 0 && h.rebirths === s0.rebirths) gainXp(h, Math.round(xp * f));
+          h.gold = Math.max(0, Math.round(h.gold + (h.gold - s0.gold - dgHero(h, 'gold')) * f)); if (both.includes(h)) wallets += h.gold;
         }
         state.gold = Math.max(0, Math.round(pooled - wallets));
-        state.time += rest; state.day = Math.floor(state.time / 240) + 1;
+        // 還在地下城:只跑地下城,把這次探險打完(最多到離線時間用完);獎勵照實際入帳(帳本繼續記,給彈窗用)
+        let dgRan = 0;
+        while (state.dungeon.active && dgRan < rest - 1e-7) { const dt = Math.min(0.1, rest - dgRan); stepDungeonOnly(dt); dgRan += dt; }
+        state.time += rest - dgRan; state.day = Math.floor(state.time / 240) + 1;
         state.healCooldown = Math.max(0, state.healCooldown - rest);
-        for (const k of ['expedition', 'dungeon', 'arena']) state[k].cooldown = Math.max(0, state[k].cooldown - rest);
+        for (const k of ['expedition', 'arena']) state[k].cooldown = Math.max(0, state[k].cooldown - rest);
+        state.dungeon.cooldown = Math.max(0, state.dungeon.cooldown - (rest - dgRan));
       }
-      const sum = { seconds: Math.round(sampled + rest), capped: number(totalSeconds, 0) > OFFLINE.max, kills: state.totalKills - snap.kills, res: {}, levels: [] };
+      dgLedger = null;
+      const hunterKills = state.totalKills - snap.kills, wanderKills = Math.max(0, (state.wanderKills || 0) - (snap.wander || 0)), d = state.dungeon;
+      const sum = { seconds: Math.round(sampled + rest), capped: number(totalSeconds, 0) > OFFLINE.max, kills: hunterKills + wanderKills, hunterKills, wanderKills, res: {}, levels: [],
+        dungeon: { cleared: Math.max(0, state.counts.dungeonWins - snap.dg.wins), from: snap.dg.best, best: d.bestFloor, active: d.active, floor: d.floor, sampleGold: dgSampleGold, gold: dgRes('gold') + Object.values(L.heroes).reduce((n, e) => n + e.gold, 0) } };
       for (const k of RESOURCE_KEYS) sum.res[k] = state[k] - snap.res[k];
       for (const h of state.hunters) { const s0 = snap.hunters[h.id]; if (s0 && h.level > s0.level && h.rebirths === s0.rebirths) sum.levels.push({ name: h.name, from: s0.level, to: h.level }); }
       refreshQuest();
       const hh = Math.floor(sum.seconds / 3600), mm = Math.floor(sum.seconds % 3600 / 60);
-      log(`離線 ${hh ? hh + ' 小時 ' : ''}${mm} 分鐘：獵人擊倒 ${sum.kills} 隻魔物，村莊金幣 ${sum.res.gold >= 0 ? '+' : ''}${sum.res.gold}。`, 'success');
+      log(`離線 ${hh ? hh + ' 小時 ' : ''}${mm} 分鐘：擊倒 ${sum.kills} 隻魔物${wanderKills ? `（流浪英雄 ${wanderKills} 隻）` : ''}${sum.dungeon.cleared ? `，地下城突破 ${sum.dungeon.cleared} 層` : ''}，村莊金幣 ${sum.res.gold >= 0 ? '+' : ''}${sum.res.gold}。`, 'success');
       return sum;
     },
     claimQuest() {
