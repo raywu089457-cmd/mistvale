@@ -2,6 +2,11 @@
 
 原則:有自動驗收會立刻抓錯的,用 Sonnet;錯了不會馬上暴露、事後才炸的,用 Opus。
 
+## P. pi(預設 DeepSeek v4.1 Flash,最省)
+例行驗收、截圖傳 Telegram、l0veyou 生素材管線、照規格改文案或數值、文件、使用者說「推」時提交並推送。
+做法:Claude 寫任務卡 `docs/pi-tasks/Txx-*.md`,pi 照做並回報 `output/pi-results/Txx.md`,細節見 [WORK-SPLIT.md](WORK-SPLIT.md)。
+判斷:步驟寫得出來、對錯由 `npm run verify` 判斷、不必看圖、不碰 C 類 → 交給 pi。
+
 ## A. Sonnet 5.5 medium(日常預設)
 - UI 與文案:`pixel-ui.js`、`pixel-icons.js` 的版面、按鈕、提示文字、繁中措辭
 - 資料與數值:`data.js`、`pixel-data.js` 的建築/道具/獵人屬性、價格、掉落、稀有度數值調整

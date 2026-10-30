@@ -6,6 +6,7 @@ import { BUILDINGS, CLASSES, MATERIALS, PRODUCTS, PILOT_ATTACK, AI_ATTACK_LOCK, 
 import { regionCenter, regionContains, walkable, RING_ROAD, onRingRoad } from './src/overworld.js';
 import { MONSTER_RANGED } from './src/pixel-data.js';
 import { pickHeroLine, CHATTER_LINES } from './src/hero-chatter.js';
+import { REGION_MONSTERS, MONSTER_NAME, MONSTER_LORE } from './src/lore.js';
 
 function run(game, seconds, quiet = false, inspect = null) {
   for (let i = 0; i < Math.ceil(seconds * 10); i++) {
@@ -588,6 +589,30 @@ run(manual, 30, false, assertFiniteEconomy);
   const flow = (idle.state.gold - v0) + (W() - w0); idle.offlineFinish(s2, 3 * 3600);
   assert.ok(Math.abs((idle.state.gold + W()) - (v0 + w0 + flow * (3 * 3600 / OFFLINE.sample))) <= idle.state.hunters.length + 2, 'village + hunter gold is extrapolated together (no gold from nothing)');
   assert.ok(idle.state.hunters.every(h => h.gold >= 0)); assertFiniteEconomy(idle.state);
+}
+{
+  // 地下城撤退;離線時自動續戰的小隊照實繼續打(不靠外推),摘要記樓層與流浪英雄擊倒
+  const g = createGame(); g.construct('dungeon');
+  const party = ['paladin', 'archer', 'priest'].map(c => g.state.hunters.find(h => h.classId === c));
+  assert.equal(g.retreatDungeon().ok, false, 'nothing to retreat from');
+  g.startDungeon(party.map(h => h.id)); run(g, 15);
+  assert.equal(g.retreatDungeon().ok, true); assert.equal(g.state.dungeon.active, false); assert.equal(g.state.dungeon.phase, '撤退');
+  assert.ok(party.every(h => h.task !== 'dungeon'), 'the party leaves the dungeon'); assert.equal(g.state.dungeon.cooldown, 10);
+  const o = createGame(); o.construct('dungeon'); o.setDungeonAuto(true);
+  const p2 = ['paladin', 'archer', 'priest'].map(c => o.state.hunters.find(h => h.classId === c));
+  for (const h of p2) { h.attack = 300; h.maxHp = h.hp = 20000; }
+  o.startDungeon(p2.map(h => h.id)); run(o, 10);
+  const best0 = o.state.dungeon.bestFloor, snap = o.offlineSnapshot(); o.simulate(OFFLINE.sample); const sampledBest = o.state.dungeon.bestFloor;
+  const sum = o.offlineFinish(snap, 3600);
+  assert.ok(o.state.dungeon.bestFloor > sampledBest + 3, `the auto-continue party keeps climbing while offline (${sampledBest} → ${o.state.dungeon.bestFloor})`);
+  assert.ok(sum.dungeon && sum.dungeon.to === o.state.dungeon.bestFloor && sum.dungeon.from === best0, 'the summary reports the floors climbed');
+  assert.ok(Number.isInteger(sum.wanderKills) && sum.wanderKills >= 0); assertFiniteEconomy(o.state);
+}
+{
+  // 魔物圖鑑:每區 3 隻都有名字;介紹最多 26 字、只寫存在的魔物
+  for (const [rid, list] of Object.entries(REGION_MONSTERS)) { assert.equal(list.length, 3, `${rid} lists 3 monsters`); for (const m of list) assert.ok(MONSTER_NAME[m], `${m} has a name`); }
+  const all = Object.values(REGION_MONSTERS).flat();
+  for (const [m, line] of Object.entries(MONSTER_LORE)) { assert.ok(all.includes(m), `lore for a real monster (${m})`); assert.ok(typeof line === 'string' && line.length >= 6 && line.length <= 26, `lore line length 6-26 (${m}: ${line.length})`); }
 }
 console.log(`PASS: ${CLASSES.length} hunters / ${CLASSES.length} classes, seeded visitors, conservation of personal and village gold, paid and emergency services, bounded trading, crafting and gear purchases, upgrades, training, skills, rebirth, difficulty gates, hunting, field boss, death/revival, dungeon combat and save continuation, NPC arena, navigation, malformed saves, pause, deterministic simulation, all 8 quests. Natural 60s: ${combat.state.totalKills} total kills; ${combat.state.counts.services} services.`);
 

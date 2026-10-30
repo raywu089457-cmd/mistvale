@@ -6,7 +6,9 @@
   "scripts": {
     "test": "node test-pixel-game.mjs && node test-overworld.mjs && node test-landscape.mjs && node test-village-nav.mjs",
     "build": "node build.mjs",
-    "serve": "node server.mjs"
+    "serve": "node server.mjs",
+    "verify": "node tools/verify.mjs",
+    "verify:quick": "node tools/verify.mjs --quick"
   },
   "keywords": [],
   "author": "",

@@ -71,3 +71,6 @@ output/_upgrade_*/
 
 # gl_compare.mjs 的截圖輸出(每次重跑都會覆蓋)
 output/gl-compare/
+output/ui-audit/
+output/pi-results/
+output/pi-sessions/

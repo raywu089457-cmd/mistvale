@@ -8,6 +8,10 @@
   **派給 `game-logic-opus` 子代理**(固定 Opus)。
 - Opus 上限是 high(硬性規定),任何模型都不使用 xhigh / max。
 
+## 省 token:交給 pi 的工作
+- 例行驗收、跑腳本、生素材、照規格改文案或數值、提交推送 → 寫成任務卡交給 pi(`docs/WORK-SPLIT.md`、`docs/pi-tasks/`)。
+- 驗收用 `npm run verify` / `verify:quick`,只讀 `output/ui-audit/verify-summary.md`。
+
 ## 你(主對話)該做的
 1. 收到任務先對照 docs/MODEL-ROUTING.md 分類。屬於「Opus 負責」就用 Agent 工具派給 `game-logic-opus`,不要自己硬做。
 2. 做 Sonnet 任務時,同一個 bug 修兩輪仍失敗,或發現問題其實是狀態/時序/存檔類:停手,改派 `game-logic-opus`,並告知使用者。

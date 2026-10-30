@@ -845,3 +845,199 @@ body.piloting #toasts{top:calc(132px + env(safe-area-inset-top))}
 .offline-h{margin:12px 0 6px;color:#f6e3b0;font-size:13px}
 .offline-levels{margin:0;padding-left:18px;color:#e9d6a8;columns:2;font-size:12px}
 @media(max-width:760px){.offline-levels{columns:1}}
+
+/* ===== 2026-10-30 按鈕巡檢(buttons.mjs) ===== */
+/* 手機:彈窗/建築資訊的關閉鈕 36 → 44px、分頁 36 → 42px(觸控建議 44pt);上方列的資源鈕寬 83–95px,高度不動(留地圖空間) */
+@media(max-width:760px),(max-height:520px){
+  #modal [data-action=close],#inspector [data-action=closeInspector]{width:44px;height:44px;min-width:44px;min-height:44px}
+  .tabs>button,.tabs button{min-height:42px}
+}
+/* 手機直式:建築資訊從下方滑出時蓋住縮放/說明/召喚首領 → 那幾顆同時藏起來(看不到也點不到,鍵盤/讀屏也不會停在上面) */
+@media(max-width:760px) and (min-height:521px){
+  body:has(#inspector:not(.hidden)) .view-tools,body:has(#inspector:not(.hidden)) [data-action=boss]{visibility:hidden}
+}
+
+/* ===== 2026-10-30 UI/UX 精修(一):橫幅、交易所、委託章節鏈、首領、手感 ===== */
+/* 插圖橫幅:跟地下城/競技場同一套(l0veyou GPT Image 2 生、以地下城橫幅當風格參考) */
+.encounter-banner.boss,.encounter-banner.recruit,.encounter-banner.trade,.encounter-banner.quests{position:relative;min-height:118px;align-items:flex-end;padding:16px 20px;background-size:cover;background-position:center;image-rendering:pixelated;border:3px solid #1d120a;box-shadow:inset 0 0 0 1px #c9a45e99,0 3px 10px #0007}
+.encounter-banner.boss{background-image:linear-gradient(90deg,#0b0805f2 0,#0b0805c8 42%,#0b080522 78%,#0b080500),var(--ui-px-banner-boss,none)}
+.encounter-banner.recruit{background-image:linear-gradient(90deg,#1a0f07f2 0,#1a0f07c8 42%,#1a0f0722 78%,#1a0f0700),var(--ui-px-banner-recruit,none)}
+.encounter-banner.trade{background-image:linear-gradient(90deg,#1a0f07f2 0,#1a0f07c8 42%,#1a0f0722 78%,#1a0f0700),var(--ui-px-banner-trade,none)}
+.encounter-banner.quests{background-image:linear-gradient(90deg,#140c06f2 0,#140c06c8 42%,#140c0622 78%,#140c0600),var(--ui-px-banner-quests,none)}
+.encounter-banner.boss>i,.encounter-banner.recruit>i,.encounter-banner.trade>i,.encounter-banner.quests>i{display:none}
+.encounter-banner.boss h3,.encounter-banner.recruit h3,.encounter-banner.trade h3,.encounter-banner.quests h3{text-shadow:0 2px #000}
+.encounter-banner.boss p,.encounter-banner.recruit p,.encounter-banner.trade p,.encounter-banner.quests p{max-width:58%;text-shadow:0 1px #000;color:#f0dfb8}
+@media(max-width:760px),(max-height:520px){.encounter-banner.boss p,.encounter-banner.recruit p,.encounter-banner.trade p,.encounter-banner.quests p{max-width:none}.encounter-banner.boss,.encounter-banner.recruit,.encounter-banner.trade,.encounter-banner.quests{min-height:96px}}
+/* 交易所:每種材料一列 */
+.trade-list{display:flex;flex-direction:column;gap:6px;margin:10px 0}
+.trade-row{display:grid;grid-template-columns:34px minmax(110px,1fr) auto 92px;align-items:center;gap:10px;padding:6px 10px;border:10px solid transparent;border-image:var(--ui-px-card) 16 stretch;background:#2a1c12 padding-box}
+.trade-row.on{background:#3a2814 padding-box;box-shadow:0 0 0 1px #e7be5e55}
+.tr-icon [data-icon]{width:28px;height:28px}
+.tr-name b{display:block;color:#f6e3b0;font-size:13px}.tr-name small{color:#cdb98e;font-size:11px}
+.tr-step{display:flex;align-items:center;gap:4px}
+.tr-step .pixel-button{min-width:40px;min-height:36px;padding:0 6px;font-size:12px}
+.tr-step output{min-width:44px;text-align:center;font:bold 15px/1 inherit;color:#ffe08a;text-shadow:0 1px #000}
+.tr-cost{text-align:right;color:#e9d6a8;font-size:12px}
+.trade-row:not(.on) .tr-cost{color:#9c8a68}
+.trade-footer b{color:#ffe08a}
+@media(max-width:760px){.trade-row{grid-template-columns:30px 1fr;grid-template-areas:"i n" "s s" "c c";row-gap:6px}.tr-icon{grid-area:i}.tr-name{grid-area:n}.tr-step{grid-area:s;justify-content:space-between}.tr-cost{grid-area:c;text-align:left}.tr-step .pixel-button{min-width:52px;min-height:42px}}
+/* 委託章節鏈 */
+.quest-chain{list-style:none;margin:10px 0 0;padding:0;display:flex;flex-direction:column;gap:6px;counter-reset:q}
+.quest-step{display:grid;grid-template-columns:40px 1fr auto;align-items:center;gap:12px;padding:8px 12px;border:10px solid transparent;border-image:var(--ui-px-card) 16 stretch;background:#2a1c12 padding-box}
+.quest-step .qs-num{width:36px;height:36px;display:grid;place-items:center;border-radius:50%;background:#3a2814;border:2px solid #8a6a36;color:#e9d6a8;font-weight:bold}
+.quest-step h3{margin:0 0 2px;font-size:14px;color:#f6e3b0}.quest-step p{margin:0 0 4px;font-size:12px;color:#d8c49a}
+.quest-step .cost{font-size:12px}
+.quest-step.done{opacity:.72}.quest-step.done .qs-num{background:#3f5a2a;border-color:#9fd36b;color:#e9ffd2}
+.quest-step.current{background:#3a2814 padding-box;box-shadow:0 0 0 2px #e7be5e,0 0 16px #e7be5e44}.quest-step.current .qs-num{background:#e7be5e;border-color:#fff1c4;color:#3a2a11}
+.quest-step.locked{filter:saturate(.35);opacity:.55}
+.qs-tag{font-style:normal;font-size:12px;color:#cdb98e;white-space:nowrap}
+.quest-step .progress{margin:4px 0 6px}
+@media(max-width:760px){.quest-step{grid-template-columns:34px 1fr}.quest-step>.pixel-button,.quest-step>.qs-tag{grid-column:1/-1;justify-self:end}}
+/* 首領:討伐中血條、獎勵預覽 */
+.boss-hp{display:flex;align-items:center;gap:10px;margin:10px 0 4px}.boss-hp>span{color:#ffb39a;font-weight:bold;white-space:nowrap}.boss-hp .progress{flex:1}
+.boss-hp .progress>span{background:linear-gradient(#e0533f,#a8321f)}
+.boss-loot{display:flex;flex-wrap:wrap;align-items:center;gap:8px 12px;justify-content:center;margin:8px 0 4px;color:#e9d6a8;font-size:12px}
+.boss-loot>span:first-child{width:100%;text-align:center;color:#cdb98e}
+.encounter-actions [data-action=startBoss] [data-icon]{width:18px;height:18px;margin-right:6px;vertical-align:-4px}
+/* 手感:彈窗淡入放大、按鈕按下去、底部列亮燈、資源浮字 */
+@keyframes mvModalIn{from{opacity:0;transform:translateY(8px) scale(.985)}to{opacity:1;transform:none}}
+@keyframes mvBackIn{from{opacity:0}to{opacity:1}}
+#modal-backdrop:not(.hidden){animation:mvBackIn .14s ease-out}
+#modal-backdrop:not(.hidden) #modal{animation:mvModalIn .18s cubic-bezier(.2,.8,.3,1)}
+.pixel-button:active:not(:disabled),#bottom-bar button:active,.stock-item:active,.hunter-card:active,.party-pick:active,.building-card:active{transform:translateY(1px);filter:brightness(.9)}
+#bottom-bar button{transition:filter .12s,transform .06s}
+body[data-modal-tab=build] #bottom-bar [data-action=build],body[data-modal-tab=hunters] #bottom-bar [data-action=hunters],body[data-modal-tab=trade] #bottom-bar [data-action=trade],
+body[data-modal-tab=craft] #bottom-bar [data-action=craft],body[data-modal-tab=dungeon] #bottom-bar [data-action=dungeon],body[data-modal-tab=arena] #bottom-bar [data-action=arena],
+body[data-modal-tab=quests] #bottom-bar [data-action=quests]{filter:brightness(1.25) drop-shadow(0 0 6px #e7be5ecc);position:relative;z-index:31}
+@keyframes mvFloat{0%{opacity:0;transform:translate(-50%,4px)}15%{opacity:1}100%{opacity:0;transform:translate(-50%,-18px)}}
+.res-float{position:absolute;left:50%;top:-4px;pointer-events:none;font:bold 12px/1 "Microsoft JhengHei","Noto Sans TC",sans-serif;text-shadow:0 1px #000,0 0 3px #000;animation:mvFloat 1.05s ease-out forwards;white-space:nowrap;z-index:5}
+.res-float.up{color:#ffe08a}.res-float.down{color:#ff9a86}
+@media(prefers-reduced-motion:reduce){#modal-backdrop:not(.hidden),#modal-backdrop:not(.hidden) #modal,.res-float{animation:none}.res-float{display:none}}
+.encounter-banner.boss{background-position:center 30%}.encounter-banner.recruit{background-position:center 45%}.encounter-banner.trade{background-position:center 40%}.encounter-banner.quests{background-position:center 45%}
+/* 彈窗開著時:上方資源列、下方分頁列浮在遮罩上面(不變暗、可以點);彈窗只佔兩條列中間(--hud-top / --hud-bottom 由 measureHud 量) */
+body.hud-modal #topbar,body.hud-modal #bottom-bar{z-index:32}
+body.hud-modal #modal-backdrop{padding-top:calc(var(--hud-top,0px) + 6px);padding-bottom:calc(var(--hud-bottom,0px) + 6px)}
+body.hud-modal #modal{max-height:100%}
+body.hud-modal #bottom-bar button:not([data-action]),body.hud-modal #bottom-bar .play-controls{pointer-events:auto}
+/* 手機:暫停／倍速鈕放在上方列下面(彈窗區域裡)→ 彈窗開著時先藏起來,不然會蓋住彈窗的關閉鈕 */
+@media(max-width:760px),(max-height:520px){body.hud-modal .play-controls{visibility:hidden}}
+
+/* ===== 2026-10-30 UI/UX 精修(二):派遣出征、獵人詳情、說明頁 ===== */
+.dispatch-head{display:flex;flex-wrap:wrap;align-items:center;justify-content:space-between;gap:8px;margin:6px 0 4px}
+.dispatch-tabs{display:flex;flex-wrap:wrap;gap:6px}
+.dispatch-quick{display:flex;align-items:center;gap:6px;color:#e9d6a8;font-size:12px}.dispatch-quick b{color:#ffe08a}
+.dispatch-h{display:flex;align-items:center;gap:6px;margin:12px 0 6px;color:#f6e3b0;font-size:13px;border-bottom:1px solid #6b4e2a;padding-bottom:4px}
+.dispatch-h [data-icon]{width:18px;height:18px}.dispatch-h b{color:#ffe08a}.dispatch-h small{margin-left:auto;color:#a8946c;font-weight:normal;font-size:11px}
+.dispatch-party .party-pick span{display:flex;flex-direction:column;gap:1px;min-width:0}
+.dispatch-party .party-pick span b{font-size:11px;color:#e9d6a8;font-weight:normal}
+.dispatch-party .party-pick em{font-style:normal;font-size:10px;color:#b9a47a;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.dispatch-party .party-pick .pp-hp{display:block;width:100%;max-width:90px;height:4px;background:#3a2416;margin-top:3px}
+.dispatch-party .party-pick .pp-hp>i{display:block;height:100%;background:#7ccf6a}
+.dispatch-party .party-pick.down{filter:grayscale(.8) brightness(.75)}
+.region-pick-grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(168px,1fr));gap:8px}
+.region-pick{display:flex;align-items:center;gap:8px;text-align:left;padding:6px 8px;border:10px solid transparent;border-image:var(--ui-px-card) 16 stretch;background:#2a1c12 padding-box;color:#f0e2bd;cursor:pointer;font:inherit}
+.region-pick .rp-em{width:38px;height:38px;min-width:38px;flex:none;image-rendering:pixelated}
+.region-pick span{display:flex;flex-direction:column;min-width:0}
+.region-pick b{font-size:13px;color:#f6e3b0}.region-pick small{font-size:10px;color:#b9a47a;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.region-pick em{font-style:normal;font-size:11px;letter-spacing:1px;color:#e7be5e}
+.region-pick:hover{filter:brightness(1.1)}
+.region-pick.on{background:#4a3416 padding-box;box-shadow:0 0 0 2px #e7be5e,0 0 12px #e7be5e55}
+.region-pick:active{transform:translateY(1px);filter:brightness(.9)}
+.encounter-actions [data-action=startDispatch] [data-icon]{width:18px;height:18px;margin-right:6px;vertical-align:-4px}
+@media(max-width:760px){.region-pick-grid{grid-template-columns:repeat(2,minmax(0,1fr))}.region-pick .rp-em{width:32px;height:32px;min-width:32px}.dispatch-head{justify-content:center}.dispatch-h small{display:none}}
+/* 獵人詳情:動作鈕帶圖示、做不到時直接寫原因 */
+.hunter-actions .pixel-button{display:flex;align-items:center;justify-content:center;gap:8px;text-align:left}
+.hunter-actions .pixel-button>[data-icon]{width:24px;height:24px;min-width:24px;flex:none}
+.hunter-actions .pixel-button>span{display:flex;flex-direction:column;font-size:13px;line-height:1.2}
+.hunter-actions .pixel-button small{font-size:10px;opacity:.85}
+.equipment-row{display:flex;flex-wrap:wrap;gap:6px 16px;align-items:center}
+.equipment-row>span{display:inline-flex;align-items:center;gap:5px}.equipment-row [data-icon]{width:18px;height:18px}
+.equipment-row b{color:#ffe08a}.equipment-row .no{color:#9c8a68}.equipment-row .no [data-icon]{filter:grayscale(1) brightness(.7)}
+/* 說明頁:每張卡片標題前一個圖示 */
+.help-card h3{display:flex;align-items:center;gap:8px}.help-card h3 [data-icon]{width:24px;height:24px;flex:none}
+/* 派遣鈕固定在彈窗底部(內容變長後常被捲到下面看不到) */
+.dispatch-go{position:sticky;bottom:-2px;z-index:2;margin:8px -4px 0;padding:8px 0 4px;background:linear-gradient(#2a1c1200,#2a1c12 30%)}
+/* 手機:獵人詳情的攻擊/防禦/轉世格太窄,標題被擠成一字一行 → 邊框變細、標題不換行 */
+@media(max-width:760px){.stats-grid div{border-width:6px;padding:1px 4px;font-size:10px;white-space:nowrap}.stats-grid .inline-icon[data-icon]{width:13px;height:13px;min-width:13px;min-height:13px;margin-right:2px}.stats-grid b{font-size:13px}}
+#modal-content:has(.dispatch-go){scroll-padding-bottom:76px}   /* 鍵盤/自動捲動把項目捲進來時,停在固定派遣鈕上方 */
+/* 獵人名冊:篩選與排序列 */
+.roster-bar{display:flex;flex-wrap:wrap;align-items:center;gap:6px 14px;margin:6px 0 10px;padding:6px 8px;background:#2a1c12;border:1px solid #6b4e2a}
+.roster-bar>div{display:flex;flex-wrap:wrap;align-items:center;gap:4px}
+.roster-bar span{color:#cdb98e;font-size:12px;margin-right:2px}
+.roster-bar .pixel-button{min-height:32px;padding:0 10px;font-size:12px}
+.roster-bar em{margin-left:auto;font-style:normal;color:#e9d6a8;font-size:12px}
+@media(max-width:760px){.roster-bar .pixel-button{min-height:38px;padding:0 8px}.roster-bar em{margin-left:0}}
+
+/* 2026-10-30 T03: craft and warehouse banners (l0veyou, same set as trade) */
+.encounter-banner.craft,.encounter-banner.inventory{position:relative;min-height:118px;align-items:flex-end;padding:16px 20px;background-size:cover;background-position:center 45%;image-rendering:pixelated;border:3px solid #1d120a;box-shadow:inset 0 0 0 1px #c9a45e99,0 3px 10px #0007}
+.encounter-banner.craft{background-image:linear-gradient(90deg,#1a0f07f2 0,#1a0f07c8 42%,#1a0f0722 78%,#1a0f0700),var(--ui-px-banner-craft,none)}
+.encounter-banner.inventory{background-image:linear-gradient(90deg,#1a0f07f2 0,#1a0f07c8 42%,#1a0f0722 78%,#1a0f0700),var(--ui-px-banner-inventory,none)}
+.encounter-banner.craft>i,.encounter-banner.inventory>i{display:none}
+.encounter-banner.craft h3,.encounter-banner.inventory h3{text-shadow:0 2px #000}
+.encounter-banner.craft p,.encounter-banner.inventory p{max-width:58%;text-shadow:0 1px #000;color:#f0dfb8}
+@media(max-width:760px),(max-height:520px){.encounter-banner.craft p,.encounter-banner.inventory p{max-width:none}.encounter-banner.craft,.encounter-banner.inventory{min-height:96px}}
+/* ===== 2026-10-30 世界地圖區域卡:插圖條＋魔物圖鑑 ===== */
+.region-card .region-art{height:62px;margin:-4px -4px 10px;background-size:cover;background-position:center 45%;image-rendering:pixelated;border:2px solid #1d120a;box-shadow:inset 0 0 0 1px #c9a45e66}
+.lore-list{list-style:none;margin:6px 0 8px;padding:6px 8px;background:#1d140c99;border-left:2px solid var(--biome);display:flex;flex-direction:column;gap:3px}
+.lore-list li{font-size:11px;color:#d8c49a;line-height:1.5}.lore-list b{color:#f6e3b0;margin-right:6px}
+/* 2026-10-30 T06 phone pass B (pi) */
+@media (max-width:760px),(max-height:520px){
+  /* Text floor 11px inside pi's nine modals; headings stay bigger than body text. */
+  #modal[data-type=dungeon] .encounter-banner p,
+  #modal[data-type=arena] .encounter-banner p,
+  #modal[data-type=boss] .encounter-banner p,
+  #modal[data-type=quests] .encounter-banner p,
+  #modal[data-type=inventory] .encounter-banner p,
+  #modal[data-type=dispatch] .modal-intro,
+  #modal[data-type=difficulty] .modal-intro{font-size:11px;line-height:1.75}
+  #modal[data-type=worldmap] .modal-note{font-size:11px;line-height:1.7}
+  /* dungeon / arena / dispatch: party cards */
+  #modal[data-type=dungeon] .party-pick span,
+  #modal[data-type=arena] .party-pick span,
+  #modal[data-type=dispatch] .party-pick span,
+  #modal[data-type=dungeon] .party-pick b,
+  #modal[data-type=arena] .party-pick b,
+  #modal[data-type=dispatch] .party-pick b{font-size:11px}
+  #modal[data-type=dispatch] .dispatch-party .party-pick em{font-size:11px;white-space:normal;overflow:visible;text-overflow:clip}
+  /* quests: progress number on the current chapter */
+  #modal[data-type=quests] .progress b{font-size:11px;line-height:13px}
+  /* inventory: material names */
+  #modal[data-type=inventory] .material-item span{font-size:11px}
+  /* difficulty: card note + select button */
+  #modal[data-type=difficulty] .difficulty-card small{font-size:11px;line-height:1.7}
+  #modal[data-type=difficulty] .difficulty-card .pixel-button{font-size:11px}
+  /* help: heading 12px, body 11px */
+  #modal[data-type=help] .help-card h3{font-size:12px}
+  #modal[data-type=help] .help-card p{font-size:11px;line-height:1.75}
+  /* worldmap: header, region cards, buttons */
+  #modal[data-type=worldmap] .world-map-header{font-size:11px}
+  #modal[data-type=worldmap] .world-map-header .pixel-button{font-size:11px}
+  #modal[data-type=worldmap] .region-card small{font-size:11px}
+  #modal[data-type=worldmap] .region-card p{font-size:11px;line-height:1.65}
+  #modal[data-type=worldmap] .region-card .pixel-button{font-size:11px}
+  /* 前往… was squeezed into a one-character column: give the travel button its own row */
+  #modal[data-type=worldmap] .region-card>div{flex-wrap:wrap;justify-content:flex-end;gap:6px}
+  #modal[data-type=worldmap] .region-card .pixel-button.gold{flex:1 0 100%;white-space:nowrap}
+  /* dispatch: region subtitle was cut off: let it wrap instead of clipping */
+  #modal[data-type=dispatch] .region-pick small{font-size:11px;white-space:normal;overflow:visible;text-overflow:clip;line-height:1.4}
+  #modal[data-type=dispatch] .region-pick em{font-size:11px}
+}
+/* 2026-10-30 phone pass A (Claude): text at least 11px on the village HUD, building inspector and the settings / build / hunters / hunter / recruit / trade / craft modals; landscape inspector no longer covers the right-hand buttons */
+@media (max-width:760px),(max-height:520px){
+  .town-badge small,#difficulty-name,#region-badge,.world-map-trigger span,.skill b,#bottom-bar>button b{font-size:11px}
+  #modal[data-type=settings] .setting-row small,#modal[data-type=settings] .setting-row .pixel-button{font-size:11px}
+  #modal[data-type=build] .modal-intro,#modal[data-type=build] .building-card small{font-size:11px}
+  #modal[data-type=hunters] .modal-toolbar,#modal[data-type=hunters] .modal-note,#modal[data-type=hunters] .hunter-card :is(small,.rarity,.status){font-size:11px}
+  #modal .hunter-detail :is(.detail-avatar .rarity,.detail-header>span,.need-row,.need-row label,.equipment-row>span,.stats-grid div),#modal[data-type=hunter] :is(.need-row .progress b,.hunter-actions .pixel-button small){font-size:11px}
+  #modal[data-type=recruit] .encounter-banner p,#modal[data-type=recruit] .visitor-card :is(.rarity,.trait,p,.pixel-button){font-size:11px}
+  #modal[data-type=trade] .encounter-banner p,#modal[data-type=trade] .trade-footer>span,#modal[data-type=trade] .trade-footer :is(b,small,.pixel-button){font-size:11px}
+  #modal[data-type=craft] .encounter-banner p,#modal[data-type=craft] .tabs button,#modal[data-type=craft] .craft-heading small,#modal[data-type=craft] .craft-card p{font-size:11px}
+  #notice-feed div{font-size:11px}
+  #inspector :is(.inspect-actions .pixel-button,.inspect-actions .move,.inspect-effect,.inspect-effect strong,.inspect-desc){font-size:11px}
+}
+@media (max-width:380px){.treasury>button{gap:2px;border-left-width:6px;border-right-width:6px}.treasury>button [data-icon]{width:15px;height:15px;flex:0 0 15px}}
+/* landscape: the inspector sits in the right column under the pause/speed/map row; zoom, help and boss buttons step aside while it is open */
+@media (max-height:520px){
+  #inspector{top:calc(var(--tb) + 54px);max-height:calc(100dvh - var(--tb) - var(--bb) - 62px)}
+  body:has(#inspector:not(.hidden)) :is(.view-tools,.skill-buttons){visibility:hidden}
+}

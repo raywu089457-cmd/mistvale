@@ -1,0 +1,2 @@
+Wide pixel art landscape vignette for a fantasy village management game UI card, very wide and short composition, match the reference image style exactly: same chunky pixel size, same warm limited palette, same soft lighting and level of detail. Show the scenery of the region described below with one or two of its creatures small in the middle distance. No text, no letters, no UI, no frame, no border.
+Region: layered grey rock cliffs with iron ore veins and an old mine entrance, loose boulders, a small kobold with a pickaxe peeking from the tunnel.
