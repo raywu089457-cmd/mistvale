@@ -62,9 +62,16 @@ const integer = (n, fallback, min = 0, max = 1e9) => Math.floor(number(n, fallba
 const distance = (a, b) => Math.hypot(a.x - b.x, a.z - b.z);
 const result = (ok, message) => ({ ok, message });
 const own = (obj, key) => Object.prototype.hasOwnProperty.call(obj, key);
-const xpNeeded = level => 30 + level * 8;
+// 升一級要的經驗(2026-10-30 續):原本 30 + 8×等級,Lv.100 總共只要約 4.3 萬 → 草原掛機 2–3 小時就滿級。
+// 加上 3×等級² 的項:Lv.30 累積約 3 萬(草原約 1.5 小時)、Lv.100 約 103 萬(要掛好幾天)。每一級都 ≥ 舊曲線,
+// 舊存檔的 xp(存的是「這一級已累積」)一定還在合法範圍內,等級不會掉、經驗也不用換算。
+export const xpNeeded = level => 30 + level * 8 + 3 * level * level;
 // 這一世累積的經驗(Lv.1 起算):離線外推用
 const lifetimeXp = h => { let n = h.xp || 0; for (let l = 1; l < h.level; l++) n += xpNeeded(l); return n; };
+// 修煉地:一次照樣 +5 級,學費跟這 5 級的經驗量走(1 金幣換 4 點經驗,最少 20)。經驗曲線變陡後還收固定 20 金幣,
+// 修煉就變成跳過整條曲線的捷徑(20 次、400 金幣就能 Lv.100);照經驗量收費,把獵人的收入全拿去修煉約等於升級速度 ×2。
+const trainXp = h => { let n = 0; for (let l = h.level; l < Math.min(100, h.level + 5); l++) n += xpNeeded(l); return n; };
+const trainFee = h => Math.max(20, Math.round(trainXp(h) / 4));
 // 離線收益:最多算 8 小時;前 sample 秒真的模擬,其餘照這段的速率外推(見 offlineFinish)
 export const OFFLINE = { max: 8 * 3600, sample: 120 };
 
@@ -1355,11 +1362,11 @@ export function createGame(saved = null) {
       if (h.hp <= 0 || h.task === 'dungeon' || h.task === 'arena') return result(false, '這位獵人目前無法參加訓練。');
       if (h.level >= 100) return result(false, '獵人已達 Lv.100，可以前往復活聖所轉世。');
       if (h.trainCooldown > 0) return result(false, `還需要休息 ${Math.ceil(h.trainCooldown)} 秒才能再次訓練。`);
-      if (h.gold < 20) return result(false, '獵人自己的金幣不足 20，狩獵或販售材料後才能訓練。');
-      h.gold -= 20; state.gold += 20; h.trainCooldown = 10; let xp = 0;
-      for (let level = h.level; level < Math.min(100, h.level + 5); level++) xp += xpNeeded(level);
-      gainXp(h, xp); state.counts.trained++; effect('level', h); return result(true, `${h.name}支付 20 金幣接受訓練，成長至 Lv.${h.level}。`);
+      const fee = trainFee(h); if (h.gold < fee) return result(false, `修煉需要獵人自己的金幣 ${fee}（目前 ${h.gold}），狩獵或販售材料後再來。`);
+      h.gold -= fee; state.gold += fee; h.trainCooldown = 10;
+      gainXp(h, trainXp(h)); state.counts.trained++; effect('level', h); return result(true, `${h.name}支付 ${fee} 金幣接受訓練，成長至 Lv.${h.level}。`);
     },
+    trainCost(hunterId) { const h = state.hunters.find(h => h.id === hunterId); return h && h.level < 100 ? trainFee(h) : null; },
     learnSkill(hunterId) {
       const h = state.hunters.find(h => h.id === hunterId); if (!h) return result(false, '找不到這位獵人。');
       if (!state.buildings.academy) return result(false, '請先建造學院。');

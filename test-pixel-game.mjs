@@ -1,5 +1,5 @@
 import assert from 'node:assert/strict';
-import { createGame, OFFLINE } from './src/pixel-game.js';
+import { createGame, OFFLINE, xpNeeded } from './src/pixel-game.js';
 import { doorStand, buildingSolid } from './src/landscape-layout.js';
 import { blockCenter } from './src/village-grid.js';
 import { BUILDINGS, CLASSES, MATERIALS, PRODUCTS, PILOT_ATTACK, AI_ATTACK_LOCK, KITE } from './src/pixel-data.js';
@@ -121,6 +121,7 @@ assert.equal(gear.state.counts.gearSold, 2); assert.equal(totalMoney(gear), gear
 assert.equal(gear.enhance(buyer.id).ok, false); assert.equal(gear.construct('enhancement').ok, true); assert.equal(gear.enhance(buyer.id).ok, true); assert.equal(buyer.weaponLevel, 1);
 assert.equal(gear.learnSkill(buyer.id).ok, false); gear.state.ore += 100; assert.equal(gear.construct('academy').ok, true); assert.equal(gear.learnSkill(buyer.id).ok, true);
 assert.equal(gear.train(buyer.id).ok, false); gear.state.gold += 1000; assert.equal(gear.construct('training').ok, true);
+buyer.gold = 1000;   // 2026-10-30 續:修煉學費照經驗量收(Lv.3 約 189、Lv.8 約 520),不再固定 20
 const trainLevel = buyer.level, trainingMoney = totalMoney(gear); assert.equal(gear.train(buyer.id).ok, true); assert.equal(buyer.level, trainLevel + 5); assert.equal(totalMoney(gear), trainingMoney); assert.equal(gear.train(buyer.id).ok, false);
 run(gear, 10.2, true); assert.equal(gear.train(buyer.id).ok, true);
 assert.equal(gear.reincarnate(buyer.id).ok, false); buyer.level = 100; const originalRebirth = buyer.rebirths; assert.equal(gear.reincarnate(buyer.id).ok, true); assert.equal(buyer.level, 1); assert.equal(buyer.rebirths, originalRebirth + 1);
@@ -705,6 +706,27 @@ const MID = { level: 30, equipment: { weapon: true, armor: true }, weaponLevel: 
   const wS = g.state.wanderKills - w0, hS = g.state.totalKills - h0, sum = g.offlineFinish(snap, 3600), f = (3600 - OFFLINE.sample) / OFFLINE.sample;
   assert.equal(sum.wanderKills, g.state.wanderKills - w0); assert.equal(sum.hunterKills, g.state.totalKills - h0); assert.equal(sum.kills, sum.hunterKills + sum.wanderKills, 'the offline 「擊倒魔物」 = hunters + wanderers');
   assert.ok(Math.abs(sum.wanderKills - wS * (1 + f)) <= 1 && Math.abs(sum.hunterKills - hS * (1 + f)) <= 1, 'wanderer kills are extrapolated like hunter kills');
+}
+{
+  // 升級曲線:每級都 ≥ 舊曲線(30 + 8×等級);Lv.100 要約 100 萬經驗;舊存檔的高等級不掉級,經驗留著
+  const old = lv => 30 + lv * 8;
+  let total = 0, to30 = 0; for (let lv = 1; lv < 100; lv++) { assert.ok(xpNeeded(lv) >= old(lv), `Lv.${lv} needs at least the old amount`); total += xpNeeded(lv); if (lv < 30) to30 += xpNeeded(lv); }
+  assert.ok(to30 > 25000 && to30 < 40000, `Lv.30 takes ~30k exp (${to30})`); assert.ok(total > 9e5 && total < 1.2e6, `Lv.100 takes ~1M exp (${total})`);
+  // 舊存檔:Lv.L 帶舊曲線下的最大經驗(old(L) − 1),讀檔後等級不變、經驗不變(新曲線每級都更多,不用換算)
+  for (const L of [1, 6, 30, 57, 99]) {
+    const s = createGame().serialize(); Object.assign(s.hunters[0], { level: L, xp: old(L) - 1 });
+    const lh = createGame(s).state.hunters[0]; assert.equal(lh.level, L, `an old save at Lv.${L} keeps its level`); assert.equal(lh.xp, old(L) - 1, `…and its progress into the level (Lv.${L})`);
+  }
+  const s100 = createGame().serialize(); Object.assign(s100.hunters[0], { level: 100, xp: 12345, rebirths: 2 });
+  const h100 = createGame(s100).state.hunters[0]; assert.equal(h100.level, 100); assert.equal(h100.xp, 0); assert.equal(h100.rebirths, 2);
+  // 修煉一樣 +5 級,學費照經驗量收(Lv.1–5 約 109 金幣;高等級貴很多),錢不夠就不能修煉
+  const t = createGame(); t.state.buildings.training = 1; const th = t.state.hunters[0]; Object.assign(th, { level: 1, xp: 0, gold: 5000 });
+  const fee1 = t.trainCost(th.id); assert.equal(fee1, 109); const m0 = th.gold + t.state.gold;
+  assert.equal(t.train(th.id).ok, true); assert.equal(th.level, 6); assert.equal(th.gold, 5000 - fee1); assert.equal(th.gold + t.state.gold, m0, 'the fee moves from the hunter to the village');
+  Object.assign(th, { level: 60, xp: 0, trainCooldown: 0, gold: 100 }); const fee60 = t.trainCost(th.id);
+  assert.ok(fee60 > 50 * fee1, `training at Lv.60 costs much more (${fee60})`); assert.equal(t.train(th.id).ok, false, 'not enough gold → no training');
+  th.gold = fee60; assert.equal(t.train(th.id).ok, true); assert.equal(th.level, 65); assert.equal(th.gold, 0);
+  th.level = 100; assert.equal(t.trainCost(th.id), null);
 }
 console.log(`PASS: ${CLASSES.length} hunters / ${CLASSES.length} classes, seeded visitors, conservation of personal and village gold, paid and emergency services, bounded trading, crafting and gear purchases, upgrades, training, skills, rebirth, difficulty gates, hunting, field boss, death/revival, dungeon combat and save continuation, NPC arena, navigation, malformed saves, pause, deterministic simulation, all 8 quests. Natural 60s: ${combat.state.totalKills} total kills; ${combat.state.counts.services} services.`);
 
