@@ -589,5 +589,81 @@ run(manual, 30, false, assertFiniteEconomy);
   assert.ok(Math.abs((idle.state.gold + W()) - (v0 + w0 + flow * (3 * 3600 / OFFLINE.sample))) <= idle.state.hunters.length + 2, 'village + hunter gold is extrapolated together (no gold from nothing)');
   assert.ok(idle.state.hunters.every(h => h.gold >= 0)); assertFiniteEconomy(idle.state);
 }
+// ── 2026-10-30 續 ──────────────────────────────────────────────────────────
+// 用存檔設定獵人的等級／裝備(restore 會照公式重算能力值,比直接改 attack 準)
+function partyGame(classes, profile, tweak = null) {
+  const s = createGame().serialize(); s.buildings.dungeon = 1;
+  for (const h of s.hunters) Object.assign(h, { ...profile, xp: 0, hp: 1e9, satiety: 100, stamina: 100, mood: 100 });
+  tweak?.(s); const g = createGame(s); for (const h of g.state.hunters) h.hp = h.maxHp;
+  return { g, party: classes.map(c => g.state.hunters.find(h => h.classId === c)) };
+}
+const MID = { level: 30, equipment: { weapon: true, armor: true }, weaponLevel: 3, skillLevel: 2 };
+{
+  // 地下城撤退:立刻回村;已突破樓層的獎勵保留、打到一半的這層沒獎勵;魔物、事件、自動續戰、還在飛的飛行物都清掉;撤退前後存讀檔都正常
+  const { g, party } = partyGame(['paladin', 'archer', 'priest'], MID), d = g.state.dungeon;
+  assert.equal(g.retreatDungeon().ok, false, 'nothing to retreat from');
+  g.setDungeonAuto(true); assert.equal(g.startDungeon(party.map(h => h.id)).ok, true);
+  for (let i = 0; i < 6000 && !(d.bestFloor >= 2 && d.phase === '戰鬥中' && d.wave === 2); i++) g.tick(0.1);
+  assert.ok(d.active && d.bestFloor >= 2 && d.wave === 2, `mid-run on floor ${d.floor}`);
+  assert.ok(d.foes.some(f => f.hp > 0));
+  const floor = d.floor, best = d.bestFloor, wins = g.state.counts.dungeonWins, res = ['gold', 'ore', 'gems'].map(k => g.state[k]);
+  // 撤退前存檔 → 讀回來還在打同一層;舊存檔沒有 runFrom 也讀得進來
+  const midSave = g.serialize(); assert.equal(midSave.dungeon.runFrom, 1);
+  const resumed = createGame(midSave), rd = resumed.state.dungeon;
+  assert.ok(rd.active && rd.floor === floor && rd.auto && rd.runFrom === 1 && rd.foes.length >= 1, 'a mid-run save resumes the same floor');
+  const legacy = JSON.parse(JSON.stringify(midSave)); delete legacy.dungeon.runFrom;
+  assert.equal(createGame(legacy).state.dungeon.runFrom, floor, 'an old mid-run save without runFrom loads (counts from the current floor)');
+  for (const game of [g, resumed]) {
+    const dd = game.state.dungeon, r = game.retreatDungeon(); assert.equal(r.ok, true);
+    assert.equal(dd.active, false); assert.equal(dd.auto, false, 'retreat turns auto-continue off');
+    assert.deepEqual(dd.foes, []); assert.deepEqual(dd.events, []); assert.equal(dd.wave, 0); assert.equal(dd.enemyHp, 0); assert.deepEqual(dd.reward, {}, 'no reward for the unfinished floor');
+    assert.equal(dd.bestFloor, best, 'cleared floors stay cleared'); assert.equal(dd.floor, best + 1); assert.equal(game.state.counts.dungeonWins, wins);
+    assert.deepEqual(['gold', 'ore', 'gems'].map(k => game.state[k]), res, 'rewards already banked stay; retreat adds nothing');
+    assert.ok(game.state.hunters.filter(h => party.some(p => p.id === h.id)).every(h => h.task !== 'dungeon'), 'the party heads back to the village');
+    assert.match(game.state.log[0].text, /撤退.*本次突破的 \d+ 層獎勵都已入庫/);
+    assert.equal(game.retreatDungeon().ok, false);
+  }
+  const after = createGame(g.serialize()); assert.equal(after.state.dungeon.active, false); assert.equal(after.state.dungeon.bestFloor, best, 'a save after the retreat loads idle');
+  assert.ok(after.state.hunters.every(h => h.task !== 'dungeon'));
+  run(g, 20, false, assertFiniteEconomy); assert.equal(g.state.dungeon.active, false);
+  g.state.dungeon.cooldown = 0; for (const h of party) h.hp = h.maxHp; assert.equal(g.startDungeon(party.map(h => h.id)).ok, true, 'a new run can start after retreating');
+}
+{
+  // 撤退也作廢目標是小隊成員、還在飛的魔物飛行物(pendingHits):回村路上不會被打中
+  const shoot = retreat => {
+    const g = createGame(); g.state.buildings.dungeon = 1; const C = regionCenter('meadow'), [h, b, c] = g.state.hunters;
+    g.state.hunters = [h, b, c]; g.state.wanderers = [];
+    const quiet = () => { g.state.spawnTimer = -999; g.state.regionSpawn = Object.fromEntries(['meadow', 'birch', 'forest', 'taiga', 'desert', 'snow', 'mountain'].map(k => [k, -999])); };
+    const proto = g.state.enemies.find(e => e.regionId === 'meadow'); quiet();
+    Object.assign(h, { x: C.x, z: C.z, task: 'pilot', route: [], hp: h.maxHp });
+    g.state.enemies = [{ ...proto, id: 'rng', type: 'sprout', x: C.x + 4, z: C.z, hp: 999, maxHp: 999, attack: 30, attackTimer: 0, rewarded: false }];
+    g.tick(0.1); assert.ok(g.state.effects.some(e => e.type === 'mshot'), 'a shot is in the air'); g.state.enemies = [];
+    if (retreat) { h.task = null; assert.equal(g.startDungeon([h.id, b.id, c.id]).ok, true); assert.equal(g.retreatDungeon().ok, true); }
+    else h.task = null;
+    const hp0 = h.hp; for (let i = 0; i < 15; i++) { quiet(); g.state.enemies = []; g.tick(0.1); } return [hp0, h.hp];
+  };
+  const [a0, a1] = shoot(false); assert.ok(a1 < a0, 'control: without a retreat the shot lands');
+  const [b0, b1] = shoot(true); assert.equal(b1, b0, 'a shot aimed before the run is dropped on retreat');
+}
+{
+  // 樓層數值:每層固定倍率成長,換區(每 3 層)不跳級;過層獎勵逐層增加,首次通關加倍
+  const { g, party } = partyGame(['paladin', 'archer', 'priest'], MID), d = g.state.dungeon;
+  d.bestFloor = 40; const waves = [];
+  for (let f = 1; f <= 40; f++) { d.floor = f; d.active = false; d.cooldown = 0; for (const h of party) { h.hp = h.maxHp; h.task = null; }
+    assert.equal(g.startDungeon(party.map(h => h.id), f).ok, true); waves.push({ hp: d.enemyMaxHp, atk: Math.max(...d.foes.map(x => x.attack)) }); g.retreatDungeon(); }
+  for (let f = 1; f < 40; f++) {
+    const hr = waves[f].hp / waves[f - 1].hp, ar = waves[f].atk / waves[f - 1].atk;
+    assert.ok(hr > 1.02 && hr < 1.16, `wave HP grows smoothly ${f}→${f + 1} (×${hr.toFixed(3)})`);
+    assert.ok(ar >= 1 && ar < 1.12, `monster attack grows smoothly ${f}→${f + 1} (×${ar.toFixed(3)})`);
+  }
+  const { g: rg, party: rp } = partyGame(['paladin', 'archer', 'priest'], { level: 100, rebirths: 10, equipment: { weapon: true, armor: true }, weaponLevel: 10, skillLevel: 5 }), rd = rg.state.dungeon;
+  rd.bestFloor = 3; rg.setDungeonAuto(true); assert.equal(rg.startDungeon(rp.map(h => h.id), 1).ok, true);
+  const gold = []; let wins = rg.state.counts.dungeonWins, g0 = rg.state.gold;
+  for (let i = 0; i < 6000 && gold.length < 6; i++) { rg.state.enemies = []; rg.tick(0.1); if (rg.state.counts.dungeonWins > wins) { wins = rg.state.counts.dungeonWins; gold.push(rg.state.gold - g0); g0 = rg.state.gold; } }
+  assert.equal(gold.length, 6, 'a strong party clears floors 1–6');
+  assert.ok(gold[0] < gold[1] && gold[1] < gold[2], `repeat floors pay more the deeper they are (${gold.join(', ')})`);
+  assert.ok(gold[3] > gold[2] * 1.8, `the first clear of a new floor pays double (${gold[2]} → ${gold[3]})`);
+  assert.ok(gold[3] < gold[4] && gold[4] < gold[5]);
+}
 console.log(`PASS: ${CLASSES.length} hunters / ${CLASSES.length} classes, seeded visitors, conservation of personal and village gold, paid and emergency services, bounded trading, crafting and gear purchases, upgrades, training, skills, rebirth, difficulty gates, hunting, field boss, death/revival, dungeon combat and save continuation, NPC arena, navigation, malformed saves, pause, deterministic simulation, all 8 quests. Natural 60s: ${combat.state.totalKills} total kills; ${combat.state.counts.services} services.`);
 

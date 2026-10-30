@@ -98,6 +98,13 @@ export const MONSTER_RANGED={
  floraspirit:{range:5.5,every:2.3,speed:7,release:.25,shot:6,lob:2,size:11,spin:1}, // 白樺林 花妖精:花粉光球
 };
 export const MSHOT_IMPACT=7;
+// 地下城樓層數值(2026-10-30 續;原本血量 ∝ 樓層²、攻擊 ∝ 樓層、獎勵 ∝ 樓層,加上舊經驗曲線讓小隊一趟就從 Lv.30 衝到 Lv.70):
+// 每層照固定倍率成長(幾何級數),DG_TIERS 每 3 層換一區只換魔物外觀、數值不跳級。f = 樓層(1 起)。
+// 第 w 波總血量 = hp × wave[w−1] × hpGrow^(f−1)(依魔物體型分給 1–3 隻);每隻攻擊 = (atk + atkWave×w) × atkGrow^(f−1)。
+// 過層獎勵:村莊 gold/ore = 基數 × rewardGrow^(f−1)、gems = 基數 × gemGrow^(f−1)(四捨五入,至少 1);小隊每人 heroGold × heroGoldGrow^(f−1)、heroXp × heroXpGrow^(f−1)。
+// 第一次打通的樓層(破紀錄)村莊獎勵 × firstClear:推進新樓層(風險最高)最划算,回頭刷低層照樣有收益。
+// 量測(聖騎士＋弓箭手＋祭司從第 1 層自動續戰,數字見 docs/HANDOFF-2026-10-30.md「10-30 續」):開局隊 2 層、Lv.10 約 19、Lv.30 全裝約 32、Lv.60 約 42、Lv.100 約 50、轉世 3 次約 62、10 次約 74。
+export const DUNGEON={hp:300,wave:[1,1.25,1.5],hpGrow:1.09,atk:15,atkWave:2,atkGrow:1.05,gold:110,ore:11,rewardGrow:1.055,gems:2,gemGrow:1.04,firstClear:2,heroGold:40,heroGoldGrow:1.05,heroXp:120,heroXpGrow:1.06};
 export const CAMP={x:GRID.cx,z:GRID.cz+.5};   // 營地:村中央的廣場(空的石板地)
 export const SAVE_KEY='mistvale-pixel-v2';
 export const LEGACY_LAYOUT_V15={hall:{x:-20,z:-10},trading:{x:-12,z:-7},restaurant:{x:-12,z:0},inn:{x:-20,z:11},tavern:{x:-3,z:11},clinic:{x:8,z:10},forge:{x:4,z:0},academy:{x:-4,z:-4},training:{x:-3,z:19},sanctuary:{x:7,z:-12},house:{x:-21,z:17},bounty:{x:4,z:18},enhancement:{x:-20,z:-16},dungeon:{x:19,z:-9.5}};

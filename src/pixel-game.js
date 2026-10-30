@@ -2,7 +2,7 @@ import {getRoads,onPaved,doorStand,PALISADE,villagePonds,inPond,buildingSolid,st
 import {createVillageNav} from './village-nav.js';
 import {WORLD,REGIONS,walkable,inVillage,regionAt,regionContains,regionEdge,regionCenter,randomRegionPoint,wildAt,nearestRingRoad,ringRoadPath,ringPointAt,onRingRoad,ringRoadDistance} from './overworld.js';
 import {VILLAGE_BOUNDS,EXITS,blockAt,BUILDING_NUDGE,BUILDING_SLOTS,blockCenter} from './village-grid.js';
-import { SKILLS, BUILDINGS, CLASSES, RARITIES, TRAITS, MATERIALS, PRODUCTS, RECIPES, DIFFICULTIES, CAMP, HUNT_ZONE, PILOT_ATTACK, PILOT_ORB, AI_ATTACK_LOCK, KITE, PROVOKE, MONSTER_RANGED, LEGACY_LAYOUT_V14, LEGACY_LAYOUT_V15, LEGACY_LAYOUT_V16, ART_LAYOUT_HISTORY } from './pixel-data.js';
+import { SKILLS, BUILDINGS, CLASSES, RARITIES, TRAITS, MATERIALS, PRODUCTS, RECIPES, DIFFICULTIES, CAMP, HUNT_ZONE, PILOT_ATTACK, PILOT_ORB, AI_ATTACK_LOCK, KITE, PROVOKE, MONSTER_RANGED, DUNGEON, LEGACY_LAYOUT_V14, LEGACY_LAYOUT_V15, LEGACY_LAYOUT_V16, ART_LAYOUT_HISTORY } from './pixel-data.js';
 
 const mapById = list => Object.assign(Object.create(null), Object.fromEntries(list.map(item => [item.id, item])));
 const CLASS = mapById(CLASSES), BUILDING = mapById(BUILDINGS), RARITY = mapById(RARITIES), RECIPE = mapById(RECIPES);
@@ -643,7 +643,11 @@ export function createGame(saved = null) {
     state.quest.complete = state.quest.progress >= state.quest.target;
   }
 
-  function dungeonEnemyHp(floor, wave) { return Math.round((220 + floor * 80) * (1 + (wave - 1) * 0.25) * (1 + (floor - 1) * 0.2)); }
+  // 地下城樓層數值(DUNGEON,在 pixel-data.js):每層固定倍率成長,換區不跳級;過層獎勵逐層變多,首次通關(破紀錄)加倍。
+  const dgScale = (floor, grow) => Math.pow(grow, Math.max(0, floor - 1));
+  function dungeonEnemyHp(floor, wave) { return Math.round(DUNGEON.hp * DUNGEON.wave[clamp(wave, 1, 3) - 1] * dgScale(floor, DUNGEON.hpGrow)); }
+  const dgAttack = (floor, wave) => Math.round((DUNGEON.atk + DUNGEON.atkWave * clamp(wave, 1, 3)) * dgScale(floor, DUNGEON.atkGrow));
+  function dgReward(floor, first = false) { const r = dgScale(floor, DUNGEON.rewardGrow) * (first ? DUNGEON.firstClear : 1); return { gold: Math.round(DUNGEON.gold * r), ore: Math.round(DUNGEON.ore * r), gems: Math.max(1, Math.round(DUNGEON.gems * dgScale(floor, DUNGEON.gemGrow) * (first ? DUNGEON.firstClear : 1))) }; }
 
   // ── 地下城(2026-10-30 改版:橫條戰鬥畫面) ──
   // 每層 3 波,每波 1–3 隻真的魔物(總血量 = 舊版那一波的血量,難度不變),素材用野外同一套魔物表:每 3 層換一區(由易到難)。
@@ -657,15 +661,19 @@ export function createGame(saved = null) {
     const types = wave === 1 ? [small, small] : wave === 2 ? (floor >= 5 ? [mid, small, small] : [mid, small]) : (floor >= 10 ? [big, mid] : [big]);
     const total = dungeonEnemyHp(floor, wave), sum = types.reduce((n, t) => n + ENEMIES[t].hp, 0);
     return types.map((type, i) => { const hp = Math.max(1, Math.round(total * ENEMIES[type].hp / sum));
-      return { id: id('dg'), type, hp, maxHp: hp, attack: 13 + floor * 4 + wave * 2, timer: 1.5 + i * 0.6, every: 1.4 * types.length, ranged: !!MONSTER_RANGED[type], big: wave === 3 && i === 0 }; });
+      return { id: id('dg'), type, hp, maxHp: hp, attack: dgAttack(floor, wave), timer: 1.5 + i * 0.6, every: 1.4 * types.length, ranged: !!MONSTER_RANGED[type], big: wave === 3 && i === 0 }; });
   }
   function dgEvent(k, a, b, v, shot = null) { const d = state.dungeon; (d.events ||= []).push({ t: state.time, k, a, b, v, shot }); if (d.events.length > 32) d.events.splice(0, d.events.length - 32); }
   function dgSync() { const d = state.dungeon, f = d.foes || []; d.enemyHp = f.reduce((n, x) => n + Math.max(0, x.hp), 0); d.enemyMaxHp = f.reduce((n, x) => n + x.maxHp, 0); }
-  function endDungeon(won) {
-    const d = state.dungeon, floor = d.floor;
-    d.active = false; d.phase = won ? '勝利' : '撤退'; d.cooldown = won ? 15 : 20; d.foes = []; dgSync();
-    if (won) d.floor = Math.min(100, d.bestFloor + 1);
-    else { d.reward = {}; log(`地下城第 ${floor} 層探險失敗。獵人正撤回村莊休養。`, 'warning'); }
+  // outcome:true = 過層後回村;false = 全滅或超時;'retreat' = 玩家按「撤退」(已突破樓層的獎勵過層時就入庫了,打到一半的這層不給)。
+  // 結束一律清乾淨:這波魔物、畫面事件、波次/計時,以及還在飛、目標是小隊成員的魔物飛行物(pendingHits);撤退也關掉自動續戰。
+  function endDungeon(outcome) {
+    const d = state.dungeon, floor = d.floor, won = outcome === true, retreat = outcome === 'retreat', ids = d.hunterIds, cleared = Math.max(0, floor - (d.runFrom || floor));
+    d.active = false; d.phase = won ? '勝利' : '撤退'; d.cooldown = won || retreat ? 15 : 20; d.foes = []; d.events = []; d.wave = 0; d.time = 0; d.rest = 0; dgSync();
+    for (let i = pendingHits.length - 1; i >= 0; i--) if (ids.includes(pendingHits[i].id)) pendingHits.splice(i, 1);
+    if (won || retreat) d.floor = Math.min(100, d.bestFloor + 1);
+    if (retreat) { d.reward = {}; d.auto = false; log(`小隊從地下城第 ${floor} 層撤退${cleared ? `，本次突破的 ${cleared} 層獎勵都已入庫` : ''}；這一層沒有獎勵。`, 'warning'); }
+    else if (!won) { d.reward = {}; log(`地下城第 ${floor} 層探險失敗。獵人正撤回村莊休養。`, 'warning'); }
     for (const h of state.hunters.filter(h => d.hunterIds.includes(h.id))) {
       h.task = null;
       if (h.hp <= 0) { h.task = 'revive'; h.reviveTimer = Math.max(3, h.reviveTimer); h.status = '復活中'; }
@@ -674,11 +682,12 @@ export function createGame(saved = null) {
   }
   function floorCleared() {
     const d = state.dungeon, floor = d.floor, party = state.hunters.filter(h => d.hunterIds.includes(h.id));
-    d.bestFloor = Math.max(d.bestFloor, floor); state.counts.dungeonWins++;
-    d.reward = { gold: 120 + floor * 40, ore: 10 + floor * 5, gems: 2 + Math.floor(floor / 2) };
+    const first = floor > d.bestFloor; d.bestFloor = Math.max(d.bestFloor, floor); state.counts.dungeonWins++;
+    d.reward = dgReward(floor, first);
     for (const [key, amount] of Object.entries(d.reward)) state[key] += amount;
-    for (const h of party) if (h.hp > 0) { h.gold += 35 + floor * 10; gainXp(h, 140 + floor * 35); }
-    log(`地下城第 ${floor} 層突破！村莊獲得 ${d.reward.gold} 金幣、${d.reward.ore} 鐵礦與 ${d.reward.gems} 晶石。`, 'success'); effect('victory', door('dungeon'));
+    const heroGold = Math.round(DUNGEON.heroGold * dgScale(floor, DUNGEON.heroGoldGrow)), heroXp = Math.round(DUNGEON.heroXp * dgScale(floor, DUNGEON.heroXpGrow));
+    for (const h of party) if (h.hp > 0) { h.gold += heroGold; gainXp(h, heroXp); }
+    log(`地下城第 ${floor} 層突破${first ? '（首次通關，獎勵加倍）' : ''}！村莊獲得 ${d.reward.gold} 金幣、${d.reward.ore} 鐵礦與 ${d.reward.gems} 晶石。`, 'success'); effect('victory', door('dungeon'));
     dgEvent('clear', null, null, floor);
     if (d.auto && floor < 100 && party.every(h => h.hp > 0)) {
       d.floor = floor + 1; d.wave = 1; d.foes = []; d.time = 0; d.phase = '休整中'; d.rest = 3;
@@ -1076,7 +1085,7 @@ export function createGame(saved = null) {
   function fresh() {
 
     for (const key of Object.keys(state)) delete state[key];
-    Object.assign(state, { version: 2, layoutRevision: 3, worldRevision: 4, region: 'meadow', visitedRegions:['village','meadow'], gold: 1500, wood: 160, ore: 120, herb: 60, cloth: 60, flour: 80, leather: 50, gems: 20, day: 1, time: 0, paused: false, speed: 1, difficulty: 0, kills: 0, totalKills: 0, bossKills: 0, recruited: 0, hunters: [], enemies: [], buildings: Object.fromEntries(BUILDINGS.map(b => [b.id, UNBUILT.has(b.id) ? 0 : 1])), layout: Object.fromEntries(BUILDINGS.map(b => [b.id, { x: b.x, z: b.z }])), stocks: { food: 30, drink: 30, bed: 30, bandage: 30 }, gearStock: { weapon: 0, armor: 0 }, tradeRequests: { wood: 30, ore: 40, herb: 30, cloth: 30, flour: 40, leather: 30 }, counts: { crafted: 0, foodCrafted: 0, traded: 0, gearCrafted: 0, weaponsCrafted: 0, gearSold: 0, services: 0, basicServices: 0, serviceIncome: 0, dungeonWins: 0, rebirths: 0, deaths: 0, trained: 0 }, effects: [], log: [], quest: { index: 0, claimed: false }, expedition: { active: false, bossHp: 0, bossMaxHp: 1150, cooldown: 0, elapsed: 0 }, dungeon: { active: false, floor: 1, bestFloor: 0, wave: 0, enemyHp: 0, enemyMaxHp: 0, time: 0, hunterIds: [], reward: {}, cooldown: 0, phase: '待命', attackTimer: 1, foes: [], events: [], auto: false, startFloor: 0, rest: 0 }, healCooldown: 0, capacity: 8, spawnTimer: 0, seed: 918273, nextId: 0, rally: null, dispatchTeams: defaultDispatchTeams(), settings: { ...DEFAULT_SETTINGS } });
+    Object.assign(state, { version: 2, layoutRevision: 3, worldRevision: 4, region: 'meadow', visitedRegions:['village','meadow'], gold: 1500, wood: 160, ore: 120, herb: 60, cloth: 60, flour: 80, leather: 50, gems: 20, day: 1, time: 0, paused: false, speed: 1, difficulty: 0, kills: 0, totalKills: 0, bossKills: 0, recruited: 0, hunters: [], enemies: [], buildings: Object.fromEntries(BUILDINGS.map(b => [b.id, UNBUILT.has(b.id) ? 0 : 1])), layout: Object.fromEntries(BUILDINGS.map(b => [b.id, { x: b.x, z: b.z }])), stocks: { food: 30, drink: 30, bed: 30, bandage: 30 }, gearStock: { weapon: 0, armor: 0 }, tradeRequests: { wood: 30, ore: 40, herb: 30, cloth: 30, flour: 40, leather: 30 }, counts: { crafted: 0, foodCrafted: 0, traded: 0, gearCrafted: 0, weaponsCrafted: 0, gearSold: 0, services: 0, basicServices: 0, serviceIncome: 0, dungeonWins: 0, rebirths: 0, deaths: 0, trained: 0 }, effects: [], log: [], quest: { index: 0, claimed: false }, expedition: { active: false, bossHp: 0, bossMaxHp: 1150, cooldown: 0, elapsed: 0 }, dungeon: { active: false, floor: 1, bestFloor: 0, wave: 0, enemyHp: 0, enemyMaxHp: 0, time: 0, hunterIds: [], reward: {}, cooldown: 0, phase: '待命', attackTimer: 1, foes: [], events: [], auto: false, startFloor: 0, rest: 0, runFrom: 1 }, healCooldown: 0, capacity: 8, spawnTimer: 0, seed: 918273, nextId: 0, rally: null, dispatchTeams: defaultDispatchTeams(), settings: { ...DEFAULT_SETTINGS } });
     rebuildNavigation();
     state.visitors = [];
     state.arena = { active: false, wins: 0, losses: 0, enemyHp: 0, enemyMaxHp: 0, time: 0, hunterIds: [], cooldown: 0, phase: '待命', attackTimer: 1, opponent: '暮林訓練隊', reward: 0 };
@@ -1194,9 +1203,10 @@ export function createGame(saved = null) {
     const selected = Array.isArray(rawDungeon?.hunterIds) ? [...new Set(rawDungeon.hunterIds)].filter(hid => state.hunters.some(h => h.id === hid)).slice(0, 3) : [];
     if (rawDungeon?.active === true && state.buildings.dungeon && selected.length === 3) {
       d.active = true; d.hunterIds = selected; d.phase = '集結中'; d.floor = integer(rawDungeon.floor, d.bestFloor + 1, 1, d.bestFloor + 1); d.wave = integer(rawDungeon.wave, 1, 1, 3); d.time = number(rawDungeon.time, 0, 0, 180);
+      d.runFrom = integer(rawDungeon.runFrom, d.floor, 1, d.floor);   // 這次從第幾層出發(撤退時算本次突破幾層);舊存檔沒有 → 當作從目前這層出發
       // 存檔裡的這一波魔物(型別要存在、血量合理才收);舊存檔沒有 foes → 照目前這一波重新排
       const foes = Array.isArray(rawDungeon.foes) ? rawDungeon.foes.filter(f => f && own(ENEMIES, f.type) && f.type !== 'boss' && Number.isFinite(f.maxHp) && f.maxHp > 0) : [];
-      d.foes = foes.slice(0, 3).map(f => ({ id: id('dg'), type: f.type, maxHp: Math.round(number(f.maxHp, 1, 1, 1e7)), hp: Math.round(number(f.hp, f.maxHp, 0, f.maxHp)), attack: number(f.attack, 13 + d.floor * 4, 1, 1e5), timer: number(f.timer, 1.5, 0, 10), every: number(f.every, 2.8, 0.5, 10), ranged: !!MONSTER_RANGED[f.type], big: !!f.big }));
+      d.foes = foes.slice(0, 3).map(f => ({ id: id('dg'), type: f.type, maxHp: Math.round(number(f.maxHp, 1, 1, 1e7)), hp: Math.round(number(f.hp, f.maxHp, 0, f.maxHp)), attack: number(f.attack, dgAttack(d.floor, d.wave), 1, 1e5), timer: number(f.timer, 1.5, 0, 10), every: number(f.every, 2.8, 0.5, 10), ranged: !!MONSTER_RANGED[f.type], big: !!f.big }));
       if (!d.foes.some(f => f.hp > 0)) d.foes = dgWave(d.floor, d.wave);
       dgSync();
       for (const h of state.hunters.filter(h => selected.includes(h.id))) { h.task = 'dungeon'; h.status = h.hp > 0 ? '地下城集結' : '復活中'; h.destination = 'dungeon'; route(h, [door('dungeon', h)]); }
@@ -1390,10 +1400,12 @@ export function createGame(saved = null) {
       }
       if (selected.length !== 3 || selected.some(h => h.hp <= 0 || h.task === 'revive' || h.task === 'arena')) return result(false, '地下城探險需要 3 位未參與競技場的存活獵人。');
       const floor = clamp(Math.floor(number(startFloor, d.startFloor || d.bestFloor + 1, 1, 100)), 1, d.bestFloor + 1);   // 從第幾層開始:1 ~ 最高紀錄 +1
-      Object.assign(d, { active: true, floor, wave: 1, time: 0, hunterIds: selected.map(h => h.id), reward: {}, phase: '集結中', attackTimer: 1.5, foes: dgWave(floor, 1), events: [], rest: 0 }); dgSync();
+      Object.assign(d, { active: true, floor, runFrom: floor, wave: 1, time: 0, hunterIds: selected.map(h => h.id), reward: {}, phase: '集結中', attackTimer: 1.5, foes: dgWave(floor, 1), events: [], rest: 0 }); dgSync();
       for (const h of selected) { h.task = 'dungeon'; h.destination = 'dungeon'; h.status = '地下城集結'; h.targetId = null; h.serviceProduct = null; h.serviceStarted = false; route(h, [door('dungeon', h)]); }
       log(`${selected.map(h => h.name).join('、')}前往地下城第 ${d.floor} 層${d.auto ? '（自動續戰）' : ''}。`, 'info'); return result(true, '三位獵人已組成小隊，正在前往地下城入口。');
     },
+    // 撤退(2026-10-30 續):立刻結束這次探險,小隊回村;已突破樓層的獎勵保留,打到一半的這層沒有獎勵。
+    retreatDungeon() { if (!state.dungeon.active) return result(false, '目前沒有小隊在地下城裡。'); endDungeon('retreat'); return result(true, '小隊撤出地下城，正在返回村莊。'); },
     startArena(hunterIds = null) {
       if (!state.buildings.training) return result(false, '請先建造修煉地，開放競技場模擬對戰。');
       const a = state.arena; if (a.active) return result(false, '模擬對戰正在進行。');
