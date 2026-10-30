@@ -197,6 +197,22 @@ const dupSave = squads.serialize(); dupSave.dispatchTeams[3] = { ids: [s0.id, s4
 const dupLoaded = createGame(dupSave);
 assert.deepEqual(dupLoaded.state.dispatchTeams[0].ids, [s0.id], 'The first squad that lists a hunter keeps him'); assert.deepEqual(dupLoaded.state.dispatchTeams[3].ids, [s4.id]); assert.equal(dupLoaded.state.dispatchTeams[3].region, 'desert');
 assert.equal(createGame().dispatchHunters().ok, true, 'The one-click dispatch still sends everyone');
+// ── 地圖詳細資訊(2026-10-30):派遣出征的區域卡捲軸鈕。數值要跟實際出怪/數值表一致,不能另外抄一份 ──
+{
+  const info = createGame(), ri = info.regionInfo('snow');
+  assert.ok(ri, 'regionInfo returns data for a hunting region');
+  assert.equal(ri.monsters.length, 3, 'Every region lists its three monsters');
+  assert.ok(ri.monsters.every(m => m.hp > 0 && m.attack > 0 && m.gold > 0 && m.xp > 0), 'Monster stats come from the real enemy table');
+  assert.ok(ri.riskStars >= 1 && ri.riskStars <= 5, 'Risk stars stay in 1-5');
+  assert.ok(Object.keys(ri.loot).length > 0 && Object.values(ri.loot).every(v => v > 0), 'Average loot per kill is listed');
+  assert.equal(info.regionInfo('village'), null, 'The village is not a hunting region');
+  const fit = ri.fit([]);
+  assert.ok(fit && ['easy', 'ok', 'hard'].includes(fit.verdict) && fit.threat > 0 && fit.comfort > 0, 'Squad fit compares comfort against regional threat');
+  const weakest = info.regionInfo('meadow'), strongest = info.regionInfo('mountain');
+  assert.ok(Math.max(...strongest.monsters.map(m => m.attack)) > Math.max(...weakest.monsters.map(m => m.attack)), 'Mountain hits harder than the meadow');
+  assert.ok(strongest.riskStars > weakest.riskStars, 'Danger stars follow region risk');
+  assert.equal(fit.threat, Math.round(Math.max(...ri.monsters.map(m => m.attack)) * ri.risk), 'Threat is the hardest monster times the regional multiplier');
+}
 const dead = createGame(), fallen = isolate(dead); fallen.hp = 0; run(dead, 0.2, true); assert.equal(fallen.status, '復活中'); assert.equal(dead.state.counts.deaths, 1); run(dead, 10, true); assert.ok(fallen.hp > 0 && fallen.reviveTimer === 0);
 
 const dungeon = createGame(); assert.equal(dungeon.startDungeon().ok, false); assert.equal(dungeon.construct('dungeon').ok, true);

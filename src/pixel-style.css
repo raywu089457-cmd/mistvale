@@ -630,17 +630,17 @@ body.piloting #toasts{top:calc(98px + env(safe-area-inset-top))}
    視窗 22、卡片 16、按鈕 12、方塊 18、提示板 14、凹槽 8。桌機 border 寬＝切角（1:1 不縮放，像素不變形）；
    手機沿用 (10) 的 border 寬（零件縮小顯示，版面不動）。 */
 /* 視窗：木框＋黃銅角；內側用深色底（不用零件的中間色），卡片的中棕色才浮得出來、字也比較好讀 */
-.game-panel,#modal{border-image:var(--ui-px-window) 22 stretch;background:#2a1c12 padding-box}
+.game-panel,#modal{border-image:var(--ui-px-window) var(--sl-window,22) / var(--biw-window,1) stretch;background:#2a1c12 padding-box}
 /* 按鈕：次要＝木、主要＝金、危險＝紅；滑過變亮、按下變暗、停用變灰（同一張圖，不再滑過就變成金色主按鈕） */
-.pixel-button,.pixel-button.blue,.pixel-button:hover:not(:disabled),.pixel-button:active:not(:disabled),.pixel-button:disabled{border-image:var(--ui-px-btn-wood) 12 fill stretch}
-.pixel-button.gold,.pixel-button.gold:hover:not(:disabled),.pixel-button.gold:active:not(:disabled){border-image:var(--ui-px-btn-gold) 12 fill stretch}
-.pixel-button.danger,.pixel-button.danger:hover:not(:disabled),.pixel-button.danger:active:not(:disabled){border-image:var(--ui-px-btn-red) 12 fill stretch}
+.pixel-button,.pixel-button.blue,.pixel-button:hover:not(:disabled),.pixel-button:active:not(:disabled),.pixel-button:disabled{border-image:var(--ui-px-btn-wood) var(--sl-btn-wood,12) fill / var(--biw-btn-wood,1) stretch}
+.pixel-button.gold,.pixel-button.gold:hover:not(:disabled),.pixel-button.gold:active:not(:disabled){border-image:var(--ui-px-btn-gold) var(--sl-btn-gold,12) fill / var(--biw-btn-gold,1) stretch}
+.pixel-button.danger,.pixel-button.danger:hover:not(:disabled),.pixel-button.danger:active:not(:disabled){border-image:var(--ui-px-btn-red) var(--sl-btn-red,12) fill / var(--biw-btn-red,1) stretch}
 .pixel-button:hover:not(:disabled){filter:brightness(1.12)}
 .pixel-button:active:not(:disabled){filter:brightness(.9)}
 .pixel-button:disabled{filter:grayscale(.75) brightness(.78);opacity:1}
 .pixel-button.danger{color:#ffe9dc;text-shadow:0 1px #3a0d08}
 /* 建築資訊的「移動位置」：原本是扁平的綠條 → 跟其他次要按鈕同一套木按鈕 */
-.inspect-actions .move{border:9px solid transparent;border-image:var(--ui-px-btn-wood) 12 fill stretch;background:none;box-shadow:none;color:#f4e6c2;text-shadow:0 1px #2a1a0c}
+.inspect-actions .move{border:9px solid transparent;border-image:var(--ui-px-btn-wood) var(--sl-btn-wood,12) fill / var(--biw-btn-wood,1) stretch;background:none;box-shadow:none;color:#f4e6c2;text-shadow:0 1px #2a1a0c}
 .inspect-actions .move:hover{filter:brightness(1.12)}
 /* 目前區域徽章：原本是藍色方塊（整套 UI 唯一的藍）→ 跟資源欄同一個凹槽 */
 #region-badge{border:8px solid transparent;border-image:var(--ui-px-trough) 8 fill stretch;background:none;box-shadow:none;padding:0 10px;color:#f6e3b0;text-shadow:0 1px #1d120a}
@@ -649,38 +649,38 @@ body.piloting #toasts{top:calc(98px + env(safe-area-inset-top))}
   box-shadow:none;color:transparent;font-size:0;image-rendering:pixelated}
 #modal [data-action=close]:hover,#inspector [data-action=closeInspector]:hover{filter:brightness(1.15)}
 /* 卡片：細木框＋黃銅角釘、平滑深色底（字好讀）；選取＝金色外光 */
-.hunter-card,.building-card,.building-card.unbuilt,.visitor-card,.craft-card,.quest-list-row,.material-item,.region-card,.party-pick{border-image:var(--ui-px-card) 16 fill stretch;background:none}
-.party-pick.selected,.region-card.active{border-image:var(--ui-px-card) 16 fill stretch;box-shadow:0 0 0 2px #e7be5e,0 0 12px #e7be5e55}
+.hunter-card,.building-card,.building-card.unbuilt,.visitor-card,.craft-card,.quest-list-row,.material-item,.region-card,.party-pick{border-image:var(--ui-px-card) var(--sl-card,16) fill / var(--biw-card,1) stretch;background:none}
+.party-pick.selected,.region-card.active{border-image:var(--ui-px-card) var(--sl-card,16) fill / var(--biw-card,1) stretch;box-shadow:0 0 0 2px #e7be5e,0 0 12px #e7be5e55}
 /* 資源欄、難度、人口：凹槽（深色內凹＋黃銅邊） */
 .treasury>button,.treasury>button.plus,.difficulty-button,.population{border-image:var(--ui-px-trough) 8 fill stretch;background:none}
 /* 進度條：凹槽當底；填色對齊凹槽內側（106×32 的內側 x 7–98、y 7–24） */
 .progress{background:var(--ui-px-trough) center/100% 100% no-repeat}
 .progress>span{inset:21.9% auto 21.9% 6.6%;transform:scaleX(.868);transform-origin:0 50%}
 /* 下方選單、技能鍵：木方塊＋黃銅角；目前這頁＝金方塊 */
-#bottom-bar>button,#bottom-bar>button:hover{border-image:var(--ui-px-tile) 18 fill stretch}
+#bottom-bar>button,#bottom-bar>button:hover{border-image:var(--ui-px-tile) var(--sl-tile,18) fill / var(--biw-tile,1) stretch}
 #bottom-bar>button:hover{filter:brightness(1.12)}
-#bottom-bar>button.on,#bottom-bar>button.active{border-image:var(--ui-px-tile-on) 18 fill stretch;filter:none}
-.skill{border-image:var(--ui-px-tile) 18 fill stretch}
+#bottom-bar>button.on,#bottom-bar>button.active{border-image:var(--ui-px-tile-on) var(--sl-tile-on,18) fill / var(--biw-tile-on,1) stretch;filter:none}
+.skill{border-image:var(--ui-px-tile) var(--sl-tile,18) fill / var(--biw-tile,1) stretch}
 .skill:hover:not(:disabled){filter:brightness(1.12)}
 /* 小方鍵（設定、任務捲軸、縮放、說明、暫停、速度）：同一塊木方塊。
    有 data-icon 的方鍵圖示畫在 background 上 → 不用 fill（不然會蓋掉圖示），中間補木色 */
 .square,.play-controls>button{border:8px solid transparent;box-shadow:none;padding:0}
-.square:not([data-icon]),.play-controls>button{border-image:var(--ui-px-tile) 18 fill stretch;background:none;color:#f6e3b0;text-shadow:0 1px #1d120a}
-.square[data-icon]{border-image:var(--ui-px-tile) 18 stretch;background-color:#4f3627;background-clip:padding-box}
+.square:not([data-icon]),.play-controls>button{border-image:var(--ui-px-tile) var(--sl-tile,18) fill / var(--biw-tile,1) stretch;background:none;color:#f6e3b0;text-shadow:0 1px #1d120a}
+.square[data-icon]{border-image:var(--ui-px-tile) var(--sl-tile,18) / var(--biw-tile,1) stretch;background-color:#4f3627;background-clip:padding-box}
 .square:hover,.play-controls>button:hover{filter:brightness(1.12)}
 /* 提示：木板＋黃銅邊；錯誤＝紅邊 */
 .toast,.toast.error{background:none}
-.toast{border-image:var(--ui-px-toast) 14 fill stretch}
-.toast.error{border-image:var(--ui-px-toast-err) 14 fill stretch}
+.toast{border-image:var(--ui-px-toast) var(--sl-toast,14) fill / var(--biw-toast,1) stretch}
+.toast.error{border-image:var(--ui-px-toast-err) var(--sl-toast-err,14) fill / var(--biw-toast-err,1) stretch}
 /* 分頁（製作視窗等）：選中原本是藍色（整套 UI 外的顏色）→ 未選＝木按鈕、選中＝金按鈕 */
 .tabs{border-bottom-color:#5a3a24}
-.tabs button{border:9px solid transparent;border-image:var(--ui-px-btn-wood) 12 fill stretch;background:none;color:#f4e6c2;text-shadow:0 1px #2a1a0c;padding:2px 12px}
-.tabs button.active{border-image:var(--ui-px-btn-gold) 12 fill stretch;background:none;color:#3a2a11;text-shadow:0 1px #ffeeb8}
+.tabs button{border:9px solid transparent;border-image:var(--ui-px-btn-wood) var(--sl-btn-wood,12) fill / var(--biw-btn-wood,1) stretch;background:none;color:#f4e6c2;text-shadow:0 1px #2a1a0c;padding:2px 12px}
+.tabs button.active{border-image:var(--ui-px-btn-gold) var(--sl-btn-gold,12) fill / var(--biw-btn-gold,1) stretch;background:none;color:#3a2a11;text-shadow:0 1px #ffeeb8}
 .tabs button:hover:not(.active){filter:brightness(1.12)}
 /* 獵人詳情的頭像底：原本是藍色光暈（舊主題剩下的）→ 暖色光暈＋深色底 */
 .detail-avatar{background:radial-gradient(ellipse at 50% 70%,#e7be5e26,transparent 70%),#1d140c;border-color:#94702c80}
 /* 獵人詳情的數值格、交易所的數量欄：原本是細線方框 → 卡片框／凹槽，跟其他零件一致 */
-.stats-grid div{border:8px solid transparent;border-image:var(--ui-px-card) 16 fill stretch;background:none;padding:2px 6px}
+.stats-grid div{border:8px solid transparent;border-image:var(--ui-px-card) var(--sl-card,16) fill / var(--biw-card,1) stretch;background:none;padding:2px 6px}
 .trade-table input{border:6px solid transparent;border-image:var(--ui-px-trough) 8 fill stretch;background:none;color:#f6e3b0;padding:0 4px}
 /* 桌機：border 寬＝切角，1:1 */
 @media(min-width:761px) and (min-height:521px){
@@ -731,7 +731,7 @@ body.piloting #toasts{top:calc(98px + env(safe-area-inset-top))}
   .view-tools{flex-direction:row;right:104px;bottom:111px;gap:6px;align-items:flex-end}
   /* 左上面板：三塊（委託／生活物資／獵人動態）疊在一起 → 用細框、加寬，品名不再被擠成兩行（「香烤麵／包」） */
   #left-panel{width:240px}
-  #left-panel .game-panel{border-width:16px;border-image:var(--ui-px-card) 16 stretch;background:#2a1c12 padding-box}
+  #left-panel .game-panel{border-width:16px;border-image:var(--ui-px-card) var(--sl-card,16) / var(--biw-card,1) stretch;background:#2a1c12 padding-box}
   .stock-item{min-height:32px}                 /* 品名不再換行後一列只剩 28px → 補到 32 */
   .notice-feed{left:268px}                     /* 左下訊息讓開加寬後的委託面板（17＋240） */
   #toasts{top:128px}                           /* 提示放在區域徽章（89–120）下面，不要蓋住它 */
@@ -747,7 +747,7 @@ body.piloting #toasts{top:calc(98px + env(safe-area-inset-top))}
   .inspect-actions{grid-column:span 2;grid-template-columns:1fr 1fr;margin:0;gap:6px}.inspect-actions .cost{grid-column:span 2}
 }
 /* 面板標題上的小鍵（委託「−」、生活物資「＋」、獵人動態「☷」）：原本是 22px 的裸字 → 木方塊，桌機 32px、手機 36px */
-.panel-title>button:not([data-action=closeInspector]):not([data-action=close]){border:6px solid transparent;border-image:var(--ui-px-tile) 18 fill stretch;background:none;
+.panel-title>button:not([data-action=closeInspector]):not([data-action=close]){border:6px solid transparent;border-image:var(--ui-px-tile) var(--sl-tile,18) fill / var(--biw-tile,1) stretch;background:none;
   box-shadow:none;color:#f6e3b0;text-shadow:0 1px #1d120a;padding:0;display:grid;place-items:center;font-size:16px;line-height:1}
 .panel-title>button:not([data-action=closeInspector]):not([data-action=close]):hover{filter:brightness(1.12)}
 @media(min-width:761px) and (min-height:521px){.panel-title>button:not([data-action=closeInspector]):not([data-action=close]){width:32px;height:32px;margin:-5px -4px -5px auto}}
@@ -797,7 +797,7 @@ body.piloting #toasts{top:calc(98px + env(safe-area-inset-top))}
 .encounter-banner.dungeon p,.encounter-banner.arena p{max-width:58%;text-shadow:0 1px #000;color:#f0dfb8}
 @media(max-width:760px),(max-height:520px){.encounter-banner.dungeon p,.encounter-banner.arena p{max-width:none}}
 /* 主世界地圖：地圖加木框；區域卡左邊放區域徽章 */
-#world-map-canvas{border:12px solid transparent;border-image:var(--ui-px-card) 16 stretch;box-shadow:0 4px 12px #0008}
+#world-map-canvas{border:12px solid transparent;border-image:var(--ui-px-card) var(--sl-card,16) / var(--biw-card,1) stretch;box-shadow:0 4px 12px #0008}
 .region-card .region-emblem{float:left;width:46px;height:46px;min-width:0;min-height:0;margin:0 10px 4px 0;image-rendering:pixelated}   /* 要比 i[data-icon]{22px} 優先 */
 .region-card h3,.region-card small{overflow:hidden}
 /* 上方區域徽章前面放目前區域的小徽章 */
@@ -817,7 +817,7 @@ body[data-region="snow"] #region-badge::before{background-image:var(--ui-px-em-s
 .stats-grid .inline-icon[data-icon],.need-row .inline-icon[data-icon]{width:16px;height:16px;min-width:16px;min-height:16px;margin-right:4px;vertical-align:-3px}
 .need-row label{width:auto;min-width:58px;display:flex;align-items:center}
 /* 手動操控面板：跟其他面板同一套木框 */
-#pilotlab{border:16px solid transparent;border-image:var(--ui-px-window) 22 stretch;background:#2a1c12 padding-box;box-shadow:0 6px 18px #0009}
+#pilotlab{border:16px solid transparent;border-image:var(--ui-px-window) var(--sl-window,22) / var(--biw-window,1) stretch;background:#2a1c12 padding-box;box-shadow:0 6px 18px #0009}
 @media(max-width:760px),(max-height:520px){#pilotlab{border-width:12px}}
 /* 操控面板加了木框變高 → 操控中的提示往下讓（桌機多 32px、手機多 24px） */
 body.piloting #toasts{top:calc(132px + env(safe-area-inset-top))}
@@ -828,7 +828,7 @@ body.piloting #toasts{top:calc(132px + env(safe-area-inset-top))}
 @media(min-width:761px) and (min-height:521px){#bottom-bar [data-icon]{flex:0 0 28px;width:28px;height:28px}.treasury [data-icon]{flex:0 0 22px;width:22px;height:22px}}
 
 /* ===== 2026-10-30 地下城橫條戰鬥畫面 ===== */
-.dungeon-strip{display:block;width:100%;aspect-ratio:12/5;max-height:300px;margin:8px 0 6px;background:#1a100a;border:12px solid transparent;border-image:var(--ui-px-card) 16 stretch;image-rendering:pixelated;box-sizing:border-box}
+.dungeon-strip{display:block;width:100%;aspect-ratio:12/5;max-height:300px;margin:8px 0 6px;background:#1a100a;border:12px solid transparent;border-image:var(--ui-px-card) var(--sl-card,16) / var(--biw-card,1) stretch;image-rendering:pixelated;box-sizing:border-box}
 .dungeon-controls{display:flex;flex-wrap:wrap;align-items:center;justify-content:space-between;gap:8px;margin:6px 0 10px}
 .dungeon-controls .floor-pick{display:flex;align-items:center;gap:6px}
 .dungeon-controls .floor-pick span{color:#e9d6a8;font-size:12px}
@@ -870,7 +870,7 @@ body.piloting #toasts{top:calc(132px + env(safe-area-inset-top))}
 @media(max-width:760px),(max-height:520px){.encounter-banner.boss p,.encounter-banner.recruit p,.encounter-banner.trade p,.encounter-banner.quests p{max-width:none}.encounter-banner.boss,.encounter-banner.recruit,.encounter-banner.trade,.encounter-banner.quests{min-height:96px}}
 /* 交易所:每種材料一列 */
 .trade-list{display:flex;flex-direction:column;gap:6px;margin:10px 0}
-.trade-row{display:grid;grid-template-columns:34px minmax(110px,1fr) auto 92px;align-items:center;gap:10px;padding:6px 10px;border:10px solid transparent;border-image:var(--ui-px-card) 16 stretch;background:#2a1c12 padding-box}
+.trade-row{display:grid;grid-template-columns:34px minmax(110px,1fr) auto 92px;align-items:center;gap:10px;padding:6px 10px;border:10px solid transparent;border-image:var(--ui-px-card) var(--sl-card,16) / var(--biw-card,1) stretch;background:#2a1c12 padding-box}
 .trade-row.on{background:#3a2814 padding-box;box-shadow:0 0 0 1px #e7be5e55}
 .tr-icon [data-icon]{width:28px;height:28px}
 .tr-name b{display:block;color:#f6e3b0;font-size:13px}.tr-name small{color:#cdb98e;font-size:11px}
@@ -883,7 +883,7 @@ body.piloting #toasts{top:calc(132px + env(safe-area-inset-top))}
 @media(max-width:760px){.trade-row{grid-template-columns:30px 1fr;grid-template-areas:"i n" "s s" "c c";row-gap:6px}.tr-icon{grid-area:i}.tr-name{grid-area:n}.tr-step{grid-area:s;justify-content:space-between}.tr-cost{grid-area:c;text-align:left}.tr-step .pixel-button{min-width:52px;min-height:42px}}
 /* 委託章節鏈 */
 .quest-chain{list-style:none;margin:10px 0 0;padding:0;display:flex;flex-direction:column;gap:6px;counter-reset:q}
-.quest-step{display:grid;grid-template-columns:40px 1fr auto;align-items:center;gap:12px;padding:8px 12px;border:10px solid transparent;border-image:var(--ui-px-card) 16 stretch;background:#2a1c12 padding-box}
+.quest-step{display:grid;grid-template-columns:40px 1fr auto;align-items:center;gap:12px;padding:8px 12px;border:10px solid transparent;border-image:var(--ui-px-card) var(--sl-card,16) / var(--biw-card,1) stretch;background:#2a1c12 padding-box}
 .quest-step .qs-num{width:36px;height:36px;display:grid;place-items:center;border-radius:50%;background:#3a2814;border:2px solid #8a6a36;color:#e9d6a8;font-weight:bold}
 .quest-step h3{margin:0 0 2px;font-size:14px;color:#f6e3b0}.quest-step p{margin:0 0 4px;font-size:12px;color:#d8c49a}
 .quest-step .cost{font-size:12px}
@@ -934,17 +934,52 @@ body.hud-modal #bottom-bar button:not([data-action]),body.hud-modal #bottom-bar 
 .dispatch-party .party-pick .pp-hp{display:block;width:100%;max-width:90px;height:4px;background:#3a2416;margin-top:3px}
 .dispatch-party .party-pick .pp-hp>i{display:block;height:100%;background:#7ccf6a}
 .dispatch-party .party-pick.down{filter:grayscale(.8) brightness(.75)}
-.region-pick-grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(168px,1fr));gap:8px}
-.region-pick{display:flex;align-items:center;gap:8px;text-align:left;padding:6px 8px;border:10px solid transparent;border-image:var(--ui-px-card) 16 stretch;background:#2a1c12 padding-box;color:#f0e2bd;cursor:pointer;font:inherit}
+.region-pick-grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(200px,1fr));gap:8px}
+.region-pick{position:relative;display:flex;align-items:center;gap:6px;text-align:left;padding:6px 8px;border:10px solid transparent;border-image:var(--ui-px-card) var(--sl-card,16) / var(--biw-card,1) stretch;background:#2a1c12 padding-box;color:#f0e2bd;font:inherit}
+.rp-body{display:flex;flex:1;min-width:0;align-items:center;gap:8px;text-align:left;padding:0 38px 0 0;border:0;background:none;color:inherit;font:inherit;cursor:pointer}
 .region-pick .rp-em{width:38px;height:38px;min-width:38px;flex:none;image-rendering:pixelated}
 .region-pick span{display:flex;flex-direction:column;min-width:0}
-.region-pick b{font-size:13px;color:#f6e3b0}.region-pick small{font-size:10px;color:#b9a47a;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.region-pick b{font-size:13px;color:#f6e3b0}.region-pick small{font-size:10px;line-height:1.35;color:#b9a47a}
 .region-pick em{font-style:normal;font-size:11px;letter-spacing:1px;color:#e7be5e}
-.region-pick:hover{filter:brightness(1.1)}
+.region-pick:hover{filter:brightness(1.06)}
+.rp-body:hover{filter:brightness(1.08)}
 .region-pick.on{background:#4a3416 padding-box;box-shadow:0 0 0 2px #e7be5e,0 0 12px #e7be5e55}
-.region-pick:active{transform:translateY(1px);filter:brightness(.9)}
+.rp-body:active{transform:translateY(1px);filter:brightness(.9)}
+/* 2026-10-30:「地圖詳細資訊」鈕(區域卡右側的小方塊) */
+.rp-info{position:absolute;right:5px;top:5px;width:34px;height:34px;display:grid;place-items:center;padding:0;border:7px solid transparent;border-image:var(--ui-px-trough) var(--sl-trough,8) / var(--biw-trough,1) fill stretch;background:none;color:#f0e2bd;cursor:pointer}
+.rp-info [data-icon]{width:18px;height:18px;image-rendering:pixelated}
+.rp-info:hover{filter:brightness(1.2)}
+.rp-info:active{transform:translateY(1px);filter:brightness(.85)}
+/* 地圖詳細資訊彈窗 */
+.region-detail-art{height:112px;margin:-4px 0 10px;border-radius:2px;background-size:cover;background-position:center;image-rendering:pixelated;box-shadow:inset 0 0 0 2px #00000055}
+.rd-head{display:flex;align-items:center;gap:10px}
+.rd-head .rd-em{width:44px;height:44px;min-width:44px;image-rendering:pixelated}
+.rd-head h3{margin:0;font-size:17px;color:#f6e3b0}.rd-head small{display:block;font-size:11px;color:#b9a47a}
+.rd-risk{display:inline-flex;align-items:baseline;gap:8px;margin-top:2px;font-style:normal;font-size:12px;letter-spacing:1px;color:#e7be5e}
+.rd-risk b{font-size:11px;letter-spacing:0;color:#cbb98d;font-weight:400}
+.rd-desc{margin:8px 0;font-size:12px;line-height:1.6;color:#d9c8a3}
+.rd-stats{display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:6px;margin:8px 0}
+.rd-stats>div{display:flex;flex-direction:column;gap:1px;padding:6px 10px;background:#ffffff0a;border-left:2px solid #e7be5e4d;border-radius:2px}
+.rd-stats small{font-size:10px;color:#b9a47a}.rd-stats b{font-size:12px;color:#f6e3b0}
+.rd-fit{display:flex;align-items:flex-start;gap:8px;margin:8px 0;padding:7px 10px;font-size:12px;line-height:1.5;border-radius:2px;background:#ffffff0a;border-left:3px solid #8a7a55;color:#e6d8b6}
+.rd-fit [data-icon]{width:18px;height:18px;min-width:18px;margin-top:1px;image-rendering:pixelated}
+.rd-fit small{display:block;font-size:10px;color:#b9a47a;margin-top:2px}
+.rd-fit.easy{border-left-color:#7fb069;background:#7fb0691a}.rd-fit.ok{border-left-color:#e7be5e;background:#e7be5e14}.rd-fit.hard{border-left-color:#c0492f;background:#c0492f1a}
+.rd-monsters{list-style:none;margin:0 0 10px;padding:0;display:grid;grid-template-columns:repeat(auto-fill,minmax(210px,1fr));gap:6px}
+.rd-monsters li{padding:7px 9px;border:7px solid transparent;border-image:var(--ui-px-card) var(--sl-card,16) / var(--biw-card,1) stretch;background:#2a1c12 padding-box}
+.rd-monsters b{font-size:12px;color:#f6e3b0}.rd-monsters small{display:block;font-size:10px;color:#b9a47a}
+.rd-monsters p{margin:4px 0 0;font-size:11px;line-height:1.5;color:#cbb98d}
+.rd-loot{display:flex;flex-wrap:wrap;gap:6px 8px;margin:0 0 6px}
+.rd-loot>span{display:inline-flex;align-items:center;gap:5px;padding:4px 8px;border:7px solid transparent;border-image:var(--ui-px-trough) var(--sl-trough,8) / var(--biw-trough,1) fill stretch;background:none;font-size:11px;color:#d9c8a3}
+.rd-loot [data-icon]{width:16px;height:16px;image-rendering:pixelated}.rd-loot b{color:#ffe08a}
+/* 兩顆按鈕都在 344px 裡放得下（.encounter-actions .pixel-button 預設 min-width:220px → 手機上會報版） */
+.region-detail .dispatch-go{flex-wrap:wrap;justify-content:stretch;gap:8px;background:#2a1c12;box-shadow:0 -8px 12px #2a1c12e6}
+#modal[data-type=region] #modal-content{scroll-padding-bottom:76px}
+.region-detail .dispatch-go .pixel-button{flex:1 1 150px;min-width:0;white-space:normal;padding:12px 10px;text-align:center}
 .encounter-actions [data-action=startDispatch] [data-icon]{width:18px;height:18px;margin-right:6px;vertical-align:-4px}
-@media(max-width:760px){.region-pick-grid{grid-template-columns:repeat(2,minmax(0,1fr))}.region-pick .rp-em{width:32px;height:32px;min-width:32px}.dispatch-head{justify-content:center}.dispatch-h small{display:none}}
+@media(max-width:760px){.region-pick .rp-em{width:32px;height:32px;min-width:32px}.dispatch-head{justify-content:center}.dispatch-h small{display:none}}
+/* 地圖詳細資訊:手機上四格數據改 2×2，掉落一列可以滑 */
+@media(max-width:760px),(max-height:520px){.rd-stats>div{padding:5px 7px}.rd-stats{gap:5px;margin:6px 0}.rd-desc{margin:6px 0}.rd-monsters small,.rd-fit small,.rd-loot>span small,.rd-loot>span{font-size:11px}.rd-stats{grid-template-columns:repeat(2,minmax(0,1fr))}.region-detail-art{height:88px}.rd-monsters{grid-template-columns:1fr}.rd-monsters p,.rd-desc,.rd-fit,.rd-loot>span,.rd-stats small,.rd-stats b,.region-detail .dispatch-h{font-size:11px}.rp-info{width:40px;height:40px;right:3px;top:3px}.rp-body{padding-right:44px}}
 /* 獵人詳情:動作鈕帶圖示、做不到時直接寫原因 */
 .hunter-actions .pixel-button{display:flex;align-items:center;justify-content:center;gap:8px;text-align:left}
 .hunter-actions .pixel-button>[data-icon]{width:24px;height:24px;min-width:24px;flex:none}
@@ -1041,3 +1076,15 @@ body.hud-modal #bottom-bar button:not([data-action]),body.hud-modal #bottom-bar 
   #inspector{top:calc(var(--tb) + 54px);max-height:calc(100dvh - var(--tb) - var(--bb) - 62px)}
   body:has(#inspector:not(.hidden)) :is(.view-tools,.skill-buttons){visibility:hidden}
 }
+/* 2026-10-30 手機 UI 零件（make_mobile_ui.py 產生，別手改） */
+html.ui-m{--sl-window:36;--biw-window:12px;--sl-card:24;--biw-card:8px;--sl-tile:24;--biw-tile:8px;--sl-tile-on:24;--biw-tile-on:8px;--sl-btn-wood:24;--biw-btn-wood:8px;--sl-btn-gold:24;--biw-btn-gold:8px;--sl-btn-red:24;--biw-btn-red:8px;--sl-toast:24;--biw-toast:8px;--sl-toast-err:24;--biw-toast-err:8px}
+html.ui-m :is(.game-panel,#modal,#pilotlab){border-width:12px}
+html.ui-m :is(.hunter-card,.building-card,.building-card.unbuilt,.visitor-card,.craft-card,.quest-list-row,.material-item,.region-card,.party-pick,.party-pick.selected,.region-card.active,.stats-grid div,#left-panel .game-panel,#world-map-canvas,.dungeon-strip,.trade-row,.quest-step,.region-pick){border-width:8px}
+html.ui-m :is(#bottom-bar>button,#bottom-bar>button:hover,.skill,.square:not([data-icon]),.play-controls>button,.square[data-icon],.panel-title>button:not([data-action=closeInspector]):not([data-action=close])){border-width:8px}
+html.ui-m :is(#bottom-bar>button.on,#bottom-bar>button.active){border-width:8px}
+html.ui-m :is(.pixel-button,.pixel-button.blue,.pixel-button:hover:not(:disabled),.pixel-button:active:not(:disabled),.pixel-button:disabled,.inspect-actions .move,.tabs button){border-width:8px}
+html.ui-m :is(.pixel-button.gold,.pixel-button.gold:hover:not(:disabled),.pixel-button.gold:active:not(:disabled),.tabs button.active){border-width:8px}
+html.ui-m :is(.pixel-button.danger,.pixel-button.danger:hover:not(:disabled),.pixel-button.danger:active:not(:disabled)){border-width:8px}
+html.ui-m :is(.toast){border-width:8px}
+html.ui-m :is(.toast.error){border-width:8px}
+/* 手機 UI 零件 end */

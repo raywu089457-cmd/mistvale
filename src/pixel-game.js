@@ -1526,6 +1526,39 @@ export function createGame(saved = null) {
       if (!team.ids.length) return result(false, `${team.name}還沒有選隊員。`);
       return this.dispatchHunters(team.region, team.ids);
     },
+    // 2026-10-30:狩獵區的唯讀詳細資料(派遣出征的「地圖詳細資訊」用)。
+    // 魔物數值直接讀模組層的 ENEMIES,不另外抄一份,改了數值這裡跟著變。
+    regionInfo(id) {
+      const r = REGIONS.find(x => x.id === id && x.id !== 'village');
+      if (!r) return null;
+      const monsters = [...new Set(REGION_MIX[r.id] || [])].map(t => {
+        const d = ENEMIES[t] || {};
+        return { id: t, hp: d.hp || 0, attack: d.attack || 0, gold: d.gold || 0, xp: d.xp || 0, drops: { ...(d.drops || {}) } };
+      });
+      const riskStars = Math.max(1, Math.min(5, Math.round((r.risk - 1) / 0.16) + 1));
+      // 掉落合計(三隻魔物各打一隻的平均量),給玩家看「這區主要產什麼」。
+      const loot = {};
+      for (const m of monsters) for (const [k, v] of Object.entries(m.drops)) loot[k] = (loot[k] || 0) + v / monsters.length;
+      const round1 = n => Math.round(n * 10) / 10;
+      return {
+        id: r.id, name: r.name, subtitle: r.subtitle, description: r.description, color: r.color, enemy: r.enemy,
+        risk: r.risk, riskStars,
+        monsters,
+        loot: Object.fromEntries(Object.entries(loot).map(([k, v]) => [k, round1(v)])),
+        alive: state.enemies.filter(e => e.hp > 0 && e.type !== 'boss' && e.regionId === r.id).length,
+        boss: state.enemies.some(e => e.hp > 0 && e.type === 'boss' && e.regionId === r.id),
+        hunting: state.hunters.filter(h => h.hp > 0 && h.huntRegion === r.id).length,
+        current: state.region === r.id,
+        // 「這組打不打得動」用跟流浪英雄挑區域同一條公式(comfort vs threat),不要另立一套標準。
+        fit(ids = []) {
+          const team = state.hunters.filter(h => h.hp > 0 && (!ids.length || ids.includes(h.id)));
+          if (!team.length) return null;
+          const comfort = team.reduce((n, h) => n + h.defense * 2 + h.level * 0.5 + h.attack * 0.15 + 8, 0) / team.length;
+          const threat = Math.max(...monsters.map(m => m.attack)) * r.risk;
+          return { comfort: Math.round(comfort), threat: Math.round(threat), verdict: comfort >= threat * 1.15 ? 'easy' : comfort >= threat ? 'ok' : 'hard' };
+        },
+      };
+    },
     recallHunters(regionId=null) {
       // 收回狩獵指令:沒有指令的獵人會回到村內待機,等下一次派令。
       let n=0;
