@@ -197,6 +197,27 @@ const dupSave = squads.serialize(); dupSave.dispatchTeams[3] = { ids: [s0.id, s4
 const dupLoaded = createGame(dupSave);
 assert.deepEqual(dupLoaded.state.dispatchTeams[0].ids, [s0.id], 'The first squad that lists a hunter keeps him'); assert.deepEqual(dupLoaded.state.dispatchTeams[3].ids, [s4.id]); assert.equal(dupLoaded.state.dispatchTeams[3].region, 'desert');
 assert.equal(createGame().dispatchHunters().ok, true, 'The one-click dispatch still sends everyone');
+// ── 2026-10-31 使用者:怪物在可行走區域邊緣不能來回抖動 ──
+{
+  const g = createGame(null);
+  g.setRegionDensity('meadow', 3);
+  g.dispatchHunters('meadow');
+  const hist = new Map();
+  let osc = 0;
+  for (let i = 0; i < 600; i++) {
+    g.tick(0.1);
+    for (const e of g.state.enemies) {
+      if (e.hp <= 0) continue;
+      const h = hist.get(e.id) || []; h.push({ x: e.x, z: e.z }); if (h.length > 5) h.shift(); hist.set(e.id, h);
+      if (h.length < 5) continue;
+      const a = h[0], b = h[2], c = h[4];
+      const dAB = Math.hypot(b.x - a.x, b.z - a.z), dCA = Math.hypot(c.x - a.x, c.z - a.z);
+      if (dAB > 0.02 && dCA < 0.05) osc++;   // 走了又回到原點 = 抖動
+    }
+  }
+  // 修之前同一段模擬是 424 次(幾乎全是閒晃中的魔物被推開又走回去);現在只剩交戰中的零星幾次
+  assert.ok(osc < 120, `Monsters do not jitter in place (${osc} wobbles in 60s)`);
+}
 // ── 祭司(priest):技能補血之外,普攻也會拿去補隊友(2026-10-31 使用者) ──
 {
   const g = createGame(null);
@@ -220,7 +241,7 @@ assert.equal(createGame().dispatchHunters().ok, true, 'The one-click dispatch st
   const far = createGame(null);
   const p2 = far.state.hunters.find(h => h.classId === 'priest');
   const m2 = far.state.hunters.find(h => h.classId !== 'priest' && h.hp > 0);
-  p2.x = -22; p2.z = -12; p2.task = null; p2.route = []; p2.attackTimer = 0;
+  p2.x = -22; p2.z = -12; p2.task = null; p2.route = []; p2.attackTimer = 0; p2.huntRegion = 'meadow'; p2.inTown = false;   // 出村打獵的祭司才會去找隊友
   m2.x = -22; m2.z = 2; m2.task = null; m2.route = []; m2.hp = Math.round(m2.maxHp * 0.35);
   const d0 = Math.hypot(p2.x - m2.x, p2.z - m2.z);
   assert.ok(d0 > 9, 'The wounded ally starts outside healing range');

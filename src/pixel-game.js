@@ -100,6 +100,36 @@ export function createGame(saved = null) {
   // 環村道路是魔物進不去的安全走廊(2026-10-30 使用者:「路上的怪不會主動攻擊路上走路的英雄,踏出道路邊界才會」):
   // 魔物不在路上生、不走上路(閒晃、追擊、等空位、被推開都一樣);已經在路上的(舊存檔)只准往離開道路的方向走。
   const ROAD_PAD = 0.35, roadOk = (from, p) => !onRingRoad(p.x, p.z, ROAD_PAD) || ringRoadDistance(p.x, p.z) > ringRoadDistance(from.x, from.z);
+  // 2026-10-31 使用者:「怪物在可行走區域邊緣不能來回抖動」。
+  // 以前整步被擋就直接不動(或立刻換一個亂數目標,下一格又被擋),貼著海岸/區域邊界的魔物就會一格走一格回。
+  // 改成:整步不行就試單一軸(沿著邊界滑),兩個軸都不行才判定走不動,並讓呼叫端停一段時間再換目標。
+  // 上一格的位移(WeakMap,不進存檔):用來擋「小步又立刻掉頭」的微抖。
+  const lastStepOf = new WeakMap();
+  // 魔物移動的統一入口:stepAxis + 微抖抑制(走不到 0.06 格卻方向相反 → 這一格先不動,下一格再說)。
+  function moveEnemy(enemy, tx, tz, maxStep, ok) {
+    const p = stepAxis(enemy, tx, tz, maxStep, ok);
+    if (!p) return false;
+    const dx = p.x - enemy.x, dz = p.z - enemy.z, len = Math.hypot(dx, dz);
+    const l = lastStepOf.get(enemy);
+    if (l && len < 0.06) {
+      const ll = Math.hypot(l.x, l.z);
+      if (ll > 1e-6 && (dx * l.x + dz * l.z) / (len * ll) < -0.5) return false;
+    }
+    lastStepOf.set(enemy, { x: dx, z: dz });
+    enemy.x = p.x; enemy.z = p.z;
+    return true;
+  }
+  function stepAxis(from, tx, tz, maxStep, ok) {
+    const dx = tx - from.x, dz = tz - from.z, d = Math.hypot(dx, dz);
+    if (!(d > 1e-6)) return null;
+    const k = Math.min(maxStep, d) / d;
+    for (const [fx, fz] of [[dx * k, dz * k], [dx * k, 0], [0, dz * k]]) {
+      if (!fx && !fz) continue;
+      const p = { x: from.x + fx, z: from.z + fz };
+      if (ok(p)) return p;
+    }
+    return null;
+  }
   const blocked = p => !walkable(p.x,p.z)||!walkable(p.x-.2,p.z)||!walkable(p.x+.2,p.z)||!walkable(p.x,p.z-.2)||!walkable(p.x,p.z+.2)||rects.some(r => p.x > r.minX && p.x < r.maxX && p.z > r.minZ && p.z < r.maxZ)||(ponds.length>0&&inVillage(p.x,p.z)&&inPond(ponds,p.x,p.z,.2));
 
   // 線段是否穿過長方形(slab 測試)。
@@ -549,10 +579,10 @@ export function createGame(saved = null) {
   const BASIC_HEAL = 0.1, HEAL_REACH = 9;   // 治療射程:至少 9 格(比普攻 7.5 遠一點,補血不用貼身)
   const healReach = h => Math.max(h.range || 0, HEAL_REACH);
   // 有隊友受傷、但補不到時要往誰靠:24 格內傷得最重的那位(技能 90% 以下才列入)
-  function woundedAllyNear(h, { max = 24, below = .9 } = {}) {
+  function woundedAllyNear(h, { max = 24, below = .9, huntersOnly = false } = {}) {
     const want = u => u && u !== h && u.hp > 0 && u.hp < u.maxHp * below && u.task !== 'dungeon' && u.task !== 'arena' && distance(h, u) <= max;
     const lowest = list => list.filter(want).sort((a, b) => a.hp / a.maxHp - b.hp / b.maxHp)[0] || null;
-    return lowest(state.hunters) || lowest(state.wanderers || []);
+    return lowest(state.hunters) || (huntersOnly ? null : lowest(state.wanderers || []));
   }
   function attackHealTarget(h, below = .98) {
     const want = u => u && u.hp > 0 && u.hp < u.maxHp * below && u.task !== 'dungeon' && u.task !== 'arena' && distance(h, u) <= healReach(h);
@@ -932,8 +962,10 @@ export function createGame(saved = null) {
         }
         // 2026-10-31:以前祭司幾乎不補,是因為隊友常常在 17 格外(實測只有 9% 的時間在射程內)。
         // 現在有隊友受傷、身邊又沒有該打的魔物,就主動靠過去(24 格內傷得最重的那位)。
-        if (!state.enemies.some(e => e.hp > 0 && distance(h, e) <= h.range)) {
-          const aid = woundedAllyNear(h, { max: 24, below: .92 });
+        // 只有「已經出村打獵」的祭司才會跑去找隊友;在村裡待命的不會為了流浪英雄跑出去
+        // (2026-10-31:一開始在村裡亂跑會讓「招募的獵人留在村裡」那條驗收失敗)。
+        if (h.huntRegion && !state.enemies.some(e => e.hp > 0 && distance(h, e) <= h.range)) {
+          const aid = woundedAllyNear(h, { max: 24, below: .92, huntersOnly: true });
           if (aid && distance(h, aid) > healReach(h)) {
             const tail = h.route.at(-1);
             if (!tail || distance(tail, aid) > 1.2) route(h, [{ x: aid.x, z: aid.z }]);
@@ -1017,15 +1049,21 @@ export function createGame(saved = null) {
         // 閒晃:沒有獵人時在自己的狩獵區裡慢慢走到隨機一點、停一下再換點(不會只站在原地)。
         const rid=enemy.regionId;
         if(rid&&(enemy.wanderX==null||state.time>enemy.wanderUntil)){const w=randomRegionPoint(rid,random);enemy.wanderX=w.x;enemy.wanderZ=w.z;enemy.wanderUntil=state.time+5+random()*6;}
-        const home={x:enemy.wanderX??enemy.homeX??enemy.x,z:enemy.wanderZ??enemy.homeZ??enemy.z},dd=distance(enemy,home);if(dd>.3){const step=Math.min(ENEMIES[enemy.type].speed*MONSTER_SPEED_MULT*dt*.45,dd),p={x:enemy.x+(home.x-enemy.x)/dd*step,z:enemy.z+(home.z-enemy.z)/dd*step};if(!blocked(p)&&lineClear(enemy,p)&&roadOk(enemy,p)&&(!rid||regionContains(rid,p.x,p.z)))Object.assign(enemy,p);else enemy.wanderUntil=0;}continue;
+        const home={x:enemy.wanderX??enemy.homeX??enemy.x,z:enemy.wanderZ??enemy.homeZ??enemy.z},dd=distance(enemy,home);
+        if(dd>.3){const step=Math.min(ENEMIES[enemy.type].speed*MONSTER_SPEED_MULT*dt*.45,dd);
+          const moved=moveEnemy(enemy,home.x,home.z,step,q=>!blocked(q)&&lineClear(enemy,q)&&roadOk(enemy,q)&&(!rid||regionContains(rid,q.x,q.z)));
+          if(!moved)enemy.wanderUntil=state.time+1.5;}   // 走不動:停 1.5 秒再換目標(以前是下一格立刻重抽,貼邊時會左右抖)
+        continue;
       }
       const reach = enemy.type === 'boss' ? 2.8 : 1.7, d = distance(enemy, target);
       enemy.facingX = target.x; enemy.facingZ = target.z; enemy.facingAt = state.time;
       if (rng) {   // 遠程魔物:不搶近身名額;射程外往前靠,進到射程就站定丟飛行物(打到才扣血,見 pendingHits)
         enemy.engaged = false;
         if (d > rng.range) {
-          const delta = Math.min(ENEMIES[enemy.type].speed * MONSTER_SPEED_MULT * dt, d - rng.range * 0.85), p = { x: clamp(enemy.x + (target.x - enemy.x) / d * delta, WORLD.minX + 1, WORLD.maxX - 1), z: enemy.z + (target.z - enemy.z) / d * delta };
-          if (regionContains(enemy.regionId || state.region, p.x, p.z) && !blocked(p) && roadOk(enemy, p) && lineClear(enemy, p)) Object.assign(enemy, p);
+          const delta = Math.min(ENEMIES[enemy.type].speed * MONSTER_SPEED_MULT * dt, d - rng.range * 0.85);
+          // 目標在自己的狩獵區外(獵人站在隔壁區)就不要再沿邊界滑過去 —— 以前會貼著邊界左右來回。
+          if (regionContains(enemy.regionId || state.region, target.x, target.z))
+            moveEnemy(enemy, target.x, target.z, delta, q => q.x > WORLD.minX + 1 && q.x < WORLD.maxX - 1 && regionContains(enemy.regionId || state.region, q.x, q.z) && !blocked(q) && roadOk(enemy, q) && lineClear(enemy, q));
         } else if (enemy.attackTimer === 0) {
           enemy.attackTimer = rng.every / MONSTER_ATTACK_RATE;
           const damage = Math.max(2, Math.round(enemy.attack - target.defense * 0.7)), land = rng.release + d / rng.speed;
@@ -1044,13 +1082,16 @@ export function createGame(saved = null) {
         const base = Math.atan2(vz, vx), slot = ((enemy.id.charCodeAt(enemy.id.length - 1) + enemy.id.length) % 5) - 2;
         const ang = base + slot * (Math.PI / 5), wx = target.x + Math.cos(ang) * 4.2, wz = target.z + Math.sin(ang) * 4.2;
         const wd = Math.hypot(wx - enemy.x, wz - enemy.z);
-        if (wd > .3) { const st = Math.min(ENEMIES[enemy.type].speed * MONSTER_SPEED_MULT * .8 * dt, wd), p = { x: enemy.x + (wx - enemy.x) / wd * st, z: enemy.z + (wz - enemy.z) / wd * st, regionId: enemy.regionId || state.region }; if (fieldOk(p) && roadOk(enemy, p) && lineClear(enemy, p)) { enemy.x = p.x; enemy.z = p.z; } }
+        if (wd > .3) { const st = Math.min(ENEMIES[enemy.type].speed * MONSTER_SPEED_MULT * .8 * dt, wd); moveEnemy(enemy, wx, wz, st, q => fieldOk({ ...q, regionId: enemy.regionId || state.region }) && roadOk(enemy, q) && lineClear(enemy, q)); }
         continue;
       }
       enemy.engaged = d <= reach; if (enemy.engaged && !mine) { enemy.slotFor = target.id; if (enemy.type !== 'boss') slots.set(target.id, (slots.get(target.id) || 0) + 1); }
       if (d > reach) {
-        const delta = Math.min(ENEMIES[enemy.type].speed * MONSTER_SPEED_MULT * dt, d - reach * 0.8), p = { x: clamp(enemy.x + (target.x - enemy.x) / d * delta,WORLD.minX+1,WORLD.maxX-1), z: enemy.z + (target.z - enemy.z) / d * delta };
-        if (regionContains(enemy.regionId||state.region,p.x,p.z) && !blocked(p) && roadOk(enemy, p) && lineClear(enemy, p)) Object.assign(enemy, p);  // 魔物只在自己的狩獵區內追,出了區就不跟;也不追上環村道路。
+        const delta = Math.min(ENEMIES[enemy.type].speed * MONSTER_SPEED_MULT * dt, d - reach * 0.8);
+        // 魔物只在自己的狩獵區內追,出了區就不跟;也不追上環村道路。
+        // 目標在區外(獵人站在隔壁區邊界)就站著等,不要沿邊界滑來滑去(那就是「貼邊來回抖」)。
+        if (regionContains(enemy.regionId || state.region, target.x, target.z))
+          moveEnemy(enemy, target.x, target.z, delta, q => regionContains(enemy.regionId || state.region, q.x, q.z) && !blocked(q) && roadOk(enemy, q) && lineClear(enemy, q));
       } else if (enemy.attackTimer === 0) {
         enemy.attackTimer = (enemy.type === 'boss' ? 1.5 : 1.8) / MONSTER_ATTACK_RATE;
         const damage = Math.max(2, Math.round(enemy.attack - target.defense * 0.7));
@@ -1066,7 +1107,9 @@ export function createGame(saved = null) {
       const ux = d > 1e-4 ? dx / d : Math.cos(i * 2.4 + j), uz = d > 1e-4 ? dz / d : Math.sin(i * 2.4 + j), push = Math.min(1.2 * dt, (minD - d) / 2);
       for (const [o, sign] of [[a, -1], [b, 1]]) { const q = { x: o.x + ux * push * sign, z: o.z + uz * push * sign };
         if (!blocked(q) && !inVillage(q.x, q.z) && (!avoidRoad || roadOk(o, q)) && (!o.regionId || regionContains(o.regionId, q.x, q.z))) Object.assign(o, q); } } };
-    spread(state.enemies, 2.6, true);
+    // 2026-10-31:只推開「交戰中」的魔物。以前全部魔物都推,閒晃的魔物被推開又走回自己的閒晃點,
+    // 貼在邊界時剛好變成來回抖動(實測抖動事件 100% 都是 idle 的魔物)。
+    spread(state.enemies.filter(e => e.engaged), 2.6, true);
     spread(state.hunters.filter(h => h.hp > 0 && h.status === '戰鬥中'), 2.0);
     // 流浪英雄:還沒加入村莊的英雄。有自己的錢包與生活需求,會自己挑「打得起」的狩獵區,
     // 缺東西會自己走回村莊買(吃飯/喝飲料/睡覺/療傷/賣材料/買裝備),買完再自己回去打怪。
