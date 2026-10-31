@@ -1,0 +1,7 @@
+small isometric pixel-art wooden signpost prop for a 2D village RPG.
+One thick vertical wooden post driven into the ground, topped by a large
+rectangular board. The board face is a blank cream parchment panel with a
+dark brown wooden frame and two brass corner studs. A little green moss and
+a few grass tufts at the base. Front-facing, readable silhouette, chunky
+32-bit 16-bit SNES pixel art, warm brown palette, hard pixel edges, no
+anti-aliasing, transparent background, no text, no letters, no shadow.

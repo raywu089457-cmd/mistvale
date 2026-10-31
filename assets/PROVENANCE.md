@@ -211,3 +211,11 @@ run_batch6.sh;1:1;每張附第二批該建築圖當參考(ref-bld-*.png)。
 Prompt 在 `output/l0veyou/prompts/demo-*-realistic.txt`(寫實材質、體積光、右上光源、magenta 底)。
 評估結論:大圖品質夠 3A,但遊戲裡角色只有 66px 高,寫實風進遊戲會糊掉,而且 7 頭身跟現有 2 頭身 Q 版不合。
 對照圖在 `output/audit/demo-aaa-compare.png`、`output/audit/demo-aaa-mockup.png`;等使用者選方向(全面寫實 / HD-2D 半寫實 / 只升級特寫)。
+
+## 2026-10-30 地區立牌木牌(PixelLab generate-ui-v2)
+
+- `assets/ui/px-signpost.png`:每個狩獵區中央的立牌(顯示怪物數量等級 I/II/III)。
+- 服務:PixelLab `/generate-ui-v2`(腳本 `C:\Users\ray\bin\pl.cmd ui-part`,帳號 2),`no_background: true`,128×128,一次 4 個變體,共 **10 generations**;選第 3 個變體,裁掉透明邊(75×104)後直接接入。
+- 參考圖:`assets/details@2x.png` 的 signpost 格(只抄風格,不抄構型)。
+- 提示詞:`output/pixellab-sign/prompt-sign.txt`;四個變體原圖:`output/pixellab-sign/sign-source-v1.png`(選中的那個)與 `C:/tmp/signgen/`。
+- 遊戲裡只用一張底圖,羅馬數字與等級色帶是執行時畫上去的(換等級不用重生圖)。

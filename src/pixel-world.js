@@ -502,6 +502,8 @@ const monsterSheets={};let monsterReq=new Set();
 function ensureMonsterSheet(id){const A=globalThis.PIXEL_ASSETS?.monsterSheets||{};const v=A[id];if(!v||loadedAssetKeys.has('ms:'+id))return;
   loadedAssetKeys.add('ms:'+id);const im=trackImage(new Image());im.onload=()=>{monsterSheets[id]={img:im,meta:v.meta};globalThis.dispatchEvent(new CustomEvent('pixel-assets-ready'));};im.onerror=()=>{loadedAssetKeys.delete('ms:'+id);};im.src=v.img;}
 // 遠程魔物的飛行物(assets/ui/fx-mshots.png:8 格 32×32 橫排,l0veyou GPT Image 2 生)。開場就載(很小、內嵌)。
+// 2026-10-30:地區立牌的木牌素材(PixelLab generate-ui-v2 生的,pixel 精緻版)。
+let signImg=null;function regionSignArt(){if(!signImg){const src=globalThis.PIXEL_ASSETS?.ui?.['px-signpost'];if(!src)return null;signImg=trackImage(new Image());signImg.src=src;}return signImg.complete&&signImg.naturalWidth?signImg:null;}
 let mshotImg=null;function mshotSheet(){if(!mshotImg){const src=globalThis.PIXEL_ASSETS?.ui?.['fx-mshots'];if(!src)return null;mshotImg=trackImage(new Image());mshotImg.src=src;}return mshotImg.complete&&mshotImg.naturalWidth?mshotImg:null;}
 function ensureMonsterSheets(){for(const id of monsterReq)ensureMonsterSheet(id);}
 const MON_SHEET=t=>{const id=t==='boss'?'treant':t;monsterReq.size<64&&monsterReq.add(id);ensureMonsterSheet(id);return monsterSheets[id];};
@@ -1200,6 +1202,9 @@ let renderDprMax=Math.max(1,dprCap||autoDpr());   // 畫布解析度上限(devic
   const ANIMATED_DECOR=new Set(['npc','villager','animal','fisher','waterfall','fountain','villageBanner']);
   // 立牌上的等級(1-3):直接讀存檔裡的 regionDensity,沒有就當第 2 級(跟遊戲預設一致)。
   const signLevel=d=>{const n=Math.round(Number(getState()?.regionDensity?.[d.regionId]));return n>=1&&n<=3?n:2;};
+  // 手畫的像素羅馬數字(I/II/III):有襯線才認得出來,不用字型,遠近都清楚。cx=板面中心、y0=板面頂端、h=板面高。
+  function drawRoman(cx,y0,h,n){const bw=h*0.42,gap=h*0.18,bar=h*0.66,th=h*0.15,span=n*bw+(n-1)*gap,x0=cx-span/2,top=y0+(h-bar)/2;
+    for(let i=0;i<n;i++){const bx=x0+i*(bw+gap);pixel(g,bx,top,bw,th,'#4a2f14');pixel(g,bx+(bw-th*1.3)/2,top+th,th*1.3,bar-th*2,'#4a2f14');pixel(g,bx,top+bar-th,bw,th,'#4a2f14');}}
   function drawDecoration(d){const p=screenPoint(d.x,d.z);if(p.x<-100||p.x>width+100||p.y<-70||p.y>height+260){if(globalThis.__mistvaleNpcLog&&d.type==='npc')globalThis.__mistvaleNpcLog.push({cls:d.cls,x:d.x,z:d.z,culled:true});return;}
     const before=detailUse.draw1x+detailUse.draw2x;drawDecorationArt(d,p);
     if(detailUse.draw1x+detailUse.draw2x===before&&!(d.type==='monument'&&atlasCell('monument')))procUse[d.type]=(procUse[d.type]||0)+1;}
@@ -1289,24 +1294,29 @@ let renderDprMax=Math.max(1,dprCap||autoDpr());   // 畫布解析度上限(devic
     if(d.type==='signpost'){
       // 2026-10-30:每個狩獵區中央的木頭立牌,牌面用羅馬數字顯示這一區的怪物數量等級(I/II/III),點它開切換畫面。
       if(d.regionSign){
-        const s=scale,bd=signLevel(d),wood='#7a5734',face='#c9a86a';
-        pixel(g,p.x-2.5*s,p.y-21*s,5*s,22*s,'#4a3520');            // 木樁
-        pixel(g,p.x-1.5*s,p.y-21*s,2*s,22*s,'#6b4f31');
-        pixel(g,p.x-17*s,p.y-42*s,34*s,22*s,'#4a3520');             // 牌面外框(深)
-        pixel(g,p.x-16*s,p.y-41*s,32*s,20*s,wood);                  // 木板
-        pixel(g,p.x-16*s,p.y-41*s,32*s,3*s,face);                   // 上緣受光
-        pixel(g,p.x-16*s,p.y-24*s,32*s,3*s,'#57402a');              // 下緣暗邊
-        pixel(g,p.x-12*s,p.y-38*s,24*s,12*s,'#efdfb4');             // 奶油色內板(數字才看得清楚)
-        pixel(g,p.x-12*s,p.y-38*s,24*s,s,'#fff6d8');
-        const band=bd===1?'#7fb069':bd===2?'#e7be5e':'#c0492f';     // 等級色帶:I 綠、II 金、III 紅
-        pixel(g,p.x-15.5*s,p.y-37*s,2.5*s,10*s,band);
-        pixel(g,p.x-17*s,p.y-35*s,3*s,3*s,'#8f7440');               // 釘子
-        pixel(g,p.x+14*s,p.y-35*s,3*s,3*s,'#8f7440');
-        // 羅馬數字用手畫的像素筆畫(I 的襯線才看得出來),不用字型——遠近都清楚,也跟其他像素零件同一種筆觸。
-        {const u=s,bw=5,gap=2,span=bd*bw+(bd-1)*gap,x0=p.x-span/2*u,y0=p.y-36.6*u;
-          for(let i=0;i<bd;i++){const bx=x0+i*(bw+gap)*u;
-            pixel(g,bx,y0,bw*u,1.1*u,'#4a2f14');pixel(g,bx+1.6*u,y0+1.1*u,1.8*u,4.6*u,'#4a2f14');pixel(g,bx,y0+5.7*u,bw*u,1.1*u,'#4a2f14');}}
-        hits.push({id:`region:${d.regionId}`,x:p.x-18*scale,y:p.y-42*scale,w:36*scale,h:30*scale});
+        const s=scale,bd=signLevel(d),art=regionSignArt(),band=bd===1?'#5f8f4a':bd===2?'#c98a2e':'#b03a2a';
+        if(art){   // 素材版:一根木樁＋奶油色板面,羅馬數字畫在板面中央
+          const dw=Math.round(30*s),dh=Math.round(dw*art.height/art.width),dx=R(p.x-dw/2),dy=R(p.y-dh+2*s);
+          cast(art,0,0,art.width,art.height,dx,dy,dw,dh,false,false,'char');g.drawImage(art,dx,dy,dw,dh);
+          // 板面在素材裡的相對範圍(量出來的):x 0.133–0.880、y 0.173–0.500
+          const fx=dx+dw*0.133,fw=dw*0.747,fy=dy+dh*0.173,fh=dh*0.327;
+          pixel(g,fx+fw*0.045,fy+fh*0.13,Math.max(2,2.6*s*.6),fh*0.74,band);   // 等級色帶(貼在板面左緣內側)
+          drawRoman(fx+fw/2+s,fy,fh*.94,bd);
+        }else{
+          pixel(g,p.x-2.5*s,p.y-21*s,5*s,22*s,'#4a3520');            // 木樁
+          pixel(g,p.x-1.5*s,p.y-21*s,2*s,22*s,'#6b4f31');
+          pixel(g,p.x-17*s,p.y-42*s,34*s,22*s,'#4a3520');             // 牌面外框(深)
+          pixel(g,p.x-16*s,p.y-41*s,32*s,20*s,'#7a5734');             // 木板
+          pixel(g,p.x-16*s,p.y-41*s,32*s,3*s,'#c9a86a');              // 上緣受光
+          pixel(g,p.x-16*s,p.y-24*s,32*s,3*s,'#57402a');              // 下緣暗邊
+          pixel(g,p.x-12*s,p.y-38*s,24*s,12*s,'#efdfb4');             // 奶油色內板
+          pixel(g,p.x-12*s,p.y-38*s,24*s,s,'#fff6d8');
+          pixel(g,p.x-15.5*s,p.y-37*s,2.5*s,10*s,band);               // 等級色帶
+          pixel(g,p.x-17*s,p.y-35*s,3*s,3*s,'#8f7440');               // 釘子
+          pixel(g,p.x+14*s,p.y-35*s,3*s,3*s,'#8f7440');
+          drawRoman(p.x+1*s,p.y-36.6*s,7.6*s,bd);
+        }
+        hits.push({id:`region:${d.regionId}`,x:p.x-16*scale,y:p.y-(art?34:42)*scale,w:32*scale,h:(art?34:30)*scale});
         return;
       }
       if(!drawAtlasDetail('signpost',p,13,16)){const s=scale;pixel(g,p.x,p.y-18*s,2*s,19*s,'#624a31');pixel(g,p.x-7*s,p.y-21*s,17*s,8*s,'#48392b');pixel(g,p.x-6*s,p.y-20*s,15*s,6*s,'#c4a66c');pixel(g,p.x-3*s,p.y-18*s,9*s,s,'#79613c');}
