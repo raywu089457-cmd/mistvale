@@ -70,7 +70,8 @@ try{assetScript+=`window.PIXEL_ASSETS=window.PIXEL_ASSETS||{};window.PIXEL_ASSET
   // 高解析 LOD：<id>@2x.png/.json（原生 1:1）。執行時依縮放自動挑，低縮放用 1x（銳利）、放大用 2x（細節）。
   try{sheets[id].hi={img:await media(path.join(dir,id+'@2x.png'),`heroes/${id}@2x.png`),meta:JSON.parse(await fs.readFile(path.join(dir,id+'@2x.json'),'utf8'))};}catch{}}
  put('heroSheets',JSON.stringify(sheets));
- try{put('heroAccessories',JSON.stringify({img:await media(path.join(dir,'accessories.png'),'heroes/accessories.png'),meta:JSON.parse(await fs.readFile(path.join(dir,'accessories.meta'),'utf8'))}));}catch{}
+ // 2026-10-31:英雄不再戴配件 → 配件圖集(5 KB)不再打包,檔案留在 assets/heroes/ 當歷史
+ // try{put('heroAccessories',...)}
  // 新規格魔物(assets/monsters3/<魔物>.png/.json)——執行時用到哪一種才載(見 pixel-world.js ensureMonsterSheet)
  {const md=path.join(root,'assets/monsters3');let mf=[];try{mf=await fs.readdir(md);}catch{}const ms={};
   for(const f of mf.filter(f=>f.endsWith('.json'))){const id=f.slice(0,-5);

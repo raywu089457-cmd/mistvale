@@ -493,10 +493,11 @@ function ensureHeroSheets(){const A=globalThis.PIXEL_ASSETS?.heroSheets||{};
     im.onerror=()=>loadedAssetKeys.delete('hs:'+id);im.src=v.img;if(fx)fx.src=v.fx;
   }}
 // 模組化配件槽(Accessory/Head):assets/heroes/accessories.png,依稀有度戴在每格的頭頂錨點(meta.actions[act].head)。
-let heroAcc=null;function ensureHeroAcc(){const v=globalThis.PIXEL_ASSETS?.heroAccessories;if(!v||heroAcc||loadedAssetKeys.has('hacc'))return;loadedAssetKeys.add('hacc');const im=trackImage(new Image());im.onload=()=>{heroAcc={img:im,meta:v.meta};};im.src=v.img;}
-const ACC_BY_RARITY={rare:['ribbon','feather'],superior:['flowerCrown','tiara'],heroic:['laurel','horns'],legendary:['crown','halo']};
-// 2026-10-31:配件也用職業決定(不是 id),同職業同稀有度的英雄才會長得一樣;稀有度越高越多裝飾。
-function heroAccessory(h){const l=ACC_BY_RARITY[h.rarity];return l?l[hash(h.classId||'')%l.length]:null;}
+let heroAcc=null;function ensureHeroAcc(){return;}   // 2026-10-31:英雄不再戴配件,配件圖集也不用載入(省一張大圖的解碼)
+// 2026-10-31 使用者:「配件也移除」→ 英雄一律不戴配件(緞帶/羽毛/花冠/頭冠/月桂/角/王冠/光環)。
+// 保留空表與函式,繪製路径看到 null 就不畫;素材 heroAccessories 也不再被要求載入。
+const ACC_BY_RARITY={};
+function heroAccessory(){return null;}
 // 新規格魔物 sheet(assets/monsters3,同英雄規格:1:1 像素、16 色、每列一個動作、軀幹中心=格中線、腳底=格底上 10px;密度跟英雄一樣 72 px = 21 單位)
 // 2026-10-26:魔物 26 種(每種約 8–18 MB 解碼後),全部開場載入會吃掉 280 MB → 改成**用到哪一種才載哪一種**(MON_SHEET 觸發)。
 const monsterSheets={};let monsterReq=new Set();
