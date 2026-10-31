@@ -1296,12 +1296,12 @@ let renderDprMax=Math.max(1,dprCap||autoDpr());   // 畫布解析度上限(devic
       if(d.regionSign){
         const s=scale,bd=signLevel(d),art=regionSignArt(),band=bd===1?'#5f8f4a':bd===2?'#c98a2e':'#b03a2a';
         if(art){   // 素材版:一根木樁＋奶油色板面,羅馬數字畫在板面中央
-          const dw=Math.round(30*s),dh=Math.round(dw*art.height/art.width),dx=R(p.x-dw/2),dy=R(p.y-dh+2*s);
-          cast(art,0,0,art.width,art.height,dx,dy,dw,dh,false,false,'char');g.drawImage(art,dx,dy,dw,dh);
-          // 板面在素材裡的相對範圍(量出來的):x 0.133–0.880、y 0.173–0.500
-          const fx=dx+dw*0.133,fw=dw*0.747,fy=dy+dh*0.173,fh=dh*0.327;
-          pixel(g,fx+fw*0.045,fy+fh*0.13,Math.max(2,2.6*s*.6),fh*0.74,band);   // 等級色帶(貼在板面左緣內側)
-          drawRoman(fx+fw/2+s,fy,fh*.94,bd);
+          const dw=Math.round(22*s),dh=Math.round(dw*art.height/art.width),dx=R(p.x-dw/2),dy=R(p.y-dh+2*s);
+          shadow(p,10,3.4);g.drawImage(art,dx,dy,dw,dh);   // 小立牌不要投影(縮小後那塊影子比牌子還大);腳下一圈淡淡的地面陰影就夠
+          // 板面在素材裡的相對範圍(prep_signpost.py 量出來的):x 0.089–0.893、y 0.128–0.519
+          const fx=dx+dw*0.089,fw=dw*0.804,fy=dy+dh*0.128,fh=dh*0.391;
+          pixel(g,fx+fw*0.05,fy+fh*0.16,Math.max(1.5,1.5*s),fh*0.68,band);   // 等級色帶(貼在板面左緣內側)
+          drawRoman(fx+fw/2+s,fy+fh*.06,fh*.82,bd);
         }else{
           pixel(g,p.x-2.5*s,p.y-21*s,5*s,22*s,'#4a3520');            // 木樁
           pixel(g,p.x-1.5*s,p.y-21*s,2*s,22*s,'#6b4f31');
@@ -1316,7 +1316,7 @@ let renderDprMax=Math.max(1,dprCap||autoDpr());   // 畫布解析度上限(devic
           pixel(g,p.x+14*s,p.y-35*s,3*s,3*s,'#8f7440');
           drawRoman(p.x+1*s,p.y-36.6*s,7.6*s,bd);
         }
-        hits.push({id:`region:${d.regionId}`,x:p.x-16*scale,y:p.y-(art?34:42)*scale,w:32*scale,h:(art?34:30)*scale});
+        hits.push({id:`region:${d.regionId}`,x:p.x-(art?14:19)*scale,y:p.y-(art?27:42)*scale,w:(art?28:38)*scale,h:(art?27:30)*scale});
         return;
       }
       if(!drawAtlasDetail('signpost',p,13,16)){const s=scale;pixel(g,p.x,p.y-18*s,2*s,19*s,'#624a31');pixel(g,p.x-7*s,p.y-21*s,17*s,8*s,'#48392b');pixel(g,p.x-6*s,p.y-20*s,15*s,6*s,'#c4a66c');pixel(g,p.x-3*s,p.y-18*s,9*s,s,'#79613c');}

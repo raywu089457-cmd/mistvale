@@ -212,7 +212,16 @@ Prompt 在 `output/l0veyou/prompts/demo-*-realistic.txt`(寫實材質、體積�
 評估結論:大圖品質夠 3A,但遊戲裡角色只有 66px 高,寫實風進遊戲會糊掉,而且 7 頭身跟現有 2 頭身 Q 版不合。
 對照圖在 `output/audit/demo-aaa-compare.png`、`output/audit/demo-aaa-mockup.png`;等使用者選方向(全面寫實 / HD-2D 半寫實 / 只升級特寫)。
 
-## 2026-10-30 地區立牌木牌(PixelLab generate-ui-v2)
+## 2026-10-31 地區立牌木牌改成 l0veyou(使用者指定用 l0veyou 生)
+
+- `assets/ui/px-signpost.png`:112×133,洋紅底去背後裁邊。
+- 服務:l0veyou GPT Image 2(已登入的 CDP 9447 瀏覽器 + `pipeline/scripts/l0veyou/generate.mjs`),1:1、1024²,免費。
+- 提示詞:`output/l0veyou/prompts/signpost-region.txt`;原圖 `output/l0veyou/signpost-region-v1.jpg`;
+  處理腳本 `pipeline/scripts/l0veyou/prep_signpost.py`(洋紅去背 + 去紫邊 + 裁邊 + 縮成寬 112)。
+- 遊戲裡畫 22 世界單位寬(原本 30),只用一張底圖,羅馬數字與等級色帶仍是執行時畫上去的。
+- 前一版 PixelLab 生的木牌保留在 `output/pixellab-sign/`,已被這版取代。
+
+## 2026-10-30 地區立牌木牌(PixelLab generate-ui-v2,已被上一節取代)
 
 - `assets/ui/px-signpost.png`:每個狩獵區中央的立牌(顯示怪物數量等級 I/II/III)。
 - 服務:PixelLab `/generate-ui-v2`(腳本 `C:\Users\ray\bin\pl.cmd ui-part`,帳號 2),`no_background: true`,128×128,一次 4 個變體,共 **10 generations**;選第 3 個變體,裁掉透明邊(75×104)後直接接入。
