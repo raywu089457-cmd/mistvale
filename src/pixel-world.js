@@ -1667,11 +1667,25 @@ let renderDprMax=Math.max(1,dprCap||autoDpr());   // 畫布解析度上限(devic
     if(pendingMon(e.type))return;const p=p0,boss=e.type==='boss',sz=ENEMY_SIZE(e.type),seed=hash(e.id)%97;
     const old=previousPositions.get('enemy:'+e.id),step=old?Math.hypot(e.x-old.x,e.z-old.z):0,moving=!!old&&step>.003,pose=combatPose(e,true,null);
     const nowT=state.time||0,walkUntil=step>.0006?nowT+.2:(old?.walkUntil||0);
-    let flip=old?(e.x-old.x-(e.z-old.z)<-.002?true:e.x-old.x-(e.z-old.z)>.002?false:old.flip):false;
+    // 2026-10-31 修正「魔物突然左右抖動」:以前每幀看單幀位移的 (dx-dz) 正負決定鏡像,
+    // 魔物朝正上/正下(等角畫面上幾乎沒有左右分量)走、或站在獵人正上下方時,正負會在 0 附近跳 → 每幀閃面。
+    // 現在改用 moveDirStable 的 8 方向(已含 30.5° 遲滯):只有明確的左右/斜向才決定鏡像,朝上下時維持原本面向;
+    // 另外同一個面向至少鎖 0.12 秒,避免兩幀互相打臉。
+    // 方向樣本改用「錨點」:累積走滿 0.12 格才更新一次(以前是每幀看單幀位移,慢速或剛起步時位移只有 0.001,
+    // 角度幾乎是雜訊 → vdir 在 walk / walkUpRight 之間每幀互換,看起來就是左右抖動)。
+    let ax=old?.ax??e.x,az=old?.az??e.z,vdir=old?.vdir||'side';
+    {const adx=e.x-ax,adz=e.z-az,ad=Math.hypot(adx,adz);
+      if(ad>=.12){vdir=moveDirStable(adx,adz,vdir);ax=e.x;az=e.z;}
+      else if(ad<1e-6&&step>1e-6){ax=e.x;az=e.z;}}
+    const RIGHT_DIR=vdir==='side'||vdir==='downRight'||vdir==='upRight',LEFT_DIR=vdir==='sideLeft'||vdir==='downLeft'||vdir==='upLeft';
+    let flip=old?.flip??false;
+    if(RIGHT_DIR)flip=false;else if(LEFT_DIR)flip=true;
     // 停著等空位的魔物(sim 剛更新 facingAt)面向牠盯著的獵人,不會背對戰鬥站著。
-    if(!moving&&!pose.face&&e.facingX!=null&&(state.time||0)-(e.facingAt??-9)<.5){const d=screenDir(e.x,e.z,e.facingX,e.facingZ).x;if(Math.abs(d)>.15)flip=d<0;}
+    if(!moving&&!pose.face&&e.facingX!=null&&(state.time||0)-(e.facingAt??-9)<.5){const d=screenDir(e.x,e.z,e.facingX,e.facingZ).x;if(Math.abs(d)>.25)flip=d<0;}
     if(pose.face)flip=pose.face<0;
-    previousPositions.set('enemy:'+e.id,{x:e.x,z:e.z,flip});
+    let flipAt=old?.flipAt??-9;
+    if(old&&flip!==old.flip){if(nowT-flipAt<0.12)flip=old.flip;else flipAt=nowT;}
+    previousPositions.set('enemy:'+e.id,{x:e.x,z:e.z,flip,vdir,walkUntil,flipAt,ax,az,rowVdir:vdir,rowAt:vdir!==(old?.rowVdir??'side')?nowT:(old?.rowAt??-9)});
     // 待機呼吸(史萊姆 Q 彈)、移動時跳步;攻擊/受擊的位移疊在上面。
     const breathe=Math.sin(elapsed*(e.type==='slime'?5:3)+seed),amp=e.type==='slime'?.07:.025;pose.sy*=1+amp*breathe;pose.sx*=1-amp*.6*breathe;
     // 走路:狼/魔像/領主一直用側面走路圖(3),配步伐上下起伏;史萊姆是跳躍——著地時用壓扁圖(3),騰空時用圓圖(0)。
@@ -1692,7 +1706,11 @@ let renderDprMax=Math.max(1,dprCap||autoDpr());   // 畫布解析度上限(devic
     contact(p,boss?12:7);
     drawnFacing.set('enemy:'+e.id,{f:flip?-1:1,frame,x:e.x,z:e.z,t:state.time});
     let rect;
-    if(MON_SHEET(e.type)){let vdir=old?.vdir||'side';if(old&&step>.0006)vdir=moveDirStable(e.x-old.x,e.z-old.z,vdir);if(pose.pose!=='idle'||e.engaged)vdir='side';previousPositions.set('enemy:'+e.id,{x:e.x,z:e.z,flip,vdir,walkUntil});
+    if(MON_SHEET(e.type)){   // 出手/受擊一律用側面列;走路照 8 方向
+      if(pose.pose!=='idle')vdir='side';
+      // 走路列也上鎖:同一個 8 方向列至少撐 0.25 秒。方向在兩個 45° 之間來回時(繞著獵物、被推開又走回來),
+      // 精靈圖才不會一格側面一格斜向地閃。真的轉彎超過 0.25 秒就換得過去。
+      if(old&&pose.pose==='idle'&&vdir!==(old.rowVdir??'side')&&nowT-(old.rowAt??-9)<0.25)vdir=old.rowVdir??'side';
       const [act,i]=monsterSheetPose(e,pose,walking,vdir);drawnFacing.set('enemy:'+e.id,{f:flip?-1:1,frame,act,i,x:e.x,z:e.z,t:state.time});rect=drawMonsterSheet(e.type,p,flip,act,i,1,pose);}  // 新規格 sheet:動作自帶位移/壓扁,不再疊 posed 變形
     else rect=posed(p,pose,q=>drawAtlasMonster(e.type,frame,q,sz,flip));
     if(!rect)procUse['enemy-missing:'+e.type]=(procUse['enemy-missing:'+e.type]||0)+1;  // 沒有程序繪製 fallback:sheet 缺了就只記數、不畫
@@ -2153,7 +2171,7 @@ let renderDprMax=Math.max(1,dprCap||autoDpr());   // 畫布解析度上限(devic
       .filter(cls=>heroSheets[cls]&&heroSheets[cls].meta.kind!=='part');   // 零件表不是角色，不要叫進村
     return list.filter(cls=>spawnVillager(cls));
   }
-  resize();render();return{update,resize:responsiveResize,project,assetsReady,warmupAssets,focus:(id)=>{homeFraming=false;focus(id);},/* 驗收用:建築與地區立牌的可點範圍 */hitRects:()=>hits.filter(h=>BUILDINGS.some(b=>b.id===h.id)).map(h=>({id:h.id,x:h.x,y:h.y,w:h.w,h:h.h})),signRects:()=>hits.filter(h=>String(h.id).startsWith('region:')).map(h=>({id:h.id,x:h.x,y:h.y,w:h.w,h:h.h})),buildingScale:id=>effectiveScale(id),lookAt:(x,z,v)=>{homeFraming=false;if(v)scale=Math.max(zoomFloor(),Math.min(ZOOM_MAX,v));target=iso(x,z);cam={...target};},zoomTo:(v)=>{homeFraming=false;scale=Math.max(zoomFloor(),Math.min(ZOOM_MAX,v));},getScale:()=>scale,setSelected,zoomBy,placeMode,setTime,setQuality,setFollow:(fn,opts)=>{followFn=typeof fn==='function'?fn:null;followOpts=(followFn&&opts&&typeof opts==='object')?opts:{};},dirFromScreen,followInfo:()=>followFn?(followOpts.centerBody?{centerBody:true,snap:!!followOpts.snap}:{centerBody:false,snap:!!followOpts.snap}):null,setShadows:(v)=>{shadowsOn=v!==false;compValid=false;},setNight:(v)=>{nightOn=v!==false;},
+  resize();render();return{update,resize:responsiveResize,project,assetsReady,warmupAssets,focus:(id)=>{homeFraming=false;focus(id);},/* 驗收用:建築與地區立牌的可點範圍 */enemyFacing:()=>[...drawnFacing.entries()].filter(([k])=>k.startsWith('enemy:')).map(([k,v])=>({id:k.slice(6),f:v.f,act:v.act||null,t:v.t})),hitRects:()=>hits.filter(h=>BUILDINGS.some(h2=>h2.id===h.id)).map(h=>({id:h.id,x:h.x,y:h.y,w:h.w,h:h.h})),signRects:()=>hits.filter(h=>String(h.id).startsWith('region:')).map(h=>({id:h.id,x:h.x,y:h.y,w:h.w,h:h.h})),buildingScale:id=>effectiveScale(id),lookAt:(x,z,v)=>{homeFraming=false;if(v)scale=Math.max(zoomFloor(),Math.min(ZOOM_MAX,v));target=iso(x,z);cam={...target};},zoomTo:(v)=>{homeFraming=false;scale=Math.max(zoomFloor(),Math.min(ZOOM_MAX,v));},getScale:()=>scale,setSelected,zoomBy,placeMode,setTime,setQuality,setFollow:(fn,opts)=>{followFn=typeof fn==='function'?fn:null;followOpts=(followFn&&opts&&typeof opts==='object')?opts:{};},dirFromScreen,followInfo:()=>followFn?(followOpts.centerBody?{centerBody:true,snap:!!followOpts.snap}:{centerBody:false,snap:!!followOpts.snap}):null,setShadows:(v)=>{shadowsOn=v!==false;compValid=false;},setNight:(v)=>{nightOn=v!==false;},
     setDpr:(v)=>{dprCap=v==='auto'||v==null?null:Math.max(1,Math.min(3,Number(v)||autoDpr()));renderDprMax=Math.max(1,Math.min(dprCap||autoDpr(),globalThis.devicePixelRatio||1));resize();compValid=false;render();},
     dispose,drawDungeonStrip,spawnVillager,spawnClassVillagers,setPartsVisible:(v)=>{partsVisible=v!==false;},getPartsVisible:()=>partsVisible,landscapeStats:()=>({roads:roads.length,terrainRevision,
     decor:decorations.map(d=>({type:d.type,x:d.x,z:d.z,region:d.regionId||null}))})};
