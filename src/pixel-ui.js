@@ -102,7 +102,7 @@ function modalHTML(type){const s=game.state;
    // 2026-10-30 重排:分頁＋快速鈕同一列;隊員卡加職業、近戰/遠程、生命條、「在別組」;狩獵區改成徽章卡＋危險度(依 risk 由易到難排)
    const alive=aliveHunters();const rn=REGIONS.find(r=>r.id===team.region)?.name||team.region;
    const other=h=>teams.findIndex((t2,i)=>i!==tab&&t2.ids.includes(h.id));
-   const regions=REGIONS.filter(r=>r.id!=='village').sort((x,y)=>y.risk-x.risk);   // 2026-10-30:危險度由強到弱(最硬的排最上面)
+   const regions=REGIONS.filter(r=>r.id!=='village').sort((x,y)=>x.risk-y.risk);   // 2026-10-30:危險度由弱到強(最好打的排最上面,越往下越硬)
    return `<p class="modal-intro">四組隊伍各自記住隊員與狩獵區（存檔會保留）。每位獵人只會在一組裡，選進這組就會從別組移過來。</p>
    <div class="dispatch-head"><div class="dispatch-tabs">${teams.map((t2,i)=>`<button class="pixel-button ${i===tab?'gold':''}" data-action="dispatchTab" data-index="${i}">${t2.name}${t2.ids.length?`（${t2.ids.length}）`:''}</button>`).join('')}</div>
    <div class="dispatch-quick"><span>已選 <b>${team.ids.length}</b> / ${alive.length}</span><button class="pixel-button" data-action="dispatchAll">全選</button><button class="pixel-button" data-action="dispatchNone" ${team.ids.length?'':'disabled'}>清空</button></div></div>
