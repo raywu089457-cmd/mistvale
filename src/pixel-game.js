@@ -1615,12 +1615,16 @@ export function createGame(saved = null) {
     cheat(name) {
       const s2 = state;
       switch (name) {
-        case 'resources':
-          s2.gold += 10000; s2.gems += 100;
-          for (const k of Object.keys(s2.materials || {})) s2.materials[k] = (s2.materials[k] || 0) + 500;
-          for (const k of Object.keys(s2.stocks || {})) s2.stocks[k] = (s2.stocks[k] || 0) + 50;
-          Object.keys(MATERIAL_KEYS).forEach(k => { s2[k] = (s2[k] || 0) + 500; });
-          return result(true, '金幣 +10,000、星晶 +100、素材／物資各 +500');
+        case 'resources': {
+          // 2026-10-31 修:以前寫成 Object.keys(MATERIAL_KEYS)，但 MATERIAL_KEYS 是陣列 → 拿到 "0","1"…
+          // 變成 state["0"] += 500（憑空多出數字鍵），真正的木材/鐵礦/藥草/布/麵粉/獸皮一個都沒加。
+          // 順便把舊版誤加的數字鍵清掉。
+          for (const k of Object.keys(s2)) if (/^\d+$/.test(k)) delete s2[k];
+          s2.gold = (s2.gold || 0) + 10000; s2.gems = (s2.gems || 0) + 100;
+          for (const k of MATERIAL_KEYS) s2[k] = (s2[k] || 0) + 500;
+          s2.stocks = s2.stocks || {};
+          for (const k of PRODUCT_KEYS) s2.stocks[k] = (s2.stocks[k] || 0) + 50;
+          return result(true, '金幣 +10,000、星晶 +100、素材 +500、物資 +50'); }
         case 'levels':
           for (const h of [...s2.hunters, ...(s2.wanderers || [])]) { h.level = Math.min(100, h.level + 10); h.xp = 0; updateStats(h); h.hp = h.maxHp; }
           return result(true, '所有獵人／流浪英雄 +10 級（上限 100）');

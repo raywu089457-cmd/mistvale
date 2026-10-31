@@ -197,6 +197,19 @@ const dupSave = squads.serialize(); dupSave.dispatchTeams[3] = { ids: [s0.id, s4
 const dupLoaded = createGame(dupSave);
 assert.deepEqual(dupLoaded.state.dispatchTeams[0].ids, [s0.id], 'The first squad that lists a hunter keeps him'); assert.deepEqual(dupLoaded.state.dispatchTeams[3].ids, [s4.id]); assert.equal(dupLoaded.state.dispatchTeams[3].region, 'desert');
 assert.equal(createGame().dispatchHunters().ok, true, 'The one-click dispatch still sends everyone');
+// ── 開發者作弊「資源滿載」:金幣/星晶之外,六種素材與四種物資都要真的加到(2026-10-31 修正) ──
+{
+  const g = createGame(null);
+  const keys = Object.keys(MATERIALS);
+  const before = Object.fromEntries(keys.map(k => [k, g.state[k]]));
+  const foodBefore = g.state.stocks.food;
+  const r = g.cheat('resources');
+  assert.equal(r.ok, true);
+  assert.ok(g.state.gold >= 10000 && g.state.gems >= 100, 'Gold and gems are added');
+  for (const k of keys) assert.equal(g.state[k], before[k] + 500, `${k} gains 500`);
+  assert.equal(g.state.stocks.food, foodBefore + 50, 'Stocks gain 50');
+  assert.deepEqual(Object.keys(g.state).filter(k => /^\d+$/.test(k)), [], 'No stray numeric keys are written into the save');
+}
 // ── 2026-10-31 使用者:怪物移動速度 ×1.5、攻擊速度 ×1.3 ──
 {
   assert.equal(MONSTER_SPEED_MULT, 1.5, 'Monsters move 1.5x faster');

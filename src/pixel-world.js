@@ -495,7 +495,8 @@ function ensureHeroSheets(){const A=globalThis.PIXEL_ASSETS?.heroSheets||{};
 // 模組化配件槽(Accessory/Head):assets/heroes/accessories.png,依稀有度戴在每格的頭頂錨點(meta.actions[act].head)。
 let heroAcc=null;function ensureHeroAcc(){const v=globalThis.PIXEL_ASSETS?.heroAccessories;if(!v||heroAcc||loadedAssetKeys.has('hacc'))return;loadedAssetKeys.add('hacc');const im=trackImage(new Image());im.onload=()=>{heroAcc={img:im,meta:v.meta};};im.src=v.img;}
 const ACC_BY_RARITY={rare:['ribbon','feather'],superior:['flowerCrown','tiara'],heroic:['laurel','horns'],legendary:['crown','halo']};
-function heroAccessory(h){const l=ACC_BY_RARITY[h.rarity];return l?l[hash(h.id||'')%l.length]:null;}
+// 2026-10-31:配件也用職業決定(不是 id),同職業同稀有度的英雄才會長得一樣;稀有度越高越多裝飾。
+function heroAccessory(h){const l=ACC_BY_RARITY[h.rarity];return l?l[hash(h.classId||'')%l.length]:null;}
 // 新規格魔物 sheet(assets/monsters3,同英雄規格:1:1 像素、16 色、每列一個動作、軀幹中心=格中線、腳底=格底上 10px;密度跟英雄一樣 72 px = 21 單位)
 // 2026-10-26:魔物 26 種(每種約 8–18 MB 解碼後),全部開場載入會吃掉 280 MB → 改成**用到哪一種才載哪一種**(MON_SHEET 觸發)。
 const monsterSheets={};let monsterReq=new Set();
@@ -555,7 +556,8 @@ globalThis.__mistvaleHeroSheets=()=>Object.fromEntries(Object.entries(heroSheets
 // 2x 一張 40–73 MB,而且要分段做幾十秒),現在只換真的畫到的格(1x 一格 100×100)。換色表(每職業×外觀一個小 Map)照舊。
 // 換好的格排一條 LRU,總像素超過上限丟最久沒畫到的:桌機 1600 萬像素、手機 400 萬(1x 約 400 格)。
 // 每幀最多新換 VARIANT_PER_FRAME 格(換一格:畫入、讀回、換色、寫回);超過的這一幀先用原色,下一幀補上(只在開場一大群英雄同時出現時才會碰到)。
-const OUTFIT_SHIFT=[0,40,120,200,280],variantMaps=new Map(),variantCells=new Map();let variantCellPx=0,variantNew=0,variantMade=0;
+// 2026-10-31 使用者:同職業的英雄不要靠 id 隨機換色(名字不同就好)。換色只剩裝備造成的(穿甲/持武器的金屬)。
+const OUTFIT_SHIFT=[0],variantMaps=new Map(),variantCells=new Map();let variantCellPx=0,variantNew=0,variantMade=0;
 const VARIANT_PER_FRAME=12,VARIANT_BUDGET=()=>lowMemDevice?4e6:16e6;
 function rgb2hsl(r,g,b){r/=255;g/=255;b/=255;const mx=Math.max(r,g,b),mn=Math.min(r,g,b),l=(mx+mn)/2;if(mx===mn)return[0,0,l];const d=mx-mn,s=l>.5?d/(2-mx-mn):d/(mx+mn);let h=mx===r?(g-b)/d+(g<b?6:0):mx===g?(b-r)/d+2:(r-g)/d+4;return[h/6,s,l];}
 function hsl2rgb(h,s,l){const f=n=>{const k=(n+h*12)%12,a=s*Math.min(l,1-l);return Math.round(255*(l-a*Math.max(-1,Math.min(k-3,9-k,1))));};return[f(0),f(8),f(4)];}
