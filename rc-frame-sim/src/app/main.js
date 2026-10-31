@@ -404,7 +404,7 @@ function step(dt) {
   S.explodeCur += (S.explodeTarget - S.explodeCur) * (1 - Math.exp(-dt * 4));
   if (Math.abs(S.explodeTarget - S.explodeCur) < 1e-4) S.explodeCur = S.explodeTarget;
   rig.update(dt);
-  world.update(S.t, S.explodeCur, selectedMemberId());
+  world.renderAt(S.t, S.explodeCur, selectedMemberId());
   renderer.render(world.scene, camera);
   updateHUD(dt);
 }

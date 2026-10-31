@@ -255,6 +255,11 @@ export function buildScene(model, { renderer }) {
     _lastE: NaN,
   };
   return Object.assign(api, {
+    // Deterministic frame for timeline time t (seconds), explode stage e (0..3) and selected member.
+    // The same arguments always produce the same frame: nothing here reads the wall clock.
+    renderAt(t, e = 0, selectedMember = -1) {
+      api.update(t, e, selectedMember);
+    },
     setStage(e) {
       const sA = clamp(e, 0, 1), sB = clamp(e - 1, 0, 1), sC = clamp(e - 2, 0, 1);
       state.uStage.set(sA, sB, sC);
