@@ -55,6 +55,14 @@ export const MATERIALS={wood:{name:'木材',price:2},ore:{name:'鐵礦',price:3}
 export const PRODUCTS={food:{name:'香烤麵包',building:'restaurant',need:'satiety',restore:75,price:12,cost:{flour:5},amount:10},drink:{name:'莓果飲品',building:'tavern',need:'mood',restore:75,price:10,cost:{herb:5},amount:10},bed:{name:'舒適床鋪',building:'inn',need:'stamina',restore:90,price:14,cost:{leather:3,cloth:2},amount:10},bandage:{name:'亞麻繃帶',building:'clinic',need:'hp',restore:80,price:10,cost:{cloth:5,herb:2},amount:10}};
 export const RECIPES=[{id:'weapon',name:'精鐵武器',type:'weapon',price:85,cost:{ore:12,wood:6},bonus:7},{id:'armor',name:'皮革護甲',type:'armor',price:70,cost:{leather:10,cloth:4},bonus:4}];
 export const DIFFICULTIES=[{id:0,name:'初級',mult:1,rebirths:0},{id:1,name:'普通',mult:1.7,rebirths:1},{id:2,name:'困難',mult:2.8,rebirths:3},{id:3,name:'專家',mult:4.5,rebirths:5},{id:4,name:'噩夢',mult:7,rebirths:10}];
+// 2026-10-30:每個狩獵區中央立牌切換「怪物數量」三級(羅馬數字)。只改同時出現的數量與補怪速度,魔物本身不變強。
+// cap = 目前狩獵區的上限、other = 沒人在打的區的上限、every = 補一隻的間隔(秒)。第 2 級就是原本的 14/6、2.5/8 秒。
+export const REGION_DENSITY=[
+  {level:1,numeral:'I',name:'稀疏',cap:8,other:4,every:4,otherEvery:12},
+  {level:2,numeral:'II',name:'標準',cap:14,other:6,every:2.5,otherEvery:8},
+  {level:3,numeral:'III',name:'密集',cap:22,other:9,every:1.8,otherEvery:6},
+];
+export const DEFAULT_REGION_DENSITY=2;
 export const HUNT_ZONE={x:18,z:-1,radius:8};
 // 手動操控的攻擊節奏(秒)。動畫本身 = (攻擊列格數 − 出手格數) × 每格時間 + 命中停頓
 // = 最長 (9−4)×0.075 + 0.07 ≈ 0.445;這裡取 0.45 蓋掉所有職業。

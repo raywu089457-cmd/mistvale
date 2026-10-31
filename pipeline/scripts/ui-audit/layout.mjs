@@ -13,7 +13,7 @@ const URL = process.env.TARGET || 'http://100.79.149.0:5024/?preview=1';
 const OUT = fileURLToPath(new globalThis.URL('../../../output/ui-audit/layout/', import.meta.url));
 const DEFAULT = ['iphone-402x712', 'android-360x640', 'desktop-1440x900'];
 const MODALS = [['02-settings', 'settings'], ['03-build', 'build'], ['04-hunters', 'hunters'], ['05-hunter', 'hunter'], ['06-recruit', 'recruit'], ['07-trade', 'trade'], ['08-craft', 'craft'], ['09-craft-gear', 'craft', null, 'gear'],
-  ['10-dungeon', 'dungeon'], ['11-arena', 'arena'], ['12-quests', 'quests'], ['13-inventory', 'inventory'], ['14-difficulty', 'difficulty'], ['15-help', 'help'], ['16-boss', 'boss'], ['17-dispatch', 'dispatchHunters'], ['18-worldmap', 'worldmap'], ['20-region', 'regionInfo', 'snow']];   // 2026-10-30:地圖詳細資訊(派遣出征的區域卡捲軸鈕)
+  ['10-dungeon', 'dungeon'], ['11-arena', 'arena'], ['12-quests', 'quests'], ['13-inventory', 'inventory'], ['14-difficulty', 'difficulty'], ['15-help', 'help'], ['16-boss', 'boss'], ['17-dispatch', 'dispatchHunters'], ['18-worldmap', 'worldmap'], ['20-region', 'regionInfo', 'snow'], ['21-density', 'densityFor', 'snow']];   // 2026-10-30:地圖詳細資訊(派遣出征的區域卡捲軸鈕)
 const ANDROID_UA = 'Mozilla/5.0 (Linux; Android 14; Pixel 7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/130.0.0.0 Mobile Safari/537.36';
 const IOS_UA = 'Mozilla/5.0 (iPhone; CPU iPhone OS 18_7 like Mac OS X) AppleWebKit/605.1.15 (KHTML, like Gecko) Version/27.0 Mobile/15E148 Safari/604.1';
 // bar = 網址列等工具列高度（vh 比可視高度多出來的量，估計值）

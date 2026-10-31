@@ -197,6 +197,44 @@ const dupSave = squads.serialize(); dupSave.dispatchTeams[3] = { ids: [s0.id, s4
 const dupLoaded = createGame(dupSave);
 assert.deepEqual(dupLoaded.state.dispatchTeams[0].ids, [s0.id], 'The first squad that lists a hunter keeps him'); assert.deepEqual(dupLoaded.state.dispatchTeams[3].ids, [s4.id]); assert.equal(dupLoaded.state.dispatchTeams[3].region, 'desert');
 assert.equal(createGame().dispatchHunters().ok, true, 'The one-click dispatch still sends everyone');
+// ── 地區立牌:怪物數量三級(I/II/III),只改同時出現的數量與補怪速度 ──
+{
+  const dg = createGame(null);
+  assert.equal(dg.state.regionDensity.meadow, 2, 'Every region starts at level II');
+  assert.equal(dg.regionDensity('meadow').numeral, 'II');
+  assert.equal(dg.regionDensity('village'), null, 'The village has no sign');
+  assert.equal(dg.setRegionDensity('meadow', 1).ok, true);
+  assert.equal(dg.setRegionDensity('meadow', 1).ok, false, 'Setting the same level is a no-op');
+  assert.equal(dg.regionDensity('meadow').cap, 8);
+  assert.equal(dg.setRegionDensity('meadow', 4).ok, false, 'Only levels 1-3 are allowed');
+  assert.equal(dg.setRegionDensity('meadow', 0).ok, false);
+  const savedDensity = createGame(dg.serialize());
+  assert.equal(savedDensity.state.regionDensity.meadow, 1, 'The level survives a save/load');
+  assert.deepEqual(createGame({ ...dg.serialize(), regionDensity: { meadow: 9 } }).state.regionDensity.meadow, 2, 'Out-of-range saved values fall back to level II');
+  assert.equal(createGame({ ...dg.serialize(), regionDensity: undefined }).state.regionDensity.forest, 2, 'Old saves without the field get level II');
+  // 沒有獵人、沒有流浪英雄時,補怪只受上限限制:低密度停在 8、高密度可以超過 8。
+  const capRun = (level, seconds) => {
+    const g = createGame(null);
+    g.state.hunters = []; g.state.wanderers = []; g.state.enemies = []; g.state.spawnTimer = 0;
+    g.setRegionDensity('meadow', level);
+    let peak = 0;
+    run(g, seconds, false, st => { peak = Math.max(peak, st.enemies.filter(e => e.hp > 0 && e.type !== 'boss' && e.regionId === 'meadow').length); });
+    return { peak, alive: g.state.enemies.filter(e => e.hp > 0 && e.regionId === 'meadow').length };
+  };
+  const low = capRun(1, 60), high = capRun(3, 60);
+  assert.ok(low.peak <= dg.regionDensity('meadow').levels[0].cap, `Level I never exceeds its cap (peak ${low.peak})`);
+  assert.ok(low.peak >= 6, `Level I still fills up (peak ${low.peak})`);
+  assert.ok(high.peak > low.peak, `Level III allows more monsters (peak ${high.peak} vs ${low.peak})`);
+  assert.ok(high.peak <= dg.regionDensity('meadow').levels[2].cap, 'Level III respects its cap');
+  // 降級時,超過上限的魔物會被收掉(沒在交戰的)。
+  const trim = createGame(null); trim.state.hunters = []; trim.state.wanderers = []; trim.state.enemies = []; trim.state.spawnTimer = 0;
+  const meadowAlive = g => g.state.enemies.filter(e => e.hp > 0 && e.type !== 'boss' && e.regionId === 'meadow').length;
+  trim.setRegionDensity('meadow', 3); run(trim, 50);
+  assert.ok(meadowAlive(trim) > 8, 'Level III piles monsters up');
+  trim.setRegionDensity('meadow', 1);
+  run(trim, 0.3);
+  assert.ok(meadowAlive(trim) <= 8, `Lowering the level trims the extra monsters (${meadowAlive(trim)} left)`);
+}
 // ── 地圖詳細資訊(2026-10-30):派遣出征的區域卡捲軸鈕。數值要跟實際出怪/數值表一致,不能另外抄一份 ──
 {
   const info = createGame(), ri = info.regionInfo('snow');

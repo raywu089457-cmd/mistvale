@@ -860,6 +860,12 @@ let renderDprMax=Math.max(1,dprCap||autoDpr());   // 畫布解析度上限(devic
     // 村中央的雕像(廣場 0,0 正中):村莊收攏成棋盤時被拿掉,現在放回來。
     // 廣場只有 4.4×3.6,雕像畫 3.2 個單位寬(約 1.5 個英雄高),不會壓到旁邊的街。
     {const plaza=blockCenter(0,0);decorations.push({type:'monument',x:plaza.x,z:plaza.z,size:1});}
+    // 每個狩獵區正中央的木頭立牌(怪物數量等級);點擊由 hits 的 region:<id> 交給 UI 開切換畫面。
+    {const dry=(x,z)=>{const b=biomeAt(x,z);return b!=='ocean'&&b!=='river'&&b!=='ice'&&b!=='bridge'&&b!=='village';};
+      const spot=r=>{if(dry(r.x,r.z)&&!onRingRoad(r.x,r.z,.8))return {x:r.x,z:r.z};
+        for(let rad=1.5;rad<=14;rad+=1.5)for(let k=0;k<16;k++){const a=k/16*Math.PI*2,x=r.x+Math.cos(a)*rad,z=r.z+Math.sin(a)*rad;if(dry(x,z)&&!onRingRoad(x,z,.8))return {x,z};}
+        return {x:r.x,z:r.z};};
+      for(const r of REGIONS) if(r.id!=='village'){const q=spot(r);decorations.push({type:'signpost',regionSign:true,regionId:r.id,x:q.x,z:q.z,size:1});}}
     decorations.sort((a,b)=>a.x+a.z-b.x-b.z);
     globalThis.__mistvaleDecorations=[...decorations];  // 除錯用:讀街上/場景裡的裝飾(NPC)名單
     buildVillageLayer();
@@ -1192,6 +1198,8 @@ let renderDprMax=Math.max(1,dprCap||autoDpr());   // 畫布解析度上限(devic
   // __mistvaleDetails().proc 應該是空物件。
   // 會動的裝飾(村民、動物、路人,以及有動畫亮點的):每幀都要重畫,不進靜態層
   const ANIMATED_DECOR=new Set(['npc','villager','animal','fisher','waterfall','fountain','villageBanner']);
+  // 立牌上的等級(1-3):直接讀存檔裡的 regionDensity,沒有就當第 2 級(跟遊戲預設一致)。
+  const signLevel=d=>{const n=Math.round(Number(getState()?.regionDensity?.[d.regionId]));return n>=1&&n<=3?n:2;};
   function drawDecoration(d){const p=screenPoint(d.x,d.z);if(p.x<-100||p.x>width+100||p.y<-70||p.y>height+260){if(globalThis.__mistvaleNpcLog&&d.type==='npc')globalThis.__mistvaleNpcLog.push({cls:d.cls,x:d.x,z:d.z,culled:true});return;}
     const before=detailUse.draw1x+detailUse.draw2x;drawDecorationArt(d,p);
     if(detailUse.draw1x+detailUse.draw2x===before&&!(d.type==='monument'&&atlasCell('monument')))procUse[d.type]=(procUse[d.type]||0)+1;}
@@ -1279,6 +1287,28 @@ let renderDprMax=Math.max(1,dprCap||autoDpr());   // 畫布解析度上限(devic
       line(g,p.x-5*s,p.y-8*s,p.x+5*s,p.y-4*s,'#c69d65',s);return;
     }
     if(d.type==='signpost'){
+      // 2026-10-30:每個狩獵區中央的木頭立牌,牌面用羅馬數字顯示這一區的怪物數量等級(I/II/III),點它開切換畫面。
+      if(d.regionSign){
+        const s=scale,bd=signLevel(d),wood='#7a5734',face='#c9a86a';
+        pixel(g,p.x-2.5*s,p.y-21*s,5*s,22*s,'#4a3520');            // 木樁
+        pixel(g,p.x-1.5*s,p.y-21*s,2*s,22*s,'#6b4f31');
+        pixel(g,p.x-17*s,p.y-42*s,34*s,22*s,'#4a3520');             // 牌面外框(深)
+        pixel(g,p.x-16*s,p.y-41*s,32*s,20*s,wood);                  // 木板
+        pixel(g,p.x-16*s,p.y-41*s,32*s,3*s,face);                   // 上緣受光
+        pixel(g,p.x-16*s,p.y-24*s,32*s,3*s,'#57402a');              // 下緣暗邊
+        pixel(g,p.x-12*s,p.y-38*s,24*s,12*s,'#efdfb4');             // 奶油色內板(數字才看得清楚)
+        pixel(g,p.x-12*s,p.y-38*s,24*s,s,'#fff6d8');
+        const band=bd===1?'#7fb069':bd===2?'#e7be5e':'#c0492f';     // 等級色帶:I 綠、II 金、III 紅
+        pixel(g,p.x-15.5*s,p.y-37*s,2.5*s,10*s,band);
+        pixel(g,p.x-17*s,p.y-35*s,3*s,3*s,'#8f7440');               // 釘子
+        pixel(g,p.x+14*s,p.y-35*s,3*s,3*s,'#8f7440');
+        // 羅馬數字用手畫的像素筆畫(I 的襯線才看得出來),不用字型——遠近都清楚,也跟其他像素零件同一種筆觸。
+        {const u=s,bw=5,gap=2,span=bd*bw+(bd-1)*gap,x0=p.x-span/2*u,y0=p.y-36.6*u;
+          for(let i=0;i<bd;i++){const bx=x0+i*(bw+gap)*u;
+            pixel(g,bx,y0,bw*u,1.1*u,'#4a2f14');pixel(g,bx+1.6*u,y0+1.1*u,1.8*u,4.6*u,'#4a2f14');pixel(g,bx,y0+5.7*u,bw*u,1.1*u,'#4a2f14');}}
+        hits.push({id:`region:${d.regionId}`,x:p.x-18*scale,y:p.y-42*scale,w:36*scale,h:30*scale});
+        return;
+      }
       if(!drawAtlasDetail('signpost',p,13,16)){const s=scale;pixel(g,p.x,p.y-18*s,2*s,19*s,'#624a31');pixel(g,p.x-7*s,p.y-21*s,17*s,8*s,'#48392b');pixel(g,p.x-6*s,p.y-20*s,15*s,6*s,'#c4a66c');pixel(g,p.x-3*s,p.y-18*s,9*s,s,'#79613c');}
       return;  // 戰鬥區不顯示文字(地名改在世界地圖縮小時、空地外緣顯示)
     }
@@ -1882,7 +1912,7 @@ let renderDprMax=Math.max(1,dprCap||autoDpr());   // 畫布解析度上限(devic
     staticKey=vk;staticGen++;
   }
   // 每幀都要重畫的物件:單位、會動的裝飾、(沒有概念圖時)會冒煙的建築
-  const isMoving=item=>item.type==='hunter'||item.type==='wanderer'||item.type==='enemy'||(item.type==='decor'&&(!!item.data.walk||ANIMATED_DECOR.has(item.data.type)))||(item.type==='building'&&!atlasCell(item.data.id)&&['forge','enhancement','restaurant','inn','hall'].includes(item.data.id));
+  const isMoving=item=>item.type==='hunter'||item.type==='wanderer'||item.type==='enemy'||(item.type==='decor'&&(!!item.data.walk||item.data.regionSign||ANIMATED_DECOR.has(item.data.type)))||(item.type==='building'&&!atlasCell(item.data.id)&&['forge','enhancement','restaurant','inn','hall'].includes(item.data.id));
   // 把地面、影子、精靈依序合成到 comp(rects=裝置像素範圍,null=整張)。順序和直接畫到螢幕相同。
   function paintComp(rects){
     cmp.save();cmp.setTransform(1,0,0,1,0,0);cmp.globalAlpha=1;
@@ -2113,10 +2143,10 @@ let renderDprMax=Math.max(1,dprCap||autoDpr());   // 畫布解析度上限(devic
       .filter(cls=>heroSheets[cls]&&heroSheets[cls].meta.kind!=='part');   // 零件表不是角色，不要叫進村
     return list.filter(cls=>spawnVillager(cls));
   }
-  resize();render();return{update,resize:responsiveResize,project,assetsReady,warmupAssets,focus:(id)=>{homeFraming=false;focus(id);},hitRects:()=>hits.filter(h=>BUILDINGS.some(b=>b.id===h.id)).map(h=>({id:h.id,x:h.x,y:h.y,w:h.w,h:h.h})),buildingScale:id=>effectiveScale(id),lookAt:(x,z,v)=>{homeFraming=false;if(v)scale=Math.max(zoomFloor(),Math.min(ZOOM_MAX,v));target=iso(x,z);cam={...target};},zoomTo:(v)=>{homeFraming=false;scale=Math.max(zoomFloor(),Math.min(ZOOM_MAX,v));},getScale:()=>scale,setSelected,zoomBy,placeMode,setTime,setQuality,setFollow:(fn,opts)=>{followFn=typeof fn==='function'?fn:null;followOpts=(followFn&&opts&&typeof opts==='object')?opts:{};},dirFromScreen,followInfo:()=>followFn?(followOpts.centerBody?{centerBody:true,snap:!!followOpts.snap}:{centerBody:false,snap:!!followOpts.snap}):null,setShadows:(v)=>{shadowsOn=v!==false;compValid=false;},setNight:(v)=>{nightOn=v!==false;},
+  resize();render();return{update,resize:responsiveResize,project,assetsReady,warmupAssets,focus:(id)=>{homeFraming=false;focus(id);},/* 驗收用:建築與地區立牌的可點範圍 */hitRects:()=>hits.filter(h=>BUILDINGS.some(b=>b.id===h.id)).map(h=>({id:h.id,x:h.x,y:h.y,w:h.w,h:h.h})),signRects:()=>hits.filter(h=>String(h.id).startsWith('region:')).map(h=>({id:h.id,x:h.x,y:h.y,w:h.w,h:h.h})),buildingScale:id=>effectiveScale(id),lookAt:(x,z,v)=>{homeFraming=false;if(v)scale=Math.max(zoomFloor(),Math.min(ZOOM_MAX,v));target=iso(x,z);cam={...target};},zoomTo:(v)=>{homeFraming=false;scale=Math.max(zoomFloor(),Math.min(ZOOM_MAX,v));},getScale:()=>scale,setSelected,zoomBy,placeMode,setTime,setQuality,setFollow:(fn,opts)=>{followFn=typeof fn==='function'?fn:null;followOpts=(followFn&&opts&&typeof opts==='object')?opts:{};},dirFromScreen,followInfo:()=>followFn?(followOpts.centerBody?{centerBody:true,snap:!!followOpts.snap}:{centerBody:false,snap:!!followOpts.snap}):null,setShadows:(v)=>{shadowsOn=v!==false;compValid=false;},setNight:(v)=>{nightOn=v!==false;},
     setDpr:(v)=>{dprCap=v==='auto'||v==null?null:Math.max(1,Math.min(3,Number(v)||autoDpr()));renderDprMax=Math.max(1,Math.min(dprCap||autoDpr(),globalThis.devicePixelRatio||1));resize();compValid=false;render();},
     dispose,drawDungeonStrip,spawnVillager,spawnClassVillagers,setPartsVisible:(v)=>{partsVisible=v!==false;},getPartsVisible:()=>partsVisible,landscapeStats:()=>({roads:roads.length,terrainRevision,
-    decor:decorations.map(d=>({type:d.type,x:d.x,z:d.z}))})};
+    decor:decorations.map(d=>({type:d.type,x:d.x,z:d.z,region:d.regionId||null}))})};
 }
 
 export const createPixelWorld = createWorld;
