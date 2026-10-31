@@ -1,0 +1,103 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>RC frame · construction sequence</title>
+  <link rel="icon" href="data:,">
+  <link rel="stylesheet" href="./styles.css">
+  <script type="importmap">
+  {
+    "imports": {
+      "three": "/node_modules/three/build/three.module.js",
+      "three/addons/": "/node_modules/three/examples/jsm/"
+    }
+  }
+  </script>
+</head>
+<body>
+  <canvas id="view" aria-label="3D construction view"></canvas>
+
+  <header class="brand">
+    <div class="title">Two-storey RC frame</div>
+    <div class="sub">2 storeys · 4 × 3 bays · 6.0 × 5.0 m · FF 3.60 m · Hn 3.00 m — rebar from Taiwan standard-drawing rules</div>
+  </header>
+
+  <aside class="panel left" id="left">
+    <section>
+      <h2>Sequence</h2>
+      <div class="stages" id="stages" role="group" aria-label="Stages"></div>
+      <div class="transport">
+        <button id="play" class="primary" aria-label="Play or pause (Space)">Play</button>
+        <button id="restart" aria-label="Restart timeline">Restart</button>
+        <button id="slowmo" aria-label="Slow motion at a joint">Joint slow-mo</button>
+      </div>
+      <label class="slider">
+        <span>Speed</span>
+        <input id="speed" type="range" min="0" max="1" step="0.01" value="0.5">
+        <output id="speedOut">0.50×</output>
+      </label>
+      <label class="slider">
+        <span>Time</span>
+        <input id="scrub" type="range" min="0" max="320" step="0.05" value="0">
+        <output id="timeOut">00:00</output>
+      </label>
+      <div class="stagename" id="stageName"></div>
+    </section>
+    <section>
+      <details id="standardsBox">
+        <summary><h2>Standards</h2><span class="sumnote" id="standardsSum"></span></summary>
+        <ul class="checks" id="checks"></ul>
+      </details>
+    </section>
+  </aside>
+
+  <aside class="panel right" id="right">
+    <section>
+      <h2>Erection view</h2>
+      <div class="row">
+        <label class="switch"><input id="cutaway" type="checkbox"><span>Cutaway</span></label>
+        <button id="resetCam">Reset camera</button>
+      </div>
+      <label class="slider">
+        <span>Explode</span>
+        <input id="explode" type="range" min="0" max="3" step="0.01" value="0">
+        <output id="explodeOut">Assembled</output>
+      </label>
+      <div class="row">
+        <button id="explodeBtn">Explode</button>
+        <button id="assembleBtn">Assemble</button>
+      </div>
+      <div class="hint" id="explodeHint">Storeys → members → bar groups</div>
+    </section>
+    <section>
+      <h2>Layers</h2>
+      <div class="grid2" id="layers"></div>
+    </section>
+    <section>
+      <h2>Storey</h2>
+      <div class="seg" id="storeys" role="radiogroup" aria-label="Storey filter"></div>
+    </section>
+    <section>
+      <h2>Camera</h2>
+      <div class="presets" id="presets"></div>
+      <div class="row">
+        <button id="walk" aria-pressed="false">Walk (WASD)</button>
+        <span class="hint">Shift sprints · Esc leaves walk</span>
+      </div>
+    </section>
+  </aside>
+
+  <section class="panel inspector" id="inspector" aria-live="polite">
+    <div class="head">
+      <h2>Inspector</h2>
+      <button id="clearSel">Clear</button>
+    </div>
+    <div id="inspectBody" class="body">Click a bar, coupler, spacer or member to read its drawing reference, marks, quantity, weight and governing rule.</div>
+  </section>
+
+  <footer class="status" id="status">starting…</footer>
+
+  <script type="module" src="./src/app/main.js"></script>
+</body>
+</html>

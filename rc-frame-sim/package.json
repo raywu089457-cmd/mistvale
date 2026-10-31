@@ -1,0 +1,16 @@
+{
+  "name": "rc-frame-sim",
+  "version": "1.0.0",
+  "private": true,
+  "description": "Interactive 3D construction simulation of a two-storey RC frame, rebar generated from Taiwan standard-drawing rules (Three.js / WebGL).",
+  "type": "module",
+  "scripts": {
+    "start": "node scripts/ensure-deps.mjs && node scripts/serve.mjs",
+    "test": "node --test tests/model.test.mjs",
+    "test:e2e": "node tests/e2e.mjs"
+  },
+  "dependencies": {
+    "three": "0.186.1"
+  },
+  "license": "UNLICENSED"
+}
