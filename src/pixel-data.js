@@ -62,6 +62,11 @@ export const REGION_DENSITY=[
   {level:2,numeral:'II',name:'標準',cap:14,other:6,every:2.5,otherEvery:8},
   {level:3,numeral:'III',name:'密集',cap:22,other:9,every:1.8,otherEvery:6},
 ];
+// 2026-10-31 使用者:怪物移動速度 ×1.5、攻擊速度 ×1.3。
+// 攻擊速度是「間隔變短」→ 攻擊間隔 ÷1.3(近戰 1.8→1.385 秒、首領 1.5→1.154、遠程 each÷1.3);走路動畫照位移距離推進,會自己跟著變快。
+// 只影響魔物(含首領),英雄、流浪英雄、村民都不動。
+export const MONSTER_SPEED_MULT = 1.5;
+export const MONSTER_ATTACK_RATE = 1.3;
 export const DEFAULT_REGION_DENSITY=2;
 export const HUNT_ZONE={x:18,z:-1,radius:8};
 // 手動操控的攻擊節奏(秒)。動畫本身 = (攻擊列格數 − 出手格數) × 每格時間 + 命中停頓

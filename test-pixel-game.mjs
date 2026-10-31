@@ -1,10 +1,10 @@
 import assert from 'node:assert/strict';
-import { createGame, OFFLINE } from './src/pixel-game.js';
+import { createGame, OFFLINE, ENEMIES } from './src/pixel-game.js';
 import { doorStand, buildingSolid } from './src/landscape-layout.js';
 import { blockCenter } from './src/village-grid.js';
 import { BUILDINGS, CLASSES, MATERIALS, PRODUCTS, PILOT_ATTACK, AI_ATTACK_LOCK, KITE } from './src/pixel-data.js';
 import { regionCenter, regionContains, walkable, RING_ROAD, onRingRoad } from './src/overworld.js';
-import { MONSTER_RANGED } from './src/pixel-data.js';
+import { MONSTER_RANGED, MONSTER_SPEED_MULT, MONSTER_ATTACK_RATE, REGION_DENSITY } from './src/pixel-data.js';
 import { pickHeroLine, CHATTER_LINES } from './src/hero-chatter.js';
 import { REGION_MONSTERS, MONSTER_NAME, MONSTER_LORE } from './src/lore.js';
 
@@ -197,6 +197,36 @@ const dupSave = squads.serialize(); dupSave.dispatchTeams[3] = { ids: [s0.id, s4
 const dupLoaded = createGame(dupSave);
 assert.deepEqual(dupLoaded.state.dispatchTeams[0].ids, [s0.id], 'The first squad that lists a hunter keeps him'); assert.deepEqual(dupLoaded.state.dispatchTeams[3].ids, [s4.id]); assert.equal(dupLoaded.state.dispatchTeams[3].region, 'desert');
 assert.equal(createGame().dispatchHunters().ok, true, 'The one-click dispatch still sends everyone');
+// ── 2026-10-31 使用者:怪物移動速度 ×1.5、攻擊速度 ×1.3 ──
+{
+  assert.equal(MONSTER_SPEED_MULT, 1.5, 'Monsters move 1.5x faster');
+  assert.equal(MONSTER_ATTACK_RATE, 1.3, 'Monsters attack 1.3x as often');
+  const g = createGame(null); g.dispatchHunters('meadow');
+  const prev = new Map(), resets = new Map();
+  let biggest = 0, fastest = '';
+  for (let i = 0; i < 400; i++) {
+    g.tick(0.1);
+    for (const e of g.state.enemies) {
+      if (e.hp <= 0) continue;
+      const p = prev.get(e.id);
+      if (p) {
+        const d = Math.hypot(e.x - p.x, e.z - p.z);
+        if (d > biggest) { biggest = d; fastest = e.type; }
+        if (e.attackTimer > p.at + 0.5) resets.set(e.type, +e.attackTimer.toFixed(3));
+      }
+      prev.set(e.id, { x: e.x, z: e.z, at: e.attackTimer });
+    }
+  }
+  // 近戰間隔 = 1.8 / 1.3；遠程 = each / 1.3
+  for (const [type, at] of resets) {
+    const rng = MONSTER_RANGED[type], expect = rng ? rng.every / MONSTER_ATTACK_RATE : 1.8 / MONSTER_ATTACK_RATE;
+    assert.ok(Math.abs(at - expect) < 0.02, `${type} attacks every ${expect.toFixed(3)}s (got ${at})`);
+  }
+  assert.ok(resets.size >= 3, 'Several monster types attacked during the run');
+  // 每一步不會超過 速度×1.5×dt（再加上被推開的 1.2×dt 上限）
+  const fastestSpeed = Math.max(...Object.values(ENEMIES).map(e => e.speed));
+  assert.ok(biggest <= fastestSpeed * MONSTER_SPEED_MULT * 0.1 + 0.13, `No monster teleports (${biggest.toFixed(3)} by ${fastest})`);
+}
 // ── 地區立牌:怪物數量三級(I/II/III),只改同時出現的數量與補怪速度 ──
 {
   const dg = createGame(null);

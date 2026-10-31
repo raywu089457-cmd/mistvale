@@ -2,7 +2,7 @@ import {getRoads,onPaved,doorStand,PALISADE,villagePonds,inPond,buildingSolid,st
 import {createVillageNav} from './village-nav.js';
 import {WORLD,REGIONS,walkable,inVillage,regionAt,regionContains,regionEdge,regionCenter,randomRegionPoint,wildAt,nearestRingRoad,ringRoadPath,ringPointAt,onRingRoad,ringRoadDistance} from './overworld.js';
 import {VILLAGE_BOUNDS,EXITS,blockAt,BUILDING_NUDGE,BUILDING_SLOTS,blockCenter} from './village-grid.js';
-import { SKILLS, BUILDINGS, CLASSES, RARITIES, TRAITS, MATERIALS, PRODUCTS, RECIPES, DIFFICULTIES, CAMP, HUNT_ZONE, PILOT_ATTACK, PILOT_ORB, AI_ATTACK_LOCK, KITE, PROVOKE, MONSTER_RANGED, LEGACY_LAYOUT_V14, LEGACY_LAYOUT_V15, LEGACY_LAYOUT_V16, ART_LAYOUT_HISTORY, REGION_DENSITY, DEFAULT_REGION_DENSITY } from './pixel-data.js';
+import { SKILLS, BUILDINGS, CLASSES, RARITIES, TRAITS, MATERIALS, PRODUCTS, RECIPES, DIFFICULTIES, CAMP, HUNT_ZONE, PILOT_ATTACK, PILOT_ORB, AI_ATTACK_LOCK, KITE, PROVOKE, MONSTER_RANGED, LEGACY_LAYOUT_V14, LEGACY_LAYOUT_V15, LEGACY_LAYOUT_V16, ART_LAYOUT_HISTORY, REGION_DENSITY, DEFAULT_REGION_DENSITY, MONSTER_SPEED_MULT, MONSTER_ATTACK_RATE } from './pixel-data.js';
 
 const mapById = list => Object.assign(Object.create(null), Object.fromEntries(list.map(item => [item.id, item])));
 const CLASS = mapById(CLASSES), BUILDING = mapById(BUILDINGS), RARITY = mapById(RARITIES), RECIPE = mapById(RECIPES);
@@ -20,7 +20,7 @@ const AGGRO = { boss: 15,
   sprout: 5, ram: 6.5, mole: 4.5, shroom: 5, boar: 7.5, vine: 4.5, wolfman: 8.5, moss: 6, snowhare: 7,
   yeti: 7, snowman: 5, icebeetle: 4.5, kobold: 6, boulder: 4.5, goat: 7, mummy: 5.5, cactus: 4, scorpion: 6.5,
   floraspirit: 5.5, birchling: 5, stag: 8 };
-const ENEMIES = {
+export const ENEMIES = {
   // 2026-10-26:舊的 slime / wolf / golem / ogre 從出怪表移除,野外只留 8 方向新魔物(王還是 treant)。
   // 21 隻用 PixelLab 8 方向素材做的(每區 3 隻;數值從小型到大型排) ----
   sprout: { hp: 60, attack: 9, speed: 0.9, gold: 16, xp: 20, drops: { flour: 3, herb: 2 } },
@@ -971,17 +971,17 @@ export function createGame(saved = null) {
         // 閒晃:沒有獵人時在自己的狩獵區裡慢慢走到隨機一點、停一下再換點(不會只站在原地)。
         const rid=enemy.regionId;
         if(rid&&(enemy.wanderX==null||state.time>enemy.wanderUntil)){const w=randomRegionPoint(rid,random);enemy.wanderX=w.x;enemy.wanderZ=w.z;enemy.wanderUntil=state.time+5+random()*6;}
-        const home={x:enemy.wanderX??enemy.homeX??enemy.x,z:enemy.wanderZ??enemy.homeZ??enemy.z},dd=distance(enemy,home);if(dd>.3){const step=Math.min(ENEMIES[enemy.type].speed*dt*.45,dd),p={x:enemy.x+(home.x-enemy.x)/dd*step,z:enemy.z+(home.z-enemy.z)/dd*step};if(!blocked(p)&&lineClear(enemy,p)&&roadOk(enemy,p)&&(!rid||regionContains(rid,p.x,p.z)))Object.assign(enemy,p);else enemy.wanderUntil=0;}continue;
+        const home={x:enemy.wanderX??enemy.homeX??enemy.x,z:enemy.wanderZ??enemy.homeZ??enemy.z},dd=distance(enemy,home);if(dd>.3){const step=Math.min(ENEMIES[enemy.type].speed*MONSTER_SPEED_MULT*dt*.45,dd),p={x:enemy.x+(home.x-enemy.x)/dd*step,z:enemy.z+(home.z-enemy.z)/dd*step};if(!blocked(p)&&lineClear(enemy,p)&&roadOk(enemy,p)&&(!rid||regionContains(rid,p.x,p.z)))Object.assign(enemy,p);else enemy.wanderUntil=0;}continue;
       }
       const reach = enemy.type === 'boss' ? 2.8 : 1.7, d = distance(enemy, target);
       enemy.facingX = target.x; enemy.facingZ = target.z; enemy.facingAt = state.time;
       if (rng) {   // 遠程魔物:不搶近身名額;射程外往前靠,進到射程就站定丟飛行物(打到才扣血,見 pendingHits)
         enemy.engaged = false;
         if (d > rng.range) {
-          const delta = Math.min(ENEMIES[enemy.type].speed * dt, d - rng.range * 0.85), p = { x: clamp(enemy.x + (target.x - enemy.x) / d * delta, WORLD.minX + 1, WORLD.maxX - 1), z: enemy.z + (target.z - enemy.z) / d * delta };
+          const delta = Math.min(ENEMIES[enemy.type].speed * MONSTER_SPEED_MULT * dt, d - rng.range * 0.85), p = { x: clamp(enemy.x + (target.x - enemy.x) / d * delta, WORLD.minX + 1, WORLD.maxX - 1), z: enemy.z + (target.z - enemy.z) / d * delta };
           if (regionContains(enemy.regionId || state.region, p.x, p.z) && !blocked(p) && roadOk(enemy, p) && lineClear(enemy, p)) Object.assign(enemy, p);
         } else if (enemy.attackTimer === 0) {
-          enemy.attackTimer = rng.every;
+          enemy.attackTimer = rng.every / MONSTER_ATTACK_RATE;
           const damage = Math.max(2, Math.round(enemy.attack - target.defense * 0.7)), land = rng.release + d / rng.speed;
           enemy.atkAt = state.time; enemy.atkX = target.x; enemy.atkZ = target.z;
           pendingHits.push({ id: target.id, damage, at: state.time + land, by: enemy.type, fromX: enemy.x, fromZ: enemy.z });
@@ -998,15 +998,15 @@ export function createGame(saved = null) {
         const base = Math.atan2(vz, vx), slot = ((enemy.id.charCodeAt(enemy.id.length - 1) + enemy.id.length) % 5) - 2;
         const ang = base + slot * (Math.PI / 5), wx = target.x + Math.cos(ang) * 4.2, wz = target.z + Math.sin(ang) * 4.2;
         const wd = Math.hypot(wx - enemy.x, wz - enemy.z);
-        if (wd > .3) { const st = Math.min(ENEMIES[enemy.type].speed * .8 * dt, wd), p = { x: enemy.x + (wx - enemy.x) / wd * st, z: enemy.z + (wz - enemy.z) / wd * st, regionId: enemy.regionId || state.region }; if (fieldOk(p) && roadOk(enemy, p) && lineClear(enemy, p)) { enemy.x = p.x; enemy.z = p.z; } }
+        if (wd > .3) { const st = Math.min(ENEMIES[enemy.type].speed * MONSTER_SPEED_MULT * .8 * dt, wd), p = { x: enemy.x + (wx - enemy.x) / wd * st, z: enemy.z + (wz - enemy.z) / wd * st, regionId: enemy.regionId || state.region }; if (fieldOk(p) && roadOk(enemy, p) && lineClear(enemy, p)) { enemy.x = p.x; enemy.z = p.z; } }
         continue;
       }
       enemy.engaged = d <= reach; if (enemy.engaged && !mine) { enemy.slotFor = target.id; if (enemy.type !== 'boss') slots.set(target.id, (slots.get(target.id) || 0) + 1); }
       if (d > reach) {
-        const delta = Math.min(ENEMIES[enemy.type].speed * dt, d - reach * 0.8), p = { x: clamp(enemy.x + (target.x - enemy.x) / d * delta,WORLD.minX+1,WORLD.maxX-1), z: enemy.z + (target.z - enemy.z) / d * delta };
+        const delta = Math.min(ENEMIES[enemy.type].speed * MONSTER_SPEED_MULT * dt, d - reach * 0.8), p = { x: clamp(enemy.x + (target.x - enemy.x) / d * delta,WORLD.minX+1,WORLD.maxX-1), z: enemy.z + (target.z - enemy.z) / d * delta };
         if (regionContains(enemy.regionId||state.region,p.x,p.z) && !blocked(p) && roadOk(enemy, p) && lineClear(enemy, p)) Object.assign(enemy, p);  // 魔物只在自己的狩獵區內追,出了區就不跟;也不追上環村道路。
       } else if (enemy.attackTimer === 0) {
-        enemy.attackTimer = enemy.type === 'boss' ? 1.5 : 1.8;
+        enemy.attackTimer = (enemy.type === 'boss' ? 1.5 : 1.8) / MONSTER_ATTACK_RATE;
         const damage = Math.max(2, Math.round(enemy.attack - target.defense * 0.7));
         enemy.atkAt = state.time; enemy.atkX = target.x; enemy.atkZ = target.z; target.hitAt = state.time + 0.1; target.hitFromX = enemy.x; target.hitFromZ = enemy.z;
         target.hp = Math.max(0, target.hp - damage); effect('hit', target, { value: damage, sourceX: enemy.x, sourceZ: enemy.z, delay: 0.1, by: enemy.type });
