@@ -96,7 +96,12 @@ export class CameraRig {
 
   // ---- walk
   lockPointer() {
-    if (this.mode === 'walk' && this.canvas.requestPointerLock) this.canvas.requestPointerLock();
+    if (this.mode !== 'walk' || !this.canvas.requestPointerLock) return;
+    // pointer lock is optional: browsers may refuse it (no user gesture, or the user left the lock quickly)
+    try {
+      const p = this.canvas.requestPointerLock();
+      if (p && typeof p.catch === 'function') p.catch(() => {});
+    } catch (_) { /* unsupported here: walk still works with the keys */ }
   }
   onMouseMove(e) {
     if (this.mode !== 'walk' || !this.locked) return;

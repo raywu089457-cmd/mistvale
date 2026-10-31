@@ -14,6 +14,7 @@
 }
 * { box-sizing: border-box; }
 html, body { margin: 0; height: 100%; background: var(--bg); color: var(--text); font: 13px/1.4 system-ui, -apple-system, "Segoe UI", "Noto Sans TC", sans-serif; overflow: hidden; }
+body { padding-left: max(16px, env(safe-area-inset-left, 0px)); padding-right: max(16px, env(safe-area-inset-right, 0px)); }
 canvas#view { position: fixed; inset: 0; width: 100%; height: 100%; display: block; outline: none; }
 h2 { font-size: 11px; letter-spacing: .12em; text-transform: uppercase; color: var(--dim); margin: 0 0 8px; font-weight: 600; }
 section + section { margin-top: 14px; padding-top: 12px; border-top: 1px solid var(--line); }
@@ -28,14 +29,14 @@ button[aria-pressed="true"], button.active { background: #2a2416; border-color: 
 input[type="range"] { accent-color: var(--accent); width: 100%; }
 input[type="checkbox"] { accent-color: var(--accent); }
 
-.brand { position: fixed; top: 12px; left: 50%; transform: translateX(-50%); text-align: center; pointer-events: none; z-index: 2; }
+.brand { position: fixed; top: calc(12px + env(safe-area-inset-top, 0px)); left: 50%; transform: translateX(-50%); text-align: center; pointer-events: none; z-index: 2; }
 .brand .title { font-weight: 600; font-size: 15px; letter-spacing: .02em; }
 .brand .sub { color: var(--dim); font-size: 11.5px; margin-top: 2px; }
 
 .panel { position: fixed; z-index: 3; background: var(--panel); border: 1px solid var(--line); border-radius: 10px; padding: 12px 14px; backdrop-filter: blur(6px); }
-.panel.left { left: 12px; top: 12px; width: 300px; max-height: calc(100vh - 24px); overflow: auto; }
-.panel.right { right: 12px; top: 12px; width: 280px; max-height: calc(100vh - 24px); overflow: auto; }
-.panel.inspector { left: 330px; bottom: 12px; width: 380px; max-height: 46vh; overflow: auto; }
+.panel.left { left: calc(16px + env(safe-area-inset-left, 0px)); top: calc(16px + env(safe-area-inset-top, 0px)); width: 300px; max-height: calc(100vh - 32px); overflow: auto; }
+.panel.right { right: calc(16px + env(safe-area-inset-right, 0px)); top: calc(16px + env(safe-area-inset-top, 0px)); width: 280px; max-height: calc(100vh - 32px); overflow: auto; }
+.panel.inspector { left: calc(336px + env(safe-area-inset-left, 0px)); bottom: calc(16px + env(safe-area-inset-bottom, 0px)); width: 380px; max-height: 46vh; overflow: auto; }
 @media (max-width: 1100px) {
   .panel.left { width: 260px; }
   .panel.right { width: 240px; }
@@ -86,10 +87,19 @@ input[type="checkbox"] { accent-color: var(--accent); }
 .inspector th { color: var(--dim); font-weight: 600; }
 .swatch { display: inline-block; width: 9px; height: 9px; border-radius: 2px; margin-right: 6px; vertical-align: middle; }
 
-.status { position: fixed; right: 12px; bottom: 12px; z-index: 3; color: var(--dim); font-size: 11px; background: rgba(10,14,19,.7); padding: 4px 8px; border-radius: 6px; font-variant-numeric: tabular-nums; }
+.status { position: fixed; left: 50%; transform: translateX(-50%); top: calc(56px + env(safe-area-inset-top, 0px)); z-index: 3; color: var(--dim); font-size: 11px; background: rgba(10,14,19,.7); padding: 4px 8px; border-radius: 6px; font-variant-numeric: tabular-nums; }
 
 details > summary { list-style: none; cursor: pointer; display: flex; justify-content: space-between; align-items: center; }
 details > summary::-webkit-details-marker { display: none; }
 details > summary h2::before { content: '▸ '; color: var(--dim); }
 details[open] > summary h2::before { content: '▾ '; }
 .sumnote { color: var(--dim); font-size: 11.5px; }
+
+/* narrow screens (phones): stack the panels instead of overlapping them off-screen */
+@media (max-width: 760px) {
+  .panel.left { top: auto; bottom: calc(16px + env(safe-area-inset-bottom, 0px)); left: calc(16px + env(safe-area-inset-left, 0px)); right: calc(16px + env(safe-area-inset-right, 0px)); width: auto; max-height: 34vh; }
+  .panel.right { top: calc(16px + env(safe-area-inset-top, 0px)); left: calc(16px + env(safe-area-inset-left, 0px)); right: calc(16px + env(safe-area-inset-right, 0px)); width: auto; max-height: 30vh; }
+  .panel.inspector { left: calc(16px + env(safe-area-inset-left, 0px)); right: calc(16px + env(safe-area-inset-right, 0px)); bottom: calc(36vh + 24px); width: auto; max-height: 26vh; }
+  .brand { display: none; }
+  .status { top: calc(44px + env(safe-area-inset-top, 0px)); }
+}
