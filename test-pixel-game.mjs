@@ -197,6 +197,37 @@ const dupSave = squads.serialize(); dupSave.dispatchTeams[3] = { ids: [s0.id, s4
 const dupLoaded = createGame(dupSave);
 assert.deepEqual(dupLoaded.state.dispatchTeams[0].ids, [s0.id], 'The first squad that lists a hunter keeps him'); assert.deepEqual(dupLoaded.state.dispatchTeams[3].ids, [s4.id]); assert.equal(dupLoaded.state.dispatchTeams[3].region, 'desert');
 assert.equal(createGame().dispatchHunters().ok, true, 'The one-click dispatch still sends everyone');
+// ── 祭司(priest):技能補血之外,普攻也會拿去補隊友(2026-10-31 使用者) ──
+{
+  const g = createGame(null);
+  const pr = g.state.hunters.find(h => h.classId === 'priest');
+  assert.ok(pr, 'The starting party includes a priest');
+  const mate = g.state.hunters.find(h => h.classId !== 'priest' && h.hp > 0);
+  // 兩個人站在草原空地,沒有魔物;隊友掉血 → 祭司的普攻應該拿來補血
+  pr.x = -20; pr.z = -10; pr.task = null; pr.route = []; pr.attackTimer = 0; pr.skillCd = 5;   // 技能還在轉,只剩普攻
+  mate.x = -19.4; mate.z = -10; mate.task = null; mate.route = []; mate.hp = Math.round(mate.maxHp * 0.4);
+  const before = mate.hp, step = Math.round(mate.maxHp * 0.1);
+  run(g, 5, true);
+  assert.ok(mate.hp > before, `A wounded ally gets healed by the priest's basic attack (${before} -> ${Math.round(mate.hp)})`);
+  assert.ok(mate.hp - before >= step * 2, 'Several basic-attack heals land in five seconds');
+  assert.ok(mate.hp <= mate.maxHp, 'Healing never overshoots the max HP');
+  // 隊友滿血時,祭司不會浪費普攻補血(會照常打怪)
+  mate.hp = mate.maxHp;
+  const healedAtFull = mate.hp;
+  run(g, 2, true);
+  assert.equal(mate.hp, healedAtFull, 'No healing when the ally is already at full HP');
+  // 隊友在治療射程外受傷 → 祭司會主動靠過去
+  const far = createGame(null);
+  const p2 = far.state.hunters.find(h => h.classId === 'priest');
+  const m2 = far.state.hunters.find(h => h.classId !== 'priest' && h.hp > 0);
+  p2.x = -22; p2.z = -12; p2.task = null; p2.route = []; p2.attackTimer = 0;
+  m2.x = -22; m2.z = 2; m2.task = null; m2.route = []; m2.hp = Math.round(m2.maxHp * 0.35);
+  const d0 = Math.hypot(p2.x - m2.x, p2.z - m2.z);
+  assert.ok(d0 > 9, 'The wounded ally starts outside healing range');
+  run(far, 6, true);
+  const d1 = Math.hypot(p2.x - m2.x, p2.z - m2.z);
+  assert.ok(d1 < d0 - 1, `The priest walks toward a wounded ally (${d0.toFixed(1)} -> ${d1.toFixed(1)})`);
+}
 // ── 開發者作弊「資源滿載」:金幣/星晶之外,六種素材與四種物資都要真的加到(2026-10-31 修正) ──
 {
   const g = createGame(null);

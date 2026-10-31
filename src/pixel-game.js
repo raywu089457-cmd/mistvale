@@ -539,9 +539,34 @@ export function createGame(saved = null) {
   // 祭司補血對象:射程內、生命低於 below 的隊友,挑生命比例最低的;招募的獵人(含自己)優先,一個都沒有才看流浪英雄。
   // 在地下城／競技場裡的人不算(那邊有自己的戰鬥),倒下的也不算(要等復活)。
   function healTarget(h, sk) {
-    const want = u => u.hp > 0 && u.hp < u.maxHp * (sk.below ?? 1) && u.task !== 'dungeon' && u.task !== 'arena' && distance(h, u) <= h.range;
+    const want = u => u.hp > 0 && u.hp < u.maxHp * (sk.below ?? 1) && u.task !== 'dungeon' && u.task !== 'arena' && distance(h, u) <= healReach(h);
     const lowest = list => list.filter(want).sort((a, b) => a.hp / a.maxHp - b.hp / b.maxHp)[0] || null;
     return lowest(state.hunters) || lowest(state.wanderers || []);
+  }
+  // 2026-10-31 使用者:「牧師普A除了打怪也可以打自己人補血」——
+  // 普攻(attackTimer 歸零那一下)如果射程內有受傷的隊友(含自己),就改成補血,沒有才打怪。
+  // 補得比技能少(10% 上限生命 vs 技能 28%),所以補得勤但不會蓋掉技能。
+  const BASIC_HEAL = 0.1, HEAL_REACH = 9;   // 治療射程:至少 9 格(比普攻 7.5 遠一點,補血不用貼身)
+  const healReach = h => Math.max(h.range || 0, HEAL_REACH);
+  // 有隊友受傷、但補不到時要往誰靠:24 格內傷得最重的那位(技能 90% 以下才列入)
+  function woundedAllyNear(h, { max = 24, below = .9 } = {}) {
+    const want = u => u && u !== h && u.hp > 0 && u.hp < u.maxHp * below && u.task !== 'dungeon' && u.task !== 'arena' && distance(h, u) <= max;
+    const lowest = list => list.filter(want).sort((a, b) => a.hp / a.maxHp - b.hp / b.maxHp)[0] || null;
+    return lowest(state.hunters) || lowest(state.wanderers || []);
+  }
+  function attackHealTarget(h, below = .98) {
+    const want = u => u && u.hp > 0 && u.hp < u.maxHp * below && u.task !== 'dungeon' && u.task !== 'arena' && distance(h, u) <= healReach(h);
+    const lowest = list => list.filter(want).sort((a, b) => a.hp / a.maxHp - b.hp / b.maxHp)[0] || null;
+    return lowest(state.hunters) || lowest(state.wanderers || []);
+  }
+  function basicHeal(h, ally) {
+    const v = Math.max(2, Math.round(ally.maxHp * BASIC_HEAL));
+    ally.hp = Math.min(ally.maxHp, ally.hp + v);
+    h.attackTimer = attackInterval(h); h.lockUntil = state.time + AI_ATTACK_LOCK;
+    h.atkAt = state.time; h.atkX = ally.x; h.atkZ = ally.z;   // 讓出手動畫朝向隊友
+    effect('skillfx', ally, { cls: h.classId, fx: 'holy', sourceX: h.x, sourceZ: h.z, delay: .18, text: `+${v}`, color: '#9cf09a', self: ally === h });
+    effect('heal', ally, { delay: .18 });
+    return v;
   }
   // 招牌技能:結算當下扣血(跟普攻一樣),畫面用 skillAt / effect 延遲對到放出格。
   function castSkill(h, target, sk) {
@@ -735,6 +760,11 @@ export function createGame(saved = null) {
       const foes = live(); if (!foes.length) break;
       const sk = SKILLS[h.classId];
       if (sk && h.skillCd === 0 && dgSkill(h, sk, foes, alive)) continue;
+      // 祭司在地下城也一樣:技能在轉時,普攻改成補最血的隊友
+      if (sk?.kind === 'allyHeal') {
+        const tgt = party.filter(u => u.hp > 0 && u.hp < u.maxHp * .98).sort((a, b) => a.hp / a.maxHp - b.hp / b.maxHp)[0];
+        if (tgt) { const v = Math.max(2, Math.round(tgt.maxHp * BASIC_HEAL)); tgt.hp = Math.min(tgt.maxHp, tgt.hp + v); h.attackTimer = attackInterval(h); dgEvent('heal', h.id, tgt.id, v); continue; }
+      }
       h.attackTimer = attackInterval(h);
       const f = foes[0], dmg = Math.max(1, Math.round(h.attack * (h.satiety < 15 || h.stamina < 15 ? 0.6 : 1)));
       f.hp = Math.max(0, f.hp - dmg); dgEvent('hit', h.id, f.id, dmg, isRanged(h) ? h.classId : null);
@@ -893,7 +923,23 @@ export function createGame(saved = null) {
       if (h.task === 'pilot') continue;
       // 祭司(allyHeal):不管在不在戰鬥,冷卻好、沒在出手就自動補血(戰鬥分支不再替它倒數冷卻)
       { const sk = SKILLS[h.classId]; if (sk?.kind === 'allyHeal') { h.skillCd = Math.max(0, (h.skillCd ?? 3) - dt);
-        if (h.skillCd === 0 && h.attackTimer === 0 && state.time >= (h.lockUntil ?? 0)) { const ally = healTarget(h, sk); if (ally) { castSkill(h, ally, sk); continue; } } } }
+        if (h.attackTimer === 0 && state.time >= (h.lockUntil ?? 0)) {
+          const big = h.skillCd === 0 ? healTarget(h, sk) : null;
+          if (big) { castSkill(h, big, sk); continue; }
+          // 技能還在轉:普攻拿去補隊友(射程內有人受傷才補,滿血就照常打怪)
+          const ally = attackHealTarget(h);
+          if (ally) { basicHeal(h, ally); continue; }
+        }
+        // 2026-10-31:以前祭司幾乎不補,是因為隊友常常在 17 格外(實測只有 9% 的時間在射程內)。
+        // 現在有隊友受傷、身邊又沒有該打的魔物,就主動靠過去(24 格內傷得最重的那位)。
+        if (!state.enemies.some(e => e.hp > 0 && distance(h, e) <= h.range)) {
+          const aid = woundedAllyNear(h, { max: 24, below: .92 });
+          if (aid && distance(h, aid) > healReach(h)) {
+            const tail = h.route.at(-1);
+            if (!tail || distance(tail, aid) > 1.2) route(h, [{ x: aid.x, z: aid.z }]);
+            h.status = '趕去治療'; walk(h, dt); continue;
+          }
+        } } }
       if (h.task === 'trade' || h.task === 'shop' || h.task === 'service') { runTownTask(h, dt, nextTownTask); continue; }
       const bagSize = MATERIAL_KEYS.reduce((sum, key) => sum + h.inventory[key], 0);
       if (needProduct(h) || (bagSize >= 14 && tradeAvailable(h) && state.time - h.lastTownVisit > 12) || (state.time - h.lastTownVisit > 60 && gearAvailable(h))) { returnToTown(h); continue; }
