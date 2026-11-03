@@ -1,5 +1,9 @@
 # T04: commit and push to Pages (only when the user said 推 or 交接)
 
+Status: reusable
+Tier: pi
+Context: `docs/ARCHITECTURE.md` (file map). Read only the files listed below; do not explore the repo.
+
 > Task card for pi. Pushing main updates the live site (GitHub Pages). Do it only after the user explicitly said 推 or 交接.
 
 ## Goal

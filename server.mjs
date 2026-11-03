@@ -1,6 +1,8 @@
 import http from 'node:http';
 import fs from 'node:fs/promises';
 import path from 'node:path';
+// 2026-11-01: PORT/HOST env so pi-dispatch --worktree can run one server per card
+const PORT=Number(process.env.PORT)||5024,HOST=process.env.HOST||'100.79.149.0';
 const project=path.dirname(new URL(import.meta.url).pathname.replace(/^\/([A-Za-z]:)/,'$1'));
 const root=path.basename(path.dirname(project))==='work'?path.resolve(project,'../../outputs'):path.join(project,'dist');
 // 2026-10-15:PWA 檔案要真的送出去(以前每個路徑都回遊戲 HTML,sw.js/manifest/icon 全是 HTML →
@@ -37,4 +39,4 @@ http.createServer(async(req,res)=>{
     res.writeHead(200,{'Content-Type':'text/html; charset=utf-8','Cache-Control':'no-store'});
     res.end(file);
   }catch{res.writeHead(503).end('Building Mistvale...');}
-}).listen(5024,'100.79.149.0',()=>console.log('Mistvale http://100.79.149.0:5024'));
+}).listen(PORT,HOST,()=>console.log(`Mistvale http://${HOST}:${PORT}`));

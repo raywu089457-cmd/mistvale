@@ -1,0 +1,2 @@
+date,card,reason,pi_review,opus_verdict,note
+2026-11-03T04:32,T47,big-diff,OK,ok,"static cascade rule (same media+selector, later same property) is state-independent; !important rules identical to HEAD; flag was a false big-diff: Txx.diff used HEAD as base"

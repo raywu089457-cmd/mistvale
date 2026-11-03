@@ -1,5 +1,9 @@
 # T06: phone layout + readable text, half B (9 modal screens)
 
+Status: todo
+Tier: pi
+Context: `docs/ARCHITECTURE.md` (file map). Read only the files listed below; do not explore the repo.
+
 > Task card for pi. Claude does the other half (screens 01–09 and 19) at the same time in a separate step; do not touch those.
 
 ## Goal

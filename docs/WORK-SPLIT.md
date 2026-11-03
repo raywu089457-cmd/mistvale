@@ -1,6 +1,6 @@
 # 分工架構：pi（預設模型）與 Claude
 
-本文件規定暮影村的工作怎麼分給 pi（預設 DeepSeek v4.1 Flash）、Claude Sonnet 和 Claude Opus，目的是省下 Claude 的 token。寫於 2026-10-30。
+本文件規定暮影村的工作怎麼分給 pi（預設 DeepSeek v4.1 Flash，跑在 OpenCode Go 訂閱上）、Claude Sonnet 和 Claude Opus，目的是省下 Claude 的 token。寫於 2026-10-30，2026-11-01 改為 OpenCode Go。
 
 模型分級細節見 [MODEL-ROUTING.md](MODEL-ROUTING.md)，pi 的專案規則見根目錄的 [AGENTS.md](../AGENTS.md)。
 
@@ -19,7 +19,7 @@
 
 | 層 | 模型 | 適合 | 不要給它 |
 | --- | --- | --- | --- |
-| pi | DeepSeek v4.1 Flash（預設） | 照指令執行與驗收；素材生成管線；照規格改文案與數值；照「舊字串 → 新字串」做機械式修改；文件；git 提交與推送；環境維運 | 遊戲邏輯；要看圖判斷的工作；要自己決定怎麼改的大型模板 |
+| pi | DeepSeek v4.1 Flash（預設，OpenCode Go 訂閱） | 照指令執行與驗收；素材生成管線；照規格改文案與數值；照「舊字串 → 新字串」做機械式修改；文件；git 提交與推送；環境維運 | 遊戲邏輯；要看圖判斷的工作；要自己決定怎麼改的大型模板 |
 | Claude Sonnet | Sonnet 5.5 | UI 版面實作（`pixel-ui.js` 模板、CSS）；素材接進遊戲；兩到四個檔的小功能 | MODEL-ROUTING 的 C 類 |
 | Claude Opus | Opus 5.5（上限 high） | 獵人 AI、戰鬥時序、動畫狀態機、存檔與離線、平衡連鎖；跨檔設計；審截圖；寫任務卡 | 例行驗收、跑腳本、寫流水帳文件 |
 
@@ -54,15 +54,14 @@
 
 1. **拆解與分類**：Claude 把工作切成小塊，每塊用一句英文寫下來，交給分類模型決定由誰做：
    - 指令：`node tools/classify.mjs "item 1" "item 2" ...`
-   - 模型：OpenRouter `typesafe/jev-router`，透過 pi 呼叫。規則在 `docs/pi-tasks/ROUTING-RULES.md`，結果寫在 `output/pi-results/classify.json`。
+   - 模型：兩段式。先用 opencode 既有的 Jev（TypeSafe 決策層，OpenRouter `typesafe/jev-1.13`）一次問完整批（實測 12 條 0.6 秒、$0.00007）；只有機率低於 `CLASSIFY_JEV_MIN`（預設 0.85）的項目才交給 pi 跑 OpenCode Go 的 `opencode-go/deepseek-v4.1-flash` 重判並寫一句理由。`CLASSIFY_BACKEND=jev|flash` 可強制單一後端。規則在 `docs/pi-tasks/ROUTING-RULES.md`，結果（含 `source`: jev／flash）寫在 `output/pi-results/classify.json`。
    - Claude 只在分類結果明顯不對時才改判。
-2. **寫卡**：pi 的部分寫成任務卡 `docs/pi-tasks/Txx-*.md`。程式修改要給精確的「舊字串 → 新字串」。
-3. **派工**：`node tools/pi-dispatch.mjs docs/pi-tasks/Txx-*.md [--note "補充"]`，在背景跑，同一時間只派一張。
+2. **寫卡**：用 `node tools/pi-card.mjs <slug> --accept "<驗收指令>"` 開卡（自動編號），內文只寫目標、可改檔案、步驟。程式修改要給精確的「舊字串 → 新字串」，寫函式名不寫行號。要先讀程式才寫得出卡時，先派一張 `Type: scout` 偵察卡。
+3. **派工**：`node tools/pi-dispatch.mjs T30 T31 ... [--note "補充"]`，一批卡一條指令在背景跑，同一時間只跑一條。
 4. **Claude 同時做自己那塊**，但不能跟 pi 動同一個檔案。
    - 兩邊都會建置的話不要同時跑，因為建置會清掉 `outputs/media`。
-5. **收單**：pi 結束後，dispatch 只印結束碼、耗時、結果檔前 30 行和 pi 改了哪些檔。Claude 檢查 `git diff` 那幾個檔，再看驗收摘要。
-   - 不合格就補一句 `--note` 重派一次。
-   - 還是不行就 Claude 自己接手。
+5. **收單**：派工腳本每張卡會自己跑卡上的 `Accept:` 驗收，失敗自動帶錯誤摘要重派一次，最後印一行一張的總表（每張卡最多 1200 字）。`accept PASS` 就算數，Claude 只核對改到的檔案、抽查需要人判斷的部分。
+   - 自動重派後仍失敗：Claude 接手，或先派偵察卡。
 6. **回報使用者**：做了什麼、誰做的、驗收結果、花了多少（l0veyou／PixelLab）。
 
 pi 的對話記錄在 `output/pi-sessions/`，完整輸出在 `output/pi-results/Txx.log`，都不進 git。只有查問題才需要打開來看。
@@ -71,11 +70,7 @@ pi 的對話記錄在 `output/pi-sessions/`，完整輸出在 `output/pi-results
 
 ## 任務卡流程
 
-1. Claude 照 [TEMPLATE](pi-tasks/TEMPLATE.md) 寫卡，內容要有：目標、可以改的檔案、一步一步的指令、驗收指令與通過條件、回報格式、禁止事項。
-2. Claude 用 `tools/pi-dispatch.mjs` 派給 pi。使用者也可以自己在 pi 說「做 T02」。
-3. pi 照卡做完，最後跑卡上的驗收，把結果寫到 `output/pi-results/Txx.md`（不進 git）。內容只放：做了什麼、改了哪些檔、驗收摘要原文、遇到的問題。
-4. **失敗兩次就停**：同一個驗收失敗兩次，pi 不要自己大改，把錯誤摘要寫進結果檔交回 Claude。
-5. pi 不 commit、不推，除非任務卡就是 T04 而且使用者說了「推」。
+卡片格式、共同規則、偵察卡與驗收方式見 [DISPATCH-PLAYBOOK.md](DISPATCH-PLAYBOOK.md) 第 2–4 節。使用者也可以自己在 pi 說「做 T02」。每張卡的花費自動記在 `docs/pi-tasks/cost-log.csv`。
 
 ## 省 token 的配套（已經做好）
 
@@ -92,3 +87,6 @@ pi 的對話記錄在 `output/pi-sessions/`，完整輸出在 `output/pi-results
 - 改程式用 Python 腳本一次做多處「舊 → 新」精確取代，每段都要剛好比對到一次。腳本留在任務卡或 scratch 目錄，pi 可以照著重跑。
 - 看畫面時把很多張截圖拼成一張總覽圖，一次看完。
 - 驗收只讀 `verify-summary.md`；失敗才打開對應的 log。
+
+## 派工手冊與實測（2026-11-01）
+決策規則、任務卡格式、驗收與成本工具、三次實測數據都在 [DISPATCH-PLAYBOOK.md](DISPATCH-PLAYBOOK.md)，原始數字在 [pi-tasks/COST-LOG.md](pi-tasks/COST-LOG.md)。

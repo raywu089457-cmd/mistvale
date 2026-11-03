@@ -1,5 +1,9 @@
 # T05: world-map region art + bestiary lines (snow, mountain, desert, birch)
 
+Status: todo
+Tier: pi
+Context: `docs/ARCHITECTURE.md` (file map). Read only the files listed below; do not explore the repo.
+
 > Task card for pi. Same job Claude already did for village/meadow/forest/taiga; copy that pattern.
 
 ## Goal

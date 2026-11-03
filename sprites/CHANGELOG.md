@@ -1,5 +1,29 @@
 # CHANGELOG — sprites
 
+## 2026-11-02 — 魔物染色變種（T24，只加檔）
+
+- 新增 `pipeline/scripts/recolor_monster.py`：建置期換色（Pillow）。只改 RGB，alpha 不動；近黑描邊與灰白（骨頭/牙/眼白）不動；
+  匹配像素的明度映射到通道 ramp，明度以整張 sheet 正規化，每格一致。每個產出檔自我檢查 `size` 與 alpha 並印 `OK` / `FAIL`。
+- 新增 `sprites/dye/monster-dyes.json`：22 隻魔物 × `elite` / `frost` 兩變種，1–2 個色相通道（色相窗由 `--histogram` 普查挑出）。
+- `sprites/EQUIPMENT_SPEC.md` 追加 `## 染色通道 (Dye channels)`（格式、規則、用法）。產出 `output/monster-dye/`：44 個變種 + `contact.png` 檢視表。
+- 未接入執行期：遊戲目前不載入變種 sheet，也沒動 `src/` 任何一行。
+
+## 2026-11-02 — 動畫 / 武器規格補齊（T21，只加不改）
+
+- `sprites/ANIMATION_SPEC.md` 新增三段（原有規則一行未動）：
+  - **格號表 (Frame index map)**：照實際出貨 meta 整理「動作 → 格數 → 格號(0 起算) → `frameTime` → 節奏欄位」，
+    並註明每個職業的 `y` / `cell` / 格數都不一樣（archer attack y=1100 cell 100、sorcerer/berserker/priest cell 128、
+    聖騎士 cell 160、黑騎士 idle 8 格、刺客 `attackDown` 帶 `cols`），要切圖一定讀該職業自己的 JSON；
+    其他規格以後講「第幾格」一律引用這張表。順手記下實況與舊排程表的差異：idle 實際 1 格、walk 0.125 s、
+    attack 8–9 格、另有 `victory` / `skill`、目前沒有 `sit`。
+  - **出招計時合約 (Strike timing contract)**：節奏 authored 在 `strikeDur / release / impact / ownTiming`，
+    執行期唯一允許的拉長是 `HIT_STOP` 70 ms；其他地方不得再縮放 authored 時間。要調手感改 JSON，不改程式常數。
+  - **附屬層可重用單格 (Attachment layers)**：頭髮 / 披風可以只畫一格，用重複同一格 + ±1 px 位移 + 75 / 150 ms 重新計時
+    （TMW `hairstyles/hairstyle01.xml`），但總長要對齊本體那一列。
+- `sprites/WEAPON_SPEC.md` 新增 `attackAction`：用身體動作名（`attack` / `attackDown` / `attackUp` / 四斜向 / `attackLeft` / `skill`）
+  指定攻擊列，沒寫視同 `attack`（現有武器 JSON 沒有這個欄位，所以行為不變）；以後新武器不用逐格填 `Attack Position`。
+- 全部是文件，沒有動 `src/`、沒有動任何 sheet、沒有花 PixelLab 點數。
+
 ## 2026-10-28 — 環村道路（安全走廊）
 
 - `src/overworld.js`：`RING_ROAD` ＝ 圍籬外 **3.4 格**的一圈封閉道路（矩形外擴＋四角半徑 3.4 的四分之一圓收邊，

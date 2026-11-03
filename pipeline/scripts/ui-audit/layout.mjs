@@ -26,6 +26,7 @@ const DEVICES = [
   { name: 'iphone-land-812x360', engine: 'webkit', w: 812, h: 360, dpr: 3, ua: IOS_UA, bar: 40 },
   // 小螢幕（預設不跑，要用參數指定）：iPhone SE Safari 直向／橫向、小 Android 橫向
   { name: 'iphoneSE-375x548', engine: 'webkit', w: 375, h: 548, dpr: 2, ua: IOS_UA, bar: 80, extra: true },
+  { name: 'iphone-375x812', engine: 'webkit', w: 375, h: 812, dpr: 3, ua: IOS_UA, bar: 80, extra: true },
   { name: 'iphoneSE-land-667x325', engine: 'webkit', w: 667, h: 325, dpr: 2, ua: IOS_UA, bar: 40, extra: true },
   { name: 'android-land-640x304', engine: 'chromium', w: 640, h: 304, dpr: 3, ua: ANDROID_UA, bar: 56, extra: true },
   { name: 'desktop-1440x900', engine: 'chromium', w: 1440, h: 900, dpr: 1, desktop: true, bar: 0, extra: true },

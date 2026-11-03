@@ -69,3 +69,70 @@ Slash trail / Impact flash / Dust 放 Layer 10 VFX,不得蓋住角色本體(VFX 
 
 不改 sheet 像素,遊戲畫圖時加:整體前衝 fx、只動膝蓋以上的 ux/uy(腳固定;呼吸、走路起伏、前傾、預備後仰、受擊後仰),
 攻擊命中格多停 `HIT_STOP`=70ms(英雄與魔物)。全為整數螢幕像素位移,無縮放。
+
+## 格號表 (Frame index map)
+
+**這一節是格號的唯一來源。** 其他規格(`WEAPON_SPEC.md`、`EQUIPMENT_SPEC.md`、QA 清單、rig 說明)要講「第幾格」時,
+一律引用這張表,不再各自抄數字(TMW 的 `model/neutral.xml` 也是同一個做法:方向 → 動作 → 格號寫死一次,別處只引用)。
+
+下表是**實際出貨的 meta**,不是設計稿(逐一讀 `assets/heroes/*.json` 得來的,不是照抄設計稿)。
+「格數」與「節奏」是 7 個英雄的實測範圍,最後兩欄是拿聖騎士當具體範例。
+
+| 動作 (action) | 用途 | 格數 `frames` | 格號 (0 起算) | `frameTime` | 節奏欄位 | 例:paladin 的 `y` / `cell` |
+|---|---|---|---|---|---|---|
+| `idle` | 側面待機 | 1(黑騎士 8) | 0 | 0.16 | — | y 0 / cell 100 |
+| `idleDown` / `idleUp` | 正面 / 背面待機 | 1 | 0 | 0.16 | — | y 100、200 / cell 100 |
+| `walk` | 側面走路 | 8 | 0–7 | 0.125(牧師、黑騎士 0.1) | — | y 300 / cell 100 |
+| `walkDown` / `walkUp` | 正面 / 背面走路 | 8 | 0–7 | 0.125 | — | y 400、500 / cell 100 |
+| `walkDownRight` / `walkUpRight` | 斜向走路 | 8 | 0–7 | 0.125 | — | y 600、700 / cell 100 |
+| `hurt` | 受擊 | 4 | 0–3 | 0.1 | — | y 800 / cell 100 |
+| `victory` | 歡呼 | 5(黑騎士 8、牧師 1) | 0–4 | 0.1 | — | y 900 / cell 100 |
+| `death` | 倒地 | 8 | 0–7 | 0.1 | — | y 1000 / cell 100 |
+| `skill` | 技能 | 8–9 | 0–7 / 0–8 | 0.075 | release 4 | y 1200 / cell 100 |
+| `attack` | 側面攻擊(預設) | 8–9 | 0–8 | 0.075 | release 4–7 · impact 5–8 · 只有聖騎士有 `strikeDur`(5 段) | y 1300 / cell 160 |
+| `attackDownRight` / `attackDown` / `attackUpRight` / `attackUp` | 八向攻擊 | 8–9 | 0–8 | 0.075 | 同該職業 `attack` | y 1460、1620、1780、1940 / cell 160 |
+| `attackLeft` / `attackDownLeft` / `attackUpLeft` | 左向(烘好的鏡像列) | 8–9 | 0–8 | 0.075 | 同該職業 `attack` | y 2100、2260、2420 / cell 160 |
+| `idleLeft` / `walkLeft` | 左向待機 / 走路 | 1 / 8 | 0 / 0–7 | 0.16 / 0.125 | — | y 2580、2680 / cell 100 |
+| `idleDownRight` / `idleUpRight` / `idleDownLeft` / `idleUpLeft` | 斜向待機 | 1 | 0 | 0.16 | — | y 2780、2880、2980、3080 / cell 100 |
+| `walkDownLeft` / `walkUpLeft` | 斜向走路 | 8 | 0–7 | 0.125 | — | y 3180、3280 / cell 100 |
+
+- 格號是**列上的欄位序號,0 起算**:像素位置 `x = 格號 × cell`、`y = 該列在該職業 atlas 上的起點`。
+  只有 meta 帶 `cols` 的列才折行(`x = (格號 % cols) × cell`、`y = 列起點 + floor(格號 / cols) × cell`);例如刺客的 `attackDown` 就帶 `cols`。
+- **每個職業的 `y`、`cell`、格數都不一樣,不可跨職業硬寫**:archer 的 `attack` 在 y=1100 / cell 100、sorcerer 與 berserker 與 priest 是 cell 128、
+  聖騎士 cell 160(劍與殘影伸出身體)、priest 的 `idle` 在 y=200、黑騎士 `idle` 是 8 格。上表的 `y` 只是聖騎士的範例,要切圖一定讀該職業自己的 JSON。
+- 所以描述「哪一格」時要寫完整三件事:**職業 + 動作名 + 格號**(例:paladin `attack` 第 5 格 = 命中)。
+- 魔物是另一套(`assets/monsters3/*.json`,cell 由 `rig.json` / `build_monster_8dir.py` 決定),不套這張表。
+- **實況跟上面「階段 1」那張排程表有出入,讀 atlas 時以 JSON 為準**:idle 實際只有 **1 格**(呼吸交給執行期 `MOTION`)、
+  walk 每格 **0.125 s**(排程表寫 0.1)、attack 實際 **8–9 格**,另外多出 `victory`(5 格)與 `skill`(8–9 格)。
+  上面那張是「生產目標 / 規格上限」,這張才是拿來對格的。
+- 目前**沒有 `sit` 動作**;死亡是 8 格,不是單格 fallback 姿勢。
+
+## 出招計時合約 (Strike timing contract)
+
+出招節奏是 **authored 在 sheet JSON 裡的資料**,程式只負責照著播(`src/pixel-world.js` 的 `sheetPose` / `drawMonsterSheet`):
+
+| JSON 欄位 | 意思 |
+|---|---|
+| `frameTime` | 這列預設的每格秒數 |
+| `strikeDur` | 出手後**逐格**秒數陣列,從 `release` 格起算,長度要等於 `frames − release`(聖騎士 attack:9 格、release 4、5 段 → 第 4–8 格各一個值)。有 `strikeDur` 就用它逐格計時,沒有才用 `frameTime` |
+| `release` | 出手格號(聖騎士 4) |
+| `impact` | 命中格號(聖騎士 5);沒寫時視為 `release + 1` |
+| `ownTiming` | 該列自帶節奏:方向列格數跟側面 `attack` 不同時用它(例:刺客南向 41 格,總長仍要跟其他方向一樣,`pixel-world.js`:1489–1492) |
+
+- **執行期唯一允許的拉長是 `HIT_STOP` = 0.07 s(70 ms)**:命中格開頭多停一次,英雄(`pixel-world.js`:1469、1491)與魔物(:1662,魔物以自己的 `attack.frameTime` 為基準)都一樣。
+- 其他任何地方都**不得再縮放 authored 時間**:不加乘、不補固定延遲、不在 UI / 存檔 / 離線結算另算一套節奏。
+- 要調手感 → 改 JSON 的 `strikeDur / release / impact / frameTime / ownTiming`,不要改程式常數;
+  `HIT_STOP` 是全域打擊感參數,不是拿來微調單一動作的旋鈕。
+- 動作總長 = authored 長度 + 70 ms(命中停頓);算「這一招幾秒」時要用這個和,不要只看 `frames × frameTime`。
+
+## 附屬層可重用單格 (Attachment layers)
+
+頭髮、披風、腰帶、尾巴這類**附屬層**不必畫滿 8 個獨立格:可以只畫一格,用「同一姿勢 + 整數 ±1 px 位移 + 重新計時」假裝在動。
+TMW `hairstyles/hairstyle01.xml` 的 walk 就是重複第 0 格、`delay` 給 75 / 150 ms、`offsetY` 在 −28 / −29 之間跳;
+它的 attack 是 4 份同一格、offset 依序 −27 / −28 / −25 / −24。
+
+- 允許:同一份像素重複使用、`offsetX / offsetY` 整數位移(±1 邏輯 px = 母版 4 px)、每格 `delay` 不同。
+- 不允許:縮放、非整數位移、改像素內容(換色除外)、蓋掉本體剪影(身份不變,QA 08/09)。
+- 附屬層的**節奏要對齊本體那一列**(總長一致):本體 8 格 0.125 s,附屬層可以只有 2 格,但合起來要 1.0 s,不能自己跑一套時間。
+- 現況:英雄現在是每職業一張烘好的 sheet(10/31 `4d40754` 起沒有配件層),所以這條規則用在村民、未來恢復的可視裝備、以及魔物小配件上;
+  要重新分層時照這條做,不要又長出「每個動畫每格位移」的位移總表。

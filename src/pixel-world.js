@@ -1739,7 +1739,9 @@ let renderDprMax=Math.max(1,dprCap||autoDpr());   // 畫布解析度上限(devic
     if(e.type==='arrow'){const prev=at(Math.max(0,u-.12)),ang=Math.atan2(q.y-prev.y,q.x-prev.x);
       g.save();g.globalAlpha=.55;g.strokeStyle='#fff6d8';g.lineWidth=Math.max(1,s*.8);g.beginPath();g.moveTo(prev.x,prev.y);g.lineTo(q.x,q.y);g.stroke();g.restore();
       if(!fxSprite('arrowFx',q.x,q.y,ARROW_SIZE,{rot:ang+Math.PI/4})){line(g,q.x-Math.cos(ang)*6*ARROW_K*s,q.y-Math.sin(ang)*6*ARROW_K*s,q.x,q.y,'#513e2e',Math.max(1,2*ARROW_K*s));}return;}
-    if(e.type==='spell'){for(let i=4;i>=1;i--){const t=at(Math.max(0,u-i*.06));g.globalAlpha=.12*(5-i);g.fillStyle='#c79cff';g.beginPath();g.arc(t.x,t.y,(2+(4-i)*.6)*ORB_K*s,0,Math.PI*2);g.fill();}g.globalAlpha=1;
+    if(e.type==='spell'){const prev=at(Math.max(0,u-.12)),ang=Math.atan2(q.y-prev.y,q.x-prev.x);
+      if(drawVfxSheet('fireball',(e.age||0)+.22,q.x,q.y,FIRE_K*s,{rot:ang})){fireballDrawn++;fireballLast={u:+u.toFixed(2),x:Math.round(q.x),y:Math.round(q.y)};return;}   // 法師普攻:整張火球表沿飛行方向轉
+      for(let i=4;i>=1;i--){const t=at(Math.max(0,u-i*.06));g.globalAlpha=.12*(5-i);g.fillStyle='#c79cff';g.beginPath();g.arc(t.x,t.y,(2+(4-i)*.6)*ORB_K*s,0,Math.PI*2);g.fill();}g.globalAlpha=1;
       g.save();g.globalAlpha=.35;g.fillStyle='#e7cfff';g.beginPath();g.arc(q.x,q.y,7*ORB_K*s,0,Math.PI*2);g.fill();g.restore();
       if(!fxSprite('fxOrb',q.x,q.y,ORB_SIZE,{rot:elapsed*6})){const r=3*ORB_K*s;pixel(g,q.x-r,q.y-r,2*r,2*r,'#8a68b9');}return;}
     if(e.type==='holy'){g.save();g.globalAlpha=.25+.5*u;g.fillStyle='#fff3c0';g.beginPath();g.ellipse(p.x,p.y,10*s*u,4*s*u,0,0,Math.PI*2);g.fill();g.restore();}
@@ -1846,7 +1848,8 @@ let renderDprMax=Math.max(1,dprCap||autoDpr());   // 畫布解析度上限(devic
   }
   function drawImpact(e,age,p){const s=scale,cy=p.y-11*s;
     if(e.type==='arrow'){if(age<.14)fxSprite('fxHit',p.x,cy,8+age*50,{alpha:1-age/.14});sparks(p.x,cy,age,hash(e.id),6,['#fff4c8','#e8d090']);return;}
-    if(e.type==='spell'){const t=Math.min(1,age/.35);g.save();g.globalAlpha=.7*(1-t);g.strokeStyle='#b98aff';g.lineWidth=Math.max(1,2*s*(1-t));g.beginPath();g.ellipse(p.x,p.y,(4+16*t)*s,(1.8+7*t)*s,0,0,Math.PI*2);g.stroke();g.restore();
+    if(e.type==='spell'){if(drawVfxSheet('hit-spark',age,p.x,cy,SPARK_K*s)){sparks(p.x,cy,age,hash(e.id),8,['#fff3c8','#ffb04a','#e8584a']);return;}   // 法師普攻命中:火花表
+      const t=Math.min(1,age/.35);g.save();g.globalAlpha=.7*(1-t);g.strokeStyle='#b98aff';g.lineWidth=Math.max(1,2*s*(1-t));g.beginPath();g.ellipse(p.x,p.y,(4+16*t)*s,(1.8+7*t)*s,0,0,Math.PI*2);g.stroke();g.restore();
       if(age<.3)fxSprite('fxSparkle',p.x,cy,14+age*40,{alpha:1-age/.3,rot:age*3});sparks(p.x,cy,age,hash(e.id),12,['#f1e0ff','#c79cff','#8f6ad8'],32);return;}
     if(e.type==='holy'){const t=Math.min(1,age/.4);g.save();g.globalAlpha=.55*(1-t);g.fillStyle='#fff3c0';g.fillRect(p.x-4*s*(1-t*.5),p.y-60*s,8*s*(1-t*.5),60*s);g.restore();if(age<.3)fxSprite('fxSparkle',p.x,cy,16,{alpha:1-age/.3});return;}
     if(e.type==='hit'){const boss=e.by==='boss',src=screenPoint(e.sourceX??e.x,e.sourceZ??e.z),dir=src.x>p.x?-1:1,t=Math.min(1,age/.08),a=age<.08?1:Math.max(0,1-(age-.08)/.3);
@@ -1896,17 +1899,27 @@ let renderDprMax=Math.max(1,dprCap||autoDpr());   // 畫布解析度上限(devic
     const i=cfg.self[Math.max(0,Math.min(cfg.self.length-1,Math.floor((t+.25)/(len+.25)*cfg.self.length)))];fxFrame(e.cls,i,p.x,p.y-cfg.selfY*scale,cfg.selfY<5?cfg.size*.9:cfg.size,{alpha:cfg.selfA*(t>len-.1?Math.max(0,(len-t)/.1):1)});}
   // 法師第一招「火龍捲」:pixelfx 匯出的整張技能表(190×250、103 幀、30fps),
   // 依 JSON 的 pivot 對齊目標腳下,逐幀 drawImage(每幀都用到,不是抽格)。
-  let cinderImg=null;
-  function cinderSheet(){const src=globalThis.PIXEL_ASSETS?.cinderSheet,meta=globalThis.PIXEL_ASSETS?.cinderMeta;
-    if(!src||!meta)return null;if(!cinderImg){cinderImg=trackImage(new Image());cinderImg.src=src;}
-    return cinderImg.complete&&cinderImg.naturalWidth?{img:cinderImg,meta}:null;}
-  const CINDER_K=0.58;   // 美術像素 → 世界單位(英雄 66px = 21 單位,取同級密度)
+  // 所有 pixelfx 技能表(assets/vfx-sheets, build 嵌成 PIXEL_ASSETS.vfxSheets)。
+  const vfxSheetCache=new Map();
+  function vfxSheet(id){const v=globalThis.PIXEL_ASSETS?.vfxSheets?.[id];if(!v)return null;
+    let im=vfxSheetCache.get(id);if(!im){im=trackImage(new Image());im.src=v.img;vfxSheetCache.set(id,im);}
+    return im.complete&&im.naturalWidth?{img:im,meta:v.meta}:null;}
+  // 以美術像素為單位畫一格;k = 螢幕 px / 美術 px。rot 轉向;looping 表依 meta.loop 取餘數。
+  function drawVfxSheet(id,age,x,y,k,{rot=0,alpha=1}={}){const sh=vfxSheet(id);if(!sh)return false;
+    const px=sh.meta.meta.pixelfx,cw=px.frameSize[0],ch=px.frameSize[1],cols=px.columns;
+    const t=px.loop?age%Math.max(.001,px.frames/px.fps):Math.max(0,age);
+    const i=Math.max(0,Math.min(px.frames-1,Math.floor(t*px.fps)));
+    g.save();g.globalAlpha=alpha;g.translate(R(x),R(y));if(rot)g.rotate(rot);
+    g.drawImage(sh.img,(i%cols)*cw,Math.floor(i/cols)*ch,cw,ch,-px.pivot[0]*k,-px.pivot[1]*k,cw*k,ch*k);
+    g.restore();return true;}
+  const CINDER_K=0.58, FIRE_K=0.19, SPARK_K=0.13;   // 美術像素 → 世界單位(英雄 66px = 21 單位)
   let cinderDrawn=0,cinderLast=null;
   globalThis.__mistvaleCinder=()=>({drawn:cinderDrawn,last:cinderLast});   // 驗收用:最後一次畫出來的火龍捲(幀/位置)
-  function drawCinder(age,p){const sh=cinderSheet();if(!sh)return false;if(age<0)return true;
-    const px=sh.meta.meta.pixelfx,cw=px.frameSize[0],ch=px.frameSize[1],cols=px.columns,k=CINDER_K*scale;
-    const i=Math.min(px.frames-1,Math.floor(age*px.fps));cinderDrawn++;cinderLast={age:+age.toFixed(2),i,x:Math.round(p.x),y:Math.round(p.y)};
-    g.drawImage(sh.img,(i%cols)*cw,Math.floor(i/cols)*ch,cw,ch,p.x-px.pivot[0]*k,p.y-px.pivot[1]*k,cw*k,ch*k);return true;}
+  let fireballDrawn=0,fireballLast=null;
+  globalThis.__mistvaleFireball=()=>({drawn:fireballDrawn,last:fireballLast});   // 驗收用:法師普攻火球(飛行位置)
+  function drawCinder(age,p){if(age<0)return true;const sh=vfxSheet('cinder-cyclone');if(!sh)return false;
+    const px=sh.meta.meta.pixelfx;cinderDrawn++;cinderLast={age:+age.toFixed(2),i:Math.min(px.frames-1,Math.floor(age*px.fps)),x:Math.round(p.x),y:Math.round(p.y)};
+    return drawVfxSheet('cinder-cyclone',age,p.x,p.y,CINDER_K*scale);}
   function drawSkillFx(e,age0,delay,p){const cls=e.cls||'archer',cfg=SKILL_FX[cls];
     if(e.fx==='cinder'&&!e.self){drawCinder(age0-delay,p);return;}
     if(!cfg||!heroSheets[cls]?.fx){const age=age0-delay,o={...e,type:e.fx==='gale'?'arrow':e.fx};if(age<0){if(o.type!=='slash')drawProjectile(o,Math.min(1,age0/Math.max(.01,delay)),p);return;}if(o.type==='slash')drawSlash(o,age,p);else drawImpact(o,age,p);return;}

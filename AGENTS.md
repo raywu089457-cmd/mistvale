@@ -5,7 +5,7 @@ Claude and pi both maintain this repo, and other agents also edit it. How the wo
 **Language.** Agent-to-agent text is English: task cards, result files, logs, commit notes for agents. Reply to the user in plain, colloquial Traditional Chinese.
 
 ## What you (pi) do
-- Run task cards `docs/pi-tasks/Txx-*.md`. Claude usually dispatches them with `tools/pi-dispatch.mjs`, in non-interactive mode, so never ask questions. If the card says stop, write the reason into the result file and exit.
+- Run task cards `docs/pi-tasks/Txx-*.md`. Claude usually dispatches them with `tools/pi-dispatch.mjs`, in non-interactive mode, so never ask questions. If the card says stop, write the reason into the result file and exit. Cards hold only Goal / Files / Steps (plus `Accept:` and optional `Type: scout`); the shared rules and the result-file format come in the dispatch prompt. Cards name functions and selectors, not line numbers: grep for them.
 - Typical work:
   - verification runs
   - l0veyou asset generation
@@ -15,7 +15,7 @@ Claude and pi both maintain this repo, and other agents also edit it. How the wo
 - A request without a card that is game logic, needs visual judgement, or is a large UI-template rewrite: say "this should go to Claude" and why.
 
 ## Hard rules
-1. **Verify**: after any change run `npm run verify:quick`. If UI or buttons changed, run `npm run verify` instead. Report the text of `output/ui-audit/verify-summary.md`.
+1. **Verify**: after any change run `npm run verify:quick`. If UI or buttons changed, run `npm run verify` instead. Put the first line of `output/ui-audit/verify-summary.md` in the result file's first line; do not paste the whole summary.
 2. **Foreground only**: in non-interactive (-p) runs, run every command in the foreground and wait, even `npm run verify` (~12 min); background jobs are lost when your turn ends. Write the result file before optional slow steps (Telegram).
 3. **Stop after two failures** of the same check. No big rewrites; hand back to Claude.
 4. **Never push** unless the user said 推 or 交接, and then follow T04. Pushing main deploys the live site.
@@ -42,3 +42,10 @@ Restart the game server (PowerShell):
 - Start it again with `Start-Process node -ArgumentList server.mjs -WorkingDirectory <repo> -WindowStyle Hidden`.
 
 It serves http://100.79.149.0:5024/ and re-reads `outputs/暮影村.html` on every request, so a fresh build is live after a reload.
+
+## Models
+
+pi runs on the **OpenCode Go subscription** only: default `opencode-go/deepseek-v4.1-flash`. The work classifier (`tools/classify.mjs`) is two-stage: Jev (`typesafe/jev-1.13` over OpenRouter) answers the whole batch first, and only items below `CLASSIFY_JEV_MIN` (default 0.85) go to `opencode-go/deepseek-v4.1-flash` for the final tier and the reason. Do not point the agent or its subagents at Cline Pass; do not switch provider or register accounts.
+
+## Dispatch playbook
+How cards, status, verification and cost tools work: [docs/DISPATCH-PLAYBOOK.md](docs/DISPATCH-PLAYBOOK.md). File map: [docs/ARCHITECTURE.md](docs/ARCHITECTURE.md). Export reference: [docs/API-pi.md](docs/API-pi.md). Do not edit the `Status:` line of a card; the dispatcher owns it.

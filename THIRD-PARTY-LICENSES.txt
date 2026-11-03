@@ -1,6 +1,44 @@
+NOTICE
+- three.js — MIT, Copyright (c) 2010-2026 three.js authors. Bundled renderer (open source).
+- pixelfx (https://github.com/patch-gg/pixelfx) — MIT, Patch + Hugo Duprez. Exports used:
+  assets/ui/fx-levelup.png (ui/level-up, "pure pillar" export with the stock actor and the
+  "LEVEL UP!" text removed) + assets/ui/fx-levelup.json frame rects; and the arrowFx cell
+  in assets/vfx@1x.png / @2x.png, drawn in code by pipeline/scripts/pixelfx/make_arrow.py
+  from the projectiles/arrow string sprites (scaled to Mistvale's 64x64 cell).
+
+three.js
+--------------------------------------------------------------------------------
 The MIT License
 
 Copyright © 2010-2026 three.js authors
+
+Permission is hereby granted, free of charge, to any person obtaining a copy
+of this software and associated documentation files (the "Software"), to deal
+in the Software without restriction, including without limitation the rights
+to use, copy, modify, merge, publish, distribute, sublicense, and/or sell
+copies of the Software, and to permit persons to whom the Software is
+furnished to do so, subject to the following conditions:
+
+The above copyright notice and this permission notice shall be included in
+all copies or substantial portions of the Software.
+
+THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR
+IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY,
+FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE
+AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER
+LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,
+OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN
+THE SOFTWARE.
+
+
+--------------------------------------------------------------------------------
+pixelfx — https://github.com/patch-gg/pixelfx
+Assets used: assets/ui/fx-levelup.png / fx-levelup.json (ui/level-up, pure pillar sheet);
+assets/vfx@1x.png / @2x.png arrowFx cell (projectiles/arrow string sprites, redrawn at 64x64)
+
+MIT License
+
+Copyright (c) Patch and Hugo Duprez
 
 Permission is hereby granted, free of charge, to any person obtaining a copy
 of this software and associated documentation files (the "Software"), to deal

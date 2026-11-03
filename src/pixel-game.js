@@ -951,7 +951,7 @@ export function createGame(saved = null) {
       h.satiety = Math.max(0, h.satiety - dt * 0.95 * consumption); h.stamina = Math.max(0, h.stamina - dt * 0.76 * consumption); h.mood = Math.max(0, h.mood - dt * 0.55 * consumption * (h.trait === 'cheerful' ? 0.5 : 1));
       // 手動操控:移動、出手都交給玩家(pilotStep),AI 不要再動這位獵人 —— 不然 AI 會照自己的路線／狩獵區
       // 把人拉走,搖桿推的方向就變成在和 AI 搶。需求消耗照常算,只跳過決策與走動。
-      if (h.task === 'pilot') continue;
+      if (h.task === 'pilot') { h.skillCd = Math.max(0, (h.skillCd ?? 0) - dt); continue; }   // 手動操控也要跑技能冷卻
       // 祭司(allyHeal):不管在不在戰鬥,冷卻好、沒在出手就自動補血(戰鬥分支不再替它倒數冷卻)
       { const sk = SKILLS[h.classId]; if (sk?.kind === 'allyHeal') { h.skillCd = Math.max(0, (h.skillCd ?? 3) - dt);
         if (h.attackTimer === 0 && state.time >= (h.lockUntil ?? 0)) {
@@ -1696,6 +1696,32 @@ export function createGame(saved = null) {
     pilotStart(hunterId) { const h = state.hunters.find(q => q.id === hunterId); if (!h) return result(false, '找不到這位獵人。'); if (h.hp <= 0) return result(false, '這位獵人倒下了。'); state.pilot = { id: h.id, dx: 0, dz: 0, atk: false, readyAt: 0, lockUntil: 0, faceX: 1, faceZ: 0 }; h.task = 'pilot'; h.status = '手動操控'; h.route = []; return result(true, `開始操控 ${h.name}。`); },
     pilotInput(dx, dz) { if (state.pilot) { state.pilot.dx = dx || 0; state.pilot.dz = dz || 0; } },
     pilotAttack() { if (state.pilot) state.pilot.atk = true; },
+    // 手動操控放技能(2026-11-03):最近的魔物在射程+技能半徑+2 內就正常結算;
+    // 沒有目標也照樣放,朝面向 4 格處播特效(不造成傷害),方便測試技能特效。
+    pilotSkill() {
+      const p = state.pilot; if (!p) return result(false, '目前沒有在操控角色。');
+      const h = state.hunters.find(q => q.id === p.id); if (!h || h.hp <= 0) return result(false, '找不到可施法的獵人。');
+      const sk = SKILLS[h.classId]; if (!sk) return result(false, '這個職業還沒有技能。');
+      if ((h.skillCd || 0) > 0) return result(false, `${sk.name} 冷卻中 ${Math.ceil(h.skillCd)} 秒。`);
+      const alive = state.enemies.filter(e => e.hp > 0 && !e.rewarded);
+      const reach = (h.range || 1) + (sk.radius || 0) + 2;
+      const tgt = alive.filter(e => distance(h, e) <= reach).sort((a, b) => distance(h, a) - distance(h, b))[0];
+      if (tgt) { castSkill(h, tgt, sk); state.pilot.lockUntil = state.time + (sk.lock || .6); return result(true, `${sk.name}！`); }
+      // 空放:只播畫面,不扣血。治療技改成補自己,跟正常施放一致。
+      const dx = p.faceX ?? 1, dz = p.faceZ ?? 0, at = { x: h.x + dx * 4, z: h.z + dz * 4 };
+      h.skillCd = sk.cd; h.attackTimer = (sk.lock || .6) + .4; h.skillAt = state.time; h.skillName = sk.name; h.atkX = at.x; h.atkZ = at.z; p.lockUntil = state.time + (sk.lock || .6);
+      state.counts.skills = (state.counts.skills || 0) + 1;
+      effect('skillName', h, { text: sk.name, color: '#bdf4ff' });
+      effect('skillSelf', h, { cls: h.classId, fx: sk.fx, delay: Math.max(0, (sk.release ?? .25) - .12), kind: sk.kind });
+      if (sk.kind === 'heal' || sk.kind === 'allyHeal') {
+        const v = Math.round(h.maxHp * (sk.heal || .2)); h.hp = Math.min(h.maxHp, h.hp + v);
+        effect('skillfx', h, { cls: h.classId, fx: sk.fx, sourceX: h.x, sourceZ: h.z, delay: sk.release ?? .25, text: `+${v}`, color: '#9cf09a', self: true });
+        return result(true, `${sk.name}！`);
+      }
+      effect('skillfx', at, { sourceX: h.x, sourceZ: h.z, fx: sk.fx, cls: h.classId, kind: sk.kind, delay: sk.release ?? .25, value: 0, skill: true });
+      return result(true, `${sk.name}！（沒有目標，展示用）`);
+    },
+    pilotSkillCooldown() { const p = state.pilot; if (!p) return 0; const h = state.hunters.find(q => q.id === p.id); return h ? Math.max(0, h.skillCd || 0) : 0; },
     pilotCooldown() { const p = state.pilot; return p ? Math.max(0, (p.readyAt ?? 0) - state.time) : 0; },   // 還有幾秒才能再出手(UI 的 CD 遮罩用)
     pilotLockLeft() { const p = state.pilot; return p ? Math.max(0, (p.lockUntil ?? 0) - state.time) : 0; },   // 僵直還剩幾秒(不能走)
     pilotStop() { const p = state.pilot; if (!p) return result(false, '目前沒有在操控角色。'); state.pilot = null; const h = state.hunters.find(q => q.id === p.id); if (h) { h.task = null; h.status = '待命'; idleInTown(h); } return result(true, '結束手動操控。'); },

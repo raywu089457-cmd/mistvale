@@ -1,0 +1,1319 @@
+{
+ "version": 1,
+ "about": "Monster dye channels for build-time recolour (T24). Generated sheets go to output/monster-dye/. The game does not load them yet.",
+ "rules": {
+  "alphaMin": 8,
+  "outlineLuma": 0.14,
+  "satMin": 0.1,
+  "lumaPad": 0.0,
+  "note": "pixels below outlineLuma (near-black outline and shadow) or satMin (bone, teeth, eye whites) are left untouched; alpha is never modified"
+ },
+ "ramps": {
+  "elite": {
+   "main": [
+    "#1a0a12",
+    "#3a1024",
+    "#66183a",
+    "#96214d",
+    "#c4385f",
+    "#e87876",
+    "#ffd7b0"
+   ],
+   "accent": [
+    "#241603",
+    "#4a2c07",
+    "#7c4c0d",
+    "#b8781a",
+    "#e6ad3d",
+    "#fff0bd"
+   ]
+  },
+  "frost": {
+   "main": [
+    "#081420",
+    "#10283c",
+    "#1b4560",
+    "#2c6c8d",
+    "#55a3bf",
+    "#9ad7e8",
+    "#edfbff"
+   ],
+   "accent": [
+    "#120a24",
+    "#241441",
+    "#3d2468",
+    "#5e3d94",
+    "#9377be",
+    "#e2d8ff"
+   ]
+  }
+ },
+ "monsters": {
+  "birchling": {
+   "hueCensus": "30-90 (73%)",
+   "variants": {
+    "elite": {
+     "channels": [
+      {
+       "name": "wood",
+       "hue": [
+        24,
+        62
+       ],
+       "ramp": [
+        "#1a0a12",
+        "#3a1024",
+        "#66183a",
+        "#96214d",
+        "#c4385f",
+        "#e87876",
+        "#ffd7b0"
+       ]
+      },
+      {
+       "name": "leaf",
+       "hue": [
+        62,
+        100
+       ],
+       "ramp": [
+        "#241603",
+        "#4a2c07",
+        "#7c4c0d",
+        "#b8781a",
+        "#e6ad3d",
+        "#fff0bd"
+       ]
+      }
+     ]
+    },
+    "frost": {
+     "channels": [
+      {
+       "name": "wood",
+       "hue": [
+        24,
+        62
+       ],
+       "ramp": [
+        "#081420",
+        "#10283c",
+        "#1b4560",
+        "#2c6c8d",
+        "#55a3bf",
+        "#9ad7e8",
+        "#edfbff"
+       ]
+      },
+      {
+       "name": "leaf",
+       "hue": [
+        62,
+        100
+       ],
+       "ramp": [
+        "#120a24",
+        "#241441",
+        "#3d2468",
+        "#5e3d94",
+        "#9377be",
+        "#e2d8ff"
+       ]
+      }
+     ]
+    }
+   }
+  },
+  "boar": {
+   "hueCensus": "0-30 (79%)",
+   "variants": {
+    "elite": {
+     "channels": [
+      {
+       "name": "hide",
+       "hue": [
+        338,
+        46
+       ],
+       "ramp": [
+        "#1a0a12",
+        "#3a1024",
+        "#66183a",
+        "#96214d",
+        "#c4385f",
+        "#e87876",
+        "#ffd7b0"
+       ]
+      }
+     ]
+    },
+    "frost": {
+     "channels": [
+      {
+       "name": "hide",
+       "hue": [
+        338,
+        46
+       ],
+       "ramp": [
+        "#081420",
+        "#10283c",
+        "#1b4560",
+        "#2c6c8d",
+        "#55a3bf",
+        "#9ad7e8",
+        "#edfbff"
+       ]
+      }
+     ]
+    }
+   }
+  },
+  "boulder": {
+   "hueCensus": "30-60 (72%)",
+   "variants": {
+    "elite": {
+     "channels": [
+      {
+       "name": "rock",
+       "hue": [
+        20,
+        72
+       ],
+       "ramp": [
+        "#1a0a12",
+        "#3a1024",
+        "#66183a",
+        "#96214d",
+        "#c4385f",
+        "#e87876",
+        "#ffd7b0"
+       ]
+      }
+     ]
+    },
+    "frost": {
+     "channels": [
+      {
+       "name": "rock",
+       "hue": [
+        20,
+        72
+       ],
+       "ramp": [
+        "#081420",
+        "#10283c",
+        "#1b4560",
+        "#2c6c8d",
+        "#55a3bf",
+        "#9ad7e8",
+        "#edfbff"
+       ]
+      }
+     ]
+    }
+   }
+  },
+  "cactus": {
+   "hueCensus": "60-120 (71%)",
+   "variants": {
+    "elite": {
+     "channels": [
+      {
+       "name": "flesh",
+       "hue": [
+        62,
+        142
+       ],
+       "ramp": [
+        "#1a0a12",
+        "#3a1024",
+        "#66183a",
+        "#96214d",
+        "#c4385f",
+        "#e87876",
+        "#ffd7b0"
+       ]
+      }
+     ]
+    },
+    "frost": {
+     "channels": [
+      {
+       "name": "flesh",
+       "hue": [
+        62,
+        142
+       ],
+       "ramp": [
+        "#081420",
+        "#10283c",
+        "#1b4560",
+        "#2c6c8d",
+        "#55a3bf",
+        "#9ad7e8",
+        "#edfbff"
+       ]
+      }
+     ]
+    }
+   }
+  },
+  "floraspirit": {
+   "hueCensus": "0-30 (26%) + 60-120 (43%)",
+   "variants": {
+    "elite": {
+     "channels": [
+      {
+       "name": "petals",
+       "hue": [
+        318,
+        28
+       ],
+       "ramp": [
+        "#1a0a12",
+        "#3a1024",
+        "#66183a",
+        "#96214d",
+        "#c4385f",
+        "#e87876",
+        "#ffd7b0"
+       ]
+      },
+      {
+       "name": "leaves",
+       "hue": [
+        58,
+        142
+       ],
+       "ramp": [
+        "#241603",
+        "#4a2c07",
+        "#7c4c0d",
+        "#b8781a",
+        "#e6ad3d",
+        "#fff0bd"
+       ]
+      }
+     ]
+    },
+    "frost": {
+     "channels": [
+      {
+       "name": "petals",
+       "hue": [
+        318,
+        28
+       ],
+       "ramp": [
+        "#081420",
+        "#10283c",
+        "#1b4560",
+        "#2c6c8d",
+        "#55a3bf",
+        "#9ad7e8",
+        "#edfbff"
+       ]
+      },
+      {
+       "name": "leaves",
+       "hue": [
+        58,
+        142
+       ],
+       "ramp": [
+        "#120a24",
+        "#241441",
+        "#3d2468",
+        "#5e3d94",
+        "#9377be",
+        "#e2d8ff"
+       ]
+      }
+     ]
+    }
+   }
+  },
+  "goat": {
+   "hueCensus": "30-60 (80%)",
+   "variants": {
+    "elite": {
+     "channels": [
+      {
+       "name": "coat",
+       "hue": [
+        20,
+        72
+       ],
+       "ramp": [
+        "#1a0a12",
+        "#3a1024",
+        "#66183a",
+        "#96214d",
+        "#c4385f",
+        "#e87876",
+        "#ffd7b0"
+       ]
+      }
+     ]
+    },
+    "frost": {
+     "channels": [
+      {
+       "name": "coat",
+       "hue": [
+        20,
+        72
+       ],
+       "ramp": [
+        "#081420",
+        "#10283c",
+        "#1b4560",
+        "#2c6c8d",
+        "#55a3bf",
+        "#9ad7e8",
+        "#edfbff"
+       ]
+      }
+     ]
+    }
+   }
+  },
+  "icebeetle": {
+   "hueCensus": "180-210 (84%)",
+   "variants": {
+    "elite": {
+     "channels": [
+      {
+       "name": "shell",
+       "hue": [
+        158,
+        248
+       ],
+       "ramp": [
+        "#1a0a12",
+        "#3a1024",
+        "#66183a",
+        "#96214d",
+        "#c4385f",
+        "#e87876",
+        "#ffd7b0"
+       ]
+      }
+     ]
+    },
+    "frost": {
+     "channels": [
+      {
+       "name": "shell",
+       "hue": [
+        158,
+        248
+       ],
+       "ramp": [
+        "#081420",
+        "#10283c",
+        "#1b4560",
+        "#2c6c8d",
+        "#55a3bf",
+        "#9ad7e8",
+        "#edfbff"
+       ]
+      }
+     ]
+    }
+   }
+  },
+  "kobold": {
+   "hueCensus": "0-30 (33%) + 60-90 (28%)",
+   "variants": {
+    "elite": {
+     "channels": [
+      {
+       "name": "skin",
+       "hue": [
+        338,
+        30
+       ],
+       "ramp": [
+        "#1a0a12",
+        "#3a1024",
+        "#66183a",
+        "#96214d",
+        "#c4385f",
+        "#e87876",
+        "#ffd7b0"
+       ]
+      },
+      {
+       "name": "cloth",
+       "hue": [
+        54,
+        100
+       ],
+       "ramp": [
+        "#241603",
+        "#4a2c07",
+        "#7c4c0d",
+        "#b8781a",
+        "#e6ad3d",
+        "#fff0bd"
+       ]
+      }
+     ]
+    },
+    "frost": {
+     "channels": [
+      {
+       "name": "skin",
+       "hue": [
+        338,
+        30
+       ],
+       "ramp": [
+        "#081420",
+        "#10283c",
+        "#1b4560",
+        "#2c6c8d",
+        "#55a3bf",
+        "#9ad7e8",
+        "#edfbff"
+       ]
+      },
+      {
+       "name": "cloth",
+       "hue": [
+        54,
+        100
+       ],
+       "ramp": [
+        "#120a24",
+        "#241441",
+        "#3d2468",
+        "#5e3d94",
+        "#9377be",
+        "#e2d8ff"
+       ]
+      }
+     ]
+    }
+   }
+  },
+  "mole": {
+   "hueCensus": "0-60 (84%)",
+   "variants": {
+    "elite": {
+     "channels": [
+      {
+       "name": "fur",
+       "hue": [
+        330,
+        52
+       ],
+       "ramp": [
+        "#1a0a12",
+        "#3a1024",
+        "#66183a",
+        "#96214d",
+        "#c4385f",
+        "#e87876",
+        "#ffd7b0"
+       ]
+      }
+     ]
+    },
+    "frost": {
+     "channels": [
+      {
+       "name": "fur",
+       "hue": [
+        330,
+        52
+       ],
+       "ramp": [
+        "#081420",
+        "#10283c",
+        "#1b4560",
+        "#2c6c8d",
+        "#55a3bf",
+        "#9ad7e8",
+        "#edfbff"
+       ]
+      }
+     ]
+    }
+   }
+  },
+  "moss": {
+   "hueCensus": "30-90 (75%)",
+   "variants": {
+    "elite": {
+     "channels": [
+      {
+       "name": "moss",
+       "hue": [
+        18,
+        62
+       ],
+       "ramp": [
+        "#1a0a12",
+        "#3a1024",
+        "#66183a",
+        "#96214d",
+        "#c4385f",
+        "#e87876",
+        "#ffd7b0"
+       ]
+      },
+      {
+       "name": "leaves",
+       "hue": [
+        62,
+        108
+       ],
+       "ramp": [
+        "#241603",
+        "#4a2c07",
+        "#7c4c0d",
+        "#b8781a",
+        "#e6ad3d",
+        "#fff0bd"
+       ]
+      }
+     ]
+    },
+    "frost": {
+     "channels": [
+      {
+       "name": "moss",
+       "hue": [
+        18,
+        62
+       ],
+       "ramp": [
+        "#081420",
+        "#10283c",
+        "#1b4560",
+        "#2c6c8d",
+        "#55a3bf",
+        "#9ad7e8",
+        "#edfbff"
+       ]
+      },
+      {
+       "name": "leaves",
+       "hue": [
+        62,
+        108
+       ],
+       "ramp": [
+        "#120a24",
+        "#241441",
+        "#3d2468",
+        "#5e3d94",
+        "#9377be",
+        "#e2d8ff"
+       ]
+      }
+     ]
+    }
+   }
+  },
+  "mummy": {
+   "hueCensus": "30-60 (81%)",
+   "variants": {
+    "elite": {
+     "channels": [
+      {
+       "name": "wrap",
+       "hue": [
+        20,
+        72
+       ],
+       "ramp": [
+        "#1a0a12",
+        "#3a1024",
+        "#66183a",
+        "#96214d",
+        "#c4385f",
+        "#e87876",
+        "#ffd7b0"
+       ]
+      }
+     ]
+    },
+    "frost": {
+     "channels": [
+      {
+       "name": "wrap",
+       "hue": [
+        20,
+        72
+       ],
+       "ramp": [
+        "#081420",
+        "#10283c",
+        "#1b4560",
+        "#2c6c8d",
+        "#55a3bf",
+        "#9ad7e8",
+        "#edfbff"
+       ]
+      }
+     ]
+    }
+   }
+  },
+  "ram": {
+   "hueCensus": "30-60 (87%)",
+   "variants": {
+    "elite": {
+     "channels": [
+      {
+       "name": "fleece",
+       "hue": [
+        20,
+        72
+       ],
+       "ramp": [
+        "#1a0a12",
+        "#3a1024",
+        "#66183a",
+        "#96214d",
+        "#c4385f",
+        "#e87876",
+        "#ffd7b0"
+       ]
+      }
+     ]
+    },
+    "frost": {
+     "channels": [
+      {
+       "name": "fleece",
+       "hue": [
+        20,
+        72
+       ],
+       "ramp": [
+        "#081420",
+        "#10283c",
+        "#1b4560",
+        "#2c6c8d",
+        "#55a3bf",
+        "#9ad7e8",
+        "#edfbff"
+       ]
+      }
+     ]
+    }
+   }
+  },
+  "scorpion": {
+   "hueCensus": "30-60 (84%)",
+   "variants": {
+    "elite": {
+     "channels": [
+      {
+       "name": "chitin",
+       "hue": [
+        20,
+        72
+       ],
+       "ramp": [
+        "#1a0a12",
+        "#3a1024",
+        "#66183a",
+        "#96214d",
+        "#c4385f",
+        "#e87876",
+        "#ffd7b0"
+       ]
+      }
+     ]
+    },
+    "frost": {
+     "channels": [
+      {
+       "name": "chitin",
+       "hue": [
+        20,
+        72
+       ],
+       "ramp": [
+        "#081420",
+        "#10283c",
+        "#1b4560",
+        "#2c6c8d",
+        "#55a3bf",
+        "#9ad7e8",
+        "#edfbff"
+       ]
+      }
+     ]
+    }
+   }
+  },
+  "shroom": {
+   "hueCensus": "0-30 (38%) + 30-60 (52%)",
+   "variants": {
+    "elite": {
+     "channels": [
+      {
+       "name": "cap",
+       "hue": [
+        318,
+        30
+       ],
+       "ramp": [
+        "#1a0a12",
+        "#3a1024",
+        "#66183a",
+        "#96214d",
+        "#c4385f",
+        "#e87876",
+        "#ffd7b0"
+       ]
+      },
+      {
+       "name": "stem",
+       "hue": [
+        32,
+        72
+       ],
+       "ramp": [
+        "#241603",
+        "#4a2c07",
+        "#7c4c0d",
+        "#b8781a",
+        "#e6ad3d",
+        "#fff0bd"
+       ]
+      }
+     ]
+    },
+    "frost": {
+     "channels": [
+      {
+       "name": "cap",
+       "hue": [
+        318,
+        30
+       ],
+       "ramp": [
+        "#081420",
+        "#10283c",
+        "#1b4560",
+        "#2c6c8d",
+        "#55a3bf",
+        "#9ad7e8",
+        "#edfbff"
+       ]
+      },
+      {
+       "name": "stem",
+       "hue": [
+        32,
+        72
+       ],
+       "ramp": [
+        "#120a24",
+        "#241441",
+        "#3d2468",
+        "#5e3d94",
+        "#9377be",
+        "#e2d8ff"
+       ]
+      }
+     ]
+    }
+   }
+  },
+  "snowhare": {
+   "hueCensus": "180-210 (65%) - mostly desaturated, dyed as one full-range body channel (satMin 0.0)",
+   "variants": {
+    "elite": {
+     "channels": [
+      {
+       "name": "fur",
+       "hue": [
+        0,
+        360
+       ],
+       "satMin": 0.0,
+       "ramp": [
+        "#1a0a12",
+        "#3a1024",
+        "#66183a",
+        "#96214d",
+        "#c4385f",
+        "#e87876",
+        "#ffd7b0"
+       ]
+      }
+     ]
+    },
+    "frost": {
+     "channels": [
+      {
+       "name": "fur",
+       "hue": [
+        0,
+        360
+       ],
+       "satMin": 0.0,
+       "ramp": [
+        "#081420",
+        "#10283c",
+        "#1b4560",
+        "#2c6c8d",
+        "#55a3bf",
+        "#9ad7e8",
+        "#edfbff"
+       ]
+      }
+     ]
+    }
+   }
+  },
+  "snowman": {
+   "hueCensus": "180-210 (81%) - mostly desaturated, dyed as one full-range body channel (satMin 0.0)",
+   "variants": {
+    "elite": {
+     "channels": [
+      {
+       "name": "snow",
+       "hue": [
+        0,
+        360
+       ],
+       "satMin": 0.0,
+       "ramp": [
+        "#1a0a12",
+        "#3a1024",
+        "#66183a",
+        "#96214d",
+        "#c4385f",
+        "#e87876",
+        "#ffd7b0"
+       ]
+      }
+     ]
+    },
+    "frost": {
+     "channels": [
+      {
+       "name": "snow",
+       "hue": [
+        0,
+        360
+       ],
+       "satMin": 0.0,
+       "ramp": [
+        "#081420",
+        "#10283c",
+        "#1b4560",
+        "#2c6c8d",
+        "#55a3bf",
+        "#9ad7e8",
+        "#edfbff"
+       ]
+      }
+     ]
+    }
+   }
+  },
+  "sprout": {
+   "hueCensus": "60-120 (43%) + 330-360 (22%)",
+   "variants": {
+    "elite": {
+     "channels": [
+      {
+       "name": "leaves",
+       "hue": [
+        58,
+        142
+       ],
+       "ramp": [
+        "#1a0a12",
+        "#3a1024",
+        "#66183a",
+        "#96214d",
+        "#c4385f",
+        "#e87876",
+        "#ffd7b0"
+       ]
+      },
+      {
+       "name": "bud",
+       "hue": [
+        312,
+        30
+       ],
+       "ramp": [
+        "#241603",
+        "#4a2c07",
+        "#7c4c0d",
+        "#b8781a",
+        "#e6ad3d",
+        "#fff0bd"
+       ]
+      }
+     ]
+    },
+    "frost": {
+     "channels": [
+      {
+       "name": "leaves",
+       "hue": [
+        58,
+        142
+       ],
+       "ramp": [
+        "#081420",
+        "#10283c",
+        "#1b4560",
+        "#2c6c8d",
+        "#55a3bf",
+        "#9ad7e8",
+        "#edfbff"
+       ]
+      },
+      {
+       "name": "bud",
+       "hue": [
+        312,
+        30
+       ],
+       "ramp": [
+        "#120a24",
+        "#241441",
+        "#3d2468",
+        "#5e3d94",
+        "#9377be",
+        "#e2d8ff"
+       ]
+      }
+     ]
+    }
+   }
+  },
+  "stag": {
+   "hueCensus": "30-60 (82%)",
+   "variants": {
+    "elite": {
+     "channels": [
+      {
+       "name": "coat",
+       "hue": [
+        18,
+        74
+       ],
+       "ramp": [
+        "#1a0a12",
+        "#3a1024",
+        "#66183a",
+        "#96214d",
+        "#c4385f",
+        "#e87876",
+        "#ffd7b0"
+       ]
+      }
+     ]
+    },
+    "frost": {
+     "channels": [
+      {
+       "name": "coat",
+       "hue": [
+        18,
+        74
+       ],
+       "ramp": [
+        "#081420",
+        "#10283c",
+        "#1b4560",
+        "#2c6c8d",
+        "#55a3bf",
+        "#9ad7e8",
+        "#edfbff"
+       ]
+      }
+     ]
+    }
+   }
+  },
+  "treant": {
+   "hueCensus": "30-90 (75%)",
+   "variants": {
+    "elite": {
+     "channels": [
+      {
+       "name": "bark",
+       "hue": [
+        16,
+        62
+       ],
+       "ramp": [
+        "#1a0a12",
+        "#3a1024",
+        "#66183a",
+        "#96214d",
+        "#c4385f",
+        "#e87876",
+        "#ffd7b0"
+       ]
+      },
+      {
+       "name": "leaves",
+       "hue": [
+        62,
+        108
+       ],
+       "ramp": [
+        "#241603",
+        "#4a2c07",
+        "#7c4c0d",
+        "#b8781a",
+        "#e6ad3d",
+        "#fff0bd"
+       ]
+      }
+     ]
+    },
+    "frost": {
+     "channels": [
+      {
+       "name": "bark",
+       "hue": [
+        16,
+        62
+       ],
+       "ramp": [
+        "#081420",
+        "#10283c",
+        "#1b4560",
+        "#2c6c8d",
+        "#55a3bf",
+        "#9ad7e8",
+        "#edfbff"
+       ]
+      },
+      {
+       "name": "leaves",
+       "hue": [
+        62,
+        108
+       ],
+       "ramp": [
+        "#120a24",
+        "#241441",
+        "#3d2468",
+        "#5e3d94",
+        "#9377be",
+        "#e2d8ff"
+       ]
+      }
+     ]
+    }
+   }
+  },
+  "vine": {
+   "hueCensus": "60-120 (45%), 49% near-black",
+   "variants": {
+    "elite": {
+     "channels": [
+      {
+       "name": "tendril",
+       "hue": [
+        58,
+        148
+       ],
+       "ramp": [
+        "#1a0a12",
+        "#3a1024",
+        "#66183a",
+        "#96214d",
+        "#c4385f",
+        "#e87876",
+        "#ffd7b0"
+       ]
+      }
+     ]
+    },
+    "frost": {
+     "channels": [
+      {
+       "name": "tendril",
+       "hue": [
+        58,
+        148
+       ],
+       "ramp": [
+        "#081420",
+        "#10283c",
+        "#1b4560",
+        "#2c6c8d",
+        "#55a3bf",
+        "#9ad7e8",
+        "#edfbff"
+       ]
+      }
+     ]
+    }
+   }
+  },
+  "wolfman": {
+   "hueCensus": "30-90 (46%) + 180-210 (7%) - grey armour is desaturated, dyed by a trailing full-range channel",
+   "variants": {
+    "elite": {
+     "channels": [
+      {
+       "name": "fur",
+       "hue": [
+        18,
+        102
+       ],
+       "ramp": [
+        "#1a0a12",
+        "#3a1024",
+        "#66183a",
+        "#96214d",
+        "#c4385f",
+        "#e87876",
+        "#ffd7b0"
+       ]
+      },
+      {
+       "name": "stone",
+       "hue": [
+        160,
+        242
+       ],
+       "ramp": [
+        "#241603",
+        "#4a2c07",
+        "#7c4c0d",
+        "#b8781a",
+        "#e6ad3d",
+        "#fff0bd"
+       ]
+      },
+      {
+       "name": "armour",
+       "hue": [
+        0,
+        360
+       ],
+       "satMin": 0.03,
+       "ramp": [
+        "#241603",
+        "#4a2c07",
+        "#7c4c0d",
+        "#b8781a",
+        "#e6ad3d",
+        "#fff0bd"
+       ]
+      }
+     ]
+    },
+    "frost": {
+     "channels": [
+      {
+       "name": "fur",
+       "hue": [
+        18,
+        102
+       ],
+       "ramp": [
+        "#081420",
+        "#10283c",
+        "#1b4560",
+        "#2c6c8d",
+        "#55a3bf",
+        "#9ad7e8",
+        "#edfbff"
+       ]
+      },
+      {
+       "name": "stone",
+       "hue": [
+        160,
+        242
+       ],
+       "ramp": [
+        "#120a24",
+        "#241441",
+        "#3d2468",
+        "#5e3d94",
+        "#9377be",
+        "#e2d8ff"
+       ]
+      },
+      {
+       "name": "armour",
+       "hue": [
+        0,
+        360
+       ],
+       "satMin": 0.03,
+       "ramp": [
+        "#120a24",
+        "#241441",
+        "#3d2468",
+        "#5e3d94",
+        "#9377be",
+        "#e2d8ff"
+       ]
+      }
+     ]
+    }
+   }
+  },
+  "yeti": {
+   "hueCensus": "180-210 (80%)",
+   "variants": {
+    "elite": {
+     "channels": [
+      {
+       "name": "fur",
+       "hue": [
+        158,
+        252
+       ],
+       "ramp": [
+        "#1a0a12",
+        "#3a1024",
+        "#66183a",
+        "#96214d",
+        "#c4385f",
+        "#e87876",
+        "#ffd7b0"
+       ]
+      }
+     ]
+    },
+    "frost": {
+     "channels": [
+      {
+       "name": "fur",
+       "hue": [
+        158,
+        252
+       ],
+       "ramp": [
+        "#081420",
+        "#10283c",
+        "#1b4560",
+        "#2c6c8d",
+        "#55a3bf",
+        "#9ad7e8",
+        "#edfbff"
+       ]
+      }
+     ]
+    }
+   }
+  }
+ }
+}

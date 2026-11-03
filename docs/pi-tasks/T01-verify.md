@@ -1,5 +1,9 @@
 # T01: routine verification (after anyone changes code)
 
+Status: reusable
+Tier: pi
+Context: `docs/ARCHITECTURE.md` (file map). Read only the files listed below; do not explore the repo.
+
 > Task card for pi. Change no files; only run the checks and report.
 
 ## Goal

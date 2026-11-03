@@ -1,0 +1,161 @@
+{
+ "id": "HERO_FROSTWARDEN_001",
+ "version": "v01",
+ "animation": "death",
+ "frames": 8,
+ "layout": {
+  "columns": 4,
+  "rows": 2
+ },
+ "cell": 400,
+ "sheet": [
+  1600,
+  800
+ ],
+ "logicalScale": 4,
+ "logicalCell": 100,
+ "frameTime": 0.12,
+ "loop": false,
+ "facing": "right",
+ "groundY": 368,
+ "axisX": 200,
+ "characterHeight": 296,
+ "anchors": [
+  {
+   "GROUND": [
+    200,
+    368
+   ],
+   "BODY": [
+    202,
+    228
+   ],
+   "HEAD": [
+    202,
+    120
+   ]
+  },
+  {
+   "GROUND": [
+    200,
+    368
+   ],
+   "BODY": [
+    202,
+    220
+   ],
+   "HEAD": [
+    202,
+    104
+   ]
+  },
+  {
+   "GROUND": [
+    200,
+    368
+   ],
+   "BODY": [
+    202,
+    244
+   ],
+   "HEAD": [
+    202,
+    152
+   ]
+  },
+  {
+   "GROUND": [
+    200,
+    368
+   ],
+   "BODY": [
+    202,
+    248
+   ],
+   "HEAD": [
+    202,
+    160
+   ]
+  },
+  {
+   "GROUND": [
+    200,
+    368
+   ],
+   "BODY": [
+    202,
+    260
+   ],
+   "HEAD": [
+    202,
+    184
+   ]
+  },
+  {
+   "GROUND": [
+    200,
+    368
+   ],
+   "BODY": [
+    202,
+    284
+   ],
+   "HEAD": [
+    202,
+    232
+   ]
+  },
+  {
+   "GROUND": [
+    200,
+    368
+   ],
+   "BODY": [
+    202,
+    284
+   ],
+   "HEAD": [
+    202,
+    236
+   ]
+  },
+  {
+   "GROUND": [
+    200,
+    368
+   ],
+   "BODY": [
+    202,
+    284
+   ],
+   "HEAD": [
+    202,
+    236
+   ]
+  }
+ ],
+ "palette": [
+  "#050204",
+  "#1d1312",
+  "#3f353e",
+  "#4a4e6d",
+  "#5774d3",
+  "#5f657e",
+  "#7d6856",
+  "#918f8a",
+  "#b2a286",
+  "#cec5b2",
+  "#f1e8d1"
+ ],
+ "source": {
+  "sheets": [
+   {
+    "rigged": true
+   }
+  ],
+  "unfake": true,
+  "pitch": 5.0
+ },
+ "rig": "rig.json",
+ "anchorsApprox": true
+}

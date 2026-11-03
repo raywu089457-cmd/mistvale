@@ -20,13 +20,13 @@ Classify each work item into exactly one tier. Pick the cheapest tier that can d
 - Wiring new assets into the game
 - Small features touching 2–4 files
 - Fixes inside one file that the tests or the button crawler will catch
+- Writing task cards for pi (cards are written from rules, not from reading code)
 
 ## opus (Claude Opus)
 - Hunter AI, combat timing, dungeon, offline progress, save/load and migrations
 - Balance changes with knock-on effects, and cross-file design or refactors
 - Anything that needs visual judgement ("does this look good?") or a design decision
 - Hard-to-reproduce bugs
-- Writing task cards for pi
 
 ## Output
 Reply only with a JSON array:

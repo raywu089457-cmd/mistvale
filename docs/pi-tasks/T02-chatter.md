@@ -1,5 +1,9 @@
 # T02: more hero speech-bubble lines
 
+Status: todo
+Tier: pi
+Context: `docs/ARCHITECTURE.md` (file map). Read only the files listed below; do not explore the repo.
+
 > Task card for pi. Add lines only. Do not change how a line gets picked.
 
 ## Goal

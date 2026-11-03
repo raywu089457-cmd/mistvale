@@ -1,5 +1,9 @@
 # T03: illustrated banners for the Craft and Warehouse modals
 
+Status: todo
+Tier: pi
+Context: `docs/ARCHITECTURE.md` (file map). Read only the files listed below; do not explore the repo.
+
 > Task card for pi. Images come from l0veyou (free). The code edits are the exact replacements given below.
 
 ## Goal

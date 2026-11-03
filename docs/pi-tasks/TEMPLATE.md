@@ -1,28 +1,21 @@
 # Txx: task name (one line)
 
-> Task card for pi. Do the steps in order and do not widen the scope. When finished, write the result to `output/pi-results/Txx.md` in English.
+Status: todo
+Accept: npm run verify:quick
 
 ## Goal
 What the finished state looks like, in one to three sentences.
 
 ## Files you may change
-- List them. Do not touch anything else.
+- List them. Name functions/selectors to touch, never line numbers.
 
 ## Steps
 1. Each step is a runnable command or an exact "old string → new string" edit.
 
-## Acceptance (all must pass)
-- The first line of the `npm run verify:quick` (or `npm run verify`) summary says 全部通過 ("all passed").
-- Any checks specific to this card.
-
-## Report (write to output/pi-results/Txx.md)
-- What you did (short bullets)
-- Files changed
-- The text of `output/ui-audit/verify-summary.md`
-- Problems hit, or "none"
-
-## Do not
-- Commit or push, unless this card is T04 and the user said 推.
-- Change hunter AI, combat or save code in `src/pixel-game.js`, or drawing code in `src/pixel-world.js`.
-- Keep going after the same check fails twice: stop, put the error summary in the result file, and hand back to Claude.
-- Spend PixelLab credits, unless the card states a budget.
+<!--
+Create cards with: node tools/pi-card.mjs <slug> --accept "<cmd>" <<'EOF' ...body... EOF  (auto-numbers, writes the header).
+The shared rules (scope, foreground only, report format, stop after two failures, no push, no PixelLab without budget,
+C-tier code off limits) are in the tools/pi-dispatch.mjs prompt; do not repeat them in cards.
+Header options: `Status: reusable` (stays runnable, e.g. T01/T04); `Type: scout` (pi changes nothing, returns a <=40-line brief);
+`Accept:` one shell command the dispatcher runs itself after pi; it decides pass/fail. Add `## Notes` only for card-specific extras.
+-->

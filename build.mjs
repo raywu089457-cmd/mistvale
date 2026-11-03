@@ -70,12 +70,18 @@ try{assetScript+=`window.PIXEL_ASSETS=window.PIXEL_ASSETS||{};window.PIXEL_ASSET
   // 高解析 LOD：<id>@2x.png/.json（原生 1:1）。執行時依縮放自動挑，低縮放用 1x（銳利）、放大用 2x（細節）。
   try{sheets[id].hi={img:await media(path.join(dir,id+'@2x.png'),`heroes/${id}@2x.png`),meta:JSON.parse(await fs.readFile(path.join(dir,id+'@2x.json'),'utf8'))};}catch{}}
  put('heroSheets',JSON.stringify(sheets));
- // Mage skill 1: pixelfx fire/cinder-cyclone sheet (190x250, 103 frames), PNG + Aseprite JSON
- // JSON carries frameSize / pivot / fps / columns; pixel-world.js drawCinder plays it frame by frame
+ // pixelfx sprite sheets: every assets/vfx-sheets/<id>.png + <id>.json (Aseprite JSON with
+ // frameSize / pivot / fps / columns) becomes PIXEL_ASSETS.vfxSheets[id] = { img, meta }.
+ // pixel-world.js drawVfxSheet() plays any of them frame by frame; cinder-cyclone, fireball, hit-spark.
  try{
-  put('cinderSheet',JSON.stringify(await media(path.join(root,'assets/vfx-sheets/cinder-cyclone.png'),'vfx-sheets/cinder-cyclone.png')));
-  assetScript+=`window.PIXEL_ASSETS.cinderMeta=${await fs.readFile(path.join(root,'assets/vfx-sheets/cinder-cyclone.json'),'utf8')};`;
- }catch(e){console.warn('missing cinder-cyclone sheet');}
+  const dir=path.join(root,'assets/vfx-sheets'), shelf={};
+  for(const f of (await fs.readdir(dir)).filter(f=>f.endsWith('.json'))){
+    const id=f.slice(0,-5);
+    try{ shelf[id]={img:await media(path.join(dir,id+'.png'),`vfx-sheets/${id}.png`),meta:JSON.parse(await fs.readFile(path.join(dir,f),'utf8'))}; }
+    catch(e){ console.warn('missing vfx sheet png',id); }
+  }
+  assetScript+=`window.PIXEL_ASSETS.vfxSheets=${JSON.stringify(shelf)};`;
+ }catch(e){console.warn('no vfx-sheets folder');}
  // 2026-10-31:英雄不再戴配件 → 配件圖集(5 KB)不再打包,檔案留在 assets/heroes/ 當歷史
  // try{put('heroAccessories',...)}
  // 新規格魔物(assets/monsters3/<魔物>.png/.json)——執行時用到哪一種才載(見 pixel-world.js ensureMonsterSheet)

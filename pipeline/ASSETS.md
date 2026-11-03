@@ -16,6 +16,7 @@
 | `inn.png` | 1.8M | ImageGen（單張編輯，洋紅底） | ✅ `inn` | prompt 見 PROVENANCE |
 | `monument.png` | 1.4M | 程式／圖集 | ✅ `monument` | 英雄雕像 |
 | `buildings14.png` | 2.5M | ImageGen（以 hall 為參考，4×3） | ❌ **不內嵌** | **風格基準＋img2img 底圖**，別刪 |
+| `ui/fx-levelup.png` | 228K | pixelfx `ui/level-up` 純光柱匯出（MIT，Patch + Hugo Duprez；灰色假人與 `LEVEL UP!` 文字都拿掉） | ✅ `level` 升級特效 | 24 格 176×138／1.5 秒 15 fps，pivot [88,114]、世界寬 36；幀框見同名 `.json`（授權見 `THIRD-PARTY-LICENSES.txt`） |
 
 ## 二、圖集素材（sprite-gen manifest 契約，兩段 LOD）
 
@@ -29,7 +30,7 @@
 | `road.png` | — | **l0veyou**（無縫土路，色調對齊 title 小路） | ✅ | `road` |
 | `woodui.png` | — | **l0veyou**（UI 木板材質，色調對齊 title 木頭） | ✅ | `woodui`（CSS `--wood-tex`） |
 | `icons@1x.png` / `@2x` | ✅ | **l0veyou**（29 個 UI 圖示：資源、物資、裝備、選單） | ✅ | `iconsAtlas(+2x)` |
-| `vfx@1x.png` / `@2x` | ✅ | **l0veyou**（斬擊、法球、治療、升級星、命中、閃光、施工空地、獸皮圖示） | ✅ | `vfxAtlas(+2x)` |
+| `vfx@1x.png` / `@2x` | ✅ | **l0veyou**（斬擊、法球、治療、升級星、命中、閃光、施工空地、獸皮圖示）；`arrowFx` 由 **pixelfx** 方法在 `pipeline/scripts/pixelfx/make_arrow.py` 以程式重繪（MIT） | ✅ | `vfxAtlas(+2x)`（arrowFx 維持 64×64 cell） |
 | `flora@1x.png` / `@2x` | ✅ | **l0veyou**（四色小花、麥穗、高麗菜、等角橋欄長條、橋柱） | ✅ | `floraAtlas(+2x)` |
 | `yard@1x.png` / `@2x` | ✅ | **l0veyou**（寶箱、木箱、草捆、柴堆、水槽、稻草人、燈籠、推車；純裝飾，16:9 生成） | ✅ | `yardAtlas(+2x)` |
 | `town@1x.png` / `@2x` | ✅ | **l0veyou**（箭靶、木人、兵器架、鐵砧、桌椅、長凳、推車、花箱） | ✅ | `townAtlas(+2x)` |
