@@ -1,0 +1,2305 @@
+{
+ "frames": [
+  {
+   "filename": "cinder-cyclone 0",
+   "frame": {
+    "x": 0,
+    "y": 0,
+    "w": 190,
+    "h": 250
+   },
+   "rotated": false,
+   "trimmed": false,
+   "spriteSourceSize": {
+    "x": 0,
+    "y": 0,
+    "w": 190,
+    "h": 250
+   },
+   "sourceSize": {
+    "w": 190,
+    "h": 250
+   },
+   "duration": 33
+  },
+  {
+   "filename": "cinder-cyclone 1",
+   "frame": {
+    "x": 190,
+    "y": 0,
+    "w": 190,
+    "h": 250
+   },
+   "rotated": false,
+   "trimmed": false,
+   "spriteSourceSize": {
+    "x": 0,
+    "y": 0,
+    "w": 190,
+    "h": 250
+   },
+   "sourceSize": {
+    "w": 190,
+    "h": 250
+   },
+   "duration": 33
+  },
+  {
+   "filename": "cinder-cyclone 2",
+   "frame": {
+    "x": 380,
+    "y": 0,
+    "w": 190,
+    "h": 250
+   },
+   "rotated": false,
+   "trimmed": false,
+   "spriteSourceSize": {
+    "x": 0,
+    "y": 0,
+    "w": 190,
+    "h": 250
+   },
+   "sourceSize": {
+    "w": 190,
+    "h": 250
+   },
+   "duration": 33
+  },
+  {
+   "filename": "cinder-cyclone 3",
+   "frame": {
+    "x": 570,
+    "y": 0,
+    "w": 190,
+    "h": 250
+   },
+   "rotated": false,
+   "trimmed": false,
+   "spriteSourceSize": {
+    "x": 0,
+    "y": 0,
+    "w": 190,
+    "h": 250
+   },
+   "sourceSize": {
+    "w": 190,
+    "h": 250
+   },
+   "duration": 33
+  },
+  {
+   "filename": "cinder-cyclone 4",
+   "frame": {
+    "x": 760,
+    "y": 0,
+    "w": 190,
+    "h": 250
+   },
+   "rotated": false,
+   "trimmed": false,
+   "spriteSourceSize": {
+    "x": 0,
+    "y": 0,
+    "w": 190,
+    "h": 250
+   },
+   "sourceSize": {
+    "w": 190,
+    "h": 250
+   },
+   "duration": 33
+  },
+  {
+   "filename": "cinder-cyclone 5",
+   "frame": {
+    "x": 950,
+    "y": 0,
+    "w": 190,
+    "h": 250
+   },
+   "rotated": false,
+   "trimmed": false,
+   "spriteSourceSize": {
+    "x": 0,
+    "y": 0,
+    "w": 190,
+    "h": 250
+   },
+   "sourceSize": {
+    "w": 190,
+    "h": 250
+   },
+   "duration": 33
+  },
+  {
+   "filename": "cinder-cyclone 6",
+   "frame": {
+    "x": 1140,
+    "y": 0,
+    "w": 190,
+    "h": 250
+   },
+   "rotated": false,
+   "trimmed": false,
+   "spriteSourceSize": {
+    "x": 0,
+    "y": 0,
+    "w": 190,
+    "h": 250
+   },
+   "sourceSize": {
+    "w": 190,
+    "h": 250
+   },
+   "duration": 33
+  },
+  {
+   "filename": "cinder-cyclone 7",
+   "frame": {
+    "x": 1330,
+    "y": 0,
+    "w": 190,
+    "h": 250
+   },
+   "rotated": false,
+   "trimmed": false,
+   "spriteSourceSize": {
+    "x": 0,
+    "y": 0,
+    "w": 190,
+    "h": 250
+   },
+   "sourceSize": {
+    "w": 190,
+    "h": 250
+   },
+   "duration": 33
+  },
+  {
+   "filename": "cinder-cyclone 8",
+   "frame": {
+    "x": 1520,
+    "y": 0,
+    "w": 190,
+    "h": 250
+   },
+   "rotated": false,
+   "trimmed": false,
+   "spriteSourceSize": {
+    "x": 0,
+    "y": 0,
+    "w": 190,
+    "h": 250
+   },
+   "sourceSize": {
+    "w": 190,
+    "h": 250
+   },
+   "duration": 33
+  },
+  {
+   "filename": "cinder-cyclone 9",
+   "frame": {
+    "x": 1710,
+    "y": 0,
+    "w": 190,
+    "h": 250
+   },
+   "rotated": false,
+   "trimmed": false,
+   "spriteSourceSize": {
+    "x": 0,
+    "y": 0,
+    "w": 190,
+    "h": 250
+   },
+   "sourceSize": {
+    "w": 190,
+    "h": 250
+   },
+   "duration": 33
+  },
+  {
+   "filename": "cinder-cyclone 10",
+   "frame": {
+    "x": 1900,
+    "y": 0,
+    "w": 190,
+    "h": 250
+   },
+   "rotated": false,
+   "trimmed": false,
+   "spriteSourceSize": {
+    "x": 0,
+    "y": 0,
+    "w": 190,
+    "h": 250
+   },
+   "sourceSize": {
+    "w": 190,
+    "h": 250
+   },
+   "duration": 33
+  },
+  {
+   "filename": "cinder-cyclone 11",
+   "frame": {
+    "x": 2090,
+    "y": 0,
+    "w": 190,
+    "h": 250
+   },
+   "rotated": false,
+   "trimmed": false,
+   "spriteSourceSize": {
+    "x": 0,
+    "y": 0,
+    "w": 190,
+    "h": 250
+   },
+   "sourceSize": {
+    "w": 190,
+    "h": 250
+   },
+   "duration": 33
+  },
+  {
+   "filename": "cinder-cyclone 12",
+   "frame": {
+    "x": 0,
+    "y": 250,
+    "w": 190,
+    "h": 250
+   },
+   "rotated": false,
+   "trimmed": false,
+   "spriteSourceSize": {
+    "x": 0,
+    "y": 0,
+    "w": 190,
+    "h": 250
+   },
+   "sourceSize": {
+    "w": 190,
+    "h": 250
+   },
+   "duration": 33
+  },
+  {
+   "filename": "cinder-cyclone 13",
+   "frame": {
+    "x": 190,
+    "y": 250,
+    "w": 190,
+    "h": 250
+   },
+   "rotated": false,
+   "trimmed": false,
+   "spriteSourceSize": {
+    "x": 0,
+    "y": 0,
+    "w": 190,
+    "h": 250
+   },
+   "sourceSize": {
+    "w": 190,
+    "h": 250
+   },
+   "duration": 33
+  },
+  {
+   "filename": "cinder-cyclone 14",
+   "frame": {
+    "x": 380,
+    "y": 250,
+    "w": 190,
+    "h": 250
+   },
+   "rotated": false,
+   "trimmed": false,
+   "spriteSourceSize": {
+    "x": 0,
+    "y": 0,
+    "w": 190,
+    "h": 250
+   },
+   "sourceSize": {
+    "w": 190,
+    "h": 250
+   },
+   "duration": 33
+  },
+  {
+   "filename": "cinder-cyclone 15",
+   "frame": {
+    "x": 570,
+    "y": 250,
+    "w": 190,
+    "h": 250
+   },
+   "rotated": false,
+   "trimmed": false,
+   "spriteSourceSize": {
+    "x": 0,
+    "y": 0,
+    "w": 190,
+    "h": 250
+   },
+   "sourceSize": {
+    "w": 190,
+    "h": 250
+   },
+   "duration": 33
+  },
+  {
+   "filename": "cinder-cyclone 16",
+   "frame": {
+    "x": 760,
+    "y": 250,
+    "w": 190,
+    "h": 250
+   },
+   "rotated": false,
+   "trimmed": false,
+   "spriteSourceSize": {
+    "x": 0,
+    "y": 0,
+    "w": 190,
+    "h": 250
+   },
+   "sourceSize": {
+    "w": 190,
+    "h": 250
+   },
+   "duration": 33
+  },
+  {
+   "filename": "cinder-cyclone 17",
+   "frame": {
+    "x": 950,
+    "y": 250,
+    "w": 190,
+    "h": 250
+   },
+   "rotated": false,
+   "trimmed": false,
+   "spriteSourceSize": {
+    "x": 0,
+    "y": 0,
+    "w": 190,
+    "h": 250
+   },
+   "sourceSize": {
+    "w": 190,
+    "h": 250
+   },
+   "duration": 33
+  },
+  {
+   "filename": "cinder-cyclone 18",
+   "frame": {
+    "x": 1140,
+    "y": 250,
+    "w": 190,
+    "h": 250
+   },
+   "rotated": false,
+   "trimmed": false,
+   "spriteSourceSize": {
+    "x": 0,
+    "y": 0,
+    "w": 190,
+    "h": 250
+   },
+   "sourceSize": {
+    "w": 190,
+    "h": 250
+   },
+   "duration": 33
+  },
+  {
+   "filename": "cinder-cyclone 19",
+   "frame": {
+    "x": 1330,
+    "y": 250,
+    "w": 190,
+    "h": 250
+   },
+   "rotated": false,
+   "trimmed": false,
+   "spriteSourceSize": {
+    "x": 0,
+    "y": 0,
+    "w": 190,
+    "h": 250
+   },
+   "sourceSize": {
+    "w": 190,
+    "h": 250
+   },
+   "duration": 33
+  },
+  {
+   "filename": "cinder-cyclone 20",
+   "frame": {
+    "x": 1520,
+    "y": 250,
+    "w": 190,
+    "h": 250
+   },
+   "rotated": false,
+   "trimmed": false,
+   "spriteSourceSize": {
+    "x": 0,
+    "y": 0,
+    "w": 190,
+    "h": 250
+   },
+   "sourceSize": {
+    "w": 190,
+    "h": 250
+   },
+   "duration": 33
+  },
+  {
+   "filename": "cinder-cyclone 21",
+   "frame": {
+    "x": 1710,
+    "y": 250,
+    "w": 190,
+    "h": 250
+   },
+   "rotated": false,
+   "trimmed": false,
+   "spriteSourceSize": {
+    "x": 0,
+    "y": 0,
+    "w": 190,
+    "h": 250
+   },
+   "sourceSize": {
+    "w": 190,
+    "h": 250
+   },
+   "duration": 33
+  },
+  {
+   "filename": "cinder-cyclone 22",
+   "frame": {
+    "x": 1900,
+    "y": 250,
+    "w": 190,
+    "h": 250
+   },
+   "rotated": false,
+   "trimmed": false,
+   "spriteSourceSize": {
+    "x": 0,
+    "y": 0,
+    "w": 190,
+    "h": 250
+   },
+   "sourceSize": {
+    "w": 190,
+    "h": 250
+   },
+   "duration": 33
+  },
+  {
+   "filename": "cinder-cyclone 23",
+   "frame": {
+    "x": 2090,
+    "y": 250,
+    "w": 190,
+    "h": 250
+   },
+   "rotated": false,
+   "trimmed": false,
+   "spriteSourceSize": {
+    "x": 0,
+    "y": 0,
+    "w": 190,
+    "h": 250
+   },
+   "sourceSize": {
+    "w": 190,
+    "h": 250
+   },
+   "duration": 33
+  },
+  {
+   "filename": "cinder-cyclone 24",
+   "frame": {
+    "x": 0,
+    "y": 500,
+    "w": 190,
+    "h": 250
+   },
+   "rotated": false,
+   "trimmed": false,
+   "spriteSourceSize": {
+    "x": 0,
+    "y": 0,
+    "w": 190,
+    "h": 250
+   },
+   "sourceSize": {
+    "w": 190,
+    "h": 250
+   },
+   "duration": 33
+  },
+  {
+   "filename": "cinder-cyclone 25",
+   "frame": {
+    "x": 190,
+    "y": 500,
+    "w": 190,
+    "h": 250
+   },
+   "rotated": false,
+   "trimmed": false,
+   "spriteSourceSize": {
+    "x": 0,
+    "y": 0,
+    "w": 190,
+    "h": 250
+   },
+   "sourceSize": {
+    "w": 190,
+    "h": 250
+   },
+   "duration": 33
+  },
+  {
+   "filename": "cinder-cyclone 26",
+   "frame": {
+    "x": 380,
+    "y": 500,
+    "w": 190,
+    "h": 250
+   },
+   "rotated": false,
+   "trimmed": false,
+   "spriteSourceSize": {
+    "x": 0,
+    "y": 0,
+    "w": 190,
+    "h": 250
+   },
+   "sourceSize": {
+    "w": 190,
+    "h": 250
+   },
+   "duration": 33
+  },
+  {
+   "filename": "cinder-cyclone 27",
+   "frame": {
+    "x": 570,
+    "y": 500,
+    "w": 190,
+    "h": 250
+   },
+   "rotated": false,
+   "trimmed": false,
+   "spriteSourceSize": {
+    "x": 0,
+    "y": 0,
+    "w": 190,
+    "h": 250
+   },
+   "sourceSize": {
+    "w": 190,
+    "h": 250
+   },
+   "duration": 33
+  },
+  {
+   "filename": "cinder-cyclone 28",
+   "frame": {
+    "x": 760,
+    "y": 500,
+    "w": 190,
+    "h": 250
+   },
+   "rotated": false,
+   "trimmed": false,
+   "spriteSourceSize": {
+    "x": 0,
+    "y": 0,
+    "w": 190,
+    "h": 250
+   },
+   "sourceSize": {
+    "w": 190,
+    "h": 250
+   },
+   "duration": 33
+  },
+  {
+   "filename": "cinder-cyclone 29",
+   "frame": {
+    "x": 950,
+    "y": 500,
+    "w": 190,
+    "h": 250
+   },
+   "rotated": false,
+   "trimmed": false,
+   "spriteSourceSize": {
+    "x": 0,
+    "y": 0,
+    "w": 190,
+    "h": 250
+   },
+   "sourceSize": {
+    "w": 190,
+    "h": 250
+   },
+   "duration": 33
+  },
+  {
+   "filename": "cinder-cyclone 30",
+   "frame": {
+    "x": 1140,
+    "y": 500,
+    "w": 190,
+    "h": 250
+   },
+   "rotated": false,
+   "trimmed": false,
+   "spriteSourceSize": {
+    "x": 0,
+    "y": 0,
+    "w": 190,
+    "h": 250
+   },
+   "sourceSize": {
+    "w": 190,
+    "h": 250
+   },
+   "duration": 33
+  },
+  {
+   "filename": "cinder-cyclone 31",
+   "frame": {
+    "x": 1330,
+    "y": 500,
+    "w": 190,
+    "h": 250
+   },
+   "rotated": false,
+   "trimmed": false,
+   "spriteSourceSize": {
+    "x": 0,
+    "y": 0,
+    "w": 190,
+    "h": 250
+   },
+   "sourceSize": {
+    "w": 190,
+    "h": 250
+   },
+   "duration": 33
+  },
+  {
+   "filename": "cinder-cyclone 32",
+   "frame": {
+    "x": 1520,
+    "y": 500,
+    "w": 190,
+    "h": 250
+   },
+   "rotated": false,
+   "trimmed": false,
+   "spriteSourceSize": {
+    "x": 0,
+    "y": 0,
+    "w": 190,
+    "h": 250
+   },
+   "sourceSize": {
+    "w": 190,
+    "h": 250
+   },
+   "duration": 33
+  },
+  {
+   "filename": "cinder-cyclone 33",
+   "frame": {
+    "x": 1710,
+    "y": 500,
+    "w": 190,
+    "h": 250
+   },
+   "rotated": false,
+   "trimmed": false,
+   "spriteSourceSize": {
+    "x": 0,
+    "y": 0,
+    "w": 190,
+    "h": 250
+   },
+   "sourceSize": {
+    "w": 190,
+    "h": 250
+   },
+   "duration": 33
+  },
+  {
+   "filename": "cinder-cyclone 34",
+   "frame": {
+    "x": 1900,
+    "y": 500,
+    "w": 190,
+    "h": 250
+   },
+   "rotated": false,
+   "trimmed": false,
+   "spriteSourceSize": {
+    "x": 0,
+    "y": 0,
+    "w": 190,
+    "h": 250
+   },
+   "sourceSize": {
+    "w": 190,
+    "h": 250
+   },
+   "duration": 33
+  },
+  {
+   "filename": "cinder-cyclone 35",
+   "frame": {
+    "x": 2090,
+    "y": 500,
+    "w": 190,
+    "h": 250
+   },
+   "rotated": false,
+   "trimmed": false,
+   "spriteSourceSize": {
+    "x": 0,
+    "y": 0,
+    "w": 190,
+    "h": 250
+   },
+   "sourceSize": {
+    "w": 190,
+    "h": 250
+   },
+   "duration": 33
+  },
+  {
+   "filename": "cinder-cyclone 36",
+   "frame": {
+    "x": 0,
+    "y": 750,
+    "w": 190,
+    "h": 250
+   },
+   "rotated": false,
+   "trimmed": false,
+   "spriteSourceSize": {
+    "x": 0,
+    "y": 0,
+    "w": 190,
+    "h": 250
+   },
+   "sourceSize": {
+    "w": 190,
+    "h": 250
+   },
+   "duration": 33
+  },
+  {
+   "filename": "cinder-cyclone 37",
+   "frame": {
+    "x": 190,
+    "y": 750,
+    "w": 190,
+    "h": 250
+   },
+   "rotated": false,
+   "trimmed": false,
+   "spriteSourceSize": {
+    "x": 0,
+    "y": 0,
+    "w": 190,
+    "h": 250
+   },
+   "sourceSize": {
+    "w": 190,
+    "h": 250
+   },
+   "duration": 33
+  },
+  {
+   "filename": "cinder-cyclone 38",
+   "frame": {
+    "x": 380,
+    "y": 750,
+    "w": 190,
+    "h": 250
+   },
+   "rotated": false,
+   "trimmed": false,
+   "spriteSourceSize": {
+    "x": 0,
+    "y": 0,
+    "w": 190,
+    "h": 250
+   },
+   "sourceSize": {
+    "w": 190,
+    "h": 250
+   },
+   "duration": 33
+  },
+  {
+   "filename": "cinder-cyclone 39",
+   "frame": {
+    "x": 570,
+    "y": 750,
+    "w": 190,
+    "h": 250
+   },
+   "rotated": false,
+   "trimmed": false,
+   "spriteSourceSize": {
+    "x": 0,
+    "y": 0,
+    "w": 190,
+    "h": 250
+   },
+   "sourceSize": {
+    "w": 190,
+    "h": 250
+   },
+   "duration": 33
+  },
+  {
+   "filename": "cinder-cyclone 40",
+   "frame": {
+    "x": 760,
+    "y": 750,
+    "w": 190,
+    "h": 250
+   },
+   "rotated": false,
+   "trimmed": false,
+   "spriteSourceSize": {
+    "x": 0,
+    "y": 0,
+    "w": 190,
+    "h": 250
+   },
+   "sourceSize": {
+    "w": 190,
+    "h": 250
+   },
+   "duration": 33
+  },
+  {
+   "filename": "cinder-cyclone 41",
+   "frame": {
+    "x": 950,
+    "y": 750,
+    "w": 190,
+    "h": 250
+   },
+   "rotated": false,
+   "trimmed": false,
+   "spriteSourceSize": {
+    "x": 0,
+    "y": 0,
+    "w": 190,
+    "h": 250
+   },
+   "sourceSize": {
+    "w": 190,
+    "h": 250
+   },
+   "duration": 33
+  },
+  {
+   "filename": "cinder-cyclone 42",
+   "frame": {
+    "x": 1140,
+    "y": 750,
+    "w": 190,
+    "h": 250
+   },
+   "rotated": false,
+   "trimmed": false,
+   "spriteSourceSize": {
+    "x": 0,
+    "y": 0,
+    "w": 190,
+    "h": 250
+   },
+   "sourceSize": {
+    "w": 190,
+    "h": 250
+   },
+   "duration": 33
+  },
+  {
+   "filename": "cinder-cyclone 43",
+   "frame": {
+    "x": 1330,
+    "y": 750,
+    "w": 190,
+    "h": 250
+   },
+   "rotated": false,
+   "trimmed": false,
+   "spriteSourceSize": {
+    "x": 0,
+    "y": 0,
+    "w": 190,
+    "h": 250
+   },
+   "sourceSize": {
+    "w": 190,
+    "h": 250
+   },
+   "duration": 33
+  },
+  {
+   "filename": "cinder-cyclone 44",
+   "frame": {
+    "x": 1520,
+    "y": 750,
+    "w": 190,
+    "h": 250
+   },
+   "rotated": false,
+   "trimmed": false,
+   "spriteSourceSize": {
+    "x": 0,
+    "y": 0,
+    "w": 190,
+    "h": 250
+   },
+   "sourceSize": {
+    "w": 190,
+    "h": 250
+   },
+   "duration": 33
+  },
+  {
+   "filename": "cinder-cyclone 45",
+   "frame": {
+    "x": 1710,
+    "y": 750,
+    "w": 190,
+    "h": 250
+   },
+   "rotated": false,
+   "trimmed": false,
+   "spriteSourceSize": {
+    "x": 0,
+    "y": 0,
+    "w": 190,
+    "h": 250
+   },
+   "sourceSize": {
+    "w": 190,
+    "h": 250
+   },
+   "duration": 33
+  },
+  {
+   "filename": "cinder-cyclone 46",
+   "frame": {
+    "x": 1900,
+    "y": 750,
+    "w": 190,
+    "h": 250
+   },
+   "rotated": false,
+   "trimmed": false,
+   "spriteSourceSize": {
+    "x": 0,
+    "y": 0,
+    "w": 190,
+    "h": 250
+   },
+   "sourceSize": {
+    "w": 190,
+    "h": 250
+   },
+   "duration": 33
+  },
+  {
+   "filename": "cinder-cyclone 47",
+   "frame": {
+    "x": 2090,
+    "y": 750,
+    "w": 190,
+    "h": 250
+   },
+   "rotated": false,
+   "trimmed": false,
+   "spriteSourceSize": {
+    "x": 0,
+    "y": 0,
+    "w": 190,
+    "h": 250
+   },
+   "sourceSize": {
+    "w": 190,
+    "h": 250
+   },
+   "duration": 33
+  },
+  {
+   "filename": "cinder-cyclone 48",
+   "frame": {
+    "x": 0,
+    "y": 1000,
+    "w": 190,
+    "h": 250
+   },
+   "rotated": false,
+   "trimmed": false,
+   "spriteSourceSize": {
+    "x": 0,
+    "y": 0,
+    "w": 190,
+    "h": 250
+   },
+   "sourceSize": {
+    "w": 190,
+    "h": 250
+   },
+   "duration": 33
+  },
+  {
+   "filename": "cinder-cyclone 49",
+   "frame": {
+    "x": 190,
+    "y": 1000,
+    "w": 190,
+    "h": 250
+   },
+   "rotated": false,
+   "trimmed": false,
+   "spriteSourceSize": {
+    "x": 0,
+    "y": 0,
+    "w": 190,
+    "h": 250
+   },
+   "sourceSize": {
+    "w": 190,
+    "h": 250
+   },
+   "duration": 33
+  },
+  {
+   "filename": "cinder-cyclone 50",
+   "frame": {
+    "x": 380,
+    "y": 1000,
+    "w": 190,
+    "h": 250
+   },
+   "rotated": false,
+   "trimmed": false,
+   "spriteSourceSize": {
+    "x": 0,
+    "y": 0,
+    "w": 190,
+    "h": 250
+   },
+   "sourceSize": {
+    "w": 190,
+    "h": 250
+   },
+   "duration": 33
+  },
+  {
+   "filename": "cinder-cyclone 51",
+   "frame": {
+    "x": 570,
+    "y": 1000,
+    "w": 190,
+    "h": 250
+   },
+   "rotated": false,
+   "trimmed": false,
+   "spriteSourceSize": {
+    "x": 0,
+    "y": 0,
+    "w": 190,
+    "h": 250
+   },
+   "sourceSize": {
+    "w": 190,
+    "h": 250
+   },
+   "duration": 33
+  },
+  {
+   "filename": "cinder-cyclone 52",
+   "frame": {
+    "x": 760,
+    "y": 1000,
+    "w": 190,
+    "h": 250
+   },
+   "rotated": false,
+   "trimmed": false,
+   "spriteSourceSize": {
+    "x": 0,
+    "y": 0,
+    "w": 190,
+    "h": 250
+   },
+   "sourceSize": {
+    "w": 190,
+    "h": 250
+   },
+   "duration": 33
+  },
+  {
+   "filename": "cinder-cyclone 53",
+   "frame": {
+    "x": 950,
+    "y": 1000,
+    "w": 190,
+    "h": 250
+   },
+   "rotated": false,
+   "trimmed": false,
+   "spriteSourceSize": {
+    "x": 0,
+    "y": 0,
+    "w": 190,
+    "h": 250
+   },
+   "sourceSize": {
+    "w": 190,
+    "h": 250
+   },
+   "duration": 33
+  },
+  {
+   "filename": "cinder-cyclone 54",
+   "frame": {
+    "x": 1140,
+    "y": 1000,
+    "w": 190,
+    "h": 250
+   },
+   "rotated": false,
+   "trimmed": false,
+   "spriteSourceSize": {
+    "x": 0,
+    "y": 0,
+    "w": 190,
+    "h": 250
+   },
+   "sourceSize": {
+    "w": 190,
+    "h": 250
+   },
+   "duration": 33
+  },
+  {
+   "filename": "cinder-cyclone 55",
+   "frame": {
+    "x": 1330,
+    "y": 1000,
+    "w": 190,
+    "h": 250
+   },
+   "rotated": false,
+   "trimmed": false,
+   "spriteSourceSize": {
+    "x": 0,
+    "y": 0,
+    "w": 190,
+    "h": 250
+   },
+   "sourceSize": {
+    "w": 190,
+    "h": 250
+   },
+   "duration": 33
+  },
+  {
+   "filename": "cinder-cyclone 56",
+   "frame": {
+    "x": 1520,
+    "y": 1000,
+    "w": 190,
+    "h": 250
+   },
+   "rotated": false,
+   "trimmed": false,
+   "spriteSourceSize": {
+    "x": 0,
+    "y": 0,
+    "w": 190,
+    "h": 250
+   },
+   "sourceSize": {
+    "w": 190,
+    "h": 250
+   },
+   "duration": 33
+  },
+  {
+   "filename": "cinder-cyclone 57",
+   "frame": {
+    "x": 1710,
+    "y": 1000,
+    "w": 190,
+    "h": 250
+   },
+   "rotated": false,
+   "trimmed": false,
+   "spriteSourceSize": {
+    "x": 0,
+    "y": 0,
+    "w": 190,
+    "h": 250
+   },
+   "sourceSize": {
+    "w": 190,
+    "h": 250
+   },
+   "duration": 33
+  },
+  {
+   "filename": "cinder-cyclone 58",
+   "frame": {
+    "x": 1900,
+    "y": 1000,
+    "w": 190,
+    "h": 250
+   },
+   "rotated": false,
+   "trimmed": false,
+   "spriteSourceSize": {
+    "x": 0,
+    "y": 0,
+    "w": 190,
+    "h": 250
+   },
+   "sourceSize": {
+    "w": 190,
+    "h": 250
+   },
+   "duration": 33
+  },
+  {
+   "filename": "cinder-cyclone 59",
+   "frame": {
+    "x": 2090,
+    "y": 1000,
+    "w": 190,
+    "h": 250
+   },
+   "rotated": false,
+   "trimmed": false,
+   "spriteSourceSize": {
+    "x": 0,
+    "y": 0,
+    "w": 190,
+    "h": 250
+   },
+   "sourceSize": {
+    "w": 190,
+    "h": 250
+   },
+   "duration": 33
+  },
+  {
+   "filename": "cinder-cyclone 60",
+   "frame": {
+    "x": 0,
+    "y": 1250,
+    "w": 190,
+    "h": 250
+   },
+   "rotated": false,
+   "trimmed": false,
+   "spriteSourceSize": {
+    "x": 0,
+    "y": 0,
+    "w": 190,
+    "h": 250
+   },
+   "sourceSize": {
+    "w": 190,
+    "h": 250
+   },
+   "duration": 33
+  },
+  {
+   "filename": "cinder-cyclone 61",
+   "frame": {
+    "x": 190,
+    "y": 1250,
+    "w": 190,
+    "h": 250
+   },
+   "rotated": false,
+   "trimmed": false,
+   "spriteSourceSize": {
+    "x": 0,
+    "y": 0,
+    "w": 190,
+    "h": 250
+   },
+   "sourceSize": {
+    "w": 190,
+    "h": 250
+   },
+   "duration": 33
+  },
+  {
+   "filename": "cinder-cyclone 62",
+   "frame": {
+    "x": 380,
+    "y": 1250,
+    "w": 190,
+    "h": 250
+   },
+   "rotated": false,
+   "trimmed": false,
+   "spriteSourceSize": {
+    "x": 0,
+    "y": 0,
+    "w": 190,
+    "h": 250
+   },
+   "sourceSize": {
+    "w": 190,
+    "h": 250
+   },
+   "duration": 33
+  },
+  {
+   "filename": "cinder-cyclone 63",
+   "frame": {
+    "x": 570,
+    "y": 1250,
+    "w": 190,
+    "h": 250
+   },
+   "rotated": false,
+   "trimmed": false,
+   "spriteSourceSize": {
+    "x": 0,
+    "y": 0,
+    "w": 190,
+    "h": 250
+   },
+   "sourceSize": {
+    "w": 190,
+    "h": 250
+   },
+   "duration": 33
+  },
+  {
+   "filename": "cinder-cyclone 64",
+   "frame": {
+    "x": 760,
+    "y": 1250,
+    "w": 190,
+    "h": 250
+   },
+   "rotated": false,
+   "trimmed": false,
+   "spriteSourceSize": {
+    "x": 0,
+    "y": 0,
+    "w": 190,
+    "h": 250
+   },
+   "sourceSize": {
+    "w": 190,
+    "h": 250
+   },
+   "duration": 33
+  },
+  {
+   "filename": "cinder-cyclone 65",
+   "frame": {
+    "x": 950,
+    "y": 1250,
+    "w": 190,
+    "h": 250
+   },
+   "rotated": false,
+   "trimmed": false,
+   "spriteSourceSize": {
+    "x": 0,
+    "y": 0,
+    "w": 190,
+    "h": 250
+   },
+   "sourceSize": {
+    "w": 190,
+    "h": 250
+   },
+   "duration": 33
+  },
+  {
+   "filename": "cinder-cyclone 66",
+   "frame": {
+    "x": 1140,
+    "y": 1250,
+    "w": 190,
+    "h": 250
+   },
+   "rotated": false,
+   "trimmed": false,
+   "spriteSourceSize": {
+    "x": 0,
+    "y": 0,
+    "w": 190,
+    "h": 250
+   },
+   "sourceSize": {
+    "w": 190,
+    "h": 250
+   },
+   "duration": 33
+  },
+  {
+   "filename": "cinder-cyclone 67",
+   "frame": {
+    "x": 1330,
+    "y": 1250,
+    "w": 190,
+    "h": 250
+   },
+   "rotated": false,
+   "trimmed": false,
+   "spriteSourceSize": {
+    "x": 0,
+    "y": 0,
+    "w": 190,
+    "h": 250
+   },
+   "sourceSize": {
+    "w": 190,
+    "h": 250
+   },
+   "duration": 33
+  },
+  {
+   "filename": "cinder-cyclone 68",
+   "frame": {
+    "x": 1520,
+    "y": 1250,
+    "w": 190,
+    "h": 250
+   },
+   "rotated": false,
+   "trimmed": false,
+   "spriteSourceSize": {
+    "x": 0,
+    "y": 0,
+    "w": 190,
+    "h": 250
+   },
+   "sourceSize": {
+    "w": 190,
+    "h": 250
+   },
+   "duration": 33
+  },
+  {
+   "filename": "cinder-cyclone 69",
+   "frame": {
+    "x": 1710,
+    "y": 1250,
+    "w": 190,
+    "h": 250
+   },
+   "rotated": false,
+   "trimmed": false,
+   "spriteSourceSize": {
+    "x": 0,
+    "y": 0,
+    "w": 190,
+    "h": 250
+   },
+   "sourceSize": {
+    "w": 190,
+    "h": 250
+   },
+   "duration": 33
+  },
+  {
+   "filename": "cinder-cyclone 70",
+   "frame": {
+    "x": 1900,
+    "y": 1250,
+    "w": 190,
+    "h": 250
+   },
+   "rotated": false,
+   "trimmed": false,
+   "spriteSourceSize": {
+    "x": 0,
+    "y": 0,
+    "w": 190,
+    "h": 250
+   },
+   "sourceSize": {
+    "w": 190,
+    "h": 250
+   },
+   "duration": 33
+  },
+  {
+   "filename": "cinder-cyclone 71",
+   "frame": {
+    "x": 2090,
+    "y": 1250,
+    "w": 190,
+    "h": 250
+   },
+   "rotated": false,
+   "trimmed": false,
+   "spriteSourceSize": {
+    "x": 0,
+    "y": 0,
+    "w": 190,
+    "h": 250
+   },
+   "sourceSize": {
+    "w": 190,
+    "h": 250
+   },
+   "duration": 33
+  },
+  {
+   "filename": "cinder-cyclone 72",
+   "frame": {
+    "x": 0,
+    "y": 1500,
+    "w": 190,
+    "h": 250
+   },
+   "rotated": false,
+   "trimmed": false,
+   "spriteSourceSize": {
+    "x": 0,
+    "y": 0,
+    "w": 190,
+    "h": 250
+   },
+   "sourceSize": {
+    "w": 190,
+    "h": 250
+   },
+   "duration": 33
+  },
+  {
+   "filename": "cinder-cyclone 73",
+   "frame": {
+    "x": 190,
+    "y": 1500,
+    "w": 190,
+    "h": 250
+   },
+   "rotated": false,
+   "trimmed": false,
+   "spriteSourceSize": {
+    "x": 0,
+    "y": 0,
+    "w": 190,
+    "h": 250
+   },
+   "sourceSize": {
+    "w": 190,
+    "h": 250
+   },
+   "duration": 33
+  },
+  {
+   "filename": "cinder-cyclone 74",
+   "frame": {
+    "x": 380,
+    "y": 1500,
+    "w": 190,
+    "h": 250
+   },
+   "rotated": false,
+   "trimmed": false,
+   "spriteSourceSize": {
+    "x": 0,
+    "y": 0,
+    "w": 190,
+    "h": 250
+   },
+   "sourceSize": {
+    "w": 190,
+    "h": 250
+   },
+   "duration": 33
+  },
+  {
+   "filename": "cinder-cyclone 75",
+   "frame": {
+    "x": 570,
+    "y": 1500,
+    "w": 190,
+    "h": 250
+   },
+   "rotated": false,
+   "trimmed": false,
+   "spriteSourceSize": {
+    "x": 0,
+    "y": 0,
+    "w": 190,
+    "h": 250
+   },
+   "sourceSize": {
+    "w": 190,
+    "h": 250
+   },
+   "duration": 33
+  },
+  {
+   "filename": "cinder-cyclone 76",
+   "frame": {
+    "x": 760,
+    "y": 1500,
+    "w": 190,
+    "h": 250
+   },
+   "rotated": false,
+   "trimmed": false,
+   "spriteSourceSize": {
+    "x": 0,
+    "y": 0,
+    "w": 190,
+    "h": 250
+   },
+   "sourceSize": {
+    "w": 190,
+    "h": 250
+   },
+   "duration": 33
+  },
+  {
+   "filename": "cinder-cyclone 77",
+   "frame": {
+    "x": 950,
+    "y": 1500,
+    "w": 190,
+    "h": 250
+   },
+   "rotated": false,
+   "trimmed": false,
+   "spriteSourceSize": {
+    "x": 0,
+    "y": 0,
+    "w": 190,
+    "h": 250
+   },
+   "sourceSize": {
+    "w": 190,
+    "h": 250
+   },
+   "duration": 33
+  },
+  {
+   "filename": "cinder-cyclone 78",
+   "frame": {
+    "x": 1140,
+    "y": 1500,
+    "w": 190,
+    "h": 250
+   },
+   "rotated": false,
+   "trimmed": false,
+   "spriteSourceSize": {
+    "x": 0,
+    "y": 0,
+    "w": 190,
+    "h": 250
+   },
+   "sourceSize": {
+    "w": 190,
+    "h": 250
+   },
+   "duration": 33
+  },
+  {
+   "filename": "cinder-cyclone 79",
+   "frame": {
+    "x": 1330,
+    "y": 1500,
+    "w": 190,
+    "h": 250
+   },
+   "rotated": false,
+   "trimmed": false,
+   "spriteSourceSize": {
+    "x": 0,
+    "y": 0,
+    "w": 190,
+    "h": 250
+   },
+   "sourceSize": {
+    "w": 190,
+    "h": 250
+   },
+   "duration": 33
+  },
+  {
+   "filename": "cinder-cyclone 80",
+   "frame": {
+    "x": 1520,
+    "y": 1500,
+    "w": 190,
+    "h": 250
+   },
+   "rotated": false,
+   "trimmed": false,
+   "spriteSourceSize": {
+    "x": 0,
+    "y": 0,
+    "w": 190,
+    "h": 250
+   },
+   "sourceSize": {
+    "w": 190,
+    "h": 250
+   },
+   "duration": 33
+  },
+  {
+   "filename": "cinder-cyclone 81",
+   "frame": {
+    "x": 1710,
+    "y": 1500,
+    "w": 190,
+    "h": 250
+   },
+   "rotated": false,
+   "trimmed": false,
+   "spriteSourceSize": {
+    "x": 0,
+    "y": 0,
+    "w": 190,
+    "h": 250
+   },
+   "sourceSize": {
+    "w": 190,
+    "h": 250
+   },
+   "duration": 33
+  },
+  {
+   "filename": "cinder-cyclone 82",
+   "frame": {
+    "x": 1900,
+    "y": 1500,
+    "w": 190,
+    "h": 250
+   },
+   "rotated": false,
+   "trimmed": false,
+   "spriteSourceSize": {
+    "x": 0,
+    "y": 0,
+    "w": 190,
+    "h": 250
+   },
+   "sourceSize": {
+    "w": 190,
+    "h": 250
+   },
+   "duration": 33
+  },
+  {
+   "filename": "cinder-cyclone 83",
+   "frame": {
+    "x": 2090,
+    "y": 1500,
+    "w": 190,
+    "h": 250
+   },
+   "rotated": false,
+   "trimmed": false,
+   "spriteSourceSize": {
+    "x": 0,
+    "y": 0,
+    "w": 190,
+    "h": 250
+   },
+   "sourceSize": {
+    "w": 190,
+    "h": 250
+   },
+   "duration": 33
+  },
+  {
+   "filename": "cinder-cyclone 84",
+   "frame": {
+    "x": 0,
+    "y": 1750,
+    "w": 190,
+    "h": 250
+   },
+   "rotated": false,
+   "trimmed": false,
+   "spriteSourceSize": {
+    "x": 0,
+    "y": 0,
+    "w": 190,
+    "h": 250
+   },
+   "sourceSize": {
+    "w": 190,
+    "h": 250
+   },
+   "duration": 33
+  },
+  {
+   "filename": "cinder-cyclone 85",
+   "frame": {
+    "x": 190,
+    "y": 1750,
+    "w": 190,
+    "h": 250
+   },
+   "rotated": false,
+   "trimmed": false,
+   "spriteSourceSize": {
+    "x": 0,
+    "y": 0,
+    "w": 190,
+    "h": 250
+   },
+   "sourceSize": {
+    "w": 190,
+    "h": 250
+   },
+   "duration": 33
+  },
+  {
+   "filename": "cinder-cyclone 86",
+   "frame": {
+    "x": 380,
+    "y": 1750,
+    "w": 190,
+    "h": 250
+   },
+   "rotated": false,
+   "trimmed": false,
+   "spriteSourceSize": {
+    "x": 0,
+    "y": 0,
+    "w": 190,
+    "h": 250
+   },
+   "sourceSize": {
+    "w": 190,
+    "h": 250
+   },
+   "duration": 33
+  },
+  {
+   "filename": "cinder-cyclone 87",
+   "frame": {
+    "x": 570,
+    "y": 1750,
+    "w": 190,
+    "h": 250
+   },
+   "rotated": false,
+   "trimmed": false,
+   "spriteSourceSize": {
+    "x": 0,
+    "y": 0,
+    "w": 190,
+    "h": 250
+   },
+   "sourceSize": {
+    "w": 190,
+    "h": 250
+   },
+   "duration": 33
+  },
+  {
+   "filename": "cinder-cyclone 88",
+   "frame": {
+    "x": 760,
+    "y": 1750,
+    "w": 190,
+    "h": 250
+   },
+   "rotated": false,
+   "trimmed": false,
+   "spriteSourceSize": {
+    "x": 0,
+    "y": 0,
+    "w": 190,
+    "h": 250
+   },
+   "sourceSize": {
+    "w": 190,
+    "h": 250
+   },
+   "duration": 33
+  },
+  {
+   "filename": "cinder-cyclone 89",
+   "frame": {
+    "x": 950,
+    "y": 1750,
+    "w": 190,
+    "h": 250
+   },
+   "rotated": false,
+   "trimmed": false,
+   "spriteSourceSize": {
+    "x": 0,
+    "y": 0,
+    "w": 190,
+    "h": 250
+   },
+   "sourceSize": {
+    "w": 190,
+    "h": 250
+   },
+   "duration": 33
+  },
+  {
+   "filename": "cinder-cyclone 90",
+   "frame": {
+    "x": 1140,
+    "y": 1750,
+    "w": 190,
+    "h": 250
+   },
+   "rotated": false,
+   "trimmed": false,
+   "spriteSourceSize": {
+    "x": 0,
+    "y": 0,
+    "w": 190,
+    "h": 250
+   },
+   "sourceSize": {
+    "w": 190,
+    "h": 250
+   },
+   "duration": 33
+  },
+  {
+   "filename": "cinder-cyclone 91",
+   "frame": {
+    "x": 1330,
+    "y": 1750,
+    "w": 190,
+    "h": 250
+   },
+   "rotated": false,
+   "trimmed": false,
+   "spriteSourceSize": {
+    "x": 0,
+    "y": 0,
+    "w": 190,
+    "h": 250
+   },
+   "sourceSize": {
+    "w": 190,
+    "h": 250
+   },
+   "duration": 33
+  },
+  {
+   "filename": "cinder-cyclone 92",
+   "frame": {
+    "x": 1520,
+    "y": 1750,
+    "w": 190,
+    "h": 250
+   },
+   "rotated": false,
+   "trimmed": false,
+   "spriteSourceSize": {
+    "x": 0,
+    "y": 0,
+    "w": 190,
+    "h": 250
+   },
+   "sourceSize": {
+    "w": 190,
+    "h": 250
+   },
+   "duration": 33
+  },
+  {
+   "filename": "cinder-cyclone 93",
+   "frame": {
+    "x": 1710,
+    "y": 1750,
+    "w": 190,
+    "h": 250
+   },
+   "rotated": false,
+   "trimmed": false,
+   "spriteSourceSize": {
+    "x": 0,
+    "y": 0,
+    "w": 190,
+    "h": 250
+   },
+   "sourceSize": {
+    "w": 190,
+    "h": 250
+   },
+   "duration": 33
+  },
+  {
+   "filename": "cinder-cyclone 94",
+   "frame": {
+    "x": 1900,
+    "y": 1750,
+    "w": 190,
+    "h": 250
+   },
+   "rotated": false,
+   "trimmed": false,
+   "spriteSourceSize": {
+    "x": 0,
+    "y": 0,
+    "w": 190,
+    "h": 250
+   },
+   "sourceSize": {
+    "w": 190,
+    "h": 250
+   },
+   "duration": 33
+  },
+  {
+   "filename": "cinder-cyclone 95",
+   "frame": {
+    "x": 2090,
+    "y": 1750,
+    "w": 190,
+    "h": 250
+   },
+   "rotated": false,
+   "trimmed": false,
+   "spriteSourceSize": {
+    "x": 0,
+    "y": 0,
+    "w": 190,
+    "h": 250
+   },
+   "sourceSize": {
+    "w": 190,
+    "h": 250
+   },
+   "duration": 33
+  },
+  {
+   "filename": "cinder-cyclone 96",
+   "frame": {
+    "x": 0,
+    "y": 2000,
+    "w": 190,
+    "h": 250
+   },
+   "rotated": false,
+   "trimmed": false,
+   "spriteSourceSize": {
+    "x": 0,
+    "y": 0,
+    "w": 190,
+    "h": 250
+   },
+   "sourceSize": {
+    "w": 190,
+    "h": 250
+   },
+   "duration": 33
+  },
+  {
+   "filename": "cinder-cyclone 97",
+   "frame": {
+    "x": 190,
+    "y": 2000,
+    "w": 190,
+    "h": 250
+   },
+   "rotated": false,
+   "trimmed": false,
+   "spriteSourceSize": {
+    "x": 0,
+    "y": 0,
+    "w": 190,
+    "h": 250
+   },
+   "sourceSize": {
+    "w": 190,
+    "h": 250
+   },
+   "duration": 33
+  },
+  {
+   "filename": "cinder-cyclone 98",
+   "frame": {
+    "x": 380,
+    "y": 2000,
+    "w": 190,
+    "h": 250
+   },
+   "rotated": false,
+   "trimmed": false,
+   "spriteSourceSize": {
+    "x": 0,
+    "y": 0,
+    "w": 190,
+    "h": 250
+   },
+   "sourceSize": {
+    "w": 190,
+    "h": 250
+   },
+   "duration": 33
+  },
+  {
+   "filename": "cinder-cyclone 99",
+   "frame": {
+    "x": 570,
+    "y": 2000,
+    "w": 190,
+    "h": 250
+   },
+   "rotated": false,
+   "trimmed": false,
+   "spriteSourceSize": {
+    "x": 0,
+    "y": 0,
+    "w": 190,
+    "h": 250
+   },
+   "sourceSize": {
+    "w": 190,
+    "h": 250
+   },
+   "duration": 33
+  },
+  {
+   "filename": "cinder-cyclone 100",
+   "frame": {
+    "x": 760,
+    "y": 2000,
+    "w": 190,
+    "h": 250
+   },
+   "rotated": false,
+   "trimmed": false,
+   "spriteSourceSize": {
+    "x": 0,
+    "y": 0,
+    "w": 190,
+    "h": 250
+   },
+   "sourceSize": {
+    "w": 190,
+    "h": 250
+   },
+   "duration": 33
+  },
+  {
+   "filename": "cinder-cyclone 101",
+   "frame": {
+    "x": 950,
+    "y": 2000,
+    "w": 190,
+    "h": 250
+   },
+   "rotated": false,
+   "trimmed": false,
+   "spriteSourceSize": {
+    "x": 0,
+    "y": 0,
+    "w": 190,
+    "h": 250
+   },
+   "sourceSize": {
+    "w": 190,
+    "h": 250
+   },
+   "duration": 33
+  },
+  {
+   "filename": "cinder-cyclone 102",
+   "frame": {
+    "x": 1140,
+    "y": 2000,
+    "w": 190,
+    "h": 250
+   },
+   "rotated": false,
+   "trimmed": false,
+   "spriteSourceSize": {
+    "x": 0,
+    "y": 0,
+    "w": 190,
+    "h": 250
+   },
+   "sourceSize": {
+    "w": 190,
+    "h": 250
+   },
+   "duration": 33
+  }
+ ],
+ "meta": {
+  "app": "https://github.com/patch-gg/pixelfx",
+  "version": "1",
+  "image": "cinder-cyclone.png",
+  "format": "RGBA8888",
+  "size": {
+   "w": 2280,
+   "h": 2250
+  },
+  "scale": "1",
+  "frameTags": [
+   {
+    "name": "cinder-cyclone",
+    "from": 0,
+    "to": 102,
+    "direction": "forward"
+   }
+  ],
+  "pixelfx": {
+   "id": "fire/cinder-cyclone",
+   "name": "Cinder cyclone",
+   "fps": 30,
+   "loop": false,
+   "frames": 103,
+   "frameSize": [
+    190,
+    250
+   ],
+   "pivot": [
+    95,
+    176
+   ],
+   "columns": 12
+  }
+ }
+}

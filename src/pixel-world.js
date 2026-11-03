@@ -1894,7 +1894,21 @@ let renderDprMax=Math.max(1,dprCap||autoDpr());   // 畫布解析度上限(devic
     berserker:{fly:[],hit:[5,6,7],self:[0,1,2,3,4],size:30,selfY:10,selfA:.9},paladin:{fly:[],hit:[6,7],self:[0,1,2,3,4,5],size:28,selfY:10,selfA:.55}};
   function drawSkillSelf(e,age0,p){const cfg=SKILL_FX[e.cls],t=age0-(e.delay||0);if(!cfg||!heroSheets[e.cls]?.fx)return;const len=cfg.self.length*.09;if(t<-.25||t>len)return;
     const i=cfg.self[Math.max(0,Math.min(cfg.self.length-1,Math.floor((t+.25)/(len+.25)*cfg.self.length)))];fxFrame(e.cls,i,p.x,p.y-cfg.selfY*scale,cfg.selfY<5?cfg.size*.9:cfg.size,{alpha:cfg.selfA*(t>len-.1?Math.max(0,(len-t)/.1):1)});}
+  // 法師第一招「火龍捲」:pixelfx 匯出的整張技能表(190×250、103 幀、30fps),
+  // 依 JSON 的 pivot 對齊目標腳下,逐幀 drawImage(每幀都用到,不是抽格)。
+  let cinderImg=null;
+  function cinderSheet(){const src=globalThis.PIXEL_ASSETS?.cinderSheet,meta=globalThis.PIXEL_ASSETS?.cinderMeta;
+    if(!src||!meta)return null;if(!cinderImg){cinderImg=trackImage(new Image());cinderImg.src=src;}
+    return cinderImg.complete&&cinderImg.naturalWidth?{img:cinderImg,meta}:null;}
+  const CINDER_K=0.58;   // 美術像素 → 世界單位(英雄 66px = 21 單位,取同級密度)
+  let cinderDrawn=0,cinderLast=null;
+  globalThis.__mistvaleCinder=()=>({drawn:cinderDrawn,last:cinderLast});   // 驗收用:最後一次畫出來的火龍捲(幀/位置)
+  function drawCinder(age,p){const sh=cinderSheet();if(!sh)return false;if(age<0)return true;
+    const px=sh.meta.meta.pixelfx,cw=px.frameSize[0],ch=px.frameSize[1],cols=px.columns,k=CINDER_K*scale;
+    const i=Math.min(px.frames-1,Math.floor(age*px.fps));cinderDrawn++;cinderLast={age:+age.toFixed(2),i,x:Math.round(p.x),y:Math.round(p.y)};
+    g.drawImage(sh.img,(i%cols)*cw,Math.floor(i/cols)*ch,cw,ch,p.x-px.pivot[0]*k,p.y-px.pivot[1]*k,cw*k,ch*k);return true;}
   function drawSkillFx(e,age0,delay,p){const cls=e.cls||'archer',cfg=SKILL_FX[cls];
+    if(e.fx==='cinder'&&!e.self){drawCinder(age0-delay,p);return;}
     if(!cfg||!heroSheets[cls]?.fx){const age=age0-delay,o={...e,type:e.fx==='gale'?'arrow':e.fx};if(age<0){if(o.type!=='slash')drawProjectile(o,Math.min(1,age0/Math.max(.01,delay)),p);return;}if(o.type==='slash')drawSlash(o,age,p);else drawImpact(o,age,p);return;}
     const fly=cfg.fly.length&&!e.self?.18:0,start=delay-fly;if(age0<start)return;const a=screenPoint(e.sourceX??e.x,e.sourceZ??e.z);
     if(age0<delay){const u=(age0-start)/fly,x=a.x+(p.x-a.x)*u,y=a.y-12*scale+(p.y-11*scale-(a.y-12*scale))*u,ang=Math.atan2(p.y-11*scale-(a.y-12*scale),p.x-a.x);

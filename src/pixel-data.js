@@ -44,7 +44,8 @@ export const CLASSES = [
 export const SKILLS={
  berserker:{name:'旋風斬',kind:'aoe',cd:9,mult:1.5,radius:2.4,lock:.7,fx:'slash'},
  paladin:{name:'聖盾祈禱',kind:'heal',cd:12,heal:.25,lock:.7,fx:'holy'},
- sorcerer:{name:'流星火球',kind:'aoe',cd:10,mult:1.4,radius:2.6,lock:.8,fx:'spell'},
+ // 2026-11-03 使用者:法師第一招換成火龍捲(pixelfx 整張 103 幀技能表,逐幀播放);傷害比原本的流星火球高一點、CD 長一點
+ sorcerer:{name:'火龍捲',kind:'aoe',cd:14,mult:1.55,radius:3,lock:1,release:.55,fx:'cinder'},
  archer:{name:'疾風箭雨',kind:'multi',cd:8,mult:1.3,targets:3,lock:.8,release:.32,fx:'gale'},
  assassin:{name:'暗影衝刺',kind:'single',cd:8,mult:2.4,lock:.6,fx:'slash'},
  priest:{name:'暗癒禱言',kind:'allyHeal',cd:10,heal:.28,lock:.7,fx:'holy',below:.9}   // 2026-10-30 使用者:牧師改成自動替範圍內 HP 最少的隊友補血,優先招募英雄

@@ -68,7 +68,7 @@ const lifetimeXp = h => { let n = h.xp || 0; for (let l = 1; l < h.level; l++) n
 // 離線收益:最多算 8 小時;前 sample 秒真的模擬,其餘照這段的速率外推(見 offlineFinish)
 export const OFFLINE = { max: 8 * 3600, sample: 120 };
 
-const DEFAULT_SETTINGS = { quality: 'high', dpr: 'auto', fps: 30, shadows: true, night: true };
+const DEFAULT_SETTINGS = { quality: 'high', dpr: 'auto', fps: 30, shadows: true, night: true, uiScale: 'auto' };
 // 設定面板的畫質/效能選項:只接受合法值,舊存檔缺欄位就補預設
 // 各地區的怪物數量等級(1-3):舊存檔沒有這個欄位就補預設,超出範圍夾回來,只認真的狩獵區。
 function normalizeRegionDensity(raw) {
@@ -84,6 +84,7 @@ function normalizeSettings(raw) {
     if (raw.fps === 60 || raw.fps === 30) s.fps = raw.fps;
     if (typeof raw.shadows === 'boolean') s.shadows = raw.shadows;
     if (typeof raw.night === 'boolean') s.night = raw.night;
+    if (raw.uiScale === 'auto') s.uiScale = 'auto'; else if (Number.isFinite(raw.uiScale)) s.uiScale = [0.75, 0.85, 1, 1.15, 1.3, 1.5].reduce((a, b) => Math.abs(b - raw.uiScale) < Math.abs(a - raw.uiScale) ? b : a);   // '自動' 或級距(0.75/0.85/1/1.15/1.3/1.5)；舊存檔的數字(0.95、1.4…)夾到最近級距，其他一律 'auto'
   }
   return s;
 }
@@ -1173,7 +1174,8 @@ export function createGame(saved = null) {
     }
     stepDungeon(dt); stepArena(dt);
     for (const e of state.effects) e.age += dt;
-    state.effects = state.effects.filter(e => e.age < (e.type === 'victory' ? 3 : 1.6) + (e.type === 'mshot' ? e.delay || 0 : 0));   // 魔物飛行物:飛行時間另計,數字才播得完 refreshQuest();
+    // 火龍捲是 3.4 秒的整段技能表(法師第一招),比一般特效活得久,播完才回收。
+    state.effects = state.effects.filter(e => e.age < (e.type === 'victory' ? 3 : e.type === 'skillfx' && e.fx === 'cinder' ? 4.2 : 1.6) + (e.type === 'mshot' ? e.delay || 0 : 0));   // 魔物飛行物:飛行時間另計,數字才播得完 refreshQuest();
   }
 
   function fresh() {
@@ -1715,7 +1717,7 @@ export function createGame(saved = null) {
           for (const k of PRODUCT_KEYS) s2.stocks[k] = (s2.stocks[k] || 0) + 50;
           return result(true, '金幣 +10,000、星晶 +100、素材 +500、物資 +50'); }
         case 'levels':
-          for (const h of [...s2.hunters, ...(s2.wanderers || [])]) { h.level = Math.min(100, h.level + 10); h.xp = 0; updateStats(h); h.hp = h.maxHp; }
+          for (const h of [...s2.hunters, ...(s2.wanderers || [])]) { const before = h.level; h.level = Math.min(100, h.level + 10); h.xp = 0; updateStats(h); h.hp = h.maxHp; if (h.level > before) effect('level', h); }
           return result(true, '所有獵人／流浪英雄 +10 級（上限 100）');
         case 'buildings':
           for (const b of BUILDINGS) s2.buildings[b.id] = Math.max(5, s2.buildings[b.id] || 0);
