@@ -10,9 +10,9 @@ const CLASS = mapById(CLASSES), BUILDING = mapById(BUILDINGS), RARITY = mapById(
 const PILOT_FX = {
   'root-snare': { k: .52, dur: 2.7, at: 'line', dy: 0 },
   thorns: { k: .52, dur: 2.4, at: 'target', dy: 0, sheet: 'thorn-row', rot: 'perp' },
-  bird: { k: .32, dur: 3.6, at: 'self', dy: 26 },
-  haste: { k: .80, dur: 3.2, at: 'self', dy: 26 },
-  'feather-burst': { k: .44, dur: 3.0, at: 'self', dy: 30 },
+  bird: { k: .32, dur: 3.6, at: 'self', dy: 34 },
+  haste: { k: .80, dur: 3.2, at: 'self', dy: 32 },
+  'feather-burst': { k: .44, dur: 3.0, at: 'self', dy: 36 },
   flare: { k: .36, dur: 5.0, at: 'target', dy: 0 },
 };
 const RESOURCE_KEYS = ['gold', 'wood', 'ore', 'herb', 'cloth', 'flour', 'leather', 'gems'];
@@ -1763,14 +1763,15 @@ export function createGame(saved = null) {
       const h = state.hunters.find(q => q.id === p.id); if (!h) return result(false, '找不到角色。');
       const cfg = PILOT_FX[id]; if (!cfg) return result(false, '沒有這個測試特效。');
       const faceX = p.faceX ?? 1, faceZ = p.faceZ ?? 0;
-      let at = { x: h.x + faceX * 4, z: h.z + faceZ * 4 };
+      let at = { x: h.x, z: h.z };   // self:固定在角色正上方,跟面向無關
+      if (cfg.at === 'front') at = { x: h.x + faceX * 4, z: h.z + faceZ * 4 };
       if (cfg.at === 'line') at = { x: h.x + faceX * (h.range || 7.5), z: h.z + faceZ * (h.range || 7.5) };   // 面向直線的終點
       if (cfg.at === 'target') {
         const t = state.enemies.filter(e => e.hp > 0).filter(e => distance(h, e) <= 7).sort((a, b) => distance(h, a) - distance(h, b))[0];
-        if (t) at = { x: t.x, z: t.z };
+        at = t ? { x: t.x, z: t.z } : { x: h.x + faceX * 4, z: h.z + faceZ * 4 };
       }
       const rot = cfg.rot === 'perp' ? Math.atan2(faceZ, faceX) + Math.PI / 2 : 0;   // 跟面向垂直
-      effect('vfxsheet', at, { sheet: cfg.sheet || id, dur: cfg.dur, k: cfg.k, dy: cfg.dy || 0, rot, value: 0 });
+      effect('vfxsheet', { x: at.x + (cfg.dx || 0), z: at.z }, { sheet: cfg.sheet || id, dur: cfg.dur, k: cfg.k, dy: cfg.dy || 0, rot, value: 0 });
       state.lastTestFx = { id, at: cfg.at, t: +state.time.toFixed(2) };
       return result(true, `${id}！`);
     },

@@ -1727,7 +1727,8 @@ let renderDprMax=Math.max(1,dprCap||autoDpr());   // 畫布解析度上限(devic
     g.save();g.globalAlpha=alpha;g.translate(R(x),R(y));if(rot)g.rotate(rot);g.scale(flip?-1:1,sy);g.drawImage(lod.img,c.x,c.y,c.w,c.h,-c.w*k/2,-c.h*k/2,c.w*k,c.h*k);g.restore();
     if(lod.scale===2)detailUse.draw2x++;else detailUse.draw1x++;return true;}
   // 命中火花:幾顆像素往外噴、受重力落下。
-  function sparks(x,y,age,seed,n,cols,speed=26){if(age>.45)return;const s=scale,r=rnd(seed);for(let i=0;i<n;i++){const an=r()*Math.PI*2,v=(.5+r())*speed,px=x+Math.cos(an)*v*age*s,py=y+(Math.sin(an)*v*.6*age+60*age*age)*s,sz=Math.max(1,Math.round((r()<.3?2:1)*s));
+  // dir: 指定噴射方向(弧度,螢幕座標);不給就四面八方。spread: 扇形張角。
+  function sparks(x,y,age,seed,n,cols,speed=26,dir=null,spread=1.2){if(age>.45)return;const s=scale,r=rnd(seed);for(let i=0;i<n;i++){const an=dir==null?r()*Math.PI*2:dir+(r()-.5)*spread,v=(.5+r())*speed,px=x+Math.cos(an)*v*age*s,py=y+(Math.sin(an)*v*.6*age+60*age*age)*s,sz=Math.max(1,Math.round((r()<.3?2:1)*s));
     g.globalAlpha=Math.max(0,1-age/.45);pixel(g,px,py,sz,sz,cols[i%cols.length]);}g.globalAlpha=1;}
   // 投射物大小＝攻擊動畫裡的大小(2026-10-25 使用者:「取消改用原本的素材,縮小到跟攻擊動畫內的大小一樣」):
   // 法師手上的魔法球直徑約 26 px(@2x 表,身高 132 px)＝4.1 單位 → fxOrb(球本體約佔圖寬 80–90%)畫 5(原本 11);
@@ -1756,9 +1757,14 @@ let renderDprMax=Math.max(1,dprCap||autoDpr());   // 畫布解析度上限(devic
     // fxSlash 圖(Xilurus)＝白色刀弧在左、橙色拖尾在右 → 原圖是「由右往左揮」;攻擊者在左邊(往右揮)才翻面。
     // 特效尺寸跟角色同級(英雄 21 單位):原本斬痕 30 單位、命中白閃 20 單位會把攻擊者整隻蓋住,
     // 縮到 20/11 單位、白閃快一點淡出,人才看得見自己在打什麼。
-    if(alpha>0)fxSprite('fxSlash',cx,cy,(13+7*k)*(e.cls==='berserker'?1.15:1),{rot:tilt+(fromRight?.3:-.3),flip:!fromRight,alpha:alpha*.92,sy:.85});
-    if(age<.12)fxSprite('fxHit',p.x,cy,7+age*34,{alpha:.85*(1-age/.12)});
-    sparks(p.x,cy,age,hash(e.id),9,['#fff7d0','#ffd56a','#ff9c4a']);
+    if(e.cls==='berserker'){const k=.28*s;drawVfxSheet('dash-strike',age+.15,p.x-164*k,cy+16*k,k,{alpha:Math.max(0,1-age/.95),rate:.75});}   // 狂戰士:只留 dash-strike 命中爆發;放大 1.55×、播放 0.75×
+    else{
+      if(alpha>0)fxSprite('fxSlash',cx,cy,13+7*k,{rot:tilt+(fromRight?.3:-.3),flip:!fromRight,alpha:alpha*.92,sy:.85});
+      if(age<.12)fxSprite('fxHit',p.x,cy,7+age*34,{alpha:.85*(1-age/.12)});
+    }
+    // 狂戰士:大量火花朝攻擊的反方向(往攻擊者)噴,扇形散開;其他職業維持原本四面八方
+    if(e.cls==='berserker'){const back=Math.atan2(src.y-cy,src.x-p.x);sparks(p.x,cy,age,hash(e.id),22,['#fff7d0','#ffd56a','#ff9c4a','#ffefb0'],38,back,1.5);}
+    else sparks(p.x,cy,age,hash(e.id),9,['#fff7d0','#ffd56a','#ff9c4a']);
     if(e.cls==='paladin'&&age<.3){g.save();g.globalAlpha=.6*(1-age/.3);g.strokeStyle='#fff2b0';g.lineWidth=Math.max(1,s);g.beginPath();g.ellipse(p.x,p.y,(6+age*40)*s,(2.5+age*16)*s,0,0,Math.PI*2);g.stroke();g.restore();}}
   // 遠程魔物的飛行物:離手(release)前不畫;飛行中沿直線或拋物線(lob)前進,圓的東西會轉、細長的順著方向;打到後放塵爆。
   function mshotFrame(i,x,y,size,rot=0,alpha=1,flipY=false){const im=mshotSheet();if(!im)return false;const k=size*scale/32;
@@ -1927,9 +1933,10 @@ let renderDprMax=Math.max(1,dprCap||autoDpr());   // 畫布解析度上限(devic
     let im=vfxSheetCache.get(id);if(!im){im=trackImage(new Image());im.src=v.img;vfxSheetCache.set(id,im);}
     return im.complete&&im.naturalWidth?{img:im,meta:v.meta}:null;}
   // 以美術像素為單位畫一格;k = 螢幕 px / 美術 px。rot 轉向;looping 表依 meta.loop 取餘數。
-  function drawVfxSheet(id,age,x,y,k,{rot=0,alpha=1}={}){const sh=vfxSheet(id);if(!sh)return false;
+  function drawVfxSheet(id,age,x,y,k,{rot=0,alpha=1,rate=1}={}){const sh=vfxSheet(id);if(!sh)return false;
     const px=sh.meta.meta.pixelfx,cw=px.frameSize[0],ch=px.frameSize[1],cols=px.columns;
-    const t=px.loop?age%Math.max(.001,px.frames/px.fps):Math.max(0,age);
+    const tt=age*rate;
+    const t=px.loop?tt%Math.max(.001,px.frames/px.fps):Math.max(0,tt);
     const i=Math.max(0,Math.min(px.frames-1,Math.floor(t*px.fps)));
     g.save();g.globalAlpha=alpha;g.translate(R(x),R(y));if(rot)g.rotate(rot);
     g.drawImage(sh.img,(i%cols)*cw,Math.floor(i/cols)*ch,cw,ch,-px.pivot[0]*k,-px.pivot[1]*k,cw*k,ch*k);
