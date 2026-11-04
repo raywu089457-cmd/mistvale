@@ -341,6 +341,7 @@ function pilotPaint(){
     <span id="pilot-status">${esc(cur.status)}</span>
     <button class="pixel-button" data-pilot="pick">換角色</button><button class="pixel-button danger" data-pilot="stop">離開</button></div>
     ${pickOpen?`<div class="pl-pick">${pilotPickList()}</div>`:''}
+    ${(()=>{const fx=cur.classId==='sorcerer'?[['root-snare','根鬚'],['thorns','荊棘']]:cur.classId==='archer'?[['bird','獵鷹'],['haste','疾行'],['feather-burst','羽爆'],['flare','信號箭']]:[];return fx.length?`<div style="display:flex;flex-wrap:wrap;gap:4px;width:100%">${fx.map(([id,label])=>`<button class="pixel-button" data-pilot-fx="${id}" style="min-height:24px;padding:4px 8px;font-size:10px">${label}</button>`).join('')}</div>`:'';})()}
     <small class="pl-tip">左下搖桿移動 · 右下攻擊鈕出手（CD 0.5 秒）· 技能鈕或 Q／E 放技能（沒有目標也可空放看特效）</small>`;
   elLv=$('#pilot-lv');elStatus=$('#pilot-status');elHp=$('#pilot-hp');elFill=$('#pilot-fill');pilotShownId=cur.id;
 }
@@ -376,6 +377,8 @@ document.addEventListener('click',e=>{
       pilotFollow();}
     pilotPaint();return;}
 });
+// 操控模式的測試特效鈕(根鬚/荊棘/獵鷹/疾行/羽爆/信號箭):只播 pixelfx 表,不結算傷害
+document.addEventListener('click',e=>{const b=e.target.closest('[data-pilot-fx]');if(!b)return;const r=game?.pilotTestFx?.(b.dataset.pilotFx);if(r&&!r.ok)logToast(r.message,false);});
 let settingsOpen=false;   // 設定面板的「畫質與效能」是否展開(預設收成一條)
 // 2026-11-01 介面大小＝Minecraft 式 GUI Scale：自動或固定級距，選的存成 state.settings.uiScale（'auto' 或 0.75/0.85/1/1.15/1.3/1.5）。
 const UI_SCALE_STEPS=[0.75,0.85,1,1.15,1.3,1.5];

@@ -6,6 +6,15 @@ import { SKILLS, BUILDINGS, CLASSES, RARITIES, TRAITS, MATERIALS, PRODUCTS, RECI
 
 const mapById = list => Object.assign(Object.create(null), Object.fromEntries(list.map(item => [item.id, item])));
 const CLASS = mapById(CLASSES), BUILDING = mapById(BUILDINGS), RARITY = mapById(RARITIES), RECIPE = mapById(RECIPES);
+// 操控模式的「測試特效」表:pixelfx 表名 → 世界單位/秒數/放在目標還是自己身上
+const PILOT_FX = {
+  'root-snare': { k: .52, dur: 2.7, at: 'line', dy: 0 },
+  thorns: { k: .52, dur: 2.4, at: 'target', dy: 0, sheet: 'thorn-row', rot: 'perp' },
+  bird: { k: .32, dur: 3.6, at: 'self', dy: 26 },
+  haste: { k: .80, dur: 3.2, at: 'self', dy: 26 },
+  'feather-burst': { k: .44, dur: 3.0, at: 'self', dy: 30 },
+  flare: { k: .36, dur: 5.0, at: 'target', dy: 0 },
+};
 const RESOURCE_KEYS = ['gold', 'wood', 'ore', 'herb', 'cloth', 'flour', 'leather', 'gems'];
 const MATERIAL_KEYS = Object.keys(MATERIALS), PRODUCT_KEYS = Object.keys(PRODUCTS);
 const UNBUILT = new Set(['academy', 'training', 'enhancement', 'dungeon']);
@@ -624,6 +633,17 @@ export function createGame(saved = null) {
       if (h.classId === 'darkknight') h.hp = Math.min(h.maxHp, h.hp + dmg * 0.08);
       if (e.hp <= 0) rewardEnemy(e, h);
     });
+    // 疾風箭雨:不管命中幾個目標,畫面都補滿 3 支箭(純視覺,value 0,不結算傷害)。
+    if (sk.fx === 'gale') {
+      if (hitList.length < 3) {
+        for (let k = hitList.length; k < 3; k++) {
+          const ang = (k - 1) * 1.1, off = 1.1 + k * 0.55;
+          effect('skillfx', { x: target.x + Math.cos(ang) * off, z: target.z + Math.sin(ang) * off },
+            { sourceX: h.x, sourceZ: h.z, delay: release + .18 + k * .06, cls: h.classId, fx: 'gale', kind: 'multi', value: 0, skill: true, ghost: true });
+        }
+      }
+      state.lastGale = { n: hitList.length, ghost: Math.max(0, 3 - hitList.length), t: +state.time.toFixed(2) };
+    }
   }
 
   const wandererOf = who => (state.wanderers || []).includes(who);
@@ -870,6 +890,13 @@ export function createGame(saved = null) {
           const damage = Math.max(1, Math.round(h.attack));
           (state.shots ??= []).push({ x: h.x, z: h.z, dx, dz, left: range, ownerId: h.id, dmg: damage, crit: damage >= h.attack * 1.25, hit: [] });
           effect('spell', { x: h.x + dx * range, z: h.z + dz * range }, { sourceX: h.x, sourceZ: h.z, delay: range / PILOT_ORB.speed, cls: h.classId, value: 0, noImpact: true });   // 飛行畫面(同速度);命中由 stepShots 判定
+        } else if (h.classId === 'archer') {   // 弓箭手:真的把箭射出去,碰到魔物才算命中、才扣血
+          const near = foes.find(e => distance(h, e) <= (h.range || 7.5)) || null;
+          const ax = near ? near.x : h.x + (pilot.faceX ?? 1), az = near ? near.z : h.z + (pilot.faceZ ?? 0);
+          h.atkX = ax; h.atkZ = az;
+          const l = Math.hypot(ax - h.x, az - h.z) || 1, dx = (ax - h.x) / l, dz = (az - h.z) / l;
+          const damage = Math.max(1, Math.round(h.attack * (h.satiety < 15 || h.stamina < 15 ? 0.6 : 1)));
+          (state.shots ??= []).push({ x: h.x, z: h.z, dx, dz, left: CLASS.archer?.range || 7.5, ownerId: h.id, dmg: damage, crit: damage >= h.attack * 1.25, hit: [], kind: 'arrow', speed: 18 });
         } else if (inRange) {
           const damage = Math.max(1, Math.round(h.attack));
           const { kind, delay } = attackFx(h.classId);
@@ -914,13 +941,15 @@ export function createGame(saved = null) {
   function stepShots(dt) {
     const shots = state.shots; if (!shots?.length) return;
     for (const s of shots) {
-      const d = Math.min(s.left, PILOT_ORB.speed * dt);
+      const d = Math.min(s.left, (s.speed || PILOT_ORB.speed) * dt);
+      const radius = s.radius || PILOT_ORB.radius;
       for (const e of state.enemies) {
         if (e.hp <= 0 || e.type === 'boss' || s.hit.includes(e.id)) continue;
         const t = Math.max(0, Math.min(d, (e.x - s.x) * s.dx + (e.z - s.z) * s.dz));
-        if (Math.hypot(e.x - (s.x + s.dx * t), e.z - (s.z + s.dz * t)) > PILOT_ORB.radius) continue;
+        if (Math.hypot(e.x - (s.x + s.dx * t), e.z - (s.z + s.dz * t)) > radius) continue;
         s.hit.push(e.id); e.hp -= s.dmg; e.hitAt = state.time; e.hitFromX = s.x; e.hitFromZ = s.z;
-        effect('spell', e, { sourceX: e.x, sourceZ: e.z, value: s.dmg, targetId: e.id, delay: 0, cls: 'sorcerer', crit: s.crit });
+        const kind = s.kind === 'arrow' ? 'arrow' : 'spell';
+        effect(kind, e, { sourceX: e.x, sourceZ: e.z, value: s.dmg, targetId: e.id, delay: 0, cls: s.kind === 'arrow' ? 'archer' : 'sorcerer', crit: s.crit });
         const owner = state.hunters.find(q => q.id === s.ownerId);
         if (e.hp <= 0 && owner) rewardEnemy(e, owner);
       }
@@ -1013,13 +1042,18 @@ export function createGame(saved = null) {
         if (h.attackTimer === 0) {
           h.attackTimer = attackInterval(h);
           const damage = Math.max(1, Math.round(h.attack * (h.satiety < 15 || h.stamina < 15 ? 0.6 : 1)));
-          // 動畫用時間戳(只給畫面看,不影響結算):出手瞬間、命中時刻(遠程要等箭/法球飛到)、攻擊方向。
-          const { kind, delay } = attackFx(h.classId);
-          h.atkAt = state.time; h.atkX = target.x; h.atkZ = target.z; target.hitAt = state.time + delay; target.hitFromX = h.x; target.hitFromZ = h.z;
+          h.atkAt = state.time; h.atkX = target.x; h.atkZ = target.z;
           h.lockUntil = state.time + AI_ATTACK_LOCK;   // 收招僵直:這段時間站著不動(沒有 CD,下一擊照原本的 attackTimer)
-          target.hp -= damage; effect(kind, target, { sourceX: h.x, sourceZ: h.z, value: damage, targetId: target.id, delay, cls: h.classId, crit: damage >= h.attack * 1.25 });
-          if (h.classId === 'darkknight') h.hp = Math.min(h.maxHp, h.hp + damage * 0.08);
-          if (target.hp <= 0) rewardEnemy(target, h);
+          if (h.classId === 'archer') {   // 弓箭手:箭真的飛,碰到魔物才算命中、才扣血
+            const l = distance(h, target) || 1, dx = (target.x - h.x) / l, dz = (target.z - h.z) / l;
+            (state.shots ??= []).push({ x: h.x, z: h.z, dx, dz, left: h.range, ownerId: h.id, dmg: damage, crit: damage >= h.attack * 1.25, hit: [], kind: 'arrow', speed: 18 });
+          } else {
+            const { kind, delay } = attackFx(h.classId);
+            target.hitAt = state.time + delay; target.hitFromX = h.x; target.hitFromZ = h.z;
+            target.hp -= damage; effect(kind, target, { sourceX: h.x, sourceZ: h.z, value: damage, targetId: target.id, delay, cls: h.classId, crit: damage >= h.attack * 1.25 });
+            if (h.classId === 'darkknight') h.hp = Math.min(h.maxHp, h.hp + damage * 0.08);
+            if (target.hp <= 0) rewardEnemy(target, h);
+          }
         }
       } else {
         h.status = '出征中';
@@ -1175,7 +1209,7 @@ export function createGame(saved = null) {
     stepDungeon(dt); stepArena(dt);
     for (const e of state.effects) e.age += dt;
     // 火龍捲是 3.4 秒的整段技能表(法師第一招),比一般特效活得久,播完才回收。
-    state.effects = state.effects.filter(e => e.age < (e.type === 'victory' ? 3 : e.type === 'skillfx' && e.fx === 'cinder' ? 4.2 : 1.6) + (e.type === 'mshot' ? e.delay || 0 : 0));   // 魔物飛行物:飛行時間另計,數字才播得完 refreshQuest();
+    state.effects = state.effects.filter(e => e.age < (e.type === 'victory' ? 3 : e.type === 'vfxsheet' ? (e.dur || 2) + .3 : e.type === 'skillfx' && e.fx === 'cinder' ? 4.2 : 1.6) + (e.type === 'mshot' ? e.delay || 0 : 0));   // 魔物飛行物:飛行時間另計,數字才播得完 refreshQuest();
   }
 
   function fresh() {
@@ -1702,6 +1736,7 @@ export function createGame(saved = null) {
       const p = state.pilot; if (!p) return result(false, '目前沒有在操控角色。');
       const h = state.hunters.find(q => q.id === p.id); if (!h || h.hp <= 0) return result(false, '找不到可施法的獵人。');
       const sk = SKILLS[h.classId]; if (!sk) return result(false, '這個職業還沒有技能。');
+      state.lastPilotSkill = { cls: h.classId, fx: sk.fx, cd: h.skillCd, t: +state.time.toFixed(2) };
       if ((h.skillCd || 0) > 0) return result(false, `${sk.name} 冷卻中 ${Math.ceil(h.skillCd)} 秒。`);
       const alive = state.enemies.filter(e => e.hp > 0 && !e.rewarded);
       const reach = (h.range || 1) + (sk.radius || 0) + 2;
@@ -1722,6 +1757,23 @@ export function createGame(saved = null) {
       return result(true, `${sk.name}！（沒有目標，展示用）`);
     },
     pilotSkillCooldown() { const p = state.pilot; if (!p) return 0; const h = state.hunters.find(q => q.id === p.id); return h ? Math.max(0, h.skillCd || 0) : 0; },
+    // 操控模式的測試特效:播 pixelfx 表(root-snare / thorns / bird / haste / feather-burst / flare),不結算傷害
+    pilotTestFx(id) {
+      const p = state.pilot; if (!p) return result(false, '目前沒有在操控角色。');
+      const h = state.hunters.find(q => q.id === p.id); if (!h) return result(false, '找不到角色。');
+      const cfg = PILOT_FX[id]; if (!cfg) return result(false, '沒有這個測試特效。');
+      const faceX = p.faceX ?? 1, faceZ = p.faceZ ?? 0;
+      let at = { x: h.x + faceX * 4, z: h.z + faceZ * 4 };
+      if (cfg.at === 'line') at = { x: h.x + faceX * (h.range || 7.5), z: h.z + faceZ * (h.range || 7.5) };   // 面向直線的終點
+      if (cfg.at === 'target') {
+        const t = state.enemies.filter(e => e.hp > 0).filter(e => distance(h, e) <= 7).sort((a, b) => distance(h, a) - distance(h, b))[0];
+        if (t) at = { x: t.x, z: t.z };
+      }
+      const rot = cfg.rot === 'perp' ? Math.atan2(faceZ, faceX) + Math.PI / 2 : 0;   // 跟面向垂直
+      effect('vfxsheet', at, { sheet: cfg.sheet || id, dur: cfg.dur, k: cfg.k, dy: cfg.dy || 0, rot, value: 0 });
+      state.lastTestFx = { id, at: cfg.at, t: +state.time.toFixed(2) };
+      return result(true, `${id}！`);
+    },
     pilotCooldown() { const p = state.pilot; return p ? Math.max(0, (p.readyAt ?? 0) - state.time) : 0; },   // 還有幾秒才能再出手(UI 的 CD 遮罩用)
     pilotLockLeft() { const p = state.pilot; return p ? Math.max(0, (p.lockUntil ?? 0) - state.time) : 0; },   // 僵直還剩幾秒(不能走)
     pilotStop() { const p = state.pilot; if (!p) return result(false, '目前沒有在操控角色。'); state.pilot = null; const h = state.hunters.find(q => q.id === p.id); if (h) { h.task = null; h.status = '待命'; idleInTown(h); } return result(true, '結束手動操控。'); },
