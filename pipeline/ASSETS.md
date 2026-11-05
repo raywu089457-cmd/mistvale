@@ -52,11 +52,22 @@ build.mjs 內嵌成 `PIXEL_ASSETS.vfxSheets`，`pixel-world.js` 的 `drawVfxShee
 
 | 檔案 | 來源 | 備註 |
 |---|---|---|
-| `dash-strike.png` / `.json` | pixelfx `moves/dash-strike`，**chain 只留 `impacts/crit-hit`**（把 `melee/sword-slash` 那層藍色刀光拿掉） | 372×156、pivot [66,136]、70 幀 30 fps；第 7–29 幀有畫面，其餘全透明。狂戰士普攻命中 |
+| `dash-strike.png` / `.json` | pixelfx `moves/dash-strike`，**chain 只留 `impacts/crit-hit`**（把 `melee/sword-slash` 那層藍色刀光拿掉） | 372×156、pivot [66,136]、70 幀 30 fps；第 7–29 幀有畫面，其餘全透明。狂戰士普攻命中（星爆） |
+| `crit-spray.png` / `.json` | pixelfx `impacts/crit-spray`（本專案在該工作區新寫的效果） | 200×120、pivot [52,72]、19 幀 30 fps；原點＝打擊點，火花／碎片／火星**順著 +x 噴出去**，42 美術 px 處是腳下的地面。狂戰士命中後的噴濺，往左揮時整張水平翻面 |
 
-重匯出：在 pixelfx 工作區把 `src/fx/moves/dash-strike.js` 的 `create` 改成
-`chain([{ fx: crit, t: 0.22, x: TX - 10, height: 28 }])`（meta 的 size／origin／duration 不動），
-再 `renderFrames(fx, { bg: "none", actor: false })` → `spriteSheet()` 輸出同名 `.png` / `.json`。
+重匯出（`--dir` 指到 pixelfx 工作區，預設 `C:/Users/ray/pixelfx`）：
+
+```sh
+node pipeline/scripts/pixelfx/export-sheet.mjs impacts/crit-spray crit-spray
+```
+
+本專案自己寫的效果原始檔放在 `pipeline/scripts/pixelfx/vendor/impacts/`（跟 pixelfx 的 `src/fx/impacts/` 同結構、
+同樣 `../../core/index.js` 的相對 import）；匯出腳本會先把它複製進 pixelfx 工作區再匯出，所以乾淨的 checkout + 一份
+pixelfx 就能重現同一張表（實測輸出 byte 相同）。上游就有的效果（例如 `dash-strike`）不用 vendor。
+
+`dash-strike` 要先把該工作區 `src/fx/moves/dash-strike.js` 的 `create` 改成
+`chain([{ fx: crit, t: 0.22, x: TX - 10, height: 28 }])`（meta 的 size／origin／duration 不動），再跑同一個腳本
+`... moves/dash-strike dash-strike`。腳本固定用 `bg:"none", actor:false` 匯出，只留效果本身的像素。
 
 ---
 

@@ -1757,14 +1757,21 @@ let renderDprMax=Math.max(1,dprCap||autoDpr());   // 畫布解析度上限(devic
     // fxSlash 圖(Xilurus)＝白色刀弧在左、橙色拖尾在右 → 原圖是「由右往左揮」;攻擊者在左邊(往右揮)才翻面。
     // 特效尺寸跟角色同級(英雄 21 單位):原本斬痕 30 單位、命中白閃 20 單位會把攻擊者整隻蓋住,
     // 縮到 20/11 單位、白閃快一點淡出,人才看得見自己在打什麼。
-    if(e.cls==='berserker'){const k=.28*s;drawVfxSheet('dash-strike',age+.15,p.x-164*k,cy+16*k,k,{alpha:Math.max(0,1-age/.95),rate:.75});}   // 狂戰士:只留 dash-strike 命中爆發;放大 1.55×、播放 0.75×
+    // 打擊方向:dir=+1 表示刀往右揮(攻擊者在左邊)。兩張 pixelfx 表都往 +x 畫,刀往左時整張水平翻面。
+    const berserk=e.cls==='berserker',dir=fromRight?-1:1,bk=.28*s;
+    if(berserk){const life=1.2,bx=p.x-dir*164*bk,by=cy+16*bk,nx=p.x,ny=cy-12*bk,nop=Math.max(0,Math.min(1,(life-age)/.3));
+      // 命中爆發:只留 dash-strike 的 crit-hit 層(刀光已拿掉),48× 播放 0.75×;表長 70 幀但只有第 7–29 幀有畫面,所以整段播完、最後 0.3 秒才淡出。
+      // 爆發中心在表內＝pivot 往 +x 166 美術 px,翻面後變往 -x 166 px,所以 bx＝p.x 減掉 dir×164 就對齊打擊點。
+      drawVfxSheet('dash-strike',age+.15,bx,by,bk,{alpha:nop,rate:.75,flip:dir<0});
+      // 命中後的噴濺(2026-11):另一張 pixelfx 表(crit-spray),整把火花順著刀的方向往外飛、碎片落地彈跳。
+      // 原點就是打擊點,尺度和上面同一條(bk),所以火花的大小跟爆發一致;表不存在時退回程式火花,方向也順著刀。
+      if(!drawVfxSheet('crit-spray',age,nx,ny,bk,{alpha:nop,flip:dir<0}))sparks(p.x,cy,age,hash(e.id),22,['#fff7d0','#ffd56a','#ff9c4a','#ffefb0'],38,Math.atan2(p.y-src.y,p.x-src.x),1.5);}
     else{
       if(alpha>0)fxSprite('fxSlash',cx,cy,13+7*k,{rot:tilt+(fromRight?.3:-.3),flip:!fromRight,alpha:alpha*.92,sy:.85});
       if(age<.12)fxSprite('fxHit',p.x,cy,7+age*34,{alpha:.85*(1-age/.12)});
     }
-    // 狂戰士:大量火花朝攻擊的反方向(往攻擊者)噴,扇形散開;其他職業維持原本四面八方
-    if(e.cls==='berserker'){const back=Math.atan2(src.y-cy,src.x-p.x);sparks(p.x,cy,age,hash(e.id),22,['#fff7d0','#ffd56a','#ff9c4a','#ffefb0'],38,back,1.5);}
-    else sparks(p.x,cy,age,hash(e.id),9,['#fff7d0','#ffd56a','#ff9c4a']);
+    // 其他職業維持原本四面八方的小火花;狂戰士的噴濺在上一段由 crit-spray 表負責(方向順著刀)。
+    if(!berserk)sparks(p.x,cy,age,hash(e.id),9,['#fff7d0','#ffd56a','#ff9c4a']);
     if(e.cls==='paladin'&&age<.3){g.save();g.globalAlpha=.6*(1-age/.3);g.strokeStyle='#fff2b0';g.lineWidth=Math.max(1,s);g.beginPath();g.ellipse(p.x,p.y,(6+age*40)*s,(2.5+age*16)*s,0,0,Math.PI*2);g.stroke();g.restore();}}
   // 遠程魔物的飛行物:離手(release)前不畫;飛行中沿直線或拋物線(lob)前進,圓的東西會轉、細長的順著方向;打到後放塵爆。
   function mshotFrame(i,x,y,size,rot=0,alpha=1,flipY=false){const im=mshotSheet();if(!im)return false;const k=size*scale/32;
@@ -1933,12 +1940,12 @@ let renderDprMax=Math.max(1,dprCap||autoDpr());   // 畫布解析度上限(devic
     let im=vfxSheetCache.get(id);if(!im){im=trackImage(new Image());im.src=v.img;vfxSheetCache.set(id,im);}
     return im.complete&&im.naturalWidth?{img:im,meta:v.meta}:null;}
   // 以美術像素為單位畫一格;k = 螢幕 px / 美術 px。rot 轉向;looping 表依 meta.loop 取餘數。
-  function drawVfxSheet(id,age,x,y,k,{rot=0,alpha=1,rate=1}={}){const sh=vfxSheet(id);if(!sh)return false;
+  function drawVfxSheet(id,age,x,y,k,{rot=0,alpha=1,rate=1,flip=false}={}){const sh=vfxSheet(id);if(!sh)return false;
     const px=sh.meta.meta.pixelfx,cw=px.frameSize[0],ch=px.frameSize[1],cols=px.columns;
     const tt=age*rate;
     const t=px.loop?tt%Math.max(.001,px.frames/px.fps):Math.max(0,tt);
     const i=Math.max(0,Math.min(px.frames-1,Math.floor(t*px.fps)));
-    g.save();g.globalAlpha=alpha;g.translate(R(x),R(y));if(rot)g.rotate(rot);
+    g.save();g.globalAlpha=alpha;g.translate(R(x),R(y));if(rot)g.rotate(rot);if(flip)g.scale(-1,1);
     g.drawImage(sh.img,(i%cols)*cw,Math.floor(i/cols)*ch,cw,ch,-px.pivot[0]*k,-px.pivot[1]*k,cw*k,ch*k);
     g.restore();return true;}
   const CINDER_K=0.58, FIRE_K=0.19, SPARK_K=0.13, CRIT_K=0.06, LEAF_K=0.3;   // 美術像素 → 世界單位(英雄 66px = 21 單位)

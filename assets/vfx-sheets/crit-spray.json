@@ -1,0 +1,457 @@
+{
+ "frames": [
+  {
+   "filename": "crit-spray 0",
+   "frame": {
+    "x": 0,
+    "y": 0,
+    "w": 200,
+    "h": 120
+   },
+   "rotated": false,
+   "trimmed": false,
+   "spriteSourceSize": {
+    "x": 0,
+    "y": 0,
+    "w": 200,
+    "h": 120
+   },
+   "sourceSize": {
+    "w": 200,
+    "h": 120
+   },
+   "duration": 33
+  },
+  {
+   "filename": "crit-spray 1",
+   "frame": {
+    "x": 200,
+    "y": 0,
+    "w": 200,
+    "h": 120
+   },
+   "rotated": false,
+   "trimmed": false,
+   "spriteSourceSize": {
+    "x": 0,
+    "y": 0,
+    "w": 200,
+    "h": 120
+   },
+   "sourceSize": {
+    "w": 200,
+    "h": 120
+   },
+   "duration": 33
+  },
+  {
+   "filename": "crit-spray 2",
+   "frame": {
+    "x": 400,
+    "y": 0,
+    "w": 200,
+    "h": 120
+   },
+   "rotated": false,
+   "trimmed": false,
+   "spriteSourceSize": {
+    "x": 0,
+    "y": 0,
+    "w": 200,
+    "h": 120
+   },
+   "sourceSize": {
+    "w": 200,
+    "h": 120
+   },
+   "duration": 33
+  },
+  {
+   "filename": "crit-spray 3",
+   "frame": {
+    "x": 600,
+    "y": 0,
+    "w": 200,
+    "h": 120
+   },
+   "rotated": false,
+   "trimmed": false,
+   "spriteSourceSize": {
+    "x": 0,
+    "y": 0,
+    "w": 200,
+    "h": 120
+   },
+   "sourceSize": {
+    "w": 200,
+    "h": 120
+   },
+   "duration": 33
+  },
+  {
+   "filename": "crit-spray 4",
+   "frame": {
+    "x": 0,
+    "y": 120,
+    "w": 200,
+    "h": 120
+   },
+   "rotated": false,
+   "trimmed": false,
+   "spriteSourceSize": {
+    "x": 0,
+    "y": 0,
+    "w": 200,
+    "h": 120
+   },
+   "sourceSize": {
+    "w": 200,
+    "h": 120
+   },
+   "duration": 33
+  },
+  {
+   "filename": "crit-spray 5",
+   "frame": {
+    "x": 200,
+    "y": 120,
+    "w": 200,
+    "h": 120
+   },
+   "rotated": false,
+   "trimmed": false,
+   "spriteSourceSize": {
+    "x": 0,
+    "y": 0,
+    "w": 200,
+    "h": 120
+   },
+   "sourceSize": {
+    "w": 200,
+    "h": 120
+   },
+   "duration": 33
+  },
+  {
+   "filename": "crit-spray 6",
+   "frame": {
+    "x": 400,
+    "y": 120,
+    "w": 200,
+    "h": 120
+   },
+   "rotated": false,
+   "trimmed": false,
+   "spriteSourceSize": {
+    "x": 0,
+    "y": 0,
+    "w": 200,
+    "h": 120
+   },
+   "sourceSize": {
+    "w": 200,
+    "h": 120
+   },
+   "duration": 33
+  },
+  {
+   "filename": "crit-spray 7",
+   "frame": {
+    "x": 600,
+    "y": 120,
+    "w": 200,
+    "h": 120
+   },
+   "rotated": false,
+   "trimmed": false,
+   "spriteSourceSize": {
+    "x": 0,
+    "y": 0,
+    "w": 200,
+    "h": 120
+   },
+   "sourceSize": {
+    "w": 200,
+    "h": 120
+   },
+   "duration": 33
+  },
+  {
+   "filename": "crit-spray 8",
+   "frame": {
+    "x": 0,
+    "y": 240,
+    "w": 200,
+    "h": 120
+   },
+   "rotated": false,
+   "trimmed": false,
+   "spriteSourceSize": {
+    "x": 0,
+    "y": 0,
+    "w": 200,
+    "h": 120
+   },
+   "sourceSize": {
+    "w": 200,
+    "h": 120
+   },
+   "duration": 33
+  },
+  {
+   "filename": "crit-spray 9",
+   "frame": {
+    "x": 200,
+    "y": 240,
+    "w": 200,
+    "h": 120
+   },
+   "rotated": false,
+   "trimmed": false,
+   "spriteSourceSize": {
+    "x": 0,
+    "y": 0,
+    "w": 200,
+    "h": 120
+   },
+   "sourceSize": {
+    "w": 200,
+    "h": 120
+   },
+   "duration": 33
+  },
+  {
+   "filename": "crit-spray 10",
+   "frame": {
+    "x": 400,
+    "y": 240,
+    "w": 200,
+    "h": 120
+   },
+   "rotated": false,
+   "trimmed": false,
+   "spriteSourceSize": {
+    "x": 0,
+    "y": 0,
+    "w": 200,
+    "h": 120
+   },
+   "sourceSize": {
+    "w": 200,
+    "h": 120
+   },
+   "duration": 33
+  },
+  {
+   "filename": "crit-spray 11",
+   "frame": {
+    "x": 600,
+    "y": 240,
+    "w": 200,
+    "h": 120
+   },
+   "rotated": false,
+   "trimmed": false,
+   "spriteSourceSize": {
+    "x": 0,
+    "y": 0,
+    "w": 200,
+    "h": 120
+   },
+   "sourceSize": {
+    "w": 200,
+    "h": 120
+   },
+   "duration": 33
+  },
+  {
+   "filename": "crit-spray 12",
+   "frame": {
+    "x": 0,
+    "y": 360,
+    "w": 200,
+    "h": 120
+   },
+   "rotated": false,
+   "trimmed": false,
+   "spriteSourceSize": {
+    "x": 0,
+    "y": 0,
+    "w": 200,
+    "h": 120
+   },
+   "sourceSize": {
+    "w": 200,
+    "h": 120
+   },
+   "duration": 33
+  },
+  {
+   "filename": "crit-spray 13",
+   "frame": {
+    "x": 200,
+    "y": 360,
+    "w": 200,
+    "h": 120
+   },
+   "rotated": false,
+   "trimmed": false,
+   "spriteSourceSize": {
+    "x": 0,
+    "y": 0,
+    "w": 200,
+    "h": 120
+   },
+   "sourceSize": {
+    "w": 200,
+    "h": 120
+   },
+   "duration": 33
+  },
+  {
+   "filename": "crit-spray 14",
+   "frame": {
+    "x": 400,
+    "y": 360,
+    "w": 200,
+    "h": 120
+   },
+   "rotated": false,
+   "trimmed": false,
+   "spriteSourceSize": {
+    "x": 0,
+    "y": 0,
+    "w": 200,
+    "h": 120
+   },
+   "sourceSize": {
+    "w": 200,
+    "h": 120
+   },
+   "duration": 33
+  },
+  {
+   "filename": "crit-spray 15",
+   "frame": {
+    "x": 600,
+    "y": 360,
+    "w": 200,
+    "h": 120
+   },
+   "rotated": false,
+   "trimmed": false,
+   "spriteSourceSize": {
+    "x": 0,
+    "y": 0,
+    "w": 200,
+    "h": 120
+   },
+   "sourceSize": {
+    "w": 200,
+    "h": 120
+   },
+   "duration": 33
+  },
+  {
+   "filename": "crit-spray 16",
+   "frame": {
+    "x": 0,
+    "y": 480,
+    "w": 200,
+    "h": 120
+   },
+   "rotated": false,
+   "trimmed": false,
+   "spriteSourceSize": {
+    "x": 0,
+    "y": 0,
+    "w": 200,
+    "h": 120
+   },
+   "sourceSize": {
+    "w": 200,
+    "h": 120
+   },
+   "duration": 33
+  },
+  {
+   "filename": "crit-spray 17",
+   "frame": {
+    "x": 200,
+    "y": 480,
+    "w": 200,
+    "h": 120
+   },
+   "rotated": false,
+   "trimmed": false,
+   "spriteSourceSize": {
+    "x": 0,
+    "y": 0,
+    "w": 200,
+    "h": 120
+   },
+   "sourceSize": {
+    "w": 200,
+    "h": 120
+   },
+   "duration": 33
+  },
+  {
+   "filename": "crit-spray 18",
+   "frame": {
+    "x": 400,
+    "y": 480,
+    "w": 200,
+    "h": 120
+   },
+   "rotated": false,
+   "trimmed": false,
+   "spriteSourceSize": {
+    "x": 0,
+    "y": 0,
+    "w": 200,
+    "h": 120
+   },
+   "sourceSize": {
+    "w": 200,
+    "h": 120
+   },
+   "duration": 33
+  }
+ ],
+ "meta": {
+  "app": "https://github.com/patch-gg/pixelfx",
+  "version": "1",
+  "image": "crit-spray.png",
+  "format": "RGBA8888",
+  "size": {
+   "w": 800,
+   "h": 600
+  },
+  "scale": "1",
+  "frameTags": [
+   {
+    "name": "crit-spray",
+    "from": 0,
+    "to": 18,
+    "direction": "forward"
+   }
+  ],
+  "pixelfx": {
+   "id": "impacts/crit-spray",
+   "name": "Crit spray",
+   "fps": 30,
+   "loop": false,
+   "frames": 19,
+   "frameSize": [
+    200,
+    120
+   ],
+   "pivot": [
+    52,
+    72
+   ],
+   "columns": 4
+  }
+ }
+}
