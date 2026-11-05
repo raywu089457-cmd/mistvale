@@ -14,7 +14,8 @@ Dispatch to pi when ALL of these hold:
 Do it yourself when any of these hold:
 - Writing a precise card needs you to understand the code anyway (experiment 1: the card cost as much as the work). If the code is not tier C, send a scout card first (section 2) instead of reading it yourself.
 - A short script answers the question (experiment 2: a 40-line script beat reading).
-- It touches `src/pixel-game.js` or `src/pixel-world.js` logic, needs visual judgement, or is a design decision (tier C in MODEL-ROUTING).
+- It touches `src/pixel-game.js` or `src/pixel-world.js` logic, or is a design decision (tier C in MODEL-ROUTING).
+- Visual judgement stays with Claude, but only the judging itself. The material it judges and the implementation afterwards still go to the child (section 1b).
 
 Measured results (Claude weighted tokens = uncached ×1, cache write ×1.25, cache read ×0.1, output ×5):
 
@@ -25,6 +26,32 @@ Measured results (Claude weighted tokens = uncached ×1, cache write ×1.25, cac
 | 3 | API reference, 24 files (T09) | ~31k | ≥265k (4-file sample 122k) | US$0.042, 14 min | dispatch, clearly |
 
 Earlier tests (see the `dispatch-to-pi` memory) found dispatch can cost MORE when each Claude action re-reads a long conversation. Fewer Claude actions per task is the lever; start a fresh session for dispatch-heavy work.
+
+### 1b. Split by game-dev task type (standing rule since 2026-11-05)
+
+The child agent reads and writes all the code. Claude spends tokens only on decisions, and only on condensed input: one contact sheet or screenshot montage, `Txx.plan.md`, or the diff behind an `opus:` flag. Claude never reads raw code. A child card costs about US$0.02. Claude's cost is the context it reads and the number of times it wakes up.
+
+| Task type | Who | How |
+|---|---|---|
+| Visual judgement: picking effects or art; scale, position, colour; how the UI looks | Claude | Reads one montage the child produced, then writes a settings table |
+| Implementing from a spec: export sheets, wire a settings table into code, data or number tables, copy, docs | child | `--goal-only` card carrying the settings table; `Accept:` is `verify:quick` or a dedicated checker |
+| Recon and material: where code lives, candidate contact sheets, in-game screenshot montages | child | `Type: scout` card; Claude reads only the summary or the single image |
+| Features with an objective check: UI behaviour, saves, a11y, numeric rules | child | plan → implement → accept → review (exp 9–10: 4/4 and 5/5) |
+| High-risk logic: hunter AI, combat timing, save structure and migration, animation state machine, cross-file refactors | `game-logic-opus` | Unchanged (CLAUDE.md). "Child implements, Opus reviews the plan and diff" is not adopted; the user must approve it first |
+| One-off answered by a few lines of script | Claude directly | Dispatch overhead and wakes cost more (exp 5 K1: direct was 4.4× cheaper) |
+| Visual bugs: jitter, facing, offset | split | Child writes the repro and screenshot script; Claude judges the montage; child fixes |
+| Asset generation (l0veyou first, PixelLab only after a failed review) | split | Child runs the scripts; Claude picks from one combined montage |
+
+The visual-asset loop, using the 2026-11-05 VFX batch as the example. That batch was done entirely by Claude: it read about 15 images plus code. This loop should more than halve that, at the cost of one or two 10–20 min waits.
+1. Child (scout): render the candidate effects' contact sheets into one montage per class.
+2. Claude: read the montages, then write the settings table (sheet, hit-frame time, offset, scale, fade).
+3. Child: export, wire the code, update `pipeline/ASSETS.md`, and save an in-game screenshot montage. `Accept: npm run verify:quick`.
+4. Claude: read that one montage. If something is off, change the numbers and send one more card.
+
+Cost rules:
+- Batch the cards, dispatch once, and wake once to read the summary. Never poll.
+- The `Accept:` command must be able to fail. Rule out shortcuts, or the task becomes free for the child (exp 10 learned this from `location.reload()`).
+- Claude reads at most one montage per decision. Separate images cost several times more.
 
 ## 2. Task card = a local issue
 

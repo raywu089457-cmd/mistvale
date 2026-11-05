@@ -2,6 +2,8 @@
 
 本文件規定暮影村的工作怎麼分給 pi（預設 DeepSeek v4.1 Flash，跑在 OpenCode Go 訂閱上）、Claude Sonnet 和 Claude Opus，目的是省下 Claude 的 token。寫於 2026-10-30，2026-11-01 改為 OpenCode Go。
 
+> 2026-11-05 起：執行者改用 dsh；遊戲開發依任務類型分工（視覺判斷給 Claude 看拼圖、照規格實作、偵察與材料給執行者），對照表見 [DISPATCH-PLAYBOOK.md](DISPATCH-PLAYBOOK.md) §1b，以那一節為準。
+
 模型分級細節見 [MODEL-ROUTING.md](MODEL-ROUTING.md)，pi 的專案規則見根目錄的 [AGENTS.md](../AGENTS.md)。
 
 ## 原則

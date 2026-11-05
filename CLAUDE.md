@@ -16,6 +16,10 @@
 - Opus 判斷只花在兩處、只讀 pi 的濃縮檔，不讀程式:有設計取捨的卡加 `Gate: plan`(停在規劃，讀 `Txx.plan.md` 後 `--approved --note "方向"`);結果行下面出現 `opus:<原因>` 時讀那份 diff,再 `node tools/pi-dispatch.mjs --opus-verdict Txx ok|missed|fixed "說明"` 記帳。
 - 派工期間主對話不要改檔(範圍檢查會算到 pi 頭上)。
 - 執行者:2026-11-05 起正式用 dsh(DeepSeek Harness,`tools/dsh-overlay.yml`,沙箱關閉;比較結論見 `docs/pi-tasks/COST-LOG.md`)。下文的「pi」泛指派工執行者;dsh 故障時才用 `DISPATCH_AGENT=pi` 備援。
+- 依遊戲開發任務類型分工(2026-11-05 起固定,細節見 PLAYBOOK §1b):程式碼一律由執行者讀寫;Claude 只做判斷，而且只讀濃縮的輸入(一張拼圖、plan.md、被標記的 diff)。
+  - 視覺判斷(挑特效或美術、尺度、位置、色彩、UI 觀感)→ Claude 看執行者產生的拼圖，寫出參數表。照規格實作(匯出、接參數表、數值表、文案、文件)→ 執行者,卡片附參數表加 `Accept`。偵察與材料(程式在哪、候選特效接觸表、遊戲截圖拼圖)→ scout 卡。
+  - 高風險邏輯照上方規則交給 `game-logic-opus`;幾行腳本能解決的事 Claude 直接做。視覺 bug 與生圖兩邊分工:執行者跑腳本、截圖、修正,Claude 只判斷拼圖。
+  - 每個決定最多讀一張拼圖;`Accept` 必須真的可能失敗。
 - 一批工作 = 一兩次寫卡 + 一次派工 + 一次讀總表;不要輪詢。批與批之間開新 session 或 /clear。
 - 細節與實測:[docs/DISPATCH-PLAYBOOK.md](docs/DISPATCH-PLAYBOOK.md)(平常不必打開)。
 
