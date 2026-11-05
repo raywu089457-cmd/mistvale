@@ -57,6 +57,9 @@ build.mjs 內嵌成 `PIXEL_ASSETS.vfxSheets`，`pixel-world.js` 的 `drawVfxShee
 | `fireball-blast.png` / `.json` | pixelfx `impacts/fireball-blast`（本專案寫的，`chain` 只放 `explosions/small-explosion` 前 1.2 秒） | 300×240、pivot [150,196]、37 幀 30 fps。原點＝地面，法師火球命中時起爆，最後 0.3 秒在遊戲端淡出（原廠是 5.4 秒，太長） |
 | `holy-hit.png` / `.json` | pixelfx `impacts/holy-hit`（本專案寫的，`chain` 只放 `holy/smite` 前 1.3 秒） | 224×176、pivot [112,148]、40 幀 30 fps。原點＝地面。牧師普攻：表在 0.54 秒光錘落地，遊戲用 `0.54+age` 對齊，飛行段（0.16 秒）就開始畫目標上的光點和落下的光錘，命中瞬間砸到；最後 0.26 秒淡出 |
 | `priest-heal.png` / `.json` | pixelfx `holy/priest-heal`（本專案寫的，`chain` 只放 `holy/heal` 前 1.4 秒，給一個沒有像素的替身輪廓） | 80×104、pivot [40,92]、43 幀 30 fps。原點＝隊友腳下。牧師補血（普攻補血與暗癒禱言）：花瓣綻開 → 光環沿身體升起 → 小愛心；提前 0.17 秒開始，最後 0.3 秒淡出。heal 原本會重新上色替身身體，傳 `pixels: null` 的替身就只留光 |
+| `dark-cleave.png` / `.json` | pixelfx `melee/heavy-cleave`（上游），匯出時換成暗紫色盤 | 208×116、pivot [68,96]、58 幀 30 fps。原點＝表裡替身腳下，巨劍 0.335 秒砸在前方 +34 美術 px 的地上。黑騎士普攻：表往攻擊方退 34 px，打擊點落在目標腳下；遊戲用 `0.36+age`，命中前就畫得到刀弧；0.5 秒後 0.25 秒淡出（煙塵不拖） |
+| `double-slash.png` / `.json` | pixelfx `melee/double-slash`（上游，原色） | 164×108、pivot [44,92]、25 幀 30 fps。兩刀交叉處在 (+36,-25)≈ 胸口，0.23 秒最亮。刺客普攻：表退 36 px，`0.2+age` |
+| `parry.png` / `.json` | pixelfx `impacts/parry`（上游，原色） | 200×112、pivot [100,96]、31 幀 30 fps。原點正上方 30 px 爆金色環與碎光。聖騎士普攻命中，不用位移 |
 | `crit-spray.png` / `.json` | pixelfx `impacts/crit-spray`（本專案寫的） | 200×120、pivot [52,72]、19 幀 30 fps；原點＝打擊點，火花／碎片／火星**順著 +x 噴出去**，42 美術 px 處是腳下的地面。單獨測試用；遊戲裡是 `berserk-hit` 的第一層 |
 
 重匯出（`--dir` 指到 pixelfx 工作區，預設 `C:/Users/ray/pixelfx`）：
@@ -67,6 +70,9 @@ node pipeline/scripts/pixelfx/export-sheet.mjs impacts/crit-spray crit-spray
 node pipeline/scripts/pixelfx/export-sheet.mjs impacts/fireball-blast fireball-blast
 node pipeline/scripts/pixelfx/export-sheet.mjs impacts/holy-hit holy-hit
 node pipeline/scripts/pixelfx/export-sheet.mjs holy/priest-heal priest-heal
+node pipeline/scripts/pixelfx/export-sheet.mjs --opts '{"palette":["#120818","#2a1038","#4a1a66","#7a2fa0","#a95cd6","#d2a0f0","#f0e0ff","#ffffff"]}' melee/heavy-cleave dark-cleave
+node pipeline/scripts/pixelfx/export-sheet.mjs melee/double-slash double-slash
+node pipeline/scripts/pixelfx/export-sheet.mjs impacts/parry parry
 node pipeline/scripts/pixelfx/export-sheet.mjs --opts '{"palette":["#1f0b10","#4a1118","#8c1d1c","#cc3a1a","#f2701f","#ffae35","#ffe27a","#fff8d6"]}' arcane/spell-charge spell-charge
 ```
 

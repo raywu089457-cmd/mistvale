@@ -1764,6 +1764,7 @@ let renderDprMax=Math.max(1,dprCap||autoDpr());   // 畫布解析度上限(devic
     // 特效尺寸跟角色同級(英雄 21 單位):原本斬痕 30 單位、命中白閃 20 單位會把攻擊者整隻蓋住,
     // 縮到 20/11 單位、白閃快一點淡出,人才看得見自己在打什麼。
     // 打擊方向:dir=+1 表示刀往右揮(攻擊者在左邊)。表往 +x 畫,刀往左時整張水平翻面。
+    if(drawMeleeSheet(e,age,p))return;   // 黑騎士/聖騎士:整張 pixelfx 表(MELEE_FX),表不在才走下面的舊特效
     const berserk=e.cls==='berserker',dir=fromRight?-1:1,bk=.28*s;
     if(berserk){const fade=Math.max(0,Math.min(1,(1.05-age)/.25));
       // 命中特效是 pixelfx 用 chain 串好的一張表(impacts/berserk-hit):
@@ -1879,6 +1880,7 @@ let renderDprMax=Math.max(1,dprCap||autoDpr());   // 畫布解析度上限(devic
       const t=Math.min(1,age/.35);g.save();g.globalAlpha=.7*(1-t);g.strokeStyle='#b98aff';g.lineWidth=Math.max(1,2*s*(1-t));g.beginPath();g.ellipse(p.x,p.y,(4+16*t)*s,(1.8+7*t)*s,0,0,Math.PI*2);g.stroke();g.restore();
       if(age<.3)fxSprite('fxSparkle',p.x,cy,14+age*40,{alpha:1-age/.3,rot:age*3});sparks(p.x,cy,age,hash(e.id),12,['#f1e0ff','#c79cff','#8f6ad8'],32);return;}
     if(e.type==='holy'){if(drawHolyHit(age,p))return;const t=Math.min(1,age/.4);g.save();g.globalAlpha=.55*(1-t);g.fillStyle='#fff3c0';g.fillRect(p.x-4*s*(1-t*.5),p.y-60*s,8*s*(1-t*.5),60*s);g.restore();if(age<.3)fxSprite('fxSparkle',p.x,cy,16,{alpha:1-age/.3});return;}
+    if(e.type==='hit'&&drawMeleeSheet(e,age,p))return;   // 刺客普攻:pixelfx 十字斬(MELEE_FX),魔物打英雄沒有 cls 不受影響
     if(e.type==='hit'){const boss=e.by==='boss',src=screenPoint(e.sourceX??e.x,e.sourceZ??e.z),dir=src.x>p.x?-1:1,t=Math.min(1,age/.08),a=age<.08?1:Math.max(0,1-(age-.08)/.3);
       // 爪痕:三道斜線由打來的方向劃過,白芯紅邊
       if(a>0){g.save();g.globalAlpha=a;for(let i=-1;i<=1;i++){const x0=p.x+(i*3-dir*5)*s,y0=cy-(6+i)*s,x1=x0+dir*10*t*s*(boss?1.5:1),y1=y0+9*t*s*(boss?1.5:1);line(g,x0,y0,x1,y1,'#c8322a',Math.max(2,2*s));line(g,x0,y0,x1,y1,'#fff0e0',Math.max(1,s*.8));}g.restore();}
@@ -1918,7 +1920,7 @@ let renderDprMax=Math.max(1,dprCap||autoDpr());   // 畫布解析度上限(devic
     if(e.type==='mshot'){drawMonsterShot(e,age0,delay,p);if(age>=0&&e.value)damageText(e,age,p);g.globalAlpha=1;return;}
     if(e.type==='vfxsheet'){const t=e.age||0,dur=e.dur||2;if(t<0)return;const fade=t>dur-.35?Math.max(0,(dur-t)/.35):1;
       const ok=drawVfxSheet(e.sheet,t,p.x,p.y-(e.dy||0)*scale,(e.k||.1)*scale,{alpha:fade,rot:e.rot||0});state.lastVfxDraw={sheet:e.sheet,t:+t.toFixed(2),x:Math.round(p.x),y:Math.round(p.y-(e.dy||0)*scale),ok};return;}
-    if(age<0){if(e.type==='holy'&&drawHolyHit(age,p))return;if(e.type==='arrow'||e.type==='spell'||e.type==='holy')drawProjectile(e,Math.min(1,age0/Math.max(.01,delay)),p);return;}
+    if(age<0){if(e.type==='holy'&&drawHolyHit(age,p))return;if((e.type==='slash'||e.type==='hit')&&drawMeleeSheet(e,age,p))return;if(e.type==='arrow'||e.type==='spell'||e.type==='holy')drawProjectile(e,Math.min(1,age0/Math.max(.01,delay)),p);return;}
     if(e.noImpact)return;   // 只負責飛行畫面(手動操控法師的魔法球飛完射程就消失;命中特效由打到的那一刻另外出)
     const fade=Math.max(0,1-age/1.5);if(!fade)return;
     if(e.type==='death'){drawDeath(e,age,p);return;}
@@ -1962,6 +1964,16 @@ let renderDprMax=Math.max(1,dprCap||autoDpr());   // 畫布解析度上限(devic
   const HOLY_LAND=.54,HOLY_K=.14,HEAL_K=.55,HEAL_LEAD=.17;
   function drawHolyHit(age,p){const t=HOLY_LAND+age;if(t<0)return false;const fade=age<.5?1:Math.max(0,1-(age-.5)/.26);
     return fade<=0?!!vfxSheet('holy-hit'):drawVfxSheet('holy-hit',t,p.x,p.y,HOLY_K*scale,{alpha:fade});}
+  // 近戰職業普攻命中(pixelfx 表,原點都是表裡替身的腳下):t0 = 命中那一刻(age 0)對到表的第幾秒,dx = 表裡打擊點在替身前方幾美術 px。
+  // 把表往攻擊方退 dx,打擊點就落在目標身上;表往 +x 揮,攻擊者在右邊(往左打)整張水平翻面。命中前(age<0)也畫,看得到刀落下。
+  //   黑騎士 dark-cleave:melee/heavy-cleave 換暗紫色盤,0.335 秒巨劍砸地(星爆+裂紋+塵),地上打擊點在 +34
+  //   刺客 double-slash:melee/double-slash 上下兩刀交叉,0.23 秒交叉處在 (+36,-25)≈ 胸口
+  //   聖騎士 parry:impacts/parry 金色環爆＋碎光,原點正上方 30 px 爆開,不用位移
+  const MELEE_FX={darkknight:{sheet:'dark-cleave',t0:.36,dx:34,k:.36,fadeAt:.5,fadeLen:.25},assassin:{sheet:'double-slash',t0:.2,dx:36,k:.36,fadeAt:.45,fadeLen:.15},
+    paladin:{sheet:'parry',t0:0,dx:0,k:.36,fadeAt:.6,fadeLen:.35}};   // k:特效跟角色同級,0.5 時刀弧會蓋到旁邊的人
+  function drawMeleeSheet(e,age,p){const c=MELEE_FX[e.cls];if(!c)return false;const t=c.t0+age;if(t<0)return false;
+    const src=screenPoint(e.sourceX??e.x,e.sourceZ??e.z),dir=src.x>p.x?-1:1,k=c.k*scale,fade=age<c.fadeAt?1:Math.max(0,1-(age-c.fadeAt)/c.fadeLen);
+    return fade<=0?!!vfxSheet(c.sheet):drawVfxSheet(c.sheet,t,p.x-dir*c.dx*k,p.y,k,{alpha:fade,flip:dir<0});}
   // 牧師補血:pixelfx holy/priest-heal(holy/heal 前 1.4 秒、不含替身)。提前 HEAL_LEAD 秒開始,回血數字跳出時花瓣剛好綻開。
   function drawPriestHeal(t0,p){const t=t0+HEAL_LEAD;if(t<0)return false;const fade=t<1.1?1:Math.max(0,(1.4-t)/.3);
     return fade<=0?!!vfxSheet('priest-heal'):drawVfxSheet('priest-heal',t,p.x,p.y,HEAL_K*scale,{alpha:fade});}
