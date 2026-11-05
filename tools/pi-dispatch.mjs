@@ -94,7 +94,7 @@ const noReview = flag('no-review'), DRY = flag('dry-run');
 // which files changed: compare content hashes (a file that is already modified keeps the same `git status` line when edited again)
 const snapshot = () => { const list = new Set(); try {
     const git = c => execSync(c, { cwd: ROOT, stdio: ['ignore', 'pipe', 'ignore'] }).toString();   // stderr off: CRLF warnings flood the output
-    for (const f of git('git diff --name-only').split('\n')) if (f) list.add(f);
+    for (const f of git('git diff HEAD --name-only').split('\n')) if (f) list.add(f);   // vs HEAD: an agent that `git add`s its work must still show up (exp 9, pi T65)
     for (const f of git('git ls-files --others --exclude-standard src assets/ui docs pipeline tools sprites').split('\n')) if (f) list.add(f);
   } catch { }
   const out = []; for (const f of list) { try { out.push(f + ':' + crypto.createHash('md5').update(fs.readFileSync(path.join(ROOT, f))).digest('hex')); } catch { } } return out; };
@@ -190,14 +190,78 @@ const PI_CLI = process.env.PI_CLI || path.join(npmRoot, '@earendil-works/pi-codi
 
 // 直接用 node 跑 pi 的 cli.js(不經過 shell):提示詞有中文、空白、冒號、括號,經過 cmd.exe 會被拆壞。
 // stdin 一定要關掉:-p 模式下 pi 會等 stdin 結束才開始做(2026-10-30 第一次派工就卡在這裡)
+// DISPATCH_AGENT=opencode runs every stage (plan / implement / review) with opencode instead of pi, same model.
+// Token usage of every stage goes to output/pi-results/agent-tokens.csv for both agents (harness comparison, Experiment 8).
+// It lives under output/ on purpose: a file in docs/ would count as a change the agent made and fail the scope check.
+// Default since 2026-11-05: dsh (Experiments 9 + 10 in docs/pi-tasks/COST-LOG.md: cheapest or tied, fastest, no hangs). DISPATCH_AGENT=pi brings pi back.
+const AGENT = process.env.DISPATCH_AGENT || 'dsh';
+const OC_EXE = process.env.OC_EXE || 'C:/Users/ray/.opencode2/npm/node_modules/@opencode/cli/bin/opencode.exe';
+const OC_ENV = { XDG_DATA_HOME: process.env.OC_DATA || 'C:/Users/ray/.opencode2/data' };
+const OC_MODEL = process.env.OC_MODEL || 'opencode-go/deepseek-v4.1-flash';
+const TOK_CSV = path.join(ROOT, 'output/pi-results/agent-tokens.csv');
+// DISPATCH_AGENT=dsh runs DeepSeek Harness headless (`dsh --profile headless --json -`, task on stdin).
+// DSH_PATCH (default tools/dsh-overlay.yml) is a --patch overlay that picks the provider/model: opencode-go/deepseek-v4.1-flash, same as pi.
+// The sandbox must be off: on Windows dsh's workspace-write sandbox blocks child-process pipes (git, esbuild, Playwright all EPERM),
+// and headless mode has no approval channel to escalate (Experiment 9). danger-full-access = the same trust pi runs with.
+const DSH_BIN = process.env.DSH_BIN || path.join(npmRoot, '@deepseek-ai/dsh/lib/bin.js');
+const DSH_HOME = process.env.DSH_HOME || path.join(os.homedir(), '.dsh');
+const DSH_PATCH = process.env.DSH_PATCH || (fs.existsSync(path.join(ROOT, 'tools/dsh-overlay.yml')) ? path.join(ROOT, 'tools/dsh-overlay.yml') : '');
+const DSH_ENV = { DSH_PERMISSION_MODE: process.env.DSH_PERMISSION_MODE || 'danger-full-access' };
+// dsh and opencode report no provider cost: price their tokens at pi's provider rates (USD per 1M tokens) so $ stays comparable
+const PRICE = { input: 0.15, output: 0.60, cacheRead: 0.003 };
+const stageUsd = new Map();
+function stageTokens(name, ocOut) {
+  const s = { calls: 0, input: 0, cacheRead: 0, output: 0, reasoning: 0, usd: 0 };
+  if (AGENT === 'dsh') {   // totals live in the session projection cache; output already includes reasoning
+    const sid = (ocOut.match(/"sessionId":"(session-[^"]+)"/) || [])[1]; if (!sid) return s;
+    s.calls = (ocOut.match(/"type":"(text|tool_call)"/g) || []).length;
+    try {
+      const j = JSON.parse(fs.readFileSync(path.join(DSH_HOME, 'storages/session_projcache/sessions', sid + '.json'), 'utf8'));
+      const t = JSON.stringify(j).match(/"tokenUsage":\{[^]*?"totals":(\{[^}]*\})/); const u = t ? JSON.parse(t[1]) : {};
+      s.input = u.uncachedInputTokens || 0; s.cacheRead = u.cacheReadTokens || 0; s.output = u.outputTokens || 0;
+    } catch { }
+    return s;
+  }
+  if (AGENT === 'opencode') {
+    const sid = (ocOut.match(/"sessionID":"(ses_[^"]+)"/) || [])[1]; if (!sid) return s;
+    const r = spawnSync(OC_EXE, ['session', 'export', sid], { encoding: 'utf8', maxBuffer: 256 << 20, env: { ...process.env, ...OC_ENV } });
+    let j; try { j = JSON.parse(r.stdout.slice(r.stdout.indexOf('{'))); } catch { return s; }
+    for (const m of j.messages || []) { const t = m.info?.tokens || m.tokens; if (!t || (m.info?.role || m.type) === 'user') continue;
+      s.calls++; s.input += t.input || 0; s.output += t.output || 0; s.reasoning += t.reasoning || 0; s.cacheRead += t.cache?.read || 0; }
+    return s;
+  }
+  for (const f of fs.readdirSync(SESS).filter(f => f.endsWith('.jsonl'))) {
+    const t = fs.readFileSync(path.join(SESS, f), 'utf8'); if (!t.includes(`"name":"${name}"`)) continue;
+    for (const line of t.split('\n')) { if (!line.includes('"usage"')) continue; let u; try { u = JSON.parse(line).message?.usage; } catch { } if (!u) continue;
+      s.calls++; s.input += u.input || 0; s.cacheRead += u.cacheRead || 0; s.output += u.output || 0; s.reasoning += u.reasoning || 0; s.usd += u.cost?.total || 0; }
+  }
+  return s;
+}
 const runPi = (prompt, name, logFile) => new Promise(resolve => {
+  const t0 = Date.now();
   const piArgs = ['-p', '--approve', '--session-dir', SESS, '--name', name, prompt];
   const SP = { cwd: ROOT, stdio: ['ignore', 'pipe', 'pipe'] };
-  const p = fs.existsSync(PI_CLI) ? spawn(process.execPath, [PI_CLI, ...piArgs], SP) : spawn('pi', piArgs, SP);
+  const p = AGENT === 'opencode'
+    ? spawn(OC_EXE, ['run', '--standalone', '--model', OC_MODEL, '--auto', '--format', 'json', '--title', name, prompt], { ...SP, env: { ...process.env, PWD: ROOT, INIT_CWD: ROOT, ...OC_ENV }, windowsHide: true })
+    : AGENT === 'dsh'
+    ? spawn(process.execPath, [DSH_BIN, '--profile', 'headless', ...(DSH_PATCH ? ['--patch', DSH_PATCH] : []), '--json', '-'], { cwd: ROOT, stdio: ['pipe', 'pipe', 'pipe'], env: { ...process.env, ...DSH_ENV, PWD: ROOT }, windowsHide: true })
+    : fs.existsSync(PI_CLI) ? spawn(process.execPath, [PI_CLI, ...piArgs], SP) : spawn('pi', piArgs, SP);
+  if (AGENT === 'dsh') p.stdin.end(prompt);
   const out = fs.createWriteStream(logFile, { flags: 'a' });
-  p.stdout.pipe(out, { end: false }); p.stderr.pipe(out, { end: false });
-  const timer = setTimeout(() => { out.write(`\n[pi-dispatch] 逾時 ${minutes} 分鐘,結束 pi\n`); try { process.platform === 'win32' ? execSync(`taskkill /pid ${p.pid} /T /F`) : p.kill('SIGKILL'); } catch { } }, minutes * 60e3);
-  p.on('close', code => { clearTimeout(timer); out.end(); resolve(code); });
+  let ocOut = '';
+  if (AGENT !== 'pi') { p.stdout.on('data', d => { ocOut += d; out.write(d); }); p.stderr.on('data', d => out.write(d)); }
+  else { p.stdout.pipe(out, { end: false }); p.stderr.pipe(out, { end: false }); }
+  const timer = setTimeout(() => { out.write(`\n[pi-dispatch] 逾時 ${minutes} 分鐘,結束 ${AGENT}\n`); try { process.platform === 'win32' ? execSync(`taskkill /pid ${p.pid} /T /F`) : p.kill('SIGKILL'); } catch { } }, minutes * 60e3);
+  p.on('close', code => {
+    clearTimeout(timer); out.end();
+    try { const s = stageTokens(name, ocOut);
+      if (AGENT !== 'pi') s.usd = (s.input * PRICE.input + (s.output + (AGENT === 'opencode' ? s.reasoning : 0)) * PRICE.output + s.cacheRead * PRICE.cacheRead) / 1e6;
+      stageUsd.set(name, (stageUsd.get(name) || 0) + s.usd);
+      if (!fs.existsSync(TOK_CSV)) fs.writeFileSync(TOK_CSV, 'date,agent,stage,minutes,exit,calls,input,cache_read,output,reasoning,usd\n');
+      fs.appendFileSync(TOK_CSV, [new Date().toISOString().slice(0, 16), AGENT, name, ((Date.now() - t0) / 60e3).toFixed(1), code, s.calls, s.input, s.cacheRead, s.output, s.reasoning, s.usd.toFixed(4)].join(',') + '\n');
+    } catch { }
+    resolve(code);
+  });
 });
 
 // the acceptance check is a plain command, so its verdict does not depend on what pi claims
@@ -279,7 +343,8 @@ function baseSelftest() {
   process.exit(0);
 }
 
-const sessionCost = name => {   // pi writes real provider USD into its session log
+const sessionCost = name => {   // pi writes real provider USD into its session log; other agents were priced in runPi
+  if (AGENT !== 'pi') return stageUsd.get(name) || 0;
   let usd = 0;
   for (const f of fs.readdirSync(SESS).filter(f => f.endsWith('.jsonl'))) {
     const t = fs.readFileSync(path.join(SESS, f), 'utf8');

@@ -1,0 +1,22 @@
+# --patch overlay for `dsh --profile headless` used by tools/pi-dispatch.mjs (the default dispatch agent since 2026-11-05).
+# Same gateway and model as pi: opencode-go / deepseek-v4.1-flash, reasoning high.
+# Re-enables dsh's saved credential store so the opencode-go key saved by `dsh web` is used (or OPENCODE_API_KEY from the env).
+# No secrets here; nothing is written to the user's dsh profiles. The sandbox is turned off by the dispatcher via
+# DSH_PERMISSION_MODE=danger-full-access (see the comment above DSH_BIN in tools/pi-dispatch.mjs).
+- id: credentials
+  disabled: false
+- id: authorization
+  disabled: false
+- id: llm-pi-ai
+  config:
+    providers:
+      opencode-go:
+        displayName: OpenCode Go
+        api: openai-completions
+        baseURL: https://opencode.ai/inference/go/v1
+        apiKeyEnv: OPENCODE_API_KEY
+- id: agent-default-model
+  config:
+    provider: opencode-go
+    model: deepseek-v4.1-flash
+    reasoningEffort: high

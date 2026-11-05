@@ -1,0 +1,19 @@
+date,arm,task,base,minutes,agent_exit,accept,files,diff_lines,scope,calls,input,cache_read,cache_write,output,reasoning,usd,last_line
+2026-11-04T05:07,v1-pi-stdin-hang,smoke,bae2e7c,8.0,1,PASS,0,0,ok,0,0,0,0,0,0,0.0000,-
+2026-11-04T05:15,v1-opencode-stdin-hang,smoke,bae2e7c,8.0,1,PASS,0,0,ok,0,0,0,0,0,0,0.0000,-
+2026-11-04T05:20,v1-pi,smoke,bae2e7c,0.5,0,PASS,0,0,ok,3,52591,96512,0,687,103,0.0086,DONE; no files changed.
+2026-11-04T05:20,v1-opencode-cwd-main,smoke,bae2e7c,0.2,0,PASS,0,0,ok,3,37820,68224,0,244,271,0.0000,-
+2026-11-04T05:41,v1-pi,reduced-motion,bae2e7c,19.9,0,PASS,1,4,ok,23,73887,1281792,0,10566,6466,0.0213,DONE — src/pixel-ui.js
+2026-11-04T05:45,v1-opencode-INVALID-cwd-main,reduced-motion,bae2e7c,4.0,0,FAIL,0,0,ok,28,68420,1614976,0,3488,5781,0.0000,-
+2026-11-04T06:16,v1-pi,modal-close,bae2e7c,30.8,0,PASS,1,26,ok,42,98816,2853504,0,21881,13904,0.0365,DONE — src/pixel-ui.js
+2026-11-04T06:18,v1-opencode-INVALID-cwd-main,modal-close,bae2e7c,2.6,0,FAIL,0,0,ok,11,70395,526464,0,2329,3239,0.0000,-
+2026-11-04T06:31,v1-pi-peeked-main,empty-states,bae2e7c,11.9,0,PASS,2,35,ok,57,271904,5633152,0,40853,27228,0.0822,DONE — src/pixel-ui.js; src/pixel-style.css
+2026-11-04T06:35,v1-opencode-INVALID-cwd-main,empty-states,bae2e7c,4.0,0,FAIL,0,0,ok,25,72668,1507328,0,3669,3802,0.0000,-
+2026-11-04T06:37,v1-opencode-cwd-main,smoke,bae2e7c,0.2,0,PASS,0,0,ok,3,38008,67968,0,284,94,0.0000,-
+2026-11-04T06:38,v1-opencode,smoke,bae2e7c,0.5,0,PASS,0,0,ok,3,76338,30208,0,498,145,0.0000,-
+2026-11-04T08:31,pi,reduced-motion,bae2e7c,5.3,0,PASS,1,3,ok,24,67315,1275904,0,7710,5004,0.0186,DONE。
+2026-11-04T08:32,opencode,reduced-motion,bae2e7c,0.7,0,PASS,1,4,ok,8,37451,247296,0,919,915,0.0000,-
+2026-11-04T09:12,pi,modal-close,bae2e7c,40.0,1,PASS,1,30,ok,47,103878,3874304,0,18773,10954,0.0385,-
+2026-11-04T09:18,opencode,modal-close,bae2e7c,6.0,0,PASS,1,14,ok,30,67081,1506176,0,5887,7311,0.0000,-
+2026-11-04T09:58,pi,empty-states,bae2e7c,39.1,0,PASS,2,35,ok,79,128432,7355904,0,43593,27006,0.0675,DONE src/pixel-ui.js; src/pixel-style.css
+2026-11-04T10:07,opencode,empty-states,bae2e7c,8.2,0,PASS,2,30,ok,60,111250,5210368,0,7891,17854,0.0000,-

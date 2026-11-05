@@ -1,5 +1,7 @@
 # Dispatch playbook (parent agent → pi child): how and when
 
+Child agent: since 2026-11-05 `tools/pi-dispatch.mjs` runs DeepSeek Harness (dsh) by default. It uses `tools/dsh-overlay.yml` with the same model as pi, and the sandbox is off via `DSH_PERMISSION_MODE=danger-full-access`. Experiments 9 and 10 in COST-LOG found it cheapest or tied, the fastest, and it never hung. `DISPATCH_AGENT=pi|opencode` switches the child agent. "pi" below means whichever child agent runs.
+
 Written 2026-11-01 from three measured experiments. Any agent working in this repo should follow it. The user-facing summary of the split is in `docs/WORK-SPLIT.md` (Chinese); model tiers are in `docs/MODEL-ROUTING.md`. Raw numbers: `docs/pi-tasks/COST-LOG.md`.
 
 ## 1. Decide: dispatch or do it yourself
