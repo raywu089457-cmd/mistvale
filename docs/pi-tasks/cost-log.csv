@@ -42,3 +42,15 @@ date,card,attempts,verdict,accept,minutes,usd,start,end,scope,review,precheck,st
 2026-11-03T10:48,T50,1,DONE,PASS,13.8,0.0443,2026-11-03T10:34:29.610Z,2026-11-03T10:48:19.616Z,OUT,skip,FAIL,plan+precheck+implement-a1+accept,tier-c
 2026-11-03T11:21,T51,1,BLOCKED,not run,33.4,0.0661,2026-11-03T10:48:20.315Z,2026-11-03T11:21:44.069Z,OUT,skip,FAIL,plan+precheck+implement-a1,tier-c
 2026-11-03T12:51,T52,3,DONE,PASS,90.1,0.3683,2026-11-03T11:21:44.502Z,2026-11-03T12:51:51.069Z,ok,OK,FAIL,plan+precheck+implement-a1+accept+review-a1+implement-a2+review-a2+implement-a3+review-a3,big-diff
+2026-11-03T22:54,T54,1,DONE,PASS,34.5,0.1157,2026-11-03T22:19:38.785Z,2026-11-03T22:54:10.414Z,OUT,skip,FAIL,plan+precheck+implement-a1+accept,tier-c
+2026-11-03T23:13,T55,1,DONE,PASS,19.2,0.0714,2026-11-03T22:54:10.672Z,2026-11-03T23:13:23.295Z,OUT,skip,FAIL,plan+precheck+implement-a1+accept,tier-c
+2026-11-03T23:51,T56,1,DONE,PASS,37.8,0.1071,2026-11-03T23:13:23.422Z,2026-11-03T23:51:13.900Z,OUT,skip,FAIL,plan+precheck+implement-a1+accept,tier-c
+2026-11-04T00:08,T57,1,DONE,PASS,16.8,0.0676,2026-11-03T23:51:14.092Z,2026-11-04T00:08:02.260Z,ok,OK,FAIL,plan+precheck+implement-a1+accept+review-a1,-
+2026-11-04T00:59,T58,2,DONE,PASS,51.3,0.2942,2026-11-04T00:08:02.262Z,2026-11-04T00:59:17.949Z,ok,OK,FAIL,plan+precheck+implement-a1+accept+review-a1+implement-a2+review-a2,big-diff
+2026-11-04T01:50,T59,3,DONE,PASS,50.8,0.2538,2026-11-04T00:59:18.105Z,2026-11-04T01:50:05.275Z,OUT,ISSUES,FAIL,plan+precheck+implement-a1+accept+review-a1+implement-a2+review-a2+implement-a3,tier-c
+2026-11-05T11:40,T60,2,DONE,PASS,19.4,0.1136,2026-11-05T11:21:03.824Z,2026-11-05T11:40:30.161Z,ok,OK,n/a,plan+implement-a1+accept+review-a1+implement-a2+review-a2,tier-c
+2026-11-05T13:52,T61,1,DONE,PASS,37.0,0.2318,2026-11-05T13:15:08.352Z,2026-11-05T13:52:06.489Z,ok,OK,FAIL,plan+precheck+implement-a1+accept+review-a1,tier-c
+2026-11-05T14:50,T62,1,DONE,n/a,6.0,0.0298,2026-11-05T14:44:46.104Z,2026-11-05T14:50:48.257Z,n/a,skip,n/a,implement-a1,-
+2026-11-05T15:20,T63,1,DONE,PASS,28.9,0.1476,2026-11-05T14:51:17.661Z,2026-11-05T15:20:12.660Z,ok,OK,n/a,plan+implement-a1+accept+review-a1,-
+2026-11-05T17:34,T64,3,DONE,PASS,133.1,0.4832,2026-11-05T15:21:02.675Z,2026-11-05T17:34:11.060Z,ok,ISSUES,FAIL,plan+precheck+implement-a1+accept+review-a1+implement-a2+review-a2+implement-a3+review-a3,review-failed
+2026-11-05T19:21,T65,2,DONE,PASS,104.6,0.3440,2026-11-05T17:37:23.459Z,2026-11-05T19:21:58.075Z,ok,ISSUES,FAIL,plan+precheck+implement-a1+accept+review-a1+implement-a2+review-a2,tier-c

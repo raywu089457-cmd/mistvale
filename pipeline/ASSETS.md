@@ -61,6 +61,7 @@ build.mjs 內嵌成 `PIXEL_ASSETS.vfxSheets`，`pixel-world.js` 的 `drawVfxShee
 | `double-slash.png` / `.json` | pixelfx `melee/double-slash`（上游，原色） | 164×108、pivot [44,92]、25 幀 30 fps。兩刀交叉處在 (+36,-25)≈ 胸口，0.23 秒最亮。刺客普攻：表退 36 px，`0.2+age` |
 | `parry.png` / `.json` | pixelfx `impacts/parry`（上游，原色） | 200×112、pivot [100,96]、31 幀 30 fps。原點正上方 30 px 爆金色環與碎光。聖騎士普攻命中，不用位移 |
 | `crit-spray.png` / `.json` | pixelfx `impacts/crit-spray`（本專案寫的） | 200×120、pivot [52,72]、19 幀 30 fps；原點＝打擊點，火花／碎片／火星**順著 +x 噴出去**，42 美術 px 處是腳下的地面。單獨測試用；遊戲裡是 `berserk-hit` 的第一層 |
+| `gale-arrow.png` / `.json` | pixelfx `projectiles/arrow`（上游，換成綠色羽尾與奶油色風線） | 112×32、pivot [92,16]、18 幀 loop。`drawShotArrows` 的疾風箭雨（`fx==='gale'`）箭表，後拖 3 個殘影（間距 0.35、alpha 0.45／0.28／0.14） |
 
 重匯出（`--dir` 指到 pixelfx 工作區，預設 `C:/Users/ray/pixelfx`）：
 
@@ -74,6 +75,7 @@ node pipeline/scripts/pixelfx/export-sheet.mjs --opts '{"palette":["#120818","#2
 node pipeline/scripts/pixelfx/export-sheet.mjs melee/double-slash double-slash
 node pipeline/scripts/pixelfx/export-sheet.mjs impacts/parry parry
 node pipeline/scripts/pixelfx/export-sheet.mjs --opts '{"palette":["#1f0b10","#4a1118","#8c1d1c","#cc3a1a","#f2701f","#ffae35","#ffe27a","#fff8d6"]}' arcane/spell-charge spell-charge
+node pipeline/scripts/pixelfx/export-sheet.mjs --opts '{"palette":["#1f5a2a","#3f9a3c","#c8f0a0","#ffffff"],"wind":"#f4ffd8"}' projectiles/arrow gale-arrow
 ```
 
 本專案自己寫的效果原始檔放在 `pipeline/scripts/pixelfx/vendor/<分類>/`（`impacts/`、`holy/`，跟 pixelfx 的 `src/fx/<分類>/` 同結構、

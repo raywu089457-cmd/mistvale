@@ -1246,8 +1246,8 @@ export function createGame(saved = null) {
     }
     stepDungeon(dt); stepArena(dt);
     for (const e of state.effects) e.age += dt;
-    // 火龍捲是 3.4 秒的整段技能表(法師第一招),比一般特效活得久,播完才回收。
-    state.effects = state.effects.filter(e => e.age < (e.type === 'victory' ? 3 : e.type === 'vfxsheet' ? (e.dur || 2) + .3 : e.type === 'skillfx' && e.fx === 'cinder' ? 4.2 : 1.6) + (e.type === 'mshot' ? e.delay || 0 : 0));   // 魔物飛行物:飛行時間另計,數字才播得完 refreshQuest();
+    // 火龍捲是 3.4 秒的整段技能表(法師第一招),比一般特效活得久,播完才回收。pixelfx 表改為 0.6 倍速(T65),存活時間跟著除以 0.6。
+    state.effects = state.effects.filter(e => e.age < (e.type === 'victory' ? 3 : e.type === 'vfxsheet' ? ((e.dur || 2) + .3) / .6 : e.type === 'skillfx' && e.fx === 'cinder' ? 7.0 : 2.7) + (e.type === 'mshot' ? e.delay || 0 : 0));   // 魔物飛行物:飛行時間另計,數字才播得完 refreshQuest();
   }
 
   function fresh() {

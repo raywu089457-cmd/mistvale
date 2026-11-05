@@ -1,2 +1,9 @@
 date,card,reason,pi_review,opus_verdict,note
 2026-11-03T04:32,T47,big-diff,OK,ok,"static cascade rule (same media+selector, later same property) is state-independent; !important rules identical to HEAD; flag was a false big-diff: Txx.diff used HEAD as base"
+2026-11-04T01:51,T54,tier-c,skip,ok,"tier-c flag false positive: pixel-game/world archer-combat edits came from another session during the batch, not in pi diff"
+2026-11-04T01:51,T55,tier-c,skip,ok,"tier-c flag false positive: pixel-game/world archer-combat edits came from another session during the batch, not in pi diff"
+2026-11-04T01:51,T56,tier-c,skip,ok,"tier-c flag false positive: pixel-game/world archer-combat edits came from another session during the batch, not in pi diff"
+2026-11-04T01:51,T58,big-diff,OK,ok,"big diff is mostly the new checker; CSS-only, review lows only"
+2026-11-05T11:42,T60,tier-c,OK,fixed,"疾風箭雨殘影把世界座標 gx 當螢幕 x 傳給 drawVfxSheet,殘影畫到左上角;review 沒抓到,主對話改成 screenPoint 後的螢幕座標"
+2026-11-05T17:37,T64,review-failed,ISSUES,fixed,U2 diagnosis was wrong: the sticky bar is the last child and does not cover anything at max scroll; padding-bottom made the bar float mid-screen. Removed the padding and changed the checker to require the bar pinned to the bottom. Boss banner title kept (it adds the boss name).
+2026-11-05T19:23,T65,tier-c,ISSUES,fixed,Damage numbers were stretched to 2.5 s with the slowed hit effects; gated damageText back to the original 1.5 s. Checker removal-age delay nit left as is.
