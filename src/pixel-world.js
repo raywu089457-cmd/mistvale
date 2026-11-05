@@ -1904,11 +1904,11 @@ let renderDprMax=Math.max(1,dprCap||autoDpr());   // 畫布解析度上限(devic
     textLabel(crit?txt+'!':txt,p.x+dx,p.y-(27+rise)*scale-dy,{color:col,size,back:false});}
   // 弓箭手的箭是 state.shots 裡的實體:畫在它真正的位置,碰到魔物才消失(命中/扣血由 stepShots 判定)
   function drawShotArrows(){const shots=state?.shots;if(!shots?.length)return;const s=scale;
-    for(const sh of shots){if(sh.kind!=='arrow')continue;
+    for(const sh of shots){if(sh.kind!=='arrow'||sh.wait>0)continue;   // 箭雨:還沒到放出格的箭不畫
+      // 箭雨的大箭:從高處斜落(高度隨飛行遞減,飛到瞄準點 span 時落到地面高度),箭身角度跟著下墜的斜率
+      const span=sh.span||7, travel=sh.range0?sh.range0-sh.left:0, drop=(sh.drop||0)*Math.max(0,1-travel/span), fall=drop>0?(sh.drop||0)*.6/span:0;
       const p=screenPoint(sh.x,sh.z),q=screenPoint(sh.x+sh.dx*.6,sh.z+sh.dz*.6);
-      const ang=Math.atan2(q.y-p.y,q.x-p.x);
-      // 箭雨的大箭:從高處落下(高度隨飛行遞減)、拖線更長更粗
-      const travel=sh.range0?sh.range0-sh.left:0, drop=(sh.drop||0)*Math.max(0,1-travel/7);
+      const ang=Math.atan2(q.y-p.y+fall*s,q.x-p.x);
       // 整段飛行只用 pixelfx 的 arrow 表(風切線已畫在素材裡),大小跟箭雨一樣 2.7×
       const hx=p.x, hy=p.y-12*s-drop*s;
       drawVfxSheet('arrow',state.time+(sh.big?.15:0),hx,hy,ARROW_VFX_K*2.7*s,{rot:ang});
@@ -1983,7 +1983,7 @@ let renderDprMax=Math.max(1,dprCap||autoDpr());   // 畫布解析度上限(devic
   globalThis.__mistvaleFireball=()=>({drawn:fireballDrawn,last:fireballLast});   // 驗收用:法師普攻火球(飛行位置)
   let arrowLast=null;
   globalThis.__mistvaleArrow=()=>({last:arrowLast});   // 驗收用:弓箭手箭矢的螢幕位置
-  globalThis.__mistvaleShots=()=>(state.shots||[]).map(s=>({x:+s.x.toFixed(2),z:+s.z.toFixed(2),kind:s.kind||'spell',left:+s.left.toFixed(2),dmg:s.dmg}));   // 驗收用:飛行中的箭/法球
+  globalThis.__mistvaleShots=()=>(state.shots||[]).map(s=>({x:+s.x.toFixed(2),z:+s.z.toFixed(2),kind:s.kind||'spell',left:+s.left.toFixed(2),dmg:s.dmg,big:!!s.big,wait:+(s.wait||0).toFixed(2),fx:s.fx||null}));   // 驗收用:飛行中的箭/法球
   globalThis.__mistvalePilot=()=>{const p=state.pilot;if(!p)return null;const h=state.hunters.find(q=>q.id===p.id);return h?{id:h.id,cls:h.classId,x:+h.x.toFixed(1),z:+h.z.toFixed(1),t:+state.time.toFixed(2)}:null;};   // 驗收用:目前操控的角色
   globalThis.__mistvaleGale=()=>state.lastGale||null;   // 驗收用:上一次疾風箭雨開了幾支箭
   globalThis.__mistvaleTestFx=()=>state.lastTestFx||null;   // 驗收用:最後一次按的測試特效

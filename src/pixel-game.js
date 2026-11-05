@@ -626,24 +626,48 @@ export function createGame(saved = null) {
     const hitList = sk.kind === 'multi' ? alive.filter(e => distance(h, e) <= h.range + 1).sort((a, b) => distance(h, a) - distance(h, b)).slice(0, sk.targets)
       : sk.kind === 'aoe' ? alive.filter(e => distance(e, target) <= sk.radius) : [target];
     if (!hitList.includes(target)) hitList.unshift(target);
+    // 疾風箭雨(2026-11-05 使用者:「箭雨改成箭動畫命中怪物才判定真的命中」):不在這裡扣血,
+    // 改成射出真的箭(state.shots),飛行中碰到魔物那一刻才結算(stepShots);飛完沒碰到 = 落空。
+    if (sk.fx === 'gale') { galeVolley(h, hitList, target, sk, base); return; }
     hitList.forEach((e, i) => {
-      const dmg = Math.max(1, Math.round(base * sk.mult)), delay = release + (sk.fx === 'gale' ? .18 + i * .05 : sk.fx === 'arrow' ? .2 : .1);
+      const dmg = Math.max(1, Math.round(base * sk.mult)), delay = release + (sk.fx === 'arrow' ? .2 : .1);
       e.hitAt = t + delay; e.hitFromX = h.x; e.hitFromZ = h.z; e.hp -= dmg;
       effect('skillfx', e, { sourceX: h.x, sourceZ: h.z, value: dmg, targetId: e.id, delay, cls: h.classId, fx: sk.fx, kind: sk.kind, crit: true, skill: true });
       if (h.classId === 'darkknight') h.hp = Math.min(h.maxHp, h.hp + dmg * 0.08);
       if (e.hp <= 0) rewardEnemy(e, h);
     });
-    // 疾風箭雨:不管命中幾個目標,畫面都補滿 3 支箭(純視覺,value 0,不結算傷害)。
-    if (sk.fx === 'gale') {
-      if (hitList.length < 3) {
-        for (let k = hitList.length; k < 3; k++) {
-          const ang = (k - 1) * 1.1, off = 1.1 + k * 0.55;
-          effect('skillfx', { x: target.x + Math.cos(ang) * off, z: target.z + Math.sin(ang) * off },
-            { sourceX: h.x, sourceZ: h.z, delay: release + .18 + k * .06, cls: h.classId, fx: 'gale', kind: 'multi', value: 0, skill: true, ghost: true });
-        }
-      }
-      state.lastGale = { n: hitList.length, ghost: Math.max(0, 3 - hitList.length), t: +state.time.toFixed(2) };
-    }
+  }
+  // 疾風箭雨的箭:每個目標一支,不足 3 支就補「側邊箭」(瞄主目標兩側 GALE.side 格,通常落空;真的碰到別的魔物照樣算)。
+  // 箭先掛在 state.shots 裡等 wait(放出格 release + 每支錯開 stagger),到點才從弓手「當下」位置瞄準目標「當下」位置射出(launchShot)。
+  // 每支箭只打一隻(once)、可以打王(boss),傷害 base × mult;命中/落空記在 state.lastGale(驗收用)。不存檔(讀檔時 shots 清空)。
+  const GALE = { speed: 20, radius: .8, overshoot: 1.2, side: 1.8, stagger: .06, drop: 58 };
+  let galeSeq = 0;
+  function galeVolley(h, targets, aimAt, sk, base) {
+    const release = sk.release ?? .25, dmg = Math.max(1, Math.round(base * sk.mult)), volley = ++galeSeq;
+    const anchor = targets.includes(aimAt) ? aimAt : targets[0] || null;   // 側邊箭以主目標為中心;空放(沒有目標)則以 aimAt 點為中心,先補一支正中的
+    const sides = targets.length ? [GALE.side, -GALE.side] : [0, GALE.side, -GALE.side];
+    const plan = targets.map(e => ({ e, side: 0 }));
+    for (let k = 0; plan.length < 3; k++) plan.push({ e: anchor, side: sides[k] ?? sides[k % 2] * 1.6 });
+    plan.forEach(({ e, side }, i) => {
+      const s = { x: h.x, z: h.z, dx: 1, dz: 0, left: 1, range0: 1, span: 1, ownerId: h.id, cls: h.classId, dmg, crit: true, skill: true, hit: [], kind: 'arrow', speed: GALE.speed,
+        radius: GALE.radius, big: true, once: true, boss: true, drop: GALE.drop, fx: 'gale', volley, targetId: e?.id ?? null, aimX: e ? e.x : aimAt.x, aimZ: e ? e.z : aimAt.z, side,
+        wait: release + i * GALE.stagger, ghost: side !== 0 };
+      (state.shots ??= []).push(s);
+    });
+    state.lastGale = { id: volley, n: targets.length, ghost: Math.max(0, 3 - targets.length), arrows: plan.length, hits: 0, misses: 0, t: +state.time.toFixed(2) };
+  }
+  // 等待中的箭放出:起點 = 射手現在的位置(施法到放出之間 AI 可能已後撤),方向 = 目標現在的位置(+ 側邊偏移)
+  function launchShot(s) {
+    const owner = state.hunters.find(q => q.id === s.ownerId);
+    if (owner && owner.hp > 0 && owner.task !== 'dungeon' && owner.task !== 'arena') { s.x = owner.x; s.z = owner.z; }
+    const tgt = s.targetId != null ? state.enemies.find(e => e.id === s.targetId && e.hp > 0 && !e.rewarded) : null;
+    const bx = tgt ? tgt.x : s.aimX, bz = tgt ? tgt.z : s.aimZ;
+    let ux = bx - s.x, uz = bz - s.z; const l0 = Math.hypot(ux, uz);
+    if (l0 > 1e-6) { ux /= l0; uz /= l0; } else { ux = 1; uz = 0; }
+    const ax = bx - uz * (s.side || 0), az = bz + ux * (s.side || 0);
+    let dx = ax - s.x, dz = az - s.z; const l = Math.hypot(dx, dz);
+    if (l > 1e-6) { dx /= l; dz /= l; } else { dx = ux; dz = uz; }
+    s.dx = dx; s.dz = dz; s.span = Math.max(.5, l); s.left = s.range0 = l + GALE.overshoot;
   }
 
   const wandererOf = who => (state.wanderers || []).includes(who);
@@ -941,21 +965,35 @@ export function createGame(saved = null) {
   function stepShots(dt) {
     const shots = state.shots; if (!shots?.length) return;
     for (const s of shots) {
+      if (s.wait > 0) { s.wait -= dt; if (s.wait > 1e-9) continue; s.wait = 0; launchShot(s); }   // 箭雨:還沒到放出格,先不飛、不判定
       const d = Math.min(s.left, (s.speed || PILOT_ORB.speed) * dt);
       const radius = s.radius || PILOT_ORB.radius;
+      // once(箭雨):只打路徑上「最先碰到」的那一隻,打到就消失;其他箭/法球照舊穿透(每隻打一次)
+      let first = null, firstT = Infinity;
       for (const e of state.enemies) {
-        if (e.hp <= 0 || e.type === 'boss' || s.hit.includes(e.id)) continue;
+        if (e.hp <= 0 || e.rewarded || (e.type === 'boss' && !s.boss) || s.hit.includes(e.id)) continue;
         const t = Math.max(0, Math.min(d, (e.x - s.x) * s.dx + (e.z - s.z) * s.dz));
         if (Math.hypot(e.x - (s.x + s.dx * t), e.z - (s.z + s.dz * t)) > radius) continue;
-        s.hit.push(e.id); e.hp -= s.dmg; e.hitAt = state.time; e.hitFromX = s.x; e.hitFromZ = s.z;
-        const kind = s.kind === 'arrow' ? 'arrow' : 'spell';
-        effect(kind, e, { sourceX: e.x, sourceZ: e.z, value: s.dmg, targetId: e.id, delay: 0, cls: s.kind === 'arrow' ? 'archer' : 'sorcerer', crit: s.crit });
-        const owner = state.hunters.find(q => q.id === s.ownerId);
-        if (e.hp <= 0 && owner) rewardEnemy(e, owner);
+        if (s.once) { if (t < firstT) { first = e; firstT = t; } continue; }
+        shotHit(s, e);
       }
+      if (first) { shotHit(s, first); s.x += s.dx * firstT; s.z += s.dz * firstT; s.left = 0; continue; }
       s.x += s.dx * d; s.z += s.dz * d; s.left -= d;
     }
+    for (const s of shots) if (s.fx === 'gale' && !(s.left > 1e-6) && !s.hit.length && state.lastGale?.id === s.volley) state.lastGale.misses++;
     state.shots = shots.filter(s => s.left > 1e-6);
+  }
+  function shotHit(s, e) {
+    s.hit.push(e.id); e.hp -= s.dmg; e.hitAt = state.time; e.hitFromX = s.x; e.hitFromZ = s.z;
+    if (s.fx === 'gale') {   // 箭雨命中:技能命中特效 + 暴擊樣式數字,出在箭真正碰到的那一刻
+      effect('skillfx', e, { sourceX: s.x, sourceZ: s.z, value: s.dmg, targetId: e.id, delay: 0, cls: s.cls || 'archer', fx: 'gale', kind: 'multi', crit: true, skill: true });
+      if (state.lastGale?.id === s.volley) state.lastGale.hits++;
+    } else {
+      const kind = s.kind === 'arrow' ? 'arrow' : 'spell';
+      effect(kind, e, { sourceX: e.x, sourceZ: e.z, value: s.dmg, targetId: e.id, delay: 0, cls: s.kind === 'arrow' ? 'archer' : 'sorcerer', crit: s.crit });
+    }
+    const owner = state.hunters.find(q => q.id === s.ownerId);
+    if (e.hp <= 0 && owner) rewardEnemy(e, owner);
   }
 
   function step(dt) {
@@ -1753,7 +1791,9 @@ export function createGame(saved = null) {
         effect('skillfx', h, { cls: h.classId, fx: sk.fx, sourceX: h.x, sourceZ: h.z, delay: sk.release ?? .25, text: `+${v}`, color: '#9cf09a', self: true });
         return result(true, `${sk.name}！`);
       }
-      effect('skillfx', at, { sourceX: h.x, sourceZ: h.z, fx: sk.fx, cls: h.classId, kind: sk.kind, delay: sk.release ?? .25, value: 0, skill: true });
+      // 疾風箭雨空放:照樣射出 3 支真的箭(朝面向 4 格處),外觀跟正常施放一樣;射程內本來就沒魔物,通常全部落空
+      if (sk.fx === 'gale') galeVolley(h, [], at, sk, Math.max(1, Math.round(h.attack * (h.satiety < 15 || h.stamina < 15 ? 0.6 : 1))));
+      else effect('skillfx', at, { sourceX: h.x, sourceZ: h.z, fx: sk.fx, cls: h.classId, kind: sk.kind, delay: sk.release ?? .25, value: 0, skill: true });
       return result(true, `${sk.name}！（沒有目標，展示用）`);
     },
     pilotSkillCooldown() { const p = state.pilot; if (!p) return 0; const h = state.hunters.find(q => q.id === p.id); return h ? Math.max(0, h.skillCd || 0) : 0; },

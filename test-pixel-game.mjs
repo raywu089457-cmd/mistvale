@@ -483,6 +483,76 @@ turn.pilotStop();
   assert.ok(near.hp < 200, 'aimed orb hits the monster');
   orb.pilotStop();
 }
+// ── 疾風箭雨(2026-11-05):箭真的飛,飛行中碰到魔物才扣血;魔物在放箭後走開 = 落空、不扣血。AI 施放與離線 simulate 也一樣結算。
+{
+  const gen = createGame(); const gh = isolate(gen); gh.x = gh.z = 0; run(gen, 6); const proto = gen.state.enemies.find(e => e.hp > 0);
+  assert.ok(proto, 'template enemy spawned for the gale test');
+  const setup = () => {
+    const g = createGame(); const a = g.state.hunters.find(h => h.classId === 'archer'); g.state.hunters = [a];
+    Object.assign(a, { hp: a.maxHp, satiety: 100, mood: 100, stamina: 100, task: null, route: [], rallying: false, huntRegion: null, x: 6, z: 30, skillCd: 0, attackTimer: 0 });
+    g.state.enemies = []; g.state.spawnTimer = 0; return { g, a };
+  };
+  const foe = (id, x, z) => ({ ...proto, id, x, z, hp: 5000, maxHp: 5000, attackTimer: 99, rewarded: false });
+  const hold = (g, foes, spots) => { g.state.spawnTimer = 0; for (const e of foes) { const p = spots[e.id]; if (p) { e.x = p.x; e.z = p.z; } e.attackTimer = 99; } };
+  const dmg = a => Math.max(1, Math.round(Math.max(1, Math.round(a.attack)) * 1.3));
+  // 1) 手動放技能:扣血發生在箭到的時候,不是施放當下;一支箭只打一隻
+  {
+    const { g, a } = setup(); const m = foe('galeHit', a.x + 4, a.z); g.state.enemies = [m]; const spots = { galeHit: { x: m.x, z: m.z } };
+    assert.equal(g.pilotStart(a.id).ok, true); a.skillCd = 0;
+    assert.equal(g.pilotSkill().ok, true, 'pilot gale casts with a monster in reach');
+    assert.equal(m.hp, 5000, 'gale deals no damage at cast time');
+    assert.equal(g.state.shots.filter(s => s.fx === 'gale').length, 3, 'gale fires three real arrows (1 aimed + 2 side)');
+    assert.ok(g.state.shots.every(s => s.big && s.wait > 0), 'gale arrows wait for the release frame');
+    hold(g, [m], spots); g.tick(0.1); assert.equal(m.hp, 5000, 'still no damage before the arrow arrives');
+    for (let i = 0; i < 16; i++) { hold(g, [m], spots); g.tick(0.05); }
+    assert.equal(m.hp, 5000 - dmg(a), 'the aimed arrow hits once for base × mult; side arrows miss');
+    assert.deepEqual([g.state.lastGale.hits, g.state.lastGale.misses], [1, 2], 'lastGale records 1 hit / 2 misses');
+    assert.ok(g.state.effects.some(e => e.type === 'skillfx' && e.fx === 'gale' && e.targetId === m.id && e.value === dmg(a)), 'hit effect + damage number appear on impact');
+    assert.equal(g.state.shots.length, 0, 'all gale arrows are gone after the volley');
+    g.pilotStop();
+  }
+  // 2) 放箭後魔物瞬間走開(到箭的路徑外):全部落空,一滴血都不扣
+  {
+    const { g, a } = setup(); const m = foe('galeMiss', a.x + 4, a.z); g.state.enemies = [m];
+    assert.equal(g.pilotStart(a.id).ok, true); a.skillCd = 0; assert.equal(g.pilotSkill().ok, true);
+    let launched = false; const away = { galeMiss: { x: a.x + 4, z: a.z + 6 } }, stay = { galeMiss: { x: a.x + 4, z: a.z } };
+    for (let i = 0; i < 20; i++) {
+      // 先待在原地讓箭瞄準(放出那一刻),放出之後才閃開
+      hold(g, [m], launched ? away : stay); g.tick(0.05);
+      if (!launched && g.state.shots.some(s => s.fx === 'gale' && !(s.wait > 0))) launched = true;
+    }
+    assert.ok(launched, 'gale arrows were released');
+    assert.equal(m.hp, 5000, 'a monster that dodges out of the arrow path takes no damage');
+    assert.deepEqual([g.state.lastGale.hits, g.state.lastGale.misses], [0, 3], 'all three arrows miss');
+    g.pilotStop();
+  }
+  // 3) AI 施放(三個目標各一支)+ 離線 simulate 也會結算;王也打得到
+  {
+    const { g, a } = setup(); a.huntRegion = g.state.region;
+    const ms = [foe('galeA', a.x + 3, a.z), foe('galeB', a.x + 3, a.z + 3), { ...foe('galeC', a.x + 3, a.z - 3), type: 'boss' }];
+    g.state.enemies = ms; const spots = Object.fromEntries(ms.map(e => [e.id, { x: e.x, z: e.z }]));
+    a.task = null; a.status = '戰鬥中';
+    let cast = false;
+    for (let i = 0; i < 40 && !cast; i++) { hold(g, ms, spots); a.skillCd = 0; a.attackTimer = 0; g.tick(0.05); cast = g.state.lastGale?.arrows === 3 && g.state.lastGale.n === 3; }
+    if (cast) {
+      assert.ok(ms.every(e => e.hp >= 5000 - a.attack * 2), 'AI gale does not deal skill damage at cast time');
+      const hp0 = ms.map(e => e.hp); const shotsAtCast = g.state.shots.filter(s => s.fx === 'gale').length;
+      assert.equal(shotsAtCast, 3, 'AI gale fires one arrow per target');
+      const id0 = g.state.lastGale.id;
+      for (let i = 0; i < 10; i++) { hold(g, ms, spots); a.skillCd = 99; a.attackTimer = 99; g.simulate(0.1); }
+      assert.equal(g.state.lastGale.id, id0);
+      assert.equal(g.state.lastGale.hits, 3, `every target is hit by its own arrow via simulate (${g.state.lastGale.hits} hits / ${g.state.lastGale.misses} misses)`);
+      ms.forEach((e, i) => assert.equal(hp0[i] - e.hp, dmg(a), `${e.id} takes exactly one gale arrow`));
+    } else assert.fail('AI archer never cast gale in the test setup');
+  }
+  // 4) 存檔:飛行中的箭不存、讀檔後清空(serialize 本來就把 shots 清掉)
+  {
+    const { g, a } = setup(); g.state.enemies = [foe('galeSave', a.x + 4, a.z)];
+    assert.equal(g.pilotStart(a.id).ok, true); a.skillCd = 0; g.pilotSkill();
+    assert.ok(g.state.shots.length === 3); assert.deepEqual(g.serialize().shots, [], 'in-flight gale arrows are not saved');
+    g.pilotStop();
+  }
+}
 // AI 獵人出手後也有短僵直(站著收招不移動),但沒有額外的攻擊 CD
 assert.equal(AI_ATTACK_LOCK, 0.15);
 const ai = createGame(); const ah = isolate(ai); ah.huntRegion = ai.state.region; ah.route = []; ah.task = null;
