@@ -1,0 +1,919 @@
+{
+ "frames": [
+  {
+   "filename": "holy-hit 0",
+   "frame": {
+    "x": 0,
+    "y": 0,
+    "w": 224,
+    "h": 176
+   },
+   "rotated": false,
+   "trimmed": false,
+   "spriteSourceSize": {
+    "x": 0,
+    "y": 0,
+    "w": 224,
+    "h": 176
+   },
+   "sourceSize": {
+    "w": 224,
+    "h": 176
+   },
+   "duration": 33
+  },
+  {
+   "filename": "holy-hit 1",
+   "frame": {
+    "x": 224,
+    "y": 0,
+    "w": 224,
+    "h": 176
+   },
+   "rotated": false,
+   "trimmed": false,
+   "spriteSourceSize": {
+    "x": 0,
+    "y": 0,
+    "w": 224,
+    "h": 176
+   },
+   "sourceSize": {
+    "w": 224,
+    "h": 176
+   },
+   "duration": 33
+  },
+  {
+   "filename": "holy-hit 2",
+   "frame": {
+    "x": 448,
+    "y": 0,
+    "w": 224,
+    "h": 176
+   },
+   "rotated": false,
+   "trimmed": false,
+   "spriteSourceSize": {
+    "x": 0,
+    "y": 0,
+    "w": 224,
+    "h": 176
+   },
+   "sourceSize": {
+    "w": 224,
+    "h": 176
+   },
+   "duration": 33
+  },
+  {
+   "filename": "holy-hit 3",
+   "frame": {
+    "x": 672,
+    "y": 0,
+    "w": 224,
+    "h": 176
+   },
+   "rotated": false,
+   "trimmed": false,
+   "spriteSourceSize": {
+    "x": 0,
+    "y": 0,
+    "w": 224,
+    "h": 176
+   },
+   "sourceSize": {
+    "w": 224,
+    "h": 176
+   },
+   "duration": 33
+  },
+  {
+   "filename": "holy-hit 4",
+   "frame": {
+    "x": 896,
+    "y": 0,
+    "w": 224,
+    "h": 176
+   },
+   "rotated": false,
+   "trimmed": false,
+   "spriteSourceSize": {
+    "x": 0,
+    "y": 0,
+    "w": 224,
+    "h": 176
+   },
+   "sourceSize": {
+    "w": 224,
+    "h": 176
+   },
+   "duration": 33
+  },
+  {
+   "filename": "holy-hit 5",
+   "frame": {
+    "x": 1120,
+    "y": 0,
+    "w": 224,
+    "h": 176
+   },
+   "rotated": false,
+   "trimmed": false,
+   "spriteSourceSize": {
+    "x": 0,
+    "y": 0,
+    "w": 224,
+    "h": 176
+   },
+   "sourceSize": {
+    "w": 224,
+    "h": 176
+   },
+   "duration": 33
+  },
+  {
+   "filename": "holy-hit 6",
+   "frame": {
+    "x": 0,
+    "y": 176,
+    "w": 224,
+    "h": 176
+   },
+   "rotated": false,
+   "trimmed": false,
+   "spriteSourceSize": {
+    "x": 0,
+    "y": 0,
+    "w": 224,
+    "h": 176
+   },
+   "sourceSize": {
+    "w": 224,
+    "h": 176
+   },
+   "duration": 33
+  },
+  {
+   "filename": "holy-hit 7",
+   "frame": {
+    "x": 224,
+    "y": 176,
+    "w": 224,
+    "h": 176
+   },
+   "rotated": false,
+   "trimmed": false,
+   "spriteSourceSize": {
+    "x": 0,
+    "y": 0,
+    "w": 224,
+    "h": 176
+   },
+   "sourceSize": {
+    "w": 224,
+    "h": 176
+   },
+   "duration": 33
+  },
+  {
+   "filename": "holy-hit 8",
+   "frame": {
+    "x": 448,
+    "y": 176,
+    "w": 224,
+    "h": 176
+   },
+   "rotated": false,
+   "trimmed": false,
+   "spriteSourceSize": {
+    "x": 0,
+    "y": 0,
+    "w": 224,
+    "h": 176
+   },
+   "sourceSize": {
+    "w": 224,
+    "h": 176
+   },
+   "duration": 33
+  },
+  {
+   "filename": "holy-hit 9",
+   "frame": {
+    "x": 672,
+    "y": 176,
+    "w": 224,
+    "h": 176
+   },
+   "rotated": false,
+   "trimmed": false,
+   "spriteSourceSize": {
+    "x": 0,
+    "y": 0,
+    "w": 224,
+    "h": 176
+   },
+   "sourceSize": {
+    "w": 224,
+    "h": 176
+   },
+   "duration": 33
+  },
+  {
+   "filename": "holy-hit 10",
+   "frame": {
+    "x": 896,
+    "y": 176,
+    "w": 224,
+    "h": 176
+   },
+   "rotated": false,
+   "trimmed": false,
+   "spriteSourceSize": {
+    "x": 0,
+    "y": 0,
+    "w": 224,
+    "h": 176
+   },
+   "sourceSize": {
+    "w": 224,
+    "h": 176
+   },
+   "duration": 33
+  },
+  {
+   "filename": "holy-hit 11",
+   "frame": {
+    "x": 1120,
+    "y": 176,
+    "w": 224,
+    "h": 176
+   },
+   "rotated": false,
+   "trimmed": false,
+   "spriteSourceSize": {
+    "x": 0,
+    "y": 0,
+    "w": 224,
+    "h": 176
+   },
+   "sourceSize": {
+    "w": 224,
+    "h": 176
+   },
+   "duration": 33
+  },
+  {
+   "filename": "holy-hit 12",
+   "frame": {
+    "x": 0,
+    "y": 352,
+    "w": 224,
+    "h": 176
+   },
+   "rotated": false,
+   "trimmed": false,
+   "spriteSourceSize": {
+    "x": 0,
+    "y": 0,
+    "w": 224,
+    "h": 176
+   },
+   "sourceSize": {
+    "w": 224,
+    "h": 176
+   },
+   "duration": 33
+  },
+  {
+   "filename": "holy-hit 13",
+   "frame": {
+    "x": 224,
+    "y": 352,
+    "w": 224,
+    "h": 176
+   },
+   "rotated": false,
+   "trimmed": false,
+   "spriteSourceSize": {
+    "x": 0,
+    "y": 0,
+    "w": 224,
+    "h": 176
+   },
+   "sourceSize": {
+    "w": 224,
+    "h": 176
+   },
+   "duration": 33
+  },
+  {
+   "filename": "holy-hit 14",
+   "frame": {
+    "x": 448,
+    "y": 352,
+    "w": 224,
+    "h": 176
+   },
+   "rotated": false,
+   "trimmed": false,
+   "spriteSourceSize": {
+    "x": 0,
+    "y": 0,
+    "w": 224,
+    "h": 176
+   },
+   "sourceSize": {
+    "w": 224,
+    "h": 176
+   },
+   "duration": 33
+  },
+  {
+   "filename": "holy-hit 15",
+   "frame": {
+    "x": 672,
+    "y": 352,
+    "w": 224,
+    "h": 176
+   },
+   "rotated": false,
+   "trimmed": false,
+   "spriteSourceSize": {
+    "x": 0,
+    "y": 0,
+    "w": 224,
+    "h": 176
+   },
+   "sourceSize": {
+    "w": 224,
+    "h": 176
+   },
+   "duration": 33
+  },
+  {
+   "filename": "holy-hit 16",
+   "frame": {
+    "x": 896,
+    "y": 352,
+    "w": 224,
+    "h": 176
+   },
+   "rotated": false,
+   "trimmed": false,
+   "spriteSourceSize": {
+    "x": 0,
+    "y": 0,
+    "w": 224,
+    "h": 176
+   },
+   "sourceSize": {
+    "w": 224,
+    "h": 176
+   },
+   "duration": 33
+  },
+  {
+   "filename": "holy-hit 17",
+   "frame": {
+    "x": 1120,
+    "y": 352,
+    "w": 224,
+    "h": 176
+   },
+   "rotated": false,
+   "trimmed": false,
+   "spriteSourceSize": {
+    "x": 0,
+    "y": 0,
+    "w": 224,
+    "h": 176
+   },
+   "sourceSize": {
+    "w": 224,
+    "h": 176
+   },
+   "duration": 33
+  },
+  {
+   "filename": "holy-hit 18",
+   "frame": {
+    "x": 0,
+    "y": 528,
+    "w": 224,
+    "h": 176
+   },
+   "rotated": false,
+   "trimmed": false,
+   "spriteSourceSize": {
+    "x": 0,
+    "y": 0,
+    "w": 224,
+    "h": 176
+   },
+   "sourceSize": {
+    "w": 224,
+    "h": 176
+   },
+   "duration": 33
+  },
+  {
+   "filename": "holy-hit 19",
+   "frame": {
+    "x": 224,
+    "y": 528,
+    "w": 224,
+    "h": 176
+   },
+   "rotated": false,
+   "trimmed": false,
+   "spriteSourceSize": {
+    "x": 0,
+    "y": 0,
+    "w": 224,
+    "h": 176
+   },
+   "sourceSize": {
+    "w": 224,
+    "h": 176
+   },
+   "duration": 33
+  },
+  {
+   "filename": "holy-hit 20",
+   "frame": {
+    "x": 448,
+    "y": 528,
+    "w": 224,
+    "h": 176
+   },
+   "rotated": false,
+   "trimmed": false,
+   "spriteSourceSize": {
+    "x": 0,
+    "y": 0,
+    "w": 224,
+    "h": 176
+   },
+   "sourceSize": {
+    "w": 224,
+    "h": 176
+   },
+   "duration": 33
+  },
+  {
+   "filename": "holy-hit 21",
+   "frame": {
+    "x": 672,
+    "y": 528,
+    "w": 224,
+    "h": 176
+   },
+   "rotated": false,
+   "trimmed": false,
+   "spriteSourceSize": {
+    "x": 0,
+    "y": 0,
+    "w": 224,
+    "h": 176
+   },
+   "sourceSize": {
+    "w": 224,
+    "h": 176
+   },
+   "duration": 33
+  },
+  {
+   "filename": "holy-hit 22",
+   "frame": {
+    "x": 896,
+    "y": 528,
+    "w": 224,
+    "h": 176
+   },
+   "rotated": false,
+   "trimmed": false,
+   "spriteSourceSize": {
+    "x": 0,
+    "y": 0,
+    "w": 224,
+    "h": 176
+   },
+   "sourceSize": {
+    "w": 224,
+    "h": 176
+   },
+   "duration": 33
+  },
+  {
+   "filename": "holy-hit 23",
+   "frame": {
+    "x": 1120,
+    "y": 528,
+    "w": 224,
+    "h": 176
+   },
+   "rotated": false,
+   "trimmed": false,
+   "spriteSourceSize": {
+    "x": 0,
+    "y": 0,
+    "w": 224,
+    "h": 176
+   },
+   "sourceSize": {
+    "w": 224,
+    "h": 176
+   },
+   "duration": 33
+  },
+  {
+   "filename": "holy-hit 24",
+   "frame": {
+    "x": 0,
+    "y": 704,
+    "w": 224,
+    "h": 176
+   },
+   "rotated": false,
+   "trimmed": false,
+   "spriteSourceSize": {
+    "x": 0,
+    "y": 0,
+    "w": 224,
+    "h": 176
+   },
+   "sourceSize": {
+    "w": 224,
+    "h": 176
+   },
+   "duration": 33
+  },
+  {
+   "filename": "holy-hit 25",
+   "frame": {
+    "x": 224,
+    "y": 704,
+    "w": 224,
+    "h": 176
+   },
+   "rotated": false,
+   "trimmed": false,
+   "spriteSourceSize": {
+    "x": 0,
+    "y": 0,
+    "w": 224,
+    "h": 176
+   },
+   "sourceSize": {
+    "w": 224,
+    "h": 176
+   },
+   "duration": 33
+  },
+  {
+   "filename": "holy-hit 26",
+   "frame": {
+    "x": 448,
+    "y": 704,
+    "w": 224,
+    "h": 176
+   },
+   "rotated": false,
+   "trimmed": false,
+   "spriteSourceSize": {
+    "x": 0,
+    "y": 0,
+    "w": 224,
+    "h": 176
+   },
+   "sourceSize": {
+    "w": 224,
+    "h": 176
+   },
+   "duration": 33
+  },
+  {
+   "filename": "holy-hit 27",
+   "frame": {
+    "x": 672,
+    "y": 704,
+    "w": 224,
+    "h": 176
+   },
+   "rotated": false,
+   "trimmed": false,
+   "spriteSourceSize": {
+    "x": 0,
+    "y": 0,
+    "w": 224,
+    "h": 176
+   },
+   "sourceSize": {
+    "w": 224,
+    "h": 176
+   },
+   "duration": 33
+  },
+  {
+   "filename": "holy-hit 28",
+   "frame": {
+    "x": 896,
+    "y": 704,
+    "w": 224,
+    "h": 176
+   },
+   "rotated": false,
+   "trimmed": false,
+   "spriteSourceSize": {
+    "x": 0,
+    "y": 0,
+    "w": 224,
+    "h": 176
+   },
+   "sourceSize": {
+    "w": 224,
+    "h": 176
+   },
+   "duration": 33
+  },
+  {
+   "filename": "holy-hit 29",
+   "frame": {
+    "x": 1120,
+    "y": 704,
+    "w": 224,
+    "h": 176
+   },
+   "rotated": false,
+   "trimmed": false,
+   "spriteSourceSize": {
+    "x": 0,
+    "y": 0,
+    "w": 224,
+    "h": 176
+   },
+   "sourceSize": {
+    "w": 224,
+    "h": 176
+   },
+   "duration": 33
+  },
+  {
+   "filename": "holy-hit 30",
+   "frame": {
+    "x": 0,
+    "y": 880,
+    "w": 224,
+    "h": 176
+   },
+   "rotated": false,
+   "trimmed": false,
+   "spriteSourceSize": {
+    "x": 0,
+    "y": 0,
+    "w": 224,
+    "h": 176
+   },
+   "sourceSize": {
+    "w": 224,
+    "h": 176
+   },
+   "duration": 33
+  },
+  {
+   "filename": "holy-hit 31",
+   "frame": {
+    "x": 224,
+    "y": 880,
+    "w": 224,
+    "h": 176
+   },
+   "rotated": false,
+   "trimmed": false,
+   "spriteSourceSize": {
+    "x": 0,
+    "y": 0,
+    "w": 224,
+    "h": 176
+   },
+   "sourceSize": {
+    "w": 224,
+    "h": 176
+   },
+   "duration": 33
+  },
+  {
+   "filename": "holy-hit 32",
+   "frame": {
+    "x": 448,
+    "y": 880,
+    "w": 224,
+    "h": 176
+   },
+   "rotated": false,
+   "trimmed": false,
+   "spriteSourceSize": {
+    "x": 0,
+    "y": 0,
+    "w": 224,
+    "h": 176
+   },
+   "sourceSize": {
+    "w": 224,
+    "h": 176
+   },
+   "duration": 33
+  },
+  {
+   "filename": "holy-hit 33",
+   "frame": {
+    "x": 672,
+    "y": 880,
+    "w": 224,
+    "h": 176
+   },
+   "rotated": false,
+   "trimmed": false,
+   "spriteSourceSize": {
+    "x": 0,
+    "y": 0,
+    "w": 224,
+    "h": 176
+   },
+   "sourceSize": {
+    "w": 224,
+    "h": 176
+   },
+   "duration": 33
+  },
+  {
+   "filename": "holy-hit 34",
+   "frame": {
+    "x": 896,
+    "y": 880,
+    "w": 224,
+    "h": 176
+   },
+   "rotated": false,
+   "trimmed": false,
+   "spriteSourceSize": {
+    "x": 0,
+    "y": 0,
+    "w": 224,
+    "h": 176
+   },
+   "sourceSize": {
+    "w": 224,
+    "h": 176
+   },
+   "duration": 33
+  },
+  {
+   "filename": "holy-hit 35",
+   "frame": {
+    "x": 1120,
+    "y": 880,
+    "w": 224,
+    "h": 176
+   },
+   "rotated": false,
+   "trimmed": false,
+   "spriteSourceSize": {
+    "x": 0,
+    "y": 0,
+    "w": 224,
+    "h": 176
+   },
+   "sourceSize": {
+    "w": 224,
+    "h": 176
+   },
+   "duration": 33
+  },
+  {
+   "filename": "holy-hit 36",
+   "frame": {
+    "x": 0,
+    "y": 1056,
+    "w": 224,
+    "h": 176
+   },
+   "rotated": false,
+   "trimmed": false,
+   "spriteSourceSize": {
+    "x": 0,
+    "y": 0,
+    "w": 224,
+    "h": 176
+   },
+   "sourceSize": {
+    "w": 224,
+    "h": 176
+   },
+   "duration": 33
+  },
+  {
+   "filename": "holy-hit 37",
+   "frame": {
+    "x": 224,
+    "y": 1056,
+    "w": 224,
+    "h": 176
+   },
+   "rotated": false,
+   "trimmed": false,
+   "spriteSourceSize": {
+    "x": 0,
+    "y": 0,
+    "w": 224,
+    "h": 176
+   },
+   "sourceSize": {
+    "w": 224,
+    "h": 176
+   },
+   "duration": 33
+  },
+  {
+   "filename": "holy-hit 38",
+   "frame": {
+    "x": 448,
+    "y": 1056,
+    "w": 224,
+    "h": 176
+   },
+   "rotated": false,
+   "trimmed": false,
+   "spriteSourceSize": {
+    "x": 0,
+    "y": 0,
+    "w": 224,
+    "h": 176
+   },
+   "sourceSize": {
+    "w": 224,
+    "h": 176
+   },
+   "duration": 33
+  },
+  {
+   "filename": "holy-hit 39",
+   "frame": {
+    "x": 672,
+    "y": 1056,
+    "w": 224,
+    "h": 176
+   },
+   "rotated": false,
+   "trimmed": false,
+   "spriteSourceSize": {
+    "x": 0,
+    "y": 0,
+    "w": 224,
+    "h": 176
+   },
+   "sourceSize": {
+    "w": 224,
+    "h": 176
+   },
+   "duration": 33
+  }
+ ],
+ "meta": {
+  "app": "https://github.com/patch-gg/pixelfx",
+  "version": "1",
+  "image": "holy-hit.png",
+  "format": "RGBA8888",
+  "size": {
+   "w": 1344,
+   "h": 1232
+  },
+  "scale": "1",
+  "frameTags": [
+   {
+    "name": "holy-hit",
+    "from": 0,
+    "to": 39,
+    "direction": "forward"
+   }
+  ],
+  "pixelfx": {
+   "id": "impacts/holy-hit",
+   "name": "Holy hit",
+   "fps": 30,
+   "loop": false,
+   "frames": 40,
+   "frameSize": [
+    224,
+    176
+   ],
+   "pivot": [
+    112,
+    148
+   ],
+   "columns": 6
+  }
+ }
+}

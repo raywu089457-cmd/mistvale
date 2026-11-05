@@ -55,6 +55,8 @@ build.mjs 內嵌成 `PIXEL_ASSETS.vfxSheets`，`pixel-world.js` 的 `drawVfxShee
 | `berserk-hit.png` / `.json` | pixelfx `impacts/berserk-hit`（本專案寫的，`chain` 串三個效果） | 260×180、pivot [105,105]、31 幀 30 fps。原點＝打擊點（胸口），地板在 +52 美術 px。狂戰士普攻命中：t 0 切痕噴濺（`crit-spray`）→ t 0.16 星爆（`crit-hit`）→ t 0.16 腳下塵環（`heavy-landing`，0.5 秒後收掉）。往左揮時整張水平翻面 |
 | `spell-charge.png` / `.json` | pixelfx `arcane/spell-charge`（上游，`loop` 表），匯出時換成火色盤 | 120×86、pivot [44,80]、48 幀 30 fps、1.6 秒 loop。法師蓄力時畫在手上（遊戲用 2.4 倍速，0.6 秒的蓄力裡剛好長到滿）；表裡的球在 pivot 右上 (15,-22) |
 | `fireball-blast.png` / `.json` | pixelfx `impacts/fireball-blast`（本專案寫的，`chain` 只放 `explosions/small-explosion` 前 1.2 秒） | 300×240、pivot [150,196]、37 幀 30 fps。原點＝地面，法師火球命中時起爆，最後 0.3 秒在遊戲端淡出（原廠是 5.4 秒，太長） |
+| `holy-hit.png` / `.json` | pixelfx `impacts/holy-hit`（本專案寫的，`chain` 只放 `holy/smite` 前 1.3 秒） | 224×176、pivot [112,148]、40 幀 30 fps。原點＝地面。牧師普攻：表在 0.54 秒光錘落地，遊戲用 `0.54+age` 對齊，飛行段（0.16 秒）就開始畫目標上的光點和落下的光錘，命中瞬間砸到；最後 0.26 秒淡出 |
+| `priest-heal.png` / `.json` | pixelfx `holy/priest-heal`（本專案寫的，`chain` 只放 `holy/heal` 前 1.4 秒，給一個沒有像素的替身輪廓） | 80×104、pivot [40,92]、43 幀 30 fps。原點＝隊友腳下。牧師補血（普攻補血與暗癒禱言）：花瓣綻開 → 光環沿身體升起 → 小愛心；提前 0.17 秒開始，最後 0.3 秒淡出。heal 原本會重新上色替身身體，傳 `pixels: null` 的替身就只留光 |
 | `crit-spray.png` / `.json` | pixelfx `impacts/crit-spray`（本專案寫的） | 200×120、pivot [52,72]、19 幀 30 fps；原點＝打擊點，火花／碎片／火星**順著 +x 噴出去**，42 美術 px 處是腳下的地面。單獨測試用；遊戲裡是 `berserk-hit` 的第一層 |
 
 重匯出（`--dir` 指到 pixelfx 工作區，預設 `C:/Users/ray/pixelfx`）：
@@ -63,10 +65,12 @@ build.mjs 內嵌成 `PIXEL_ASSETS.vfxSheets`，`pixel-world.js` 的 `drawVfxShee
 node pipeline/scripts/pixelfx/export-sheet.mjs impacts/berserk-hit berserk-hit
 node pipeline/scripts/pixelfx/export-sheet.mjs impacts/crit-spray crit-spray
 node pipeline/scripts/pixelfx/export-sheet.mjs impacts/fireball-blast fireball-blast
+node pipeline/scripts/pixelfx/export-sheet.mjs impacts/holy-hit holy-hit
+node pipeline/scripts/pixelfx/export-sheet.mjs holy/priest-heal priest-heal
 node pipeline/scripts/pixelfx/export-sheet.mjs --opts '{"palette":["#1f0b10","#4a1118","#8c1d1c","#cc3a1a","#f2701f","#ffae35","#ffe27a","#fff8d6"]}' arcane/spell-charge spell-charge
 ```
 
-本專案自己寫的效果原始檔放在 `pipeline/scripts/pixelfx/vendor/impacts/`（跟 pixelfx 的 `src/fx/impacts/` 同結構、
+本專案自己寫的效果原始檔放在 `pipeline/scripts/pixelfx/vendor/<分類>/`（`impacts/`、`holy/`，跟 pixelfx 的 `src/fx/<分類>/` 同結構、
 同樣 `../../core/index.js` 的相對 import）；匯出腳本會先把它複製進 pixelfx 工作區再匯出，所以乾淨的 checkout + 一份
 pixelfx 就能重現同一張表（實測輸出 byte 相同）。`berserk-hit` 串的另外兩個效果（`impacts/crit-hit`、`impacts/heavy-landing`）
 是 pixelfx 上游就有的，不用 vendor。腳本固定用 `bg:"none", actor:false` 匯出，只留效果本身的像素。

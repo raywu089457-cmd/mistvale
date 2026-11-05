@@ -1,0 +1,985 @@
+{
+ "frames": [
+  {
+   "filename": "priest-heal 0",
+   "frame": {
+    "x": 0,
+    "y": 0,
+    "w": 80,
+    "h": 104
+   },
+   "rotated": false,
+   "trimmed": false,
+   "spriteSourceSize": {
+    "x": 0,
+    "y": 0,
+    "w": 80,
+    "h": 104
+   },
+   "sourceSize": {
+    "w": 80,
+    "h": 104
+   },
+   "duration": 33
+  },
+  {
+   "filename": "priest-heal 1",
+   "frame": {
+    "x": 80,
+    "y": 0,
+    "w": 80,
+    "h": 104
+   },
+   "rotated": false,
+   "trimmed": false,
+   "spriteSourceSize": {
+    "x": 0,
+    "y": 0,
+    "w": 80,
+    "h": 104
+   },
+   "sourceSize": {
+    "w": 80,
+    "h": 104
+   },
+   "duration": 33
+  },
+  {
+   "filename": "priest-heal 2",
+   "frame": {
+    "x": 160,
+    "y": 0,
+    "w": 80,
+    "h": 104
+   },
+   "rotated": false,
+   "trimmed": false,
+   "spriteSourceSize": {
+    "x": 0,
+    "y": 0,
+    "w": 80,
+    "h": 104
+   },
+   "sourceSize": {
+    "w": 80,
+    "h": 104
+   },
+   "duration": 33
+  },
+  {
+   "filename": "priest-heal 3",
+   "frame": {
+    "x": 240,
+    "y": 0,
+    "w": 80,
+    "h": 104
+   },
+   "rotated": false,
+   "trimmed": false,
+   "spriteSourceSize": {
+    "x": 0,
+    "y": 0,
+    "w": 80,
+    "h": 104
+   },
+   "sourceSize": {
+    "w": 80,
+    "h": 104
+   },
+   "duration": 33
+  },
+  {
+   "filename": "priest-heal 4",
+   "frame": {
+    "x": 320,
+    "y": 0,
+    "w": 80,
+    "h": 104
+   },
+   "rotated": false,
+   "trimmed": false,
+   "spriteSourceSize": {
+    "x": 0,
+    "y": 0,
+    "w": 80,
+    "h": 104
+   },
+   "sourceSize": {
+    "w": 80,
+    "h": 104
+   },
+   "duration": 33
+  },
+  {
+   "filename": "priest-heal 5",
+   "frame": {
+    "x": 400,
+    "y": 0,
+    "w": 80,
+    "h": 104
+   },
+   "rotated": false,
+   "trimmed": false,
+   "spriteSourceSize": {
+    "x": 0,
+    "y": 0,
+    "w": 80,
+    "h": 104
+   },
+   "sourceSize": {
+    "w": 80,
+    "h": 104
+   },
+   "duration": 33
+  },
+  {
+   "filename": "priest-heal 6",
+   "frame": {
+    "x": 480,
+    "y": 0,
+    "w": 80,
+    "h": 104
+   },
+   "rotated": false,
+   "trimmed": false,
+   "spriteSourceSize": {
+    "x": 0,
+    "y": 0,
+    "w": 80,
+    "h": 104
+   },
+   "sourceSize": {
+    "w": 80,
+    "h": 104
+   },
+   "duration": 33
+  },
+  {
+   "filename": "priest-heal 7",
+   "frame": {
+    "x": 560,
+    "y": 0,
+    "w": 80,
+    "h": 104
+   },
+   "rotated": false,
+   "trimmed": false,
+   "spriteSourceSize": {
+    "x": 0,
+    "y": 0,
+    "w": 80,
+    "h": 104
+   },
+   "sourceSize": {
+    "w": 80,
+    "h": 104
+   },
+   "duration": 33
+  },
+  {
+   "filename": "priest-heal 8",
+   "frame": {
+    "x": 0,
+    "y": 104,
+    "w": 80,
+    "h": 104
+   },
+   "rotated": false,
+   "trimmed": false,
+   "spriteSourceSize": {
+    "x": 0,
+    "y": 0,
+    "w": 80,
+    "h": 104
+   },
+   "sourceSize": {
+    "w": 80,
+    "h": 104
+   },
+   "duration": 33
+  },
+  {
+   "filename": "priest-heal 9",
+   "frame": {
+    "x": 80,
+    "y": 104,
+    "w": 80,
+    "h": 104
+   },
+   "rotated": false,
+   "trimmed": false,
+   "spriteSourceSize": {
+    "x": 0,
+    "y": 0,
+    "w": 80,
+    "h": 104
+   },
+   "sourceSize": {
+    "w": 80,
+    "h": 104
+   },
+   "duration": 33
+  },
+  {
+   "filename": "priest-heal 10",
+   "frame": {
+    "x": 160,
+    "y": 104,
+    "w": 80,
+    "h": 104
+   },
+   "rotated": false,
+   "trimmed": false,
+   "spriteSourceSize": {
+    "x": 0,
+    "y": 0,
+    "w": 80,
+    "h": 104
+   },
+   "sourceSize": {
+    "w": 80,
+    "h": 104
+   },
+   "duration": 33
+  },
+  {
+   "filename": "priest-heal 11",
+   "frame": {
+    "x": 240,
+    "y": 104,
+    "w": 80,
+    "h": 104
+   },
+   "rotated": false,
+   "trimmed": false,
+   "spriteSourceSize": {
+    "x": 0,
+    "y": 0,
+    "w": 80,
+    "h": 104
+   },
+   "sourceSize": {
+    "w": 80,
+    "h": 104
+   },
+   "duration": 33
+  },
+  {
+   "filename": "priest-heal 12",
+   "frame": {
+    "x": 320,
+    "y": 104,
+    "w": 80,
+    "h": 104
+   },
+   "rotated": false,
+   "trimmed": false,
+   "spriteSourceSize": {
+    "x": 0,
+    "y": 0,
+    "w": 80,
+    "h": 104
+   },
+   "sourceSize": {
+    "w": 80,
+    "h": 104
+   },
+   "duration": 33
+  },
+  {
+   "filename": "priest-heal 13",
+   "frame": {
+    "x": 400,
+    "y": 104,
+    "w": 80,
+    "h": 104
+   },
+   "rotated": false,
+   "trimmed": false,
+   "spriteSourceSize": {
+    "x": 0,
+    "y": 0,
+    "w": 80,
+    "h": 104
+   },
+   "sourceSize": {
+    "w": 80,
+    "h": 104
+   },
+   "duration": 33
+  },
+  {
+   "filename": "priest-heal 14",
+   "frame": {
+    "x": 480,
+    "y": 104,
+    "w": 80,
+    "h": 104
+   },
+   "rotated": false,
+   "trimmed": false,
+   "spriteSourceSize": {
+    "x": 0,
+    "y": 0,
+    "w": 80,
+    "h": 104
+   },
+   "sourceSize": {
+    "w": 80,
+    "h": 104
+   },
+   "duration": 33
+  },
+  {
+   "filename": "priest-heal 15",
+   "frame": {
+    "x": 560,
+    "y": 104,
+    "w": 80,
+    "h": 104
+   },
+   "rotated": false,
+   "trimmed": false,
+   "spriteSourceSize": {
+    "x": 0,
+    "y": 0,
+    "w": 80,
+    "h": 104
+   },
+   "sourceSize": {
+    "w": 80,
+    "h": 104
+   },
+   "duration": 33
+  },
+  {
+   "filename": "priest-heal 16",
+   "frame": {
+    "x": 0,
+    "y": 208,
+    "w": 80,
+    "h": 104
+   },
+   "rotated": false,
+   "trimmed": false,
+   "spriteSourceSize": {
+    "x": 0,
+    "y": 0,
+    "w": 80,
+    "h": 104
+   },
+   "sourceSize": {
+    "w": 80,
+    "h": 104
+   },
+   "duration": 33
+  },
+  {
+   "filename": "priest-heal 17",
+   "frame": {
+    "x": 80,
+    "y": 208,
+    "w": 80,
+    "h": 104
+   },
+   "rotated": false,
+   "trimmed": false,
+   "spriteSourceSize": {
+    "x": 0,
+    "y": 0,
+    "w": 80,
+    "h": 104
+   },
+   "sourceSize": {
+    "w": 80,
+    "h": 104
+   },
+   "duration": 33
+  },
+  {
+   "filename": "priest-heal 18",
+   "frame": {
+    "x": 160,
+    "y": 208,
+    "w": 80,
+    "h": 104
+   },
+   "rotated": false,
+   "trimmed": false,
+   "spriteSourceSize": {
+    "x": 0,
+    "y": 0,
+    "w": 80,
+    "h": 104
+   },
+   "sourceSize": {
+    "w": 80,
+    "h": 104
+   },
+   "duration": 33
+  },
+  {
+   "filename": "priest-heal 19",
+   "frame": {
+    "x": 240,
+    "y": 208,
+    "w": 80,
+    "h": 104
+   },
+   "rotated": false,
+   "trimmed": false,
+   "spriteSourceSize": {
+    "x": 0,
+    "y": 0,
+    "w": 80,
+    "h": 104
+   },
+   "sourceSize": {
+    "w": 80,
+    "h": 104
+   },
+   "duration": 33
+  },
+  {
+   "filename": "priest-heal 20",
+   "frame": {
+    "x": 320,
+    "y": 208,
+    "w": 80,
+    "h": 104
+   },
+   "rotated": false,
+   "trimmed": false,
+   "spriteSourceSize": {
+    "x": 0,
+    "y": 0,
+    "w": 80,
+    "h": 104
+   },
+   "sourceSize": {
+    "w": 80,
+    "h": 104
+   },
+   "duration": 33
+  },
+  {
+   "filename": "priest-heal 21",
+   "frame": {
+    "x": 400,
+    "y": 208,
+    "w": 80,
+    "h": 104
+   },
+   "rotated": false,
+   "trimmed": false,
+   "spriteSourceSize": {
+    "x": 0,
+    "y": 0,
+    "w": 80,
+    "h": 104
+   },
+   "sourceSize": {
+    "w": 80,
+    "h": 104
+   },
+   "duration": 33
+  },
+  {
+   "filename": "priest-heal 22",
+   "frame": {
+    "x": 480,
+    "y": 208,
+    "w": 80,
+    "h": 104
+   },
+   "rotated": false,
+   "trimmed": false,
+   "spriteSourceSize": {
+    "x": 0,
+    "y": 0,
+    "w": 80,
+    "h": 104
+   },
+   "sourceSize": {
+    "w": 80,
+    "h": 104
+   },
+   "duration": 33
+  },
+  {
+   "filename": "priest-heal 23",
+   "frame": {
+    "x": 560,
+    "y": 208,
+    "w": 80,
+    "h": 104
+   },
+   "rotated": false,
+   "trimmed": false,
+   "spriteSourceSize": {
+    "x": 0,
+    "y": 0,
+    "w": 80,
+    "h": 104
+   },
+   "sourceSize": {
+    "w": 80,
+    "h": 104
+   },
+   "duration": 33
+  },
+  {
+   "filename": "priest-heal 24",
+   "frame": {
+    "x": 0,
+    "y": 312,
+    "w": 80,
+    "h": 104
+   },
+   "rotated": false,
+   "trimmed": false,
+   "spriteSourceSize": {
+    "x": 0,
+    "y": 0,
+    "w": 80,
+    "h": 104
+   },
+   "sourceSize": {
+    "w": 80,
+    "h": 104
+   },
+   "duration": 33
+  },
+  {
+   "filename": "priest-heal 25",
+   "frame": {
+    "x": 80,
+    "y": 312,
+    "w": 80,
+    "h": 104
+   },
+   "rotated": false,
+   "trimmed": false,
+   "spriteSourceSize": {
+    "x": 0,
+    "y": 0,
+    "w": 80,
+    "h": 104
+   },
+   "sourceSize": {
+    "w": 80,
+    "h": 104
+   },
+   "duration": 33
+  },
+  {
+   "filename": "priest-heal 26",
+   "frame": {
+    "x": 160,
+    "y": 312,
+    "w": 80,
+    "h": 104
+   },
+   "rotated": false,
+   "trimmed": false,
+   "spriteSourceSize": {
+    "x": 0,
+    "y": 0,
+    "w": 80,
+    "h": 104
+   },
+   "sourceSize": {
+    "w": 80,
+    "h": 104
+   },
+   "duration": 33
+  },
+  {
+   "filename": "priest-heal 27",
+   "frame": {
+    "x": 240,
+    "y": 312,
+    "w": 80,
+    "h": 104
+   },
+   "rotated": false,
+   "trimmed": false,
+   "spriteSourceSize": {
+    "x": 0,
+    "y": 0,
+    "w": 80,
+    "h": 104
+   },
+   "sourceSize": {
+    "w": 80,
+    "h": 104
+   },
+   "duration": 33
+  },
+  {
+   "filename": "priest-heal 28",
+   "frame": {
+    "x": 320,
+    "y": 312,
+    "w": 80,
+    "h": 104
+   },
+   "rotated": false,
+   "trimmed": false,
+   "spriteSourceSize": {
+    "x": 0,
+    "y": 0,
+    "w": 80,
+    "h": 104
+   },
+   "sourceSize": {
+    "w": 80,
+    "h": 104
+   },
+   "duration": 33
+  },
+  {
+   "filename": "priest-heal 29",
+   "frame": {
+    "x": 400,
+    "y": 312,
+    "w": 80,
+    "h": 104
+   },
+   "rotated": false,
+   "trimmed": false,
+   "spriteSourceSize": {
+    "x": 0,
+    "y": 0,
+    "w": 80,
+    "h": 104
+   },
+   "sourceSize": {
+    "w": 80,
+    "h": 104
+   },
+   "duration": 33
+  },
+  {
+   "filename": "priest-heal 30",
+   "frame": {
+    "x": 480,
+    "y": 312,
+    "w": 80,
+    "h": 104
+   },
+   "rotated": false,
+   "trimmed": false,
+   "spriteSourceSize": {
+    "x": 0,
+    "y": 0,
+    "w": 80,
+    "h": 104
+   },
+   "sourceSize": {
+    "w": 80,
+    "h": 104
+   },
+   "duration": 33
+  },
+  {
+   "filename": "priest-heal 31",
+   "frame": {
+    "x": 560,
+    "y": 312,
+    "w": 80,
+    "h": 104
+   },
+   "rotated": false,
+   "trimmed": false,
+   "spriteSourceSize": {
+    "x": 0,
+    "y": 0,
+    "w": 80,
+    "h": 104
+   },
+   "sourceSize": {
+    "w": 80,
+    "h": 104
+   },
+   "duration": 33
+  },
+  {
+   "filename": "priest-heal 32",
+   "frame": {
+    "x": 0,
+    "y": 416,
+    "w": 80,
+    "h": 104
+   },
+   "rotated": false,
+   "trimmed": false,
+   "spriteSourceSize": {
+    "x": 0,
+    "y": 0,
+    "w": 80,
+    "h": 104
+   },
+   "sourceSize": {
+    "w": 80,
+    "h": 104
+   },
+   "duration": 33
+  },
+  {
+   "filename": "priest-heal 33",
+   "frame": {
+    "x": 80,
+    "y": 416,
+    "w": 80,
+    "h": 104
+   },
+   "rotated": false,
+   "trimmed": false,
+   "spriteSourceSize": {
+    "x": 0,
+    "y": 0,
+    "w": 80,
+    "h": 104
+   },
+   "sourceSize": {
+    "w": 80,
+    "h": 104
+   },
+   "duration": 33
+  },
+  {
+   "filename": "priest-heal 34",
+   "frame": {
+    "x": 160,
+    "y": 416,
+    "w": 80,
+    "h": 104
+   },
+   "rotated": false,
+   "trimmed": false,
+   "spriteSourceSize": {
+    "x": 0,
+    "y": 0,
+    "w": 80,
+    "h": 104
+   },
+   "sourceSize": {
+    "w": 80,
+    "h": 104
+   },
+   "duration": 33
+  },
+  {
+   "filename": "priest-heal 35",
+   "frame": {
+    "x": 240,
+    "y": 416,
+    "w": 80,
+    "h": 104
+   },
+   "rotated": false,
+   "trimmed": false,
+   "spriteSourceSize": {
+    "x": 0,
+    "y": 0,
+    "w": 80,
+    "h": 104
+   },
+   "sourceSize": {
+    "w": 80,
+    "h": 104
+   },
+   "duration": 33
+  },
+  {
+   "filename": "priest-heal 36",
+   "frame": {
+    "x": 320,
+    "y": 416,
+    "w": 80,
+    "h": 104
+   },
+   "rotated": false,
+   "trimmed": false,
+   "spriteSourceSize": {
+    "x": 0,
+    "y": 0,
+    "w": 80,
+    "h": 104
+   },
+   "sourceSize": {
+    "w": 80,
+    "h": 104
+   },
+   "duration": 33
+  },
+  {
+   "filename": "priest-heal 37",
+   "frame": {
+    "x": 400,
+    "y": 416,
+    "w": 80,
+    "h": 104
+   },
+   "rotated": false,
+   "trimmed": false,
+   "spriteSourceSize": {
+    "x": 0,
+    "y": 0,
+    "w": 80,
+    "h": 104
+   },
+   "sourceSize": {
+    "w": 80,
+    "h": 104
+   },
+   "duration": 33
+  },
+  {
+   "filename": "priest-heal 38",
+   "frame": {
+    "x": 480,
+    "y": 416,
+    "w": 80,
+    "h": 104
+   },
+   "rotated": false,
+   "trimmed": false,
+   "spriteSourceSize": {
+    "x": 0,
+    "y": 0,
+    "w": 80,
+    "h": 104
+   },
+   "sourceSize": {
+    "w": 80,
+    "h": 104
+   },
+   "duration": 33
+  },
+  {
+   "filename": "priest-heal 39",
+   "frame": {
+    "x": 560,
+    "y": 416,
+    "w": 80,
+    "h": 104
+   },
+   "rotated": false,
+   "trimmed": false,
+   "spriteSourceSize": {
+    "x": 0,
+    "y": 0,
+    "w": 80,
+    "h": 104
+   },
+   "sourceSize": {
+    "w": 80,
+    "h": 104
+   },
+   "duration": 33
+  },
+  {
+   "filename": "priest-heal 40",
+   "frame": {
+    "x": 0,
+    "y": 520,
+    "w": 80,
+    "h": 104
+   },
+   "rotated": false,
+   "trimmed": false,
+   "spriteSourceSize": {
+    "x": 0,
+    "y": 0,
+    "w": 80,
+    "h": 104
+   },
+   "sourceSize": {
+    "w": 80,
+    "h": 104
+   },
+   "duration": 33
+  },
+  {
+   "filename": "priest-heal 41",
+   "frame": {
+    "x": 80,
+    "y": 520,
+    "w": 80,
+    "h": 104
+   },
+   "rotated": false,
+   "trimmed": false,
+   "spriteSourceSize": {
+    "x": 0,
+    "y": 0,
+    "w": 80,
+    "h": 104
+   },
+   "sourceSize": {
+    "w": 80,
+    "h": 104
+   },
+   "duration": 33
+  },
+  {
+   "filename": "priest-heal 42",
+   "frame": {
+    "x": 160,
+    "y": 520,
+    "w": 80,
+    "h": 104
+   },
+   "rotated": false,
+   "trimmed": false,
+   "spriteSourceSize": {
+    "x": 0,
+    "y": 0,
+    "w": 80,
+    "h": 104
+   },
+   "sourceSize": {
+    "w": 80,
+    "h": 104
+   },
+   "duration": 33
+  }
+ ],
+ "meta": {
+  "app": "https://github.com/patch-gg/pixelfx",
+  "version": "1",
+  "image": "priest-heal.png",
+  "format": "RGBA8888",
+  "size": {
+   "w": 640,
+   "h": 624
+  },
+  "scale": "1",
+  "frameTags": [
+   {
+    "name": "priest-heal",
+    "from": 0,
+    "to": 42,
+    "direction": "forward"
+   }
+  ],
+  "pixelfx": {
+   "id": "holy/priest-heal",
+   "name": "Priest heal",
+   "fps": 30,
+   "loop": false,
+   "frames": 43,
+   "frameSize": [
+    80,
+    104
+   ],
+   "pivot": [
+    40,
+    92
+   ],
+   "columns": 8
+  }
+ }
+}
