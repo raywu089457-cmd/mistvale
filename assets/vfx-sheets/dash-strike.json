@@ -1560,7 +1560,7 @@
    }
   ],
   "pixelfx": {
-   "id": "moves/dash-strike",
+   "id": "moves/dash-strike-crit",
    "name": "Dash strike",
    "fps": 30,
    "loop": false,

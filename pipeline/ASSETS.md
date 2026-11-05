@@ -43,6 +43,23 @@
 
 ---
 
+## 二之二、pixelfx 逐格動畫表（`assets/vfx-sheets/`）
+
+每個 `<id>.png` ＋ `<id>.json`（Aseprite 幀框＋`meta.pixelfx`：frameSize／pivot／fps／columns）由
+build.mjs 內嵌成 `PIXEL_ASSETS.vfxSheets`，`pixel-world.js` 的 `drawVfxSheet()` 逐格播放。
+全部是 [patch-gg/pixelfx](https://github.com/patch-gg/pixelfx) 匯出（MIT，Patch + Hugo Duprez，授權見
+`THIRD-PARTY-LICENSES.txt`）；匯出設定固定 `bg:"none", actor:false`（不烤角色）。
+
+| 檔案 | 來源 | 備註 |
+|---|---|---|
+| `dash-strike.png` / `.json` | pixelfx `moves/dash-strike`，**chain 只留 `impacts/crit-hit`**（把 `melee/sword-slash` 那層藍色刀光拿掉） | 372×156、pivot [66,136]、70 幀 30 fps；第 7–29 幀有畫面，其餘全透明。狂戰士普攻命中 |
+
+重匯出：在 pixelfx 工作區把 `src/fx/moves/dash-strike.js` 的 `create` 改成
+`chain([{ fx: crit, t: 0.22, x: TX - 10, height: 28 }])`（meta 的 size／origin／duration 不動），
+再 `renderFrames(fx, { bg: "none", actor: false })` → `spriteSheet()` 輸出同名 `.png` / `.json`。
+
+---
+
 ## 三、程式繪製素材（不是圖檔，是 `pixel-world.js` 畫的）
 
 以下依目前 `pixel-world.js` 的實際分支盤點。程序繪製不是美術完成的證明，仍須和概念圖比對。
