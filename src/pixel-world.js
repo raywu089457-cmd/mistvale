@@ -1490,7 +1490,8 @@ let renderDprMax=Math.max(1,dprCap||autoDpr());   // 畫布解析度上限(devic
     // 8 方向攻擊:打向哪裡就用那一列(上/下/兩個斜角;左邊三格由 moveDir 對應到右邊的列再鏡像)。
     // 素材沒有的方向 dirSuffix 會自己退回(斜角→上下→側面),所以其他職業的表現完全不變。
     if(atk>=0&&atk<sLen){let i=rel+Math.floor(atk/ft);if(sd){let acc=0;i=rel+sd.length-1;for(let k=0;k<sd.length;k++){acc+=sd[k];if(atk<acc){i=rel+k;break;}}}return{act:atkAct,i,pose:'strike'};}
-    if(pose.pose==='windup')return{act:atkAct,i:Math.min(rel-1,AR.windupFrameTime&&pose.wt!=null?Math.floor(pose.wt/AR.windupFrameTime):Math.floor(Math.pow(pose.k,AR.windupPow||1)*rel)),pose:'windup'};
+    // windupFrame:素材指定蓄力停在哪一格(法師停 frame 2 = 手上的球還小,留位置給 pixelfx 的集氣火焰)
+    if(pose.pose==='windup'){const wf=Math.max(0,Math.min(rel-1,AR.windupFrame??rel-1)),wi=AR.windupFrameTime&&pose.wt!=null?Math.floor(pose.wt/AR.windupFrameTime):Math.floor(Math.pow(pose.k,AR.windupPow||1)*rel);return{act:atkAct,i:Math.max(0,Math.min(wf,wi)),pose:'windup'};}
     if(walking){const w='walk'+dirSuffix(m,'walk',vdir),i=gaitFrame('h'+h.id,h.x,h.z,m[w],(hash(h.id)%97)/97);return{act:w,i,pose:'walk'+(1+i),vdir};}
     if(cheering)return{act:'victory',i:Math.floor((t-(heroMemo.get(h.id).cheer-.9))/A('victory').frameTime),pose:'victory'};
     // 待機也用上一次動作(出手/走路)鎖定的方向:攻擊前後姿勢一致,要到下一個動作才換方向。
@@ -1644,6 +1645,11 @@ let renderDprMax=Math.max(1,dprCap||autoDpr());   // 畫布解析度上限(devic
     previousPositions.set(h.id,{x:h.x,z:h.z,facing,vdir,walkUntil,fightUntil});{const row=actOf(heroSheets[h.classId].meta,sp.act)||{frames:1};sp.i=Math.max(0,Math.min(row.frames-1,sp.i));}  // 時間超過最後一格就停在最後一格
     drawnFacing.set(h.id,{f:facing,pose:sp.pose,act:sp.act,i:sp.i,x:h.x,z:h.z,t:state.time,vdir,atkT});
     const rect=drawSheetHero(h,p,facing,sp,h.hp>0?1:.85,pose);if(rect)hits.push({id:`hunter:${h.id}`,...padHit(rect,16,22)});
+    // 法師集氣(2026-11):蓄力段在手上跑 pixelfx 的 spell-charge(loop 表),取代原本的程式光點。
+    // 位置對到精靈自己的手心:身體中心往面向 2.2 單位、腳底往上 12.8 單位(量自 sorcerer@2x 攻擊列的球心);
+    // 表裡的球在 pivot 右上 (15,-22),所以 pivot 要往回補;表是 1.6 秒 loop,用 2.4 倍速在 0.6 秒的蓄力裡剛好長到滿。
+    if(sp.pose==='windup'&&h.classId==='sorcerer'&&quality&&h.hp>0){const ck=(HERO_H/heroSheets[h.classId].meta.heroHeight)*scale,wt=pose.wt??0;
+      drawVfxSheet('spell-charge',wt,p.x+facing*(2.2*scale-15*ck),p.y-(12.8*scale-22*ck),ck,{alpha:Math.min(1,wt/.12),rate:2.4,flip:facing<0});}
     if(h.hp<=0){textLabel('✦',p.x,p.y-(top*.4)*scale,{color:'#e7d8ef',back:false});return;}
     const full=(h.hp??1)/(h.maxHp||1);if(full<.99||isSelected||h.status==='戰鬥中')bar(p.x-7*scale,p.y-(top+3)*scale,14*scale,full,full<.35?'#df795c':'#84bf6a');
     if(isSelected)textLabel(`${h.name||'獵人'} Lv.${h.level||1}`,p.x,p.y-(top+11)*scale,{color:RARITIES.find(r=>r.id===h.rarity)?.color||'#ffe19a'});}
@@ -1866,7 +1872,10 @@ let renderDprMax=Math.max(1,dprCap||autoDpr());   // 畫布解析度上限(devic
     if(e.type==='arrow'){if(e.crit&&drawVfxSheet('crit-hit',age,p.x,cy,CRIT_K*s)){sparks(p.x,cy,age,hash(e.id),10,['#fff4c8','#ffd98a']);return;}   // 暴擊:大金爆
       if(drawVfxSheet('hit-spark',age,p.x,cy,SPARK_K*s*.85)){sparks(p.x,cy,age,hash(e.id),8,['#fff4c8','#ffd98a','#e8d090']);return;}   // 普攻命中:火花
       if(age<.14)fxSprite('fxHit',p.x,cy,8+age*50,{alpha:1-age/.14});sparks(p.x,cy,age,hash(e.id),6,['#fff4c8','#e8d090']);return;}
-    if(e.type==='spell'){if(drawVfxSheet('hit-spark',age,p.x,cy,SPARK_K*s)){sparks(p.x,cy,age,hash(e.id),8,['#fff3c8','#ffb04a','#e8584a']);return;}   // 法師普攻命中:火花表
+    if(e.type==='spell'){const fade=age<.85?1:Math.max(0,1-(age-.85)/.3);
+      // 法師普攻命中:直接用法球術自己的爆炸素材(pixelfx fireball-blast＝small-explosion 前 1.2 秒),取代原本的火花表;腳下起爆,最後 0.3 秒淡出。
+      if(fade>0&&drawVfxSheet('fireball-blast',age,p.x,p.y,.17*s,{alpha:fade}))return;
+      if(drawVfxSheet('hit-spark',age,p.x,cy,SPARK_K*s)){sparks(p.x,cy,age,hash(e.id),8,['#fff3c8','#ffb04a','#e8584a']);return;}   // 表不在時的後備:火花表
       const t=Math.min(1,age/.35);g.save();g.globalAlpha=.7*(1-t);g.strokeStyle='#b98aff';g.lineWidth=Math.max(1,2*s*(1-t));g.beginPath();g.ellipse(p.x,p.y,(4+16*t)*s,(1.8+7*t)*s,0,0,Math.PI*2);g.stroke();g.restore();
       if(age<.3)fxSprite('fxSparkle',p.x,cy,14+age*40,{alpha:1-age/.3,rot:age*3});sparks(p.x,cy,age,hash(e.id),12,['#f1e0ff','#c79cff','#8f6ad8'],32);return;}
     if(e.type==='holy'){const t=Math.min(1,age/.4);g.save();g.globalAlpha=.55*(1-t);g.fillStyle='#fff3c0';g.fillRect(p.x-4*s*(1-t*.5),p.y-60*s,8*s*(1-t*.5),60*s);g.restore();if(age<.3)fxSprite('fxSparkle',p.x,cy,16,{alpha:1-age/.3});return;}

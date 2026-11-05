@@ -5,6 +5,7 @@
 //
 //   node pipeline/scripts/pixelfx/export-sheet.mjs impacts/crit-spray crit-spray
 //   node pipeline/scripts/pixelfx/export-sheet.mjs --dir D:/code/pixelfx impacts/crit-spray crit-spray
+//   node pipeline/scripts/pixelfx/export-sheet.mjs --opts '{"palette":["#000","#fff"]}' fire/fireball fireball
 //
 // Exports with bg:"none" and no stand-in actor, so only the effect's own pixels land in the sheet.
 // PIXELFX_DIR (or --dir) points at the pixelfx checkout; default is C:/Users/ray/pixelfx.
@@ -22,9 +23,11 @@ const OUT_DIR = path.join(ROOT, 'assets/vfx-sheets');
 
 const argv = process.argv.slice(2);
 let repo = process.env.PIXELFX_DIR || 'C:/Users/ray/pixelfx';
+let opts = null;
 const rest = [];
 for (let i = 0; i < argv.length; i++) {
   if (argv[i] === '--dir') repo = argv[++i];
+  else if (argv[i] === '--opts') opts = JSON.parse(argv[++i]);
   else rest.push(argv[i]);
 }
 const [id, nameArg] = rest;
@@ -50,7 +53,7 @@ if (fs.existsSync(vendored)) {
 }
 
 const fx = await lib.loadEffect(id);
-const r = lib.renderFrames(fx, { bg: 'none', actor: false });
+const r = lib.renderFrames(fx, { bg: 'none', actor: false, options: opts ?? undefined });
 const sheet = lib.spriteSheet(fx, r, name);
 
 fs.mkdirSync(OUT_DIR, { recursive: true });

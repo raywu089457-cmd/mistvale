@@ -115,9 +115,11 @@
    "frameTime": 0.075,
    "release": 5,
    "impact": 6,
-   "windupFrameTime": 0.075,
+   "windupFrameTime": 0.12,
    "bakedMotion": true,
-   "fxInSprite": true
+   "fxInSprite": true,
+   "windupFrame": 2,
+   "windupPow": 0.35
   },
   "skill": {
    "y": 1200,
