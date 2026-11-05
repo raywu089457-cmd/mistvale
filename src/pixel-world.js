@@ -1757,15 +1757,14 @@ let renderDprMax=Math.max(1,dprCap||autoDpr());   // 畫布解析度上限(devic
     // fxSlash 圖(Xilurus)＝白色刀弧在左、橙色拖尾在右 → 原圖是「由右往左揮」;攻擊者在左邊(往右揮)才翻面。
     // 特效尺寸跟角色同級(英雄 21 單位):原本斬痕 30 單位、命中白閃 20 單位會把攻擊者整隻蓋住,
     // 縮到 20/11 單位、白閃快一點淡出,人才看得見自己在打什麼。
-    // 打擊方向:dir=+1 表示刀往右揮(攻擊者在左邊)。兩張 pixelfx 表都往 +x 畫,刀往左時整張水平翻面。
+    // 打擊方向:dir=+1 表示刀往右揮(攻擊者在左邊)。表往 +x 畫,刀往左時整張水平翻面。
     const berserk=e.cls==='berserker',dir=fromRight?-1:1,bk=.28*s;
-    if(berserk){const life=1.2,bx=p.x-dir*164*bk,by=cy+16*bk,nx=p.x,ny=cy-12*bk,nop=Math.max(0,Math.min(1,(life-age)/.3));
-      // 命中爆發:只留 dash-strike 的 crit-hit 層(刀光已拿掉),48× 播放 0.75×;表長 70 幀但只有第 7–29 幀有畫面,所以整段播完、最後 0.3 秒才淡出。
-      // 爆發中心在表內＝pivot 往 +x 166 美術 px,翻面後變往 -x 166 px,所以 bx＝p.x 減掉 dir×164 就對齊打擊點。
-      drawVfxSheet('dash-strike',age+.15,bx,by,bk,{alpha:nop,rate:.75,flip:dir<0});
-      // 命中後的噴濺(2026-11):另一張 pixelfx 表(crit-spray),整把火花順著刀的方向往外飛、碎片落地彈跳。
-      // 原點就是打擊點,尺度和上面同一條(bk),所以火花的大小跟爆發一致;表不存在時退回程式火花,方向也順著刀。
-      if(!drawVfxSheet('crit-spray',age,nx,ny,bk,{alpha:nop,flip:dir<0}))sparks(p.x,cy,age,hash(e.id),22,['#fff7d0','#ffd56a','#ff9c4a','#ffefb0'],38,Math.atan2(p.y-src.y,p.x-src.x),1.5);}
+    if(berserk){const fade=Math.max(0,Math.min(1,(1.05-age)/.25));
+      // 命中特效是 pixelfx 用 chain 串好的一張表(impacts/berserk-hit):
+      // 切痕噴濺(t 0)→ 星爆(t 0.16)→ 腳下塵環(t 0.16,+52 美術 px)。同一張表自己管時序和地板,
+      // 遊戲這邊只給打擊點(p.x, 胸口下方)和尺度,比之前兩張表各自對位乾淨。
+      // 表不存在時退回程式火花,方向也順著刀。
+      if(!drawVfxSheet('berserk-hit',age,p.x,cy-12*bk,bk,{alpha:fade,flip:dir<0}))sparks(p.x,cy,age,hash(e.id),22,['#fff7d0','#ffd56a','#ff9c4a','#ffefb0'],38,Math.atan2(p.y-src.y,p.x-src.x),1.5);}
     else{
       if(alpha>0)fxSprite('fxSlash',cx,cy,13+7*k,{rot:tilt+(fromRight?.3:-.3),flip:!fromRight,alpha:alpha*.92,sy:.85});
       if(age<.12)fxSprite('fxHit',p.x,cy,7+age*34,{alpha:.85*(1-age/.12)});

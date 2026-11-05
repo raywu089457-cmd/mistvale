@@ -52,22 +52,22 @@ build.mjs 內嵌成 `PIXEL_ASSETS.vfxSheets`，`pixel-world.js` 的 `drawVfxShee
 
 | 檔案 | 來源 | 備註 |
 |---|---|---|
-| `dash-strike.png` / `.json` | pixelfx `moves/dash-strike`，**chain 只留 `impacts/crit-hit`**（把 `melee/sword-slash` 那層藍色刀光拿掉） | 372×156、pivot [66,136]、70 幀 30 fps；第 7–29 幀有畫面，其餘全透明。狂戰士普攻命中（星爆） |
-| `crit-spray.png` / `.json` | pixelfx `impacts/crit-spray`（本專案在該工作區新寫的效果） | 200×120、pivot [52,72]、19 幀 30 fps；原點＝打擊點，火花／碎片／火星**順著 +x 噴出去**，42 美術 px 處是腳下的地面。狂戰士命中後的噴濺，往左揮時整張水平翻面 |
+| `berserk-hit.png` / `.json` | pixelfx `impacts/berserk-hit`（本專案寫的，`chain` 串三個效果） | 260×180、pivot [105,105]、31 幀 30 fps。原點＝打擊點（胸口），地板在 +52 美術 px。狂戰士普攻命中：t 0 切痕噴濺（`crit-spray`）→ t 0.16 星爆（`crit-hit`）→ t 0.16 腳下塵環（`heavy-landing`，0.5 秒後收掉）。往左揮時整張水平翻面 |
+| `crit-spray.png` / `.json` | pixelfx `impacts/crit-spray`（本專案寫的） | 200×120、pivot [52,72]、19 幀 30 fps；原點＝打擊點，火花／碎片／火星**順著 +x 噴出去**，42 美術 px 處是腳下的地面。單獨測試用；遊戲裡是 `berserk-hit` 的第一層 |
 
 重匯出（`--dir` 指到 pixelfx 工作區，預設 `C:/Users/ray/pixelfx`）：
 
 ```sh
+node pipeline/scripts/pixelfx/export-sheet.mjs impacts/berserk-hit berserk-hit
 node pipeline/scripts/pixelfx/export-sheet.mjs impacts/crit-spray crit-spray
 ```
 
 本專案自己寫的效果原始檔放在 `pipeline/scripts/pixelfx/vendor/impacts/`（跟 pixelfx 的 `src/fx/impacts/` 同結構、
 同樣 `../../core/index.js` 的相對 import）；匯出腳本會先把它複製進 pixelfx 工作區再匯出，所以乾淨的 checkout + 一份
-pixelfx 就能重現同一張表（實測輸出 byte 相同）。上游就有的效果（例如 `dash-strike`）不用 vendor。
+pixelfx 就能重現同一張表（實測輸出 byte 相同）。`berserk-hit` 串的另外兩個效果（`impacts/crit-hit`、`impacts/heavy-landing`）
+是 pixelfx 上游就有的，不用 vendor。腳本固定用 `bg:"none", actor:false` 匯出，只留效果本身的像素。
 
-`dash-strike` 要先把該工作區 `src/fx/moves/dash-strike.js` 的 `create` 改成
-`chain([{ fx: crit, t: 0.22, x: TX - 10, height: 28 }])`（meta 的 size／origin／duration 不動），再跑同一個腳本
-`... moves/dash-strike dash-strike`。腳本固定用 `bg:"none", actor:false` 匯出，只留效果本身的像素。
+（`dash-strike` 那張表在 2026-11 換成 `berserk-hit` 後就沒用到了，已從 `assets/vfx-sheets/` 刪掉，要回去看請找 git 歷史。）
 
 ---
 
