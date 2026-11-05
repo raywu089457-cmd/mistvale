@@ -15,7 +15,7 @@
 - **預設寫「只有目標」的卡**:`node tools/pi-card.mjs <slug> --goal-only --accept "<cmd>"|auto`,內文只寫 `## Goal`。pi 自己規劃 → 實作 → 驗收 → 另一個 pi 審核(有 high 自動重做，最多 3 次)。每張卡只印一行;`DONE accept:PASS scope:ok review:OK` 就是證據。
 - Opus 判斷只花在兩處、只讀 pi 的濃縮檔，不讀程式:有設計取捨的卡加 `Gate: plan`(停在規劃，讀 `Txx.plan.md` 後 `--approved --note "方向"`);結果行下面出現 `opus:<原因>` 時讀那份 diff,再 `node tools/pi-dispatch.mjs --opus-verdict Txx ok|missed|fixed "說明"` 記帳。
 - 派工期間主對話不要改檔(範圍檢查會算到 pi 頭上)。
-- 執行者:2026-11-05 起預設是 dsh(DeepSeek Harness,`tools/dsh-overlay.yml`,沙箱關閉;實驗 9、10 最便宜/最快)。下文的「pi」泛指派工執行者;要換回 pi 用 `DISPATCH_AGENT=pi`(也可 `opencode`)。
+- 執行者:2026-11-05 起正式用 dsh(DeepSeek Harness,`tools/dsh-overlay.yml`,沙箱關閉;比較結論見 `docs/pi-tasks/COST-LOG.md`)。下文的「pi」泛指派工執行者;dsh 故障時才用 `DISPATCH_AGENT=pi` 備援。
 - 一批工作 = 一兩次寫卡 + 一次派工 + 一次讀總表;不要輪詢。批與批之間開新 session 或 /clear。
 - 細節與實測:[docs/DISPATCH-PLAYBOOK.md](docs/DISPATCH-PLAYBOOK.md)(平常不必打開)。
 
