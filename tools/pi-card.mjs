@@ -31,7 +31,12 @@ if (!scout && !opt('accept')) { console.error('non-scout cards need --accept "<c
 // a checker script under output/, not a data path like --dir output/...
 if (/\b(node|python3?)\s+(-\w+\s+)*output\//.test(opt('accept') || '')) console.error('[pi-card] warning: Accept runs a checker under output/; move it to tools/checks/ so it survives and can be reused');
 if (/\bline[s]?\s+\d+/i.test(body)) console.error('[pi-card] warning: body mentions line numbers; prefer function/selector names');
-const next = 1 + Math.max(0, ...fs.readdirSync(TASKS).map(f => Number(f.match(/^T(\d+)-/)?.[1] || 0)));
+// an id is taken if any card file, ledger row (cost-log.csv) or dispatch result (output/pi-results) ever used it:
+// deleted cards must not hand their number to a new card that would then mix with the old results (2026-11-05)
+const used = [...fs.readdirSync(TASKS).map(f => f.match(/^T(\d+)-/)?.[1])];
+try { used.push(...fs.readFileSync(path.join(TASKS, 'cost-log.csv'), 'utf8').split('\n').map(l => l.split(',')[1]?.match(/^T(\d+)$/)?.[1])); } catch { }
+try { used.push(...fs.readdirSync(path.join(TASKS, '../../output/pi-results')).map(f => f.match(/^T(\d+)[.-]/)?.[1])); } catch { }
+const next = 1 + Math.max(0, ...used.map(n => Number(n || 0)));
 const id = 'T' + String(next).padStart(2, '0');
 const file = path.join(TASKS, `${id}-${slug}.md`);
 const head = [
