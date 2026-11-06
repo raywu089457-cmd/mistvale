@@ -52,6 +52,8 @@ Cost rules:
 - Batch the cards, dispatch once, and wake once to read the summary. Never poll.
 - The `Accept:` command must be able to fail. Rule out shortcuts, or the task becomes free for the child (exp 10 learned this from `location.reload()`).
 - Claude reads at most one montage per decision. Separate images cost several times more.
+- Ask for an in-game montage only when a visual call is actually needed (look, size, position, colour). Browser montages start a server and Chrome and take dozens of shots, adding 5–15 min per attempt. Logic, timing and order changes are proven by the checker alone (2026-11-06).
+- Time rules (2026-11-06): a stage is killed only when it prints nothing for 10 min (`--idle`, a hang) or hits the 60-min hard cap (`--timeout`); the flat 20-min kill cut T68/T70 mid-work. A failed `Accept` hands the retry the FAIL/Error/assert lines plus the last 5 lines, not just the tail. Under `--parallel` each worktree gets its own `server.mjs` on PORT 5100+i and `TARGET` points browser checkers at it; a failed card's work is kept as `output/pi-results/<id>.patch`. The child runs only the card's `tools/checks/` checker while it works, and the dispatcher runs the full `Accept` (including `verify:quick`) once. A review can send a card back at most once. Findings that are only `low` let the card pass, and Claude reads them with the diff. Cards that touch different files run in parallel with `--parallel` (each card in its own worktree).
 
 ## 2. Task card = a local issue
 
@@ -72,7 +74,7 @@ Experiment 1 lost because Claude read the code to write the card. Instead: card 
 | What | Command |
 |---|---|
 | New card | `node tools/pi-card.mjs <slug> --accept "<cmd>|auto" [--scout] [--goal-only] [--reusable] [--title "..."] < body` |
-| Dispatch a queue | `node tools/pi-dispatch.mjs T30 T31 T32 [--timeout 40] [--note "..."] [--attempts 3] [--no-review] [--dry-run] [--full] [--keep-going] [--no-retry] [--force] [--parallel] [--approve-plan] [--approved]` |
+| Dispatch a queue | `node tools/pi-dispatch.mjs T30 T31 T32 [--timeout 60] [--idle 10] [--note "..."] [--attempts 3] [--no-review] [--dry-run] [--full] [--keep-going] [--no-retry] [--force] [--parallel] [--approve-plan] [--approved]` |
 | Opus verdict on one card | `node tools/pi-dispatch.mjs --opus-verdict Txx ok|missed|fixed "note"` → one row in `docs/pi-tasks/opus-review.csv` |
 | Classify a batch (≥4 items; for fewer, judge by CLAUDE.md) | `node tools/classify.mjs "item" ...` (rules in `docs/pi-tasks/ROUTING-RULES.md`) |
 | Per-card ledger (auto) | `docs/pi-tasks/cost-log.csv` — date, card, attempts, verdict, accept, minutes, pi USD, start, end, scope, review, precheck, stages, opus |

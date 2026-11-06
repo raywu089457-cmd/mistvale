@@ -54,3 +54,8 @@ date,card,attempts,verdict,accept,minutes,usd,start,end,scope,review,precheck,st
 2026-11-05T15:20,T63,1,DONE,PASS,28.9,0.1476,2026-11-05T14:51:17.661Z,2026-11-05T15:20:12.660Z,ok,OK,n/a,plan+implement-a1+accept+review-a1,-
 2026-11-05T17:34,T64,3,DONE,PASS,133.1,0.4832,2026-11-05T15:21:02.675Z,2026-11-05T17:34:11.060Z,ok,ISSUES,FAIL,plan+precheck+implement-a1+accept+review-a1+implement-a2+review-a2+implement-a3+review-a3,review-failed
 2026-11-05T19:21,T65,2,DONE,PASS,104.6,0.3440,2026-11-05T17:37:23.459Z,2026-11-05T19:21:58.075Z,ok,ISSUES,FAIL,plan+precheck+implement-a1+accept+review-a1+implement-a2+review-a2,tier-c
+2026-11-05T22:56,T66,1,DONE,PASS,35.7,0.1277,2026-11-05T22:20:57.669Z,2026-11-05T22:56:39.714Z,ok,skip,FAIL,plan+precheck+implement-a1+accept+review-a1,tier-c
+2026-11-05T23:39,T67,3,DONE,PASS,42.4,0.2117,2026-11-05T22:56:39.948Z,2026-11-05T23:39:04.669Z,ok,ISSUES,FAIL,plan+precheck+implement-a1+implement-a2+implement-a3+accept+review-a3,tier-c
+2026-11-06T00:25,T69,2,DONE,PASS,43.8,0.3074,2026-11-05T23:41:13.347Z,2026-11-06T00:25:03.371Z,OUT,ISSUES,FAIL,plan+precheck+implement-a1+accept+review-a1+implement-a2,tier-c
+2026-11-06T01:39,T68,3,DONE,PASS,74.0,0.2193,2026-11-06T00:25:03.514Z,2026-11-06T01:39:00.910Z,ok,skip,FAIL,plan+precheck+implement-a1+implement-a2+accept+implement-a3+review-a3,-
+2026-11-06T02:22,T70,2,DONE,PASS,43.2,0.1230,2026-11-06T01:39:00.912Z,2026-11-06T02:22:12.058Z,OUT,skip,FAIL,plan+precheck+implement-a1+implement-a2+accept,big-diff

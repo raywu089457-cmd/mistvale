@@ -1427,7 +1427,11 @@ let renderDprMax=Math.max(1,dprCap||autoDpr());   // 畫布解析度上限(devic
   function posed(p,pose,draw){const q={x:R(p.x+pose.ox*scale),y:R(p.y+pose.oy*scale)};g.save();g.translate(q.x,q.y);g.transform(pose.sx,0,-pose.lean,pose.sy,0,0);g.translate(-q.x,-q.y);
     if(pose.flash>0)flashNext={color:pose.flashColor,alpha:Math.min(1,pose.flash*.9)};try{return draw(q);}finally{flashNext=null;g.restore();}}
   // 蓄力時武器/法杖上的光點:近戰一閃、法系聚光。
-  function chargeGlow(h,p,pose,facing){if(pose.pose!=='windup'||!quality||heroSheets[h.classId]?.meta.actions.attack?.fxInSprite)return;const s=scale,k=pose.k,caster=h.classId==='sorcerer'||h.classId==='priest';   // fxInSprite:蓄力的光已畫在攻擊列裡(法師 PixelLab 手上的魔法球),不再疊固定位置的光點
+  // T67:法師普攻一律用 spell-charge 表(不看畫質、不看 fxInSprite),自動狩獵與兩個繪製器都畫。
+  function chargeGlow(h,p,pose,facing){if(pose.pose!=='windup'||h.hp<=0)return;const s=scale;
+    if(h.classId==='sorcerer'&&heroSheets[h.classId]){const ck=(HERO_H/heroSheets[h.classId].meta.heroHeight)*s,wt=pose.wt??0;
+      drawVfxSheet('spell-charge',wt,p.x+facing*(2.2*s-15*ck),p.y-(12.8*s-22*ck),ck,{alpha:Math.min(1,wt/.12),rate:2.4,flip:facing<0});return;}
+    if(!quality||heroSheets[h.classId]?.meta.actions.attack?.fxInSprite)return;const k=pose.k,caster=h.classId==='sorcerer'||h.classId==='priest';   // fxInSprite:蓄力的光已畫在攻擊列裡(PixelLab 手上的魔法球),不再疊固定位置的光點
     const x=p.x+(pose.ox+facing*(caster?8:-6))*s,y=p.y+(pose.oy-(caster?17:19))*s,col=h.classId==='sorcerer'?'#d9a8ff':h.classId==='priest'?'#ffe9a0':h.classId==='archer'?'#e8f2c0':'#fff4c8';
     g.save();g.globalAlpha=.25+.55*k;g.fillStyle=col;const r=(caster?2+3*k:1+2*k)*s;g.beginPath();g.arc(x,y,r,0,Math.PI*2);g.fill();
     g.globalAlpha=.9*k;pixel(g,x-r*1.6,y-.5*s,r*3.2,Math.max(1,s),'#ffffff');pixel(g,x-.5*s,y-r*1.6,Math.max(1,s),r*3.2,'#ffffff');
@@ -1658,9 +1662,8 @@ let renderDprMax=Math.max(1,dprCap||autoDpr());   // 畫布解析度上限(devic
     // 位置對到精靈自己的手心:身體中心往面向 2.2 單位、腳底往上 12.8 單位(量自 sorcerer@2x 攻擊列的球心);
     // 表裡的球在 pivot 右上 (15,-22),所以 pivot 要往回補;表是 1.6 秒 loop,rate 2.4 再乘 VFX_SPEED(0.6)= 實際 1.44 倍,
     // 0.6 秒的蓄力只播到 0.864 秒(約 54% 的 loop),蓄力結束時球還沒長到滿 —— 這是 T65 放慢後的預期樣子。
-    if(sp.pose==='windup'&&h.classId==='sorcerer'&&quality&&h.hp>0){const ck=(HERO_H/heroSheets[h.classId].meta.heroHeight)*scale,wt=pose.wt??0,
-      vx=p.x+facing*(2.2*scale-15*ck),vy=p.y-(12.8*scale-22*ck),va=Math.min(1,wt/.12),vf=facing<0,tf=g.getTransform();
-      deferTopVfx(()=>{g.save();g.setTransform(tf);drawVfxSheet('spell-charge',wt,vx,vy,ck,{alpha:va,rate:2.4,flip:vf});g.restore();});}
+    // T67:改由 chargeGlow 統一畫(普攻/自動狩獵都畫),仍延後到最上層才不會被魔物蓋住。
+    {const tf=g.getTransform();deferTopVfx(()=>{g.save();g.setTransform(tf);chargeGlow(h,p,pose,facing);g.restore();});}
     if(h.hp<=0){textLabel('✦',p.x,p.y-(top*.4)*scale,{color:'#e7d8ef',back:false});return;}
     const full=(h.hp??1)/(h.maxHp||1);if(full<.99||isSelected||h.status==='戰鬥中')bar(p.x-7*scale,p.y-(top+3)*scale,14*scale,full,full<.35?'#df795c':'#84bf6a');
     if(isSelected)textLabel(`${h.name||'獵人'} Lv.${h.level||1}`,p.x,p.y-(top+11)*scale,{color:RARITIES.find(r=>r.id===h.rarity)?.color||'#ffe19a'});}
@@ -1889,8 +1892,13 @@ let renderDprMax=Math.max(1,dprCap||autoDpr());   // 畫布解析度上限(devic
       if(drawVfxSheet('hit-spark',age,p.x,cy,SPARK_K*s*.85)){sparks(p.x,cy,age,hash(e.id),8,['#fff4c8','#ffd98a','#e8d090']);return;}   // 普攻命中:火花
       if(age<.14)fxSprite('fxHit',p.x,cy,8+age*50,{alpha:1-age/.14});sparks(p.x,cy,age,hash(e.id),6,['#fff4c8','#e8d090']);return;}
     if(e.type==='spell'){const st=age*VFX_SPEED,fade=st<.85?1:Math.max(0,1-(st-.85)/.3);
-      // 法師普攻命中:直接用法球術自己的爆炸素材(pixelfx fireball-blast＝small-explosion 前 1.2 秒),取代原本的火花表;腳下起爆,最後 0.3 秒淡出。
-      if(fade>0&&drawVfxSheet('fireball-blast',age,p.x,p.y,.17*s,{alpha:fade}))return;
+      // 法師普攻命中:直接用法球術自己的爆炸素材(pixelfx fireball-blast＝small-explosion 前 1.2 秒),取代原本的火花表。
+      // T69:錨在特效快取的身體中心(見 drawEffect),擊殺後目標已不在 state.enemies 也不會掉回腳下。
+      // 尺寸要從「不透明範圍」算:表是 300×240、實際火球只佔約 174 px 寬,拿整個畫格換算會只剩約 0.58 倍。
+      // 可見寬度至少 1.2 倍魔物圖寬(ENEMY_SIZE＝sprite 寬),上限 2.2 倍中型怪(26),大 boss 才不會佔滿畫面。
+      const a=e.bodyAnchor,bw=(a?a.size:22)*s,bh=bw,tp=a?screenPoint(a.x,a.z):p,
+        BLAST_OPAQUE=174/300,want=Math.min(1.2*bw,2.2*26*s),bk=Math.max(.17*s,want/(300*BLAST_OPAQUE));
+      if(fade>0&&drawVfxSheet('fireball-blast',age,tp.x,tp.y-bh/2,bk,{alpha:fade}))return;
       if(drawVfxSheet('hit-spark',age,p.x,cy,SPARK_K*s)){sparks(p.x,cy,age,hash(e.id),8,['#fff3c8','#ffb04a','#e8584a']);return;}   // 表不在時的後備:火花表
       const t=Math.min(1,age/.35);g.save();g.globalAlpha=.7*(1-t);g.strokeStyle='#b98aff';g.lineWidth=Math.max(1,2*s*(1-t));g.beginPath();g.ellipse(p.x,p.y,(4+16*t)*s,(1.8+7*t)*s,0,0,Math.PI*2);g.stroke();g.restore();
       if(age<.3)fxSprite('fxSparkle',p.x,cy,14+age*40,{alpha:1-age/.3,rot:age*3});sparks(p.x,cy,age,hash(e.id),12,['#f1e0ff','#c79cff','#8f6ad8'],32);return;}
@@ -1939,6 +1947,11 @@ let renderDprMax=Math.max(1,dprCap||autoDpr());   // 畫布解析度上限(devic
         drawVfxSheet('arrow',state.time+(sh.big?.15:0),hx,hy,ARROW_VFX_K*2.7*s,{rot:ang});
     }}
   function drawEffect(e){const age0=e.age||0,delay=e.delay||0,age=age0-delay,p=screenPoint(e.x||0,e.z||0);
+    // T69:法師普攻的爆炸把目標身體錨點記在特效上 —— 擊殺那一幀 step() 已經把 hp=0 的魔物移出
+    // state.enemies(在同一次 tick、第一次繪製之前),所以不能只靠還活著的目標:建立特效時
+    // pixel-game.js 的 effect() 會一起寫入 bodyType,目標不見了就退回它,位置用特效本身的 x/z。
+    if(e.type==='spell'){const tgt=(state.enemies||[]).find(o=>o.id===e.targetId),bt=tgt?tgt.type:e.bodyType;
+      if(bt)e.bodyAnchor={type:bt,x:tgt?tgt.x:e.x,z:tgt?tgt.z:e.z,size:ENEMY_SIZE(bt)};}
     if(e.type==='skillName'){if(age<1.1){const a=Math.min(1,(1.1-age)*3);g.globalAlpha=a;textLabel(e.text,p.x,p.y-(30+age*10)*scale,{size:11,color:e.color||'#bdf4ff'});g.globalAlpha=1;}return;}
     if(e.type==='skillSelf'){drawSkillSelf(e,age0,p);return;}
     if(e.type==='skillfx'||e.type==='gale'){drawSkillFx(e,age0,delay,p);if(age>=0&&(e.value||e.text))damageText(e,age,p);g.globalAlpha=1;return;}
@@ -1979,9 +1992,12 @@ let renderDprMax=Math.max(1,dprCap||autoDpr());   // 畫布解析度上限(devic
     return im.complete&&im.naturalWidth?{img:im,meta:v.meta}:null;}
   // 以美術像素為單位畫一格;k = 螢幕 px / 美術 px。rot 轉向;looping 表依 meta.loop 取餘數。
   const VFX_SPEED=0.6;   // T65:所有 pixelfx 表(含蓄力/箭/火球的循環動畫)統一的播放倍率,調慢才看得清楚;命中格另外除以它對齊。
+  // T66:每個表可以有自己的倍率;火龍捲維持原本 1.0 倍速(和 dd3d616 之前一樣),其他表照 VFX_SPEED。
+  const VFX_SPEED_BY_SHEET={'cinder-cyclone':1.0};
+  const vfxSpeed=id=>VFX_SPEED_BY_SHEET[id]??VFX_SPEED;
   function drawVfxSheet(id,age,x,y,k,{rot=0,alpha=1,rate=1,flip=false}={}){const sh=vfxSheet(id);if(!sh)return false;
     const px=sh.meta.meta.pixelfx,cw=px.frameSize[0],ch=px.frameSize[1],cols=px.columns;
-    const tt=age*rate*VFX_SPEED;
+    const tt=age*rate*vfxSpeed(id);
     const t=px.loop?tt%Math.max(.001,px.frames/px.fps):Math.max(0,tt);
     const i=Math.max(0,Math.min(px.frames-1,Math.floor(t*px.fps)));
     g.save();g.globalAlpha=alpha;g.translate(R(x),R(y));if(rot)g.rotate(rot);if(flip)g.scale(-1,1);
@@ -2020,7 +2036,7 @@ let renderDprMax=Math.max(1,dprCap||autoDpr());   // 畫布解析度上限(devic
   globalThis.__mistvalePilotSkill=()=>state.lastPilotSkill||null;   // 驗收用:手動放技能時職業/技能
   globalThis.__mistvaleEnemies=()=>(state.enemies||[]).filter(e=>e.hp>0).map(e=>({id:e.id,type:e.type,hp:e.hp,x:+e.x.toFixed(1),z:+e.z.toFixed(1)}));   // 驗收用:場上魔物血量/位置
   function drawCinder(age,p){if(age<0)return true;const sh=vfxSheet('cinder-cyclone');if(!sh)return false;
-    const px=sh.meta.meta.pixelfx;cinderDrawn++;cinderLast={age:+age.toFixed(2),i:Math.min(px.frames-1,Math.floor(age*VFX_SPEED*px.fps)),x:Math.round(p.x),y:Math.round(p.y)};
+    const px=sh.meta.meta.pixelfx;cinderDrawn++;cinderLast={age:+age.toFixed(2),i:Math.min(px.frames-1,Math.floor(age*vfxSpeed('cinder-cyclone')*px.fps)),x:Math.round(p.x),y:Math.round(p.y)};
     return drawVfxSheet('cinder-cyclone',age,p.x,p.y,CINDER_K*scale);}
   function drawSkillFx(e,age0,delay,p){const cls=e.cls||'archer',cfg=SKILL_FX[cls];
     if(cls==='priest'&&e.fx==='holy'){if(drawPriestHeal(age0-delay,p))return;if(age0<delay)return;}   // 牧師補血:隊友腳下 pixelfx 聖光(花瓣→光環上升→小愛心),表不在才退回舊的光柱
@@ -2212,7 +2228,8 @@ let renderDprMax=Math.max(1,dprCap||autoDpr());   // 畫布解析度上限(devic
     flushTopVfx();
     if(document.body.dataset.artReview==='1')uiLabels.length=0;
     drawShotArrows();
-    for(const e of state.effects||[])drawEffect(e);
+    // T69:死亡特效先畫、其餘特效後畫 —— 同一個 frame 裡爆炸才會蓋在正在倒下的魔物上。
+    {const fxList=state.effects||[];for(const e of fxList)if(e.type==='death')drawEffect(e);for(const e of fxList)if(e.type!=='death')drawEffect(e);}
     drawChatter();
     // 動作實驗室預覽:直接把那一格畫在畫面中央(純預覽,不影響模擬)
     if(posePreview){

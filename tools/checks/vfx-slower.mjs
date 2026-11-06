@@ -1,5 +1,7 @@
-// vfx-slower.mjs — T65: every pixelfx sprite-sheet effect (everything drawn through
+// vfx-slower.mjs — T65/T66: every pixelfx sprite-sheet effect (everything drawn through
 // drawVfxSheet in src/pixel-world.js) must play at 0.6x while the hit frame stays put.
+// T66: cinder-cyclone is the one per-sheet exception and keeps its original 1.0x speed,
+// hit frame and 4.2 s lifetime.
 //
 // Headless: stubs the small slice of DOM/Canvas the world renderer needs, imports the real
 // src/pixel-world.js, and records every drawImage that comes from assets/vfx-sheets/*. The
@@ -8,7 +10,7 @@
 //
 // For each sheet effect it computes:
 //   * anchor — the sheet frame at the hit moment must equal the old frame within 1 frame;
-//   * rate   — 0.5 s of sheet advance must be 0.6x the old advance within 1 frame;
+//   * rate   — 0.5 s of sheet advance must be <speed> x the old advance within 1 frame;
 //   * end    — the age at which the effect fades to 0 / is removed must be at least the
 //              stretched old cut-off (or the slowed sheet duration for effects that run out);
 //   * lifetime — src/pixel-game.js must keep the effect alive to that age (createGame().tick()).
@@ -19,6 +21,7 @@ import { fileURLToPath, pathToFileURL } from 'node:url';
 
 const ROOT = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '..', '..');
 const SPEED = 0.6;            // the one constant the game must use (card Goal)
+const CINDER_SPEED = 1.0;     // T66: cinder-cyclone is the one sheet that keeps its pre-dd3d616 1.0x
 const EPS = 0.02;
 
 // ── tiny helpers ──────────────────────────────────────────────────────────
@@ -275,15 +278,16 @@ function cyclicDelta (a, b, frames) {
   return d;
 }
 
-// rate: 0.5 s of real time must advance the sheet by 0.6 x the old amount
-function checkRate (caseName, setup, id, a1, a2, rate = 1) {
+// rate: 0.5 s of real time must advance the sheet by <speed> x the old amount
+// (0.6x for every sheet except cinder-cyclone, which stays at its original 1.0x — T66)
+function checkRate (caseName, setup, id, a1, a2, rate = 1, speed = SPEED) {
   const s = sheets[id];
   const f1 = sample(caseName, setup, id, a1), f2 = sample(caseName, setup, id, a2);
   if (!f1 || !f2) return;
   const delta = cyclicDelta(f1.frame, f2.frame, s.loop ? s.frames : 0);
-  const expected = SPEED * (a2 - a1) * s.fps * rate;
+  const expected = speed * (a2 - a1) * s.fps * rate;
   if (Math.abs(delta - expected) > 1) {
-    fix(caseName, 'rate', `advance ${delta} frames over ${(a2 - a1).toFixed(2)}s, want ${expected.toFixed(2)} (0.6x of ${((a2 - a1) * s.fps * rate).toFixed(2)})`);
+    fix(caseName, 'rate', `advance ${delta} frames over ${(a2 - a1).toFixed(2)}s, want ${expected.toFixed(2)} (${speed}x of ${((a2 - a1) * s.fps * rate).toFixed(2)})`);
   }
   return { delta, expected };
 }
@@ -325,9 +329,11 @@ function removalAge (cfg) {
   }
   return Infinity;
 }
-function checkRemoval (caseName, cfg, target) {
+function checkRemoval (caseName, cfg, target, exact = false) {
   const got = removalAge(cfg);
-  if (!(got >= target - EPS)) fix(caseName, 'lifetime', `removed at ${got}s, want >= ${target.toFixed(2)}s`);
+  if (exact) {
+    if (!(Math.abs(got - target) <= 0.15)) fix(caseName, 'lifetime', `removed at ${got}s, want the original ${target.toFixed(2)}s`);
+  } else if (!(got >= target - EPS)) fix(caseName, 'lifetime', `removed at ${got}s, want >= ${target.toFixed(2)}s`);
   return got;
 }
 
@@ -335,8 +341,8 @@ function checkRemoval (caseName, cfg, target) {
 const CASES = [];
 
 function addCase (name, id, opts) {
-  const { setup, anchorAt = 0, anchorOld = 0, rate = [0, 0.5], rateMul = 1, fadeTarget = null, removalTarget = null, removalCfg = null, skipRate = false, skipAnchor = false, skipFade = false, skipRemoval = false } = opts;
-  CASES.push({ name, id, setup, anchorAt, anchorOld, rate, rateMul, fadeTarget, removalTarget, removalCfg, skipRate, skipAnchor, skipFade, skipRemoval });
+  const { setup, anchorAt = 0, anchorOld = 0, rate = [0, 0.5], rateMul = 1, rateSpeed = SPEED, fadeTarget = null, removalTarget = null, removalCfg = null, removalExact = false, skipRate = false, skipAnchor = false, skipFade = false, skipRemoval = false } = opts;
+  CASES.push({ name, id, setup, anchorAt, anchorOld, rate, rateMul, rateSpeed, fadeTarget, removalTarget, removalCfg, removalExact, skipRate, skipAnchor, skipFade, skipRemoval });
 }
 
 const holySetup = a => { state.effects.push({ id: 'e', type: 'holy', x: 30, z: 30, sourceX: 26, sourceZ: 30, age: 0.16 + a, delay: 0.16 }); };
@@ -396,8 +402,8 @@ addCase('priest-heal', 'priest-heal', {
 
 const cinderSetup = a => { state.effects.push({ id: 'e', type: 'skillfx', cls: 'sorcerer', fx: 'cinder', x: 30, z: 30, age: HEAL_DELAY + a, delay: HEAL_DELAY }); };
 addCase('cinder-cyclone', 'cinder-cyclone', {
-  setup: cinderSetup, anchorOld: 0, skipFade: true,
-  removalTarget: 4.2 / SPEED, removalCfg: { type: 'skillfx', extra: { fx: 'cinder', cls: 'sorcerer' } },
+  setup: cinderSetup, anchorOld: 0, rateSpeed: CINDER_SPEED, skipFade: true,
+  removalTarget: 4.2, removalExact: true, removalCfg: { type: 'skillfx', extra: { fx: 'cinder', cls: 'sorcerer' } },
 });
 
 // fireball in flight: the +0.22 phase must stay at 0.22 sheet-seconds (its start cell)
@@ -471,23 +477,41 @@ for (const id of sheetIds) {
 // ── run ───────────────────────────────────────────────────────────────────
 for (const c of CASES) {
   if (!c.skipAnchor) checkAnchor(c.name, c.setup, c.id, c.anchorAt, c.anchorOld);
-  if (!c.skipRate) checkRate(c.name, c.setup, c.id, c.rate[0], c.rate[1], c.rateMul);
+  if (!c.skipRate) checkRate(c.name, c.setup, c.id, c.rate[0], c.rate[1], c.rateMul, c.rateSpeed);
   if (!c.skipFade && c.fadeTarget != null) checkFadeEnd(c.name, c.setup, c.id, c.fadeTarget);
-  if (!c.skipRemoval && c.removalTarget != null) checkRemoval(c.name, c.removalCfg || { type: c.id }, c.removalTarget);
+  if (!c.skipRemoval && c.removalTarget != null) checkRemoval(c.name, c.removalCfg || { type: c.id }, c.removalTarget, c.removalExact);
 }
 
+// every sheet goes through drawVfxSheet at 0.6x, except cinder-cyclone which keeps its
+// original 1.0x (T66). Both are measured explicitly so adding/removing an override cannot
+// silently move another sheet off 0.6x.
 for (const r of rateOnly) {
+  if (r.id === 'cinder-cyclone') continue;
   const s = sheets[r.id];
-  checkRate(`sheet:${r.id}`, r.setup, r.id, 0.1, 0.6, 1);
+  checkRate(`sheet:${r.id}`, r.setup, r.id, 0.1, 0.6, 1, SPEED);
+}
+checkRate('sheet:cinder-cyclone', rateOnly.find(r => r.id === 'cinder-cyclone').setup, 'cinder-cyclone', 0.1, 0.6, 1, CINDER_SPEED);
+
+// cinder-cyclone ending: at 1.0x the 103-frame sheet is clamped to its last frame from
+// 3.4 s on, and the effect must keep playing it (alpha 1, no fade) until the original
+// 4.2 s lifetime cut-off.
+{
+  const lastFrame = sheets['cinder-cyclone'].frames - 1;
+  for (const a of [3.4, 3.9]) {
+    const f = sample('cinder-cyclone', cinderSetup, 'cinder-cyclone', a);
+    if (!f) continue;
+    if (f.frame !== lastFrame) fix('cinder-cyclone', 'ending', `frame ${f.frame} at ${a}s, want last frame ${lastFrame} (1.0x)`);
+    if (!(f.alpha > 0.98)) fix('cinder-cyclone', 'ending', `alpha ${f.alpha} at ${a}s, want 1 until the 4.2 s cut-off`);
+  }
 }
 
-// cinder reports the frame it drew; that report has to follow the slowed sheet too
+// cinder reports the frame it drew; that report has to follow the cinder 1.0x speed (T66)
 {
   reset();
   cinderSetup(1.0);
   render();
   const last = globalThis.__mistvaleCinder?.();
-  const want = Math.floor(0.6 * 1.0 * sheets['cinder-cyclone'].fps);
+  const want = Math.floor(CINDER_SPEED * 1.0 * sheets['cinder-cyclone'].fps);
   if (!last || !last.last) fix('cinder-cyclone', 'frame-report', 'cinder debug hook did not report a draw');
   else if (Math.abs(last.last.i - want) > 1) fix('cinder-cyclone', 'frame-report', `reported frame ${last.last.i}, want ${want}`);
 }
@@ -496,5 +520,5 @@ if (failures) {
   console.log(`\n${failures} vfx-slower rule(s) failed`);
   process.exit(1);
 }
-console.log(`OK  ${sheetIds.length} sheets play at ${SPEED}x, ${CASES.length} effect cases keep their hit frame and ending`);
+console.log(`OK  ${sheetIds.length - 1} sheets at ${SPEED}x, cinder-cyclone at ${CINDER_SPEED}x, ${CASES.length} effect cases keep their hit frame and ending`);
 console.log('vfx-slower: PASS');

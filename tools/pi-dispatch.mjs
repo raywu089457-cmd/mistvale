@@ -1,5 +1,5 @@
 // pi-dispatch.mjs — Claude 派工給 pi(預設 DeepSeek v4.1 Flash):一次可派多張卡,依序執行,最後只印一張總表。
-// 用法:node tools/pi-dispatch.mjs T30 [T31 ...] [--timeout 40] [--note "補充"] [--attempts 3] [--no-review] [--dry-run] [--full] [--force] [--parallel] [--no-retry] [--keep-going]
+// 用法:node tools/pi-dispatch.mjs T30 [T31 ...] [--timeout 40] [--note "補充"] [--attempts 3] [--no-review] [--dry-run] [--full] [--force] [--parallel] [--keep-worktree] [--worktree-selftest] [--no-retry] [--keep-going]
 //   - 每張卡分成幾個階段,每個階段是獨立的 pi session:
 //     PLAN(卡片沒有 ## Steps 時:pi 讀程式,寫 output/pi-results/<id>.plan.md 的 Files 與 Steps;`Accept: auto` 時計畫第一行是驗收指令)
 //       驗收指令至少要跑一個 tools/checks/ 檢查器;只有 npm test / npm run verify 之類的一般套件就退回 PLAN 一次
@@ -17,6 +17,9 @@
 //   - Opus 複核:`opus: tier-c|review-failed|big-diff|sample`(改到 pixel-game/world、review 用盡次數仍 high、diff > 300 行、卡號 ÷5),
 //     有值就多印一行 diff/review 路徑給 Claude 讀;`--opus-verdict Txx ok|missed|fixed "note"` 寫進 docs/pi-tasks/opus-review.csv
 //   - --dry-run:只解析卡片、印出階段清單與每個階段的提示詞,不跑 pi、不跑驗收、不改卡片狀態
+//   - --parallel:每張卡各自在 output/pi-worktrees/<id> 的 git worktree 跑(HEAD + 主 checkout 未提交的改動;node_modules 用 junction),
+//     建置與驗收都在 worktree 裡、每張卡自己的 PORT/HOST;通過後 patch 用 git apply 套回主 checkout,
+//     套不上就是 CONFLICT(留 <id>.patch 與 worktree,主 checkout 不動)。沒加 --parallel 時行為完全不變
 //   - <id>.diff 只含這張卡自己的改動:跑卡前已經髒掉或未追蹤的檔案,以跑卡前的內容為基準做 diff(乾淨的檔案以 HEAD 為基準),
 //     big-diff 的行數也從這份 diff 算,不再把先前的未提交改動算進來
 //   - pi 對話在 output/pi-sessions/,完整輸出在 output/pi-results/<id>.log,驗收輸出在 <id>.accept.log
@@ -78,26 +81,28 @@ function opusVerdict() {
 if (flag('opus-verdict')) opusVerdict();
 if (flag('diff-selftest')) diffSelftest();
 if (flag('base-selftest')) baseSelftest();
-const cards = ids.map(a => [a, resolveCard(a)]);
-if (!cards.length || cards.some(([, c]) => !c)) {
-  console.error('用法: node tools/pi-dispatch.mjs Txx [Tyy ...] [--timeout 分鐘] [--note "補充"] [--attempts 3] [--no-review] [--dry-run] [--full] [--force] [--parallel] [--no-retry] [--keep-going] [--approve-plan] [--approved]');
+const WT_SELFTEST = flag('worktree-selftest');   // runs the real runCard/finalize against a throwaway repo, no dsh calls
+const cards = WT_SELFTEST ? [] : ids.map(a => [a, resolveCard(a)]);
+if (!WT_SELFTEST && (!cards.length || cards.some(([, c]) => !c))) {
+  console.error('用法: node tools/pi-dispatch.mjs Txx [Tyy ...] [--timeout 分鐘] [--note "補充"] [--attempts 3] [--no-review] [--dry-run] [--full] [--force] [--parallel] [--keep-worktree] [--no-retry] [--keep-going] [--approve-plan] [--approved]');
   for (const [a, c] of cards) if (!c) console.error(`找不到卡片:${a}`);
   process.exit(2);
 }
 const RES = path.join(ROOT, 'output/pi-results'), SESS = path.join(ROOT, 'output/pi-sessions');
 fs.mkdirSync(RES, { recursive: true }); fs.mkdirSync(SESS, { recursive: true });
 const CAP = flag('full') ? 4000 : 1200;
-const minutes = Number(opt('timeout')) || 40;
+const minutes = Number(opt('timeout')) || 60;   // hard cap per stage; hangs are caught by the idle watchdog below
+const IDLE_MIN = Number(opt('idle')) || 10;      // no agent output for this long = hung (T65 sat silent for 40 min); tool calls run ≤ 7 min
 const MAX_ATTEMPTS = Math.max(1, Number(opt('attempts')) || 3);   // 2 was too few now that a review can send work back
 const noReview = flag('no-review'), DRY = flag('dry-run');
 
 // which files changed: compare content hashes (a file that is already modified keeps the same `git status` line when edited again)
-const snapshot = () => { const list = new Set(); try {
-    const git = c => execSync(c, { cwd: ROOT, stdio: ['ignore', 'pipe', 'ignore'] }).toString();   // stderr off: CRLF warnings flood the output
+const snapshot = (root = ROOT) => { const list = new Set(); try {
+    const git = c => execSync(c, { cwd: root, stdio: ['ignore', 'pipe', 'ignore'] }).toString();   // stderr off: CRLF warnings flood the output
     for (const f of git('git diff HEAD --name-only').split('\n')) if (f) list.add(f);   // vs HEAD: an agent that `git add`s its work must still show up (exp 9, pi T65)
     for (const f of git('git ls-files --others --exclude-standard src assets/ui docs pipeline tools sprites').split('\n')) if (f) list.add(f);
   } catch { }
-  const out = []; for (const f of list) { try { out.push(f + ':' + crypto.createHash('md5').update(fs.readFileSync(path.join(ROOT, f))).digest('hex')); } catch { } } return out; };
+  const out = []; for (const f of list) { try { out.push(f + ':' + crypto.createHash('md5').update(fs.readFileSync(path.join(root, f))).digest('hex')); } catch { } } return out; };
 
 // files outside the card's "Files you may change" list: path-like tokens become prefixes (dir/), globs (*), exact paths, or bare basenames
 const allowedFiles = text => {
@@ -126,15 +131,15 @@ const opusReason = (changed, { reviewFailed = false, diffLines = 0, num = 0 } = 
   return num && Number(num) % 5 === 0 ? 'sample' : '-';
 };
 const cardNum = id => Number((String(id).match(/\d+/) || [])[0]) || 0;   // T45 → 45; a fixture name without a number → 0
-const setStatus = (card, v) => { try { const f = path.join(ROOT, card), t = fs.readFileSync(f, 'utf8'); if (/^Status:/m.test(t)) fs.writeFileSync(f, t.replace(/^Status:.*$/m, 'Status: ' + v)); } catch { } };
+const setStatus = (card, v, root = ROOT) => { try { const f = path.join(root, card), t = fs.readFileSync(f, 'utf8'); if (/^Status:/m.test(t)) fs.writeFileSync(f, t.replace(/^Status:.*$/m, 'Status: ' + v)); } catch { } };
 const readFileOr = (f, d = '') => { try { return fs.readFileSync(f, 'utf8'); } catch { return d; } };
 // changed lines the way the reviewer sees them: the + / - lines of this card's own diff (headers excluded).
 // Function declarations (like readText/baseOf below) so --base-selftest can call this before the const helpers exist.
 // A binary file has no text on one side: skip it, or an empty "before" would count the whole file as added.
-function diffLineCount(files, base = new Map()) {
+function diffLineCount(files, base = new Map(), root = ROOT) {
   let n = 0;
   for (const f of files) {
-    const after = readText(path.join(ROOT, f)), before = baseOf(f, base);
+    const after = readText(path.join(root, f)), before = baseOf(f, base, root);
     if (before == null || after == null) continue;
     n += diffOne(f, before, after).lines;
   }
@@ -144,7 +149,7 @@ const section = (text, name) => (text.match(new RegExp(`^## ${name}[^\\n]*\\n([\
 const rel = p => path.relative(ROOT, p).split(path.sep).join('/');
 
 // Everything every card used to repeat (scope, report format, stop rules) lives here, so cards hold only Goal/Files/Steps/Accept.
-const buildPrompt = (card, id, type, accept, note, plan) => [   // agent-to-agent text is English (cheaper, clearer)
+const buildPrompt = (card, id, type, accept, note, plan, resHint = 'output/pi-results') => [   // agent-to-agent text is English (cheaper, clearer)
   `Do the task card ${card}. Read the whole card and the root AGENTS.md first; use docs/ARCHITECTURE.md as the file map instead of exploring.`,
   `Non-interactive run dispatched by Claude: nobody can answer questions. Never ask or wait; if you must stop, write the reason into the result file and exit.`,
   `Scope: do the steps in order, change only the files under "Files you may change", do not widen the task. Never edit the card itself.`,
@@ -155,19 +160,19 @@ const buildPrompt = (card, id, type, accept, note, plan) => [   // agent-to-agen
   `Stop after the same check fails twice: no big rewrites; write the error summary into the result file and hand back to Claude.`,
   `Do not commit or push unless the card says so. Do not spend PixelLab credits unless the card states a budget. Do not touch hunter AI, combat or save code in src/pixel-game.js, or drawing code in src/pixel-world.js, unless the card's Files list names that exact function.`,
   // with an Accept line, that command is the whole check: T43 spent most of its 37 min on an unrequested full `npm run verify` (button crawl)
-  accept ? `The dispatcher will run this acceptance command itself after you finish: \`${accept}\`. Run it yourself before reporting and make it pass. It is the only check: do NOT run \`npm run verify\` or \`npm test\` unless the card's Steps or this command include them.` : '',
+  accept ? `The dispatcher will run this acceptance command itself after you finish: \`${accept}\`. While you work, run only the tools/checks/ checker(s) it names (plus \`npm run build\` when they need a fresh build). Do NOT run \`npm test\`, \`npm run verify\` or \`npm run verify:quick\` yourself, even if this command includes them: the dispatcher runs the full command once after you finish and sends you its failure output if it fails.` : '',   // 2026-11-06: each verify:quick is 1–2.5 min and cards ran it many times
   type === 'scout'
     ? `This is a SCOUT card: change no files at all. Your result file is a brief for Claude: line 1 \`DONE | scout\`, then at most 40 lines: exact function/selector names with file paths, current behaviour, constraints, and open questions. No code dumps.`
-    : `Result file output/pi-results/${id}.md: line 1 exactly \`DONE|BLOCKED|FAILED | files: <names> | ${accept ? 'accept: <PASS|FAIL and the last line it printed>' : 'verify: <first line of output/ui-audit/verify-summary.md, or n/a>'}\`, then at most 10 short lines (max 1000 characters): key numbers and problems, or "none". No pasted logs.`,
-  `Do not end your turn until output/pi-results/${id}.md exists. Write it BEFORE optional slow steps like Telegram.`,
+    : `Result file ${resHint}/${id}.md: line 1 exactly \`DONE|BLOCKED|FAILED | files: <names> | ${accept ? 'accept: <PASS|FAIL and the last line it printed>' : 'verify: <first line of output/ui-audit/verify-summary.md, or n/a>'}\`, then at most 10 short lines (max 1000 characters): key numbers and problems, or "none". No pasted logs.`,
+  `Do not end your turn until ${resHint}/${id}.md exists. Write it BEFORE optional slow steps like Telegram.`,
   note ? `Extra note for this run: ${note}` : '',
 ].filter(Boolean).join('\n');
 
 // PLAN: pi reads the code and turns a goal-only card into a normal card (Files + Steps), so Claude never has to read code to write one.
-const buildPlanPrompt = (card, id, type, acceptHead, extra) => [
-  `Planning stage for the task card ${card} (id ${id}). Do NOT change any project file: the only file you write is output/pi-results/${id}.plan.md.`,
+const buildPlanPrompt = (card, id, type, acceptHead, extra, resHint = 'output/pi-results') => [
+  `Planning stage for the task card ${card} (id ${id}). Do NOT change any project file: the only file you write is ${resHint}/${id}.plan.md.`,
   `Read the whole card and the root AGENTS.md first; use docs/ARCHITECTURE.md as the file map and docs/API-pi.md for export names instead of exploring. Grep for the functions, selectors and keys the card names; never read src/pixel-game.js or src/pixel-world.js whole.`,
-  `Write output/pi-results/${id}.plan.md in the shape of a normal card: a line \`## Files you may change\` with one path per bullet (globs allowed), then \`## Steps\` as a numbered list of exact edits and commands. Name functions, selectors and keys, never line numbers. Keep it under 25 lines and cover only what the card asks for.`,
+  `Write ${resHint}/${id}.plan.md in the shape of a normal card: a line \`## Files you may change\` with one path per bullet (globs allowed), then \`## Steps\` as a numbered list of exact edits and commands. Name functions, selectors and keys, never line numbers. Keep it under 25 lines and cover only what the card asks for.`,
   acceptHead === 'auto'
     ? `This card says \`Accept: auto\`, so the FIRST line of the plan must be \`Accept: <one shell command>\`. It must run at least one checker under tools/checks/ — an existing one (\`node tools/checks/*.mjs\`) or a new deterministic checker you write as part of the plan (list it under \`## Files you may change\`; naming it in the Accept line is enough for scope). Generic suites (\`npm test\`, \`npm run verify\`, \`npm run verify:quick\`, \`npm run build\`) may only be chained after the checker as a regression guard: an accept line with nothing but those is sent back to you once and then blocks the card. Never \`npm run verify\` (button crawl) and never anything that needs the network or a browser. The checker must FAIL on the current tree and pass once the work is done — if it already passes, you get one rewrite and then the card is closed as ALREADY (goal already met).`
     : `The card's own Accept line (${acceptHead || 'none'}) stays the check; do not invent another one.`,
@@ -176,12 +181,12 @@ const buildPlanPrompt = (card, id, type, acceptHead, extra) => [
 ].filter(Boolean).join('\n');
 
 // REVIEW: a fresh session with no stake in the work reads the diff and says whether it does the goal and nothing else.
-const buildReviewPrompt = (card, id, goal, plan, diff) => [
-  `Independent review stage for the task card ${card} (id ${id}). Change no files: the only file you write is output/pi-results/${id}.review.md.`,
+const buildReviewPrompt = (card, id, goal, plan, diff, resHint = 'output/pi-results') => [
+  `Independent review stage for the task card ${card} (id ${id}). Change no files: the only file you write is ${resHint}/${id}.review.md.`,
   `You are the critic, not the author. Read the card ${card}${plan ? `, the plan ${plan}` : ''} and the diff ${diff}. The diff is the whole change; read a file it touches only if you need context (grep, docs/ARCHITECTURE.md).`,
   `Judge only this: does the diff do what the card's Goal asks, nothing more, nothing broken (missing call site, dead code, wrong selector, unhandled state, scope creep, an acceptance command that would pass without the change)?`,
   `The card's Goal, for reference:\n${goal.trim()}`,
-  `Write output/pi-results/${id}.review.md: line 1 exactly \`OK\` or \`ISSUES\`, then at most 10 lines, each starting with \`high\` or \`low\` and one concrete problem (file + function/selector + what to change). Use \`high\` only for a real defect or scope creep that must be fixed. No praise, no code dumps.`,
+  `Write ${resHint}/${id}.review.md: line 1 exactly \`OK\` or \`ISSUES\`, then at most 10 lines, each starting with \`high\` or \`low\` and one concrete problem (file + function/selector + what to change). Use \`high\` only for a real defect or scope creep that must be fixed. No praise, no code dumps.`,
   `Non-interactive run: never ask or wait.`,
 ].filter(Boolean).join('\n');
 
@@ -227,21 +232,30 @@ function stageTokens(name, agentOut) {
   }
   return s;
 }
-const runPi = (prompt, name, logFile) => new Promise(resolve => {
+let runAgent = null;   // --worktree-selftest swaps in a fake agent; real runs use runPi
+const runPi = (prompt, name, logFile, root = ROOT, env = {}) => new Promise(resolve => {
   const t0 = Date.now();
   const piArgs = ['-p', '--approve', '--session-dir', SESS, '--name', name, prompt];
-  const SP = { cwd: ROOT, stdio: ['ignore', 'pipe', 'pipe'] };
+  const SP = { cwd: root, stdio: ['ignore', 'pipe', 'pipe'], env: { ...process.env, ...env } };
   const p = AGENT === 'dsh'
-    ? spawn(process.execPath, [DSH_BIN, '--profile', 'headless', ...(DSH_PATCH ? ['--patch', DSH_PATCH] : []), '--json', '-'], { cwd: ROOT, stdio: ['pipe', 'pipe', 'pipe'], env: { ...process.env, ...DSH_ENV, PWD: ROOT }, windowsHide: true })
+    ? spawn(process.execPath, [DSH_BIN, '--profile', 'headless', ...(DSH_PATCH ? ['--patch', DSH_PATCH] : []), '--json', '-'], { cwd: root, stdio: ['pipe', 'pipe', 'pipe'], env: { ...process.env, ...DSH_ENV, PWD: root, ...env }, windowsHide: true })
     : fs.existsSync(PI_CLI) ? spawn(process.execPath, [PI_CLI, ...piArgs], SP) : spawn('pi', piArgs, SP);
   if (AGENT === 'dsh') p.stdin.end(prompt);
   const out = fs.createWriteStream(logFile, { flags: 'a' });
   let agentOut = '';
   if (AGENT !== 'pi') { p.stdout.on('data', d => { agentOut += d; out.write(d); }); p.stderr.on('data', d => out.write(d)); }
   else { p.stdout.pipe(out, { end: false }); p.stderr.pipe(out, { end: false }); }
-  const timer = setTimeout(() => { out.write(`\n[pi-dispatch] 逾時 ${minutes} 分鐘,結束 ${AGENT}\n`); try { process.platform === 'win32' ? execSync(`taskkill /pid ${p.pid} /T /F`) : p.kill('SIGKILL'); } catch { } }, minutes * 60e3);
+  // 2026-11-06: idle watchdog instead of a flat 20-minute kill (that cut T68/T70 mid-work and left a half-written file).
+  // A run is killed only when it prints nothing for IDLE_MIN (a hang, like T65), or at the hard cap of `minutes`.
+  let lastOut = Date.now();
+  p.stdout.on('data', () => { lastOut = Date.now(); }); p.stderr.on('data', () => { lastOut = Date.now(); });
+  const kill = why => { out.write(`\n[pi-dispatch] ${why},結束 ${AGENT}\n`); try { process.platform === 'win32' ? execSync(`taskkill /pid ${p.pid} /T /F`) : p.kill('SIGKILL'); } catch { } };
+  const timer = setInterval(() => {
+    if (Date.now() - lastOut > IDLE_MIN * 60e3) { clearInterval(timer); kill(`${IDLE_MIN} 分鐘沒有任何輸出(卡住)`); }
+    else if (Date.now() - t0 > minutes * 60e3) { clearInterval(timer); kill(`逾時 ${minutes} 分鐘(上限)`); }
+  }, 30e3);
   p.on('close', code => {
-    clearTimeout(timer); out.end();
+    clearInterval(timer); out.end();
     try { const s = stageTokens(name, agentOut);
       if (AGENT !== 'pi') s.usd = (s.input * PRICE.input + s.output * PRICE.output + s.cacheRead * PRICE.cacheRead) / 1e6;
       stageUsd.set(name, (stageUsd.get(name) || 0) + s.usd);
@@ -253,21 +267,28 @@ const runPi = (prompt, name, logFile) => new Promise(resolve => {
 });
 
 // the acceptance check is a plain command, so its verdict does not depend on what pi claims
-const runAccept = (cmd, file) => {
-  const r = spawnSync(cmd, { cwd: ROOT, shell: true, encoding: 'utf8', timeout: 30 * 60e3, maxBuffer: 64 << 20 });
+const runAccept = (cmd, file, root = ROOT, env = {}) => {
+  const r = spawnSync(cmd, { cwd: root, shell: true, encoding: 'utf8', env: { ...process.env, ...env }, timeout: 30 * 60e3, maxBuffer: 64 << 20 });
   const text = (r.stdout || '') + (r.stderr || '');
   fs.writeFileSync(file, `$ ${cmd}\n${text}\n[exit ${r.status}]\n`);
-  const tail = text.trim().split('\n').filter(Boolean).slice(-5).join('\n');
-  return { pass: r.status === 0, tail };
+  return { pass: r.status === 0, tail: failureSummary(text) };
+};
+// what a retry needs to know: the lines that name the failure (FAIL / Error / assert message / test file:line), then
+// the last lines. The last 5 lines alone were Node's assert object fields (T68: operator '==') with no test name.
+const failureSummary = text => {
+  const lines = text.trim().split('\n').map(l => l.trimEnd()).filter(Boolean);
+  const key = lines.filter(l => /\bFAIL|Error\b|AssertionError|assert|expected|actual|not ok|✗|\.m?js:\d+/i.test(l) && !/^\s*(operator|generatedMessage|code|diff):/.test(l)).slice(0, 12);
+  const out = [...new Set([...key, '...', ...lines.slice(-5)])].join('\n');
+  return out.length > 2000 ? out.slice(0, 2000) + '\n…' : out;
 };
 
 // read a file as text; null when it is missing, unreadable or binary (binary gets a one-line note instead of a diff)
 function readText(abs) { try { const b = fs.readFileSync(abs); return b.includes(0) ? null : b.toString('utf8'); } catch { return null; } }
 // the text a file had before the card ran: what the pre-run snapshot stored for a file that was already dirty/untracked,
 // else HEAD (the file was clean), else empty (the file did not exist yet)
-function baseOf(f, base) {
+function baseOf(f, base, root = ROOT) {
   if (base.has(f)) return base.get(f) ?? '';
-  const r = spawnSync('git', ['show', `HEAD:${f}`], { cwd: ROOT, maxBuffer: 32 << 20 });
+  const r = spawnSync('git', ['show', `HEAD:${f}`], { cwd: root, maxBuffer: 32 << 20 });
   return r.status === 0 ? (r.stdout.includes(0) ? null : r.stdout.toString()) : '';
 }
 // one file's change as a normal unified diff with the repo path in the headers (git diff --no-index over two temp copies).
@@ -290,11 +311,11 @@ function diffOne(repoPath, beforeTxt, afterTxt) {
   } finally { fs.rmSync(tmp, { recursive: true, force: true }); }
 }
 // the reviewer needs this card's change only: every changed file is diffed against the text it had before the run
-const writeDiff = (files, file, base = new Map()) => {
+const writeDiff = (files, file, base = new Map(), root = ROOT) => {
   const parts = [];
   for (const f of files) {
-    const after = fs.existsSync(path.join(ROOT, f)) ? readText(path.join(ROOT, f)) : '';
-    const before = baseOf(f, base);
+    const after = fs.existsSync(path.join(root, f)) ? readText(path.join(root, f)) : '';
+    const before = baseOf(f, base, root);
     if (before == null || after == null) { parts.push(`--- ${f}: binary file changed (diff skipped)\n`); continue; }
     const { diff } = diffOne(f, before, after);
     if (diff.trim()) parts.push(diff);
@@ -331,6 +352,98 @@ function baseSelftest() {
   process.exit(0);
 }
 
+// ---- per-card git worktrees (--parallel) -------------------------------------------------------------
+// Each parallel card runs in its own checkout under output/pi-worktrees/<id>, made from HEAD plus the main
+// checkout's uncommitted state, with node_modules linked back to the main checkout. Changes come back as a
+// binary diff against the baseline commit, applied with `git apply` (3-way only when the plain apply fails).
+const WT_REL = path.join('output', 'pi-worktrees');
+const HOST = '127.0.0.1';
+const portFor = i => 5100 + i;
+const worktreesDir = mainRoot => path.join(mainRoot, WT_REL);
+
+function unlinkNodeModules(wt) {   // never recursive: deleting through the junction would empty the main node_modules
+  const link = path.join(wt, 'node_modules');
+  let st = null; try { st = fs.lstatSync(link); } catch { return; }
+  if (!st.isSymbolicLink() && !st.isDirectory()) return;
+  try { fs.unlinkSync(link); } catch { try { fs.rmdirSync(link); } catch { } }
+}
+
+function linkNodeModules(mainRoot, wt) {
+  const target = path.join(mainRoot, 'node_modules');
+  try { if (!fs.statSync(target).isDirectory()) return false; } catch { return false; }
+  const link = path.join(wt, 'node_modules');
+  try { fs.lstatSync(link); unlinkNodeModules(wt); } catch { }
+  fs.symlinkSync(target, link, 'junction');
+  return true;
+}
+
+function createWorktree(mainRoot, id) {
+  const dir = path.join(worktreesDir(mainRoot), id);
+  fs.mkdirSync(path.dirname(dir), { recursive: true });
+  if (fs.existsSync(dir)) {   // a stale worktree: drop the junction first, then ask git, never a blind recursive delete
+    unlinkNodeModules(dir);
+    spawnSync('git', ['worktree', 'remove', '--force', dir], { cwd: mainRoot });
+    spawnSync('git', ['worktree', 'prune'], { cwd: mainRoot });
+    if (fs.existsSync(dir) && !fs.existsSync(path.join(dir, 'node_modules'))) fs.rmSync(dir, { recursive: true, force: true });
+    if (fs.existsSync(dir)) throw new Error(`cannot clear stale worktree ${dir}`);
+  }
+  try {
+    const add = spawnSync('git', ['worktree', 'add', '--detach', '--force', dir, 'HEAD'], { cwd: mainRoot, encoding: 'utf8', maxBuffer: 64 << 20 });
+    if (add.status !== 0) throw new Error(`git worktree add failed: ${(add.stderr || add.stdout || '').trim()}`);
+    const diff = spawnSync('git', ['diff', 'HEAD', '--binary'], { cwd: mainRoot, maxBuffer: 256 << 20 });
+    if (diff.status !== 0) throw new Error(`git diff HEAD failed in ${mainRoot}`);
+    if (diff.stdout.length) {
+      const ap = spawnSync('git', ['apply', '--binary', '-'], { cwd: dir, input: diff.stdout, maxBuffer: 256 << 20, encoding: 'utf8' });
+      if (ap.status !== 0) throw new Error(`git apply of the main checkout's diff failed: ${(ap.stderr || '').trim()}`);
+    }
+    const others = spawnSync('git', ['ls-files', '--others', '--exclude-standard', 'src', 'assets', 'tools', 'pipeline'], { cwd: mainRoot, encoding: 'utf8', maxBuffer: 64 << 20 });
+    for (const f of (others.stdout || '').split('\n').filter(Boolean)) {
+      const dst = path.join(dir, f);
+      fs.mkdirSync(path.dirname(dst), { recursive: true });
+      fs.copyFileSync(path.join(mainRoot, f), dst);
+    }
+    spawnSync('git', ['add', '-A'], { cwd: dir });
+    const commit = spawnSync('git', ['-c', 'user.name=pi-dispatch', '-c', 'user.email=pi@local', 'commit', '--allow-empty', '-m', 'baseline'], { cwd: dir, encoding: 'utf8' });
+    if (commit.status !== 0) throw new Error(`baseline commit failed: ${(commit.stderr || commit.stdout || '').trim()}`);
+    const base = spawnSync('git', ['rev-parse', 'HEAD'], { cwd: dir, encoding: 'utf8' }).stdout.trim();
+    return { dir, base };
+  } catch (e) {   // a setup failure must not leave a half-made worktree behind
+    unlinkNodeModules(dir);
+    spawnSync('git', ['worktree', 'remove', '--force', dir], { cwd: mainRoot });
+    spawnSync('git', ['worktree', 'prune'], { cwd: mainRoot });
+    if (fs.existsSync(dir) && !fs.existsSync(path.join(dir, 'node_modules'))) fs.rmSync(dir, { recursive: true, force: true });
+    throw e;
+  }
+}
+
+function collectPatch(wt, base) {
+  spawnSync('git', ['add', '-A'], { cwd: wt });
+  const r = spawnSync('git', ['diff', base, '--binary'], { cwd: wt, maxBuffer: 256 << 20 });
+  return r.status === 0 ? r.stdout.toString('utf8') : '';
+}
+
+function removeWorktree(mainRoot, dir) {
+  unlinkNodeModules(dir);
+  spawnSync('git', ['worktree', 'remove', '--force', dir], { cwd: mainRoot });
+  spawnSync('git', ['worktree', 'prune'], { cwd: mainRoot });
+  if (fs.existsSync(dir) && !fs.existsSync(path.join(dir, 'node_modules'))) fs.rmSync(dir, { recursive: true, force: true });
+}
+
+// applies one card's patch to the main checkout; a patch that does not apply cleanly is kept for a human
+function applyBack(mainRoot, res, id, patch) {
+  if (!patch || !patch.trim()) return { ok: true, applied: false };
+  const gitRun = (extra, input = patch) => spawnSync('git', ['apply', ...extra, '-'], { cwd: mainRoot, input, encoding: 'utf8', maxBuffer: 256 << 20 });
+  let mode = [];
+  let r = gitRun(['--check']);
+  if (r.status !== 0) { mode = ['--3way']; r = gitRun(['--3way', '--check']); }
+  let ok = r.status === 0;
+  let out = r.stderr || r.stdout || '';
+  if (ok) { const ap = gitRun(mode); ok = ap.status === 0; out = ap.stderr || ap.stdout || ''; }
+  if (ok) return { ok: true, applied: true };
+  fs.mkdirSync(res, { recursive: true });
+  fs.writeFileSync(path.join(res, id + '.patch'), patch);
+  return { ok: false, applied: false, error: String(out).trim() };
+}
 const sessionCost = name => {   // pi writes real provider USD into its session log; other agents were priced in runPi
   if (AGENT !== 'pi') return stageUsd.get(name) || 0;
   let usd = 0;
@@ -377,44 +490,70 @@ function dryRun({ card, id, text, type, acceptHead, goalOnly, planFile, reviewFi
   return { id, verdict: 'DRY-RUN', ok: true };
 }
 
-async function dispatch(card) {
+// one card, from PLAN to REVIEW. Under --parallel root is its own worktree; otherwise root is the main checkout
+// and nothing about the run changes.
+async function runCard(card, opts = {}) {
+  const mainRoot = opts.mainRoot || ROOT;
+  const res = opts.res || RES;
+  const costLog = opts.costLog || LOG_CSV;
+  const ledger = opts.ledger || LEDGER;
+  const index = opts.index || 0;
+  const parallel = opts.parallel ?? (flag('parallel') && !DRY);
   const id = (path.basename(card).match(/^(T\d+)/) || [, path.basename(card, '.md')])[1];
-  const text = fs.readFileSync(path.join(ROOT, card), 'utf8');
+  const text = fs.readFileSync(path.join(mainRoot, card), 'utf8');
   const status = header(text, 'Status'), type = header(text, 'Type').toLowerCase(), acceptHead = header(text, 'Accept');
   const gate = header(text, 'Gate').toLowerCase() === 'plan' || flag('approve-plan');   // Opus approves pi's plan before any work
   const approved = flag('approved');   // second run: the plan is signed off, implement it
   const reusable = status === 'reusable';
   const goalOnly = !/^## Steps/m.test(text) && type !== 'scout';   // no Steps: pi plans before it implements
-  const planFile = path.join(RES, id + '.plan.md'), reviewFile = path.join(RES, id + '.review.md'), diffFile = path.join(RES, id + '.diff');
+  const planFile = path.join(res, id + '.plan.md'), reviewFile = path.join(res, id + '.review.md'), diffFile = path.join(res, id + '.diff');
   const readPlan = () => readFileOr(planFile);
-  if (DRY) return dryRun({ card, id, text, type, acceptHead, goalOnly, planFile, reviewFile, diffFile, gate, approved });
-  if (approved && !fs.existsSync(planFile)) { console.error(`[pi-dispatch] ${id} --approved 但沒有計畫檔 ${rel(planFile)}:先跑一次閘門(卡片加 Gate: plan 或這次加 --approve-plan)`); return { id, verdict: 'NO-PLAN', exitCode: 2 }; }
-  if (status && status !== 'todo' && !reusable && !(approved && status === 'plan-review') && !flag('force')) return { id, verdict: 'SKIPPED', note: `Status ${status}(要重跑加 --force)` };
-  // --parallel: per-card lock, only for cards that do not build or edit src/; the changed-files list then also contains files changed by the other running cards
-  const lock = path.join(RES, flag('parallel') ? `.running-${id}` : '.running');
-  if (fs.existsSync(lock)) return { id, verdict: 'LOCKED', note: `已經有卡在跑:${fs.readFileSync(lock, 'utf8').trim()}(確認那個 pi 已停再刪 ${path.relative(ROOT, lock)})` };
-  const resultFile = path.join(RES, id + '.md'), logFile = path.join(RES, id + '.log'), acceptFile = path.join(RES, id + '.accept.log');
+  if (DRY) return { early: dryRun({ card, id, text, type, acceptHead, goalOnly, planFile, reviewFile, diffFile, gate, approved }) };
+  if (approved && !fs.existsSync(planFile)) { console.error(`[pi-dispatch] ${id} --approved 但沒有計畫檔 ${rel(planFile)}:先跑一次閘門(卡片加 Gate: plan 或這次加 --approve-plan)`); return { early: { id, verdict: 'NO-PLAN', exitCode: 2 } }; }
+  if (status && status !== 'todo' && !reusable && !(approved && status === 'plan-review') && !flag('force')) return { early: { id, verdict: 'SKIPPED', note: `Status ${status}(要重跑加 --force)` } };
+  // --parallel: one worktree and one per-card lock, so cards that touch different files no longer queue behind each other
+  const lock = path.join(res, parallel ? `.running-${id}` : '.running');
+  if (fs.existsSync(lock)) return { early: { id, verdict: 'LOCKED', note: `已經有卡在跑:${fs.readFileSync(lock, 'utf8').trim()}(確認那個 pi 已停再刪 ${path.relative(mainRoot, lock)})` } };
+  const resultFile = path.join(res, id + '.md'), logFile = path.join(res, id + '.log'), acceptFile = path.join(res, id + '.accept.log');
   try { fs.rmSync(logFile); } catch { }
   try { fs.rmSync(diffFile); } catch { }   // per run: a leftover diff would be offered for a card that never wrote one
   fs.writeFileSync(lock, `${id} ${new Date().toISOString()}`);
-  if (!reusable) setStatus(card, 'in-progress');
-  const t0 = Date.now(), snapBefore = snapshot(), before = new Set(snapBefore);
+  if (!reusable) setStatus(card, 'in-progress', mainRoot);
+  // worktree from HEAD + the main checkout's uncommitted state; node_modules is linked back, never copied
+  let root = mainRoot, wtDir = null, base = '', setupError = '';
+  if (parallel) {
+    try { const wt = createWorktree(mainRoot, id); wtDir = wt.dir; root = wt.dir; base = wt.base; linkNodeModules(mainRoot, root); }
+    catch (e) { setupError = `${e.message}`; }
+  }
+  const env = root === mainRoot ? {} : { PORT: String(portFor(index)), HOST, PWD: root, TARGET: `http://${HOST}:${portFor(index)}/?preview=1` };
+  // browser checkers default to the main server on 5024; a worktree card gets its own server.mjs (serving the worktree's dist/)
+  let server = null;
+  if (root !== mainRoot && !runAgent) { try { server = spawn(process.execPath, ['server.mjs'], { cwd: root, env: { ...process.env, ...env }, stdio: 'ignore', windowsHide: true }); } catch { } }
+  // a worktree run has no docs/ or output/ of its own (the card and the result files stay in the main checkout),
+  // so prompts for it name absolute paths; a normal run keeps the short repository-relative ones
+  const slash = p => String(p).split(path.sep).join('/');
+  const resHint = root === mainRoot ? 'output/pi-results' : slash(res);
+  const promptPath = f => root === mainRoot ? rel(f) : slash(f);
+  const cardRef = root === mainRoot ? card : slash(path.join(mainRoot, card));
+  const agent = runAgent || runPi;
+  const t0 = Date.now(), snapBefore = snapshot(root), before = new Set(snapBefore);
   // the text of every already-dirty/untracked file at the start: the review diff is built from these, not from `git diff` vs HEAD
-  const baseContents = new Map(snapBefore.map(l => l.replace(/:[0-9a-f]{32}$/, '')).map(f => [f, readText(path.join(ROOT, f))]));
-  const changedList = () => snapshot().filter(l => !before.has(l)).map(l => l.replace(/:[0-9a-f]{32}$/, '')).filter(f => f !== card);
+  const baseContents = new Map(snapBefore.map(l => l.replace(/:[0-9a-f]{32}$/, '')).map(f => [f, readText(path.join(root, f))]));
+  const changedList = () => snapshot(root).filter(l => !before.has(l)).map(l => l.replace(/:[0-9a-f]{32}$/, '')).filter(f => f !== card);
   const allowedFor = () => allowedFiles(/^## Files/m.test(text) ? text : (readPlan() || text));
   let attempts = 0, usd = 0, code, hasResult = false, acc = null, note = opt('note');
   let accept = acceptHead === 'auto' ? (goalOnly ? header(readPlan(), 'Accept') : '') : acceptHead;   // `Accept: auto` is filled in by PLAN
-  let reviewState = 'skip', precheckState = 'n/a', reviewFailed = false, planReady = false;
+  let reviewState = 'skip', precheckState = 'n/a', reviewFailed = false, planReady = false, reviewRedos = 0;
   let already = false, generic = false;   // ALREADY: the checker passed on the unchanged tree twice; generic: two generic plans
   const stages = [];
   const planStage = async extra => {
     const name = `${id}-plan`;
-    await runPi(buildPlanPrompt(card, id, type, acceptHead, extra), name, logFile);
+    await agent(buildPlanPrompt(cardRef, id, type, acceptHead, extra, resHint), name, logFile, root, env);
     usd += sessionCost(name);
   };
   try {
-    if (approved) {   // Opus signed this plan off: do not plan again, reuse the file and carry the note as its direction
+    if (setupError) fs.writeFileSync(logFile, `[pi-dispatch] worktree setup failed: ${setupError}\n`);
+    else if (approved) {   // Opus signed this plan off: do not plan again, reuse the file and carry the note as its direction
       accept = acceptHead === 'auto' ? (header(readPlan(), 'Accept') || '') : acceptHead;
       note = ['Opus approved the plan; implement it as written.', note ? `Opus direction: ${note}` : ''].filter(Boolean).join('\n');
     } else if (goalOnly || gate) {   // PLAN
@@ -431,26 +570,26 @@ async function dispatch(card) {
       }
     }
     // PRECHECK for every checker the accept command uses, new or old: it must fail on the unchanged tree or the goal is met
-    if (acceptHead === 'auto' && accept && !generic && acceptCheckers(accept).length > 0) {
+    if (!setupError && acceptHead === 'auto' && accept && !generic && acceptCheckers(accept).length > 0) {
       stages.push('precheck');
-      let pre = runAccept(accept, path.join(RES, id + '.precheck.log'));
+      let pre = runAccept(accept, path.join(res, id + '.precheck.log'), root, env);
       precheckState = pre.pass ? 'PASS' : 'FAIL';
       if (pre.pass) {
         await planStage(`PRECHECK: your Accept command \`${accept}\` already passes on the unchanged tree, so it proves nothing. Rewrite it so it fails before the work (assert the behaviour the card adds).`);
         accept = header(readPlan(), 'Accept') || accept;
-        pre = runAccept(accept, path.join(RES, id + '.precheck.log'));
+        pre = runAccept(accept, path.join(res, id + '.precheck.log'), root, env);
         precheckState = pre.pass ? 'PASS' : 'FAIL';
         if (pre.pass) { already = true; acc = pre; }   // still green after the rewrite: the goal was already met, skip implement and review
       }
     }
     planReady = gate && !approved;   // Gate: plan stops here, before any file changes
-    while (!planReady && !already && !generic) {   // IMPLEMENT (a generic accept line never gets here)
+    while (!setupError && !planReady && !already && !generic) {   // IMPLEMENT (a generic accept line never gets here)
       attempts++;
       acc = null;
       stages.push(`implement-a${attempts}`);
       try { fs.rmSync(resultFile); } catch { }
       const name = `${id}-${new Date().toISOString().slice(0, 16)}-a${attempts}`;
-      code = await runPi(buildPrompt(card, id, type, accept || null, note, goalOnly || approved ? rel(planFile) : null), name, logFile);
+      code = await agent(buildPrompt(cardRef, id, type, accept || null, note, goalOnly || approved ? promptPath(planFile) : null, resHint), name, logFile, root, env);
       usd += sessionCost(name);
       hasResult = fs.existsSync(resultFile);
       const firstLine = hasResult ? fs.readFileSync(resultFile, 'utf8').split('\n')[0] : '';
@@ -463,7 +602,7 @@ async function dispatch(card) {
         note = [opt('note'), `RETRY: ${why}. Fix only that, then report.`].filter(Boolean).join('\n');
         continue;
       }
-      acc = accept ? runAccept(accept, acceptFile) : null;   // ACCEPT
+      acc = accept ? runAccept(accept, acceptFile, root, env) : null;   // ACCEPT
       if (accept) stages.push('accept');
       if (acc && !acc.pass) {
         if (attempts >= MAX_ATTEMPTS || flag('no-retry')) break;
@@ -473,45 +612,64 @@ async function dispatch(card) {
       if (type === 'scout' || noReview) break;   // REVIEW
       const changedNow = changedList();
       if ((outOfScope(changedNow, allowedWithCheckers(allowedFor(), accept)) || []).length) break;   // out of scope: the card fails already, a review would only burn tokens
-      writeDiff(changedNow, diffFile, baseContents);
+      writeDiff(changedNow, diffFile, baseContents, root);
       const rname = `${id}-review-a${attempts}`;
       stages.push(`review-a${attempts}`);
       try { fs.rmSync(reviewFile); } catch { }
-      await runPi(buildReviewPrompt(card, id, section(text, 'Goal'), goalOnly || approved ? rel(planFile) : null, rel(diffFile)), rname, logFile);
+      await agent(buildReviewPrompt(cardRef, id, section(text, 'Goal'), goalOnly || approved ? promptPath(planFile) : null, promptPath(diffFile), resHint), rname, logFile, root, env);
       usd += sessionCost(rname);
       const rv = readFileOr(reviewFile).trim();
       const rvFirst = rv.split('\n')[0].replace(/[*#\s]/g, '').toUpperCase();
       reviewState = rvFirst.startsWith('ISSUES') ? 'ISSUES' : rvFirst.startsWith('OK') ? 'OK' : 'skip';
       const high = rv.split('\n').slice(1).filter(l => /^\s*[-*]?\s*high\b/i.test(l));
-      if (!high.length) break;
-      if (attempts >= MAX_ATTEMPTS || flag('no-retry')) { reviewFailed = true; break; }   // out of attempts: the verdict keeps review:ISSUES
-      note = [opt('note'), `REVIEW found high issues (${rel(reviewFile)}):\n${rv}\nFix only these, then report.`].filter(Boolean).join('\n');
+      if (!high.length) { if (reviewState === 'ISSUES') reviewState = 'LOW'; break; }   // low-only findings: the card passes; Claude sees them with the diff
+      // 2026-11-06: at most ONE redo for review findings (T64 spent two and still missed); after that the card is flagged for Claude
+      if (attempts >= MAX_ATTEMPTS || flag('no-retry') || reviewRedos >= 1) { reviewFailed = true; break; }   // the verdict keeps review:ISSUES
+      reviewRedos++;
+      note = [opt('note'), `REVIEW found high issues (${promptPath(reviewFile)}):\n${rv}\nFix only these, then report.`].filter(Boolean).join('\n');
     }
-  } finally { try { fs.rmSync(lock); } catch { } }
-  const sec = Math.round((Date.now() - t0) / 1000);
+  } finally { try { fs.rmSync(lock); } catch { } try { server?.kill(); } catch { } }
   const changed = changedList();
-  const body = hasResult ? fs.readFileSync(resultFile, 'utf8').trim() : fs.readFileSync(logFile, 'utf8').split('\n').slice(-15).join('\n');
+  const patch = wtDir ? collectPatch(root, base) : '';
+  return {
+    id, card, text, type, parallel, mainRoot, res, costLog, ledger, root, wtDir, base, patch, changed,
+    planFile, reviewFile, diffFile, acceptFile, resultFile, logFile,
+    hasResult, attempts, usd, code, acc, accept, acceptHead, reusable, planReady, already, generic,
+    reviewState, precheckState, reviewFailed, t0, sec: Math.round((Date.now() - t0) / 1000), baseContents, stages, setupError,
+  };
+}
+
+// scope, diff, review verdict, status, cost log and the one-line output, then the patch goes back into the main checkout
+function finalize(run) {
+  const { id, card, text, type, mainRoot, res, costLog, ledger, reusable, planReady, already, generic, hasResult, accept, acceptHead, acc, attempts, usd, code, sec, changed, baseContents, reviewState, reviewFailed, precheckState, stages, patch, acceptFile, planFile, reviewFile, diffFile } = run;
+  const body = hasResult ? fs.readFileSync(run.resultFile, 'utf8').trim() : readFileOr(run.logFile).split('\n').slice(-15).join('\n');
   const first = hasResult ? body.split('\n')[0].replace(/\*/g, '').trim() : '';
-  const verdict = planReady ? 'PLAN-READY' : already ? 'ALREADY' : generic ? 'BLOCKED' : !hasResult ? 'FAILED' : (first.match(/^(DONE|BLOCKED|FAILED)/i)?.[1] || '?').toUpperCase();
+  let verdict = planReady ? 'PLAN-READY' : already ? 'ALREADY' : generic ? 'BLOCKED' : !hasResult ? 'FAILED' : (first.match(/^(DONE|BLOCKED|FAILED)/i)?.[1] || '?').toUpperCase();
   const accText = generic ? 'generic' : !accept ? (acceptHead === 'auto' ? 'not run' : 'n/a') : acc ? (acc.pass ? 'PASS' : 'FAIL') : 'not run';
-  const stray = outOfScope(changed, allowedWithCheckers(allowedFor(), accept));   // a tools/checks/ file named in Accept is in scope
+  const stray = outOfScope(changed, allowedWithCheckers(allowedFiles(/^## Files/m.test(text) ? text : (readFileOr(planFile) || text)), accept));   // a tools/checks/ file named in Accept is in scope
   const scope = stray == null ? 'n/a' : stray.length ? 'OUT' : 'ok';
   // a plan-waiting card is not a failure: Opus just has to read the plan before the work starts
-  const opus = planReady || already ? '-' : opusReason(changed, { reviewFailed, diffLines: diffLineCount(changed, baseContents), num: cardNum(id) });
-  const ok = planReady || already || (code === 0 && verdict === 'DONE' && accText !== 'FAIL' && accText !== 'not run' && accText !== 'generic' && scope !== 'OUT' && reviewState !== 'ISSUES');
-  if (!reusable) setStatus(card, planReady ? 'plan-review' : ok ? 'done' : 'failed');
+  const opus = planReady || already ? '-' : opusReason(changed, { reviewFailed, diffLines: diffLineCount(changed, baseContents, run.root), num: cardNum(id) });
+  let ok = planReady || already || (code === 0 && verdict === 'DONE' && accText !== 'FAIL' && accText !== 'not run' && accText !== 'generic' && scope !== 'OUT' && reviewState !== 'ISSUES');
+  let conflict = null;
+  if (run.wtDir && ok) {   // the worktree measured the change; apply it back only when the card actually passed
+    const ab = applyBack(mainRoot, res, id, patch);
+    if (!ab.ok) { conflict = ab.error || 'patch did not apply'; verdict = 'CONFLICT'; ok = false; }
+  }
+  if (!reusable) setStatus(card, planReady ? 'plan-review' : ok ? 'done' : 'failed', mainRoot);
   const stageLog = [...new Set(stages)].join('+');
   try {   // start/end let tools/session-cost.mjs --from/--to cut the Claude side of the same window
     const HEAD = 'date,card,attempts,verdict,accept,minutes,usd,start,end,scope,review,precheck,stages,opus\n';
-    if (!fs.existsSync(LOG_CSV)) fs.writeFileSync(LOG_CSV, HEAD);
-    else { const t = fs.readFileSync(LOG_CSV, 'utf8'); if (!t.startsWith(HEAD)) fs.writeFileSync(LOG_CSV, HEAD + t.slice(t.indexOf('\n') + 1)); }
-    fs.appendFileSync(LOG_CSV, `${new Date().toISOString().slice(0, 16)},${id},${attempts},${verdict},${accText},${(sec / 60).toFixed(1)},${usd.toFixed(4)},${new Date(t0).toISOString()},${new Date().toISOString()},${scope},${reviewState},${precheckState},${stageLog},${opus}\n`);
+    if (!fs.existsSync(costLog)) fs.writeFileSync(costLog, HEAD);
+    else { const t = fs.readFileSync(costLog, 'utf8'); if (!t.startsWith(HEAD)) fs.writeFileSync(costLog, HEAD + t.slice(t.indexOf('\n') + 1)); }
+    fs.appendFileSync(costLog, `${new Date().toISOString().slice(0, 16)},${id},${attempts},${verdict},${accText},${(sec / 60).toFixed(1)},${usd.toFixed(4)},${new Date(run.t0).toISOString()},${new Date().toISOString()},${scope},${reviewState},${precheckState},${stageLog},${opus}\n`);
   } catch { }
   // one line per card is the whole point: Claude pays for every line it reads
-  if (planReady) console.log(`${id} PLAN-READY plan: ${rel(planFile)} (${readPlan().trim().split('\n').filter(l => l.trim()).length} lines)`);
+  if (planReady) console.log(`${id} PLAN-READY plan: ${rel(planFile)} (${readFileOr(planFile).trim().split('\n').filter(l => l.trim()).length} lines)`);
   else console.log(`${id} ${verdict} accept:${accText} scope:${scope} review:${reviewState} precheck:${precheckState} ${attempts}x ${Math.floor(sec / 60)}m $${usd.toFixed(3)}`);
+  if (conflict) console.log(`[pi-dispatch] ${id} CONFLICT: patch kept at ${path.join(res, id + '.patch')} (${conflict.split('\n')[0]})`);
   if (opus !== '-') {   // the escalation only prints the paths; the dispatcher never calls Claude itself
-    writeDiff(changed, diffFile, baseContents);   // REVIEW writes it only when REVIEW ran; scout/--no-review/out-of-scope never do
+    writeDiff(changed, diffFile, baseContents, run.root);   // REVIEW writes it only when REVIEW ran; scout/--no-review/out-of-scope never do
     console.log(`${id} opus:${opus} diff: ${rel(diffFile)} (${readFileOr(diffFile).split('\n').filter(Boolean).length} lines) review: ${rel(reviewFile)}`);
   }
   if (acc && !acc.pass) console.log(`[pi-dispatch] 驗收失敗(${rel(acceptFile)}):\n${acc.tail}`);
@@ -520,20 +678,136 @@ async function dispatch(card) {
   if (!ok || flag('full') || type === 'scout') {   // scout briefs are the deliverable, so they always print
     console.log('----'); console.log(cap(body, type === 'scout' ? Math.max(CAP, 3000) : CAP));
   }
-  return { id, verdict, accText, scope, reviewState, precheckState, attempts, sec, usd, ok, opus };
+  if (run.wtDir) {   // a conflict keeps its worktree for inspection; every other ending removes it
+    // a failed card's work is not applied, so keep it as a patch instead of throwing it away with the worktree
+    if (!ok && verdict !== 'CONFLICT' && patch && patch.trim()) { fs.writeFileSync(path.join(res, id + '.patch'), patch); console.log(`[pi-dispatch] ${id} 沒套回主 checkout,改動留在 ${rel(path.join(res, id + '.patch'))}`); }
+    if (verdict === 'CONFLICT' || flag('keep-worktree')) console.log(`[pi-dispatch] worktree kept: ${run.wtDir}`);
+    else removeWorktree(mainRoot, run.wtDir);
+  }
+  return { id, verdict, accText, scope, reviewState, precheckState, attempts, sec, usd, ok, opus, wtDir: run.wtDir };
+}
+
+// --worktree-selftest: no dsh, no repo data. A throwaway git repo plus a fake agent drive the real runCard/finalize:
+// two cards editing different files must both apply back; two cards editing the same line must end DONE then CONFLICT
+// (patch kept, main file unchanged by the second). node_modules in the main checkout must survive every cleanup.
+async function worktreeSelftest() {
+  const tmp = fs.mkdtempSync(path.join(os.tmpdir(), 'pi-worktree-'));
+  const mainRoot = path.join(tmp, 'repo'), res = path.join(tmp, 'results');
+  const costLog = path.join(tmp, 'cost-log.csv'), ledger = path.join(tmp, 'opus-review.csv');
+  const bad = [];
+  const check = (yes, msg) => { if (!yes) bad.push(msg); };
+  let applied = false, conflictId = '', nodeKept = false, leftCount = 0, portList = '';
+  try {
+    const git = (a, cwd = mainRoot) => spawnSync('git', a, { cwd, encoding: 'utf8', maxBuffer: 64 << 20 });
+    fs.mkdirSync(path.join(mainRoot, 'src'), { recursive: true });
+    fs.mkdirSync(path.join(mainRoot, 'docs', 'pi-tasks'), { recursive: true });
+    fs.mkdirSync(path.join(tmp, 'repo', 'node_modules', 'dep'), { recursive: true });
+    fs.mkdirSync(res, { recursive: true });
+    fs.writeFileSync(path.join(mainRoot, '.gitignore'), 'node_modules/\noutput/\n');
+    fs.writeFileSync(path.join(mainRoot, 'src', 'a.txt'), 'a\n');
+    fs.writeFileSync(path.join(mainRoot, 'src', 'b.txt'), 'b\n');
+    fs.writeFileSync(path.join(mainRoot, 'node_modules', 'dep', 'index.js'), 'module.exports = 1;\n');
+    if (git(['init', '-q']).status !== 0) throw new Error('git init failed');
+    git(['config', 'user.name', 'pi-selftest']);
+    git(['config', 'user.email', 'pi-selftest@local']);
+    git(['config', 'core.autocrlf', 'false']);   // keep the LF text the fake agent writes byte-for-byte, as on the repo's own config
+    git(['add', '-A']);
+    if (git(['-c', 'commit.gpgsign=false', 'commit', '-q', '-m', 'init']).status !== 0) throw new Error('initial commit failed');
+    const cardFor = (id, file) => {
+      const relCard = `docs/pi-tasks/${id}-selftest.md`;
+      fs.writeFileSync(path.join(mainRoot, relCard), `# ${id}: selftest\nStatus: todo\n\n## Goal\nEdit ${file} in a worktree.\n\n## Files you may change\n- ${file}\n\n## Steps\n1. Write the content the fake agent is told to write.\n`);
+      return relCard;
+    };
+    // fake agent: implement writes one file and the DONE result; review writes OK. No network, no dsh, no accept command.
+    const write = new Map(), ports = new Map();
+    runAgent = async (prompt, name, logFile, root, env) => {
+      const id = (name.match(/^(T\d+)/) || [])[1];
+      if (/^Independent review stage/m.test(prompt)) { fs.writeFileSync(path.join(res, `${id}.review.md`), 'OK\n'); return 0; }
+      if (/^Planning stage/m.test(prompt)) return 1;   // the selftest cards carry Steps, so PLAN never runs
+      const w = write.get(id); if (!w) return 1;
+      fs.writeFileSync(path.join(root, w.file), w.text);
+      fs.writeFileSync(path.join(res, `${id}.md`), `DONE | files: ${w.file} | accept: n/a\nnone\n`);
+      if (env && env.PORT) ports.set(id, String(env.PORT));
+      return 0;
+    };
+    const runBatch = async specs => {
+      const runs = await Promise.all(specs.map((s, i) => {
+        write.set(s.id, s);
+        return runCard(cardFor(s.id, s.file), { mainRoot, res, costLog, ledger, index: i, parallel: true });
+      }));
+      return runs.map(r => r.early || finalize(r));
+    };
+
+    // 1) different files: both cards pass and both patches land in the main checkout
+    const first = await runBatch([
+      { id: 'T901', file: 'src/a.txt', text: 'a\none\n' },
+      { id: 'T902', file: 'src/b.txt', text: 'b\ntwo\n' },
+    ]);
+    const firstOk = first.every(r => r.ok && r.verdict === 'DONE');
+    const aText = fs.readFileSync(path.join(mainRoot, 'src', 'a.txt'), 'utf8');
+    const bText = fs.readFileSync(path.join(mainRoot, 'src', 'b.txt'), 'utf8');
+    applied = firstOk && aText === 'a\none\n' && bText === 'b\ntwo\n';
+    check(firstOk, `different-file cards did not both pass: ${first.map(r => `${r.id}:${r.verdict}`).join(',')}`);
+    check(aText === 'a\none\n', 'src/a.txt did not come back from T901');
+    check(bText === 'b\ntwo\n', 'src/b.txt did not come back from T902');
+    portList = ['T901', 'T902'].map(c => ports.get(c) || '?').join(',');
+    check(portList === '5100,5101', `per-card ports wrong: ${portList}`);
+
+    // 2) same line: T903 applies, T904 conflicts; its patch is kept and the main file keeps T903's text
+    const second = await runBatch([
+      { id: 'T903', file: 'src/a.txt', text: 'a\none\nthree\n' },
+      { id: 'T904', file: 'src/a.txt', text: 'a\none\nfour\n' },
+    ]);
+    const aAfter = fs.readFileSync(path.join(mainRoot, 'src', 'a.txt'), 'utf8');
+    conflictId = second[1].verdict === 'CONFLICT' && fs.existsSync(path.join(res, 'T904.patch')) ? 'T904' : '';
+    check(second[0].ok && second[0].verdict === 'DONE', `T903 should apply, got ${second[0].verdict}`);
+    check(second[1].verdict === 'CONFLICT' && second[1].ok === false, `T904 should be CONFLICT, got ${second[1].verdict}`);
+    check(!!conflictId, 'T904 conflict patch was not kept');
+    check(aAfter === 'a\none\nthree\n', 'main src/a.txt was changed by the conflicting card');
+    check(!!second[1].wtDir && fs.existsSync(second[1].wtDir), 'the CONFLICT worktree was removed, it should be kept');
+    if (second[1].wtDir && fs.existsSync(second[1].wtDir)) removeWorktree(mainRoot, second[1].wtDir);   // dropped on purpose: the check below wants 0
+
+    const wtRoot = path.join(mainRoot, 'output', 'pi-worktrees');
+    leftCount = fs.existsSync(wtRoot) ? fs.readdirSync(wtRoot).filter(Boolean).length : 0;
+    check(leftCount === 0, `worktrees left behind: ${leftCount}`);
+    const nm = path.join(mainRoot, 'node_modules');
+    let st = null; try { st = fs.lstatSync(nm); } catch { }
+    nodeKept = !!st && st.isDirectory() && !st.isSymbolicLink() && fs.existsSync(path.join(nm, 'dep', 'index.js'));
+    check(nodeKept, 'main node_modules is missing or was emptied through the junction');
+  } catch (e) {
+    bad.push(`exception: ${e.message}`);
+    try { nodeKept = fs.existsSync(path.join(mainRoot, 'node_modules', 'dep', 'index.js')); } catch { }
+  } finally {
+    try { fs.rmSync(tmp, { recursive: true, force: true }); } catch { }
+  }
+  console.log(`apply: ${applied ? 'both' : 'failed'}`);
+  console.log(`conflict: ${conflictId ? `${conflictId} patch kept` : 'none'}`);
+  console.log(`node_modules: ${nodeKept ? 'kept' : 'missing'}`);
+  console.log(`worktrees: ${leftCount} left`);
+  console.log(`ports: ${portList || '?'}`);
+  if (bad.length) { console.log(`FAIL ${bad.join(' | ')}`); return false; }
+  return true;
 }
 
 const rows = [];
-for (const [, card] of cards) {
-  const r = await dispatch(card);
+function record(r) {
   if (r.exitCode === 2) process.exit(2);   // --approved with no plan file: nothing to implement, do not start another card
   if (r.verdict === 'SKIPPED' || r.verdict === 'LOCKED') console.log(`[pi-dispatch] ${r.id} ${r.verdict}:${r.note}\n`);
   rows.push(r);
   if (!r.ok && r.verdict !== 'SKIPPED' && r.verdict !== 'ALREADY' && !flag('keep-going')) {
-    const rest = cards.slice(rows.length).map(([a]) => a);
+    const rest = flag('parallel') && !DRY ? [] : cards.slice(rows.length).map(([a]) => a);   // parallel cards already ran
     if (rest.length) console.log(`[pi-dispatch] ${r.id} 沒過,停下後面的卡:${rest.join(' ')}(要繼續加 --keep-going)\n`);
-    break;
+    return false;
   }
+  return true;
+}
+// --worktree-selftest: drive the real runCard/finalize against a throwaway repo with a fake agent, then stop
+if (WT_SELFTEST) { process.exit(await worktreeSelftest() ? 0 : 1); }
+if (flag('parallel') && !DRY) {   // every card starts at once, each in its own worktree; patches apply back in argument order
+  const runs = await Promise.all(cards.map(([, card], i) => runCard(card, { index: i, parallel: true })));
+  for (const run of runs) record(run.early || finalize(run));   // finalize all: it is what applies the patch back and removes the worktree
+} else {
+  for (const [, card] of cards) { const run = await runCard(card); if (!record(run.early || finalize(run))) break; }
 }
 if (cards.length > 1 && !DRY) {
   console.log('==== 總表');

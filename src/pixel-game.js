@@ -103,7 +103,9 @@ export function createGame(saved = null) {
   const id = prefix => `${prefix}${++state.nextId}`;
   const random = () => { state.seed = (Math.imul(state.seed, 1664525) + 1013904223) >>> 0; return state.seed / 4294967296; };
   const log = (text, tone = 'info') => { state.log.unshift({ id: id('log'), text, tone }); state.log.length = Math.min(32, state.log.length); };
-  const effect = (type, p, extra = {}) => { state.effects.push({ id: id('fx'), type, x: p.x, z: p.z, age: 0, ...extra }); if (state.effects.length > 100) state.effects.splice(0, state.effects.length - 100); };
+  // T69:帶 targetId 的命中特效在建立時就記下目標型別(bodyType)。擊殺那一 tick 目標會在第一次繪製前
+  // 被移出 state.enemies,世界端沒有這個欄位就只能退回腳下與預設大小(只影響特效錨點,不影響傷害/戰鬥)。
+  const effect = (type, p, extra = {}) => { state.effects.push({ id: id('fx'), type, x: p.x, z: p.z, age: 0, ...(p.type && extra.targetId != null ? { bodyType: p.type } : {}), ...extra }); if (state.effects.length > 100) state.effects.splice(0, state.effects.length - 100); };
   const canPay = cost => Object.entries(cost).every(([key, amount]) => state[key] >= amount);
   const pay = cost => { for (const [key, amount] of Object.entries(cost)) state[key] -= amount; };
   const buildingPoint = buildingId => state.layout[buildingId];
@@ -1246,8 +1248,8 @@ export function createGame(saved = null) {
     }
     stepDungeon(dt); stepArena(dt);
     for (const e of state.effects) e.age += dt;
-    // 火龍捲是 3.4 秒的整段技能表(法師第一招),比一般特效活得久,播完才回收。pixelfx 表改為 0.6 倍速(T65),存活時間跟著除以 0.6。
-    state.effects = state.effects.filter(e => e.age < (e.type === 'victory' ? 3 : e.type === 'vfxsheet' ? ((e.dur || 2) + .3) / .6 : e.type === 'skillfx' && e.fx === 'cinder' ? 7.0 : 2.7) + (e.type === 'mshot' ? e.delay || 0 : 0));   // 魔物飛行物:飛行時間另計,數字才播得完 refreshQuest();
+    // 火龍捲是 3.4 秒的整段技能表(法師第一招),比一般特效活得久,播完才回收。它是 T66 的唯一例外,維持原本 1.0 倍速,所以存活時間仍是 4.2 秒。
+    state.effects = state.effects.filter(e => e.age < (e.type === 'victory' ? 3 : e.type === 'vfxsheet' ? ((e.dur || 2) + .3) / .6 : e.type === 'skillfx' && e.fx === 'cinder' ? 4.2 : 2.7) + (e.type === 'mshot' ? e.delay || 0 : 0));   // 魔物飛行物:飛行時間另計,數字才播得完 refreshQuest();
   }
 
   function fresh() {

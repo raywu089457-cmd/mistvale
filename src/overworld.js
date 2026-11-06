@@ -48,7 +48,13 @@ const RING_START=(()=>{
  const starts=[0];
  for(let k=1;k<RING_ORDER.length;k++)starts.push(phis[Math.min(phis.length-1,Math.floor(phis.length*k/RING_ORDER.length))]||0);
  return starts;})();
-function ringIndex(x,z){const phi=ringPhi(x,z);let k=RING_START.length-1;while(k>0&&phi<RING_START[k])k--;return k;}
+function ringIndex(x,z){
+ const phi=ringPhi(x,z);let k=RING_START.length-1;while(k>0&&phi<RING_START[k])k--;
+ // T68: the meadow/mountain border east of the village is a straight line, not the noisy ray.
+ // It starts at the ring-road corner on the screen-angle-0 side and runs east to the world edge;
+ // meadow stays on the -z side, mountain on the +z side.
+ if((k===0||k===6)&&x>=FOOTHILLS_EDGE.x)return z>FOOTHILLS_EDGE.z?6:0;
+ return k;}
 // 從村莊中心沿畫面角 phi 射出的單位世界方向(等角投影是線性的,方向的畫面角不受單位長度影響)
 function ringDir(phi){const vx=Math.cos(phi),vy=-Math.sin(phi);const x=(vx/9+vy/4.5)/2,z=(vy/4.5-vx/9)/2,n=Math.hypot(x,z);return {x:x/n,z:z/n};}
 function rayExit(d,pred){let t=0;while(pred(VC.x+d.x*t,VC.z+d.z*t)&&t<400)t+=.05;return t;}
@@ -92,11 +98,13 @@ export function regionContains(id,x,z){return wildAt(x,z)&&RING_ORDER[ringIndex(
 // 區內隨機一點(離村莊的圍籬至少 1.2 格、在世界以內)。隨機數由呼叫者給(遊戲用自己的亂數,方便重現)。
 export function randomRegionPoint(id,rnd=Math.random){
  const PAD=3.4;   // 離村莊圍籬至少這麼多格(不要貼著村界生怪,玩家一走出門就撞到)
+ const CLEAR=1.3; // 生怪點四周留一點實地,不要卡在只有一格寬的海岸邊角(走不出去)
  for(let i=0;i<400;i++){
   const x=WORLD.minX+1+rnd()*(WORLD.maxX-WORLD.minX-2),z=WORLD.minZ+1+rnd()*(WORLD.maxZ-WORLD.minZ-2);
   const nearVillage=x>VILLAGE_BOUNDS.minX-PAD&&x<VILLAGE_BOUNDS.maxX+PAD&&z>VILLAGE_BOUNDS.minZ-PAD&&z<VILLAGE_BOUNDS.maxZ+PAD;
+  const clear=walkable(x-CLEAR,z)&&walkable(x+CLEAR,z)&&walkable(x,z-CLEAR)&&walkable(x,z+CLEAR);
   // 環村道路上不生怪(2026-10-28):安全走廊上站著一隻怪會很怪
-  if(!nearVillage&&!onRingRoad(x,z,1.4)&&regionContains(id,x,z))return {x,z};}
+  if(!nearVillage&&clear&&!onRingRoad(x,z,1.4)&&regionContains(id,x,z))return {x,z};}
  return regionCenter(id);}
 export const BIOME_PALETTE={village:'#719b55',meadow:'#8caf5d',forest:'#356b3d',taiga:'#527c68',snow:'#d9e8df',mountain:'#a09e91',desert:'#e0bb73',birch:'#9fbd67',river:'#3395bd',ice:'#94cbd3',bridge:'#a77b50',ocean:'#3d7488'};
 
@@ -132,6 +140,21 @@ export const RING_ROAD = (() => {
   pts.push(...edge(b.maxX, z1, b.minX, z1), ...arc(b.minX, b.maxZ, Math.PI / 2));
   pts.push(...edge(x0, b.maxZ, x0, b.minZ), ...arc(b.minX, b.minZ, Math.PI));
   return pts;
+})();
+// T68: straight meadow/mountain border on the right. Its west end is the first ring-road point hit by
+// the screen-angle-0 ray from the village centre (the same direction that used to be the border).
+const FOOTHILLS_EDGE=(()=>{
+ const d=ringDir(RING_START[0]);
+ let best=Infinity;
+ for(let i=0;i<RING_ROAD.length;i++){
+  const a=RING_ROAD[i],b=RING_ROAD[(i+1)%RING_ROAD.length];
+  const ex=b.x-a.x,ez=b.z-a.z,den=d.x*ez-d.z*ex;
+  if(Math.abs(den)<1e-12)continue;
+  const qx=a.x-VC.x,qz=a.z-VC.z;
+  const t=(qx*ez-qz*ex)/den,u=(qx*d.z-qz*d.x)/den;
+  if(t>1e-9&&u>=-1e-9&&u<=1+1e-9&&t<best)best=t;
+ }
+ return {x:VC.x+d.x*best,z:VC.z+d.z*best,endX:WORLD.maxX};
 })();
 function segDist(x, z, a, b) {
   const dx = b.x - a.x, dz = b.z - a.z, len = dx * dx + dz * dz;

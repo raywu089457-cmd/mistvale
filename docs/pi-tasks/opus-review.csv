@@ -7,3 +7,6 @@ date,card,reason,pi_review,opus_verdict,note
 2026-11-05T11:42,T60,tier-c,OK,fixed,"疾風箭雨殘影把世界座標 gx 當螢幕 x 傳給 drawVfxSheet,殘影畫到左上角;review 沒抓到,主對話改成 screenPoint 後的螢幕座標"
 2026-11-05T17:37,T64,review-failed,ISSUES,fixed,U2 diagnosis was wrong: the sticky bar is the last child and does not cover anything at max scroll; padding-bottom made the bar float mid-screen. Removed the padding and changed the checker to require the bar pinned to the bottom. Boss banner title kept (it adds the boss name).
 2026-11-05T19:23,T65,tier-c,ISSUES,fixed,Damage numbers were stretched to 2.5 s with the slowed hit effects; gated damageText back to the original 1.5 s. Checker removal-age delay nit left as is.
+2026-11-05T23:41,T66,tier-c,skip,ok,Per-sheet speed map; checker covers cinder 1.0x and others 0.6x
+2026-11-05T23:41,T67,tier-c,ISSUES,ok,"Review high (lethal-hit anchor, death sprite over blast) is real; montage judged: charge OK, blast too small; follow-up card T69"
+2026-11-06T02:25,T70,big-diff,skip,fixed,"Diff OK (worktree, junction unlink, 3-way apply, selftest). Fixed: worktree cards got no server/TARGET so browser checkers hit main 5024; failed card's patch was discarded with its worktree. Scope OUT = .gitignore line only."
