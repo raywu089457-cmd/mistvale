@@ -77,7 +77,7 @@ const lifetimeXp = h => { let n = h.xp || 0; for (let l = 1; l < h.level; l++) n
 // 離線收益:最多算 8 小時;前 sample 秒真的模擬,其餘照這段的速率外推(見 offlineFinish)
 export const OFFLINE = { max: 8 * 3600, sample: 120 };
 
-const DEFAULT_SETTINGS = { quality: 'high', dpr: 'auto', fps: 30, shadows: true, night: true, uiScale: 'auto' };
+const DEFAULT_SETTINGS = { quality: 'high', dpr: 'auto', fps: 30, shadows: true, night: true, shake: true, uiScale: 'auto' };
 // 設定面板的畫質/效能選項:只接受合法值,舊存檔缺欄位就補預設
 // 各地區的怪物數量等級(1-3):舊存檔沒有這個欄位就補預設,超出範圍夾回來,只認真的狩獵區。
 function normalizeRegionDensity(raw) {
@@ -93,6 +93,7 @@ function normalizeSettings(raw) {
     if (raw.fps === 60 || raw.fps === 30) s.fps = raw.fps;
     if (typeof raw.shadows === 'boolean') s.shadows = raw.shadows;
     if (typeof raw.night === 'boolean') s.night = raw.night;
+    if (typeof raw.shake === 'boolean') s.shake = raw.shake;
     if (raw.uiScale === 'auto') s.uiScale = 'auto'; else if (Number.isFinite(raw.uiScale)) s.uiScale = [0.75, 0.85, 1, 1.15, 1.3, 1.5].reduce((a, b) => Math.abs(b - raw.uiScale) < Math.abs(a - raw.uiScale) ? b : a);   // '自動' 或級距(0.75/0.85/1/1.15/1.3/1.5)；舊存檔的數字(0.95、1.4…)夾到最近級距，其他一律 'auto'
   }
   return s;
@@ -105,7 +106,19 @@ export function createGame(saved = null) {
   const log = (text, tone = 'info') => { state.log.unshift({ id: id('log'), text, tone }); state.log.length = Math.min(32, state.log.length); };
   // T69:帶 targetId 的命中特效在建立時就記下目標型別(bodyType)。擊殺那一 tick 目標會在第一次繪製前
   // 被移出 state.enemies,世界端沒有這個欄位就只能退回腳下與預設大小(只影響特效錨點,不影響傷害/戰鬥)。
-  const effect = (type, p, extra = {}) => { state.effects.push({ id: id('fx'), type, x: p.x, z: p.z, age: 0, ...(p.type && extra.targetId != null ? { bodyType: p.type } : {}), ...extra }); if (state.effects.length > 100) state.effects.splice(0, state.effects.length - 100); };
+  const effect = (type, p, extra = {}) => { state.effects.push({ id: id('fx'), type, x: p.x, z: p.z, age: 0, ...(p.type && extra.targetId != null ? { bodyType: p.type } : {}), ...extra }); if (state.effects.length > 100) state.effects.splice(0, state.effects.length - 100);
+    // T95:重擊的鏡頭震動請求。只給畫面用,不動傷害數字與戰鬥時序;state.shake 不存檔(serialize 會清成 null)。
+    // 振幅表(1440x900 DPR1 基準,世界端再乘 scale/baseScale):技能命中 3.5px/220ms、王打中獵人 4.5px/260ms、
+    // 暴擊 2px/140ms、普通命中 1px/90ms。同一 tick 兩個事件取大的,不相加。
+    const amp = type === 'skillfx' && extra.skill && extra.value > 0 ? 3.5
+      : type === 'hit' && extra.by === 'boss' ? 4.5
+      : extra.crit ? 2
+      : extra.value > 0 && ['hit', 'arrow', 'spell', 'slash', 'holy'].includes(type) ? 1 : 0;
+    if (amp > 0) {
+      const ms = amp === 3.5 ? 220 : amp === 4.5 ? 260 : amp === 2 ? 140 : 90, prev = state.shake;
+      if (!(prev && prev.t === state.time && prev.amp >= amp)) state.shake = { amp, ms, seq: (prev?.seq || 0) + 1, t: state.time };
+    }
+  };
   const canPay = cost => Object.entries(cost).every(([key, amount]) => state[key] >= amount);
   const pay = cost => { for (const [key, amount] of Object.entries(cost)) state[key] -= amount; };
   const buildingPoint = buildingId => state.layout[buildingId];
@@ -1248,8 +1261,8 @@ export function createGame(saved = null) {
     }
     stepDungeon(dt); stepArena(dt);
     for (const e of state.effects) e.age += dt;
-    // 火龍捲是 3.4 秒的整段技能表(法師第一招),比一般特效活得久,播完才回收。它是 T66 的唯一例外,維持原本 1.0 倍速,所以存活時間仍是 4.2 秒。
-    state.effects = state.effects.filter(e => e.age < (e.type === 'victory' ? 3 : e.type === 'vfxsheet' ? ((e.dur || 2) + .3) / .6 : e.type === 'skillfx' && e.fx === 'cinder' ? 4.2 : 2.7) + (e.type === 'mshot' ? e.delay || 0 : 0));   // 魔物飛行物:飛行時間另計,數字才播得完 refreshQuest();
+    // 火龍捲是 5.2 秒的整段技能表(法師第一招,iso 版 157 幀 @30fps),比一般特效活得久,播完才回收。它是 T66 的唯一例外,維持原本 1.0 倍速,所以存活時間是 6.0 秒。
+    state.effects = state.effects.filter(e => e.age < (e.type === 'victory' ? 3 : e.type === 'vfxsheet' ? ((e.dur || 2) + .3) / .6 : e.type === 'skillfx' && e.fx === 'cinder' ? 6.0 : 2.7) + (e.type === 'mshot' ? e.delay || 0 : 0));   // 魔物飛行物:飛行時間另計,數字才播得完 refreshQuest();
   }
 
   function fresh() {
@@ -1766,7 +1779,7 @@ export function createGame(saved = null) {
       if(!n)return result(false,'目前沒有正在出征的獵人。');
       log(`已召回 ${n} 位獵人回村待機。`,'success');return result(true,`${n} 位獵人回村待機。`);
     },
-    serialize() { return JSON.parse(JSON.stringify({ ...state, effects: [], shots: [], log: [], dungeon: { ...state.dungeon, events: [] }, hunters: state.hunters.map(({ route, ...h }) => h) })); },
+    serialize() { return JSON.parse(JSON.stringify({ ...state, effects: [], shots: [], shake: null, log: [], dungeon: { ...state.dungeon, events: [] }, hunters: state.hunters.map(({ route, ...h }) => h) })); },
     pilotStart(hunterId) { const h = state.hunters.find(q => q.id === hunterId); if (!h) return result(false, '找不到這位獵人。'); if (h.hp <= 0) return result(false, '這位獵人倒下了。'); state.pilot = { id: h.id, dx: 0, dz: 0, atk: false, readyAt: 0, lockUntil: 0, faceX: 1, faceZ: 0 }; h.task = 'pilot'; h.status = '手動操控'; h.route = []; return result(true, `開始操控 ${h.name}。`); },
     pilotInput(dx, dz) { if (state.pilot) { state.pilot.dx = dx || 0; state.pilot.dz = dz || 0; } },
     pilotAttack() { if (state.pilot) state.pilot.atk = true; },

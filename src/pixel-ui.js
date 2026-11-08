@@ -187,14 +187,15 @@ function modalHTML(type){const s=game.state;
    <div class="density-now">${iconHTML('skull')}<span>現在場上 <b>${alive}</b> 隻魔物${hunting?`、<b>${hunting}</b> 位獵人在這區`:''}<small>立牌上的數字就是目前等級（${d.numeral}）；切換後下一次補怪就生效。</small></span></div>`;
  }
  if(type==='settings'){const o=(s.settings||{}),on=settingsOpen,seg=(key,opts,cur)=>`<div class="seg" data-key="${key}">${opts.map(([v,label])=>`<button class="pixel-button ${String(cur)===String(v)?'gold':''}" data-action="setOpt" data-key="${key}" data-value="${v}">${label}</button>`).join('')}</div>`;
-   const summary=[`畫質 ${o.quality==='low'?'低':'高'}`,`解析度 ${o.dpr==='auto'?'自動':(o.dpr||'1.5')+'x'}`,`幀率 ${o.fps===60?60:30}`,`影子 ${o.shadows===false?'關':'開'}`,`夜晚 ${o.night===false?'關':'開'}`].join(' · ');
+   const summary=[`畫質 ${o.quality==='low'?'低':'高'}`,`解析度 ${o.dpr==='auto'?'自動':(o.dpr||'1.5')+'x'}`,`幀率 ${o.fps===60?60:30}`,`影子 ${o.shadows===false?'關':'開'}`,`夜晚 ${o.night===false?'關':'開'}`,`震動 ${o.shake===false?'關':'開'}`].join(' · ');
    return `<div class="encounter-banner mb settings"><i>${iconHTML('up')}</i><div><p>調整畫質與效能；手機發燙就往下調。</p></div></div><div class="setting-row"><div><strong>畫質與效能</strong><small>${summary}</small></div><button class="pixel-button ${on?'gold':''}" data-action="toggleQuality">${on?'收起':'調整'}</button></div>
    ${on?`<div class="setting-group"><p class="setting-note">手機發燙就往下調：解析度 → 幀率 → 動態影子，這三個最吃電。</p>
    <div class="setting-row"><div><strong>畫質</strong><small>高：粒子、光暈、雪都開。低：關掉粒子與光暈，最省電。</small></div>${seg('quality',[['high','高'],['low','低']],o.quality||'high')}</div>
    <div class="setting-row"><div><strong>解析度</strong><small>畫布像素密度。1x 最省電（像素圖邊緣較粗）；2x 最清楚但最燙。</small></div>${seg('dpr',[['auto','自動'],['1','1x'],['1.5','1.5x'],['2','2x']],o.dpr||'auto')}</div>
    <div class="setting-row"><div><strong>幀率</strong><small>30 幀省電；60 幀順暢，但耗電與發熱大約多一倍。</small></div>${seg('fps',[[30,'30'],[60,'60']],o.fps||30)}</div>
    <div class="setting-row"><div><strong>動態影子</strong><small>角色與建築的投影。關掉可少一層貼圖，手機明顯更涼。</small></div>${seg('shadows',[[1,'開'],[0,'關']],o.shadows===false?0:1)}</div>
-   <div class="setting-row"><div><strong>夜晚變暗</strong><small>入夜後畫面轉成藍色調。關掉可少一層覆蓋。</small></div>${seg('night',[[1,'開'],[0,'關']],o.night===false?0:1)}</div></div>`:''}
+   <div class="setting-row"><div><strong>夜晚變暗</strong><small>入夜後畫面轉成藍色調。關掉可少一層覆蓋。</small></div>${seg('night',[[1,'開'],[0,'關']],o.night===false?0:1)}</div>
+    <div class="setting-row"><div><strong>鏡頭震動</strong><small>重擊、暴擊、技能命中時畫面晃一下；暈眩或不想要就關掉。</small></div>${seg('shake',[[1,'開'],[0,'關']],o.shake===false?0:1)}</div></div>`:''}
    ${uiScaleRow()}
    <div class="setting-row"><div><strong>手動操控</strong><small>自己下去玩：手機是左下搖桿走路、右下大顆按鈕出手，鏡頭一直把角色固定在畫面中央；電腦用 WASD／方向鍵移動、空白鍵或 J 出手。</small></div><button class="pixel-button gold" data-action="pilotLab">選擇角色</button></div>
    <div class="setting-row dev-row"><div><strong>開發者作弊</strong><small>只在設定頁出現，直接改存檔（不影響模擬規則）。測試數值、跳過等待、驗收畫面時用。</small></div><button class="pixel-button ${devOpen?'gold':''}" data-action="toggleDev">${devOpen?'收起':'打開'}</button></div>
@@ -279,7 +280,7 @@ function doAction(el){const a=el.dataset.action,id=el.dataset.id;let r;
  if(a==='cheat'){const r2=game.cheat(id);logToast(r2.message,r2.ok);save();paint();openModal('settings');return;}
  if(a==='setUiScale'){const v=el.dataset.id==='auto'?'auto':Number(el.dataset.id);game.setSetting('uiScale',v);applySettings();save();openModal('settings');paint();logToast('介面大小：'+(v==='auto'?'自動':Math.round(v*100)+'%'));return;}
  if(a==='resetUiScale'){game.setSetting('uiScale','auto');applySettings();save();openModal('settings');paint();return;}
-  if(a==='setOpt'){const key=el.dataset.key,raw=el.dataset.value,val=key==='fps'?Number(raw):key==='shadows'||key==='night'?raw==='1':raw;game.setSetting(key,val);applySettings();save();openModal('settings');paint();logToast('已套用：'+({quality:'畫質',dpr:'解析度',fps:'幀率',shadows:'動態影子',night:'夜晚變暗'}[key]||key));return;}if(a==='reset'){if(confirm('確定要重置村莊嗎？')){game.reset();applySettings();started=true;paint(true);logToast('五位獵人重新抵達暮影村。');}return;}
+  if(a==='setOpt'){const key=el.dataset.key,raw=el.dataset.value,val=key==='fps'?Number(raw):['shadows','night','shake'].includes(key)?raw==='1':raw;game.setSetting(key,val);applySettings();save();openModal('settings');paint();logToast('已套用：'+({quality:'畫質',dpr:'解析度',fps:'幀率',shadows:'動態影子',night:'夜晚變暗',shake:'鏡頭震動'}[key]||key));return;}if(a==='reset'){if(confirm('確定要重置村莊嗎？')){game.reset();applySettings();started=true;paint(true);logToast('五位獵人重新抵達暮影村。');}return;}
  if(a==='export'){const blob=new Blob([JSON.stringify(game.serialize())],{type:'application/json'}),u=URL.createObjectURL(blob),link=document.createElement('a');link.href=u;link.download='暮影村-像素存檔.json';link.click();setTimeout(()=>URL.revokeObjectURL(u),500);return;}
 }
 // 把 state.settings 套到畫面:畫質、解析度上限、影子、夜晚、幀率

@@ -931,7 +931,31 @@ let renderDprMax=Math.max(1,dprCap||autoDpr());   // 畫布解析度上限(devic
   // 鏡頭位移一律取整數再疊物件自己的整數位移。
   // 舊寫法 Math.round(width/2+(p.x-cam.x)*scale) 把鏡頭的小數和物件自己的小數一起進位:
   // 平移時每個物件的進位時機不同,彼此的相對距離會在 0/1px 之間來回 → 看起來就是地圖物件在抖。
-  const camPxX=()=>R(width/2-cam.x*scale),camPxY=()=>R(height/2+50-cam.y*scale);
+  // T95:重擊的鏡頭震動。只加在畫面投影上(camPxX/camPxY),不動 cam/target;unproject 不看 shake,
+  // 所以震動中點擊、拖曳換算的世界座標完全一樣。震幅以 1440x900 DPR1 為基準,乘 scale/baseScale 讓各縮放看起一樣大。
+  // 方向用固定雜訊每 40ms 換一格(每幀隨機會閃);衰减 amp*(1-t)^2;同時兩個事件取大的,不相加。
+  let shakeBase=0,shakeMs=0,shakeT=0,shakeX=0,shakeY=0,lastShakeSeq=0;
+  let reduceMotion=false;
+  try{const mq=globalThis.matchMedia?.('(prefers-reduced-motion: reduce)');if(mq){reduceMotion=!!mq.matches;mq.addEventListener?.('change',e=>{reduceMotion=!!e.matches;});}}catch{}
+  const shakeAllowed=()=>state.settings?.shake!==false&&!reduceMotion;
+  const shakeAmpNow=()=>shakeMs>0?shakeBase*Math.pow(1-Math.min(1,shakeT/shakeMs),2):0;   // 目前的震幅(px,純量;不是 hypot)
+  function shake(amp,ms){
+    if(!shakeAllowed()||!(amp>0)||!(ms>0)){shakeBase=shakeMs=shakeT=shakeX=shakeY=0;return 0;}
+    const px=amp*scale/(baseScale||1);
+    if(shakeT<shakeMs&&shakeAmpNow()>=px)return 0;   // 還在震的事件比較大就讓它震完,不疊加
+    shakeBase=px;shakeMs=ms/1000;shakeT=0;return px;
+  }
+  function stepShake(dt){
+    if(!shakeAllowed()){shakeBase=shakeMs=shakeT=shakeX=shakeY=0;return;}
+    if(!(shakeMs>0)){shakeX=shakeY=0;return;}
+    shakeT+=Math.max(0,dt||0);
+    if(shakeT>=shakeMs){shakeBase=shakeMs=shakeT=shakeX=shakeY=0;return;}
+    const a=shakeAmpNow();
+    const phase=Math.floor(shakeT/0.04);
+    const r=((Math.imul(phase,2654435761)>>>0)/4294967296);
+    shakeX=a*Math.cos(r*6.2832);shakeY=a*Math.sin(r*6.2832)*0.7;
+  }
+  const camPxX=()=>R(width/2-cam.x*scale+shakeX),camPxY=()=>R(height/2+50-cam.y*scale+shakeY);
   function screenPoint(x,z,y=0){const p=iso(x,z);return{x:camPxX()+R(p.x*scale),y:camPxY()+Math.round((p.y-y*8)*scale)};}
   function project(x,y=0,z=0){const p=screenPoint(x,z,y);return{x:p.x,y:p.y,visible:p.x>=0&&p.x<=width&&p.y>=0&&p.y<=height};}
   function viewRect(){return rectCache||(rectCache=canvas.getBoundingClientRect());}   // 快取:每次 pointermove 都 getBoundingClientRect 會強制版面計算,拖動與縮放明顯變重
@@ -1983,7 +2007,7 @@ let renderDprMax=Math.max(1,dprCap||autoDpr());   // 畫布解析度上限(devic
     if(e.cls==='archer'&&e.fx==='gale'){const st=t*VFX_SPEED;if(st>=0&&st<1.45){const fade=st<1.1?1:Math.max(0,(1.45-st)/.35);drawVfxSheet('leaf-storm',t,p.x,p.y,LEAF_K*scale,{alpha:fade});}return;}
     if(!cfg||!heroSheets[e.cls]?.fx)return;const len=cfg.self.length*.09;if(t<-.25||t>len)return;
     const i=cfg.self[Math.max(0,Math.min(cfg.self.length-1,Math.floor((t+.25)/(len+.25)*cfg.self.length)))];fxFrame(e.cls,i,p.x,p.y-cfg.selfY*scale,cfg.selfY<5?cfg.size*.9:cfg.size,{alpha:cfg.selfA*(t>len-.1?Math.max(0,(len-t)/.1):1)});}
-  // 法師第一招「火龍捲」:pixelfx 匯出的整張技能表(190×250、103 幀、30fps),
+  // 法師第一招「火龍捲」:pixelfx 匯出的整張技能表(iso 版 240×400、157 幀、30fps),
   // 依 JSON 的 pivot 對齊目標腳下,逐幀 drawImage(每幀都用到,不是抽格)。
   // 所有 pixelfx 技能表(assets/vfx-sheets, build 嵌成 PIXEL_ASSETS.vfxSheets)。
   const vfxSheetCache=new Map();
@@ -1992,8 +2016,8 @@ let renderDprMax=Math.max(1,dprCap||autoDpr());   // 畫布解析度上限(devic
     return im.complete&&im.naturalWidth?{img:im,meta:v.meta}:null;}
   // 以美術像素為單位畫一格;k = 螢幕 px / 美術 px。rot 轉向;looping 表依 meta.loop 取餘數。
   const VFX_SPEED=0.6;   // T65:所有 pixelfx 表(含蓄力/箭/火球的循環動畫)統一的播放倍率,調慢才看得清楚;命中格另外除以它對齊。
-  // T66:每個表可以有自己的倍率;火龍捲維持原本 1.0 倍速(和 dd3d616 之前一樣),其他表照 VFX_SPEED。
-  const VFX_SPEED_BY_SHEET={'cinder-cyclone':1.0};
+  // T66:每個表可以有自己的倍率;火龍捲(iso 版)維持原本 1.0 倍速(和 dd3d616 之前一樣),其他表照 VFX_SPEED。
+  const VFX_SPEED_BY_SHEET={'cinder-cyclone-iso':1.0};
   const vfxSpeed=id=>VFX_SPEED_BY_SHEET[id]??VFX_SPEED;
   function drawVfxSheet(id,age,x,y,k,{rot=0,alpha=1,rate=1,flip=false}={}){const sh=vfxSheet(id);if(!sh)return false;
     const px=sh.meta.meta.pixelfx,cw=px.frameSize[0],ch=px.frameSize[1],cols=px.columns;
@@ -2003,7 +2027,7 @@ let renderDprMax=Math.max(1,dprCap||autoDpr());   // 畫布解析度上限(devic
     g.save();g.globalAlpha=alpha;g.translate(R(x),R(y));if(rot)g.rotate(rot);if(flip)g.scale(-1,1);
     g.drawImage(sh.img,(i%cols)*cw,Math.floor(i/cols)*ch,cw,ch,-px.pivot[0]*k,-px.pivot[1]*k,cw*k,ch*k);
     g.restore();return true;}
-  const CINDER_K=0.58, FIRE_K=0.19, SPARK_K=0.13, CRIT_K=0.06, LEAF_K=0.3;   // 美術像素 → 世界單位(英雄 66px = 21 單位)
+  const CINDER_TUNE=1.05, FIRE_K=0.19, SPARK_K=0.13, CRIT_K=0.06, LEAF_K=0.3;   // 美術像素 → 世界單位(英雄 66px = 21 單位);火龍捲 iso 表和英雄同為 1:1,只留 ±15% 微調(T94:量到 5.4 個英雄高,乘 1.05 進目標 5.5–6.5)
   // 牧師普攻:pixelfx impacts/holy-hit(= holy/smite 前 1.3 秒)。表在 0.54 秒時光錘落地,所以用 HOLY_LAND+age 對齊:
   // 飛行段(age<0,0.16 秒)就開始畫,看得到目標上的光點和落下的光錘,命中那一刻剛好砸到;腳下原點,最後一段淡出。
   const HOLY_LAND=.54,HOLY_K=.14,HEAL_K=.55,HEAL_LEAD=.17;
@@ -2035,9 +2059,9 @@ let renderDprMax=Math.max(1,dprCap||autoDpr());   // 畫布解析度上限(devic
   globalThis.__mistvaleVfxDraw=()=>state.lastVfxDraw||null;   // 驗收用:最後一次 vfxsheet 實際繪製
   globalThis.__mistvalePilotSkill=()=>state.lastPilotSkill||null;   // 驗收用:手動放技能時職業/技能
   globalThis.__mistvaleEnemies=()=>(state.enemies||[]).filter(e=>e.hp>0).map(e=>({id:e.id,type:e.type,hp:e.hp,x:+e.x.toFixed(1),z:+e.z.toFixed(1)}));   // 驗收用:場上魔物血量/位置
-  function drawCinder(age,p){if(age<0)return true;const sh=vfxSheet('cinder-cyclone');if(!sh)return false;
-    const px=sh.meta.meta.pixelfx;cinderDrawn++;cinderLast={age:+age.toFixed(2),i:Math.min(px.frames-1,Math.floor(age*vfxSpeed('cinder-cyclone')*px.fps)),x:Math.round(p.x),y:Math.round(p.y)};
-    return drawVfxSheet('cinder-cyclone',age,p.x,p.y,CINDER_K*scale);}
+  function drawCinder(age,p){if(age<0)return true;const sh=vfxSheet('cinder-cyclone-iso');if(!sh)return false;
+    const px=sh.meta.meta.pixelfx;cinderDrawn++;cinderLast={age:+age.toFixed(2),i:Math.min(px.frames-1,Math.floor(age*vfxSpeed('cinder-cyclone-iso')*px.fps)),x:Math.round(p.x),y:Math.round(p.y)};
+    return drawVfxSheet('cinder-cyclone-iso',age,p.x,p.y,heroArt('sorcerer')*CINDER_TUNE*scale);}
   function drawSkillFx(e,age0,delay,p){const cls=e.cls||'archer',cfg=SKILL_FX[cls];
     if(cls==='priest'&&e.fx==='holy'){if(drawPriestHeal(age0-delay,p))return;if(age0<delay)return;}   // 牧師補血:隊友腳下 pixelfx 聖光(花瓣→光環上升→小愛心),表不在才退回舊的光柱
     if(e.fx==='cinder'&&!e.self){drawCinder(age0-delay,p);return;}
@@ -2106,6 +2130,8 @@ let renderDprMax=Math.max(1,dprCap||autoDpr());   // 畫布解析度上限(devic
   // 驗收用(gl_compare):固定世界時鐘(花粉、脈動等跟 elapsed 走的動態),兩種繪製器才能比同一幀
   globalThis.__mistvaleClock=v=>{if(Number.isFinite(v))elapsed=v;return elapsed;};
   globalThis.__mistvalePerf=()=>({...perfStat,renderer:glr?'gl':'2d',texts:screenTexts.length+uiLabels.length,canvas:[canvas.width,canvas.height],dpr:renderDprMax,coarse:coarsePointer,scale:+scale.toFixed(2),phase:+phase.toFixed(3),night:+nightLast.toFixed(3)});
+  // T95:驗收用 —— 目前的震動位移(螢幕 px)與純量震幅(px)。沒在震就是 0。
+  globalThis.__mistvaleShake=()=>({x:+shakeX.toFixed(3),y:+shakeY.toFixed(3),amp:+shakeAmpNow().toFixed(3)});
   function render(){
     if(glr){glr.begin(canvas.width,canvas.height);if(glGroundSeen!==groundGen){glGroundSeen=groundGen;glr.invalidate(ground);glr.invalidate(villageLayer);}}
     DPRK=canvas.width/width;if(canvas.style.transform)canvas.style.transform='';for(const c of [bg,sg,spg,ssc,bgc,fsc,rdc,cmp]){c.setTransform(DPRK,0,0,DPRK,0,0);c.imageSmoothingEnabled=false;}
@@ -2281,7 +2307,11 @@ let renderDprMax=Math.max(1,dprCap||autoDpr());   // 畫布解析度上限(devic
     return{x:p.x,y:p.y-half+50/scale};
   }
   function update(dt,nextState){if(disposed)return;
-    if(followFn){const fp=followFn();if(fp){homeFraming=false;target=followTarget(fp);if(followOpts.snap){cam.x=target.x;cam.y=target.y;}}}if(nextState){state=nextState;const key=BUILDINGS.map(b=>`${b.id}:${state.buildings?.[b.id]>0}:${state.layout?.[b.id]?.x??b.x}:${state.layout?.[b.id]?.z??b.z}`).join('|');if(!terrainLoadsPending&&(key!==landscapeKey||terrainPatternRev!==lastPatternRev)){lastPatternRev=terrainPatternRev;landscapeKey=key;generateGround();}}elapsed+=Math.min(dt||0,.1);heroLodScale=scale*DPRK;if((++atlasTick%10)===0)ensureAtlas();   /* 素材載入只發生在前幾秒:每 10 幀檢查一次就夠 */const t=1-Math.exp(-Math.max(.016,dt||.016)*7);cam.x+=(target.x-cam.x)*t;cam.y+=(target.y-cam.y)*t;variantNew=0;   /* 每幀新換色格的額度歸零(variantCell) */if(hiQueue.length&&!interacting())pumpHi();render();}
+    if(followFn){const fp=followFn();if(fp){homeFraming=false;target=followTarget(fp);if(followOpts.snap){cam.x=target.x;cam.y=target.y;}}}if(nextState){const first=state!==nextState;state=nextState;if(first)lastShakeSeq=state.shake?.seq??0;const key=BUILDINGS.map(b=>`${b.id}:${state.buildings?.[b.id]>0}:${state.layout?.[b.id]?.x??b.x}:${state.layout?.[b.id]?.z??b.z}`).join('|');if(!terrainLoadsPending&&(key!==landscapeKey||terrainPatternRev!==lastPatternRev)){lastPatternRev=terrainPatternRev;landscapeKey=key;generateGround();}}elapsed+=Math.min(dt||0,.1);heroLodScale=scale*DPRK;if((++atlasTick%10)===0)ensureAtlas();   /* 素材載入只發生在前幾秒:每 10 幀檢查一次就夠 */const t=1-Math.exp(-Math.max(.016,dt||.016)*7);cam.x+=(target.x-cam.x)*t;cam.y+=(target.y-cam.y)*t;variantNew=0;   /* 每幀新換色格的額度歸零(variantCell) */if(hiQueue.length&&!interacting())pumpHi();
+    // T95:新的震動請求(seq 變了才啟動;讀檔/第一次拿到 state 時只記 seq,不會突然震)
+    if(state.shake&&state.shake.seq!==lastShakeSeq){lastShakeSeq=state.shake.seq;shake(state.shake.amp,state.shake.ms);}
+    stepShake(Math.min(dt||0,.1));
+    render();}
   function setTime(p){phase=typeof p==='number'?((p%1)+1)%1:.15;}
   function setQuality(v){quality=v!==false&&v!=='low';}
   // 讀取完成判斷(pixel-ui.js 靠它決定何時進村莊):村莊地板(含地面貼圖)已用貼圖畫好、每棟建築都有 Xilurus 圖(不是程序版)。
@@ -2323,7 +2353,7 @@ let renderDprMax=Math.max(1,dprCap||autoDpr());   // 畫布解析度上限(devic
       .filter(cls=>heroSheets[cls]&&heroSheets[cls].meta.kind!=='part');   // 零件表不是角色，不要叫進村
     return list.filter(cls=>spawnVillager(cls));
   }
-  resize();render();return{update,resize:responsiveResize,project,assetsReady,warmupAssets,focus:(id)=>{homeFraming=false;focus(id);},/* 驗收用:建築與地區立牌的可點範圍 */enemyFacing:()=>[...drawnFacing.entries()].filter(([k])=>k.startsWith('enemy:')).map(([k,v])=>({id:k.slice(6),f:v.f,act:v.act||null,t:v.t})),hitRects:()=>hits.filter(h=>BUILDINGS.some(h2=>h2.id===h.id)).map(h=>({id:h.id,x:h.x,y:h.y,w:h.w,h:h.h})),signRects:()=>hits.filter(h=>String(h.id).startsWith('region:')).map(h=>({id:h.id,x:h.x,y:h.y,w:h.w,h:h.h})),buildingScale:id=>effectiveScale(id),lookAt:(x,z,v)=>{homeFraming=false;if(v)scale=Math.max(zoomFloor(),Math.min(ZOOM_MAX,v));target=iso(x,z);cam={...target};},zoomTo:(v)=>{homeFraming=false;scale=Math.max(zoomFloor(),Math.min(ZOOM_MAX,v));},getScale:()=>scale,setSelected,zoomBy,placeMode,setTime,setQuality,setFollow:(fn,opts)=>{followFn=typeof fn==='function'?fn:null;followOpts=(followFn&&opts&&typeof opts==='object')?opts:{};},dirFromScreen,followInfo:()=>followFn?(followOpts.centerBody?{centerBody:true,snap:!!followOpts.snap}:{centerBody:false,snap:!!followOpts.snap}):null,setShadows:(v)=>{shadowsOn=v!==false;compValid=false;},setNight:(v)=>{nightOn=v!==false;},
+  resize();render();return{update,resize:responsiveResize,project,assetsReady,warmupAssets,focus:(id)=>{homeFraming=false;focus(id);},/* 驗收用:建築與地區立牌的可點範圍 */enemyFacing:()=>[...drawnFacing.entries()].filter(([k])=>k.startsWith('enemy:')).map(([k,v])=>({id:k.slice(6),f:v.f,act:v.act||null,t:v.t})),hitRects:()=>hits.filter(h=>BUILDINGS.some(h2=>h2.id===h.id)).map(h=>({id:h.id,x:h.x,y:h.y,w:h.w,h:h.h})),signRects:()=>hits.filter(h=>String(h.id).startsWith('region:')).map(h=>({id:h.id,x:h.x,y:h.y,w:h.w,h:h.h})),buildingScale:id=>effectiveScale(id),lookAt:(x,z,v)=>{homeFraming=false;if(v)scale=Math.max(zoomFloor(),Math.min(ZOOM_MAX,v));target=iso(x,z);cam={...target};},zoomTo:(v)=>{homeFraming=false;scale=Math.max(zoomFloor(),Math.min(ZOOM_MAX,v));},getScale:()=>scale,setSelected,zoomBy,placeMode,setTime,setQuality,setFollow:(fn,opts)=>{followFn=typeof fn==='function'?fn:null;followOpts=(followFn&&opts&&typeof opts==='object')?opts:{};},dirFromScreen,followInfo:()=>followFn?(followOpts.centerBody?{centerBody:true,snap:!!followOpts.snap}:{centerBody:false,snap:!!followOpts.snap}):null,setShadows:(v)=>{shadowsOn=v!==false;compValid=false;},shake,unproject,setNight:(v)=>{nightOn=v!==false;},
     setDpr:(v)=>{dprCap=v==='auto'||v==null?null:Math.max(1,Math.min(3,Number(v)||autoDpr()));renderDprMax=Math.max(1,Math.min(dprCap||autoDpr(),globalThis.devicePixelRatio||1));resize();compValid=false;render();},
     dispose,drawDungeonStrip,spawnVillager,spawnClassVillagers,setPartsVisible:(v)=>{partsVisible=v!==false;},getPartsVisible:()=>partsVisible,landscapeStats:()=>({roads:roads.length,terrainRevision,
     decor:decorations.map(d=>({type:d.type,x:d.x,z:d.z,region:d.regionId||null}))})};

@@ -1,7 +1,7 @@
-// cinder-full-speed.mjs — T66: the sorcerer's 火龍捲 (cinder-cyclone) sheet is the one
+// cinder-full-speed.mjs — T66/T94: the sorcerer's 火龍捲 (cinder-cyclone-iso) sheet is the one
 // per-sheet exception to VFX_SPEED. It must keep its original 1.0x playback: frame 0 at
-// the hit moment, 15 frames over 0.5 s (30 fps), the last frame (102) still fully visible
-// at 3.4 s / 3.9 s, and removal at the original 4.2 s lifetime. Every other pixelfx sheet
+// the hit moment, 15 frames over 0.5 s (30 fps), the last frame (156) still fully visible
+// at 5.25 s / 5.9 s, and removal at the 6.0 s lifetime. Every other pixelfx sheet
 // still has to stay at 0.6x, which tools/checks/vfx-slower.mjs covers.
 //
 // Headless: stubs the small slice of DOM/Canvas the world renderer needs, imports the real
@@ -13,15 +13,15 @@ import path from 'node:path';
 import { fileURLToPath, pathToFileURL } from 'node:url';
 
 const ROOT = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '..', '..');
-const SPEED = 1.0;                 // T66: cinder-cyclone's original playback speed
-const LIFETIME = 4.2;              // pre-dd3d616 effect lifetime in src/pixel-game.js
+const SPEED = 1.0;                 // T66: cinder-cyclone-iso's original playback speed
+const LIFETIME = 6.0;              // T94: 157 frames @30fps (5.23 s) + tail, in src/pixel-game.js
 const DELAY = 0.4;                 // probe-only skill delay (drawCinder uses age0-delay)
 
 // ── vfx sheet metadata ────────────────────────────────────────────────────
 const readJSON = rel => JSON.parse(fs.readFileSync(path.join(ROOT, rel), 'utf8'));
-const px = readJSON('assets/vfx-sheets/cinder-cyclone.json').meta.pixelfx;
+const px = readJSON('assets/vfx-sheets/cinder-cyclone-iso.json').meta.pixelfx;
 const sheet = {
-  id: 'cinder-cyclone', meta: px, frames: px.frames, fps: px.fps, loop: !!px.loop,
+  id: 'cinder-cyclone-iso', meta: px, frames: px.frames, fps: px.fps, loop: !!px.loop,
   cw: px.frameSize[0], ch: px.frameSize[1], cols: px.columns, dur: px.frames / px.fps,
 };
 
@@ -40,7 +40,7 @@ let records = [];
 let recOn = false;
 function record (img, sx, sy, alpha) {
   if (!recOn || !img) return;
-  if (!/vfx-sheets[\\/]cinder-cyclone\.png$/.test(String(img.src || ''))) return;
+  if (!/vfx-sheets[\\/]cinder-cyclone-iso\.png$/.test(String(img.src || ''))) return;
   records.push({ sx: +sx, sy: +sy, alpha });
 }
 function frameOf (rec) {
@@ -193,7 +193,7 @@ globalThis.screen = { width: 1280, height: 720 };
 
 // ── assets ────────────────────────────────────────────────────────────────
 globalThis.PIXEL_ASSETS = {
-  vfxSheets: { 'cinder-cyclone': { img: 'assets/vfx-sheets/cinder-cyclone.png', meta: { meta: { pixelfx: sheet.meta } } } },
+  vfxSheets: { 'cinder-cyclone-iso': { img: 'assets/vfx-sheets/cinder-cyclone-iso.png', meta: { meta: { pixelfx: sheet.meta } } } },
   heroSheets: { sorcerer: { img: 'assets/heroes/sorcerer.png', meta: readJSON('assets/heroes/sorcerer.json') } },
   monsterSheets: {},
   ui: {},
@@ -238,13 +238,13 @@ render();
 let failures = 0;
 function fix (rule, detail) {
   failures++;
-  console.log(`FIX cinder-cyclone ${rule} — ${detail}`);
+  console.log(`FIX cinder-cyclone-iso ${rule} — ${detail}`);
 }
 
 // 1.0x rate: 0.5 s must advance 15 frames (30 fps); today's 0.6x only advances 9.
 {
   const a = sample(0.1), b = sample(0.6);
-  if (!a || !b) fix('rate', 'cinder-cyclone was not drawn');
+  if (!a || !b) fix('rate', 'cinder-cyclone-iso was not drawn');
   else {
     const delta = b.frame - a.frame;
     const want = SPEED * 0.5 * sheet.fps;
@@ -255,22 +255,22 @@ function fix (rule, detail) {
 // hit frame: the skill's damage moment (age 0) draws the sheet's first frame.
 {
   const f = sample(0);
-  if (!f) fix('hit-frame', 'cinder-cyclone was not drawn at age 0');
+  if (!f) fix('hit-frame', 'cinder-cyclone-iso was not drawn at age 0');
   else if (f.frame !== 0) fix('hit-frame', `frame ${f.frame} at the hit moment, want 0`);
 }
 
-// ending: the 103-frame sheet reaches and holds its last frame, at full alpha, until 4.2 s.
+// ending: the 157-frame sheet reaches and holds its last frame, at full alpha, until 6.0 s.
 {
   const lastFrame = sheet.frames - 1;
-  for (const a of [3.4, 3.9]) {
+  for (const a of [5.25, 5.9]) {
     const f = sample(a);
-    if (!f) { fix('ending', `cinder-cyclone was not drawn at ${a}s`); continue; }
+    if (!f) { fix('ending', `cinder-cyclone-iso was not drawn at ${a}s`); continue; }
     if (f.frame !== lastFrame) fix('ending', `frame ${f.frame} at ${a}s, want last frame ${lastFrame} (1.0x)`);
-    if (!(f.alpha > 0.98)) fix('ending', `alpha ${f.alpha} at ${a}s, want 1 until the 4.2 s cut-off`);
+    if (!(f.alpha > 0.98)) fix('ending', `alpha ${f.alpha} at ${a}s, want 1 until the 6.0 s cut-off`);
   }
 }
 
-// lifetime: src/pixel-game.js must remove it at the original 4.2 s, not 4.2/0.6 = 7.0 s.
+// lifetime: src/pixel-game.js must remove it at 6.0 s, not 5.23/0.6 = 8.7 s.
 {
   const g = createGame(null);
   g.state.hunters = []; g.state.wanderers = []; g.state.enemies = [];
@@ -281,7 +281,7 @@ function fix (rule, detail) {
     g.tick(0.1); age += 0.1;
     if (!g.state.effects.some(e => e.id === id)) { removed = +age.toFixed(2); break; }
   }
-  if (!(removed >= LIFETIME - 0.02 && removed <= LIFETIME + 0.2)) fix('lifetime', `removed at ${removed}s, want the original ${LIFETIME}s`);
+  if (!(removed >= LIFETIME - 0.02 && removed <= LIFETIME + 0.2)) fix('lifetime', `removed at ${removed}s, want ${LIFETIME}s`);
 }
 
 // frame report: the cinder debug hook must report the 1.0x frame (30 at age 1.0).
@@ -299,5 +299,5 @@ if (failures) {
   console.log(`\n${failures} cinder-full-speed rule(s) failed`);
   process.exit(1);
 }
-console.log(`OK  cinder-cyclone plays at ${SPEED}x, frame 0 at hit, last frame ${sheet.frames - 1} until ${LIFETIME}s`);
+console.log(`OK  cinder-cyclone-iso plays at ${SPEED}x, frame 0 at hit, last frame ${sheet.frames - 1} until ${LIFETIME}s`);
 console.log('cinder-full-speed: PASS');

@@ -44,12 +44,19 @@ if (!QUICK) {
   if (!up) say(false, `遊戲伺服器沒在跑(${TARGET});先 node server.mjs 再跑 npm run verify`);
   else {
     const crawl = mode => run('node', ['pipeline/scripts/ui-audit/buttons.mjs', mode], `buttons-${mode}.txt`, { TARGET });
+    // 兩個 headless Chrome 同時跑,偶爾會被系統一起砍掉(同一秒兩邊都 "browser has been closed",不是頁面問題);
+    // 這種崩潰單獨重跑一次就會過。頁面真的有問題時 text 裡會有 "total",不會走這條。
+    const crashed = r => !/"total": \d+/.test(r.text) && /browser has been closed|Target page, context or browser/.test(r.text);
+    const res = {}, retried = {};
     const [d, ph] = await Promise.all([crawl('desktop'), crawl('phone')]);
-    for (const [mode, r] of [['desktop', d], ['phone', ph]]) {
+    res.desktop = d; res.phone = ph;
+    for (const mode of ['desktop', 'phone']) if (crashed(res[mode])) { res[mode] = await crawl(mode); retried[mode] = true; }
+    for (const mode of ['desktop', 'phone']) {
+      const r = res[mode];
       const total = (r.text.match(/"total": (\d+)/) || [])[1] || '?';
       const errs = (r.text.match(/"errors": \[([\s\S]*?)\]/) || [])[1]?.trim();
       const bad = r.text.split('\n').filter(l => /NO REACTION|ERROR|click-failed|COVERED|OFFSCREEN|NO-LABEL/.test(l));
-      say(r.code === 0 && !errs && !bad.length, `按鈕巡檢 ${mode}:${total} 次點擊,問題 ${bad.length} 個${errs ? '、頁面錯誤' : ''} (${r.sec}s)`);
+      say(r.code === 0 && !errs && !bad.length, `按鈕巡檢 ${mode}:${total} 次點擊,問題 ${bad.length} 個${errs ? '、頁面錯誤' : ''}${retried[mode] ? '、瀏覽器被砍後單獨重跑' : ''} (${r.sec}s)`);
       for (const l of bad.slice(0, 5)) lines.push('      ' + l.replace(/\s+/g, ' ').slice(0, 150));
     }
   }
