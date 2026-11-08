@@ -1337,3 +1337,42 @@ html.ui-m :is(.toast.error){border-width:8px}
   #modal[data-type=hunters] .hunter-stats{margin-top:1px}
   #modal[data-type=hunters] .hunter-health{margin-top:1px}
 }
+
+/* ===== T101：交易所／製作的「夠不夠」一眼看到：材料 現有/需要、最多幾批、金庫與預計支出 ===== */
+.cost .cost-chip{display:inline-flex;align-items:center;gap:3px;padding:2px 6px;border:1px solid #5c4a2c;background:#2a1c0fb0;border-radius:2px;font:600 11px/15px var(--font-num);color:#e5cd87;white-space:nowrap}
+.cost .cost-chip .nm{font-weight:600;color:#dcc79b}
+.cost .cost-chip b{color:#9fe08a;font-weight:700}
+.cost .cost-chip i{font-style:normal;color:#b49a6e}
+.cost .cost-chip.short{border-color:#a2553a;background:#3a1c12cc;color:var(--cost-short)}
+.cost .cost-chip.short b{color:var(--cost-short)}
+.craft-meta{margin:-3px 0 8px;font:600 10.5px/1.5 var(--font-num);color:#b9c8a4}
+.craft-meta b{color:#f0d79a;font-weight:700}
+.craft-buttons{display:flex;gap:6px;flex-wrap:wrap}
+.craft-buttons .pixel-button[disabled]{filter:grayscale(.85) brightness(.9);opacity:1;color:#cdbd97}
+.craft-buttons .pixel-button.gold[disabled]{border-image:var(--ui-px-btn-wood) var(--sl-btn-wood,12) fill / var(--biw-btn-wood,1) stretch}
+.tr-cost.over{color:var(--cost-short)}
+.trade-footer b.over{color:var(--cost-short)}
+.trade-footer small.over{color:var(--cost-short);font-weight:700}
+.pixel-button.quiet{filter:saturate(.55) brightness(.82)}
+@media(max-width:760px){
+  .cost .cost-chip{font-size:10.5px;line-height:14px;padding:1px 5px}
+  .craft-meta{font-size:10px;margin-bottom:6px}
+  .craft-buttons .pixel-button{flex:1 1 auto}
+}
+/* 手機上交易所頁尾只留一行數字，說明文字收起來，免得吃掉半個畫面 */
+@media(max-width:760px){
+  #modal[data-type=trade] .trade-footer .tf-note{display:none}
+  #modal[data-type=trade] .trade-footer{padding:8px 11px 10px;gap:8px;margin-top:12px}
+  #modal[data-type=trade] .trade-footer>span{line-height:1.5}
+}
+/* T101：交易所把「收購中／預計支出／金庫」放成列表上方的狀態條（釘住底部會蓋住最後一列按鈕） */
+#modal[data-type=trade] .trade-summary{margin:8px 0 10px;padding:6px 10px;border:1px solid #5c4a2c;background:#2a1b0ea8;font:600 11.5px/1.6 var(--font-num);color:#ead6b0}
+#modal[data-type=trade] .trade-summary b{color:var(--gold-bright);font-weight:700}
+#modal[data-type=trade] .trade-summary b.over,#modal[data-type=trade] .trade-summary small.over{color:var(--cost-short)}
+#modal[data-type=trade] .trade-footer{margin-top:14px;justify-content:flex-end;align-items:center;gap:12px}
+#modal[data-type=trade] .trade-footer .tf-note{font-size:var(--fs-small);color:#baca9f}
+@media(max-width:760px){
+  #modal[data-type=trade] .trade-summary{font-size:10.5px}
+  #modal[data-type=trade] .trade-footer .tf-note{display:none}
+  #modal[data-type=trade] .trade-footer{margin-top:10px}
+}
