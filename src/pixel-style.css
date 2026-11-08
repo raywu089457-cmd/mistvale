@@ -1440,3 +1440,41 @@ html.ui-m :is(.toast.error){border-width:8px}
 #travel-veil .tv-inner small::after{content:' · · ·';color:#8a7346;animation:tvBreathe 1.4s ease-in-out infinite}
 @keyframes tvBreathe{0%,100%{opacity:.35}50%{opacity:1}}
 @media(prefers-reduced-motion: reduce){#travel-veil .tv-inner small::after{animation:none;opacity:.7}}
+
+/* ===== T107：外出小隊 HUD（地下城／競技場進行中）＝樓層波數＋三位獵人生命＋對手生命 =====
+   只在進行中出現,pointer-events 只有按鈕吃,其餘不擋世界點擊。 */
+#run-hud{position:fixed;left:50%;top:124px;transform:translateX(-50%);z-index:6;display:flex;flex-direction:column;gap:5px;
+  min-width:280px;max-width:min(600px,calc(100vw - 24px));padding:7px 10px 8px;
+  border:2px solid var(--gold-soft);background:linear-gradient(180deg,rgba(44,28,14,.95),rgba(24,15,8,.97));
+  box-shadow:0 4px 0 #150c05,inset 0 0 0 1px #0d0703,0 6px 18px #000a;color:#efe0bd;
+  font:600 11px/1.25 var(--font-num);pointer-events:none;text-shadow:1px 1px #150c05}
+#run-hud .rh-head{display:flex;align-items:center;gap:7px;min-height:20px}
+#run-hud .rh-head>b{font-size:12px;color:var(--gold-bright);letter-spacing:1.5px}
+#run-hud .rh-head>span{color:#e4d3ab;font-size:11px}
+#run-hud .rh-phase{padding:1px 5px;border:1px solid #6b7a4a;background:#2c3823;color:#d9bf8e;font:600 9.5px/1.35 var(--font-num);font-style:normal}
+#run-hud .rh-toggle,#run-hud .rh-x{pointer-events:auto;margin-left:auto;min-height:20px;padding:1px 7px;cursor:pointer;
+  border:1px solid #6b5836;background:#33220f;color:#e2cf9f;font:600 10px/1 var(--font-num)}
+#run-hud .rh-toggle.on{background:#3d2f14;color:#ffe08a;border-color:#a5843c}
+#run-hud .rh-x{margin-left:0;border-color:#7a4030;background:#3a1d14;color:#f0bda6}
+#run-hud .rh-x:hover{background:#4d2618}
+#run-hud .rh-party{display:flex;flex-wrap:wrap;gap:4px 10px}
+#run-hud .rh-unit{display:flex;align-items:center;gap:4px;min-width:0}
+#run-hud .rh-cls{padding:0 3px;border:1px solid #5c4a2c;background:#2a1b0e;color:#cbb98f;font:600 9px/13px var(--font-num);font-style:normal}
+#run-hud .rh-name{color:#f0e2bd;max-width:4.6em;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+#run-hud .rh-bar{position:relative;display:block;width:64px;height:7px;background:#3a2416;box-shadow:inset 0 0 0 1px #150c05;overflow:hidden}
+#run-hud .rh-bar>span{display:block;height:100%;width:0;background:#7ccf6a;transition:width .18s linear}
+#run-hud .rh-unit.low .rh-bar>span{background:#e0533f}
+#run-hud .rh-unit.down{filter:grayscale(.85) brightness(.75)}
+#run-hud .rh-num{color:#d8c9a5;font:600 9.5px/1 var(--font-num);min-width:38px}
+#run-hud .rh-foe{display:flex;align-items:center;gap:5px;margin-top:1px}
+#run-hud .rh-foe>span{color:#e8b3a0;font-size:10px}
+#run-hud .rh-foe .rh-bar{width:150px}
+#run-hud .rh-foe .rh-bar>span{background:#d0664d}
+@media(max-width:760px){
+  #run-hud{top:142px;left:8px;right:8px;transform:none;min-width:0;max-width:none;padding:6px 8px 7px;gap:4px;font-size:10.5px}
+  #run-hud .rh-head>span{font-size:10px}
+  #run-hud .rh-party{gap:3px 8px}
+  #run-hud .rh-bar{width:52px;height:6px}
+  #run-hud .rh-num{min-width:34px;font-size:9px}
+  #run-hud .rh-foe .rh-bar{width:110px}
+}

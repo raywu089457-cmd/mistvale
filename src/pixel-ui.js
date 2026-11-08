@@ -296,6 +296,9 @@ function doAction(el){const a=el.dataset.action,id=el.dataset.id;let r;
  if(a==='dispatchRegion'){game.setDispatchTeam(dispatchTab,{region:id});openModal('dispatch');const c=$('#modal-content');if(c)c.scrollTop=c.scrollHeight;return;}
  if(a==='startDispatch'){r=game.dispatchTeam(dispatchTab);logToast(r.message,r.ok);if(r.ok)closeModal();save();paint();return;}
  if(a==='toggleDungeonHunter'){toggleParty('dungeon',id);return;}if(a==='toggleArenaHunter'){toggleParty('arena',id);return;}if(a==='startDungeon'){r=game.startDungeon(game.state.dungeon.hunterIds);logToast(r.message,r.ok);paint();if(r.ok)openModal('dungeon');save();return;}if(a==='dgRetreat'){r=game.retreatDungeon();logToast(r.message,r.ok);openModal('dungeon');paint();save();return;}if(a==='dgAuto'){r=game.setDungeonAuto(!game.state.dungeon.auto);logToast(r.message,r.ok);openModal('dungeon');save();return;}if(a==='dgFloor'){const d=game.state.dungeon,maxF=d.bestFloor+1,cur=Math.min(maxF,d.startFloor||maxF);r=game.setDungeonStart(id==='max'?maxF:cur+Number(id));openModal('dungeon');save();return;}if(a==='startArena'){r=game.startArena(game.state.arena.hunterIds);logToast(r.message,r.ok);paint();return;}
+  // T107:小隊 HUD 的兩個按鈕(不開面板,直接在畫面上操作)
+  if(a==='runRetreat'){r=game.retreatDungeon();logToast(r.message,r.ok);paint();save();return;}
+  if(a==='runAuto'){r=game.setDungeonAuto(!game.state.dungeon.auto);logToast(r.message,r.ok);save();return;}
  if(a==='setDifficulty'){r=game.setDifficulty(Number(id));logToast(r.message,r.ok);if(r.ok)closeModal();paint();return;}
  if(a==='toggleQuality'){settingsOpen=!settingsOpen;return openModal('settings');}
  // ── 建築:建造 / 升級 / 移動 / 從建造面板選一棟（2026-10-20 補上：這些按鈕原本沒有任何處理函式，按了不會有反應）
@@ -532,9 +535,44 @@ function perfSample(now,ms){const P=perfProbe;if(P.last)P.iv.push(now-P.last);P.
   if(!P.hud){P.hud=document.createElement('div');P.hud.style.cssText='position:fixed;left:4px;top:4px;z-index:99999;font:11px/1.3 monospace;color:#0f0;background:#000a;padding:2px 4px;pointer-events:none;white-space:pre';document.body.appendChild(P.hud);}
   P.hud.textContent=`${rep.fps}fps JS ${rep.js.p50}/${rep.js.p95}ms 間隔p95 ${rep.iv.p95} >50:${rep.iv.over50}`;
   P.js=[];P.iv=[];P.t0=now;}
+// T107:外出中的小隊 HUD。地下城/競技場進行時,畫布上只有一行「第 N 層 · 第 W/3 波」,
+// 玩家看不到小隊血量、也看不到競技場對手的血量;這裡在主畫面頂端常駐一條:
+// 樓層/波數/階段 + 三位獵人的生命條與數字(競技場再加對手血條),另外給自動續戰與撤退。
+// 只有按鈕吃點擊,其餘 pointer-events:none,不會擋世界裡的點擊與拖曳。
+let runHudEl=null,runHudShape='',runHudUnits=[],runHudFoe=null;
+const runHudParty=o=>game.state.hunters.filter(h=>(o.hunterIds||[]).includes(h.id));
+function runHudPaint(){
+  const s=game?.state;if(!s){return;}
+  // 面板開著時戰鬥畫面就在面板裡,不需要再疊一條;關掉面板才由這條接手。
+  if(modal){if(runHudEl){runHudEl.remove();runHudEl=null;}runHudShape='';runHudUnits=[];runHudFoe=null;return;}
+  const d=s.dungeon,a=s.arena;
+  const on=d?.active?'dungeon':a?.active?'arena':null;
+  if(!on){if(runHudEl){runHudEl.remove();runHudEl=null;}runHudShape='';runHudUnits=[];runHudFoe=null;return;}
+  const o=on==='dungeon'?d:a,party=runHudParty(o);
+  const head=on==='dungeon'
+    ?`<b>地下城</b><span>第 ${d.floor} 層 · 第 ${Math.max(1,d.wave||1)}/3 波</span>`
+    :`<b>競技場</b><span>vs ${esc(a.opponent||'訓練隊')}</span>`;
+  const phase=esc(o.phase||'待命');
+  const shape=[on,o.floor,o.wave,phase,on==='dungeon'?!!d.auto:'',party.map(h=>h.id+h.name+h.classId).join(',')].join('|');
+  if(shape!==runHudShape||!runHudEl){
+    runHudShape=shape;
+    if(!runHudEl){runHudEl=document.createElement('div');runHudEl.id='run-hud';document.body.appendChild(runHudEl);}
+    const btns=on==='dungeon'
+      ?`<button class="rh-toggle${d.auto?' on':''}" data-action="runAuto" aria-pressed="${d.auto?'true':'false'}">自動續戰 ${d.auto?'開':'關'}</button><button class="rh-x" data-action="runRetreat">撤退</button>`
+      :'';
+    const foe=on==='arena'&&a.enemyMaxHp>0
+      ?`<div class="rh-foe"><span>對手</span><i class="rh-bar"><span></span></i><b class="rh-num"></b></div>`:'';
+    runHudEl.innerHTML=`<div class="rh-head">${head}<em class="rh-phase">${phase}</em>${btns}</div>
+      <div class="rh-party">${party.map(h=>`<div class="rh-unit${h.hp<=0?' down':''}"><em class="rh-cls">${esc(CLASSES.find(c=>c.id===h.classId)?.name||h.classId)}</em><span class="rh-name">${esc(h.name)}</span><i class="rh-bar"><span></span></i><b class="rh-num"></b></div>`).join('')}</div>${foe}`;
+    runHudUnits=[...runHudEl.querySelectorAll('.rh-unit')].map((el,i)=>({h:party[i],fill:el.querySelector('.rh-bar>span'),num:el.querySelector('.rh-num'),el}));
+    runHudFoe=on==='arena'?{fill:runHudEl.querySelector('.rh-foe .rh-bar>span'),num:runHudEl.querySelector('.rh-foe .rh-num')}:null;
+  }
+  for(const u of runHudUnits){const h=u.h,ratio=Math.max(0,Math.min(1,h.hp/(h.maxHp||1)));u.fill.style.width=(ratio*100).toFixed(1)+'%';u.num.textContent=`${Math.round(h.hp)}/${Math.round(h.maxHp)}`;u.el.classList.toggle('down',h.hp<=0);u.el.classList.toggle('low',ratio<.35);}
+  if(runHudFoe&&a?.active){const ratio=Math.max(0,Math.min(1,a.enemyHp/(a.enemyMaxHp||1)));runHudFoe.fill.style.width=(ratio*100).toFixed(1)+'%';runHudFoe.num.textContent=`${Math.round(a.enemyHp)}/${Math.round(a.enemyMaxHp)}`;}
+}
 function frame(now){requestAnimationFrame(frame);if(document.hidden){previous=now;return;}const frameMsNow=started&&game.state.paused?PAUSED_MS:(fpsTarget===60?1000/60:FRAME_MS);if(now<nextFrame-2)return;nextFrame=Math.max(nextFrame+frameMsNow,now);
  // 每幀實際花了多少時間(給效能檢查用:手機上這個值決定會不會發燙)
- const t0=performance.now();try{frames++;if(now-fpsStart>2000){document.body.dataset.fps=Math.round(frames*1000/(now-fpsStart));fpsStart=now;frames=0;}const dt=Math.min(.1,(now-previous)/1000);previous=now;if(started)game.tick(dt);pilotHudTick();world.setTime((game.state.time%240)/240);world.update(game.state.paused?0:dt,game.state);dungeonTick();liveModalTick(now);if(now-last>400){paint();last=now;}if(now-lastSave>5000){save();lastSave=now;}}finally{const ms=performance.now()-t0;frameMs.avg=frameMs.avg?frameMs.avg*.9+ms*.1:ms;frameMs.max=Math.max(frameMs.max,ms);frameMs.n++;if(perfProbe)perfSample(now,ms);}}requestAnimationFrame(frame);}catch(err){console.error(err);$('#loading').innerHTML='<b>像素村莊載入失敗，請重新整理</b>';}
+ const t0=performance.now();try{frames++;if(now-fpsStart>2000){document.body.dataset.fps=Math.round(frames*1000/(now-fpsStart));fpsStart=now;frames=0;}const dt=Math.min(.1,(now-previous)/1000);previous=now;if(started)game.tick(dt);pilotHudTick();world.setTime((game.state.time%240)/240);world.update(game.state.paused?0:dt,game.state);dungeonTick();runHudPaint();liveModalTick(now);if(now-last>400){paint();last=now;}if(now-lastSave>5000){save();lastSave=now;}}finally{const ms=performance.now()-t0;frameMs.avg=frameMs.avg?frameMs.avg*.9+ms*.1:ms;frameMs.max=Math.max(frameMs.max,ms);frameMs.n++;if(perfProbe)perfSample(now,ms);}}requestAnimationFrame(frame);}catch(err){console.error(err);$('#loading').innerHTML='<b>像素村莊載入失敗，請重新整理</b>';}
 
 // 讀取畫面:圖片全部載完(成功或失敗都算完成)、村莊地板與建築都用美術版畫好、圖示換成圖集之後才進村莊。
 // 有圖載入失敗就停在錯誤畫面,不進村、也不會退回程序繪製的陽春素材。
