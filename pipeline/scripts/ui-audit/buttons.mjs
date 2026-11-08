@@ -54,15 +54,29 @@ for (const [name, open] of SCREENS) {
     if (btn.disabled) { row.result = 'disabled'; report.push(row); continue; }
     // 回到這個畫面再點(上一顆可能開了別的彈窗)
     await closeAll(); await page.waitForTimeout(80); await open(); await page.waitForTimeout(200);
-    let target = null; for (const c of await page.$$(btn.sel)) { if (!(await c.isVisible())) continue; if (await c.evaluate((e, sc) => sc === 'body' ? !e.closest('#modal,#topbar,#bottom-bar,#left-panel,#inspector,#pilotlab') : !!e.closest(sc), btn.scope)) { target = c; break; } }
+    // 面板會自己 refresh（交易所／製作／委託等 LIVE 畫面），畫面被換掉後舊 handle 就失效，所以每次重新解析
+    const resolve = async () => { for (const c of await page.$$(btn.sel)) { if (!(await c.isVisible())) continue; if (await c.evaluate((e, sc) => sc === 'body' ? !e.closest('#modal,#topbar,#bottom-bar,#left-panel,#inspector,#pilotlab') : !!e.closest(sc), btn.scope)) return c; } return null; };
+    let target = await resolve();
     if (!target || !(await target.isVisible())) { row.result = 'gone-after-reopen'; report.push(row); continue; }
     await page.evaluate(() => { globalThis.__aud = { t0: 0, t1: 0 }; document.addEventListener(PointerEvent ? 'pointerdown' : 'mousedown', () => { globalThis.__aud.t0 = performance.now(); }, { capture: true, once: true });
       const mo = new MutationObserver(() => { if (!globalThis.__aud.t1) globalThis.__aud.t1 = performance.now(); }); mo.observe(document.body, { subtree: true, childList: true, attributes: true, characterData: true }); globalThis.__audMo = mo; });
     const s0 = await sig(), h0 = await shot(), e0 = errs.length;
     // 偶發的時序問題(數字剛好在變、畫面剛好在重排)重試一次;兩次都失敗才算失敗
-    for (let attempt = 0; attempt < 2; attempt++) {
-      try { if (PHONE) await target.tap({ timeout: 2500 }); else await target.click({ timeout: 2500 }); row.result = attempt ? '' : row.result; if (attempt) row.retried = true; break; }
-      catch (e) { if (attempt && /not enabled/.test(String(e.message))) { row.result = 'disabled-at-click (state changed; ok)'; break; } if (attempt) { const msg = String(e.message).split(/\r?\n/), why = msg.filter(l => /intercepts|not stable|not enabled|not visible|detached|outside/.test(l)).slice(-2).map(l => l.trim()).join(' / '); row.result = 'click-failed: ' + msg[0].slice(0, 50) + (why ? ' [' + why.slice(0, 200) + ']' : ''); } else await page.waitForTimeout(300); }
+    for (let attempt = 0; attempt < 3; attempt++) {
+      try { if (PHONE) await target.tap({ timeout: 2500 }); else await target.click({ timeout: 2500 }); row.result = ''; if (attempt) row.retried = true; break; }
+      catch (e) {
+        const msg = String(e.message);
+        if (attempt && /not enabled/.test(msg)) { row.result = 'disabled-at-click (state changed; ok)'; break; }
+        // handle 被面板重繪換掉：重新解析同一顆按鈕再點（重試同一支 handle 沒有用）
+        if (attempt < 2 && /not attached|detached|not stable|Execution context was destroyed/i.test(msg)) {
+          await page.waitForTimeout(250); target = await resolve();
+          if (!target) { row.result = 'gone-after-reopen'; break; }
+          row.retried = true; continue;
+        }
+        if (attempt < 2) { await page.waitForTimeout(300); continue; }
+        const why = msg.split(/\r?\n/).filter(l => /intercepts|not stable|not enabled|not visible|detached|outside/.test(l)).slice(-2).map(l => l.trim()).join(' / ');
+        row.result = 'click-failed: ' + msg.split(/\r?\n/)[0].slice(0, 50) + (why ? ' [' + why.slice(0, 200) + ']' : '');
+      }
     }
     await page.waitForTimeout(450);
     const a = await page.evaluate(() => { globalThis.__audMo?.disconnect(); return globalThis.__aud; });

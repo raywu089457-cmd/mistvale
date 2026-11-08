@@ -1391,3 +1391,38 @@ html.ui-m :is(.toast.error){border-width:8px}
   .party-summary .ps-hint{margin-left:0;flex-basis:100%}
   .encounter-facts{font-size:10px}
 }
+
+/* ===== T103：村長委託章節鏈＝左側時間軸（圓章＋接線）、標題與狀態同列、獎勵靠左對齊 ===== */
+.quest-chain{position:relative;gap:8px;margin-top:12px}
+.quest-step{position:relative;align-items:start;padding:10px 14px;grid-template-columns:40px minmax(0,1fr) auto}
+.quest-step:not(:last-child)::after{content:'';position:absolute;left:39px;top:52px;bottom:-20px;width:2px;background:linear-gradient(180deg,#8a6a36e6,#8a6a3633);pointer-events:none}
+.quest-step.done:not(:last-child)::after{background:linear-gradient(180deg,#9fd36be6,#9fd36b33)}
+.quest-step.current:not(:last-child)::after{background:linear-gradient(180deg,#e7be5ee6,#8a6a3633)}
+.quest-step .qs-num{align-self:start;margin-top:1px;position:relative;z-index:1}
+.qs-body{min-width:0;display:flex;flex-direction:column;gap:3px}
+.qs-head{display:flex;align-items:center;gap:8px;min-width:0}
+.qs-head h3{flex:1;min-width:0;margin:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.qs-tag{flex:0 0 auto;display:inline-flex;align-items:center;gap:4px;padding:1px 7px;border:1px solid #6a5b3a;border-radius:9px;font:600 10.5px/16px var(--font-num);color:#cbbd97;background:#2a2114b0}
+.qs-tag.done{color:#cfe8b4;border-color:#7b9358;background:#2c3a1fcc}
+.qs-tag.current{color:#f2dca4;border-color:#c9a04d;background:#3a2a12cc}
+.qs-tag.locked{color:#a99f86;border-color:#4f4634;background:#241d13a8}
+.qs-tag .inline-icon[data-icon]{width:11px;height:11px;min-width:11px;min-height:11px}
+.qs-claim{align-self:center}
+.qs-reward{display:flex;align-items:center;flex-wrap:wrap;gap:4px 8px;margin-top:1px}
+.qs-reward>small{flex:0 0 auto;font:600 9.5px/1 var(--font-num);letter-spacing:1.5px;color:#a2916d}
+.qs-reward>span{display:inline-flex;align-items:center;gap:3px;white-space:nowrap;font:600 var(--fs-small)/1 var(--font-num);color:#e8d3ad}
+.qs-reward>span.short{color:var(--cost-short)}
+.qs-reward .inline-icon[data-icon]{width:14px;height:14px;min-width:14px;min-height:14px}
+.quest-step .qs-progress{margin:2px 0 1px}
+.qs-banner{display:flex;flex-direction:column;gap:6px}
+.qs-meta{display:flex;flex-wrap:wrap;align-items:center;gap:4px 12px;font:600 11px/1.4 var(--font-num);color:#dcc9a2}
+.qs-meta b{color:var(--gold-bright)}
+.qs-meta .qs-ready{color:#f2dca4;border:1px solid #c9a04d;border-radius:8px;padding:1px 7px;background:#3a2a12cc}
+@media(max-width:760px){
+  .quest-step{grid-template-columns:34px minmax(0,1fr);padding:9px 11px}
+  .quest-step:not(:last-child)::after{left:33px;top:46px;bottom:-20px}
+  .qs-head h3{white-space:normal;overflow:visible}
+  .qs-tag{font-size:9.5px;line-height:15px;padding:0 6px}
+  .qs-claim{grid-column:1/-1;justify-self:end;margin-top:6px}
+  .qs-reward>span{font-size:var(--fs-tiny)}
+}
