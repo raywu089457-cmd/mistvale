@@ -100,3 +100,5 @@ date,card,attempts,verdict,accept,minutes,usd,start,end,scope,review,precheck,st
 2026-11-08T16:05,T95,1,DONE,PASS,15.2,0.0829,2026-11-08T15:49:58.797Z,2026-11-08T16:05:09.899Z,ok,OK,n/a,implement-a1+cold-a1+accept+review-a1,tier-c,ok,plan
 2026-11-08T16:38,T96,0,PLAN-READY,not run,8.4,0.0363,2026-11-08T16:29:53.540Z,2026-11-08T16:38:19.400Z,ok,skip,n/a,plan+gate-auto,-,-,-
 2026-11-08T16:55,T96,1,DONE,PASS,16.7,0.0295,2026-11-08T16:38:36.373Z,2026-11-08T16:55:16.607Z,ok,OK,n/a,implement-a1+cold-a1+accept+review-a1,-,ok,plan
+2026-11-08T17:31,T97,1,FAILED,PASS,15.5,0.0388,2026-11-08T17:16:06.858Z,2026-11-08T17:31:34.499Z,ok,skip,n/a,plan+gate-auto+implement-a1+resume-a1+accept+montage-gate,-,-,-
+2026-11-08T17:38,T97,1,DONE,PASS,2.6,0.0121,2026-11-08T17:35:50.271Z,2026-11-08T17:38:24.900Z,ok,OK,n/a,gate-auto+montage-ok-a1+review-a1,-,ok,plan

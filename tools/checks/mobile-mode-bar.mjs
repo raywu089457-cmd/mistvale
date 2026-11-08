@@ -50,6 +50,15 @@ function overlap(r, o) { return r.left < o.right && r.right > o.left && r.top < 
     const box = (sel) => { const e = document.querySelector(sel); if (!e) return null; const r = e.getBoundingClientRect(); return { left: r.left, top: r.top, right: r.right, bottom: r.bottom, width: r.width, height: r.height, hidden: e.classList.contains('hidden') }; };
     const p = document.querySelector('#placement');
     const pr = p.getBoundingClientRect();
+    const ib = box('#inspector');
+    const insEl = document.querySelector('#inspector');
+    const bandHits = [...document.querySelectorAll('#inspector .inspect-actions [data-action]')].filter(e => {
+      const r = e.getBoundingClientRect();
+      if (!(r.width > 0 && r.height > 0)) return false;
+      if (!(r.bottom > pr.top && r.top < pr.bottom)) return false;
+      const at = document.elementFromPoint(r.left + r.width / 2, r.top + r.height / 2);
+      return !!at && (at === e || e.contains(at));
+    }).map(e => e.dataset.action);
     const hit = (sel) => { const e = document.querySelector(sel); if (!e) return { sel, missing: true }; const r = e.getBoundingClientRect(); const cx = r.left + r.width / 2, cy = r.top + r.height / 2; const at = document.elementFromPoint(cx, cy); return { sel, ok: !!at && (at === e || e.contains(at)), got: at ? (at.id || at.className || at.tagName || '?').toString().slice(0, 40) : 'null', cx, cy }; };
     const c = document.querySelector('#placement [data-action=cancelMove]');
     const cr = c ? c.getBoundingClientRect() : null;
@@ -59,6 +68,8 @@ function overlap(r, o) { return r.left < o.right && r.right > o.left && r.top < 
       topbar: box('#topbar'), bottom: box('#bottom-bar'),
       hits: ['[data-action=worldmap]', '[data-action=pause]', '[data-action=speed]'].map(hit),
       cancel: c ? { ok: !!cat && (cat === c || c.contains(cat)), got: cat ? (cat.id || cat.className || cat.tagName || '?').toString().slice(0, 40) : 'null' } : { missing: true },
+      inspector: { ...ib, display: insEl ? getComputedStyle(insEl).display : 'none' },
+      bandHits,
       viewport: { w: innerWidth, h: innerHeight },
     };
   });
@@ -69,6 +80,8 @@ function overlap(r, o) { return r.left < o.right && r.right > o.left && r.top < 
     else if (!h.ok) fix(`phone: ${h.sel} centre hit by ${h.got}`);
   }
   if (!m.cancel.ok) fix(m.cancel.missing ? 'phone: [data-action=cancelMove] missing' : `phone: cancelMove centre hit by ${m.cancel.got}`);
+  if (!(m.inspector.hidden || m.inspector.display === 'none' || !(m.inspector.width > 0) || !(m.inspector.height > 0))) fix(`phone: #inspector still visible (hidden=${m.inspector.hidden} display=${m.inspector.display} ${Math.round(m.inspector.width)}x${Math.round(m.inspector.height)})`);
+  if (m.bandHits.length) fix(`phone: #placement band still contains hit-testable inspector action(s): ${m.bandHits.join(',')}`);
   if (p.left < 0 || p.top < 0 || p.right > m.viewport.w || p.bottom > m.viewport.h) fix(`phone: #placement outside viewport [${p.left},${p.top},${p.right},${p.bottom}] in ${m.viewport.w}x${m.viewport.h}`);
   if (!m.topbar || m.topbar.height <= 0) fix('phone: #topbar missing/zero-height');
   else if (overlap(p, m.topbar)) fix(`phone: #placement overlaps #topbar (bar top ${p.top} < topbar bottom ${m.topbar.bottom})`);
@@ -86,10 +99,11 @@ function overlap(r, o) { return r.left < o.right && r.right > o.left && r.top < 
   const m = await page.evaluate(() => {
     const p = document.querySelector('#placement');
     const r = p.getBoundingClientRect();
-    return { left: r.left, top: r.top, width: r.width, height: r.height, vw: innerWidth, centre: r.left + r.width / 2 };
+    return { left: r.left, top: r.top, width: r.width, height: r.height, vw: innerWidth, centre: r.left + r.width / 2, inspectorHidden: document.querySelector('#inspector').classList.contains('hidden') };
   });
   if (Math.abs(m.top - 93) > 0.5) fix(`desktop: #placement top ${m.top} != 93`);
   if (Math.abs(m.centre - m.vw / 2) > 1) fix(`desktop: #placement centre ${m.centre} != viewport centre ${m.vw / 2}`);
+  if (m.inspectorHidden) fix('desktop: #inspector hidden after moveBuilding (desktop must keep it open)');
   if (errs.length) fix(`desktop: page errors: ${errs.join(' | ')}`);
   console.log(`desktop: #placement rect [${Math.round(m.left)},${Math.round(m.top)},${Math.round(m.width)}x${Math.round(m.height)}] centre ${m.centre} / ${m.vw / 2}`);
   await ctx.close();

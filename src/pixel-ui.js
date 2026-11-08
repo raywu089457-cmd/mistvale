@@ -221,13 +221,14 @@ function modalHTML(type){const s=game.state;
 function selectedIds(kind){return game.state[kind].hunterIds||[];}
 function toggleParty(kind,id){const list=selectedIds(kind),i=list.indexOf(id);if(i>=0)list.splice(i,1);else if(list.length<3)list.push(id);openModal(kind==='dungeon'?'dungeon':'arena');}
 function inspect(id){selected=id;$('#inspector').classList.remove('hidden');paintInspector();world?.setSelected(id);}
+function closeInspector(){$('#inspector').classList.add('hidden');selected=null;world?.setSelected(null);}
 function doAction(el){const a=el.dataset.action,id=el.dataset.id;let r;
  if(a==='worldmap')return openModal('worldmap');
  if(a==='worldOverview'){closeModal();world.focus('world');return;}
  if(a==='regionView'){closeModal();world.focus(id==='village'?'home':'region:'+id);return;}
  if(a==='regionTravel'){r=game.exploreRegion(id);logToast(r.message,r.ok);if(r.ok){closeModal();world.focus('region:'+id);save();}paint();return;}
  if(a==='recallHunters'){r=game.recallHunters();logToast(r.message,r.ok);paint();return;}
- if(a==='start')return start();if(a==='close'||a==='offlineOk')return closeModal();if(a==='toggleLeft'){leftOpen=!leftOpen;$('#left-panel').classList.toggle('hidden',!leftOpen);$('#reopen-left').classList.toggle('hidden',leftOpen);return;}if(a==='closeInspector'){$('#inspector').classList.add('hidden');selected=null;world?.setSelected(null);return;}
+ if(a==='start')return start();if(a==='close'||a==='offlineOk')return closeModal();if(a==='toggleLeft'){leftOpen=!leftOpen;$('#left-panel').classList.toggle('hidden',!leftOpen);$('#reopen-left').classList.toggle('hidden',leftOpen);return;}if(a==='closeInspector'){closeInspector();return;}
  if(a==='home'){closeModal();world?.focus('home');return;}if(a==='zoomIn'){world?.zoomBy(1.15);return;}if(a==='zoomOut'){world?.zoomBy(1/1.15);return;}
  if(a==='pause'){game.state.paused=!game.state.paused;paint();return;}if(a==='speed'){game.state.speed=game.state.speed>=3?1:game.state.speed+1;paint();return;}
  if(a==='toggleParts'){const on=!(world?.getPartsVisible?.()??true);world?.setPartsVisible?.(on);el.textContent=on?'裝備顯示中':'裝備已卸下';logToast(on?'裝備零件層：開':'裝備零件層：關（同一個身體、不重生）',true);paint();return;}
@@ -255,7 +256,7 @@ function doAction(el){const a=el.dataset.action,id=el.dataset.id;let r;
  if(a==='selectBuilding'){closeModal();inspect(id);return;}
  if(a==='construct'){r=game.construct(id);logToast(r.message,r.ok);if(r.ok)world?.setSelected(id);paint();save();return;}
  if(a==='upgrade'){r=game.upgrade(id);logToast(r.message,r.ok);paint();save();return;}
- if(a==='moveBuilding'){closeModal();placing=id;$('#placement').classList.remove('hidden');world?.placeMode(id);paint();return;}
+ if(a==='moveBuilding'){closeModal();if(TOP_NARROW.matches)closeInspector();placing=id;$('#placement').classList.remove('hidden');world?.placeMode(id);paint();return;}
  // ── 獵人:詳情 / 學技能 / 修煉 / 強化 / 轉世
  if(a==='hunter'){openHunter(id);return;}
  if(a==='learnSkill'){r=game.learnSkill(id);logToast(r.message,r.ok);openHunter(id);paint();return;}
