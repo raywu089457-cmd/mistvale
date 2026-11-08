@@ -9,6 +9,26 @@ import {BUILDINGS,CLASSES,RARITIES,TRAITS,MATERIALS,PRODUCTS,RECIPES,DIFFICULTIE
 
 const esc=s=>String(s??'').replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
 const fmt=n=>Math.floor(Number(n)||0).toLocaleString('en-US');
+// 區域切換過場：世界會整塊重建，直接換畫面會有一下跳動，所以先蓋一層霧再換。
+// 遮罩不吃 pointer-events（避免擋住任何按鈕），減少動態時直接切換。
+const travelReduced=()=>{try{return matchMedia('(prefers-reduced-motion: reduce)').matches}catch{return false}};
+let travelVeilEl=null,travelVeilTimer=0,travelHoldTimer=0;
+function travelVeil(label,run){
+  if(travelReduced()){run();return}
+  travelVeilEl??=document.createElement('div');
+  const v=travelVeilEl;
+  v.id='travel-veil';
+  v.innerHTML='<div class="tv-inner"><b>'+esc(label||'出發')+'</b><small>整裝出發，隊伍正在穿越邊界…</small></div>';
+  if(!v.isConnected)document.body.append(v);
+  v.classList.remove('leave');
+  void v.offsetWidth;
+  v.classList.add('on');
+  clearTimeout(travelVeilTimer);clearTimeout(travelHoldTimer);
+  travelVeilTimer=setTimeout(()=>{
+    try{run()}catch(e){console.error(e)}
+    travelHoldTimer=setTimeout(()=>{v.classList.remove('on');v.classList.add('leave');setTimeout(()=>v.classList.remove('leave'),240)},220);
+  },200);
+}
 // top-bar resources on phones: 5+ digits do not fit the 4-across row, so 12,345 → 12.3k (exact numbers stay in the storehouse)
 const TOP_NARROW=matchMedia('(max-width:760px),(max-height:520px)');
 // 系統設定「減少動態效果」:Web Animations 不受 CSS 的 prefers-reduced-motion 影響,所以文字淡入要自己關掉。
@@ -250,7 +270,7 @@ function doAction(el){const a=el.dataset.action,id=el.dataset.id;let r;
  if(a==='worldmap')return openModal('worldmap');
  if(a==='worldOverview'){closeModal();world.focus('world');return;}
  if(a==='regionView'){closeModal();world.focus(id==='village'?'home':'region:'+id);return;}
- if(a==='regionTravel'){r=game.exploreRegion(id);logToast(r.message,r.ok);if(r.ok){closeModal();world.focus('region:'+id);save();}paint();return;}
+  if(a==='regionTravel'){const rg=REGIONS.find(x=>x.id===id);travelVeil(rg?rg.name:'',()=>{r=game.exploreRegion(id);logToast(r.message,r.ok);if(r.ok){closeModal();world.focus('region:'+id);save();}paint();});return;}
  if(a==='recallHunters'){r=game.recallHunters();logToast(r.message,r.ok);paint();return;}
  if(a==='start')return start();if(a==='close'||a==='offlineOk')return closeModal();if(a==='toggleLeft'){leftOpen=!leftOpen;$('#left-panel').classList.toggle('hidden',!leftOpen);$('#reopen-left').classList.toggle('hidden',leftOpen);return;}if(a==='closeInspector'){closeInspector();return;}
  if(a==='home'){closeModal();world?.focus('home');return;}if(a==='zoomIn'){world?.zoomBy(1.15);return;}if(a==='zoomOut'){world?.zoomBy(1/1.15);return;}

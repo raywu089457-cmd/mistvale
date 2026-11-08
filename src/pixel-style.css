@@ -1426,3 +1426,17 @@ html.ui-m :is(.toast.error){border-width:8px}
   .qs-claim{grid-column:1/-1;justify-self:end;margin-top:6px}
   .qs-reward>span{font-size:var(--fs-tiny)}
 }
+
+/* ===== T104：區域切換過場（世界重建時先蓋一層霧，避免畫面跳動） ===== */
+#travel-veil{position:fixed;inset:0;z-index:90;display:grid;place-items:center;pointer-events:none;opacity:0;background:radial-gradient(120% 90% at 50% 40%,rgba(24,15,7,.72),rgba(12,8,4,.96) 70%);transition:opacity .2s ease-out}
+#travel-veil.on{opacity:1}
+#travel-veil.leave{transition:opacity .22s ease-in}
+#travel-veil .tv-inner{display:flex;flex-direction:column;align-items:center;gap:8px;padding:18px 26px;border:1px solid #6b5432;border-radius:6px;background:rgba(34,22,11,.7);box-shadow:0 10px 30px rgba(0,0,0,.45);text-align:center}
+#travel-veil .tv-inner b{font:700 20px/1.2 var(--font-title);letter-spacing:.08em;color:var(--gold-bright)}
+#travel-veil .tv-inner small{font-size:var(--fs-small);color:#c9b891;letter-spacing:.02em}
+@media(max-width:760px){#travel-veil .tv-inner b{font-size:17px}#travel-veil .tv-inner small{font-size:10.5px}}
+@media(prefers-reduced-motion: reduce){#travel-veil{transition:none}}
+#travel-veil .tv-inner::before{content:'';display:block;width:132px;height:1px;margin:0 auto 2px;background:linear-gradient(90deg,transparent,#c9a04dbb,transparent)}
+#travel-veil .tv-inner small::after{content:' · · ·';color:#8a7346;animation:tvBreathe 1.4s ease-in-out infinite}
+@keyframes tvBreathe{0%,100%{opacity:.35}50%{opacity:1}}
+@media(prefers-reduced-motion: reduce){#travel-veil .tv-inner small::after{animation:none;opacity:.7}}
