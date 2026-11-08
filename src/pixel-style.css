@@ -1376,3 +1376,18 @@ html.ui-m :is(.toast.error){border-width:8px}
   #modal[data-type=trade] .trade-footer .tf-note{display:none}
   #modal[data-type=trade] .trade-footer{margin-top:10px}
 }
+/* ===== T102：遠征準備——小隊總覽條、選不到的理由、出發條件 ===== */
+.party-summary{display:flex;flex-wrap:wrap;align-items:center;gap:6px 8px;margin:10px 0 8px;padding:6px 10px;border:1px solid #5c4a2c;background:#2a1b0ea8;font:600 11.5px/1.5 var(--font-num);color:#d9c8a2}
+.party-summary b{color:var(--gold-bright);font-weight:700}
+.party-summary .ps-hint{margin-left:auto;font:600 10.5px/1 var(--font-num);color:#e0a86a;letter-spacing:.02em}
+.party-pick .pp-note{color:#e0a86a}
+.party-pick.blocked{cursor:not-allowed}
+.party-pick.blocked:not(.down){filter:grayscale(.85) brightness(.72)}
+.encounter-facts{margin:2px 0 10px;font:500 11px/1.5 var(--font-num);color:#b9c8a4}
+.encounter-facts b{color:#e8d7a4}
+.encounter-actions .pixel-button[disabled]{filter:grayscale(.7) brightness(.86);opacity:1;color:#cdbd97}
+@media(max-width:760px){
+  .party-summary{font-size:10.5px;padding:5px 8px}
+  .party-summary .ps-hint{margin-left:0;flex-basis:100%}
+  .encounter-facts{font-size:10px}
+}
