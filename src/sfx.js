@@ -15,6 +15,9 @@ export function sfxMuted(v) {
   if (v === undefined) return muted;
   muted = !!v;
   if (master) { try { master.gain.value = muted ? 0 : volume; } catch { } }
+  // T108：靜音也要把環境音收掉，不然關掉音效還會聽到風聲。
+  if (muted) { if (bed && ctx) killBed(ctx); }
+  else if (lastRegion && ctx) { bedName = ''; ambientSet(lastRegion, lastPhase); }
   return muted;
 }
 export function sfxVolume(v) {
@@ -123,8 +126,140 @@ export function sfx(kind, opts = {}) {
   return true;
 }
 
+// T108 環境音層：一層風聲底噪 + 稀疏點綴（白天鳥叫、晚上蟲鳴），隨區域與日夜換。
+// 全部即時合成（跟事件音一樣沒有音檔）。原則：
+//  * 音量壓得比事件音更小（0.05–0.07），只當背景，不搶命中聲。
+//  * 換區域 0.9 秒淡入、舊的 0.7 秒淡出，不會有接縫。
+//  * 分頁被切到背景就收掉，回來再長回來（不要在背景一直吃 CPU／電）。
+//  * 鳥叫／蟲鳴用隨機間隔（4–10 秒）稀疏地補，聽起來才不像罐頭循環。
+const BEDS = {
+  village: { cut: 380, q: .7, gain: .052, chirp: 2150, birds: 1.0, night: 'cricket' },
+  meadow: { cut: 620, q: .8, gain: .058, chirp: 2450, birds: 1.5, night: 'cricket' },
+  forest: { cut: 820, q: 1.0, gain: .055, chirp: 1900, birds: 1.0, night: 'owl' },
+  taiga: { cut: 1050, q: 1.1, gain: .060, chirp: 2000, birds: .4, night: 'cricket' },
+  snow: { cut: 1350, q: 1.2, gain: .064, chirp: 2600, birds: .12, night: null },
+  mountain: { cut: 1150, q: 1.1, gain: .060, chirp: 2400, birds: .15, night: null },
+  desert: { cut: 900, q: .9, gain: .058, chirp: 2300, birds: .2, night: 'cricket' },
+};
+let bed = null, bedName = '', bedNight = false, bedCount = 0, sporadic = 0, lastRegion = '', lastPhase = .15, chirpCount = 0;
+// T108：環境音是背景播放，不能在使用者手勢前就自己建 AudioContext（自動播放政策），
+// 所以要等第一個手勢才「上膛」。事件音本來就由手勢觸發，不受影響。
+let armed = false;
+if (hasWindow) {
+  const arm = () => {
+    armed = true;
+    if (ctx && ctx.state === 'suspended') { try { ctx.resume(); } catch { } }
+  };
+  for (const ev of ['pointerdown', 'keydown', 'touchstart', 'click']) window.addEventListener(ev, arm, { passive: true, once: true });
+}
+
+function killBed(c) {
+  const old = bed;
+  bed = null;
+  if (!old) return;
+  try {
+    const t = c.currentTime;
+    old.g.gain.cancelScheduledValues(t);
+    old.g.gain.setValueAtTime(Math.max(0.0001, old.g.gain.value), t);
+    old.g.gain.exponentialRampToValueAtTime(0.0001, t + 0.7);
+    old.src.stop(t + 0.8);
+    old.lfo.stop(t + 0.8);
+  } catch { }
+}
+
+function makeBed(c, name, night) {
+  const cfg = BEDS[name] || BEDS.village;
+  const src = c.createBufferSource();
+  src.buffer = noiseBuf; src.loop = true;
+  const flt = c.createBiquadFilter();
+  flt.type = 'lowpass'; flt.frequency.value = cfg.cut; flt.Q.value = cfg.q;
+  const g = c.createGain(); g.gain.value = 0.0001;
+  // 慢速 LFO 掃濾波器 → 風一陣一陣的，不是一條死板的嘶聲。
+  const lfo = c.createOscillator(); lfo.type = 'sine'; lfo.frequency.value = 0.06 + Math.random() * 0.05;
+  const lfoGain = c.createGain(); lfoGain.gain.value = cfg.cut * 0.35;
+  lfo.connect(lfoGain); lfoGain.connect(flt.frequency);
+  src.connect(flt); flt.connect(g); g.connect(master);
+  const t = c.currentTime;
+  g.gain.exponentialRampToValueAtTime(cfg.gain * (night ? 0.85 : 1), t + 0.9);
+  src.start(t); lfo.start(t);
+  bed = { src, flt, g, lfo };
+  bedName = name; bedNight = night; bedCount++;
+  return bed;
+}
+
+function chirp(c, night, cfg) {
+  chirpCount++;
+  const t = c.currentTime + 0.02;
+  if (!night) {
+    const n = 1 + Math.floor(Math.random() * 3);
+    for (let i = 0; i < n; i++) {
+      const f = (cfg.chirp || 2100) * (0.9 + Math.random() * 0.3);
+      tone(c, t + i * 0.09, { type: 'sine', f0: f, f1: f * 1.28, dur: 0.05, peak: 0.012, attack: 0.006 });
+    }
+  } else if (cfg.night === 'owl') {
+    const f = 340 + Math.random() * 40;
+    tone(c, t, { type: 'sine', f0: f, f1: f * 0.82, dur: 0.28, peak: 0.010, attack: 0.03 });
+    tone(c, t + 0.42, { type: 'sine', f0: f * 0.98, f1: f * 0.8, dur: 0.22, peak: 0.008, attack: 0.03 });
+  } else {
+    const n = 3 + Math.floor(Math.random() * 3);
+    for (let i = 0; i < n; i++) tone(c, t + i * 0.055, { type: 'square', f0: 4200 + Math.random() * 500, f1: 4000, dur: 0.018, peak: 0.006, attack: 0.002 });
+  }
+}
+
+function scheduleSporadic() {
+  clearTimeout(sporadic);
+  const cfg = BEDS[bedName];
+  if (!cfg) return;
+  const wait = (4200 + Math.random() * 6000) / (cfg.birds || 1);
+  sporadic = setTimeout(() => {
+    if (!bed) return;
+    const c = muted ? null : ac();
+    if (c) { try { chirp(c, bedNight, cfg); } catch { } }
+    scheduleSporadic();
+  }, wait);
+}
+
+/** 換環境音（區域 id + 一天中的相位 0–1；0.15 下午、0.7 半夜）。同一個區域／時段重複呼叫不會重做。 */
+export function ambientSet(regionId, phase) {
+  const want = BEDS[regionId] ? regionId : 'village';
+  const ph = typeof phase === 'number' && isFinite(phase) ? phase : .15;
+  const night = ph > .55 && ph < .95;
+  lastRegion = want; lastPhase = ph;
+  if (!armed) return ambientState();   // 還沒手勢：先記下想要的區域，等上膛後再長出來
+  if (want === bedName && night === bedNight && bed) return ambientState();
+  if (muted) { bedName = ''; return ambientState(); }
+  const c = ac();
+  if (!c) return ambientState();
+  killBed(c);
+  makeBed(c, want, night);
+  scheduleSporadic();
+  return ambientState();
+}
+
+export function ambientState() {
+  let gain = 0;
+  try { gain = bed ? Math.round(bed.g.gain.value * 1000) / 1000 : 0; } catch { }
+  const cfg = BEDS[bedName];
+  const target = bed && cfg ? Math.round(cfg.gain * (bedNight ? 0.85 : 1) * 1000) / 1000 : 0;
+  return { bed: bedName, night: bedNight, playing: !!bed, gain, target, count: bedCount, sporadic: !!sporadic, chirps: chirpCount, armed };
+}
+
+// 分頁切到背景時把環境音收掉（背景不該一直播風聲），回來再長回來。
+if (hasWindow && typeof document !== 'undefined') {
+  document.addEventListener('visibilitychange', () => {
+    if (!ctx) return;
+    if (document.hidden) { killBed(ctx); bedName = ''; }
+    else if (lastRegion && !muted) { bedName = ''; ambientSet(lastRegion, lastPhase); }
+  });
+}
+
 // 測試/除錯用鉤子（與 __mistvaleShake、__mistvalePerf 同一個慣例）。
 if (hasWindow) {
+  globalThis.__mistvaleAmbient = {
+    set: ambientSet,
+    state: ambientState,
+    beds: () => Object.keys(BEDS),
+  };
   globalThis.__mistvaleSfx = {
     play: (k, o) => sfx(k, o),
     kinds: sfxKinds,
@@ -134,5 +269,6 @@ if (hasWindow) {
     volume: sfxVolume,
     voices: () => voices,
     reduced: reduced,
+    ambient: ambientState,
   };
 }
