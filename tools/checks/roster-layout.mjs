@@ -1,17 +1,21 @@
-// roster-layout.mjs — T98: hunter roster chips must wrap inside #modal-content,
-// cards must read top-down without horizontal overflow, and the health bar must
-// expose healthy/hurt/critical on desktop and phone widths.
+// roster-layout.mjs — T98/T99: hunter roster chips must wrap inside #modal-content,
+// cards must read top-down without horizontal overflow, the health bar must expose
+// healthy/hurt/critical on desktop and phone widths, desktop cards must show the
+// .hunter-stats line (attack/defence/range/trait) under the meta column, and
+// phones must keep it display:none.
 // Usage: node tools/checks/roster-layout.mjs        (game server on 5024 expected; TARGET overrides)
 //        $env:SHOTS='1'; node tools/checks/roster-layout.mjs   also writes output/roster/montage.png
 // Exit: 0 = PASS line only, 1 = FIX lines.
 import { createRequire } from 'module';
 import fs from 'node:fs';
+import {CLASSES,TRAITS} from '../../src/pixel-data.js';
 const require = createRequire('C:/Users/ray/AppData/Roaming/npm/node_modules/');
 const { chromium } = require('playwright');
 
 const URL = process.env.TARGET || 'http://100.79.149.0:5024/?preview=1';
 const DEVICES = [
   { label: 'desktop 1440x900', width: 1440, height: 900, phone: false },
+  { label: 'desktop 800x900', width: 800, height: 900, phone: false },
   { label: 'phone 402x712', width: 402, height: 712, phone: true },
   { label: 'phone 360x640', width: 360, height: 640, phone: true },
 ];
@@ -83,14 +87,42 @@ const MEASURE = () => {
       const q = e.getBoundingClientRect();
       const fill = e.firstElementChild;
       return {
-        state: e.dataset.health, label: e.getAttribute('aria-label') || '', left: q.left, right: q.right,
+        state: e.dataset.health, label: e.getAttribute('aria-label') || '', left: q.left, right: q.right, top: q.top,
         trackW: e.clientWidth, fillW: fill ? fill.getBoundingClientRect().width : 0,
       };
     });
+    const st = card.querySelector('.hunter-stats');
+    const sr = st ? st.getBoundingClientRect() : null;
+    const stIcons = st ? [...st.querySelectorAll('[data-icon]')] : [];
+    const stats = st ? {
+      display: getComputedStyle(st).display, label: st.getAttribute('aria-label') || '',
+      left: sr.left, right: sr.right, top: sr.top, bottom: sr.bottom, width: sr.width,
+      rows: [...st.children].map(e => {
+        const q = e.getBoundingClientRect(), ms = getComputedStyle(e);
+        return {
+          text: e.textContent.trim(), top: q.top, bottom: q.bottom, w: q.width, h: q.height,
+          sw: e.scrollWidth, cw: e.clientWidth, fs: parseFloat(ms.fontSize) || 0, icons: e.querySelectorAll('[data-icon]').length,
+        };
+      }),
+      icons: stIcons.length, iconsHidden: stIcons.every(e => e.getAttribute('aria-hidden') === 'true'),
+    } : null;
+    const metaBox = card.querySelector('.hunter-meta');
+    const metaLeft = metaBox ? metaBox.getBoundingClientRect().left : 0;
+    const metaLines = ['small', '.rarity', '.status'].map(sel => {
+      const e = card.querySelector('.hunter-meta ' + sel);
+      if (!e) return { sel, missing: true };
+      const q = e.getBoundingClientRect(), ms = getComputedStyle(e);
+      const lh = parseFloat(ms.lineHeight) || (parseFloat(ms.fontSize) || 10) * 1.3;
+      return { sel, lines: Math.round(q.height / lh), sw: e.scrollWidth, cw: e.clientWidth };
+    });
+    const cs = getComputedStyle(card);
     const h = g.state.hunters.find(x => x.id === card.dataset.id);
     return {
       action: card.dataset.action || '', id: card.dataset.id || '',
-      sw: card.scrollWidth, cw: card.clientWidth, out, healths,
+      sw: card.scrollWidth, cw: card.clientWidth, out, healths, stats,
+      left: r.left, right: r.right, top: r.top, bottom: r.bottom, height: r.height,
+      padRight: parseFloat(cs.paddingRight) || 0, borderRight: parseFloat(cs.borderRightWidth) || 0, metaLeft, metaLines,
+      atk: h ? h.attack : null, def: h ? h.defense : null, classId: h ? h.classId : null, trait: h ? h.trait : null,
       hp: h ? h.hp : null, ratio: h ? Math.max(0, h.hp) / Math.max(1, h.maxHp) : null,
       expected: h ? `生命 ${Math.ceil(Math.max(0, h.hp))}/${Math.ceil(h.maxHp)}` : null,
     };
@@ -143,8 +175,51 @@ for (const dev of DEVICES) {
     const down = m.cards.find(c => c.hp === 0);
     if (!down || down.healths[0]?.state !== 'critical') fix(`${t}: downed hunter does not show the critical state`);
     if (!dev.phone) {
+      const rowHeights = new Map();
+      m.cards.forEach(card => {
+        const st = card.stats;
+        if (!st) return fix(`${t}: card ${card.id} has no .hunter-stats`);
+        if (st.display === 'none') fix(`${t}: card ${card.id} .hunter-stats is hidden on desktop`);
+        const cls = CLASSES.find(c => c.id === card.classId), tr = TRAITS.find(x => x.id === card.trait);
+        const range = cls && cls.range >= 3 ? '遠程' : '近戰', trait = tr ? tr.name : '';
+        const wantLabel = `攻擊 ${card.atk} 防禦 ${card.def} ${range} 性格 ${trait}`;
+        if (st.label !== wantLabel) fix(`${t}: card ${card.id} stats aria-label "${st.label}" != "${wantLabel}"`);
+        if (st.rows.length !== 4) fix(`${t}: card ${card.id} .hunter-stats has ${st.rows.length} items, expected 4 (atk, def, range, trait)`);
+        else {
+          const want = [String(card.atk), String(card.def), range, trait];
+          st.rows.forEach((row, i) => {
+            if (row.text !== want[i]) fix(`${t}: card ${card.id} stat item ${i + 1} "${row.text}" != "${want[i]}"`);
+            if (row.w <= 0 || row.h <= 0) fix(`${t}: card ${card.id} stat item ${i + 1} is not rendered`);
+            if (row.sw > row.cw + 1) fix(`${t}: card ${card.id} stat item ${i + 1} text clipped sw ${row.sw} > cw ${row.cw}`);
+            if (row.fs < 10) fix(`${t}: card ${card.id} stat item ${i + 1} font ${row.fs}px < 10px`);
+          });
+          const tops = st.rows.map(r => r.top);
+          if (Math.max(...tops) - Math.min(...tops) > 3) fix(`${t}: card ${card.id} stats are not on one line (tops ${tops.map(v => v.toFixed(1)).join('/')})`);
+          if (st.rows[0].icons !== 1 || st.rows[1].icons !== 1) fix(`${t}: card ${card.id} atk/def items need one icon each (${st.rows[0].icons}/${st.rows[1].icons})`);
+        }
+        if (st.icons !== 2 || !st.iconsHidden) fix(`${t}: card ${card.id} .hunter-stats needs 2 aria-hidden icons (got ${st.icons}, hidden ${st.iconsHidden})`);
+        if (!(st.right > st.left) || !(st.bottom > st.top)) fix(`${t}: card ${card.id} .hunter-stats has no box`);
+        if (st.width < 96) fix(`${t}: card ${card.id} .hunter-stats line is only ${st.width.toFixed(1)}px wide`);
+        if (Math.abs(st.left - card.metaLeft) > 2) fix(`${t}: card ${card.id} stats left ${st.left.toFixed(1)} != meta left ${card.metaLeft.toFixed(1)}`);
+        card.metaLines.forEach(mt => {
+          if (mt.missing) return fix(`${t}: card ${card.id} is missing the .hunter-meta ${mt.sel} line`);
+          if (mt.lines > 1) fix(`${t}: card ${card.id} .hunter-meta ${mt.sel} wrapped to ${mt.lines} lines`);
+          if (mt.sw > mt.cw + 1) fix(`${t}: card ${card.id} .hunter-meta ${mt.sel} clipped sw ${mt.sw} > cw ${mt.cw}`);
+        });
+        if (st.left < card.left - .5 || st.right > card.right + .5 || st.bottom > card.bottom + .5) fix(`${t}: card ${card.id} .hunter-stats outside card`);
+        const bar = card.healths[0];
+        if (bar && st.bottom > bar.top + .5) fix(`${t}: card ${card.id} .hunter-stats overlaps health bar (${st.bottom.toFixed(1)} > ${bar.top.toFixed(1)})`);
+        const key = Math.round(card.top), row = rowHeights.get(key) || [];
+        row.push(card.height); rowHeights.set(key, row);
+      });
+      for (const [key, hs] of rowHeights) if (Math.max(...hs) - Math.min(...hs) > 1) fix(`${t}: card heights on row y=${key} differ (${hs.map(v => v.toFixed(1)).join('/')})`);
       if (!m.mini) fix(`${t}: #mini-roster has no .mini-hunter`);
       else if (m.miniBad) fix(`${t}: ${m.miniBad} .mini-hunter lacks data-action/data-id/.tiny-health`);
+    } else {
+      m.cards.forEach(card => {
+        if (!card.stats) return fix(`${t}: card ${card.id} has no .hunter-stats`);
+        if (card.stats.display !== 'none') fix(`${t}: card ${card.id} .hunter-stats display ${card.stats.display} at ${t}`);
+      });
     }
   }
   if (process.env.SHOTS) {
@@ -194,4 +269,4 @@ if (fails.length) {
   console.log(`FAIL ${fails.length}`);
   process.exit(1);
 }
-console.log('PASS roster readable: chips inside #modal-content, no horizontal scroll, cards contained, healthy/hurt/critical present at 1440x900, 402x712, 360x640');
+console.log('PASS roster readable: chips inside #modal-content, no horizontal scroll, cards contained, meta lines never wrap, healthy/hurt/critical present, desktop .hunter-stats one line (atk/def/range/trait) under the meta, phone .hunter-stats hidden at 1440x900, 800x900, 402x712, 360x640');

@@ -1257,3 +1257,18 @@ html.ui-m :is(.toast.error){border-width:8px}
   /* 375/360 上五顆篩選 chip 佔兩列，原本每列 40px 讓篩選區吃掉快 1/3 個畫面；壓到 28px 剛好過 hunters-fold 的 150px 上限 */
   #modal[data-type=hunters] .roster-bar .pixel-button{min-height:28px;font-size:11.5px}
 }
+
+/* ===== T99：桌機（>=761px）獵人卡片資料一行；手機不放，維持 T98 版面 ===== */
+.hunter-stats{display:none}
+@media(min-width:761px){
+  .hunter-meta{display:flex;flex-direction:column;align-items:flex-start;gap:3px;min-width:0}
+  .hunter-meta small,.hunter-meta .rarity,.hunter-meta .status{white-space:nowrap;max-width:100%}
+  .hunter-stats{display:flex;align-items:center;gap:7px;margin-top:5px;font:10px/1 var(--font-num);color:var(--text-dim);white-space:nowrap;max-width:100%}
+  .hunter-stats .hs-row{display:flex;flex:0 0 auto;align-items:center;gap:3px;font:600 10.5px/1 var(--font-num);color:var(--text-dim)}
+  .hunter-stats .inline-icon[data-icon]{width:12px;height:12px;min-width:12px;min-height:12px}
+  .hunter-stats .trait{flex:0 0 auto;padding:1px 4px;border:1px solid #6b7a4a;border-radius:2px;background:#2f3a26;font-size:10px;line-height:14px;color:#d9bf8e;white-space:nowrap}
+  .hunter-stats .hs-trait{flex:1 1 auto;min-width:20px;font-size:10px;line-height:14px;color:var(--text-mute);white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+}
+/* 桌機窄一點（761–980px）時三欄太擠，獵人卡改兩欄，資料才放得下四項 */
+@media(min-width:761px) and (max-width:980px){
+  #modal[data-type=hunters] .roster-grid{grid-template-columns:repeat(2,minmax(0,1fr))}

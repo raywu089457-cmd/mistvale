@@ -33,3 +33,4 @@ date,card,reason,pi_review,opus_verdict,note
 2026-11-08T17:13,T96,-,OK,ok,CSS-only phone rule; checker reproduces before/after; desktop guard unchanged; phone crawl 0 problems
 2026-11-08T17:38,T97,-,OK,ok,closeInspector extracted and reused by the phone moveBuilding branch; phone-only gate keeps desktop as before; checker + phone crawl both green
 2026-11-08T19:04,T98,-,OK,ok,"montage review-driven: hunter cards switched to head/body/health grid, neutral track + fill-only state colours, 402 chips in one row, checker asserts fill width; my follow-up set 28px chips under 380px so hunters-fold holds 144px"
+2026-11-08T20:06,T99,-,OK,fixed,"executor put the stats in an 80px third column that squeezed .hunter-meta to ~70px, so Lv.5·魔法師 and rarity/status wrapped; reviewer rewrote it as one nowrap line under the meta (12px icons, 7px gaps), added a 761-980px two-column roster so 800x900 cards fit, and the checker now asserts no meta wrap + one-line stats"
