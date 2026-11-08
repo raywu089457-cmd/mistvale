@@ -2,6 +2,7 @@ import {getRoads,onPaved,doorStand,PALISADE,villagePonds,inPond,buildingSolid,st
 import {createVillageNav} from './village-nav.js';
 import {WORLD,REGIONS,walkable,inVillage,regionAt,regionContains,regionEdge,regionCenter,randomRegionPoint,wildAt,nearestRingRoad,ringRoadPath,ringPointAt,onRingRoad,ringRoadDistance} from './overworld.js';
 import {VILLAGE_BOUNDS,EXITS,blockAt,BUILDING_NUDGE,BUILDING_SLOTS,blockCenter} from './village-grid.js';
+import {sfx} from './sfx.js';
 import { SKILLS, BUILDINGS, CLASSES, RARITIES, TRAITS, MATERIALS, PRODUCTS, RECIPES, DIFFICULTIES, CAMP, HUNT_ZONE, PILOT_ATTACK, PILOT_ORB, AI_ATTACK_LOCK, KITE, PROVOKE, MONSTER_RANGED, LEGACY_LAYOUT_V14, LEGACY_LAYOUT_V15, LEGACY_LAYOUT_V16, ART_LAYOUT_HISTORY, REGION_DENSITY, DEFAULT_REGION_DENSITY, MONSTER_SPEED_MULT, MONSTER_ATTACK_RATE } from './pixel-data.js';
 
 const mapById = list => Object.assign(Object.create(null), Object.fromEntries(list.map(item => [item.id, item])));
@@ -117,6 +118,18 @@ export function createGame(saved = null) {
     if (amp > 0) {
       const ms = amp === 3.5 ? 220 : amp === 4.5 ? 260 : amp === 2 ? 140 : 90, prev = state.shake;
       if (!(prev && prev.t === state.time && prev.amp >= amp)) state.shake = { amp, ms, seq: (prev?.seq || 0) + 1, t: state.time };
+    }
+    // T105:命中音效。用和震動同一張事件表,只挑有份量的:(暴擊)>命中>技能>治療>金幣>升級>倒地。
+    // 音效完全在畫面層(node 測試沒有 AudioContext 時 sfx 自己跳過),不動傷害與戰鬥時序。
+    if (extra.value > 0 || extra.crit || type === 'heal' || type === 'loot' || type === 'level' || type === 'death') {
+      if (type === 'skillfx' && extra.value > 0) sfx('aoe');
+      else if (type === 'hit' && extra.crit) sfx('crit');
+      else if (extra.crit) sfx('crit');
+      else if (['hit', 'arrow', 'spell', 'slash', 'holy'].includes(type) && extra.value > 0) sfx('hit', { gain: extra.by === 'boss' ? 1.3 : 1 });
+      else if (type === 'heal') sfx('heal');
+      else if (type === 'loot') sfx('coin');
+      else if (type === 'level') sfx('level');
+      else if (type === 'death') sfx('place', { gain: 0.7 });
     }
   };
   const canPay = cost => Object.entries(cost).every(([key, amount]) => state[key] >= amount);
