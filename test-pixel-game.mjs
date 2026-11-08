@@ -473,7 +473,9 @@ turn.pilotStop();
   assert.ok(foes.onPath.hp < hp0.onPath, 'orb hits the monster on its path');
   assert.ok(foes.nearPath.hp < hp0.nearPath, 'orb hits a monster within its radius of the path');
   assert.equal(foes.offPath.hp, hp0.offPath, 'orb misses a monster outside its radius');
-  assert.equal(foes.onPath.hp, hp0.onPath - orb.state.hunters[0].attack, 'each monster is hit once per orb');
+  // T106:普攻有 15% 暴擊(1.5 倍),所以一次命中的扣血量是 attack 或 1.5 倍;兩者都只算「命中一次」。
+  { const atk = orb.state.hunters[0].attack, drop = hp0.onPath - foes.onPath.hp;
+    assert.ok(drop === atk || drop === Math.round(atk * 1.5), `each monster is hit once per orb (drop ${drop} vs atk ${atk})`); }
   assert.equal(orb.state.shots.length, 0, 'orb disappears after its range');
   // 3.2 格內有魔物:照舊自動瞄準牠(方向朝魔物,不是面向)
   orb.tick(0.6); const near = { ...proto, id: 'orbtestNear', x: oh.x, z: oh.z - 2, hp: 200, attackTimer: 9, rewarded: false };

@@ -107,6 +107,11 @@ export function createGame(saved = null) {
   const log = (text, tone = 'info') => { state.log.unshift({ id: id('log'), text, tone }); state.log.length = Math.min(32, state.log.length); };
   // T69:帶 targetId 的命中特效在建立時就記下目標型別(bodyType)。擊殺那一 tick 目標會在第一次繪製前
   // 被移出 state.enemies,世界端沒有這個欄位就只能退回腳下與預設大小(只影響特效錨點,不影響傷害/戰鬥)。
+  // T106:暴擊。原本的判定是 `crit: damage >= attack * 1.25`,但傷害就是 Math.round(attack)、沒有變異,
+  // 所以暴擊從來不會發生——暴擊傷害字、crit-spray 粒子、暴擊音效、鏡頭震動的暴擊格、T106 的停格全是死碼。
+  // 補上真正的骰子:15% 機率 1.5 倍傷害(平均輸出 +7.5%)。
+  const CRIT_CHANCE = 0.15, CRIT_MULT = 1.5;
+  const rollCrit = () => random() < CRIT_CHANCE;
   const effect = (type, p, extra = {}) => { state.effects.push({ id: id('fx'), type, x: p.x, z: p.z, age: 0, ...(p.type && extra.targetId != null ? { bodyType: p.type } : {}), ...extra }); if (state.effects.length > 100) state.effects.splice(0, state.effects.length - 100);
     // T95:重擊的鏡頭震動請求。只給畫面用,不動傷害數字與戰鬥時序;state.shake 不存檔(serialize 會清成 null)。
     // 振幅表(1440x900 DPR1 基準,世界端再乘 scale/baseScale):技能命中 3.5px/220ms、王打中獵人 4.5px/260ms、
@@ -119,6 +124,10 @@ export function createGame(saved = null) {
       const ms = amp === 3.5 ? 220 : amp === 4.5 ? 260 : amp === 2 ? 140 : 90, prev = state.shake;
       if (!(prev && prev.t === state.time && prev.amp >= amp)) state.shake = { amp, ms, seq: (prev?.seq || 0) + 1, t: state.time };
     }
+    // T106:重擊的停格請求(hitstop)。和震動用同一張事件表:技能命中/王打中獵人 90ms、暴擊 60ms,普通命中不停。
+    // 只給畫面用——世界端只是「這幾毫秒不重畫」,state.time 與傷害結算照常,戰鬥時序與平衡不變。
+    const hsMs = amp >= 3.5 ? 90 : amp === 2 ? 60 : 0;
+    if (hsMs > 0 && !(state.hitstop && state.hitstop.t === state.time)) state.hitstop = { ms: hsMs, seq: (state.hitstop?.seq || 0) + 1, t: state.time };
     // T105:命中音效。用和震動同一張事件表,只挑有份量的:(暴擊)>命中>技能>治療>金幣>升級>倒地。
     // 音效完全在畫面層(node 測試沒有 AudioContext 時 sfx 自己跳過),不動傷害與戰鬥時序。
     if (extra.value > 0 || extra.crit || type === 'heal' || type === 'loot' || type === 'level' || type === 'death') {
@@ -939,22 +948,22 @@ export function createGame(saved = null) {
         h.atkZ = inRange ? target.z : h.z + (pilot.faceZ ?? 0);
         if (h.classId === 'sorcerer') {   // 法師:發出真的會飛的魔法球(PILOT_ORB),路徑上碰到的魔物都打;沒有目標就朝目前面向的角度飛
           const l = Math.hypot(h.atkX - h.x, h.atkZ - h.z) || 1, dx = (h.atkX - h.x) / l, dz = (h.atkZ - h.z) / l, range = CLASS.sorcerer?.range || 4.5;
-          const damage = Math.max(1, Math.round(h.attack));
-          (state.shots ??= []).push({ x: h.x, z: h.z, dx, dz, left: range, ownerId: h.id, dmg: damage, crit: damage >= h.attack * 1.25, hit: [] });
+          const crit = rollCrit(), damage = Math.max(1, Math.round(h.attack * (crit ? CRIT_MULT : 1)));
+          (state.shots ??= []).push({ x: h.x, z: h.z, dx, dz, left: range, ownerId: h.id, dmg: damage, crit, hit: [] });
           effect('spell', { x: h.x + dx * range, z: h.z + dz * range }, { sourceX: h.x, sourceZ: h.z, delay: range / PILOT_ORB.speed, cls: h.classId, value: 0, noImpact: true });   // 飛行畫面(同速度);命中由 stepShots 判定
         } else if (h.classId === 'archer') {   // 弓箭手:真的把箭射出去,碰到魔物才算命中、才扣血
           const near = foes.find(e => distance(h, e) <= (h.range || 7.5)) || null;
           const ax = near ? near.x : h.x + (pilot.faceX ?? 1), az = near ? near.z : h.z + (pilot.faceZ ?? 0);
           h.atkX = ax; h.atkZ = az;
           const l = Math.hypot(ax - h.x, az - h.z) || 1, dx = (ax - h.x) / l, dz = (az - h.z) / l;
-          const damage = Math.max(1, Math.round(h.attack * (h.satiety < 15 || h.stamina < 15 ? 0.6 : 1)));
-          (state.shots ??= []).push({ x: h.x, z: h.z, dx, dz, left: CLASS.archer?.range || 7.5, ownerId: h.id, dmg: damage, crit: damage >= h.attack * 1.25, hit: [], kind: 'arrow', speed: 18 });
+          const crit = rollCrit(), damage = Math.max(1, Math.round(h.attack * (h.satiety < 15 || h.stamina < 15 ? 0.6 : 1) * (crit ? CRIT_MULT : 1)));
+          (state.shots ??= []).push({ x: h.x, z: h.z, dx, dz, left: CLASS.archer?.range || 7.5, ownerId: h.id, dmg: damage, crit, hit: [], kind: 'arrow', speed: 18 });
         } else if (inRange) {
-          const damage = Math.max(1, Math.round(h.attack));
+          const crit = rollCrit(), damage = Math.max(1, Math.round(h.attack * (crit ? CRIT_MULT : 1)));
           const { kind, delay } = attackFx(h.classId);
           target.hitAt = state.time + delay; target.hitFromX = h.x; target.hitFromZ = h.z;
           target.hp -= damage;
-          effect(kind, target, { sourceX: h.x, sourceZ: h.z, value: damage, targetId: target.id, delay, cls: h.classId, crit: damage >= h.attack * 1.25 });
+          effect(kind, target, { sourceX: h.x, sourceZ: h.z, value: damage, targetId: target.id, delay, cls: h.classId, crit });
           if (target.hp <= 0) rewardEnemy(target, h);
         }
       }
@@ -1107,16 +1116,16 @@ export function createGame(saved = null) {
         if (sk && sk.kind !== 'allyHeal' && h.skillCd === 0 && h.attackTimer === 0) { castSkill(h, target, sk); continue; }
         if (h.attackTimer === 0) {
           h.attackTimer = attackInterval(h);
-          const damage = Math.max(1, Math.round(h.attack * (h.satiety < 15 || h.stamina < 15 ? 0.6 : 1)));
+          const crit = rollCrit(), damage = Math.max(1, Math.round(h.attack * (h.satiety < 15 || h.stamina < 15 ? 0.6 : 1) * (crit ? CRIT_MULT : 1)));
           h.atkAt = state.time; h.atkX = target.x; h.atkZ = target.z;
           h.lockUntil = state.time + AI_ATTACK_LOCK;   // 收招僵直:這段時間站著不動(沒有 CD,下一擊照原本的 attackTimer)
           if (h.classId === 'archer') {   // 弓箭手:箭真的飛,碰到魔物才算命中、才扣血
             const l = distance(h, target) || 1, dx = (target.x - h.x) / l, dz = (target.z - h.z) / l;
-            (state.shots ??= []).push({ x: h.x, z: h.z, dx, dz, left: h.range, ownerId: h.id, dmg: damage, crit: damage >= h.attack * 1.25, hit: [], kind: 'arrow', speed: 18 });
+            (state.shots ??= []).push({ x: h.x, z: h.z, dx, dz, left: h.range, ownerId: h.id, dmg: damage, crit, hit: [], kind: 'arrow', speed: 18 });
           } else {
             const { kind, delay } = attackFx(h.classId);
             target.hitAt = state.time + delay; target.hitFromX = h.x; target.hitFromZ = h.z;
-            target.hp -= damage; effect(kind, target, { sourceX: h.x, sourceZ: h.z, value: damage, targetId: target.id, delay, cls: h.classId, crit: damage >= h.attack * 1.25 });
+            target.hp -= damage; effect(kind, target, { sourceX: h.x, sourceZ: h.z, value: damage, targetId: target.id, delay, cls: h.classId, crit });
             if (h.classId === 'darkknight') h.hp = Math.min(h.maxHp, h.hp + damage * 0.08);
             if (target.hp <= 0) rewardEnemy(target, h);
           }
@@ -1247,11 +1256,12 @@ export function createGame(saved = null) {
         w.status = '戰鬥中';
         if (w.attackTimer === 0) {
           w.attackTimer = 1.2 * (w.trait === 'swift' ? 0.9 : 1);
-          const damage = Math.max(1, Math.round(w.attack * 0.9));
+          const crit = rollCrit();   // 流浪英雄的戰鬥是玩家在場上真的看得到的,暴擊要跟獵人同一套
+          const damage = Math.max(1, Math.round(w.attack * 0.9 * (crit ? CRIT_MULT : 1)));
           w.atkAt = state.time; w.atkX = target.x; w.atkZ = target.z; w.lockUntil = state.time + AI_ATTACK_LOCK;
           const { kind, delay } = attackFx(w.classId);   // 跟獵人同一套特效:遠程職業(弓箭手/法師/祭司)畫飛行物,不再一律近戰刀光
           target.hitAt = state.time + delay; target.hitFromX = w.x; target.hitFromZ = w.z;
-          target.hp -= damage; effect(kind, target, { sourceX: w.x, sourceZ: w.z, value: damage, targetId: target.id, delay, cls: w.classId });
+          target.hp -= damage; effect(kind, target, { sourceX: w.x, sourceZ: w.z, value: damage, targetId: target.id, delay, cls: w.classId, crit });
           if (target.hp <= 0) {
             wandererLoot(target, w);
             w.xp += 12; state.wanderKills = (state.wanderKills || 0) + 1;
@@ -1792,7 +1802,7 @@ export function createGame(saved = null) {
       if(!n)return result(false,'目前沒有正在出征的獵人。');
       log(`已召回 ${n} 位獵人回村待機。`,'success');return result(true,`${n} 位獵人回村待機。`);
     },
-    serialize() { return JSON.parse(JSON.stringify({ ...state, effects: [], shots: [], shake: null, log: [], dungeon: { ...state.dungeon, events: [] }, hunters: state.hunters.map(({ route, ...h }) => h) })); },
+    serialize() { return JSON.parse(JSON.stringify({ ...state, effects: [], shots: [], shake: null, hitstop: null, log: [], dungeon: { ...state.dungeon, events: [] }, hunters: state.hunters.map(({ route, ...h }) => h) })); },
     pilotStart(hunterId) { const h = state.hunters.find(q => q.id === hunterId); if (!h) return result(false, '找不到這位獵人。'); if (h.hp <= 0) return result(false, '這位獵人倒下了。'); state.pilot = { id: h.id, dx: 0, dz: 0, atk: false, readyAt: 0, lockUntil: 0, faceX: 1, faceZ: 0 }; h.task = 'pilot'; h.status = '手動操控'; h.route = []; return result(true, `開始操控 ${h.name}。`); },
     pilotInput(dx, dz) { if (state.pilot) { state.pilot.dx = dx || 0; state.pilot.dz = dz || 0; } },
     pilotAttack() { if (state.pilot) state.pilot.atk = true; },
