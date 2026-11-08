@@ -32,3 +32,4 @@ date,card,reason,pi_review,opus_verdict,note
 2026-11-08T16:05,T95,tier-c,OK,ok,matches plan+card table; only open item is 2D-path static-cache rebuild during a shake (GL redraws anyway)
 2026-11-08T17:13,T96,-,OK,ok,CSS-only phone rule; checker reproduces before/after; desktop guard unchanged; phone crawl 0 problems
 2026-11-08T17:38,T97,-,OK,ok,closeInspector extracted and reused by the phone moveBuilding branch; phone-only gate keeps desktop as before; checker + phone crawl both green
+2026-11-08T19:04,T98,-,OK,ok,"montage review-driven: hunter cards switched to head/body/health grid, neutral track + fill-only state colours, 402 chips in one row, checker asserts fill width; my follow-up set 28px chips under 380px so hunters-fold holds 144px"
