@@ -1272,3 +1272,68 @@ html.ui-m :is(.toast.error){border-width:8px}
 /* 桌機窄一點（761–980px）時三欄太擠，獵人卡改兩欄，資料才放得下四項 */
 @media(min-width:761px) and (max-width:980px){
   #modal[data-type=hunters] .roster-grid{grid-template-columns:repeat(2,minmax(0,1fr))}
+}
+
+/* ===== T100：隊員卡（派遣／地下城／競技場共用）＝頭像＋名字／等級職業／攻防射程／生命條 ===== */
+.party-pick{display:grid;grid-template-columns:auto minmax(0,1fr) 18px;align-items:center;gap:8px;padding:7px 8px}
+.party-pick img{height:56px;width:43px}
+.party-pick .pp-body{display:flex;flex-direction:column;gap:2px;min-width:0;flex:none;line-height:1.2}
+.party-pick .pp-name{font-size:var(--fs-tiny);font-weight:700;color:#e8d7a4;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.party-pick .pp-sub{font-size:10px;color:#b9c8a4;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.party-pick .pp-stats{display:flex;align-items:center;gap:4px;font:600 10.5px/1 var(--font-num);color:var(--text-dim)}
+.party-pick .pp-stats b{display:inline;font-size:10.5px;color:#e2d7b6}
+.party-pick .pp-stats .inline-icon[data-icon]{width:12px;height:12px;min-width:12px;min-height:12px}
+.party-pick .pp-range{font-style:normal;padding:1px 4px;border:1px solid #6b7a4a;border-radius:2px;background:#2f3a26;font:600 9.5px/12px var(--font-num);color:#d9bf8e;white-space:nowrap}
+.party-pick .pp-hpline{display:flex;align-items:center;gap:5px;margin-top:1px}
+.party-pick .pp-hp{display:block;flex:1;height:5px;min-width:22px;background:#3a2416}
+.party-pick .pp-hp>i{display:block;height:100%;background:#7ccf6a}
+.party-pick .pp-num{font:600 10px/1 var(--font-num);color:#c9d6b3;white-space:nowrap}
+.party-pick .pp-mark{font-size:11px;line-height:1;color:#e4d18f;text-align:center}
+/* 圓形狀態徽章：✓＝已入隊、✝＝倒下；空的時候不佔樣式 */
+.party-pick .pp-mark:not(:empty){display:grid;place-items:center;width:17px;height:17px;border-radius:50%;background:#2a1c0f;border:1px solid #c9a04d;color:#f4dc94;box-shadow:0 0 6px rgba(231,190,94,.35)}
+.party-pick.down .pp-mark{color:#d08a7a}
+.party-pick.down .pp-mark:not(:empty){border-color:#9d5a44;box-shadow:none;background:#241410}
+/* 未入隊的卡壓暗一點，一眼看出「這 3 個才是這趟的人」 */
+.party-pick:not(.selected):not(.down){filter:brightness(.86) saturate(.88)}
+.party-pick.selected{filter:none}
+.party-pick.down{filter:grayscale(.8) brightness(.72)}
+/* 派遣頁原本把生命條限寬 90px，T100 改成跟著卡片伸縮 */
+.dispatch-party .party-pick .pp-hp{flex:1;width:auto;max-width:none;height:5px;margin-top:0}
+.dispatch-party .party-pick .pp-hp>i{height:100%}
+@media(max-width:760px){
+  .party-pick{padding:6px 7px;gap:6px}
+  .party-pick img{width:34px;height:46px}
+  .party-pick .pp-sub{font-size:9.5px}
+  .party-pick .pp-stats{font-size:10px;gap:3px}
+  .party-pick .pp-stats .inline-icon[data-icon]{width:11px;height:11px;min-width:11px;min-height:11px}
+  .party-pick .pp-range{font-size:9px;line-height:11px;padding:1px 3px}
+  .party-pick .pp-num{font-size:9.5px}
+}
+/* 360px 這種窄機兩欄只剩 ~49px 給文字，改成單欄才放得下攻防與生命數字 */
+@media(max-width:380px){
+  .party-grid{grid-template-columns:1fr}
+}
+.party-pick .pp-note{font-style:normal}
+/* 手機與窄桌機卡片窄，「在別的隊伍」這種次要註記留給寬螢幕，手指點下去就知道人會移過來 */
+@media(max-width:980px){
+  .party-pick .pp-sub .pp-note{display:none}
+}
+@media(min-width:761px) and (max-width:980px){
+  .party-pick .pp-sub{font-size:9.5px}
+}
+@media(max-width:430px){
+  .party-pick img{width:30px;height:42px}
+  .party-pick .pp-stats{gap:2px;font-size:9.5px}
+  .party-pick .pp-stats b{font-size:9.5px}
+  .party-pick .pp-stats .inline-icon[data-icon]{width:10px;height:10px;min-width:10px;min-height:10px}
+  .party-pick .pp-range{font-size:8.5px;line-height:10px;padding:1px 2px}
+}
+
+/* 短螢幕桌機（如 1280x720）把獵人卡收緊：T99 補了攻防那一行後卡片高了 17px，
+   名冊第一張卡會壓到 content 下緣被切掉；只在矮螢幕、桌機寬度生效。 */
+@media(min-width:761px) and (max-height:780px){
+  #modal[data-type=hunters] .hunter-card{padding:7px 10px;row-gap:6px}
+  #modal[data-type=hunters] .hunter-meta{gap:1px}
+  #modal[data-type=hunters] .hunter-stats{margin-top:1px}
+  #modal[data-type=hunters] .hunter-health{margin-top:1px}
+}
