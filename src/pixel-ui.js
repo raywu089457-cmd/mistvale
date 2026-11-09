@@ -270,8 +270,16 @@ const LIVE={trade:s=>[s.tradeRequests,s.gold,s.wood,s.ore,s.herb,s.cloth,s.flour
 let liveSig='',liveAt=0;
 function liveModalTick(now){const f=LIVE[modal];if(!f||now-liveAt<250)return;liveAt=now;const sig=JSON.stringify(f(game.state));if(!liveSig){liveSig=sig;return;}if(sig===liveSig)return;
  const box=$('#modal-content');if(pressEl&&box.contains(pressEl))return;liveSig=sig;const st=box.scrollTop;openModal(modal);box.scrollTop=st;liveSig=sig;}
+function syncScrollHint(){   // T139：面板內容比視窗高時，下方顯示「還有內容」提示
+  const c=$("#modal-content"), m=$("#modal"), hint=$("#scroll-hint");
+  if(!c||!m||!hint)return;
+  const over=c.scrollHeight-c.clientHeight;
+  const atEnd=c.scrollTop>=over-12;
+  m.dataset.scroll=over>12?(atEnd?"end":"1"):"";
+  hint.hidden=!(over>12)||atEnd;
+}
 function openModal(type){if(!modalShown())sfx('open');const wasOpen=modalShown(),prev=wasOpen?document.activeElement:null;if(!wasOpen)modalOpener=document.activeElement;
- modal=type;liveSig='';$('#modal').dataset.type=type;$('#modal').dataset.kind=type==='confirm'?'confirm':'';document.body.dataset.modalTab=MODAL_TAB[type]||'';measureHud();$('#modal-backdrop').classList.remove('hidden');hudInert(true);modalTitle(type,type==='trade'?'trade':type==='craft'?'anvil':type==='dungeon'?'dungeon':type==='arena'?'swords':type==='hunters'?'hunter':type==='difficulty'?'skull':type==='dispatch'?'swords':type==='region'?'map':type==='density'?'skull':'scroll');$('#modal-content').innerHTML=modalHTML(type);if(type==='worldmap')paintMap($('#world-map-canvas'));setIcons($('#modal-content'));paintPortraits();fitDispatchPad();focusModalStart(prev);}   // 先把內容畫好、取消隐藏,最後才把焦點放進去(重畫時留在同一顆控件)
+ modal=type;liveSig='';$('#modal').dataset.type=type;$('#modal').dataset.kind=type==='confirm'?'confirm':'';document.body.dataset.modalTab=MODAL_TAB[type]||'';measureHud();$('#modal-backdrop').classList.remove('hidden');hudInert(true);modalTitle(type,type==='trade'?'trade':type==='craft'?'anvil':type==='dungeon'?'dungeon':type==='arena'?'swords':type==='hunters'?'hunter':type==='difficulty'?'skull':type==='dispatch'?'swords':type==='region'?'map':type==='density'?'skull':'scroll');$('#modal-content').innerHTML=modalHTML(type);if(type==='worldmap')paintMap($('#world-map-canvas'));setIcons($('#modal-content'));paintPortraits();fitDispatchPad();focusModalStart(prev);syncScrollHint();}   // 先把內容畫好、取消隐藏,最後才把焦點放進去(重畫時留在同一顆控件)
 function dungeonStatus(){const d=game.state.dungeon;return d.active?`第 ${d.floor} 層 · 第 ${Math.max(1,d.wave||1)}/3 波 · ${d.phase}${d.auto?' · 自動續戰':''}`:`最高紀錄：第 ${d.bestFloor} 層 · ${d.cooldown>0?`整備中 ${Math.ceil(d.cooldown)} 秒`:'可以出發'}`;}
 let dgSig='';   // 地下城彈窗開著時:出發/結束(畫面要換)就整個重畫,其他只改狀態列
 function dungeonTick(){if(modal!=='dungeon'){dgSig='';return;}const d=game.state.dungeon,sig=d.active+':'+d.bestFloor;if(dgSig&&sig!==dgSig){dgSig=sig;openModal('dungeon');return;}dgSig=sig;
@@ -287,7 +295,8 @@ function regionProgress(rid,s){
   const got=mon.filter(id=>(seen[id]||0)>0).length;
   const kills=mon.reduce((n,id)=>n+(seen[id]||0),0);
   const dots=mon.map(id=>`<i class="rg-dot${(seen[id]||0)>0?' on':''}" title="${(seen[id]||0)>0?MONSTER_NAME[id]||id:'尚未記錄'}"></i>`).join('');
-  return `<div class="rg-exp" role="group" aria-label="${rid} 探索進度"><span class="rg-dots" aria-hidden="true">${dots}</span><small>已記錄 ${got}／${mon.length} 種 · 擊殺 ${kills} 次</small></div>`;
+  return `<div class="rg-exp" role="group" aria-label="${rid} 探索進度"><span class="rg-dots" aria-hidden="true">${dots}</span><small>已記錄 ${got}／${mon.length} 種 · 擊殺 ${kills} 次</small></div>`;  syncScrollHint();
+
 }
 function regionBossLine(s){
   const n=s.bossKills||0;
@@ -695,6 +704,8 @@ document.addEventListener('keydown',e=>{
   const d=PILOT_KEYS[e.key];if(d){e.preventDefault();pilotKeys.add(d);pilotInputFromKeys();}
 });
 document.addEventListener('keyup',e=>{const d=PILOT_KEYS[e.key];if(d){pilotKeys.delete(d);if(game?.state?.pilot)pilotInputFromKeys();}});
+/* T139:scroll-hint-listener */
+document.addEventListener('scroll',e=>{if(e.target&&e.target.id==='modal-content')syncScrollHint();},true);
 document.addEventListener('click',e=>{
   const b=e.target.closest('[data-pilot]'); if(!b)return;
   const a=b.dataset.pilot;

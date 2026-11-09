@@ -1888,3 +1888,39 @@ html{font-variant-numeric:tabular-nums;font-feature-settings:'tnum' 1}
 .encounter-banner h3{font:800 15px/1.35 var(--font-title);letter-spacing:.05em;color:var(--gold-bright);margin:0 0 3px}
 .encounter-banner p{margin:0;max-width:64ch}
 @media(max-width:760px){.encounter-banner{min-height:0;padding:9px 10px}.encounter-banner h3{font-size:14px}}
+
+/* ===== T139：面板捲軸改成細的金屬深色（Windows 預設是寬大的淺灰滾動條，很出戲） ===== */
+#modal-content,#left-panel,#inspector{
+  overscroll-behavior:contain;
+  scrollbar-width:thin;                 /* Firefox / 新版 Chromium */
+  scrollbar-color:#8a6a36 #241a10;
+}
+#modal-content::-webkit-scrollbar,#left-panel::-webkit-scrollbar,#inspector::-webkit-scrollbar{width:10px;height:10px}
+#modal-content::-webkit-scrollbar-track,#left-panel::-webkit-scrollbar-track,#inspector::-webkit-scrollbar-track{
+  background:#241a10;border-left:1px solid #3d3225;
+}
+#modal-content::-webkit-scrollbar-thumb,#left-panel::-webkit-scrollbar-thumb,#inspector::-webkit-scrollbar-thumb{
+  background:linear-gradient(180deg,#a8823f,#7a5a28);border:2px solid #241a10;border-radius:5px;min-height:28px;
+}
+#modal-content::-webkit-scrollbar-thumb:hover,#left-panel::-webkit-scrollbar-thumb:hover,#inspector::-webkit-scrollbar-thumb:hover{
+  background:linear-gradient(180deg,#cfaa5c,#96702f);
+}
+#modal-content::-webkit-scrollbar-corner,#left-panel::-webkit-scrollbar-corner,#inspector::-webkit-scrollbar-corner{background:#241a10}
+@media(max-width:760px){
+  /* 手機是覆蓋式捲軸，保持細、不佔版面 */
+  #modal-content::-webkit-scrollbar,#left-panel::-webkit-scrollbar,#inspector::-webkit-scrollbar{width:6px}
+  #modal-content::-webkit-scrollbar-thumb,#left-panel::-webkit-scrollbar-thumb,#inspector::-webkit-scrollbar-thumb{border-width:1px;border-radius:4px}
+}
+
+/* ===== T139：面板內容比視窗高的時候，底部提示「還有內容」（原本完全看不出可以捲） ===== */
+#modal{position:relative}
+.scroll-hint{position:absolute;left:0;right:0;bottom:0;display:flex;align-items:center;justify-content:center;gap:6px;
+  padding:8px 0 9px;pointer-events:none;opacity:0;transition:opacity .18s;
+  background:linear-gradient(180deg,rgba(24,16,9,0) 0%,rgba(24,16,9,.92) 58%);
+  color:var(--gold-bright);font:600 11px/1 var(--font-ui);letter-spacing:.08em}
+.scroll-hint[hidden]{display:none}
+#modal[data-scroll="1"] .scroll-hint{opacity:1}
+.scroll-hint b{font-size:12px;animation:hintBob 1.4s ease-in-out infinite}
+@keyframes hintBob{0%,100%{transform:translateY(0)}50%{transform:translateY(2px)}}
+@media(prefers-reduced-motion:reduce){.scroll-hint b{animation:none}}
+@media(max-width:760px){.scroll-hint{padding:6px 0 7px;font-size:10.5px}}
