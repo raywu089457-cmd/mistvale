@@ -11,6 +11,12 @@ const INLINE_LIMIT=16*1024;
 const mediaDir=path.join(out,'media');
 await fs.rm(mediaDir,{recursive:true,force:true});
 await fs.mkdir(mediaDir,{recursive:true});
+// T118：像素字型（Ark Pixel 12px，OFL 1.1）複製到 media/fonts/，CSS 以相對路徑 media/fonts/… 載入
+const fontDir=path.join(mediaDir,'fonts');
+await fs.mkdir(fontDir,{recursive:true});
+for(const f of ['ark-pixel-12-zh_tw.woff2','ark-pixel-12-mono-zh_tw.woff2']){
+  try{await fs.copyFile(path.join(root,'assets/fonts',f),path.join(fontDir,f));}catch(e){console.warn('[fonts] 缺少字型檔',f,e.message);}
+}
 let inlined=0,external=0,externalBytes=0;
 // 出貨優先用無損 WebP（同資料夾同名 .webp，pipeline/scripts/build/to_webp.py 產生）
 async function media(absPath,name){

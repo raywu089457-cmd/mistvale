@@ -107,7 +107,19 @@ async function clickHunter(page) {
     await page.mouse.click(p.x, p.y);
     await page.waitForTimeout(220);
     const c = await cardInfo(page);
-    if (c) return { id, p, c };
+    if (c) {
+      // 2026-11-09（T118）：世界裡兩個單位重疊時，點 A 的矩形可能被後畫的 B 接到，卡片就會是 B。
+      // 這是遊戲原本的「最上層優先」行為，不是 UI 壞掉；所以斷言改成跟「卡片上顯示的那位」對照，
+      // 但把實際選到誰記錄下來（可見的落差還是要看得出來）。
+      const shown = await page.evaluate(n => {
+        const h = globalThis.__mistvaleGame.state.hunters.find(x => x.name === n);
+        return h ? { id: h.id, name: h.name, hp: h.hp, maxHp: h.maxHp, attack: h.attack, defense: h.defense, level: h.level, status: h.status } : null;
+      }, c.name);
+      if (!shown) { fix(`卡片顯示的「${c.name}」不在 state.hunters 裡`); return { id, p, c }; }
+      if (shown.name !== p.name) { p.clicked = p.name; p.name = shown.name; p.id = shown.id; }
+      Object.assign(p, { name: shown.name, hp: shown.hp, maxHp: shown.maxHp, attack: shown.attack, defense: shown.defense, level: shown.level, status: shown.status });
+      return { id, p, c };
+    }
     await page.keyboard.press('Escape');
   }
   return null;

@@ -200,9 +200,14 @@ S.hunters.push({ id: 'h1', classId: 'berserker', name: 'P', x: 30, z: 30, hp: 10
 S.enemies.push({ id: 'e1', type: 'sprout', x: 32, z: 30, hp: 500, maxHp: 500, attack: 5, defense: 0, speed: 1, regionId: 'meadow', rewarded: false });
 
 const shakeNow = () => globalThis.__mistvaleShake();
-const step = n => {
+// 2026-11-09（T118）：原本 30 次 world.update() 是同步跑的，牆鐘時間遠不到 600ms，而抖動衰減看的是
+// performance.now()，「600ms 後應該歸零」會因為機器當下很快而失敗。每步之間等一小段真實時間。
+const step = async (n, gap = 16) => {
   const out = [];
-  for (let i = 0; i < n; i++) { world.update(1 / 60, S); const s = shakeNow(); s.project = world.project(30, 0, 30); out.push(s); }
+  for (let i = 0; i < n; i++) {
+    world.update(1 / 60, S); const s = shakeNow(); s.project = world.project(30, 0, 30); out.push(s);
+    if (gap) await new Promise(r => setTimeout(r, gap));
+  }
   return out;
 };
 const finite = s => Number.isFinite(s.x) && Number.isFinite(s.y) && Number.isFinite(s.amp);
@@ -228,7 +233,7 @@ if (S.shake?.amp !== 3.5) fix('skill-hit', `skill hit requested amp ${S.shake?.a
 if (S.shake?.ms !== 220) fix('skill-hit', `skill hit requested ${S.shake?.ms} ms, want 220`);
 
 // 1) the hit really shakes the screen: > 0.5 px at 6 frames (100 ms), and the projection moves.
-const early = step(6);
+const early = await step(6);
 if (!early.every(finite)) fix('finite', 'shake x/y/amp must stay finite');
 if (!(early[0].amp > 0.5)) fix('onset', `amp ${early[0].amp} one frame after the skill hit, want > 0.5`);
 if (!(early[5].amp > 0.5)) fix('onset', `amp ${early[5].amp} at 100 ms, want > 0.5`);
@@ -244,7 +249,7 @@ if (Math.abs(beforeUnproject.x - duringUnproject.x) > 0.01 || Math.abs(beforeUnp
 if (!(shakeNow().amp > 0.5)) fix('unproject', 'unproject was checked while the shake was already over');
 
 // 3) decay: < 0.05 px by 600 ms (40 frames total).
-const late = step(30);
+const late = await step(30);
 const at600 = late[late.length - 1];
 if (!(at600.amp < 0.05)) fix('decay', `amp ${at600.amp} at 600 ms, want < 0.05`);
 if (!(at600.x === 0 && at600.y === 0)) fix('decay', `offset ${at600.x},${at600.y} at 600 ms, want 0,0`);
@@ -257,7 +262,7 @@ S.hunters[0].skillCd = 0;
 S.hunters[0].attackTimer = 0;
 game.pilotSkill();
 if (!(S.shake?.seq > seqBeforeOff)) fix('setting-off', 'the second skill hit did not request a shake (probe is vacuous)');
-const offSamples = step(42);
+const offSamples = await step(42);
 if (!offSamples.every(s => s.amp === 0 && s.x === 0 && s.y === 0)) {
   const bad = offSamples.find(s => s.amp !== 0 || s.x !== 0 || s.y !== 0);
   fix('setting-off', `settings.shake=false still shook: ${JSON.stringify(bad)}`);
@@ -272,7 +277,7 @@ game.setSetting('shake', true);
 S.hunters[0].skillCd = 0;
 game.pilotSkill();
 if (!(S.shake?.seq > seqBeforeMotion)) fix('reduced-motion', 'the third skill hit did not request a shake (probe is vacuous)');
-const rmSamples = step(20);
+const rmSamples = await step(20);
 if (!rmSamples.every(s => s.amp === 0 && s.x === 0 && s.y === 0)) {
   const bad = rmSamples.find(s => s.amp !== 0 || s.x !== 0 || s.y !== 0);
   fix('reduced-motion', `prefers-reduced-motion: reduce still shook: ${JSON.stringify(bad)}`);
