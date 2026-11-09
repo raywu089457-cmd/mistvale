@@ -433,6 +433,21 @@ const conceptBuildingWidth=id=>({hall:132,inn:116,tavern:116,forge:116,trading:1
 // T130:鐵匠鋪煙囪會冒煙（有蓋才有煙，等級越高煙越旺、越密）。
 // 以前只有「程序繪製的備援圖」會冒煙，實際上所有建築都用 atlas 圖，所以整座村莊一直是靜止的。
 // 煙囪口座標在建築繪製時記下來，煙本身畫在最後的動態層（建築層會被凍結成靜態快取）。
+// T133:夜晚的窗光——每種建築的不透明範圍內，窗戶大概在哪（0..1，x 由左、y 由上）。
+// 純表驅動：改這裡就能調位置，不用動繪製程式。
+const NIGHT_WINDOWS={
+  hall:[[.30,.40],[.62,.40],[.46,.28]],
+  house:[[.36,.44],[.62,.44]],
+  inn:[[.30,.48],[.66,.48]],
+  tavern:[[.32,.44],[.62,.50]],
+  restaurant:[[.40,.42]],
+  forge:[[.42,.50]],
+  enhancement:[[.44,.44]],
+  academy:[[.38,.42],[.62,.42]],
+  clinic:[[.42,.46]],
+  dungeon:[[.36,.48]],
+  arena:[[.36,.48],[.64,.48]]
+};
 let smokeSpot=null;   // T130:鐵匠鋪煙囪口的螢幕座標（由建築繪製時記錄）
 const glowSpots=new Map();   // T131:每棟建築的 sprite 螢幕矩形（給夜晚地面的燈光定位）
 // 大廳與地下城要比店鋪大。舊版是 hall:79 / dungeon:77,換算成倍率。
@@ -2341,7 +2356,8 @@ let renderDprMax=Math.max(1,dprCap||autoDpr());   // 畫布解析度上限(devic
         const lay=state.layout?.[b.id]||b;
         lit.push({id:b.id,lv,x:lay.x,z:lay.z});
       }
-      const tn=Math.min(1,nightLast/.85),pts=[];
+      const tn=Math.min(1,nightLast/.85),pts=[],winPts=[];
+      const rm=matchMedia('(prefers-reduced-motion: reduce)').matches;
       if(lightsCanvas.width!==width||lightsCanvas.height!==height){lightsCanvas.width=width;lightsCanvas.height=height;lightsW=width;lightsH=height;}
       const lg=lightsG;lg.setTransform(1,0,0,1,0,0);lg.clearRect(0,0,lightsCanvas.width,lightsCanvas.height);lg.globalCompositeOperation='lighter';
       for(let i=0;i<lit.length;i++){
@@ -2362,12 +2378,28 @@ let renderDprMax=Math.max(1,dprCap||autoDpr());   // 畫布解析度上限(devic
         grd.addColorStop(1,'rgba(255,170,60,0)');
         lg.fillStyle=grd;lg.beginPath();lg.ellipse(cx2,cy2,rx,ry,0,0,Math.PI*2);lg.fill();
         pts.push({id:sp.id,x:Math.round(p2.x),y:Math.round(p2.y)});
+        // T133:窗光——用同一份不透明範圍定位，窗戶才會落在房子的立面上。
+        if(gs){
+          const wins=NIGHT_WINDOWS[sp.id]||[[.42,.46]];
+          for(let w=0;w<wins.length;w++){
+            const wx=R(gs.x+(gs.bb.x0+(gs.bb.x1-gs.bb.x0)*wins[w][0])*gs.w);
+            const wy=R(gs.y+(gs.bb.y0+(gs.bb.y1-gs.bb.y0)*wins[w][1])*gs.h);
+            const ww=Math.max(3,Math.round(4.6*scale)),wh=Math.max(2,Math.round(3.4*scale));
+            const wf=rm?.88:(.72+.28*Math.sin(elapsed*(2.1+w*.7)+i*1.7+w*.9));
+            const wa=Math.min(1,tn*.9*wf);
+            lg.fillStyle='rgba(255,214,140,'+(wa*.55).toFixed(3)+')';
+            lg.fillRect(wx-ww*1.4,wy-wh*1.3,ww*2.8,wh*2.6);   // 窗外的暈
+            lg.fillStyle='rgba(255,222,164,'+wa.toFixed(3)+')';
+            lg.fillRect(wx,wy,ww,wh);
+            winPts.push({id:sp.id,x:Math.round(wx+ww/2),y:Math.round(wy+wh/2)});
+          }
+        }
       }
       lg.globalCompositeOperation='source-over';
-      globalThis.__mistvaleNight={strength:+nightLast.toFixed(3),pools:lit.length,ids:lit.map(o=>o.id),pts};
+      globalThis.__mistvaleNight={strength:+nightLast.toFixed(3),pools:lit.length,ids:lit.map(o=>o.id),pts,windows:winPts.length,winPts};
     }else{
       if(lightsW){lightsG.setTransform(1,0,0,1,0,0);lightsG.clearRect(0,0,lightsW,lightsH);}
-      globalThis.__mistvaleNight={strength:+(nightLast||0).toFixed(3),pools:0,ids:[],pts:[]};
+      globalThis.__mistvaleNight={strength:+(nightLast||0).toFixed(3),pools:0,ids:[],pts:[],windows:0,winPts:[]};
     }
     // Small ambient birds and bright drifting pollen keep the village alive.
     if(quality){for(let i=0;i<12;i++){const x=((elapsed*(2+i%3)+i*79)%width),y=(i*47+Math.sin(elapsed*.5+i)*7)%(height);g.globalAlpha=.4;pixel(g,x,y,1,1,'#f2e9be');}g.globalAlpha=1;}
