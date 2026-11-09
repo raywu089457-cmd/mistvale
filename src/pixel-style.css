@@ -1864,3 +1864,21 @@ html{font-variant-numeric:tabular-nums;font-feature-settings:'tnum' 1}
   @keyframes nsIn{from{opacity:0;transform:translateY(6px)}to{opacity:1;transform:translateY(0)}}
   .next-step .ns-tx{font-size:12px}
 }
+
+/* ===== T134：頂部晝夜時鐘（第 N 天 · 白天/夜晚 · 這半天的進度） ===== */
+.day-clock{display:flex;align-items:center;gap:6px;padding:4px 8px;border:1px solid #5c4a2c;border-radius:2px;background:#2a1b0eb8;color:#e8d7a4;font:600 12px/1.15 var(--font-num);white-space:nowrap}
+.day-clock .dc-dot{width:9px;height:9px;border-radius:50%;background:#f2c96a;box-shadow:0 0 6px #f2c96a99;flex:0 0 auto}
+.day-clock.night .dc-dot{background:#93a9dd;box-shadow:0 0 7px #93a9dd99}
+.day-clock .dc-tx{display:flex;flex-direction:column;line-height:1.1}
+.day-clock .dc-tx b{font-weight:700;color:#efe2c0}
+.day-clock .dc-tx small{font-weight:600;color:#b9c8a4;font-size:11px}
+.day-clock.night .dc-tx small{color:#a9b7d8}
+.day-clock .dc-bar{display:block;width:34px;height:3px;background:#3a2a1a;overflow:hidden;flex:0 0 auto}
+.day-clock .dc-bar i{display:block;height:100%;width:0;background:linear-gradient(90deg,#c9902f,#f4cf7c);transition:width .35s linear}
+.day-clock.night .dc-bar i{background:linear-gradient(90deg,#5f74a8,#a8bce8)}
+@media(max-width:760px){
+  .day-clock{padding:3px 6px;gap:5px}
+  .day-clock .dc-bar{display:none}
+  .day-clock .dc-tx b{font-size:11px}
+  .day-clock .dc-tx small{font-size:10px}
+}
