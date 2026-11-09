@@ -1539,3 +1539,34 @@ html.ui-m :is(.toast.error){border-width:8px}
 .building-card .build-cost .cost-chip.done{color:#9fe08a;border-color:#4e6b3a;background:#23301bcc}
 .building-card .build-note{display:block;margin-top:2px;font:600 9.5px/1.3 var(--font-num);color:var(--cost-short);font-style:normal}
 @media(max-width:760px){.build-stock{font-size:10px;gap:3px 8px;padding:5px 8px}.building-card .build-cost .cost-chip{font-size:9px}.building-card .build-note{font-size:9px}}
+
+/* ===== T114：字體／顏色系統——標題字體、等寬數字、稀有度色票、小字對比 =====
+   2026-11-09 使用者開放「顏色介面字體設計都能改」，這一輪只動視覺語言，不動版面結構。
+   1) --font-title 之前被 #travel-veil 引用卻從未定義（整條 font 簡寫無效），在這裡補上語意別名。
+   2) 數字全部用等寬字形（tabular-nums）：金幣／生命／材料在跳動時不會左右抖。
+   3) 稀有度色票（RARITIES.color）延伸到卡片左緣與標籤底色，一眼看得出稀有度。
+   4) 9.5px 的獎勵標籤原本只有 4.56:1，提到 6:1 以上。 */
+:root{
+  --font-title:'Microsoft JhengHei','PingFang TC','Noto Sans TC',sans-serif;
+}
+html{font-variant-numeric:tabular-nums;font-feature-settings:'tnum' 1}
+.modal-title h2,.panel-title,#unit-card .uc-name,.hunter-detail .detail-avatar h3,#travel-veil .tv-inner b{
+  font-family:var(--font-title);font-weight:800;letter-spacing:.06em}
+
+/* 稀有度：卡片左緣色條＋標籤底色（--rarity 由 pixel-ui.js 寫在根節點） */
+.hunter-card{position:relative;overflow:hidden}
+.hunter-card::before,.visitor-card::before{
+  content:'';position:absolute;left:0;top:0;bottom:0;width:3px;
+  background:var(--rarity,#8a7a55);opacity:.85}
+.visitor-card{position:relative;overflow:hidden}
+.detail-avatar{border-left:3px solid var(--rarity,#8a7a55)}
+.rarity{
+  display:inline-block;padding:1px 7px;border-radius:2px;
+  color:var(--rarity,#d6cda8);
+  background:color-mix(in srgb,var(--rarity,#d6cda8) 16%,transparent);
+  border:1px solid color-mix(in srgb,var(--rarity,#d6cda8) 46%,transparent);
+  line-height:1.35}
+.visitor-card .rarity{margin:2px auto 4px}
+
+/* 小字對比：獎勵標籤 9.5px 原本 4.56:1 → 拉高到 6:1 以上 */
+.qs-reward>small{color:#cbb894}
