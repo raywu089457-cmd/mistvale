@@ -1079,17 +1079,22 @@ let renderDprMax=Math.max(1,dprCap||autoDpr());   // 畫布解析度上限(devic
     return {x:dx,y:dy,w:dw,h:dh};
   }
   function ring(p,w=18,color='#ffe795'){g.strokeStyle='#435041';g.lineWidth=3;g.beginPath();g.ellipse(p.x,p.y,w*scale,w*.43*scale,0,0,Math.PI*2);g.stroke();g.strokeStyle=color;g.lineWidth=1;g.stroke();}
+  // T119：canvas 上的文字也走像素字型。Ark Pixel 是照 12px 設計的，字級落在 12 的倍數才不會糊；
+  // 文字座標原本就取整了，這裡只負責把字級吸到 12／24／36 並指定字族。
+  const TEXT_STEPS=[12,24,36];
+  function textSize(n){let best=TEXT_STEPS[0],bd=1e9;for(const s of TEXT_STEPS){const d=Math.abs(s-n);if(d<bd){bd=d;best=s;}}return best;}
+  function textFont(n,w='bold'){return w+' '+textSize(n)+'px "Ark Pixel 12", "Microsoft JhengHei", sans-serif';}
   // 文字一律排進 screenTexts,最後在裝置解析度的畫布上畫(高清、永遠在最上層)。
   const screenTexts=[];
   function textLabel(text,x,y,opts={}){if(document.body.dataset.artReview==='1')return;screenTexts.push({text,x,y,alpha:g.globalAlpha,...opts});}
   function drawScreenText(t,k){if(t.bubble){drawBubble(t,k);return;}const {text,x:x0,y:y0,color='#fff7d9',size=7,back=true,alpha=1}=t,x=Math.round(x0*k),y=Math.round(y0*k);screen.globalAlpha=alpha;
-    screen.font=`bold ${Math.round(size*2*k)}px "Microsoft JhengHei", "Noto Sans TC", sans-serif`;const tw=Math.ceil(screen.measureText(text).width);
+    screen.font=textFont(size*2*k);const tw=Math.ceil(screen.measureText(text).width);
     if(back){screen.fillStyle='#1c0e06cc';screen.fillRect(x-tw/2-5*k,y-10*k,tw+10*k,21*k);screen.fillStyle='#4a2611e6';screen.fillRect(x-tw/2-4*k,y-9*k,tw+8*k,19*k);screen.fillStyle='#8a5530e6';screen.fillRect(x-tw/2-4*k,y-9*k,tw+8*k,2*k);screen.fillStyle='#dab247aa';screen.fillRect(x-tw/2-3*k,y+9*k,tw+6*k,k);}
     else{screen.lineWidth=Math.max(2,2.6*k);screen.strokeStyle='#1c0e06';screen.lineJoin='round';screen.strokeText(text,x,y);}
     screen.fillStyle=color;screen.fillText(text,x,y);screen.globalAlpha=1;}
   // 英雄對話框:奶油色像素泡泡(切角、深棕外框)＋往下的小尾巴,字畫在螢幕解析度那層(清楚)。
   function drawBubble(t,k){const x=Math.round(t.x*k),y=Math.round(t.y*k),fs=Math.round(11*k),u=Math.max(1,Math.round(k));screen.globalAlpha=t.alpha??1;
-    screen.font=`bold ${fs}px "Microsoft JhengHei", "Noto Sans TC", sans-serif`;const tw=Math.ceil(screen.measureText(t.text).width),w=tw+12*u,h=fs+10*u,bx=Math.round(x-w/2),by=Math.round(y-h);
+    screen.font=textFont(fs);const tw=Math.ceil(screen.measureText(t.text).width),w=tw+12*u,h=fs+10*u,bx=Math.round(x-w/2),by=Math.round(y-h);
     const box=(dx,dy,ww,hh,c)=>{screen.fillStyle=c;screen.fillRect(dx+2*u,dy,ww-4*u,hh);screen.fillRect(dx,dy+2*u,ww,hh-4*u);screen.fillRect(dx+u,dy+u,ww-2*u,hh-2*u);};
     box(bx-2*u,by-2*u,w+4*u,h+4*u,'#3a2414');box(bx,by,w,h,'#fff4dc');screen.fillStyle='#e8d3a8';screen.fillRect(bx+2*u,by+h-2*u,w-4*u,u);   // 底邊一條陰影:有厚度
     screen.fillStyle='#3a2414';for(let i=0;i<4;i++)screen.fillRect(x-(4-i)*u-u,by+h+i*u,(4-i)*2*u+2*u,u);screen.fillStyle='#fff4dc';for(let i=0;i<3;i++)screen.fillRect(x-(3-i)*u,by+h-u+i*u,(3-i)*2*u,u);
@@ -1894,7 +1899,7 @@ let renderDprMax=Math.max(1,dprCap||autoDpr());   // 畫布解析度上限(devic
       if(clr&&t-clr.t<2.2){const a=Math.min(1,(2.2-(t-clr.t))/.4);dgText(`第 ${clr.v} 層突破！`,W/2,H*.38,{size:Math.round(22*dpr),color:'#ffe08a',alpha:a});}
       if(d.phase==='集結中')dgText('小隊正前往地下城入口…',W/2,H*.38,{size:Math.round(14*dpr),color:'#f0dfb8'});
     }finally{g=saveG;scale=saveScale;casting=saveCast;DPRK=saveK;}
-    function dgText(txt,x,y,{size=12,color='#fff',align='center',alpha=1}={}){ctx.save();ctx.globalAlpha=alpha;ctx.font=`bold ${size}px "Noto Sans TC","PingFang TC","Microsoft JhengHei",sans-serif`;ctx.textAlign=align;ctx.textBaseline='middle';
+    function dgText(txt,x,y,{size=12,color='#fff',align='center',alpha=1}={}){ctx.save();ctx.globalAlpha=alpha;ctx.font=textFont(size);ctx.textAlign=align;ctx.textBaseline='middle';
       ctx.lineWidth=Math.max(2,size/4);ctx.strokeStyle='#120a05';ctx.strokeText(txt,x,y);ctx.fillStyle=color;ctx.fillText(txt,x,y);ctx.restore();}
     function hpBar(x,y,w,ratio,color){const h=Math.max(3,Math.round(3*dpr));ctx.fillStyle='#120a05cc';ctx.fillRect(Math.round(x-w/2)-1,Math.round(y)-1,Math.round(w)+2,h+2);ctx.fillStyle='#3a2416';ctx.fillRect(Math.round(x-w/2),Math.round(y),Math.round(w),h);ctx.fillStyle=color;ctx.fillRect(Math.round(x-w/2),Math.round(y),Math.round(w*Math.max(0,Math.min(1,ratio))),h);}
     function dgHero(h,p){const m=heroSheets[h.classId]?.meta?.actions;if(!m)return;
@@ -2303,7 +2308,7 @@ let renderDprMax=Math.max(1,dprCap||autoDpr());   // 畫布解析度上限(devic
     if(scale<1.2){for(const r of REGIONS){const p=screenPoint(r.x,r.z);textLabel(r.name,p.x,p.y-6,{color:'#ffe6a6',size:8});}}
     screen.setTransform(1,0,0,1,0,0);if(glr)screen.clearRect(0,0,canvas.width,canvas.height);const k=canvas.width/width;screen.save();screen.textAlign='center';screen.textBaseline='middle';
     for(const t of screenTexts)drawScreenText(t,k);
-    screen.font=`bold ${Math.round(11*k)}px "Microsoft JhengHei", "Noto Sans TC", sans-serif`;for(const l of uiLabels){const x=Math.round(l.x*k),y=Math.round(l.y*k),tw=screen.measureText(l.text).width;screen.fillStyle='#1c0e06cc';screen.fillRect(x-tw/2-6*k,y-9*k,tw+12*k,19*k);screen.fillStyle='#4a2611e6';screen.fillRect(x-tw/2-5*k,y-8*k,tw+10*k,17*k);screen.fillStyle='#8a5530e6';screen.fillRect(x-tw/2-5*k,y-8*k,tw+10*k,2*k);screen.fillStyle='#dab247aa';screen.fillRect(x-tw/2-4*k,y+8*k,tw+8*k,k);screen.fillStyle=l.color;screen.fillText(l.text,x,y);}screen.restore();
+    screen.font=textFont(11*k);for(const l of uiLabels){const x=Math.round(l.x*k),y=Math.round(l.y*k),tw=screen.measureText(l.text).width;screen.fillStyle='#1c0e06cc';screen.fillRect(x-tw/2-6*k,y-9*k,tw+12*k,19*k);screen.fillStyle='#4a2611e6';screen.fillRect(x-tw/2-5*k,y-8*k,tw+10*k,17*k);screen.fillStyle='#8a5530e6';screen.fillRect(x-tw/2-5*k,y-8*k,tw+10*k,2*k);screen.fillStyle='#dab247aa';screen.fillRect(x-tw/2-4*k,y+8*k,tw+8*k,k);screen.fillStyle=l.color;screen.fillText(l.text,x,y);}screen.restore();
     if(glr)glr.present();
   }
   let followFn=null,followOpts={};   // 跟隨:回傳 {x,z} 時每幀把鏡頭目標移到那裡(手動操控用)
@@ -2371,7 +2376,7 @@ let renderDprMax=Math.max(1,dprCap||autoDpr());   // 畫布解析度上限(devic
       .filter(cls=>heroSheets[cls]&&heroSheets[cls].meta.kind!=='part');   // 零件表不是角色，不要叫進村
     return list.filter(cls=>spawnVillager(cls));
   }
-  resize();render();return{update,resize:responsiveResize,project,assetsReady,warmupAssets,focus:(id)=>{homeFraming=false;focus(id);},/* 驗收用:建築與地區立牌的可點範圍 */enemyFacing:()=>[...drawnFacing.entries()].filter(([k])=>k.startsWith('enemy:')).map(([k,v])=>({id:k.slice(6),f:v.f,act:v.act||null,t:v.t})),hitRects:()=>hits.filter(h=>BUILDINGS.some(h2=>h2.id===h.id)).map(h=>({id:h.id,x:h.x,y:h.y,w:h.w,h:h.h})),unitRects:()=>hits.filter(h=>String(h.id).startsWith('hunter:')).map(h=>({id:String(h.id).slice(7),x:h.x,y:h.y,w:h.w,h:h.h})),foeRects:()=>hits.filter(h=>String(h.id).startsWith('foe:')).map(h=>({id:String(h.id).slice(4),x:h.x,y:h.y,w:h.w,h:h.h})),signRects:()=>hits.filter(h=>String(h.id).startsWith('region:')).map(h=>({id:h.id,x:h.x,y:h.y,w:h.w,h:h.h})),buildingScale:id=>effectiveScale(id),/* T113：相機中心的世界座標（村莊環境音只在看得到村莊時響） */cameraXZ:()=>{const r=viewRect();const p=unproject(r.left+r.width/2,r.top+r.height/2);return{x:p.x,z:p.z};},lookAt:(x,z,v)=>{homeFraming=false;if(v)scale=Math.max(zoomFloor(),Math.min(ZOOM_MAX,v));target=iso(x,z);cam={...target};},zoomTo:(v)=>{homeFraming=false;scale=Math.max(zoomFloor(),Math.min(ZOOM_MAX,v));},getScale:()=>scale,setSelected,zoomBy,placeMode,setTime,setQuality,setFollow:(fn,opts)=>{followFn=typeof fn==='function'?fn:null;followOpts=(followFn&&opts&&typeof opts==='object')?opts:{};},dirFromScreen,followInfo:()=>followFn?(followOpts.centerBody?{centerBody:true,snap:!!followOpts.snap}:{centerBody:false,snap:!!followOpts.snap}):null,setShadows:(v)=>{shadowsOn=v!==false;compValid=false;},shake,hitStop:(ms)=>{if(!hitStopAllowed()||!(ms>0))return 0;hitStopUntil=performance.now()+ms;hitStopSeq++;hitStopPainted=-2;hitStopCount++;return ms;},unproject,setNight:(v)=>{nightOn=v!==false;},
+  resize();render();return{update,resize:responsiveResize,project,assetsReady,warmupAssets,textFont,textSize,focus:(id)=>{homeFraming=false;focus(id);},/* 驗收用:建築與地區立牌的可點範圍 */enemyFacing:()=>[...drawnFacing.entries()].filter(([k])=>k.startsWith('enemy:')).map(([k,v])=>({id:k.slice(6),f:v.f,act:v.act||null,t:v.t})),hitRects:()=>hits.filter(h=>BUILDINGS.some(h2=>h2.id===h.id)).map(h=>({id:h.id,x:h.x,y:h.y,w:h.w,h:h.h})),unitRects:()=>hits.filter(h=>String(h.id).startsWith('hunter:')).map(h=>({id:String(h.id).slice(7),x:h.x,y:h.y,w:h.w,h:h.h})),foeRects:()=>hits.filter(h=>String(h.id).startsWith('foe:')).map(h=>({id:String(h.id).slice(4),x:h.x,y:h.y,w:h.w,h:h.h})),signRects:()=>hits.filter(h=>String(h.id).startsWith('region:')).map(h=>({id:h.id,x:h.x,y:h.y,w:h.w,h:h.h})),buildingScale:id=>effectiveScale(id),/* T113：相機中心的世界座標（村莊環境音只在看得到村莊時響） */cameraXZ:()=>{const r=viewRect();const p=unproject(r.left+r.width/2,r.top+r.height/2);return{x:p.x,z:p.z};},lookAt:(x,z,v)=>{homeFraming=false;if(v)scale=Math.max(zoomFloor(),Math.min(ZOOM_MAX,v));target=iso(x,z);cam={...target};},zoomTo:(v)=>{homeFraming=false;scale=Math.max(zoomFloor(),Math.min(ZOOM_MAX,v));},getScale:()=>scale,setSelected,zoomBy,placeMode,setTime,setQuality,setFollow:(fn,opts)=>{followFn=typeof fn==='function'?fn:null;followOpts=(followFn&&opts&&typeof opts==='object')?opts:{};},dirFromScreen,followInfo:()=>followFn?(followOpts.centerBody?{centerBody:true,snap:!!followOpts.snap}:{centerBody:false,snap:!!followOpts.snap}):null,setShadows:(v)=>{shadowsOn=v!==false;compValid=false;},shake,hitStop:(ms)=>{if(!hitStopAllowed()||!(ms>0))return 0;hitStopUntil=performance.now()+ms;hitStopSeq++;hitStopPainted=-2;hitStopCount++;return ms;},unproject,setNight:(v)=>{nightOn=v!==false;},
     setDpr:(v)=>{dprCap=v==='auto'||v==null?null:Math.max(1,Math.min(3,Number(v)||autoDpr()));renderDprMax=Math.max(1,Math.min(dprCap||autoDpr(),globalThis.devicePixelRatio||1));resize();compValid=false;render();},
     dispose,drawDungeonStrip,spawnVillager,spawnClassVillagers,setPartsVisible:(v)=>{partsVisible=v!==false;},getPartsVisible:()=>partsVisible,landscapeStats:()=>({roads:roads.length,terrainRevision,
     decor:decorations.map(d=>({type:d.type,x:d.x,z:d.z,region:d.regionId||null}))})};
