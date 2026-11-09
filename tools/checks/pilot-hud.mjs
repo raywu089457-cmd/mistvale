@@ -31,6 +31,11 @@ for (const dev of DEVICES) {
   await page.waitForTimeout(1400);
 
   const st = await page.evaluate(() => {
+    const labEl = document.querySelector('#pilotlab');
+    const labRect = labEl ? labEl.getBoundingClientRect() : null;
+    const labButtons = [...(labEl ? labEl.querySelectorAll('button') : [])].map((b) => { const r = b.getBoundingClientRect(); return { t: b.textContent.trim(), w: Math.round(r.width), h: Math.round(r.height) }; });
+    const tip = labEl ? labEl.querySelector('.pl-tip') : null;
+    const strip = { h: labRect ? Math.round(labRect.height) : 0, buttons: labButtons, tipShown: !!(tip && getComputedStyle(tip).display !== 'none') };
     const r = (el) => { const b = el.getBoundingClientRect(); return { x: Math.round(b.x), y: Math.round(b.y), w: Math.round(b.width), h: Math.round(b.height) }; };
     const q = (s) => document.querySelector(s);
     const rects = {};
@@ -46,7 +51,7 @@ for (const dev of DEVICES) {
       hud: !!q('#pilot-hud'), rects, hits,
       statusText: status ? status.textContent.replace(/\s+/g, ' ').trim().slice(0, 60) : '',
       bar: q('#bottom-bar') ? getComputedStyle(q('#bottom-bar')).display : 'none',
-      vw: innerWidth, vh: innerHeight,
+      vw: innerWidth, vh: innerHeight, strip,
     };
   });
 
@@ -74,6 +79,12 @@ for (const dev of DEVICES) {
       if (!st.hits[k]) fix(`${dev.name}: ${k} 的中心點點不到任何東西`);
     }
   }
+  const strip = st.strip || { h: 0, buttons: [], tipShown: false };
+  for (const b of strip.buttons) if (b.w < 44 || b.h < 44) fix(`${dev.name}: 狀態列的「${b.t}」只有 ${b.w}x${b.h}，小於 44`);
+  if (dev.width <= 400) {
+    if (strip.tipShown) fix(`${dev.name}: 小螢幕還顯示兩行操作提示（佔掉 32px 高度）`);
+    if (strip.h > 100) fix(`${dev.name}: 狀態列高 ${strip.h}px，小螢幕太佔位（應 <= 100）`);
+  } else if (!strip.tipShown) fix(`${dev.name}: 大螢幕反而沒有操作提示`);
   if (!/Lv\.|生命|待機|狩獵/.test(st.statusText)) fix(`${dev.name}: 上方沒有顯示角色狀態（${st.statusText || '空'}）`);
   else ok(`${dev.name}: 上方狀態列「${st.statusText}」`);
   if (st.bar !== 'none') fix(`${dev.name}: 操作模式時底部的村莊按鈕列還顯示（應該讓位給操控介面）`);

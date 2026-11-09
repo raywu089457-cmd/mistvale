@@ -1965,3 +1965,12 @@ body.piloting #pilot-hud .ph-btn.ghost{
 @media(max-width:400px){
   body.piloting #pilot-hud .ph-btn.ghost{width:48px;height:48px;font-size:20px;bottom:calc(20px + 78px + 12px + env(safe-area-inset-bottom,0px))}
 }
+
+/* ===== T145：操作模式的狀態列——按鈕拉到 44px，小螢幕收起長提示 ===== */
+@media(pointer:coarse){
+  body.piloting #pilotlab .pl-head .pixel-button{min-height:44px;min-width:52px}
+}
+@media(max-width:400px){
+  body.piloting #pilotlab .pl-tip{display:none}
+  body.piloting #pilotlab{padding-top:8px;padding-bottom:8px}
+}
