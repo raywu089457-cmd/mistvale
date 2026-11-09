@@ -1,0 +1,50 @@
+/* 收斂亮金（第一版 9-slice 把每顆按鈕都做成亮金牌，畫面太吵）。
+   規則：一般按鈕＝深色板＋金線＋金字；亮金只留給主要動作（.gold/.primary）與懸停。
+   另外給標題帶加一層左濃右淡的遮罩，標題文字不再被插圖吃掉。 */
+
+.pixel-button,#bottom-bar>button,#topbar button,.view-tools .square,.view-tools button,
+.skill-buttons .skill,#pilot-hud .ph-btn,.help-nav-chip,.uc-x{
+  border-image:none !important;
+  background:linear-gradient(180deg,#2b1d10,#1b1208) !important;
+  border:1px solid #7d5f30 !important;
+  color:#e8d7a4 !important;
+  box-shadow:inset 0 1px 0 #ffffff14, 0 2px 0 #120b05 !important;
+  text-shadow:none !important;
+  font-weight:600;
+}
+.pixel-button:hover,#bottom-bar>button:hover,#topbar button:hover,.view-tools .square:hover,
+.view-tools button:hover,.skill-buttons .skill:hover,#pilot-hud .ph-btn:hover,.help-nav-chip:hover{
+  background:linear-gradient(180deg,#3a2714,#241708) !important;
+  border-color:#c9a04d !important;color:#f4dc94 !important;
+}
+.pixel-button.gold,.pixel-button.primary,#pilot-hud #pilot-atk,.ph-btn.primary,
+.pixel-button[aria-pressed="true"],.seg .pixel-button.primary{
+  background:linear-gradient(180deg,#c9a04d,#a8823f) !important;
+  border-color:#e7be5e !important;color:#20160c !important;
+  box-shadow:inset 0 1px 0 #ffeab0aa, 0 2px 0 #120b05 !important;font-weight:800;
+}
+.pixel-button.danger,.pixel-button[data-danger="true"]{
+  background:linear-gradient(180deg,#4a2018,#2c1109) !important;border-color:#a4503c !important;color:#f0b6a3 !important;
+}
+
+/* 頂欄資源晶片：深色板 + 金線，不要整片發亮 */
+#topbar .res-item,#topbar .res-item:hover{
+  border-image:none !important;background:#241708 !important;
+  border:1px solid #6d4b27 !important;color:#e8d7a4 !important;box-shadow:inset 0 1px 0 #ffffff10 !important;
+}
+
+/* 標題帶：左濃右淡遮罩，保證標題與說明字在插圖上也讀得清楚 */
+.encounter-banner{position:relative;overflow:hidden}
+.encounter-banner::after{
+  content:"";position:absolute;inset:0;pointer-events:none;
+  background:linear-gradient(90deg,rgba(18,11,6,.94) 0%,rgba(18,11,6,.78) 48%,rgba(18,11,6,.30) 100%);
+}
+.encounter-banner>*{position:relative;z-index:1}
+.encounter-banner h3{color:#f4dc94 !important;text-shadow:0 2px 0 #0008}
+.encounter-banner p{color:#dcc9a4 !important;text-shadow:0 1px 0 #0008}
+
+/* 底欄：目前分頁用金線框而不是整片亮金 */
+#bottom-bar>button.active{
+  background:linear-gradient(180deg,#3a2714,#241708) !important;
+  border-color:#f2c96a !important;color:#f4dc94 !important;
+}

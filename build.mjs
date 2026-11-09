@@ -36,6 +36,8 @@ let html=await fs.readFile(path.join(root,'src/pixel-index.html'),'utf8');
 let css=await fs.readFile(path.join(root,'src/pixel-style.css'),'utf8');
  try { css += '\n' + await fs.readFile(path.join(root,'src/ui-kit.css'),'utf8'); } catch {}
  try { css += '\n' + await fs.readFile(path.join(root,'src/ui-kit-extra.css'),'utf8'); } catch {}
+ try { css += '\n' + await fs.readFile(path.join(root,'src/ui-tone.css'),'utf8'); } catch {}
+ try { css += '\n' + await fs.readFile(path.join(root,'src/ui-grain.css'),'utf8'); } catch {}
 css=css.replace("@import url('');",'');
 let assetScript='';
 const put=(key,value)=>assetScript+=`window.PIXEL_ASSETS=window.PIXEL_ASSETS||{};window.PIXEL_ASSETS.${key}=${value};`;
