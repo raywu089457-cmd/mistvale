@@ -1800,3 +1800,14 @@ html{font-variant-numeric:tabular-nums;font-feature-settings:'tnum' 1}
 .wm-foot{display:flex;flex-wrap:wrap;align-items:center;gap:8px;margin-top:10px}
 .wm-foot small{font:600 11px/1.4 var(--font-num);color:#a9b892}
 @media(max-width:760px){.cx-list{grid-template-columns:1fr}.cx-face{width:52px;height:52px}.cx-h small{white-space:normal;overflow:visible}}
+
+/* ===== T126：魔物圖鑑的「未遇見剪影」與擊殺次數 ===== */
+.cx-card.unknown{border-color:#3d3225;background:linear-gradient(180deg,#231710cc,#171008dd)}
+/* 未遇見：保留剪影輪廓（全黑在深色卡上會變成一個空方塊） */
+.cx-card.unknown .cx-face{filter:grayscale(1) brightness(.42) contrast(.9);opacity:.8}
+.cx-card.unknown .cx-nm{color:#8f8468;letter-spacing:.12em}
+.cx-card.unknown .cx-stats{color:#6f6552}
+.cx-card.unknown .cx-lore{color:#6f6552;font-style:italic}
+.cx-card.unknown .cx-drop.unknown-drop{color:#7b715c;border-color:#3d3225}
+.cx-kill{display:inline-block;margin-left:6px;padding:0 5px;border:1px solid #5c4a2c;border-radius:2px;background:#2a1b0e;color:var(--gold-bright);font:700 11px/17px var(--font-num);font-style:normal;vertical-align:2px}
+.cx-card.boss.unknown{border-color:#4a3020}

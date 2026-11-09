@@ -45,8 +45,8 @@ if (!QUICK) {
   else {
     const crawl = mode => run('node', ['pipeline/scripts/ui-audit/buttons.mjs', mode], `buttons-${mode}.txt`, { TARGET });
     // 兩個 headless Chrome 同時跑,偶爾會被系統一起砍掉(同一秒兩邊都 "browser has been closed",不是頁面問題);
-    // 這種崩潰單獨重跑一次就會過。頁面真的有問題時 text 裡會有 "total",不會走這條。
-    const crashed = r => !/"total": \d+/.test(r.text) && /browser has been closed|Target page, context or browser/.test(r.text);
+    // 另一種是 renderer 直接 "Target crashed"。兩種都單獨重跑一次就會過。頁面真的有問題時 text 裡會有 "total",不會走這條。
+    const crashed = r => !/"total": \d+/.test(r.text) && /browser has been closed|Target page, context or browser|Target crashed|page\.evaluate: Target crashed/.test(r.text);
     const res = {}, retried = {};
     const [d, ph] = await Promise.all([crawl('desktop'), crawl('phone')]);
     res.desktop = d; res.phone = ph;

@@ -416,6 +416,7 @@ export function createGame(saved = null) {
   function wandererLoot(enemy, w) {
     if (enemy.rewarded) return;
     enemy.rewarded = true; enemy.hp = 0;
+    state.codex = state.codex || {}; state.codex[enemy.type] = (state.codex[enemy.type] || 0) + 1;   // T126:圖鑑擊殺紀錄
     const data = ENEMIES[enemy.type], multiplier = DIFFICULTIES[state.difficulty].mult;
     const gold = Math.round(data.gold * Math.sqrt(multiplier));
     w.gold += gold;
@@ -768,6 +769,7 @@ export function createGame(saved = null) {
   function rewardEnemy(enemy, hunter) {
     if (enemy.rewarded) return;
     enemy.rewarded = true; enemy.hp = 0; state.totalKills++; state.kills = state.totalKills;
+    state.codex = state.codex || {}; state.codex[enemy.type] = (state.codex[enemy.type] || 0) + 1;   // T126:圖鑑擊殺紀錄
     const data = ENEMIES[enemy.type], multiplier = DIFFICULTIES[state.difficulty].mult;
     const gold = Math.round(data.gold * Math.sqrt(multiplier)); hunter.gold += gold;
     for (const [key, amount] of Object.entries(data.drops)) hunter.inventory[key] += amount;
@@ -1291,7 +1293,7 @@ export function createGame(saved = null) {
   function fresh() {
 
     for (const key of Object.keys(state)) delete state[key];
-    Object.assign(state, { version: 2, layoutRevision: 3, worldRevision: 4, region: 'meadow', visitedRegions:['village','meadow'], gold: 1500, wood: 160, ore: 120, herb: 60, cloth: 60, flour: 80, leather: 50, gems: 20, day: 1, time: 0, paused: false, speed: 1, difficulty: 0, kills: 0, totalKills: 0, bossKills: 0, recruited: 0, hunters: [], enemies: [], buildings: Object.fromEntries(BUILDINGS.map(b => [b.id, UNBUILT.has(b.id) ? 0 : 1])), layout: Object.fromEntries(BUILDINGS.map(b => [b.id, { x: b.x, z: b.z }])), stocks: { food: 30, drink: 30, bed: 30, bandage: 30 }, gearStock: { weapon: 0, armor: 0 }, tradeRequests: { wood: 30, ore: 40, herb: 30, cloth: 30, flour: 40, leather: 30 }, counts: { crafted: 0, foodCrafted: 0, traded: 0, gearCrafted: 0, weaponsCrafted: 0, gearSold: 0, services: 0, basicServices: 0, serviceIncome: 0, dungeonWins: 0, rebirths: 0, deaths: 0, trained: 0 }, effects: [], log: [], quest: { index: 0, claimed: false }, expedition: { active: false, bossHp: 0, bossMaxHp: 1150, cooldown: 0, elapsed: 0 }, dungeon: { active: false, floor: 1, bestFloor: 0, wave: 0, enemyHp: 0, enemyMaxHp: 0, time: 0, hunterIds: [], reward: {}, cooldown: 0, phase: '待命', attackTimer: 1, foes: [], events: [], auto: false, startFloor: 0, rest: 0 }, healCooldown: 0, capacity: 8, spawnTimer: 0, seed: 918273, nextId: 0, rally: null, dispatchTeams: defaultDispatchTeams(), regionDensity: normalizeRegionDensity(null), settings: { ...DEFAULT_SETTINGS } });
+    Object.assign(state, { version: 2, layoutRevision: 3, worldRevision: 4, region: 'meadow', visitedRegions:['village','meadow'], gold: 1500, wood: 160, ore: 120, herb: 60, cloth: 60, flour: 80, leather: 50, gems: 20, day: 1, time: 0, paused: false, speed: 1, difficulty: 0, kills: 0, totalKills: 0, bossKills: 0, codex: {}, recruited: 0, hunters: [], enemies: [], buildings: Object.fromEntries(BUILDINGS.map(b => [b.id, UNBUILT.has(b.id) ? 0 : 1])), layout: Object.fromEntries(BUILDINGS.map(b => [b.id, { x: b.x, z: b.z }])), stocks: { food: 30, drink: 30, bed: 30, bandage: 30 }, gearStock: { weapon: 0, armor: 0 }, tradeRequests: { wood: 30, ore: 40, herb: 30, cloth: 30, flour: 40, leather: 30 }, counts: { crafted: 0, foodCrafted: 0, traded: 0, gearCrafted: 0, weaponsCrafted: 0, gearSold: 0, services: 0, basicServices: 0, serviceIncome: 0, dungeonWins: 0, rebirths: 0, deaths: 0, trained: 0 }, effects: [], log: [], quest: { index: 0, claimed: false }, expedition: { active: false, bossHp: 0, bossMaxHp: 1150, cooldown: 0, elapsed: 0 }, dungeon: { active: false, floor: 1, bestFloor: 0, wave: 0, enemyHp: 0, enemyMaxHp: 0, time: 0, hunterIds: [], reward: {}, cooldown: 0, phase: '待命', attackTimer: 1, foes: [], events: [], auto: false, startFloor: 0, rest: 0 }, healCooldown: 0, capacity: 8, spawnTimer: 0, seed: 918273, nextId: 0, rally: null, dispatchTeams: defaultDispatchTeams(), regionDensity: normalizeRegionDensity(null), settings: { ...DEFAULT_SETTINGS } });
     rebuildNavigation();
     state.visitors = [];
     state.arena = { active: false, wins: 0, losses: 0, enemyHp: 0, enemyMaxHp: 0, time: 0, hunterIds: [], cooldown: 0, phase: '待命', attackTimer: 1, opponent: '暮林訓練隊', reward: 0 };
@@ -1337,6 +1339,10 @@ export function createGame(saved = null) {
     state.time = number(source.time, 0, 0, 240 * 99999); state.day = Math.floor(state.time / 240) + 1;
     state.paused = source.paused === true; state.speed = integer(source.speed, 1, 1, 3); state.seed = integer(source.seed, 918273, 0, 4294967295); state.nextId = integer(source.nextId, state.nextId, state.nextId, 1e9);
     for (const key of ['totalKills', 'bossKills', 'recruited']) state[key] = integer(source[key], 0, 0, 1e7);
+    // T126:圖鑑擊殺紀錄（舊存檔沒有這個欄位）
+    state.codex = source.codex && typeof source.codex === 'object'
+      ? Object.fromEntries(Object.entries(source.codex).map(([k, v]) => [String(k), integer(v, 0, 0, 1e7)]).filter(([k, v]) => v > 0 && ENEMIES[k]))
+      : {};
     state.kills = state.totalKills;
     state.buildings.hall = integer(source.buildings?.hall, 1, 1, 5);
     for (const b of BUILDINGS) if (b.id !== 'hall') state.buildings[b.id] = integer(source.buildings?.[b.id], UNBUILT.has(b.id) ? 0 : 1, UNBUILT.has(b.id) ? 0 : 1, Math.min(5, state.buildings.hall + 1));
