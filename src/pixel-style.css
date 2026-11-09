@@ -1739,3 +1739,39 @@ html{font-variant-numeric:tabular-nums;font-feature-settings:'tnum' 1}
 .si-num b{font:800 12px/1.2 var(--font-num);color:var(--gold-bright)}
 .si-num small{font:600 12px/1.2 var(--font-num);color:#a9a08a;white-space:nowrap}
 @media(max-width:760px){.stock-list{grid-template-columns:1fr}}
+
+/* ===== T124：說明面板分段（核心循環／操作／獵人／設施／村外）＋設施用途表 ===== */
+.help-sec{margin:0 0 14px}
+.help-h{display:flex;align-items:center;gap:7px;margin:0 0 8px;padding:0 2px 6px;border-bottom:1px solid #5c4a2c;font:800 12px/1.3 var(--font-title);letter-spacing:.06em;color:var(--gold-bright)}
+.help-h i[data-icon]{width:16px;height:16px;flex:0 0 auto}
+.hl-steps{display:flex;align-items:stretch;gap:6px;margin:0;padding:0;list-style:none}
+.hl-step{display:flex;flex:1 1 0;align-items:flex-start;gap:8px;min-width:0;padding:9px 10px;border:1px solid #5c4a2c;background:linear-gradient(180deg,#2c1d10cc,#1d1309dd);border-radius:3px}
+.hl-num{width:20px;height:20px;flex:0 0 auto;display:grid;place-items:center;border:1px solid #c9a04d;border-radius:50%;background:#2a1c0f;color:#f4dc94;font:800 12px/1 var(--font-num)}
+.hl-body{display:flex;flex-direction:column;gap:3px;min-width:0}
+.hl-body strong{font:800 12px/1.3 var(--font-title);color:#f1e4c2}
+.hl-body small{font:500 12px/1.5 var(--font-body,var(--font-ui));color:#b9c8a4;overflow-wrap:anywhere}
+.hl-arrow{flex:0 0 14px;align-self:center;position:relative}
+.hl-arrow::before{content:'';position:absolute;left:0;top:50%;width:9px;height:9px;border-top:2px solid #8a6a36;border-right:2px solid #8a6a36;transform:translateY(-50%) rotate(45deg)}
+.help-list{margin:0 0 10px;padding:0;list-style:none;display:flex;flex-direction:column;gap:6px}
+.help-list li{position:relative;padding-left:16px;font:500 12px/1.75 var(--font-body,var(--font-ui));color:#e2d7b6}
+.help-list li::before{content:'';position:absolute;left:3px;top:9px;width:5px;height:5px;background:#c9a04d;transform:rotate(45deg)}
+.help-keys{margin:0;padding:8px 10px;border:1px solid #5c4a2c;background:#2a1b0e66;border-radius:3px;display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:4px 16px}
+.hk-row{display:flex;gap:8px;align-items:baseline;min-width:0}
+.hk-row dt{flex:0 0 62px;font:700 12px/1.6 var(--font-num);color:var(--gold-bright)}
+.hk-row dd{margin:0;font:500 12px/1.6 var(--font-body,var(--font-ui));color:#d2c2a2;min-width:0;overflow-wrap:anywhere}
+.hf-grid{margin:0;padding:0;list-style:none;display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:5px 12px}
+.hf-item{display:grid;grid-template-columns:minmax(0,auto) minmax(0,1fr);gap:7px;align-items:baseline;padding:4px 8px;border:1px solid #4a3a22;background:#24170899;border-radius:2px}
+.hf-item b{font:800 12px/1.4 var(--font-title);color:#e8d7a4;white-space:nowrap}
+.hf-item small{font:500 12px/1.5 var(--font-body,var(--font-ui));color:#b9c8a4;min-width:0;overflow-wrap:anywhere}
+.help-foot{display:flex;align-items:center;justify-content:flex-end;gap:10px;margin-top:4px;padding-top:10px;border-top:1px solid #3a2a19}
+.help-foot small{font:500 12px/1.4 var(--font-body,var(--font-ui));color:#a89a7c}
+@media(max-width:760px){
+  .hl-steps{flex-direction:column}
+  .hl-step{flex-direction:row}
+  .hl-arrow{align-self:center;flex:0 0 12px;margin-left:10px}
+  .hl-arrow::before{transform:translateY(-50%) rotate(135deg)}
+  .help-keys{grid-template-columns:1fr}
+  .hf-grid{grid-template-columns:1fr}
+  .help-foot{flex-wrap:wrap;justify-content:space-between}
+  .help-foot .pixel-button{min-height:32px}
+}

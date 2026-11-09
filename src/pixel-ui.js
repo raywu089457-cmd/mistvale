@@ -358,7 +358,41 @@ function modalHTML(type){const s=game.state;
    </div></div>`:''}
    <div class="setting-row"><div><strong>匯出存檔</strong><small>將整個村莊、獵人、地下城進度備份成 JSON。</small></div><button class="pixel-button gold" data-action="export">匯出</button></div>
    <div class="setting-row"><div><strong>重新開始</strong><small>清除目前存檔並從五位初始獵人開始。</small></div><button class="pixel-button danger" data-action="reset">重置</button></div></section>`;}
- if(type==='help')return `<div class="encounter-banner mb help"><i>${iconHTML('compass')}</i><div><h3>新手說明</h3><p>操作、資源與玩法重點都整理在這裡。</p></div></div><div class="help-grid"><div class="help-card"><h3>${iconHTML('compass')}怎麼操作？</h3><p>${matchMedia('(pointer:coarse)').matches?'單指拖曳平移、雙指縮放':'拖曳平移、滾輪縮放'}；點建築看資訊與升級，點獵人看詳情。下方選單是村莊各項功能。</p></div><div class="help-card"><h3>${iconHTML('hall')}村長要做什麼？</h3><p>重建被魔王摧毀的城鎮，建造餐廳、旅館、酒館、治療所與鐵匠鋪，服務獵人的生活需求。</p></div><div class="help-card"><h3>${iconHTML('hunter')}獵人怎麼生活？</h3><p>獵人有自己的金幣、飽食度、心情與精力。他們會狩獵、帶回材料、回村交易，再支付費用吃飯、休息和治療。</p></div><div class="help-card"><h3>${iconHTML('up')}怎麼變強？</h3><p>在學院學技能、修煉地訓練、鐵匠鋪購買武器，再到強化精煉所強化。Lv.100 後可到復活聖所轉世。</p></div><div class="help-card"><h3>${iconHTML('map')}村外內容</h3><p>委託所追蹤魔物目標，地下城三人遠征，地圖首領討伐，以及修煉地開放的 NPC 競技場模擬對戰。</p></div></div>`;
+  if(type==='help'){
+    // T124：說明面板改成「核心循環 → 操作 → 獵人 → 設施 → 村外」的分段卡片；
+    // 設施那段直接從 BUILDINGS 推導（名稱＋effect），改建築時說明會跟著變，不維護第二份文案。
+    const coarse=matchMedia('(pointer:coarse)').matches;
+    const loop=[
+      ['選人出征','地下城三人遠征、競技場模擬對戰'],
+      ['收成回村','獵人狩獵帶回材料、金幣與經驗'],
+      ['交易與花費','獵人付錢吃飯、休息、喝酒、療傷'],
+      ['建設再變強','升級設施、學技能、換裝備，滿百級轉世'],
+    ].map(([t,d],i)=>`<li class="hl-step"><b class="hl-num">${i+1}</b><span class="hl-body"><strong>${t}</strong><small>${d}</small></span></li>`).join('<li class="hl-arrow" aria-hidden="true"></li>');
+    const keys=[['Space','暫停遊戲（操作獵人時是攻擊）'],['M','世界地圖'],['1 – 7','建設 · 名冊 · 交易所 · 製作 · 地下城 · 競技場 · 委託'],['Q / E','操作獵人時施放技能'],['Esc','關閉面板或單位小卡']]
+      .map(([k,d])=>`<div class="hk-row"><dt>${k}</dt><dd>${d}</dd></div>`).join('');
+    const facilities=BUILDINGS.map(b=>`<li class="hf-item" data-id="${b.id}"><b>${esc(b.name)}</b><small>${esc(b.effect||b.desc||'')}</small></li>`).join('');
+    const bullets=list=>`<ul class="help-list">${list.map(t=>`<li>${t}</li>`).join('')}</ul>`;
+    return `<div class="encounter-banner mb help"><i>${iconHTML('compass')}</i><div><h3>新手說明</h3><p>操作、資源與玩法重點都整理在這裡；看完可以照著核心循環走一遍。</p></div></div>`
+      +`<section class="help-sec"><h4 class="help-h">核心循環</h4><ol class="hl-steps">${loop}</ol></section>`
+      +`<section class="help-sec"><h4 class="help-h"><i>${iconHTML('compass')}</i>基本操作</h4>${bullets([
+        coarse?'單指拖曳平移、雙指縮放畫面。':'拖曳平移、滾輪縮放畫面（手機是單指拖曳、雙指縮放）。',
+        '點建築看等級、作用與升級需求；點獵人或魔物會開一張小卡，要詳細資料再按「詳細」。',
+        '下方選單是村莊各項功能；左上角看板可以收起／展開委託進度。',
+      ])}<dl class="help-keys">${keys}</dl></section>`
+      +`<section class="help-sec"><h4 class="help-h"><i>${iconHTML('hunter')}</i>獵人的一天</h4>${bullets([
+        '每個獵人有自己的金幣、飽食度、心情與精力，也會自己決定去哪裡狩獵。',
+        '外出狩獵會帶回材料、金幣與經驗；回到村莊會在餐廳吃飯、旅館休息、酒館喝酒、治療所療傷，付錢給村莊金庫。',
+        '飽食、心情或精力太低會拖慢成長；設施等級越高，一次能服務的獵人越多。',
+      ])}</section>`
+      +`<section class="help-sec"><h4 class="help-h"><i>${iconHTML('hall')}</i>村莊設施與用途</h4><ul class="hf-grid">${facilities}</ul></section>`
+      +`<section class="help-sec"><h4 class="help-h"><i>${iconHTML('map')}</i>村外內容</h4>${bullets([
+        '委託所追蹤章節與討伐目標，完成可以領獎勵。',
+        '地下城是三人遠征，走完一層推進紀錄；競技場是模擬對戰，可以測試小隊強度。',
+        '地圖首領在生態區深處，需要先升到足夠等級再挑戰。',
+      ])}</section>`
+      +`<div class="help-foot"><small>想再看一次開場導覽？</small><button class="pixel-button" data-action="welcomeReplay">重看開場</button></div>`;
+  }
+
  if(type==='boss'){const ex=s.expedition,hp=Math.max(0,Math.ceil(ex.bossHp||0)),max=ex.bossMaxHp||1;   // 2026-10-30:首領插圖橫幅、討伐中血條、獎勵預覽
   return `<div class="encounter-banner boss"><i>${iconHTML('horn')}</i><div><h3>地圖首領：森林魔王</h3><p>吹響號角，召集所有可出征的獵人。首領會帶回大量稀有材料與星晶。</p></div></div>${ex.active?`<div class="boss-hp"><span>森林魔王</span><div class="progress"><span style="width:${hp/max*100}%"></span><b>${fmt(hp)}/${fmt(max)}</b></div></div>`:''}<div class="encounter-status">${ex.active?'討伐中 · 全體獵人正趕往首領所在地':ex.cooldown>0?`整備 ${Math.ceil(ex.cooldown)} 秒`:'森林魔王尚未出現'}</div><div class="boss-loot"><span>擊倒獎勵（分給參戰獵人）</span>${costs({gold:260,ore:15,wood:10,herb:8,leather:10,cloth:8,flour:10})}</div><div class="encounter-actions"><button class="pixel-button gold" data-action="startBoss" ${ex.active||ex.cooldown>0?'disabled':''}>${iconHTML('horn')}召喚森林魔王</button></div>`;}
   if(type==='welcome'){
@@ -412,6 +446,7 @@ function doAction(el){const a=el.dataset.action,id=el.dataset.id;let r;
    // T109:世界小卡上的兩顆按鈕
   if(a==='unitDetail'){const uid=id;hideUnitCard();openHunter(uid);return;}
   if(a==='unitCardClose'){hideUnitCard();return;}
+ if(a==='welcomeReplay'){openModal('welcome');return;}
 if(a==='setDifficulty'){r=game.setDifficulty(Number(id));logToast(r.message,r.ok);if(r.ok)closeModal();paint();return;}
  if(a==='toggleQuality'){settingsOpen=!settingsOpen;return openModal('settings');}
  // ── 建築:建造 / 升級 / 移動 / 從建造面板選一棟（2026-10-20 補上：這些按鈕原本沒有任何處理函式，按了不會有反應）
