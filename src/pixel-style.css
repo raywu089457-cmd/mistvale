@@ -1667,3 +1667,18 @@ html{font-variant-numeric:tabular-nums;font-feature-settings:'tnum' 1}
   /* T118：桌機 3 欄的隊員卡只剩 117px 給「Lv.5 · 魔法師」，改 2 欄 */
   .party-grid{grid-template-columns:repeat(2,minmax(0,1fr))}
 }
+
+/* ===== T120：畫面色調（暗角＋一點暖光）。只蓋世界層(z-index:1)，HUD 都在 3 以上不受影響；
+   純 CSS 疊層，不碰 canvas、不影響任何點擊(pointer-events:none)。
+   目的：整張畫面目前是均勻亮度，邊角跟中央一樣亮，看起來平；加一層暗角＋上方暖光，
+   視線自然集中到村莊，草地/海/雪地的邊界也更有層次。對比度偏好明確的使用者直接關掉。 ===== */
+#screen-grade{position:fixed;inset:0;z-index:1;pointer-events:none;
+  background:
+    radial-gradient(96% 78% at 50% 44%, rgba(0,0,0,0) 38%, rgba(12,8,3,.20) 70%, rgba(6,4,2,.50) 100%),
+    linear-gradient(180deg, rgba(255,206,140,.07) 0%, rgba(255,206,140,0) 22%, rgba(0,0,0,0) 64%, rgba(0,0,0,.26) 100%);}
+@media(max-width:760px){
+  #screen-grade{background:
+    radial-gradient(104% 82% at 50% 44%, rgba(0,0,0,0) 42%, rgba(12,8,3,.18) 74%, rgba(6,4,2,.44) 100%),
+    linear-gradient(180deg, rgba(255,206,140,.06) 0%, rgba(255,206,140,0) 22%, rgba(0,0,0,0) 66%, rgba(0,0,0,.22) 100%);}
+}
+@media(prefers-contrast:more){#screen-grade{display:none}}
