@@ -434,6 +434,7 @@ const conceptBuildingWidth=id=>({hall:132,inn:116,tavern:116,forge:116,trading:1
 // 以前只有「程序繪製的備援圖」會冒煙，實際上所有建築都用 atlas 圖，所以整座村莊一直是靜止的。
 // 煙囪口座標在建築繪製時記下來，煙本身畫在最後的動態層（建築層會被凍結成靜態快取）。
 let smokeSpot=null;   // T130:鐵匠鋪煙囪口的螢幕座標（由建築繪製時記錄）
+const glowSpots=new Map();   // T131:每棟建築的 sprite 螢幕矩形（給夜晚地面的燈光定位）
 // 大廳與地下城要比店鋪大。舊版是 hall:79 / dungeon:77,換算成倍率。
 const BUILDING_SCALE={hall:1.11,dungeon:1.08};
 // 2026-10-13 使用者指定:「建築大小都不一樣了,全部改成現在最大建築的一半大小」。
@@ -694,8 +695,14 @@ export function createWorld(canvas,{onSelect=()=>{},onPlace=()=>{},getState=()=>
   const atkDirs=new Map();   // 獵人 id → 這一次攻擊鎖定的方向(蓄力開始就固定,換攻擊才重算)
   let atlasTick=0;
   // 夜晚變暗用的覆蓋層(比每幀整張 fillRect 便宜很多;pointer-events:none 不影響操作)
-  const nightLayer=(()=>{const el=document.createElement('div');el.style.cssText='position:fixed;inset:0;pointer-events:none;background:#202b4f;opacity:0;z-index:2';document.body.appendChild(el);return el;})();
+  // T131:半透明藍色只會把畫面洗淡，改用正片疊底(multiply)才是真的變暗。
+  const nightLayer=(()=>{const el=document.createElement('div');el.style.cssText='position:fixed;inset:0;pointer-events:none;background:#5a6aa8;mix-blend-mode:multiply;opacity:0;z-index:2';document.body.appendChild(el);return el;})();
   let nightShown=0,nightLast=0,nightFrames=0;
+  // T131:燈光層(在夜色之上、HUD 之下)。夜色是正片疊底,畫在同一張畫布上的暖光會被壓成藍灰,
+  // 所以燈另外放一層,用加法混合(lighter)疊上去。
+  const lightsCanvas=(()=>{const el=document.createElement('canvas');el.setAttribute('aria-hidden','true');el.style.cssText='position:fixed;inset:0;width:100%;height:100%;pointer-events:none;z-index:3';document.body.appendChild(el);return el;})();
+  const lightsG=lightsCanvas.getContext('2d',{alpha:true});
+  let lightsW=0,lightsH=0;
   // 位置一律取整到裝置像素:CSS 整數座標在 1.25、1.5 倍等非整數 DPR 下會落在半個裝置像素上,平移/縮放時最近鄰取樣的像素模式就跟著跳(抖動)。
   const R=v=>Math.round(v*DPRK)/DPRK;
   canvas.style.imageRendering='pixelated';canvas.style.touchAction='none';screen.imageSmoothingEnabled=false;bg.imageSmoothingEnabled=false;
@@ -1208,6 +1215,7 @@ let renderDprMax=Math.max(1,dprCap||autoDpr());   // 畫布解析度上限(devic
     if(!rect){procUse['building-fallback:'+b.id]=(procUse['building-fallback:'+b.id]||0)+1;const sprite=atlasCell(b.id)||buildingSprite(b.id),w=conceptBuildingWidth(b.id);rect=drawSprite(sprite,p,w,w*sprite.height/sprite.width,9,1,'building');}
     // T130:記下鐵匠鋪煙囪口（圖片右上方）的實際螢幕座標，給最上層的煙霧用。
     if(b.id==='forge')smokeSpot={x:rect.x+rect.w*.855,y:rect.y+rect.h*.02};
+    glowSpots.set(b.id,{x:rect.x,y:rect.y,w:rect.w,h:rect.h,bb:spriteBounds(b.id)});   // T131:夜晚燈光用（含不透明範圍，圖片底部常有透明留白）
     // 下面冒煙那段用的是「世界單位」的高度(會再乘 scale),照舊版語意換算回去。
     const h=rect.h/scale;
     // 互動點(點擊範圍)貼在**建築最下面那一排**:門口、台階都長在這裡(每棟的門偏左或偏右都涵蓋),
@@ -2323,12 +2331,50 @@ let renderDprMax=Math.max(1,dprCap||autoDpr());   // 畫布解析度上限(devic
     }else{
       globalThis.__mistvaleSmoke={count:0,minY:null,spot:smokeSpot,last:[]};
     }
+
+    // T131:夜晚的燈光——每棟有蓋的建築，門口/鋪面上一圈暖光（燈光灑在地上，村莊才像有人住）。
+    // 位置每幀由世界座標投影，不吃靜態快取的結果；燈比夜色暗一點，所以先畫光、再讓夜色覆蓋層壓過去。
+    if(nightLast>.02){
+      const lit=[];
+      for(const b of BUILDINGS){
+        const lv=getLevel(b.id); if(!lv)continue;
+        const lay=state.layout?.[b.id]||b;
+        lit.push({id:b.id,lv,x:lay.x,z:lay.z});
+      }
+      const tn=Math.min(1,nightLast/.85),pts=[];
+      if(lightsCanvas.width!==width||lightsCanvas.height!==height){lightsCanvas.width=width;lightsCanvas.height=height;lightsW=width;lightsH=height;}
+      const lg=lightsG;lg.setTransform(1,0,0,1,0,0);lg.clearRect(0,0,lightsCanvas.width,lightsCanvas.height);lg.globalCompositeOperation='lighter';
+      for(let i=0;i<lit.length;i++){
+        const sp=lit[i];
+        // 位置用建築的互動矩形（= 圖片最下面那一排的門口），燈光才會落在「門前的地上」，
+        // 而不是壓在房子正面；沒有矩形時退回世界座標投影。
+        const gs=glowSpots.get(sp.id);
+        const p2=gs
+          ?{x:gs.x+(gs.bb.x0+gs.bb.x1)*.5*gs.w, y:gs.y+gs.bb.y1*gs.h+1*scale}   // 用「不透明範圍」的底緣＝門口前的地面
+          :screenPoint(sp.x,sp.z);
+        const fl=.84+.16*Math.sin(elapsed*1.6+i*2.1)*Math.sin(elapsed*.7+i);
+        const warm=sp.id==='forge'?'#ffb45a':'#ffd08a';
+        const rx=Math.max(14,40*scale),ry=Math.max(6,15*scale);
+        const cx2=R(p2.x),cy2=R(p2.y+2*scale);
+        const grd=lg.createRadialGradient(cx2,cy2,0,cx2,cy2,rx);   // 中心亮、外圈淡的暖光
+        grd.addColorStop(0,'rgba(255,238,196,'+(Math.min(1,tn*.85*fl)).toFixed(3)+')');
+        grd.addColorStop(.45,'rgba(255,193,94,'+(Math.min(1,tn*.42*fl)).toFixed(3)+')');
+        grd.addColorStop(1,'rgba(255,170,60,0)');
+        lg.fillStyle=grd;lg.beginPath();lg.ellipse(cx2,cy2,rx,ry,0,0,Math.PI*2);lg.fill();
+        pts.push({id:sp.id,x:Math.round(p2.x),y:Math.round(p2.y)});
+      }
+      lg.globalCompositeOperation='source-over';
+      globalThis.__mistvaleNight={strength:+nightLast.toFixed(3),pools:lit.length,ids:lit.map(o=>o.id),pts};
+    }else{
+      if(lightsW){lightsG.setTransform(1,0,0,1,0,0);lightsG.clearRect(0,0,lightsW,lightsH);}
+      globalThis.__mistvaleNight={strength:+(nightLast||0).toFixed(3),pools:0,ids:[],pts:[]};
+    }
     // Small ambient birds and bright drifting pollen keep the village alive.
     if(quality){for(let i=0;i<12;i++){const x=((elapsed*(2+i%3)+i*79)%width),y=(i*47+Math.sin(elapsed*.5+i)*7)%(height);g.globalAlpha=.4;pixel(g,x,y,1,1,'#f2e9be');}g.globalAlpha=1;}
     const cb=biomeAt((cam.x/PX+cam.y/PY)/2,(cam.y/PY-cam.x/PX)/2);if(quality&&cb==='snow'&&!globalThis.matchMedia?.('(prefers-reduced-motion: reduce)').matches){for(let i=0;i<34;i++){const x=(i*59+Math.sin(elapsed*.4+i)*12+width)%width,y=(i*41+elapsed*(6+i%4))%height;pixel(g,x,y,i%4===0?2:1,1,'#eff5e7');}}
     // 夜晚變暗:用 DOM 覆蓋層的 CSS 透明度(合成器做,幾乎不花 GPU),
     // 以前是每幀對整張畫布 fillRect 一次(手機上等於多一次滿版填色)。
-    const night=nightOn&&phase>.5?Math.sin((phase-.5)*Math.PI*2)*.15:0;
+    const night=nightOn&&phase>.5?Math.sin((phase-.5)*Math.PI*2)*.85:0;   // T131:正片疊底層，0.85 ≈ 深夜
     nightLast=night;
     if(Math.abs(night-nightShown)>.008){nightShown=night;nightLayer.style.opacity=night>0?night.toFixed(3):'0';}
     // Placement preview projects to the same coordinate system as simulation.
