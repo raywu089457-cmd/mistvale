@@ -3,6 +3,7 @@ import {iconCanvas,iconsReady} from './pixel-icons.js';
 import {assetProgress,markPhase} from './asset-loading.js';
 import {createGame,OFFLINE,ENEMIES} from './pixel-game.js';
 import {sfx,sfxMuted,ambientSet,ambientRain} from './sfx.js';
+import {UI_ICONS} from './ui-icons.js';   // T-ui: PixelLab 產的圖示（存在才覆蓋）
 import {REGION_MONSTERS,MONSTER_NAME,MONSTER_LORE} from './lore.js';
 import {createPixelWorld,drawPortrait,buildingDataURL,MAP_PALETTE,MAP_ACCENT,monsterPortrait} from './pixel-world.js';
 import {mountTmwPuppet} from './tmw-puppet.js';
@@ -86,7 +87,7 @@ const buildingImages=new Map();
 const buildingImg=id=>{if(!buildingImages.has(id))buildingImages.set(id,buildingDataURL(id));return buildingImages.get(id);};
 window.addEventListener('pixel-assets-ready',()=>{buildingImages.clear();if(selected)paintInspector();});
 
-function setIcons(root=document){root.querySelectorAll('[data-icon]').forEach(e=>{if(e.firstElementChild?.dataset?.type===e.dataset.icon)return;e.innerHTML='';const c=icon(e.dataset.icon);c.dataset.type=e.dataset.icon;e.append(c);});}
+function setIcons(root=document){root.querySelectorAll('[data-icon]').forEach(e=>{const n=e.dataset.icon;if(e.firstElementChild?.dataset?.type===n)return;e.innerHTML='';if(UI_ICONS[n]){const im=document.createElement('img');im.src=UI_ICONS[n];im.alt='';im.className='ui-ico';im.dataset.type=n;im.draggable=false;e.append(im);}else{const c=icon(n);c.dataset.type=n;e.append(c);}});}
 function iconHTML(n,hidden=false){return `<span class="inline-icon"${hidden?' aria-hidden="true"':''} data-icon="${n}"></span>`;}
 // T100:隊員卡(派遣/地下城/競技場共用)——頭像 + 名字/等級職業/攻防射程/生命條,一眼看得出該派誰
 // T102:遠征準備面板——選不到的理由、小隊總覽、出發條件的按鈕文字
@@ -262,7 +263,9 @@ const MODAL_TAB={build:'build',hunters:'hunters',hunter:'hunters',recruit:'hunte
 // 兩條列的實際高度每種版面不同(桌機/直式/橫式) → 開窗與縮放視窗時量一次,寫進 --hud-top / --hud-bottom。
 function measureHud(){const top=$('#topbar'),bot=$('#bottom-bar'),vis=e=>e&&!e.classList.contains('hidden')&&getComputedStyle(e).display!=='none'&&getComputedStyle(e).visibility!=='hidden';
  const on=!document.body.classList.contains('piloting')&&vis(top)&&vis(bot);document.body.classList.toggle('hud-modal',on&&!!modal);if(!on)return;
- const st=document.documentElement.style;st.setProperty('--hud-top',Math.max(0,Math.round(top.getBoundingClientRect().bottom))+'px');st.setProperty('--hud-bottom',Math.max(0,Math.round(innerHeight-bot.getBoundingClientRect().top))+'px');}
+ // 讀取畫面還在時 #game-ui 是隱藏的，底欄量到 0×0 → --hud-bottom 會變成整個視窗高，彈窗被壓成 5px。量不到就不寫。
+ const tr=top.getBoundingClientRect(),br=bot.getBoundingClientRect();if(!tr.height||!br.height)return;
+ const st=document.documentElement.style;st.setProperty('--hud-top',Math.max(0,Math.round(tr.bottom))+'px');st.setProperty('--hud-bottom',Math.max(0,Math.round(innerHeight-br.top))+'px');}
 addEventListener('resize',()=>{if(modal){measureHud();fitDispatchPad();}});
 // T64: sticky 派遣鈕實際高度寫進 --dispatch-go-h,讓 #modal-content 的底部內距剛好等於鈕高+12px
 function fitDispatchPad(){const c=$('#modal-content'),go=c&&c.querySelector('.dispatch-go');if(go)c.style.setProperty('--dispatch-go-h',go.offsetHeight+'px');}

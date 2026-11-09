@@ -62,3 +62,71 @@
 .progress>span,.pl-hp>span,progress::-webkit-progress-value{
   box-shadow:inset 0 1px 0 #ffffff55, 0 -1px 0 #0006;
 }
+
+/* ── 方鍵圖示（設定、展開村務捲軸）：9-slice 的 fill 會蓋掉畫在 background 上的圖示，
+      而且 8px 邊框把圖示擠到只剩 8px。改由 ::before 疊在框上面畫。
+      圖示直接指名變數（不用 inherit）：ui-tone 會用 !important 把本體的 background 換成深色板。 ── */
+.square[data-icon]{position:relative}
+#reopen-left.square[data-icon]{position:fixed;width:32px;height:32px;background-image:none}
+.square[data-icon]::before{
+  content:"";position:absolute;left:50%;top:50%;width:20px;height:20px;transform:translate(-50%,-50%);
+  background:center/contain no-repeat;image-rendering:pixelated;pointer-events:none;
+}
+.square[data-icon="settings"]::before{background-image:var(--ui-px-ic-gear)}
+.square[data-icon="scroll"]::before{background-image:var(--ui-px-ic-scroll)}
+
+/* ── 底部操作提示：原本壓在底欄後面又超出視窗下緣，字被切掉一半。
+      底欄按鈕下方只剩 9px，放不下 12px 的字 → 移到底欄正上方，加深色底在任何地形上都讀得到。
+      （HUD 整體有介面縮放，底欄在這個座標系裡高 100px，所以是 108 不是 81。） */
+.map-hint{bottom:108px !important;line-height:16px !important;padding:1px 8px;border-radius:2px;
+  background:#1a1108c2;box-shadow:0 0 0 1px #8a6a3655;pointer-events:none}
+@supports(padding:max(0px)){.map-hint{bottom:calc(108px + env(safe-area-inset-bottom)) !important}}
+
+/* ── 觸控尺寸：獵人名冊的篩選／排序鈕與「下一步」提示條在手機上只有 28px／36px 高。
+      拉到 40px／44px（這兩處量到的就是實際像素，不受介面縮放影響）。 ── */
+@media(max-width:760px),(pointer:coarse){
+  #modal[data-type="hunters"] .roster-bar .pixel-button{min-height:40px}
+  #next-step{min-height:44px}
+}
+
+/* ── 桌機：「下一步」提示條原本固定離底 126px，但底欄高度是 100px × 介面縮放，
+      縮放 130% 以上時提示條會壓到底欄（1920×1080 實測重疊 4px），也會跟上面的操作提示疊在一起。
+      改成跟著縮放走，疊在操作提示上方。 ── */
+@media(min-width:761px){
+  .next-step{bottom:calc(134px * var(--ui-scale,1) + 6px)}
+}
+
+/* ── 大螢幕：頂欄在 #game-ui 外面、不吃介面縮放，1080p（縮放 130%）時頂欄比底欄小一號。
+      只往上放大（max 1）：小螢幕與手機的頂欄尺寸是照實際 px 調過的，不能跟著縮小。 ── */
+#topbar{zoom:max(1,var(--ui-scale,1))}
+
+/* ── 桌機小視窗（介面縮放 <100%）：地區牌、世界地圖鈕、村務捲軸鈕的 top 是寫死的 89–99px，
+      在縮放座標系裡算；縮放 75% 時實際只有 67–74px，被 76px 高的頂欄蓋住一截（1024×768 實測）。
+      改成「頂欄在縮放座標系裡的高度 + 原本的間距」。
+      矮視窗（橫向手機，高 ≤520px）頂欄只有 48px、原本的位置沒問題，不套用。 ── */
+@media(min-width:761px) and (min-height:521px){
+  #region-badge{top:calc(max(76px,76px / var(--ui-scale,1)) + 13px)}
+  .world-map-trigger{top:calc(max(76px,76px / var(--ui-scale,1)) + 15px)}
+  #reopen-left{top:calc(max(76px,76px / var(--ui-scale,1)) + 23px)}
+}
+
+/* ── 橫向手機／矮視窗（高 ≤520px）：頂欄 48px，同樣三個元件與暫停／速度鈕實際在 41px，被頂欄蓋住 7px（812×375 實測）。
+      「下一步」提示條原本浮在畫面正中間蓋住村莊，往下貼近底欄。 ── */
+@media(min-width:761px) and (max-height:520px){
+  #region-badge,.world-map-trigger,#reopen-left,#bottom-bar .play-controls{top:calc(48px / var(--ui-scale,1) + 7px)}
+  .next-step{bottom:calc(70px * var(--ui-scale,1) + 14px)}
+}
+
+/* ── 面板橫幅的說明文字過早斷行：文字區塊是縮到標題寬度的 flex 子項，
+      說明又設了 max-width:58%（相對這個被縮小的區塊）→「招募、派遣與照顧你的獵人隊伍。」
+      只剩 104px 寬、硬斷成兩行。讓文字區塊吃滿橫幅，58% 才是相對橫幅寬度。 ── */
+.encounter-banner>div:has(>p){flex:1 1 0;min-width:0}
+
+/* ── 難度卡的解鎖條件「需要累計轉世 1 次（目前 0）」會斷成「（目前／0）」，孤字掉到第二行。
+      改成兩行平均分配。 ── */
+.diff-gate{text-wrap:balance}
+
+/* AI 圖示（PixelLab）：預設 16px，依上下文縮放 */
+.inline-icon .ui-ico{width:16px;height:16px;image-rendering:pixelated;display:block}
+.si-ic .ui-ico,.cx-drop .ui-ico,.hunter-stats .ui-ico,.uc-stats .ui-ico,.qs-reward .ui-ico{width:13px;height:13px}
+#topbar .ui-ico{width:14px;height:14px}
