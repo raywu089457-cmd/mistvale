@@ -292,7 +292,16 @@ function modalHTML(type){const s=game.state;
   const head=`<div class="encounter-banner quests"><i>${iconHTML('quest')}</i><div class="qs-banner"><p>${s.quest.claimed?'全部章節都完成了。新的村莊傳說正在等待被書寫。':'完成手上的委託就能領取村莊獎勵，並解鎖下一章。'}</p><div class="qs-meta"><span>第 <b>${Math.min(cur+1,list.length)}</b> 章／共 ${list.length} 章</span><span>已解鎖 <b>${unlocked}</b> 章</span>${claimable?'<span class="qs-ready">本章獎勵可領取</span>':''}</div></div></div>`;
   return `${head}<ol class="quest-chain">${listHTML(list,step,'目前沒有新的委託','完成手上的章節就會解鎖下一章')}</ol>`;}
  if(type==='inventory'){const stock=id=>s[id]??s.stocks?.[id]??s.gearStock?.[id]??0;const stockRows=Object.entries({...MATERIALS,food:{name:'香烤麵包'},drink:{name:'莓果飲品'},bed:{name:'舒適床鋪'},bandage:{name:'亞麻繃帶'},weapon:{name:'精鐵武器'},armor:{name:'皮革護甲'}});return `<div class="encounter-banner inventory"><i>${iconHTML('chest')}</i><div><p>村莊倉庫保存建材、生活物資與鐵匠鋪製作的裝備。</p></div></div><div class="materials-grid">${listHTML(stockRows.some(([id])=>stock(id)>0)?stockRows:[],([id,m])=>`<div class="material-item">${iconHTML(id)}<div><span>${m.name}</span><b>${stock(id)}</b></div></div>`,'倉庫目前是空的','派獵人出門打獵，或到鐵匠鋪製作裝備')}</div>`;}
- if(type==='difficulty')return `<div class="encounter-banner mb difficulty"><i>${iconHTML('skull')}</i><div><p>狩獵難度會提高森林魔物的生命與攻擊。高難度需要完成轉世累計。</p></div></div><div class="difficulty-grid">${DIFFICULTIES.map((d,i)=>`<article class="difficulty-card ${s.difficulty===d.id?'current':''}"><i>${iconHTML('diff-'+Math.min(4,i))}</i><h3>${d.name}</h3><small>魔物強度 ×${d.mult}<br>需要轉世 ${d.rebirths} 次</small><button class="pixel-button ${s.difficulty===d.id?'gold':''}" data-action="setDifficulty" data-id="${d.id}" ${s.difficulty===d.id?'disabled':''}>${s.difficulty===d.id?'目前難度':'選擇'}</button></article>`).join('')}</div>`;
+ if(type==='difficulty'){
+   // 跟 game.setDifficulty() 同一個算法：全體獵人的轉世次數加總（不是村莊的 counts.rebirths）
+   const rb=s.hunters.reduce((n,h)=>n+(h.rebirths||0),0);
+   return `<div class="encounter-banner mb difficulty"><i>${iconHTML('skull')}</i><div><p>難度會同時提高魔物的生命與攻擊，金幣與經驗只有小幅加成（開根號）。切換難度會重生整張地圖的魔物。</p></div></div>
+   <div class="diff-summary" role="status">目前 <b>${DIFFICULTIES[s.difficulty].name}</b> · 累計轉世 <b>${rb}</b> 次</div>
+   <div class="difficulty-grid">${DIFFICULTIES.map((d,i)=>{const cur=s.difficulty===d.id,locked=!cur&&rb<d.rebirths;return `<article class="difficulty-card ${cur?'current':''}${locked?' locked':''}" data-diff="${d.id}" ${locked?'aria-disabled="true"':''}><i>${iconHTML('diff-'+Math.min(4,i))}</i><h3>${d.name}${cur?'<em class="diff-now">目前</em>':''}</h3>
+     <dl class="diff-stats"><div><dt>魔物生命</dt><dd>×${d.mult}</dd></div><div><dt>魔物攻擊</dt><dd>×${d.mult}</dd></div><div><dt>金幣・經驗</dt><dd>×${(Math.sqrt(d.mult)).toFixed(2)}</dd></div></dl>
+     <small class="diff-gate ${locked?'short':''}">${locked?`需要累計轉世 ${d.rebirths} 次（目前 ${rb}）`:`轉世 ${d.rebirths} 次解鎖`}</small>
+     <button class="pixel-button ${cur?'gold':''}" data-action="setDifficulty" data-id="${d.id}" ${cur||locked?'disabled':''}>${cur?'目前難度':locked?'未解鎖':'選擇'}</button></article>`;}).join('')}</div>`;
+ }
  // 2026-10-30:狩獵區中央立牌點開的切換畫面。版面照「狩獵難度」頁面,但切的是這一區同時出現的魔物數量。
  if(type==='density'){const d=game.regionDensity(densityRegion);if(!d)return '<p class="modal-note">這裡沒有立牌。</p>';
    const info=game.regionInfo(d.regionId),alive=info?info.alive:0,hunting=info?info.hunting:0;

@@ -1701,3 +1701,20 @@ html{font-variant-numeric:tabular-nums;font-feature-settings:'tnum' 1}
   .welcome-actions{flex-direction:column-reverse}
   .welcome-actions .pixel-button{width:100%;min-height:34px}
 }
+
+/* ===== T122：狩獵難度——卡片寫出真正的倍率、累計轉世與未解鎖原因 ===== */
+.diff-summary{display:flex;flex-wrap:wrap;align-items:center;gap:2px 10px;margin:0 0 12px;padding:6px 10px;border:1px solid #5c4a2c;background:#2a1b0eaa;border-radius:3px;font:600 12px/1.6 var(--font-num);color:#d9c8a2}
+.diff-summary b{color:var(--gold-bright)}
+.diff-stats{display:grid;gap:1px;margin:6px 0 4px;width:100%}
+.diff-stats>div{display:flex;justify-content:space-between;align-items:baseline;gap:6px;font:600 12px/1.5 var(--font-num);min-width:0}
+.diff-stats dt{color:#b9c8a4;font-weight:400;white-space:nowrap}
+.diff-stats dd{margin:0;color:#f1e4c2;white-space:nowrap}
+.diff-now{display:inline-block;margin-left:5px;padding:0 4px;border:1px solid var(--gold-accent,#c9a04d);border-radius:2px;font:700 11px/1.5 var(--font-ui);color:#f4dc94;vertical-align:middle}
+.diff-gate{display:block;margin:4px 0 8px;font-size:12px;line-height:1.5;color:#b9c8a4}
+.diff-gate.short{color:var(--cost-short,#ef9a7a)}
+.difficulty-card.locked{opacity:.74;filter:grayscale(.35)}
+.difficulty-card.locked>i{opacity:.55}
+@media(max-width:760px){
+  .difficulty-grid{grid-template-columns:1fr}
+  .diff-stats>div{font-size:12px}
+}
