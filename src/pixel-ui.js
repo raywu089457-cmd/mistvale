@@ -105,7 +105,7 @@ function logToast(msg,ok=true){if(!ok)sfx('error');const e=document.createElemen
 function save(){if(!started||previewMode)return;try{const data=game.serialize();data.savedAt=Date.now();localStorage.setItem(SAVE_KEY,JSON.stringify(data));$('#save-label').textContent='已自動儲存';$('#save-label').classList.remove('warn');}catch{$('#save-label').textContent='請匯出存檔';$('#save-label').classList.add('warn');}}
 function costs(obj){return Object.entries(obj||{}).map(([k,v])=>`<span class="${game.state[k]<v?'short':''}">${iconHTML(k)} ${fmt(v)}</span>`).join('');}
 // T101：製作、交易所的「夠不夠」要看得到 — 材料寫成 現有/需要，不足整塊標紅；再算出這份成本最多能做幾批。
-function needChips(obj,batches=1){const s=game.state;return Object.entries(obj||{}).map(([k,v])=>{const need=v*batches,have=s[k]||0;return `<span class="cost-chip${have<need?' short':''}" data-have="${have}" data-need="${need}">${iconHTML(k)} <span class="nm">${MATERIALS[k]?.name||k}</span> <b>${fmt(have)}</b><i>/${fmt(need)}</i></span>`;}).join('');}
+function needChips(obj,batches=1){const s=game.state;return Object.entries(obj||{}).map(([k,v])=>{const need=v*batches,have=s[k]||0;return `<span class="cost-chip${have<need?' short':''}" data-have="${have}" data-need="${need}">${iconHTML(k)} <span class="nm">${MATERIALS[k]?.name||({gold:"金幣",gems:"寶石"})[k]||k}</span> <b>${fmt(have)}</b><i>/${fmt(need)}</i></span>`;}).join('');}
 function affordableBatches(obj,max=100){const s=game.state;let n=max;for(const [k,v] of Object.entries(obj||{})){if(!v)continue;n=Math.min(n,Math.floor((s[k]||0)/v));}return Math.max(0,Math.min(max,n));}
 // T59:一種空狀態,每個清單共用 —— <b>少了什麼</b> + <small>下一步可以做什麼</small>
 function emptyState(msg,hint){return `<div class="empty-state"><b>${msg}</b><small>${hint}</small></div>`;}
@@ -129,7 +129,52 @@ addEventListener('pixel-assets-ready',()=>{for(const k in portraitCache)delete p
 function paintPortraits(){document.querySelectorAll('[data-portrait]').forEach(e=>{const h=game.state.hunters.find(v=>v.id===e.dataset.portrait);if(!h)return;e.src=portrait(h);});}
 
 function paintQuest(){const q=game.state.quest;$('#quest-chapter').textContent=`CHAPTER ${String(q.index+1).padStart(2,'0')}`;$('#quest-title').textContent=q.title;$('#quest-desc').textContent=q.description;$('#quest-progress').textContent=`${q.progress}/${q.target}`;$('#quest-fill').style.width=`${Math.min(100,q.progress/q.target*100)}%`;$H('#quest-reward').innerHTML=costs(q.reward);$('#quest-button').textContent=q.claimed?'全部委託完成':q.complete?'領取獎勵':'查看委託';$('#quest-button').disabled=q.claimed;}
-function paintInspector(){if(!selected||!BUILDINGS.some(b=>b.id===selected))return;const b=BUILDINGS.find(v=>v.id===selected),s=game.state,l=s.buildings[b.id],p=s.layout[b.id];$('#inspect-title').textContent=b.name;const img=buildingImg(b.id);$H('#inspect-content').innerHTML=`<div class="inspect-art">${img?`<img src="${img}" alt="${b.name}">`:iconHTML(b.type)}</div><div class="inspect-level">${l?'建築 Lv.'+l:'尚未建造'}</div><p class="inspect-desc">${b.desc}</p><div class="inspect-effect"><strong>作用</strong><br>${b.effect}</div><div class="cost"><span>需求</span>${costs(l?game.getUpgradeCost(b.id):b.cost)}</div><div class="inspect-actions">${l?`<button class="pixel-button gold" data-action="upgrade" data-id="${b.id}">升級 Lv.${l+1}</button>`:`<button class="pixel-button gold" data-action="construct" data-id="${b.id}">建造</button>`}<button class="move" data-action="moveBuilding" data-id="${b.id}">移動位置</button></div>`;setIcons($('#inspect-content'));}
+// T111：建築面板要說清楚「這一級 → 下一級」、要付多少（現有／需要），
+// 以及**為什麼不能升**（已滿級／大廳等級不夠／資源不足），不要按下去才靠 toast 告訴玩家。
+function costName(k){return MATERIALS[k]?.name||({gold:'金幣',gems:'寶石'})[k]||k;}
+function costMissing(obj){const s=game.state;return Object.entries(obj||{}).filter(([k,v])=>(s[k]||0)<v).map(([k,v])=>[k,v-(s[k]||0)]);}
+function missText(missing){return missing.map(([k,d])=>costName(k)+' 還缺 '+fmt(d)).join('、');}
+function upgradeView(b){
+  const s=game.state,lv=s.buildings[b.id]||0;
+  if(!lv) return {mode:'build',lv:0,next:1,cost:b.cost,missing:costMissing(b.cost)};
+  if(lv>=5) return {mode:'max',lv,next:5,cost:null,missing:[]};
+  const cost=game.getUpgradeCost(b.id),hallBlocked=b.id!=='hall'&&lv+1>s.buildings.hall+1;
+  return {mode:'upgrade',lv,next:lv+1,cost,missing:costMissing(cost),hallBlocked,hall:s.buildings.hall};
+}
+// 只有真的有數字的效果才寫差額；不要編一個看起來很厉害、其實跟程式無關的數字。
+function upgradeDelta(b,lv,next){
+  if(b.id==='house') return '獵人名額 '+(8+(lv-1)*2)+' → '+(8+(next-1)*2);
+  if(b.id==='hall') return '其他建築上限 Lv.'+lv+' → Lv.'+next;
+  return '';
+}
+function paintInspector(){
+  if(!selected||!BUILDINGS.some(b=>b.id===selected))return;
+  const b=BUILDINGS.find(v=>v.id===selected),s=game.state,l=s.buildings[b.id];
+  $('#inspect-title').textContent=b.name;
+  const img=buildingImg(b.id),v=upgradeView(b);
+  const lvLine=l?'建築 Lv.'+l:'尚未建造';
+  const nextLine=v.mode==='max'?'已達最高等級 Lv.5':(l?'升級到 Lv.'+v.next:'建造後 Lv.'+v.next);
+  const delta=v.mode==='upgrade'?upgradeDelta(b,v.lv,v.next):'';
+  const can=v.mode==='build'?!v.missing.length:(v.mode==='upgrade'&&!v.hallBlocked&&!v.missing.length);
+  const note=v.mode==='max'?'這棟建築已經滿級，不需要再升級。'
+    :v.hallBlocked?'需要城鎮大廳 Lv.'+v.next+'（目前 Lv.'+v.hall+'）'
+    :v.missing.length?missText(v.missing)
+    :'資源足夠，按下去就會升級。';
+  const btnLabel=v.mode==='build'?'建造':v.mode==='max'?'已達最高等級':v.hallBlocked?'先升級大廳':'升級 Lv.'+v.next;
+  const btnAct=l?'upgrade':'construct';
+  const art=img?'<img src="'+img+'" alt="'+b.name+'">':iconHTML(b.type);
+  const deltaHtml=delta?'<br><span class="inspect-delta">'+delta+'</span>':'';
+  const costHtml=v.cost?'<div class="cost inspect-cost"><span>需求</span>'+needChips(v.cost)+'</div>':'';
+  $H('#inspect-content').innerHTML='<div class="inspect-art">'+art+'</div>'
+    +'<div class="inspect-level">'+lvLine+'</div>'
+    +'<p class="inspect-desc">'+b.desc+'</p>'
+    +'<div class="inspect-effect"><strong>作用</strong><br>'+b.effect+deltaHtml+'</div>'
+    +'<div class="inspect-next">'+nextLine+'</div>'
+    +costHtml
+    +'<div class="inspect-note'+(can?'':' short')+'">'+esc(note)+'</div>'
+    +'<div class="inspect-actions"><button class="pixel-button gold" data-action="'+btnAct+'" data-id="'+b.id+'"'+(can?'':' disabled aria-disabled="true"')+'>'+btnLabel+'</button><button class="move" data-action="moveBuilding" data-id="'+b.id+'">移動位置</button></div>';
+  setIcons($('#inspect-content'));
+}
 const resFloat={t:0,last:null};
 function floatDeltas(s){const keys=['gold','gems','wood','ore'],now=performance.now();if(!resFloat.last){resFloat.last=Object.fromEntries(keys.map(k=>[k,s[k]]));resFloat.t=now;return;}if(now-resFloat.t<1200)return;
  for(const k of keys){const d=Math.round(s[k]-resFloat.last[k]);resFloat.last[k]=s[k];if(!d||!started)continue;const host=$('#'+k)?.closest('button,div');if(!host)continue;if(getComputedStyle(host).position==='static')host.style.position='relative';const f=document.createElement('span');f.className='res-float '+(d>0?'up':'down');f.textContent=(d>0?'+':'−')+fmt(Math.abs(d));host.append(f);setTimeout(()=>f.remove(),1100);}resFloat.t=now;}
@@ -266,7 +311,7 @@ function modalHTML(type){const s=game.state;
 
 function selectedIds(kind){return game.state[kind].hunterIds||[];}
 function toggleParty(kind,id){const list=selectedIds(kind),i=list.indexOf(id);if(i>=0)list.splice(i,1);else if(list.length<3)list.push(id);openModal(kind==='dungeon'?'dungeon':'arena');}
-function inspect(id){selected=id;$('#inspector').classList.remove('hidden');paintInspector();world?.setSelected(id);}
+function inspect(id){selected=id;/* T111：手機上抽屜跟建築面板不能同時開（會疊在一起互相擋點擊），選建築就先把抽屜收起 */if(TOP_NARROW.matches&&leftOpen){leftOpen=false;$('#left-panel').classList.add('hidden');$('#reopen-left').classList.remove('hidden');}$('#inspector').classList.remove('hidden');paintInspector();world?.setSelected(id);}
 function closeInspector(){$('#inspector').classList.add('hidden');selected=null;world?.setSelected(null);}
 function doAction(el){const a=el.dataset.action,id=el.dataset.id;let r;
  if(a==='worldmap')return openModal('worldmap');
@@ -274,7 +319,7 @@ function doAction(el){const a=el.dataset.action,id=el.dataset.id;let r;
  if(a==='regionView'){closeModal();world.focus(id==='village'?'home':'region:'+id);return;}
   if(a==='regionTravel'){const rg=REGIONS.find(x=>x.id===id);travelVeil(rg?rg.name:'',()=>{r=game.exploreRegion(id);logToast(r.message,r.ok);if(r.ok){closeModal();world.focus('region:'+id);save();}paint();});return;}
  if(a==='recallHunters'){r=game.recallHunters();logToast(r.message,r.ok);paint();return;}
- if(a==='start')return start();if(a==='close'||a==='offlineOk')return closeModal();if(a==='toggleLeft'){leftOpen=!leftOpen;$('#left-panel').classList.toggle('hidden',!leftOpen);$('#reopen-left').classList.toggle('hidden',leftOpen);return;}if(a==='closeInspector'){closeInspector();return;}
+ if(a==='start')return start();if(a==='close'||a==='offlineOk')return closeModal();if(a==='toggleLeft'){leftOpen=!leftOpen;$('#left-panel').classList.toggle('hidden',!leftOpen);$('#reopen-left').classList.toggle('hidden',leftOpen);if(leftOpen){/* T111：手機上抽屜蓋不到建築面板(兩塊面板疊在一起會互相擋點擊)，開抽屜就收起建物面板 */if(TOP_NARROW.matches&&!$('#inspector')?.classList.contains('hidden'))closeInspector();}return;}if(a==='closeInspector'){closeInspector();return;}
  if(a==='home'){closeModal();world?.focus('home');return;}if(a==='zoomIn'){world?.zoomBy(1.15);return;}if(a==='zoomOut'){world?.zoomBy(1/1.15);return;}
  if(a==='pause'){game.state.paused=!game.state.paused;paint();return;}if(a==='speed'){game.state.speed=game.state.speed>=3?1:game.state.speed+1;paint();return;}
  if(a==='toggleParts'){const on=!(world?.getPartsVisible?.()??true);world?.setPartsVisible?.(on);el.textContent=on?'裝備顯示中':'裝備已卸下';logToast(on?'裝備零件層：開':'裝備零件層：關（同一個身體、不重生）',true);paint();return;}

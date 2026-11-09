@@ -1515,3 +1515,14 @@ html.ui-m :is(.toast.error){border-width:8px}
 #unit-card .uc-hp.low .uc-bar.foe>span{background:#e0a86a}
 #unit-card .uc-hp.down .uc-bar.foe>span{background:#6f2f22}
 
+
+/* ===== T111：建築面板的升級預覽＝目前等級 / 下一級 / 需求（現有/需要）/ 不能升的真正原因 ===== */
+#inspector .inspect-next{margin:-4px 0 9px;text-align:center;font:600 11px/1.5 var(--font-num);color:#c9a04d;letter-spacing:.5px}
+#inspector .inspect-delta{color:#8fbf72}
+#inspector .inspect-cost{display:flex;flex-wrap:wrap;align-items:center;gap:5px 7px;line-height:1.5}
+#inspector .inspect-cost > span:first-child{color:#b9bd9b;font-size:var(--fs-tiny);flex:0 0 auto}
+#inspector .inspect-cost .cost-chip{font-size:10.5px;padding:1px 5px}
+#inspector .inspect-note{margin-top:8px;font:500 10.5px/1.5 var(--font-num);color:#8fbf72}
+#inspector .inspect-note.short{color:#ef9a7a}
+#inspector .inspect-actions .pixel-button[disabled]{filter:grayscale(.8) brightness(.92);opacity:1;color:#cdbd97;cursor:not-allowed}
+@media(max-width:760px){#inspector .inspect-next{font-size:10.5px}#inspector .inspect-note{font-size:10px}#inspector .inspect-cost .cost-chip{font-size:10px}}
