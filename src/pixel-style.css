@@ -1526,3 +1526,16 @@ html.ui-m :is(.toast.error){border-width:8px}
 #inspector .inspect-note.short{color:#ef9a7a}
 #inspector .inspect-actions .pixel-button[disabled]{filter:grayscale(.8) brightness(.92);opacity:1;color:#cdbd97;cursor:not-allowed}
 @media(max-width:760px){#inspector .inspect-next{font-size:10.5px}#inspector .inspect-note{font-size:10px}#inspector .inspect-cost .cost-chip{font-size:10px}}
+
+/* ===== T112：建設彈窗——庫存列 + 每張卡的需求（現有/需要）與缺口 ===== */
+.build-stock{display:flex;flex-wrap:wrap;gap:4px 10px;margin:0 0 10px;padding:6px 10px;border:1px solid #5c4a2c;background:#2a1b0eaa;border-radius:3px;font:600 11px/1.6 var(--font-num);color:#d9c8a2}
+.build-stock .bs-item{display:inline-flex;align-items:center;gap:4px}
+.build-stock .bs-item .nm{color:#c6b48b;font-weight:500}
+.build-stock .bs-item b{color:var(--gold-bright);font-weight:700}
+.build-stock .inline-icon[data-icon]{width:13px;height:13px;min-width:13px;min-height:13px}
+.building-card .build-cost{justify-content:center;gap:2px 4px}
+.building-card .build-cost .cost-chip{font-size:9.5px;line-height:13px;padding:0 3px;gap:2px}
+.building-card .build-cost .cost-chip .inline-icon[data-icon]{width:11px;height:11px;min-width:11px;min-height:11px}
+.building-card .build-cost .cost-chip.done{color:#9fe08a;border-color:#4e6b3a;background:#23301bcc}
+.building-card .build-note{display:block;margin-top:2px;font:600 9.5px/1.3 var(--font-num);color:var(--cost-short);font-style:normal}
+@media(max-width:760px){.build-stock{font-size:10px;gap:3px 8px;padding:5px 8px}.building-card .build-cost .cost-chip{font-size:9px}.building-card .build-note{font-size:9px}}
