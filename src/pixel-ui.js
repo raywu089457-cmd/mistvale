@@ -470,19 +470,20 @@ function modalHTML(type){const s=game.state;
     const facilities=BUILDINGS.map(b=>`<li class="hf-item" data-id="${b.id}"><b>${esc(b.name)}</b><small>${esc(b.effect||b.desc||'')}</small></li>`).join('');
     const bullets=list=>`<ul class="help-list">${list.map(t=>`<li>${t}</li>`).join('')}</ul>`;
     return `<div class="encounter-banner mb help"><i>${iconHTML('compass')}</i><div><h3>新手說明</h3><p>操作、資源與玩法重點都整理在這裡；看完可以照著核心循環走一遍。</p></div></div>`
-      +`<section class="help-sec"><h4 class="help-h">核心循環</h4><ol class="hl-steps">${loop}</ol></section>`
-      +`<section class="help-sec"><h4 class="help-h"><i>${iconHTML('compass')}</i>基本操作</h4>${bullets([
+      +"<nav class=\"help-nav\" aria-label=\"說明段落\">" + [['loop','核心循環'],['keys','基本操作'],['day','獵人的一天'],['facilities','村莊設施'],['outside','村外內容']].map(([k,t]) => `<button type=\"button\" class=\"help-nav-chip\" data-action=\"helpNav\" data-target=\"help-sec-${k}\">${t}</button>`).join('') + "</nav>"
+      +`<section class="help-sec" id="help-sec-loop"><h4 class="help-h">核心循環</h4><ol class="hl-steps">${loop}</ol></section>`
+      +`<section class="help-sec" id="help-sec-keys"><h4 class="help-h"><i>${iconHTML('compass')}</i>基本操作</h4>${bullets([
         coarse?'單指拖曳平移、雙指縮放畫面。':'拖曳平移、滾輪縮放畫面（手機是單指拖曳、雙指縮放）。',
         '點建築看等級、作用與升級需求；點獵人或魔物會開一張小卡，要詳細資料再按「詳細」。',
         '下方選單是村莊各項功能；左上角看板可以收起／展開委託進度。',
       ])}<dl class="help-keys">${keys}</dl></section>`
-      +`<section class="help-sec"><h4 class="help-h"><i>${iconHTML('hunter')}</i>獵人的一天</h4>${bullets([
+      +`<section class="help-sec" id="help-sec-day"><h4 class="help-h"><i>${iconHTML('hunter')}</i>獵人的一天</h4>${bullets([
         '每個獵人有自己的金幣、飽食度、心情與精力，也會自己決定去哪裡狩獵。',
         '外出狩獵會帶回材料、金幣與經驗；回到村莊會在餐廳吃飯、旅館休息、酒館喝酒、治療所療傷，付錢給村莊金庫。',
         '飽食、心情或精力太低會拖慢成長；設施等級越高，一次能服務的獵人越多。',
       ])}</section>`
-      +`<section class="help-sec"><h4 class="help-h"><i>${iconHTML('hall')}</i>村莊設施與用途</h4><ul class="hf-grid">${facilities}</ul></section>`
-      +`<section class="help-sec"><h4 class="help-h"><i>${iconHTML('map')}</i>村外內容</h4>${bullets([
+      +`<section class="help-sec" id="help-sec-facilities"><h4 class="help-h"><i>${iconHTML('hall')}</i>村莊設施與用途</h4><ul class="hf-grid">${facilities}</ul></section>`
+      +`<section class="help-sec" id="help-sec-outside"><h4 class="help-h"><i>${iconHTML('map')}</i>村外內容</h4>${bullets([
         '委託所追蹤章節與討伐目標，完成可以領獎勵。',
         '地下城是三人遠征，走完一層推進紀錄；競技場是模擬對戰，可以測試小隊強度。',
         '地圖首領在生態區深處，需要先升到足夠等級再挑戰。',
@@ -549,6 +550,12 @@ function doAction(el){const a=el.dataset.action,id=el.dataset.id;let r;
    // T109:世界小卡上的兩顆按鈕
   if(a==='unitDetail'){const uid=id;hideUnitCard();openHunter(uid);return;}
   if(a==='unitCardClose'){hideUnitCard();return;}
+ if(a==='helpNav'){   // T148：說明目錄跳到指定段落
+  const box=$('#modal-content'),t=el&&el.dataset.target?document.getElementById(el.dataset.target):null;
+  if(box&&t){const top=t.getBoundingClientRect().top-box.getBoundingClientRect().top+box.scrollTop-56;
+    if(matchMedia('(prefers-reduced-motion: reduce)').matches)box.scrollTop=Math.max(0,top);
+    else box.scrollTo({top:Math.max(0,top),behavior:'smooth'});}
+  return;}
  if(a==='welcomeReplay'){openModal('welcome');return;}
  if(a==='codex'){openModal('codex');return;}   // T125:魔物圖鑑
 if(a==='setDifficulty'){r=game.setDifficulty(Number(id));logToast(r.message,r.ok);if(r.ok)closeModal();paint();return;}

@@ -2005,3 +2005,11 @@ body.piloting #pilot-hud .ph-btn.ghost{
   /* 標題已經是「獵人入門」，橫幅整塊省略，三步驟＋按鈕才進得了 360 的視窗 */
   #modal[data-type=welcome] .encounter-banner{display:none}
 }
+
+/* ===== T148：說明面板的段落目錄（黏在頂端，手機可橫向滑） ===== */
+.help-nav{position:sticky;top:-20px;z-index:3;display:flex;gap:6px;overflow-x:auto;margin:-4px -4px 10px;padding:8px 4px 7px;background:linear-gradient(180deg,rgba(26,17,9,.98),rgba(26,17,9,.9));border-bottom:1px solid #4a3a22;scrollbar-width:none}
+.help-nav::-webkit-scrollbar{display:none}
+.help-nav-chip{flex:0 0 auto;min-height:34px;padding:0 10px;border:1px solid #5c4a2c;border-radius:2px;background:linear-gradient(180deg,#2f2416,#22180d);color:#e2d7b6;font:600 12px/1 var(--font-ui);letter-spacing:.04em;cursor:pointer}
+.help-nav-chip:hover{border-color:#a8823f;color:var(--gold-bright)}
+.help-nav-chip:focus-visible{outline:2px solid var(--gold-bright);outline-offset:2px}
+@media(pointer:coarse){.help-nav-chip{min-height:44px}}
