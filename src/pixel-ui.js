@@ -299,7 +299,10 @@ function doAction(el){const a=el.dataset.action,id=el.dataset.id;let r;
   // T107:小隊 HUD 的兩個按鈕(不開面板,直接在畫面上操作)
   if(a==='runRetreat'){r=game.retreatDungeon();logToast(r.message,r.ok);paint();save();return;}
   if(a==='runAuto'){r=game.setDungeonAuto(!game.state.dungeon.auto);logToast(r.message,r.ok);save();return;}
- if(a==='setDifficulty'){r=game.setDifficulty(Number(id));logToast(r.message,r.ok);if(r.ok)closeModal();paint();return;}
+   // T109:世界小卡上的兩顆按鈕
+  if(a==='unitDetail'){const uid=id;hideUnitCard();openHunter(uid);return;}
+  if(a==='unitCardClose'){hideUnitCard();return;}
+if(a==='setDifficulty'){r=game.setDifficulty(Number(id));logToast(r.message,r.ok);if(r.ok)closeModal();paint();return;}
  if(a==='toggleQuality'){settingsOpen=!settingsOpen;return openModal('settings');}
  // ── 建築:建造 / 升級 / 移動 / 從建造面板選一棟（2026-10-20 補上：這些按鈕原本沒有任何處理函式，按了不會有反應）
  if(a==='selectBuilding'){closeModal();inspect(id);return;}
@@ -500,9 +503,45 @@ document.addEventListener('keydown',e=>{if(e.key!=='ArrowLeft'&&e.key!=='ArrowRi
 function applySettings(){const o=game?.state?.settings||{};try{sfxMuted(localStorage.getItem('mistvale-sfx')==='0');}catch{}world?.setQuality?.(o.quality!=='low');world?.setDpr?.(o.dpr||'auto');world?.setShadows?.(o.shadows!==false);world?.setNight?.(o.night!==false);fpsTarget=o.fps===60?60:30;applyUiScale(o.uiScale);}
 let fpsTarget=30;
 function openHunter(id){const h=game.state.hunters.find(v=>v.id===id);if(!h)return;const wasOpen=modalShown(),prev=wasOpen?document.activeElement:null;if(!wasOpen)modalOpener=document.activeElement;modal='hunter-detail';$('#modal').dataset.type='hunter';$('#modal').dataset.kind='';modalTitle('hunter','hunter');$('#modal-content').innerHTML=`<div class="hunter-detail"><div class="detail-avatar"><img src="${portrait(h)}"><h3>${esc(h.name)}</h3><div class="rarity" data-rarity="${h.rarity}" style="--rarity:${RARITIES.find(r=>r.id===h.rarity)?.color}">${RARITIES.find(r=>r.id===h.rarity)?.name}</div></div><div><div class="detail-header"><strong>${iconHTML('em-'+h.classId)}${CLASSES.find(c=>c.id===h.classId)?.name} · Lv.${h.level}</strong><span>${esc(h.status)}</span></div><div class="stats-grid"><div>${iconHTML('atk')}攻擊<b>${h.attack}</b></div><div>${iconHTML('def')}防禦<b>${h.defense}</b></div><div>${iconHTML('rebirth')}轉世<b>${h.rebirths}</b></div></div>${[['hp','生命','hp'],['satiety','飽食','satiety'],['stamina','精力','stamina'],['mood','心情','mood']].map(([k,n,c])=>`<div class="need-row ${c}"><label>${iconHTML(c)}${n}</label><div class="progress"><span style="width:${k==='hp'?h.hp/h.maxHp*100:h[k]}%"></span><b>${Math.floor(k==='hp'?h.hp:h[k])}</b></div></div>`).join('')}<div class="equipment-row"><span>${iconHTML('gold')}個人金幣 <b>${fmt(h.gold)}</b></span><span class="${h.equipment.weapon?'has':'no'}">${iconHTML('swords')}${h.equipment.weapon?'精鐵武器':'未裝備武器'}</span><span class="${h.equipment.armor?'has':'no'}">${iconHTML('def')}${h.equipment.armor?'皮革護甲':'未裝備護甲'}</span></div></div></div><div class="hunter-actions"><button class="pixel-button" data-action="learnSkill" data-id="${h.id}">${iconHTML('scroll')}<span>學習技能<small>學院 · 技能 Lv.${h.skillLevel||0}</small></span></button><button class="pixel-button" data-action="train" data-id="${h.id}" ${h.gold<20||h.trainCooldown>0?'disabled':''}>${iconHTML('up')}<span>修煉<small>${h.trainCooldown>0?`冷卻 ${Math.ceil(h.trainCooldown)} 秒`:h.gold<20?'個人金幣不足 20':'20 個人金幣'}</small></span></button><button class="pixel-button" data-action="enhanceHunter" data-id="${h.id}">${iconHTML('anvil')}<span>強化裝備<small>精煉所 · +${h.weaponLevel||0}</small></span></button><button class="pixel-button ${h.level>=100?'gold':''}" data-action="reincarnate" data-id="${h.id}" ${h.level>=100?'':'disabled'}>${iconHTML('rebirth')}<span>轉世<small>${h.level>=100?'可以轉世':`Lv.100 才能（還差 ${100-h.level}）`}</small></span></button></div>`;setIcons($('#modal-content'));$('#modal-backdrop').classList.remove('hidden');document.body.dataset.modalTab='hunters';measureHud();hudInert(true);focusModalStart(prev);}
-function handleWorldSelect(id){if(!started)return;if(id?.startsWith('hunter:'))openHunter(id.slice(7));else if(id?.startsWith('region:')){densityRegion=id.slice(7);openModal('density');}else if(id)inspect(id);}
+function handleWorldSelect(id){
+  if(!started)return;
+  if(id?.startsWith('hunter:')){showUnitCard(id.slice(7));return;}
+  hideUnitCard();
+  if(id?.startsWith('region:')){densityRegion=id.slice(7);openModal('density');}
+  else if(id)inspect(id);
+}
+
+// T109:點世界裡的獵人時,只開一張小卡(頭像/名字/等級職業/生命/攻防),要看完整資料再按「詳細」。
+// 以前點一下就直接整頁跳進獵人名冊,看個人卻被抽離世界,是整個畫面最突兀的一段。
+let unitCardEl=null,unitCardId=null,unitCardSig="";
+function unitCardHunter(){return unitCardId?game.state.hunters.find(h=>h.id===unitCardId):null;}
+function hideUnitCard(){unitCardEl?.remove();unitCardEl=null;unitCardId=null;unitCardSig="";}
+function showUnitCard(id){
+  const h=game.state.hunters.find(v=>v.id===id);
+  if(!h){hideUnitCard();return;}
+  unitCardId=id;unitCardSig="";unitCardPaint(true);
+  openOtherPanelsClosed();
+}
+function openOtherPanelsClosed(){if(placing)return;const ins=$("#inspector");if(ins&&!ins.classList.contains("hidden"))closeInspector();}
+function unitCardPaint(force){
+  const h=unitCardHunter();
+  if(!h){hideUnitCard();return;}
+  if(!unitCardEl){unitCardEl=document.createElement("div");unitCardEl.id="unit-card";unitCardEl.setAttribute("role","group");unitCardEl.setAttribute("aria-label","選取單位");document.body.append(unitCardEl);}
+  const cls=CLASSES.find(c=>c.id===h.classId)||{},rng=(h.range||0)>=5?"遠程":"近戰",tr=TRAITS.find(t=>t.id===h.trait)?.name||"";
+  const sig=[h.id,h.name,h.classId,h.level,h.rarity,h.status,h.trait,h.attack,h.defense,h.maxHp,h.rebirths].join("|");
+  if(force||sig!==unitCardSig){
+    unitCardSig=sig;
+    unitCardEl.innerHTML=`<img class="uc-portrait" src="${portrait(h)}" alt=""><div class="uc-body"><div class="uc-head"><b class="uc-name">${esc(h.name)}</b><span class="uc-lv">Lv.${h.level}</span><em class="uc-status" data-status="${esc(h.status)}">${esc(h.status)}</em></div><div class="uc-sub">${iconHTML("em-"+h.classId)}<span>${esc(cls.name||"")} · ${rng} · ${esc(tr)}</span></div><div class="uc-hp"><i class="uc-bar"><span></span></i><b class="uc-hpnum"></b></div><div class="uc-stats"><span>${iconHTML("atk")}<b>${h.attack}</b></span><span>${iconHTML("def")}<b>${h.defense}</b></span><span>${iconHTML("rebirth")}<b>${h.rebirths}</b></span></div></div><div class="uc-actions"><button class="pixel-button gold uc-more" data-action="unitDetail" data-id="${h.id}">詳細</button><button class="uc-x" data-action="unitCardClose" aria-label="關閉單位資訊">✕</button></div>`;
+  }
+  const ratio=Math.max(0,Math.min(1,h.hp/Math.max(1,h.maxHp)));
+  const bar=unitCardEl.querySelector(".uc-bar>span"),num=unitCardEl.querySelector(".uc-hpnum"),hpEl=unitCardEl.querySelector(".uc-hp");
+  if(bar){bar.style.width=(ratio*100).toFixed(1)+"%";
+    num.textContent=Math.round(h.hp)+"/"+Math.round(h.maxHp);
+    hpEl.setAttribute("role","progressbar");hpEl.setAttribute("aria-valuemin","0");hpEl.setAttribute("aria-valuemax",String(Math.round(h.maxHp)));hpEl.setAttribute("aria-valuenow",String(Math.round(h.hp)));
+    hpEl.classList.toggle("low",ratio>0&&ratio<.35);hpEl.classList.toggle("down",ratio<=0);}
+}
 document.addEventListener('click',e=>{const el=e.target.closest('[data-action]');if(el&&!el.disabled){sfx('ui');doAction(el);}});
-document.addEventListener('keydown',e=>{if(e.target.matches('input,textarea,select'))return;if(e.key.toLowerCase()==='m'&&started){openModal('worldmap');return;}if(e.code==='Space'&&!modal&&started){e.preventDefault();if(game.state.pilot){game.pilotAttack();return;}game.state.paused=!game.state.paused;paint();}const map={'1':'build','2':'hunters','3':'trade','4':'craft','5':'dungeon','6':'arena','7':'quests'};if(!modal&&map[e.key])openModal(map[e.key]);});
+document.addEventListener('keydown',e=>{if(e.target.matches('input,textarea,select'))return;if(e.key==='Escape'&&unitCardEl&&!modal){hideUnitCard();return;}if(e.key.toLowerCase()==='m'&&started){openModal('worldmap');return;}if(e.code==='Space'&&!modal&&started){e.preventDefault();if(game.state.pilot){game.pilotAttack();return;}game.state.paused=!game.state.paused;paint();}const map={'1':'build','2':'hunters','3':'trade','4':'craft','5':'dungeon','6':'arena','7':'quests'};if(!modal&&map[e.key])openModal(map[e.key]);});
 $('#modal-backdrop').addEventListener('click',e=>{if(e.target.id==='modal-backdrop'&&modalDismissible())closeModal();});
 try{const saved=(()=>{try{return previewMode?null:JSON.parse(localStorage.getItem(SAVE_KEY)||'null');}catch{return null;}})();game=createGame(saved);bootOffline=saved&&saved.paused!==true&&Number.isFinite(saved.savedAt)?Math.max(0,(Date.now()-saved.savedAt)/1000):0;game.state.paused=true;document.querySelector('#title-art')?.style.setProperty('background-image',`url(${AS().title||''})`);if(AS().woodui)document.documentElement.style.setProperty('--wood-tex',`url(${AS().woodui})`);/* 2026-10-28:把 PixelLab 的 UI 零件掛成 CSS 變數(--ui-panel / --ui-btn-primary …),CSS 用 border-image 九宮格拉伸 */{const uiMap=AS().ui||{};for(const [k,v] of Object.entries(uiMap)){const u=`url(${v})`;document.documentElement.style.setProperty('--ui-'+k,u);if(!uiMap['px-'+k])document.documentElement.style.setProperty('--ui-px-'+k,u);}/* 手機一套 UI 零件(2026-10-30):有 assets/ui/m-px-<名字>.png 的,手機尺寸改用它;<html class="ui-m"> 讓 CSS 換切片與框寬(make_mobile_ui.py) */const mUi=Object.keys(uiMap).filter(k=>k.startsWith('m-px-'));if(mUi.length){const mq=matchMedia('(max-width:760px),(max-height:520px)'),setM=()=>{for(const k of mUi){const base=k.slice(2);if(uiMap[base])document.documentElement.style.setProperty('--ui-'+base,`url(${mq.matches?uiMap[k]:uiMap[base]})`);}document.documentElement.classList.toggle('ui-m',mq.matches);};setM();mq.addEventListener('change',setM);}/* 另一套 CSS 用 --ui-px-<名字>（window/card/btn-wood/…）→ 對到同一批零件，兩套命名都吃得動；assets/ui/px-*.png 在的話就用真正的零件，別名只在缺檔時補位 */const UI_ALIAS={'px-window':'panel','px-card':'panel-sm','px-btn-wood':'btn-secondary','px-btn-gold':'btn-primary','px-btn-red':'btn-danger','px-btn-x':'btn-close','px-tile':'tab','px-tile-on':'tab-on','px-trough':'bar','px-toast':'toast-ok','px-toast-err':'toast-err'};for(const [alias,src] of Object.entries(UI_ALIAS))if(!uiMap[alias]&&uiMap[src])document.documentElement.style.setProperty('--ui-'+alias,`url(${uiMap[src]})`);}setIcons();world=createPixelWorld($('#world'),{getState:()=>game.state,onSelect:handleWorldSelect,onPlace:(id,x,z)=>{const r=game.moveBuilding(id,x,z);logToast(r.message,r.ok);if(r.ok){placing=null;$('#placement').classList.add('hidden');world.placeMode(null);}paint();}});world.setTime(.18);applySettings();if(matchMedia('(pointer:coarse)').matches)$('.map-hint').textContent='拖曳平移 · 雙指縮放 · 點選建築／獵人';  /* 觸控裝置沒有滾輪 */globalThis.__mistvaleView=world;globalThis.__mistvaleGame=game;if(new URLSearchParams(location.search).has('tmw')){try{mountTmwPuppet(world);}catch(e){console.warn('tmw puppet failed',e);}}  // 驗收腳本用(pipeline/scripts/l0veyou/verify_all_regions.js)
 $('#left-panel')?.classList.add('hidden');$('#reopen-left')?.classList.remove('hidden');   // 委託看板預設收起（按鈕可展開）
@@ -572,7 +611,7 @@ function runHudPaint(){
 }
 function frame(now){requestAnimationFrame(frame);if(document.hidden){previous=now;return;}const frameMsNow=started&&game.state.paused?PAUSED_MS:(fpsTarget===60?1000/60:FRAME_MS);if(now<nextFrame-2)return;nextFrame=Math.max(nextFrame+frameMsNow,now);
  // 每幀實際花了多少時間(給效能檢查用:手機上這個值決定會不會發燙)
- const t0=performance.now();try{frames++;if(now-fpsStart>2000){document.body.dataset.fps=Math.round(frames*1000/(now-fpsStart));fpsStart=now;frames=0;}const dt=Math.min(.1,(now-previous)/1000);previous=now;if(started)game.tick(dt);pilotHudTick();world.setTime((game.state.time%240)/240);ambientSet(game.state.region||'village',(game.state.time%240)/240);world.update(game.state.paused?0:dt,game.state);dungeonTick();runHudPaint();liveModalTick(now);if(now-last>400){paint();last=now;}if(now-lastSave>5000){save();lastSave=now;}}finally{const ms=performance.now()-t0;frameMs.avg=frameMs.avg?frameMs.avg*.9+ms*.1:ms;frameMs.max=Math.max(frameMs.max,ms);frameMs.n++;if(perfProbe)perfSample(now,ms);}}requestAnimationFrame(frame);}catch(err){console.error(err);$('#loading').innerHTML='<b>像素村莊載入失敗，請重新整理</b>';}
+ const t0=performance.now();try{frames++;if(now-fpsStart>2000){document.body.dataset.fps=Math.round(frames*1000/(now-fpsStart));fpsStart=now;frames=0;}const dt=Math.min(.1,(now-previous)/1000);previous=now;if(started)game.tick(dt);pilotHudTick();world.setTime((game.state.time%240)/240);ambientSet(game.state.region||'village',(game.state.time%240)/240);world.update(game.state.paused?0:dt,game.state);dungeonTick();runHudPaint();if(unitCardEl)unitCardPaint();liveModalTick(now);if(now-last>400){paint();last=now;}if(now-lastSave>5000){save();lastSave=now;}}finally{const ms=performance.now()-t0;frameMs.avg=frameMs.avg?frameMs.avg*.9+ms*.1:ms;frameMs.max=Math.max(frameMs.max,ms);frameMs.n++;if(perfProbe)perfSample(now,ms);}}requestAnimationFrame(frame);}catch(err){console.error(err);$('#loading').innerHTML='<b>像素村莊載入失敗，請重新整理</b>';}
 
 // 讀取畫面:圖片全部載完(成功或失敗都算完成)、村莊地板與建築都用美術版畫好、圖示換成圖集之後才進村莊。
 // 有圖載入失敗就停在錯誤畫面,不進村、也不會退回程序繪製的陽春素材。

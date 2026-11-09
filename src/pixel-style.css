@@ -1478,3 +1478,31 @@ html.ui-m :is(.toast.error){border-width:8px}
   #run-hud .rh-num{min-width:34px;font-size:9px}
   #run-hud .rh-foe .rh-bar{width:110px}
 }
+
+
+/* ===== T109：點世界裡的獵人開一張小卡（要看完整資料再按「詳細」）；手機橫幅貼在底欄上方 ===== */
+#unit-card{position:fixed;left:8px;bottom:calc(var(--bb,100px) + 40px);z-index:13;display:grid;grid-template-columns:auto minmax(0,1fr) auto;align-items:center;gap:9px;width:min(372px,calc(100vw - 16px));padding:8px 10px;border:2px solid #5c4a2c;background:linear-gradient(180deg,#2c1d10f4,#1d1309f8);box-shadow:0 6px 18px #0009;color:#e8d7a4}
+#unit-card .uc-portrait{height:58px;width:44px;object-fit:contain;image-rendering:pixelated;border:1px solid #4a3a22;background:#1a1109}
+#unit-card .uc-body{display:flex;flex-direction:column;gap:3px;min-width:0}
+#unit-card .uc-head{display:flex;align-items:center;gap:6px;min-width:0}
+#unit-card .uc-name{font:700 13px/1.2 var(--font-title,inherit);color:#f0dfae;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+#unit-card .uc-lv{font:600 10.5px/1 var(--font-num);color:#b9c8a4;flex:0 0 auto}
+#unit-card .uc-status{margin-left:auto;font:600 9.5px/1 var(--font-num);padding:2px 5px;border:1px solid #6b7a4a;background:#2f3a26;color:#d9bf8e;white-space:nowrap;flex:0 0 auto}
+#unit-card .uc-sub{display:flex;align-items:center;gap:4px;font-size:10px;color:#b9c8a4;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+#unit-card .uc-sub [data-icon]{width:12px;height:12px;min-width:12px;min-height:12px}
+#unit-card .uc-hp{display:flex;align-items:center;gap:6px;margin-top:1px}
+#unit-card .uc-bar{position:relative;flex:1;height:7px;background:#3a2416;border:1px solid #0d0906;overflow:hidden}
+#unit-card .uc-bar>span{position:absolute;left:0;top:0;bottom:0;background:#7ccf6a;transition:width .15s linear}
+#unit-card .uc-hp.low .uc-bar>span{background:#e0a86a}
+#unit-card .uc-hp.down .uc-bar>span{background:#8a3b2a}
+#unit-card .uc-hpnum{font:600 10px/1 var(--font-num);color:#d9c8a2;flex:0 0 auto}
+#unit-card .uc-stats{display:flex;gap:9px;font:600 10.5px/1 var(--font-num);color:#cfbf95}
+#unit-card .uc-stats>span{display:flex;align-items:center;gap:3px}
+#unit-card .uc-stats [data-icon]{width:12px;height:12px;min-width:12px;min-height:12px}
+#unit-card .uc-stats b{font-weight:700;color:#f0dfae}
+#unit-card .uc-actions{display:flex;align-items:center;gap:5px}
+#unit-card .uc-more{font-size:11px;padding:5px 9px;min-height:0}
+#unit-card .uc-x{width:22px;height:22px;display:grid;place-items:center;border:1px solid #6b5a38;background:#2a1c0f;color:#d9c8a2;border-radius:50%;font:600 11px/1 var(--font-num);cursor:pointer}
+#unit-card .uc-x:hover{border-color:#c9a04d;color:#f4dc94}
+@media(max-width:760px){#unit-card{left:8px;right:8px;width:auto;bottom:calc(var(--bb,62px) + 34px);grid-template-columns:auto minmax(0,1fr);gap:8px;padding:7px 9px}#unit-card .uc-portrait{height:46px;width:35px}#unit-card .uc-actions{grid-column:1/-1;justify-content:flex-end;gap:8px}#unit-card .uc-x{width:26px;height:26px}#unit-card .uc-more{min-height:26px;padding:4px 10px}}
+@media(prefers-reduced-motion:reduce){#unit-card .uc-bar>span{transition:none}}
