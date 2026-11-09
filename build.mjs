@@ -34,6 +34,7 @@ async function media(absPath,name){
 const ui=await build({entryPoints:[path.join(root,'src/pixel-ui.js')],bundle:true,minify:true,write:false,format:'iife',target:'es2020',legalComments:'eof'});
 let html=await fs.readFile(path.join(root,'src/pixel-index.html'),'utf8');
 let css=await fs.readFile(path.join(root,'src/pixel-style.css'),'utf8');
+ try { css += '\n' + await fs.readFile(path.join(root,'src/ui-kit.css'),'utf8'); } catch {}
 css=css.replace("@import url('');",'');
 let assetScript='';
 const put=(key,value)=>assetScript+=`window.PIXEL_ASSETS=window.PIXEL_ASSETS||{};window.PIXEL_ASSETS.${key}=${value};`;
