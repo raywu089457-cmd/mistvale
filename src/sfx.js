@@ -16,8 +16,8 @@ export function sfxMuted(v) {
   muted = !!v;
   if (master) { try { master.gain.value = muted ? 0 : volume; } catch { } }
   // T108：靜音也要把環境音收掉，不然關掉音效還會聽到風聲。
-  if (muted) { if (bed && ctx) killBed(ctx); }
-  else if (lastRegion && ctx) { bedName = ''; ambientSet(lastRegion, lastPhase); }
+  if (muted) { villageStop(); if (bed && ctx) killBed(ctx); }
+  else if (lastRegion && ctx) { bedName = ''; ambientSet(lastRegion, lastPhase, lastBuildings); }
   return muted;
 }
 export function sfxVolume(v) {
@@ -144,10 +144,11 @@ const BEDS = {
 let bed = null, bedName = '', bedNight = false, bedCount = 0, sporadic = 0, lastRegion = '', lastPhase = .15, chirpCount = 0;
 // T108：環境音是背景播放，不能在使用者手勢前就自己建 AudioContext（自動播放政策），
 // 所以要等第一個手勢才「上膛」。事件音本來就由手勢觸發，不受影響。
-let armed = false;
+let armed = false, lastBuildings = {}, lastInVillage = true;
 if (hasWindow) {
   const arm = () => {
     armed = true;
+    try { villageSet(lastBuildings, lastInVillage && !!bed); } catch { }
     if (ctx && ctx.state === 'suspended') { try { ctx.resume(); } catch { } }
   };
   for (const ev of ['pointerdown', 'keydown', 'touchstart', 'click']) window.addEventListener(ev, arm, { passive: true, once: true });
@@ -219,12 +220,88 @@ function scheduleSporadic() {
   }, wait);
 }
 
-/** 換環境音（區域 id + 一天中的相位 0–1；0.15 下午、0.7 半夜）。同一個區域／時段重複呼叫不會重做。 */
-export function ambientSet(regionId, phase) {
+// ── 村莊裡「有來源」的聲音：鐵匠鋪打鐵、酒館人聲、交易所零錢、大廳鐘聲 ──
+// 依建築等級決定間隔（等級越高越忙），沒有這棟建築就沒有聲音。只在村莊區域響。
+const VILLAGE = {
+  forge:   { every: lv => Math.max(1400, 3600 - 400 * (lv - 1)), gain: 0.045 },
+  tavern:  { every: lv => Math.max(3000, 9000 - 1000 * (lv - 1)), gain: 0.016 },
+  trading: { every: lv => Math.max(3000, 10000 - 1200 * (lv - 1)), gain: 0.014 },
+  hall:    { every: lv => Math.max(12000, 42000 - 4000 * (lv - 1)), gain: 0.018, minLv: 3 },
+};
+let villageLevels = {}, villageTimers = {}, villageFired = { forge: 0, tavern: 0, trading: 0, hall: 0 };
+
+function villageActive(id) {
+  const d = VILLAGE[id];
+  return !!d && (villageLevels[id] || 0) >= (d.minLv || 1);
+}
+// 驗收用：目前實際會響的來源與它的間隔
+function villageSources() {
+  return Object.keys(VILLAGE).filter(villageActive).map(id => ({
+    id, lv: villageLevels[id], everyMs: Math.round(VILLAGE[id].every(villageLevels[id])), gain: VILLAGE[id].gain,
+  }));
+}
+function villageStop() {
+  for (const k of Object.keys(villageTimers)) { clearTimeout(villageTimers[k]); delete villageTimers[k]; }
+}
+function villagePlay(id, g) {
+  const c = ac();
+  if (!c) return;
+  const t = c.currentTime;
+  if (id === 'forge') {
+    // 打鐵：金屬噪音爆 + 一下短促的鐵砧音；三成機率補第二下
+    noise(c, t, { f0: 2400, f1: 700, q: 1.1, dur: 0.07, peak: g, type: 'bandpass' });
+    tone(c, t, { type: 'triangle', f0: 1380, f1: 1180, dur: 0.05, peak: g * 0.35 });
+    if (Math.random() < 0.35) {
+      noise(c, t + 0.09, { f0: 2200, f1: 640, q: 1.1, dur: 0.06, peak: g * 0.8, type: 'bandpass' });
+      tone(c, t + 0.09, { type: 'triangle', f0: 1300, f1: 1120, dur: 0.045, peak: g * 0.28 });
+    }
+  } else if (id === 'tavern') {
+    // 酒館：一小段低頻人聲嗡嗡 + 杯碰一下
+    noise(c, t, { f0: 520, f1: 300, q: 0.7, dur: 1.1, peak: g * 0.55, type: 'bandpass' });
+    tone(c, t + 0.25, { type: 'sine', f0: 2500, f1: 2380, dur: 0.035, peak: g * 0.5 });
+  } else if (id === 'trading') {
+    // 交易所：零錢兩下
+    tone(c, t, { type: 'sine', f0: 1620, f1: 1520, dur: 0.05, peak: g * 0.6 });
+    tone(c, t + 0.07, { type: 'sine', f0: 2160, f1: 2060, dur: 0.05, peak: g * 0.45 });
+  } else if (id === 'hall') {
+    // 大廳鐘聲：低頻長尾 + 泛音
+    tone(c, t, { type: 'sine', f0: 780, f1: 520, dur: 1.4, peak: g });
+    tone(c, t, { type: 'sine', f0: 1560, f1: 1040, dur: 1.1, peak: g * 0.3 });
+  }
+}
+function villageSchedule(id) {
+  if (!villageActive(id) || !armed || muted || !bed || document.hidden) return;
+  const d = VILLAGE[id];
+  const wait = Math.max(400, d.every(villageLevels[id]) * (0.75 + Math.random() * 0.5));
+  villageTimers[id] = setTimeout(() => {
+    delete villageTimers[id];
+    if (!armed || muted || !bed || document.hidden || !villageActive(id)) return;
+    try { villagePlay(id, d.gain); } catch { }
+    villageFired[id] = (villageFired[id] || 0) + 1;
+    villageSchedule(id);
+  }, wait);
+}
+function villageSet(levels, inVillage) {
+  villageLevels = levels || {};
+  if (!inVillage) { villageStop(); return; }
+  for (const id of Object.keys(VILLAGE)) {
+    if (villageActive(id)) { if (!villageTimers[id]) villageSchedule(id); }
+    else if (villageTimers[id]) { clearTimeout(villageTimers[id]); delete villageTimers[id]; }
+  }
+}
+function villageState() {
+  return { active: villageSources(), fired: { ...villageFired }, timers: Object.keys(villageTimers).length, levels: { ...villageLevels } };
+}
+
+/** 換環境音（區域 id + 一天中的相位 0–1；0.15 下午、0.7 半夜）。同一個區域／時段重複呼叫不會重做。
+ *  buildings 是村莊建築等級表（T113：鐵匠鋪打鐵、酒館人聲、交易所零錢、大廳鐘聲依等級決定）。 */
+
+export function ambientSet(regionId, phase, buildings, inVillage) {
   const want = BEDS[regionId] ? regionId : 'village';
   const ph = typeof phase === 'number' && isFinite(phase) ? phase : .15;
   const night = ph > .55 && ph < .95;
-  lastRegion = want; lastPhase = ph;
+  lastRegion = want; lastPhase = ph; lastBuildings = buildings || lastBuildings; lastInVillage = inVillage !== false;
+  villageSet(lastBuildings, armed && !muted && (inVillage !== false) && !!bed);
   if (!armed) return ambientState();   // 還沒手勢：先記下想要的區域，等上膛後再長出來
   if (want === bedName && night === bedNight && bed) return ambientState();
   if (muted) { bedName = ''; return ambientState(); }
@@ -241,15 +318,15 @@ export function ambientState() {
   try { gain = bed ? Math.round(bed.g.gain.value * 1000) / 1000 : 0; } catch { }
   const cfg = BEDS[bedName];
   const target = bed && cfg ? Math.round(cfg.gain * (bedNight ? 0.85 : 1) * 1000) / 1000 : 0;
-  return { bed: bedName, night: bedNight, playing: !!bed, gain, target, count: bedCount, sporadic: !!sporadic, chirps: chirpCount, armed };
+  return { bed: bedName, night: bedNight, playing: !!bed, gain, target, count: bedCount, sporadic: !!sporadic, chirps: chirpCount, armed, village: villageSources().length };
 }
 
 // 分頁切到背景時把環境音收掉（背景不該一直播風聲），回來再長回來。
 if (hasWindow && typeof document !== 'undefined') {
   document.addEventListener('visibilitychange', () => {
     if (!ctx) return;
-    if (document.hidden) { killBed(ctx); bedName = ''; }
-    else if (lastRegion && !muted) { bedName = ''; ambientSet(lastRegion, lastPhase); }
+    if (document.hidden) { villageStop(); killBed(ctx); bedName = ''; }
+    else if (lastRegion && !muted) { bedName = ''; ambientSet(lastRegion, lastPhase, lastBuildings); }
   });
 }
 
@@ -259,6 +336,8 @@ if (hasWindow) {
     set: ambientSet,
     state: ambientState,
     beds: () => Object.keys(BEDS),
+    village: villageState,
+    villagePlay: (id) => { try { villagePlay(id, (VILLAGE[id] || {}).gain || 0.04); villageFired[id] = (villageFired[id] || 0) + 1; } catch { } },
   };
   globalThis.__mistvaleSfx = {
     play: (k, o) => sfx(k, o),
