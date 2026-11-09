@@ -1834,3 +1834,10 @@ html{font-variant-numeric:tabular-nums;font-feature-settings:'tnum' 1}
   .region-card .rg-exp{padding:3px 6px}
   .wm-foot .wm-boss{margin-left:0;flex-basis:100%}
 }
+
+/* ===== T129：底部分頁的待處理徽章（可領取／可升級／可招募／可製作）===== */
+#bottom-bar button{position:relative}
+#bottom-bar button[data-badge]:not([data-badge=""])::after{content:attr(data-badge);position:absolute;top:2px;right:2px;min-width:15px;height:15px;padding:0 3px;display:grid;place-items:center;border-radius:8px;background:linear-gradient(180deg,#f4cf7c,#c9902f);border:1px solid #2a1b0e;color:#231708;font:700 10px/1 var(--font-num);box-shadow:0 1px 3px #000a;pointer-events:none;animation:badgePop .28s ease-out both}
+@keyframes badgePop{from{transform:scale(.4);opacity:0}to{transform:scale(1);opacity:1}}
+@media(prefers-reduced-motion:reduce){#bottom-bar button[data-badge]::after{animation:none}}
+@media(max-width:760px){#bottom-bar button[data-badge]:not([data-badge=""])::after{top:1px;right:1px;min-width:14px;height:14px;font-size:9px}}

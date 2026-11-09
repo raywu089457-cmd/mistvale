@@ -199,7 +199,35 @@ function paintInspector(){
 const resFloat={t:0,last:null};
 function floatDeltas(s){const keys=['gold','gems','wood','ore'],now=performance.now();if(!resFloat.last){resFloat.last=Object.fromEntries(keys.map(k=>[k,s[k]]));resFloat.t=now;return;}if(now-resFloat.t<1200)return;
  for(const k of keys){const d=Math.round(s[k]-resFloat.last[k]);resFloat.last[k]=s[k];if(!d||!started)continue;const host=$('#'+k)?.closest('button,div');if(!host)continue;if(getComputedStyle(host).position==='static')host.style.position='relative';const f=document.createElement('span');f.className='res-float '+(d>0?'up':'down');f.textContent=(d>0?'+':'−')+fmt(Math.abs(d));host.append(f);setTimeout(()=>f.remove(),1100);}resFloat.t=now;}
-function paint(force=false){const s=game.state;floatDeltas(s);['gold','wood','ore','gems'].forEach(k=>$('#'+k).textContent=topNum(s[k]));$('#population').textContent=`${s.hunters.length}/${s.capacity}`;$('#town-level').textContent=`村莊 Lv.${s.buildings.hall}`;$('#difficulty-name').textContent=DIFFICULTIES[s.difficulty].name;{const di=$('.difficulty-button [data-icon]');if(di)di.dataset.icon='diff-'+Math.max(0,Math.min(4,DIFFICULTIES.indexOf(DIFFICULTIES[s.difficulty])));}$H('#stock-list').innerHTML=resourceRows();$H('#mini-roster').innerHTML=miniRoster();paintPortraits();paintQuest();$('#pause').textContent=s.paused?'▶':'Ⅱ';$('#speed').textContent=`${s.speed}×`;$('#pause-label').classList.toggle('hidden',!s.paused);$H('#notice-feed').innerHTML=listHTML(s.log.slice(0,3),l=>`<div>${esc(l.text)}</div>`,'還沒有村莊消息','讓時間跑一下，獵人回村就會有動靜');if(selected)paintInspector();setIcons();document.body.dataset.kills=s.totalKills;document.body.dataset.services=s.counts.services;const landscape=world?.landscapeStats?.();if(landscape){document.body.dataset.trees=landscape.trees;document.body.dataset.arenas=landscape.arenas;document.body.dataset.roads=landscape.roads;}document.body.dataset.worldArea=WORLD.area;document.body.dataset.region=s.region;const rb=$('#region-badge');if(rb)rb.textContent=(REGIONS.find(r=>r.id===s.region)?.name||'向陽草原')+' · 狩獵中';pilotStatus();}
+// T129：底部分頁的「待處理」徽章——可領取的委託、可升級的建設、可招募的訪客、可製作的東西。
+// 徽章用 CSS ::after + data-badge 畫，不改 DOM 結構、也不佔版面（按鈕尺寸完全不變）。
+function buildableCount(s){
+  // 只算「還沒蓋的建築」：已經蓋好的日常升級不算待處理事項，否則徽章永遠亮著。
+  let n=0;
+  for(const b of BUILDINGS){
+    if((s.buildings[b.id]||0)>0)continue;
+    const cost=b.cost;
+    if(!cost||Object.keys(cost).some(k=>(s[k]||0)<cost[k]))continue;
+    if(b.id!=='hall'&&1>(s.buildings.hall||0)+1)continue;
+    n++;
+  }
+  return n;
+}
+function paintBadges(s){
+  const set=(action,n,label)=>{
+    const b=document.querySelector(`#bottom-bar [data-action="${action}"]`);
+    if(!b)return;
+    if(!b.dataset.base)b.dataset.base=b.querySelector('b')?.textContent||action;
+    const show=n>0;
+    b.dataset.badge=show?String(n>9?'9+':n):'';
+    if(show)b.setAttribute('aria-label',`${b.dataset.base}：${n} ${label}`);
+    else b.removeAttribute('aria-label');
+  };
+  set('quests',s.quest&&s.quest.complete?1:0,'件獎勵可領取');
+  set('build',buildableCount(s),'棟可升級');
+  set('hunters',(s.visitors||[]).filter(v=>(s.gold||0)>=v.cost).length,'位訪客可招募');
+}
+function paint(force=false){const s=game.state;floatDeltas(s);['gold','wood','ore','gems'].forEach(k=>$('#'+k).textContent=topNum(s[k]));$('#population').textContent=`${s.hunters.length}/${s.capacity}`;$('#town-level').textContent=`村莊 Lv.${s.buildings.hall}`;$('#difficulty-name').textContent=DIFFICULTIES[s.difficulty].name;{const di=$('.difficulty-button [data-icon]');if(di)di.dataset.icon='diff-'+Math.max(0,Math.min(4,DIFFICULTIES.indexOf(DIFFICULTIES[s.difficulty])));}$H('#stock-list').innerHTML=resourceRows();$H('#mini-roster').innerHTML=miniRoster();paintPortraits();paintQuest();$('#pause').textContent=s.paused?'▶':'Ⅱ';$('#speed').textContent=`${s.speed}×`;$('#pause-label').classList.toggle('hidden',!s.paused);$H('#notice-feed').innerHTML=listHTML(s.log.slice(0,3),l=>`<div>${esc(l.text)}</div>`,'還沒有村莊消息','讓時間跑一下，獵人回村就會有動靜');if(selected)paintInspector();setIcons();document.body.dataset.kills=s.totalKills;document.body.dataset.services=s.counts.services;const landscape=world?.landscapeStats?.();if(landscape){document.body.dataset.trees=landscape.trees;document.body.dataset.arenas=landscape.arenas;document.body.dataset.roads=landscape.roads;}document.body.dataset.worldArea=WORLD.area;document.body.dataset.region=s.region;const rb=$('#region-badge');if(rb)rb.textContent=(REGIONS.find(r=>r.id===s.region)?.name||'向陽草原')+' · 狩獵中';pilotStatus();paintBadges(s);}
 // 主世界地圖畫布:長寬比跟世界一樣(一格世界單位在畫面上是正方形),四周各留 15 像素邊。
 const WORLD_MAP_H=392,WORLD_MAP_W=Math.round((WORLD_MAP_H-30)*WORLD.width/WORLD.height)+30;
 function modalTitle(t,ic='scroll'){const names={worldmap:'主世界地圖',build:'村莊建設',hunters:'獵人名冊',hunter:'獵人詳情',trade:'交易所',craft:'製作與庫存',dungeon:'地下城遠征',arena:'競技場模擬對戰',quests:'村長委託',inventory:'村莊倉庫',difficulty:'狩獵難度',offline:'離線收益',recruit:'招募訪客',settings:'遊戲設定',help:'村長入門手札',boss:'地圖首領',dispatch:'派遣出征 · 自由組隊',region:'地圖詳細資訊',density:'地區立牌 · 怪物數量',welcome:'獵人入門',codex:'魔物圖鑑'};$('#modal-title').textContent=names[t]||t;$('#modal-icon').dataset.icon=ic;setIcons($('#modal'));}
