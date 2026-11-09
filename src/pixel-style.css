@@ -2013,3 +2013,31 @@ body.piloting #pilot-hud .ph-btn.ghost{
 .help-nav-chip:hover{border-color:#a8823f;color:var(--gold-bright)}
 .help-nav-chip:focus-visible{outline:2px solid var(--gold-bright);outline-offset:2px}
 @media(pointer:coarse){.help-nav-chip{min-height:44px}}
+/* ===== T149：橫向手機（矮視窗）的可點控制項也要 44px =====
+   #game-ui 那層有 zoom:var(--ui-scale)（橫向 712x402 時是 0.75），
+   所以 #game-ui 內的元素要 ×(1/zoom) 才是畫面上真正的 44px；#topbar 在 zoom 外面，用原本的 px。 */
+@media (pointer:coarse) and (max-height:520px){
+  :root{--t52:calc(1 / var(--ui-scale,1))}
+  #game-ui #bottom-bar button{min-height:calc(44px * var(--t52,1));min-width:calc(38px * var(--t52,1))}
+  #game-ui .view-tools button,#game-ui .view-tools .square,#game-ui #reopen-left.square,#game-ui .world-map-trigger{width:calc(44px * var(--t52,1));height:calc(44px * var(--t52,1));min-width:calc(44px * var(--t52,1));min-height:calc(44px * var(--t52,1))}
+  #game-ui .skill-buttons .skill{min-height:calc(44px * var(--t52,1))}
+  /* topbar 在 zoom 外面、橫向時只有 48px 高，寬度不動（硬拉寬會互相重疊），只保證高度 */
+  #topbar button,#topbar .top-controls > button{min-height:44px}
+}
+/* T149 補：按鈕變高後，底欄（含 padding/border）要跟著長高，否則會被 flex 壓回去 */
+@media (pointer:coarse) and (max-height:520px){
+  #game-ui #bottom-bar{padding:6px 10px 8px;gap:4px}
+  #game-ui #bottom-bar>button{padding:4px 2px}
+}
+@media (pointer:coarse) and (max-height:520px){
+  #game-ui #bottom-bar{height:calc(60px * var(--t52,1));align-items:center}
+}
+
+@media (pointer:coarse) and (max-height:520px){
+  /* 橫向時底欄變高，浮動鈕（縮放／說明）要跟著抬高，不然會壓到最右邊的分頁 */
+  #game-ui .view-tools{bottom:calc((var(--bb,48px) + 10px) * var(--t52,1))}
+}
+@media (pointer:coarse) and (max-height:520px){
+  /* 橫向時底欄變高，召喚首領的浮動鈕要跟著抬高 */
+  #game-ui [data-action="boss"]{bottom:calc((var(--bb,48px) + 10px) * var(--t52,1))}
+}

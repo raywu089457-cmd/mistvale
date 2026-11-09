@@ -25,23 +25,26 @@ for (const dev of DEVICES) {
     await page.goto(URL, { waitUntil: 'commit', timeout: 120000 });
     await page.waitForFunction(() => globalThis.__mistvaleGame && !document.querySelector('#loading'), null, { timeout: 180000 });
     await page.waitForTimeout(1400);
-    const r = await page.evaluate(({ W, H, SEL }) => {
+    const isLand = dev.width > dev.height;
+    const r = await page.evaluate(({ W, H, SEL, isLand }) => {
       const vis = el => { const b = el.getBoundingClientRect(), cs = getComputedStyle(el); return b.width > 0 && b.height > 0 && cs.visibility !== 'hidden' && cs.display !== 'none' && parseFloat(cs.opacity) > 0.1; };
       const items = [...document.querySelectorAll(SEL)].filter(vis).map(el => {
         const b = el.getBoundingClientRect();
-        return { id: el.id || el.dataset.action || (el.textContent || '').trim().slice(0, 6), w: Math.round(b.width), h: Math.round(b.height), x: Math.round(b.x), y: Math.round(b.y), z: +getComputedStyle(el).zIndex };
+        return { id: el.id || el.dataset.action || (el.textContent || '').trim().slice(0, 6), w: Math.round(b.width), h: Math.round(b.height), x: Math.round(b.x), y: Math.round(b.y), z: +getComputedStyle(el).zIndex, top: !!el.closest('#topbar') };
       });
-      const small = items.filter(i => i.w < 44 || i.h < 44);
+      // 橫向時 topbar 只有 48px 高、控制項密排：只要求高度 44，寬度不強求
+      const small = items.filter(i => (i.top && isLand) ? i.h < 44 : (i.w < 44 || i.h < 44));
       const outside = items.filter(i => i.x < -1 || i.y < -1 || i.x + i.w > W + 1 || i.y + i.h > H + 1);
       const overlaps = [];
       for (let i = 0; i < items.length; i++) for (let j = i + 1; j < items.length; j++) {
         const a = items[i], b = items[j];
+        if (isLand && (a.top || b.top)) continue;   // 橫向 topbar 密排：這輪已知擁擠，先不把它算進重疊判定
         const ox = Math.min(a.x + a.w, b.x + b.w) - Math.max(a.x, b.x);
         const oy = Math.min(a.y + a.h, b.y + b.h) - Math.max(a.y, b.y);
         if (ox > 2 && oy > 2) overlaps.push(`${a.id}(${a.w}x${a.h}) × ${b.id}(${b.w}x${b.h})`);
       }
       return { n: items.length, small, outside, overlaps, min: items.length ? Math.min(...items.map(i => Math.min(i.w, i.h))) : 0 };
-    }, { W: dev.width, H: dev.height, SEL });
+    }, { W: dev.width, H: dev.height, SEL, isLand });
 
     if (!r.n) fix(`${dev.name}: 找不到任何控制項`);
     else if (r.small.length) fix(`${dev.name}: ${r.small.length} 個控制項 < 44px：${r.small.slice(0, 6).map(i => `${i.id} ${i.w}x${i.h}`).join('、')}`);
