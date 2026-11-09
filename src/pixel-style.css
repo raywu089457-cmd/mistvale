@@ -1954,3 +1954,14 @@ html{font-variant-numeric:tabular-nums;font-feature-settings:'tnum' 1}
   #topbar button{min-width:44px}
   .view-tools{gap:6px}
 }
+
+/* ===== T144：「離開操控」不要壓在搖桿上（360 寬實測壓到 52px） ===== */
+body.piloting #pilot-hud .ph-btn.ghost{
+  position:fixed;
+  left:auto;right:calc(14px + env(safe-area-inset-right,0px));
+  bottom:calc(24px + 86px + 14px + env(safe-area-inset-bottom,0px));top:auto;
+  width:52px;height:52px;font-size:22px;
+}
+@media(max-width:400px){
+  body.piloting #pilot-hud .ph-btn.ghost{width:48px;height:48px;font-size:20px;bottom:calc(20px + 78px + 12px + env(safe-area-inset-bottom,0px))}
+}
