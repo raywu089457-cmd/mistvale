@@ -1,4 +1,4 @@
-/* ===== T118：Ark Pixel 12px（OFL 1.1，見 assets/fonts/OFL.txt）=====
+﻿/* ===== T118：Ark Pixel 12px（OFL 1.1，見 assets/fonts/OFL.txt）=====
    12px 原生尺寸：正文一律 12px、標題 24px（整數倍才不會糊）。
    兩種字重都指向同一個檔案：像素字沒有真的粗體，讓瀏覽器合成假粗體會糊掉，
    所以階層改用大小、顏色與字距拉開。數字另外用等寬版本，金額／生命才會對齊。 */
@@ -1841,3 +1841,26 @@ html{font-variant-numeric:tabular-nums;font-feature-settings:'tnum' 1}
 @keyframes badgePop{from{transform:scale(.4);opacity:0}to{transform:scale(1);opacity:1}}
 @media(prefers-reduced-motion:reduce){#bottom-bar button[data-badge]::after{animation:none}}
 @media(max-width:760px){#bottom-bar button[data-badge]:not([data-badge=""])::after{top:1px;right:1px;min-width:14px;height:14px;font-size:9px}}
+
+
+/* ===== T132：下一步建議條（畫面下方，點一下跳到對應面板）===== */
+.next-step{position:fixed;left:50%;bottom:calc(var(--bb, 96px) + 30px);transform:translateX(-50%);z-index:7;
+  display:flex;align-items:center;gap:8px;max-width:min(520px,calc(100vw - 32px));
+  padding:6px 10px 6px 8px;border:1px solid #5c4a2c;border-radius:2px;
+  background:linear-gradient(180deg,#2c1d10f2,#1b1208f7);box-shadow:0 4px 14px #0008;
+  color:#efe2c0;font:500 12px/1.45 var(--font-ui);text-align:left;cursor:pointer;
+  animation:nsIn .22s ease-out both}
+.next-step:hover{border-color:#8a6a36;background:linear-gradient(180deg,#33220fF2,#20150af7)}
+.next-step:focus-visible{outline:2px solid var(--gold-bright,#e7be5e);outline-offset:2px}
+.next-step .ns-ic{display:grid;place-items:center;width:18px;height:18px;flex:0 0 18px;opacity:.9}
+.next-step .ns-ic canvas{width:16px;height:16px}
+.next-step .ns-tx{min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.next-step .ns-go{flex:0 0 auto;padding:2px 7px;border:1px solid #6b5a3a;border-radius:2px;
+  background:#2f2114;color:var(--gold-bright,#e7be5e);font:700 11px/1.4 var(--font-ui);white-space:nowrap}
+@keyframes nsIn{from{opacity:0;transform:translate(-50%,6px)}to{opacity:1;transform:translate(-50%,0)}}
+@media(prefers-reduced-motion:reduce){.next-step{animation:none}}
+@media(max-width:760px){
+  .next-step{bottom:calc(var(--bb, 44px) + 110px);left:8px;right:104px;transform:none;max-width:none}
+  @keyframes nsIn{from{opacity:0;transform:translateY(6px)}to{opacity:1;transform:translateY(0)}}
+  .next-step .ns-tx{font-size:12px}
+}

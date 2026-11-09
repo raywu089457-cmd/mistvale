@@ -503,6 +503,12 @@ function doAction(el){const a=el.dataset.action,id=el.dataset.id;let r;
  if(a==='dispatchRegion'){game.setDispatchTeam(dispatchTab,{region:id});openModal('dispatch');const c=$('#modal-content');if(c)c.scrollTop=c.scrollHeight;return;}
  if(a==='startDispatch'){r=game.dispatchTeam(dispatchTab);logToast(r.message,r.ok);if(r.ok)closeModal();save();paint();return;}
  if(a==='toggleDungeonHunter'){toggleParty('dungeon',id);return;}if(a==='toggleArenaHunter'){toggleParty('arena',id);return;}if(a==='startDungeon'){r=game.startDungeon(game.state.dungeon.hunterIds);logToast(r.message,r.ok);paint();if(r.ok)openModal('dungeon');save();return;}if(a==='dgRetreat'){r=game.retreatDungeon();logToast(r.message,r.ok);openModal('dungeon');paint();save();return;}if(a==='dgAuto'){r=game.setDungeonAuto(!game.state.dungeon.auto);logToast(r.message,r.ok);openModal('dungeon');save();return;}if(a==='dgFloor'){const d=game.state.dungeon,maxF=d.bestFloor+1,cur=Math.min(maxF,d.startFloor||maxF);r=game.setDungeonStart(id==='max'?maxF:cur+Number(id));openModal('dungeon');save();return;}if(a==='startArena'){r=game.startArena(game.state.arena.hunterIds);logToast(r.message,r.ok);paint();return;}
+  // T132:下一步建議條
+  if(a==='nextStep'){
+    const t=el.dataset.act;
+    if(t==='quests'||t==='hunters'||t==='dungeon'||t==='build'||t==='worldmap')openModal(t);
+    return;
+  }
   // T107:小隊 HUD 的兩個按鈕(不開面板,直接在畫面上操作)
   if(a==='runRetreat'){r=game.retreatDungeon();logToast(r.message,r.ok);paint();save();return;}
   if(a==='runAuto'){r=game.setDungeonAuto(!game.state.dungeon.auto);logToast(r.message,r.ok);save();return;}
@@ -833,13 +839,53 @@ function runHudPaint(){
   for(const u of runHudUnits){const h=u.h,ratio=Math.max(0,Math.min(1,h.hp/(h.maxHp||1)));u.fill.style.width=(ratio*100).toFixed(1)+'%';u.num.textContent=`${Math.round(h.hp)}/${Math.round(h.maxHp)}`;u.el.classList.toggle('down',h.hp<=0);u.el.classList.toggle('low',ratio<.35);}
   if(runHudFoe&&a?.active){const ratio=Math.max(0,Math.min(1,a.enemyHp/(a.enemyMaxHp||1)));runHudFoe.fill.style.width=(ratio*100).toFixed(1)+'%';runHudFoe.num.textContent=`${Math.round(a.enemyHp)}/${Math.round(a.enemyMaxHp)}`;}
 }
+
+// T132：下一步建議——把「現在最該做的一件事」放在畫面下方，點一下直接跳過去。
+// 純粹由 state 推導，不記任何「已看過」狀態；條件消失就自己收起來。
+let nextStepEl=null,nextStepKey='';
+function nextStepPick(s){
+  if(!s||!s.hunters)return null;
+  const idle=(s.hunters||[]).filter(h=>!h.task&&(h.hp||0)>0);
+  if(s.quest&&s.quest.complete)return {key:'quest',text:'村長委託的獎勵可以領了',act:'quests',label:'查看委託'};
+  const vis=(s.visitors||[]).filter(v=>(s.gold||0)>=v.cost);
+  if(vis.length)return {key:'visitor',text:'有 '+vis.length+' 位旅人願意加入',act:'hunters',label:'看名冊'};
+  const d=s.dungeon||{};
+  if((s.buildings&&s.buildings.dungeon||0)>0&&idle.length>=3&&!d.active&&!(d.cooldown>0))
+    return {key:'dungeon',text:idle.length+' 位獵人待機，可以派去地下城',act:'dungeon',label:'去地下城'};
+  if(buildableCount(s)>0)return {key:'build',text:'資源夠了，可以蓋新的建築',act:'build',label:'去建設'};
+  if(!d.active&&(s.buildings&&s.buildings.dungeon||0)>0&&idle.length>=1&&!(d.cooldown>0))
+    return {key:'dungeon2',text:'派滿 3 位獵人就能進地下城（目前 '+idle.length+' 位待機）',act:'dungeon',label:'看地下城'};
+  if(idle.length===s.hunters.length&&idle.length>0)
+    return {key:'hunt',text:'獵人都在村裡待機，可以派到生態區蒐集材料',act:'worldmap',label:'開地圖'};
+  return null;
+}
+function nextStepPaint(){
+  const s=game&&game.state;
+  // 面板開著、或點了單位小卡、或正在放置建築時，都不要多疊一條東西。
+  const insp=document.querySelector('#inspector');
+  const inspectorOpen=!!(insp&&!insp.classList.contains('hidden'));
+  const n=modal||(typeof unitCardEl!=='undefined'&&unitCardEl)||placing||inspectorOpen?null:nextStepPick(s);
+  if(!n){if(nextStepEl){nextStepEl.remove();nextStepEl=null;}nextStepKey='';return;}
+  const key=n.key+'|'+n.text;
+  if(key===nextStepKey&&nextStepEl)return;
+  nextStepKey=key;
+  if(!nextStepEl){nextStepEl=document.createElement('button');nextStepEl.type='button';nextStepEl.id='next-step';nextStepEl.className='next-step';nextStepEl.setAttribute('data-action','nextStep');document.body.appendChild(nextStepEl);}
+  nextStepEl.innerHTML='<i class="ns-ic">'+iconHTML('scroll',true)+'</i><span class="ns-tx"></span><b class="ns-go"></b>';
+  nextStepEl.querySelector('.ns-tx').textContent=n.text;
+  nextStepEl.querySelector('.ns-go').textContent=n.label;
+  nextStepEl.setAttribute('data-key',n.key);
+  nextStepEl.setAttribute('data-act',n.act);
+  nextStepEl.setAttribute('aria-label',n.text+'（'+n.label+'）');
+  setIcons(nextStepEl);
+}
+
 function frame(now){requestAnimationFrame(frame);if(document.hidden){previous=now;return;}const frameMsNow=started&&game.state.paused?PAUSED_MS:(fpsTarget===60?1000/60:FRAME_MS);if(now<nextFrame-2)return;nextFrame=Math.max(nextFrame+frameMsNow,now);
  // 每幀實際花了多少時間(給效能檢查用:手機上這個值決定會不會發燙)
  const t0=performance.now();try{frames++;if(now-fpsStart>2000){document.body.dataset.fps=Math.round(frames*1000/(now-fpsStart));fpsStart=now;frames=0;}const dt=Math.min(.1,(now-previous)/1000);previous=now;if(started)game.tick(dt);pilotHudTick();world.setTime((game.state.time%240)/240);{
     // T113：村莊環境音（打鐵、酒館、交易所、鐘聲）只在相機看得到村莊時響
     const c=world?.cameraXZ?.();const inVil=c?Math.hypot(c.x+15,c.z-3)<30:true;
     ambientSet(game.state.region||'village',(game.state.time%240)/240,game.state.buildings,inVil);
-  }world.update(game.state.paused?0:dt,game.state);dungeonTick();runHudPaint();if(unitCardEl)unitCardPaint();liveModalTick(now);if(modal==='codex'&&now-codexFaceAt>400){codexFaceAt=now;paintPortraits();}if(now-last>400){paint();last=now;}if(now-lastSave>5000){save();lastSave=now;}}finally{const ms=performance.now()-t0;frameMs.avg=frameMs.avg?frameMs.avg*.9+ms*.1:ms;frameMs.max=Math.max(frameMs.max,ms);frameMs.n++;if(perfProbe)perfSample(now,ms);}}requestAnimationFrame(frame);}catch(err){console.error(err);$('#loading').innerHTML='<b>像素村莊載入失敗，請重新整理</b>';}
+  }world.update(game.state.paused?0:dt,game.state);dungeonTick();runHudPaint();nextStepPaint();if(unitCardEl)unitCardPaint();liveModalTick(now);if(modal==='codex'&&now-codexFaceAt>400){codexFaceAt=now;paintPortraits();}if(now-last>400){paint();last=now;}if(now-lastSave>5000){save();lastSave=now;}}finally{const ms=performance.now()-t0;frameMs.avg=frameMs.avg?frameMs.avg*.9+ms*.1:ms;frameMs.max=Math.max(frameMs.max,ms);frameMs.n++;if(perfProbe)perfSample(now,ms);}}requestAnimationFrame(frame);}catch(err){console.error(err);$('#loading').innerHTML='<b>像素村莊載入失敗，請重新整理</b>';}
 
 // 讀取畫面:圖片全部載完(成功或失敗都算完成)、村莊地板與建築都用美術版畫好、圖示換成圖集之後才進村莊。
 // 有圖載入失敗就停在錯誤畫面,不進村、也不會退回程序繪製的陽春素材。
