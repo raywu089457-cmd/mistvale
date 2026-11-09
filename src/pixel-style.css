@@ -1941,3 +1941,16 @@ html{font-variant-numeric:tabular-nums;font-feature-settings:'tnum' 1}
   #modal-backdrop{padding:calc(96px + env(safe-area-inset-top,0px)) 10px 12px}
   #modal{max-height:calc(100vh - 96px - 24px - env(safe-area-inset-top,0px))}
 }
+/* ===== T142：手機觸控目標至少 44×44（Apple/Google 共同建議值；--t52 是介面縮放補償） ===== */
+@media(pointer:coarse) and (min-width:360px){
+  .view-tools .square{width:calc(44px * var(--t52,1));height:calc(44px * var(--t52,1));min-width:calc(44px * var(--t52,1));min-height:calc(44px * var(--t52,1));font-size:21px}
+  #reopen-left.square{width:calc(44px * var(--t52,1));height:calc(44px * var(--t52,1));min-width:calc(44px * var(--t52,1));min-height:calc(44px * var(--t52,1))}
+  .skill-buttons .skill{min-height:calc(44px * var(--t52,1));padding-top:6px;padding-bottom:6px}
+  .world-map-trigger{min-height:calc(44px * var(--t52,1))}
+  #topbar .top-controls > button{min-width:44px;min-height:44px}
+  #topbar button{min-height:44px}
+  #topbar .res-item{min-height:44px}
+  #bottom-bar>button{min-height:calc(44px * var(--t52,1))}
+  #topbar button{min-width:44px}
+  .view-tools{gap:6px}
+}
