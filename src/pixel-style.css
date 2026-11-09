@@ -1811,3 +1811,12 @@ html{font-variant-numeric:tabular-nums;font-feature-settings:'tnum' 1}
 .cx-card.unknown .cx-drop.unknown-drop{color:#7b715c;border-color:#3d3225}
 .cx-kill{display:inline-block;margin-left:6px;padding:0 5px;border:1px solid #5c4a2c;border-radius:2px;background:#2a1b0e;color:var(--gold-bright);font:700 11px/17px var(--font-num);font-style:normal;vertical-align:2px}
 .cx-card.boss.unknown{border-color:#4a3020}
+
+/* ===== T127：招募卡——加入後的體質（攻擊／防禦／生命）與金幣不足的狀態 ===== */
+.visitor-card .visitor-stats{display:flex;flex-wrap:wrap;align-items:center;gap:4px 10px;margin:2px 0 6px;padding:5px 7px;border:1px solid #5c4a2c;background:#2a1b0e99;border-radius:2px;font:600 12px/1.5 var(--font-num);color:#d9c8a2}
+.visitor-card .vs-item{display:inline-flex;align-items:center;gap:3px;white-space:nowrap}
+.visitor-card .vs-item .inline-icon[data-icon]{width:12px;height:12px;min-width:12px;min-height:12px}
+.visitor-card .vs-item b{color:var(--gold-bright)}
+.visitor-card .vs-kind{padding:1px 4px;border:1px solid #6b7a4a;background:#2f3a26;color:#d9bf8e;font:600 11px/14px var(--font-num);font-style:normal}
+.visitor-card.broke{filter:grayscale(.45) brightness(.92)}
+.visitor-card.broke .pixel-button[disabled]{color:#e0a86a;border-image:none;background:#2a1b0e;border:1px solid #6a4a34;opacity:1}

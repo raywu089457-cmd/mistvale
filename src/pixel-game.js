@@ -1465,6 +1465,13 @@ export function createGame(saved = null) {
       if (visitor) { h.rarity = visitor.rarity; h.trait = visitor.trait; updateStats(h); h.hp = h.maxHp; state.visitors[visitorIndex] = newVisitor(); }
       log(`${RARITY[h.rarity].name}${c.name} ${h.name} 加入村莊，帶著 100 枚個人金幣。`, 'success'); refreshQuest(); return result(true, `${h.name} 已加入隊伍。`);
     },
+    // T127：招募卡要預覽「請進來會是什麼體質」。重用 updateStats，不另外複製一份公式；
+    // 等級 1、無裝備、無轉世，跟 newHunter() 剛建立的狀態一致。
+    visitorPreview(v) {
+      const t = { classId: v.classId, rarity: v.rarity, trait: v.trait, level: 1, rebirths: 0, skillLevel: 0, weaponLevel: 0, equipment: { weapon: false, armor: false }, hp: 1, maxHp: 1 };
+      updateStats(t);
+      return { attack: t.attack, defense: t.defense, maxHp: t.maxHp, range: t.range };
+    },
     getUpgradeCost,
     construct(buildingId) {
       const b = BUILDING[buildingId]; if (!b) return result(false, '找不到這棟建築。');
