@@ -4,7 +4,7 @@
 //  * 每個音都很短（30–450ms）、峰值小（0.05–0.13），疊在一起不會爆音。
 //  * 同一個音 18ms 內重複就丟掉，避免一群怪同時被打時變成機關槍。
 //  * 任何環境問題（沒有 AudioContext、被擋、node 測試）都靜靜跳過，不影響遊戲。
-const KINDS = ['ui', 'tick', 'error', 'coin', 'hit', 'crit', 'aoe', 'heal', 'quest', 'level', 'place', 'open', 'close'];
+const KINDS = ['ui', 'tick', 'error', 'coin', 'hit', 'crit', 'aoe', 'heal', 'quest', 'level', 'place', 'open', 'close', 'thunder'];
 let ctx = null, master = null, noiseBuf = null, muted = false, volume = 0.55, voices = 0, lastAt = Object.create(null), failCount = 0;
 const log = [];   // 驗收用：最近 120 個音，{kind, t}
 
@@ -117,6 +117,7 @@ export function sfx(kind, opts = {}) {
       case 'quest': [523, 659, 784, 1046].forEach((f, i) => tone(c, t + i * 0.065, { type: 'triangle', f0: f, f1: f, dur: 0.12, peak: 0.055 * gain })); break;
       case 'level': [659, 784, 988, 1175, 1568].forEach((f, i) => tone(c, t + i * 0.055, { type: 'triangle', f0: f, f1: f, dur: 0.13, peak: 0.05 * gain })); break;
       case 'place': noise(c, t, { dur: 0.1, peak: 0.08 * gain, f0: 700, f1: 90, type: 'lowpass', q: 1 }); tone(c, t, { type: 'sine', f0: 165, f1: 62, dur: 0.12, peak: 0.07 * gain }); break;
+      case 'thunder': noise(c, t, { dur: 2.4, peak: 0.10 * gain, f0: 1500, f1: 70, type: 'lowpass', q: 0.8 }); tone(c, t, { type: 'sine', f0: 62, f1: 33, dur: 2.2, peak: 0.075 * gain }); tone(c, t, { type: 'triangle', f0: 110, f1: 46, dur: 1.1, peak: 0.03 * gain }); break;   // T137:雷
       case 'open': tone(c, t, { type: 'triangle', f0: 380 * d, f1: 530 * d, dur: 0.09, peak: 0.05 * gain }); break;
       case 'close': tone(c, t, { type: 'triangle', f0: 520 * d, f1: 340 * d, dur: 0.09, peak: 0.045 * gain }); break;
     }

@@ -716,6 +716,9 @@ export function createWorld(canvas,{onSelect=()=>{},onPlace=()=>{},getState=()=>
   // T135:雨天濕氣層(比 screen-grade 晚掛,疊在它上面;pointer-events:none)
   const rainTint=(()=>{const el=document.createElement('div');el.id='rain-tint';el.setAttribute('aria-hidden','true');el.style.cssText='position:fixed;inset:0;pointer-events:none;z-index:1;opacity:0;transition:opacity 1.2s;background:linear-gradient(180deg,rgba(122,152,176,.10),rgba(78,100,122,.17))';document.body.appendChild(el);return el;})();
   let rainTintShown=0;
+  // T137:閃電層(z-index 3,在夜色與濕氣之上、HUD 之下;pointer-events:none)
+  const boltLayer=(()=>{const el=document.createElement('div');el.id='lightning';el.setAttribute('aria-hidden','true');el.style.cssText='position:fixed;inset:0;pointer-events:none;z-index:3;opacity:0;background:radial-gradient(130% 95% at 50% 26%,rgba(226,238,255,.95),rgba(176,202,238,.42) 52%,rgba(130,158,204,0) 100%)';document.body.appendChild(el);return el;})();
+  let boltT=0,boltCount=0,boltShown=0,lastBoltPer=-1,boltPeak=0;   // boltPeak:本次閃光最高不透明度(除錯/驗收用)
   // T131:燈光層(在夜色之上、HUD 之下)。夜色是正片疊底,畫在同一張畫布上的暖光會被壓成藍灰,
   // 所以燈另外放一層,用加法混合(lighter)疊上去。
   const lightsCanvas=(()=>{const el=document.createElement('canvas');el.setAttribute('aria-hidden','true');el.style.cssText='position:fixed;inset:0;width:100%;height:100%;pointer-events:none;z-index:3';document.body.appendChild(el);return el;})();
@@ -2435,6 +2438,13 @@ let renderDprMax=Math.max(1,dprCap||autoDpr());   // 畫布解析度上限(devic
       }
       const wantTint=rainOn?1:0;
       if(Math.abs(wantTint-rainTintShown)>.02){rainTintShown=wantTint;rainTint.style.opacity=wantTint?'1':'0';}
+    // T137:陣雨時偶爾打雷——用時間函數決定(每 23 秒一格,偶數格同時下雨才打),可重現、可測
+    const tNow=state.time||0, per=Math.floor(tNow/23);
+    if(per!==lastBoltPer){lastBoltPer=per;if(rainOn&&per%2===0){boltT=1;boltCount++;boltPeak=0;}}
+    if(boltT>0){boltT=Math.max(0,boltT-.07);const bo=boltT*boltT*.58;boltPeak=Math.max(boltPeak,bo);boltLayer.style.opacity=bo.toFixed(3);}
+    else if(boltShown){boltLayer.style.opacity='0';}
+    boltShown=boltT>0?1:0;
+    globalThis.__mistvaleStorm={raining:!!rainOn,count:boltCount,flash:boltT>0,opacity:+parseFloat(boltLayer.style.opacity||'0').toFixed(3),peak:+boltPeak.toFixed(3)};
       globalThis.__mistvaleRain={on:rainOn,biome:cb,shower,drops:rainOn?Math.round(120+60*Math.min(1,Math.max(0,(scale-1)*1.4))):0,tint:rainTintShown};
     }
     // 夜晚變暗:用 DOM 覆蓋層的 CSS 透明度(合成器做,幾乎不花 GPU),

@@ -901,13 +901,15 @@ function nextStepPaint(){
   setIcons(nextStepEl);
 }
 
+let lastStormCount=-1;   // T137:閃電次數(變了才叫雷聲)
 function frame(now){requestAnimationFrame(frame);if(document.hidden){previous=now;return;}const frameMsNow=started&&game.state.paused?PAUSED_MS:(fpsTarget===60?1000/60:FRAME_MS);if(now<nextFrame-2)return;nextFrame=Math.max(nextFrame+frameMsNow,now);
  // 每幀實際花了多少時間(給效能檢查用:手機上這個值決定會不會發燙)
  const t0=performance.now();try{frames++;if(now-fpsStart>2000){document.body.dataset.fps=Math.round(frames*1000/(now-fpsStart));fpsStart=now;frames=0;}const dt=Math.min(.1,(now-previous)/1000);previous=now;if(started)game.tick(dt);pilotHudTick();world.setTime((game.state.time%240)/240);{
     // T113：村莊環境音（打鐵、酒館、交易所、鐘聲）只在相機看得到村莊時響
     const c=world?.cameraXZ?.();const inVil=c?Math.hypot(c.x+15,c.z-3)<30:true;
     ambientSet(game.state.region||'village',(game.state.time%240)/240,game.state.buildings,inVil);
-      ambientRain(!!globalThis.__mistvaleRain?.on);   // T136：下雨就加一層雨聲
+      ambientRain(!!globalThis.__mistvaleRain?.on);
+    {const st=globalThis.__mistvaleStorm;if(st&&st.count!==lastStormCount){lastStormCount=st.count;if(st.count)sfx('thunder',{gain:.85});}}   // T137:打雷   // T136：下雨就加一層雨聲
   }world.update(game.state.paused?0:dt,game.state);dungeonTick();runHudPaint();nextStepPaint();if(unitCardEl)unitCardPaint();liveModalTick(now);if(modal==='codex'&&now-codexFaceAt>400){codexFaceAt=now;paintPortraits();}if(now-last>400){paint();last=now;}if(now-lastSave>5000){save();lastSave=now;}}finally{const ms=performance.now()-t0;frameMs.avg=frameMs.avg?frameMs.avg*.9+ms*.1:ms;frameMs.max=Math.max(frameMs.max,ms);frameMs.n++;if(perfProbe)perfSample(now,ms);}}requestAnimationFrame(frame);}catch(err){console.error(err);$('#loading').innerHTML='<b>像素村莊載入失敗，請重新整理</b>';}
 
 // 讀取畫面:圖片全部載完(成功或失敗都算完成)、村莊地板與建築都用美術版畫好、圖示換成圖集之後才進村莊。
