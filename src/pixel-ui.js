@@ -108,12 +108,12 @@ function partyGate(n,cooldown,idleLabel){if(cooldown>0)return {disabled:true,lab
 const TOAST_KINDS={ok:{mark:"✓",color:"#8ebc5e"},reward:{icon:"gold",color:"#e7be5e"},level:{icon:"horn",color:"#f2c96a"},quest:{icon:"scroll",color:"#cfae6a"},error:{icon:"skull",color:"#e0705f"}};
 const TOAST_RE=[[/升級|等級提升|轉世|Lv\.\d+/,"level"],[/金幣|獲得|獎勵|收入|成交|賣出|買到|收入/,"reward"],[/委託|章節|任務|完成/,"quest"]];
 const toastKindOf=(msg,ok)=>{if(!ok)return "error";const t=String(msg||"");for(const [re,k] of TOAST_RE)if(re.test(t))return k;return "ok";};
-function logToast(msg,ok=true,kind){const k=kind&&TOAST_KINDS[kind]?kind:toastKindOf(msg,ok),cfg=TOAST_KINDS[k];if(!ok)sfx("error");
+function logToast(msg,ok=true,kind,ms=3000){const k=kind&&TOAST_KINDS[kind]?kind:toastKindOf(msg,ok),cfg=TOAST_KINDS[k];if(!ok)sfx("error");
   const e=document.createElement("div");e.className=`toast kind-${k}`;e.dataset.kind=k;e.setAttribute("role","status");e.style.setProperty("--tk",cfg.color);
   e.innerHTML=`<i class="toast-ic">${cfg.icon?iconHTML(cfg.icon):`<b class="toast-check">${cfg.mark}</b>`}</i><span class="toast-tx"></span>`;
   e.querySelector(".toast-tx").textContent=msg;const box=$("#toasts");box.append(e);setIcons(e);
   while(box.children.length>4)box.firstElementChild.remove();
-  setTimeout(()=>{e.classList.add("out");setTimeout(()=>e.remove(),260);},3000);}   // 最多同時 4 則（連點製作時不會疊滿整個畫面）
+  setTimeout(()=>{e.classList.add("out");setTimeout(()=>e.remove(),260);},ms);}   // 最多同時 4 則（連點製作時不會疊滿整個畫面）
 function save(){if(!started||previewMode)return;try{const data=game.serialize();data.savedAt=Date.now();localStorage.setItem(SAVE_KEY,JSON.stringify(data));$('#save-label').textContent='已自動儲存';$('#save-label').classList.remove('warn');}catch{$('#save-label').textContent='請匯出存檔';$('#save-label').classList.add('warn');}}
 function costs(obj){return Object.entries(obj||{}).map(([k,v])=>`<span class="${game.state[k]<v?'short':''}">${iconHTML(k)} ${fmt(v)}</span>`).join('');}
 // T101：製作、交易所的「夠不夠」要看得到 — 材料寫成 現有/需要，不足整塊標紅；再算出這份成本最多能做幾批。
@@ -131,7 +131,9 @@ function affordableBatches(obj,max=100){const s=game.state;let n=max;for(const [
 // T59:一種空狀態,每個清單共用 —— <b>少了什麼</b> + <small>下一步可以做什麼</small>
 function emptyState(msg,hint){return `<div class="empty-state"><b>${msg}</b><small>${hint}</small></div>`;}
 function listHTML(items,render,msg,hint){const html=items.map(render).join('');return html||emptyState(msg,hint);}
-function start(){started=true;if(artReviewMode){for(const b of BUILDINGS)game.state.buildings[b.id]=Math.max(1,game.state.buildings[b.id]);game.state.enemies=[];}game.state.paused=artReviewMode;$('#game-ui').classList.remove('hidden');world?.update(0,game.state);world?.focus('home');paint(true);if(bootOffline>=60&&!artReviewMode)runOffline(bootOffline);else save();warmBuildingImgs();if(firstRun&&!artReviewMode){firstRun=false;setTimeout(()=>{if(!modalShown())openModal('welcome');},520);}}
+function start(){started=true;if(artReviewMode){for(const b of BUILDINGS)game.state.buildings[b.id]=Math.max(1,game.state.buildings[b.id]);game.state.enemies=[];}game.state.paused=artReviewMode;$('#game-ui').classList.remove('hidden');world?.update(0,game.state);world?.focus('home');paint(true);if(bootOffline>=60&&!artReviewMode)runOffline(bootOffline);else save();warmBuildingImgs();
+  // T143：手機第一次進來，提示手勢（只提示一次；桌機不顯示）
+  try{ if(!firstRun&&matchMedia('(pointer:coarse)').matches && !localStorage.getItem('mistvale-touch-tip')){ localStorage.setItem('mistvale-touch-tip','1'); setTimeout(()=>logToast('雙指縮放、雙擊放大、拖曳可以甩動畫面',true,'ok',7000),1500); } }catch{}if(firstRun&&!artReviewMode){firstRun=false;setTimeout(()=>{if(!modalShown())openModal('welcome');},520);}}
 // 「建設」彈窗第一次開要現做 15 張建築縮圖(實測 140–210ms 才有反應)→ 開局後趁閒置一張一張先做好(素材此時都已載完)
 function warmBuildingImgs(){const ids=BUILDINGS.map(b=>b.id),idle=globalThis.requestIdleCallback||(f=>setTimeout(f,120));const next=()=>{const id=ids.shift();if(!id)return;try{buildingImg(id);}catch{}idle(next);};idle(next);}
 // ── 離線／背景掛機收益(2026-10-30):關掉再開、或分頁在背景(瀏覽器暫停畫面)都算;最多 8 小時,暫停中存的檔不算 ──
