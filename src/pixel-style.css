@@ -1682,3 +1682,22 @@ html{font-variant-numeric:tabular-nums;font-feature-settings:'tnum' 1}
     linear-gradient(180deg, rgba(255,206,140,.06) 0%, rgba(255,206,140,0) 22%, rgba(0,0,0,0) 66%, rgba(0,0,0,.22) 100%);}
 }
 @media(prefers-contrast:more){#screen-grade{display:none}}
+
+/* ===== T121：首次開局入門嚮導（沒有存檔、且不是 ?preview=1 才會出現） ===== */
+#modal[data-type="welcome"] .encounter-banner.mb.welcome i{color:var(--gold-bright)}
+.welcome-grid{display:grid;gap:10px;margin:12px 0 10px}
+.welcome-step{display:grid;grid-template-columns:26px minmax(0,1fr);align-items:start;gap:10px;padding:10px 12px;border:1px solid #5c4a2c;background:linear-gradient(180deg,#2c1d10cc,#1d1309dd);border-radius:3px}
+.ws-num{width:24px;height:24px;display:grid;place-items:center;border:1px solid #c9a04d;border-radius:50%;background:#2a1c0f;color:#f4dc94;font-weight:800;font-size:12px;line-height:1}
+.welcome-step h4{margin:0 0 3px;font:800 12px/1.3 var(--font-title);letter-spacing:.04em;color:var(--gold-bright)}
+.welcome-step p{margin:0;font-size:12px;line-height:1.7;color:#e2d7b6}
+.welcome-step strong{color:#f1e4c2;font-weight:800}
+.welcome-step em{font-style:normal;color:#f2c96a}
+.welcome-tips{margin:0 0 12px;padding:6px 10px;border-left:3px solid #5c4a2c;background:#2a1b0e66;color:#b9c8a4}
+.welcome-actions{display:flex;justify-content:flex-end;gap:8px}
+@media(max-width:760px){
+  .welcome-step{grid-template-columns:22px minmax(0,1fr);gap:8px;padding:9px 10px}
+  .ws-num{width:21px;height:21px;font-size:12px}
+  .welcome-step p{line-height:1.6}
+  .welcome-actions{flex-direction:column-reverse}
+  .welcome-actions .pixel-button{width:100%;min-height:34px}
+}
