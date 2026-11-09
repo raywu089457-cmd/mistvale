@@ -711,9 +711,16 @@ function bootWhenReady(){
   let released=false;
   const seed=el=>{if(el.animate)el.animate([{opacity:.3},{opacity:1}],{duration:REDUCE_MOTION.matches?0:180,easing:'ease-out'});};   // 文字變了才寫(避免每幀重排),新文字從 30% 透明淡入
   const set=(el,text)=>{if(!el||el.textContent===text)return;el.textContent=text;seed(el);};
+  // 讀取畫面底部的提示輪替：一閃就過的畫面也順便教一件事(2 秒換一則，減少動態時只換文字不做淡入)。
+  const TIPS=['提示：拖曳畫面可平移視角，滾輪縮放','提示：點選建築可以升級，升級前會先告訴你需要什麼','提示：選三位獵人就能派去地下城，回來會帶回材料','提示：交易所收購的材料，會在獵人回村時自動成交','提示：鐵匠鋪與學院等級越高，裝備與技能越強','提示：手機上左下搖桿走路、右下按鈕攻擊'];
+  const tipEl=$('#loading-tip');
+  let tipI=0,tipTimer=0;
+  const tipNext=()=>{if(!tipEl)return;tipEl.textContent=TIPS[tipI++%TIPS.length];if(tipEl.animate&&!REDUCE_MOTION.matches)tipEl.animate([{opacity:.2},{opacity:.95}],{duration:220,easing:'ease-out'});};
+  const tipStop=()=>{if(tipTimer)clearInterval(tipTimer);tipTimer=0;};
+  if(tipEl){tipNext();tipTimer=setInterval(tipNext,2000);}
   const step=()=>{
     const p=assetProgress();
-    if(p.failed){loader.classList.add('failed');label.textContent='素材載入失敗，請重新整理';return;}
+    if(p.failed){tipStop();loader.classList.add('failed');label.textContent='素材載入失敗，請重新整理';return;}
     // 圖示的圖集延後到第 2 秒才放行(共 2 張):前面先讓 13 MB 素材解析與各圖集載入取得主執行緒,
     // 之後的進度輪詢才不會每次都被大張圖的貼上拖住,讀條才會一直動。
     if(!released&&performance.now()-shownAt>2000){released=true;globalThis.__mistvaleReleaseIcons?.();}
@@ -721,13 +728,14 @@ function bootWhenReady(){
     const ready=p.done>=p.total&&warming;
     // 百分比 = 圖片完成比例;最後一步(預熱)由這裡顯示,不會卡在 99% 不動
     const pct=ready?100:Math.min(99,Math.round(p.done/Math.max(1,p.total)*100));
-    bar.style.width=`${pct}%`;set(label,`${pct}%`);
+    bar.style.width=`${pct}%`;set(label,`載入素材 ${pct}%`);
     if(warming)markPhase('預熱角色素材');
     set(phaseEl,p.phase||'整理素材');
     set(assetEl,p.queued?'· 正在載入圖示':'· 載入美術素材');
     if(!ready||performance.now()-shownAt<MIN_SHOW_MS){requestAnimationFrame(step);return;}
     if(!world.warmupAssets()){requestAnimationFrame(step);return;}
     start();
+    tipStop();
     loader.classList.add('done');setTimeout(()=>loader.remove(),500);
   };
   requestAnimationFrame(step);
