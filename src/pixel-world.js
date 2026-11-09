@@ -430,6 +430,10 @@ const BUILDING_WORLD_WIDTH=71;
 // v3(概念圖參考重生)的酒館連露台,概念圖量約 560px+ → 140 單位。
 // Xilurus 風格等角建築(assets/xilurus/<id>.png):畫寬上限(世界像素);實際大小再由 fitScaleFor 限制在街區內。
 const conceptBuildingWidth=id=>({hall:132,inn:116,tavern:116,forge:116,trading:116,training:116,academy:110,sanctuary:110,enhancement:110,clinic:106,house:106,bounty:98,restaurant:96,dungeon:88}[id]||106);
+// T130:鐵匠鋪煙囪會冒煙（有蓋才有煙，等級越高煙越旺、越密）。
+// 以前只有「程序繪製的備援圖」會冒煙，實際上所有建築都用 atlas 圖，所以整座村莊一直是靜止的。
+// 煙囪口座標在建築繪製時記下來，煙本身畫在最後的動態層（建築層會被凍結成靜態快取）。
+let smokeSpot=null;   // T130:鐵匠鋪煙囪口的螢幕座標（由建築繪製時記錄）
 // 大廳與地下城要比店鋪大。舊版是 hall:79 / dungeon:77,換算成倍率。
 const BUILDING_SCALE={hall:1.11,dungeon:1.08};
 // 2026-10-13 使用者指定:「建築大小都不一樣了,全部改成現在最大建築的一半大小」。
@@ -1202,6 +1206,8 @@ let renderDprMax=Math.max(1,dprCap||autoDpr());   // 畫布解析度上限(devic
     let rect=conceptSprite?drawSprite(conceptSprite,p,conceptWidth*es,conceptWidth*es*conceptSprite.height/conceptSprite.width,9,1,'building'):drawAtlasBuilding(b.id,p,9,es);
     if(fx)g.restore();
     if(!rect){procUse['building-fallback:'+b.id]=(procUse['building-fallback:'+b.id]||0)+1;const sprite=atlasCell(b.id)||buildingSprite(b.id),w=conceptBuildingWidth(b.id);rect=drawSprite(sprite,p,w,w*sprite.height/sprite.width,9,1,'building');}
+    // T130:記下鐵匠鋪煙囪口（圖片右上方）的實際螢幕座標，給最上層的煙霧用。
+    if(b.id==='forge')smokeSpot={x:rect.x+rect.w*.855,y:rect.y+rect.h*.02};
     // 下面冒煙那段用的是「世界單位」的高度(會再乘 scale),照舊版語意換算回去。
     const h=rect.h/scale;
     // 互動點(點擊範圍)貼在**建築最下面那一排**:門口、台階都長在這裡(每棟的門偏左或偏右都涵蓋),
@@ -2293,6 +2299,29 @@ let renderDprMax=Math.max(1,dprCap||autoDpr());   // 畫布解析度上限(devic
           else g.drawImage(ps.img,pa.cell*pi,pa.y,pa.cell,pa.cell,px,py,size,size);
           g.restore();}
       }
+    }
+    // T130:鐵匠鋪煙囪煙霧。位置由建築繪製時記下的 rect 換算（圖片右上方那個煙囪口），
+    // 不畫進建築層（建築會被凍結成靜態快取，畫進去煙會凍住）；用時間決定位置，不存粒子陣列。
+    // 12 顆互相重疊的煙球：越往上越大、越淡、左右擺動越大，疊起來是一縷連續的煙而不是一串點。
+    if(quality&&smokeSpot&&(state.buildings?.forge||0)>0&&!globalThis.matchMedia?.('(prefers-reduced-motion: reduce)').matches){
+      const lv=state.buildings.forge,cx=smokeSpot.x,cy=smokeSpot.y,k=Math.max(.75,scale);
+      const puffs=[];
+      for(let i=0;i<12;i++){
+        const rate=.075+lv*.014,t=((elapsed*rate+i/12+.03*lv)%1+1)%1;
+        const rise=(2+t*42)*k;
+        const sway=(Math.sin(t*2.7+i*1.9)*1.2+Math.sin(t*7.3+i*.7)*.6+(t-.5)*5)*k;
+        const x=cx+sway,y=cy-rise;
+        const w=Math.max(2,Math.round((2.4+t*6.6)*k)),h=Math.max(2,Math.round(w*.88));
+        g.globalAlpha=Math.pow(1-t,1.15)*.7;
+        const body=t<.22?'#8b8274':'#e4ddc9', face=t<.22?'#a49a89':'#f1ead8';
+        pixel(g,x+1,y,w-2,h,body);pixel(g,x,y+1,w,h-2,body);          // 切掉四角,不要看起來像方塊
+        pixel(g,x+2,y+1,Math.max(1,w-4),Math.max(1,h-3),face);        // 亮面往左上偏,像被煙囪口的火照亮
+        puffs.push({x:Math.round(x),y:Math.round(y),w,h,a:+g.globalAlpha.toFixed(3),t:+t.toFixed(2)});
+      }
+      g.globalAlpha=1;
+      globalThis.__mistvaleSmoke={count:puffs.length,minY:Math.min(...puffs.map(o=>o.y)),spot:smokeSpot,last:puffs};
+    }else{
+      globalThis.__mistvaleSmoke={count:0,minY:null,spot:smokeSpot,last:[]};
     }
     // Small ambient birds and bright drifting pollen keep the village alive.
     if(quality){for(let i=0;i<12;i++){const x=((elapsed*(2+i%3)+i*79)%width),y=(i*47+Math.sin(elapsed*.5+i)*7)%(height);g.globalAlpha=.4;pixel(g,x,y,1,1,'#f2e9be');}g.globalAlpha=1;}
