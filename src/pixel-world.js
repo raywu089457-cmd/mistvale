@@ -713,6 +713,9 @@ export function createWorld(canvas,{onSelect=()=>{},onPlace=()=>{},getState=()=>
   // T131:半透明藍色只會把畫面洗淡，改用正片疊底(multiply)才是真的變暗。
   const nightLayer=(()=>{const el=document.createElement('div');el.style.cssText='position:fixed;inset:0;pointer-events:none;background:#5a6aa8;mix-blend-mode:multiply;opacity:0;z-index:2';document.body.appendChild(el);return el;})();
   let nightShown=0,nightLast=0,nightFrames=0;
+  // T135:雨天濕氣層(比 screen-grade 晚掛,疊在它上面;pointer-events:none)
+  const rainTint=(()=>{const el=document.createElement('div');el.id='rain-tint';el.setAttribute('aria-hidden','true');el.style.cssText='position:fixed;inset:0;pointer-events:none;z-index:1;opacity:0;transition:opacity 1.2s;background:linear-gradient(180deg,rgba(122,152,176,.10),rgba(78,100,122,.17))';document.body.appendChild(el);return el;})();
+  let rainTintShown=0;
   // T131:燈光層(在夜色之上、HUD 之下)。夜色是正片疊底,畫在同一張畫布上的暖光會被壓成藍灰,
   // 所以燈另外放一層,用加法混合(lighter)疊上去。
   const lightsCanvas=(()=>{const el=document.createElement('canvas');el.setAttribute('aria-hidden','true');el.style.cssText='position:fixed;inset:0;width:100%;height:100%;pointer-events:none;z-index:3';document.body.appendChild(el);return el;})();
@@ -2404,6 +2407,36 @@ let renderDprMax=Math.max(1,dprCap||autoDpr());   // 畫布解析度上限(devic
     // Small ambient birds and bright drifting pollen keep the village alive.
     if(quality){for(let i=0;i<12;i++){const x=((elapsed*(2+i%3)+i*79)%width),y=(i*47+Math.sin(elapsed*.5+i)*7)%(height);g.globalAlpha=.4;pixel(g,x,y,1,1,'#f2e9be');}g.globalAlpha=1;}
     const cb=biomeAt((cam.x/PX+cam.y/PY)/2,(cam.y/PY-cam.x/PX)/2);if(quality&&cb==='snow'&&!globalThis.matchMedia?.('(prefers-reduced-motion: reduce)').matches){for(let i=0;i<34;i++){const x=(i*59+Math.sin(elapsed*.4+i)*12+width)%width,y=(i*41+elapsed*(6+i%4))%height;pixel(g,x,y,i%4===0?2:1,1,'#eff5e7');}}
+    // T135:雨天——溫帶生態圈偶爾下雨（用 state.time 決定，同一個時間一定是同樣天氣）
+    {
+      const wetBe=['village','meadow','forest','birch','taiga','mountain'].includes(cb);
+      const shower=Math.sin((state.time||0)*0.037+1.7)>.55;
+      const rmR=globalThis.matchMedia?.('(prefers-reduced-motion: reduce)').matches;
+      const rainOn=!!(quality&&wetBe&&shower&&!rmR);
+      if(rainOn){
+        const n=Math.round(120+60*Math.min(1,Math.max(0,(scale-1)*1.4)));   // 放大時多一點雨絲，手機不減量
+        for(let i=0;i<n;i++){
+          const sp=430+(i%5)*46;
+          const x=((i*67+elapsed*sp*0.22)%(width+24))-12;
+          const y=((i*53+elapsed*sp)%(height+16))-8;
+          const near=i%9===0;
+          const len=(near?22:14)+(i%4===0?4:0);
+          g.globalAlpha=near?.46:.30+(i%3)*.08;
+          pixel(g,Math.round(x),Math.round(y),near?2:1,len,'#e6f2fa');
+          pixel(g,Math.round(x)-1,Math.round(y)+len-4,1,4,'#cfe2ee');
+        }
+        g.globalAlpha=.40;
+        for(let i=0;i<14;i++){
+          const x=(i*131+Math.floor(elapsed*2.3+i)*37)%(width-10)+5;
+          const y=(i*97+Math.floor(elapsed*2.3+i)*53)%(height-24)+18;
+          pixel(g,x,y,3,1,'#dbeaf2');
+        }
+        g.globalAlpha=1;
+      }
+      const wantTint=rainOn?1:0;
+      if(Math.abs(wantTint-rainTintShown)>.02){rainTintShown=wantTint;rainTint.style.opacity=wantTint?'1':'0';}
+      globalThis.__mistvaleRain={on:rainOn,biome:cb,shower,drops:rainOn?Math.round(120+60*Math.min(1,Math.max(0,(scale-1)*1.4))):0,tint:rainTintShown};
+    }
     // 夜晚變暗:用 DOM 覆蓋層的 CSS 透明度(合成器做,幾乎不花 GPU),
     // 以前是每幀對整張畫布 fillRect 一次(手機上等於多一次滿版填色)。
     const night=nightOn&&phase>.5?Math.sin((phase-.5)*Math.PI*2)*.85:0;   // T131:正片疊底層，0.85 ≈ 深夜
