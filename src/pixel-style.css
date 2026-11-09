@@ -1882,3 +1882,9 @@ html{font-variant-numeric:tabular-nums;font-feature-settings:'tnum' 1}
   .day-clock .dc-tx b{font-size:11px}
   .day-clock .dc-tx small{font-size:10px}
 }
+
+/* ===== T138：面板橫幅統一（icon + 標題 + 說明），標題層級低於 modal 標題 ===== */
+.encounter-banner{min-height:92px;align-items:center}
+.encounter-banner h3{font:800 15px/1.35 var(--font-title);letter-spacing:.05em;color:var(--gold-bright);margin:0 0 3px}
+.encounter-banner p{margin:0;max-width:64ch}
+@media(max-width:760px){.encounter-banner{min-height:0;padding:9px 10px}.encounter-banner h3{font-size:14px}}
