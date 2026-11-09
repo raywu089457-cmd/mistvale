@@ -92,11 +92,12 @@ function partyBlock(h,kind){if(h.hp<=0||h.task==='revive')return '待復活';if(
 function partyPick(h,action,sel,note=''){
   const c=CLASSES.find(x=>x.id===h.classId),down=h.hp<=0,range=(c&&c.range>=3)?'遠程':'近戰';
   const kind=/Dungeon/.test(action)?'dungeon':/Arena/.test(action)?'arena':'';
+  const rc=RARITIES.find(x=>x.id===h.rarity),rar=rc?` data-rarity="${rc.id}" style="--rarity:${rc.color}"`:'';
   const why=kind?partyBlock(h,kind):'';
   const blocked=!!why, dis=blocked?' disabled':'';
   const hp=Math.max(0,h.hp),pct=Math.round(hp/h.maxHp*100);
   const sub=`Lv.${h.level} · ${c?c.name:''}${(why||note)?`<em class="pp-note"> · ${esc(why||note)}</em>`:''}`;
-  return `<button class="party-pick${sel?' selected':''}${down?' down':''}${blocked?' blocked':''}" data-action="${action}" data-id="${h.id}" aria-pressed="${sel}" aria-disabled="${blocked}"${dis} aria-label="${esc(h.name)} Lv.${h.level} ${c?c.name:''} 生命 ${Math.ceil(hp)}/${Math.ceil(h.maxHp)} 攻擊 ${h.attack} 防禦 ${h.defense}${why||note?' '+esc(why||note):''}"><img data-portrait="${h.id}" alt=""><span class="pp-body"><span class="pp-name">${esc(h.name)}</span><small class="pp-sub">${sub}</small><small class="pp-stats">${iconHTML('atk',true)}<b>${h.attack}</b>${iconHTML('def',true)}<b>${h.defense}</b><em class="pp-range">${range}</em></small><span class="pp-hpline"><i class="pp-hp"><i style="width:${pct}%"></i></i><small class="pp-num">${Math.ceil(hp)}/${Math.ceil(h.maxHp)}</small></span></span><small class="pp-mark">${down?'✝':sel?'✓':''}</small></button>`;
+  return `<button${rar} class="party-pick${sel?' selected':''}${down?' down':''}${blocked?' blocked':''}" data-action="${action}" data-id="${h.id}" aria-pressed="${sel}" aria-disabled="${blocked}"${dis} aria-label="${esc(h.name)} Lv.${h.level} ${c?c.name:''} 生命 ${Math.ceil(hp)}/${Math.ceil(h.maxHp)} 攻擊 ${h.attack} 防禦 ${h.defense}${why||note?' '+esc(why||note):''}"><img data-portrait="${h.id}" alt=""><span class="pp-body"><span class="pp-name">${esc(h.name)}</span><small class="pp-sub">${sub}</small><small class="pp-stats">${iconHTML('atk',true)}<b>${h.attack}</b>${iconHTML('def',true)}<b>${h.defense}</b><em class="pp-range">${range}</em></small><span class="pp-hpline"><i class="pp-hp"><i style="width:${pct}%"></i></i><small class="pp-num">${Math.ceil(hp)}/${Math.ceil(h.maxHp)}</small></span></span><small class="pp-mark">${down?'✝':sel?'✓':''}</small></button>`;
 }
 function partyList(kind,ids,action,emptyText,emptyHint){return listHTML(game.state.hunters,h=>partyPick(h,action,ids.includes(h.id),''),emptyText,emptyHint);}
 function partySummary(ids){const hs=ids.map(id=>game.state.hunters.find(h=>h.id===id)).filter(Boolean);const atk=hs.reduce((a,h)=>a+h.attack,0),hp=hs.reduce((a,h)=>a+Math.max(0,Math.ceil(h.hp)),0),lv=hs.length?hs.reduce((a,h)=>a+h.level,0)/hs.length:0;return `<div class="party-summary" role="status">已選 <b>${hs.length}</b>/3 · 總攻擊 <b>${fmt(atk)}</b> · 總生命 <b>${fmt(hp)}</b>${hs.length?` · 平均 Lv.<b>${lv.toFixed(1)}</b>`:''}${hs.length<3?`<small class="ps-hint">再選 ${3-hs.length} 位才能出發</small>`:''}</div>`;}
@@ -289,18 +290,23 @@ function modalHTML(type){const s=game.state;
    <div class="density-now">${iconHTML('skull')}<span>現在場上 <b>${alive}</b> 隻魔物${hunting?`、<b>${hunting}</b> 位獵人在這區`:''}<small>立牌上的數字就是目前等級（${d.numeral}）；切換後下一次補怪就生效。</small></span></div>`;
  }
  if(type==='settings'){const o=(s.settings||{}),on=settingsOpen,seg=(key,opts,cur)=>`<div class="seg" data-key="${key}">${opts.map(([v,label])=>`<button class="pixel-button ${String(cur)===String(v)?'gold':''}" data-action="setOpt" data-key="${key}" data-value="${v}">${label}</button>`).join('')}</div>`;
-   const summary=[`畫質 ${o.quality==='low'?'低':'高'}`,`解析度 ${o.dpr==='auto'?'自動':(o.dpr||'1.5')+'x'}`,`幀率 ${o.fps===60?60:30}`,`影子 ${o.shadows===false?'關':'開'}`,`夜晚 ${o.night===false?'關':'開'}`,`震動 ${o.shake===false?'關':'開'}`,`音效 ${sfxMuted()?'關':'開'}`].join(' · ');
-   return `<div class="encounter-banner mb settings"><i>${iconHTML('up')}</i><div><p>調整畫質與效能；手機發燙就往下調。</p></div></div><div class="setting-row"><div><strong>畫質與效能</strong><small>${summary}</small></div><button class="pixel-button ${on?'gold':''}" data-action="toggleQuality">${on?'收起':'調整'}</button></div>
-   ${on?`<div class="setting-group"><p class="setting-note">手機發燙就往下調：解析度 → 幀率 → 動態影子，這三個最吃電。</p>
+   const summary=[`畫質 ${o.quality==='low'?'低':'高'}`,`解析度 ${o.dpr==='auto'?'自動':(o.dpr||'1.5')+'x'}`,`幀率 ${o.fps===60?60:30}`,`影子 ${o.shadows===false?'關':'開'}`,`夜晚 ${o.night===false?'關':'開'}`].join(' · ');
+   const feelSummary=[`震動 ${o.shake===false?'關':'開'}`,`音效 ${sfxMuted()?'關':'開'}`].join(' · ');
+   return `<div class="encounter-banner mb settings"><i>${iconHTML('up')}</i><div><p>調整畫質與效能；手機發燙就往下調。</p></div></div><section class="set-sec" data-sec="perf"><h4 class="set-sec-h"><span>畫面與效能</span><small>${summary}</small></h4><div class="setting-row"><div><strong>畫質與效能</strong><small>手機發燙就往下調：解析度 → 幀率 → 動態影子，這三個最吃電。</small></div><button class="pixel-button ${on?'gold':''}" data-action="toggleQuality">${on?'收起':'調整'}</button></div>
+   ${on?`<div class="setting-group">
    <div class="setting-row"><div><strong>畫質</strong><small>高：粒子、光暈、雪都開。低：關掉粒子與光暈，最省電。</small></div>${seg('quality',[['high','高'],['low','低']],o.quality||'high')}</div>
    <div class="setting-row"><div><strong>解析度</strong><small>畫布像素密度。1x 最省電（像素圖邊緣較粗）；2x 最清楚但最燙。</small></div>${seg('dpr',[['auto','自動'],['1','1x'],['1.5','1.5x'],['2','2x']],o.dpr||'auto')}</div>
    <div class="setting-row"><div><strong>幀率</strong><small>30 幀省電；60 幀順暢，但耗電與發熱大約多一倍。</small></div>${seg('fps',[[30,'30'],[60,'60']],o.fps||30)}</div>
    <div class="setting-row"><div><strong>動態影子</strong><small>角色與建築的投影。關掉可少一層貼圖，手機明顯更涼。</small></div>${seg('shadows',[[1,'開'],[0,'關']],o.shadows===false?0:1)}</div>
    <div class="setting-row"><div><strong>夜晚變暗</strong><small>入夜後畫面轉成藍色調。關掉可少一層覆蓋。</small></div>${seg('night',[[1,'開'],[0,'關']],o.night===false?0:1)}</div>
+    
+     </div>`:''}
+   ${uiScaleRow()}</section>
+    <section class="set-sec" data-sec="feel"><h4 class="set-sec-h"><span>手感與聲音</span><small>${feelSummary}</small></h4>
     <div class="setting-row"><div><strong>鏡頭震動</strong><small>重擊、暴擊、技能命中時畫面晃一下；暈眩或不想要就關掉。</small></div>${seg('shake',[[1,'開'],[0,'關']],o.shake===false?0:1)}</div>
-     <div class="setting-row"><div><strong>音效</strong><small>命中、暴擊、技能、金幣、升級都由程式即時合成（沒有音檔）；背景風聲與日夜蟲鳥會跟著區域換；鐵匠鋪、酒館、交易所、大廳也各有自己的聲音。關掉就完全靜音。</small></div>${seg('sound',[[1,'開'],[0,'關']],sfxMuted()?0:1)}</div></div>`:''}
-   ${uiScaleRow()}
-   <div class="setting-row"><div><strong>手動操控</strong><small>自己下去玩：手機是左下搖桿走路、右下大顆按鈕出手，鏡頭一直把角色固定在畫面中央；電腦用 WASD／方向鍵移動、空白鍵或 J 出手。</small></div><button class="pixel-button gold" data-action="pilotLab">選擇角色</button></div>
+    <div class="setting-row"><div><strong>音效</strong><small>命中、暴擊、技能、金幣、升級都由程式即時合成（沒有音檔）；背景風聲與日夜蟲鳥會跟著區域換；鐵匠鋪、酒館、交易所、大廳也各有自己的聲音。關掉就完全靜音。</small></div>${seg('sound',[[1,'開'],[0,'關']],sfxMuted()?0:1)}</div></section>
+    <section class="set-sec" data-sec="control"><h4 class="set-sec-h"><span>操控與教學</span><small>自己下去玩</small></h4>
+    <div class="setting-row"><div><strong>手動操控</strong><small>自己下去玩：手機是左下搖桿走路、右下大顆按鈕出手，鏡頭一直把角色固定在畫面中央；電腦用 WASD／方向鍵移動、空白鍵或 J 出手。</small></div><button class="pixel-button gold" data-action="pilotLab">選擇角色</button></div></section><section class="set-sec" data-sec="data"><h4 class="set-sec-h"><span>存檔與資料</span><small>備份、重置、開發者工具</small></h4>
    <div class="setting-row dev-row"><div><strong>開發者作弊</strong><small>只在設定頁出現，直接改存檔（不影響模擬規則）。測試數值、跳過等待、驗收畫面時用。</small></div><button class="pixel-button ${devOpen?'gold':''}" data-action="toggleDev">${devOpen?'收起':'打開'}</button></div>
    ${devOpen?`<div class="setting-group dev-group"><p class="setting-note">⚠ 會直接改目前存檔。想保留原本進度，先用下面的「匯出存檔」備份。</p>
    <div class="cheat-grid">
@@ -314,7 +320,7 @@ function modalHTML(type){const s=game.state;
      <button class="pixel-button gold" data-action="cheat" data-id="all">以上全部<small>一次套用</small></button>
    </div></div>`:''}
    <div class="setting-row"><div><strong>匯出存檔</strong><small>將整個村莊、獵人、地下城進度備份成 JSON。</small></div><button class="pixel-button gold" data-action="export">匯出</button></div>
-   <div class="setting-row"><div><strong>重新開始</strong><small>清除目前存檔並從五位初始獵人開始。</small></div><button class="pixel-button danger" data-action="reset">重置</button></div>`;}
+   <div class="setting-row"><div><strong>重新開始</strong><small>清除目前存檔並從五位初始獵人開始。</small></div><button class="pixel-button danger" data-action="reset">重置</button></div></section>`;}
  if(type==='help')return `<div class="encounter-banner mb help"><i>${iconHTML('compass')}</i><div><h3>新手說明</h3><p>操作、資源與玩法重點都整理在這裡。</p></div></div><div class="help-grid"><div class="help-card"><h3>${iconHTML('compass')}怎麼操作？</h3><p>${matchMedia('(pointer:coarse)').matches?'單指拖曳平移、雙指縮放':'拖曳平移、滾輪縮放'}；點建築看資訊與升級，點獵人看詳情。下方選單是村莊各項功能。</p></div><div class="help-card"><h3>${iconHTML('hall')}村長要做什麼？</h3><p>重建被魔王摧毀的城鎮，建造餐廳、旅館、酒館、治療所與鐵匠鋪，服務獵人的生活需求。</p></div><div class="help-card"><h3>${iconHTML('hunter')}獵人怎麼生活？</h3><p>獵人有自己的金幣、飽食度、心情與精力。他們會狩獵、帶回材料、回村交易，再支付費用吃飯、休息和治療。</p></div><div class="help-card"><h3>${iconHTML('up')}怎麼變強？</h3><p>在學院學技能、修煉地訓練、鐵匠鋪購買武器，再到強化精煉所強化。Lv.100 後可到復活聖所轉世。</p></div><div class="help-card"><h3>${iconHTML('map')}村外內容</h3><p>委託所追蹤魔物目標，地下城三人遠征，地圖首領討伐，以及修煉地開放的 NPC 競技場模擬對戰。</p></div></div>`;
  if(type==='boss'){const ex=s.expedition,hp=Math.max(0,Math.ceil(ex.bossHp||0)),max=ex.bossMaxHp||1;   // 2026-10-30:首領插圖橫幅、討伐中血條、獎勵預覽
   return `<div class="encounter-banner boss"><i>${iconHTML('horn')}</i><div><h3>地圖首領：森林魔王</h3><p>吹響號角，召集所有可出征的獵人。首領會帶回大量稀有材料與星晶。</p></div></div>${ex.active?`<div class="boss-hp"><span>森林魔王</span><div class="progress"><span style="width:${hp/max*100}%"></span><b>${fmt(hp)}/${fmt(max)}</b></div></div>`:''}<div class="encounter-status">${ex.active?'討伐中 · 全體獵人正趕往首領所在地':ex.cooldown>0?`整備 ${Math.ceil(ex.cooldown)} 秒`:'森林魔王尚未出現'}</div><div class="boss-loot"><span>擊倒獎勵（分給參戰獵人）</span>${costs({gold:260,ore:15,wood:10,herb:8,leather:10,cloth:8,flour:10})}</div><div class="encounter-actions"><button class="pixel-button gold" data-action="startBoss" ${ex.active||ex.cooldown>0?'disabled':''}>${iconHTML('horn')}召喚森林魔王</button></div>`;}
