@@ -1820,3 +1820,17 @@ html{font-variant-numeric:tabular-nums;font-feature-settings:'tnum' 1}
 .visitor-card .vs-kind{padding:1px 4px;border:1px solid #6b7a4a;background:#2f3a26;color:#d9bf8e;font:600 11px/14px var(--font-num);font-style:normal}
 .visitor-card.broke{filter:grayscale(.45) brightness(.92)}
 .visitor-card.broke .pixel-button[disabled]{color:#e0a86a;border-image:none;background:#2a1b0e;border:1px solid #6a4a34;opacity:1}
+
+/* ===== T128：世界地圖區域卡片的探索進度（點數＋已記錄／擊殺）與頁尾首領狀態 ===== */
+.region-card .rg-exp{display:flex;align-items:center;gap:8px;margin:4px 0 2px;padding:4px 7px;border:1px solid #5c4a2c;background:#2a1b0e99;border-radius:2px}
+.region-card .rg-dots{display:flex;gap:3px}
+.region-card .rg-dot{display:block;width:7px;height:7px;border:1px solid #6b5a3a;background:#241a10;transform:rotate(45deg)}
+.region-card .rg-dot.on{background:var(--gold-bright,#e7be5e);border-color:#f4dc94;box-shadow:0 0 4px #e7be5e66}
+.region-card .rg-exp small{font:600 11px/1.4 var(--font-num);color:#d9c8a2}
+.region-card .rg-exp small b{color:var(--gold-bright,#e7be5e)}
+.wm-foot .wm-boss{margin-left:auto;color:#c8b48a}
+.wm-foot .wm-boss[data-boss-kills="0"]{color:#a08f6e}
+@media(max-width:760px){
+  .region-card .rg-exp{padding:3px 6px}
+  .wm-foot .wm-boss{margin-left:0;flex-basis:100%}
+}

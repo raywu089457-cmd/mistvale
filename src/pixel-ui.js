@@ -228,8 +228,23 @@ function dungeonTick(){if(modal!=='dungeon'){dgSig='';return;}const d=game.state
  const st=$('#dg-status'),txt=dungeonStatus();if(st&&st.textContent!==txt)st.textContent=txt;if(d.active)world?.drawDungeonStrip?.($('#dungeon-strip'),game.state);}
 function closeModal(){if(modal)sfx('close');modal='';document.body.dataset.modalTab='';document.body.classList.remove('hud-modal');$('#modal-backdrop').classList.add('hidden');hudInert(false);
  const back=modalOpener;modalOpener=null;if(back&&back!==document.body&&back.isConnected&&!back.closest('.hidden')&&back.getBoundingClientRect().width>0)back.focus();}
+// T128:區域探索進度——徽章點數與文字都從 state.codex 推導，不另外存一份進度。
+// 只在區域真的有棲息魔物時才輸出；村莊沒有野外魔物，卡片不會多一行。
+function regionProgress(rid,s){
+  const mon=REGION_MONSTERS[rid]||[];
+  if(!mon.length)return '';
+  const seen=(s.codex||{});
+  const got=mon.filter(id=>(seen[id]||0)>0).length;
+  const kills=mon.reduce((n,id)=>n+(seen[id]||0),0);
+  const dots=mon.map(id=>`<i class="rg-dot${(seen[id]||0)>0?' on':''}" title="${(seen[id]||0)>0?MONSTER_NAME[id]||id:'尚未記錄'}"></i>`).join('');
+  return `<div class="rg-exp" role="group" aria-label="${rid} 探索進度"><span class="rg-dots" aria-hidden="true">${dots}</span><small>已記錄 ${got}／${mon.length} 種 · 擊殺 ${kills} 次</small></div>`;
+}
+function regionBossLine(s){
+  const n=s.bossKills||0;
+  return n?`首領已擊敗 ${n} 次`:'首領尚未挑戰';
+}
 function modalHTML(type){const s=game.state;
- if(type==='worldmap')return `<div class="world-map-header"><span>主世界 · 8 個區域</span><button class="pixel-button" data-action="worldOverview">全景查看</button><button class="pixel-button" data-action="recallHunters">召回獵人</button></div><canvas id="world-map-canvas" width="${WORLD_MAP_W}" height="${WORLD_MAP_H}" aria-label="主世界區域地圖"></canvas><div class="region-grid">${REGIONS.map(r=>`<article class="region-card ${s.region===r.id?'active':''}" data-region="${r.id}" style="--biome:${r.color}">${AS().ui?.['px-region-'+r.id]?`<div class="region-art" style="background-image:var(--ui-px-region-${r.id})"></div>`:''}<i class="region-emblem" data-icon="em-${r.id}"></i><h3>${r.name}</h3><small>${r.subtitle}</small><p>${r.description}</p>${loreList(r.id)}<div><button class="pixel-button" data-action="regionView" data-id="${r.id}">查看</button>${r.id!=='village'?`<button class="pixel-button gold" data-action="regionTravel" data-id="${r.id}">前往${r.name}</button>`:''}</div></article>`).join('')}</div><p class="modal-note">參考主世界的生態分區與河流配置。獵人沿橋樑通行；這個版本不含挖掘、放置方塊或無限地形。</p><div class="wm-foot"><button class="pixel-button" data-action="codex">魔物圖鑑</button><small>21 種野外魔物 · 各區棲息地與掉落</small></div>`;
+ if(type==='worldmap')return `<div class="world-map-header"><span>主世界 · 8 個區域</span><button class="pixel-button" data-action="worldOverview">全景查看</button><button class="pixel-button" data-action="recallHunters">召回獵人</button></div><canvas id="world-map-canvas" width="${WORLD_MAP_W}" height="${WORLD_MAP_H}" aria-label="主世界區域地圖"></canvas><div class="region-grid">${REGIONS.map(r=>`<article class="region-card ${s.region===r.id?'active':''}" data-region="${r.id}" style="--biome:${r.color}">${AS().ui?.['px-region-'+r.id]?`<div class="region-art" style="background-image:var(--ui-px-region-${r.id})"></div>`:''}<i class="region-emblem" data-icon="em-${r.id}"></i><h3>${r.name}</h3><small>${r.subtitle}</small><p>${r.description}</p>${loreList(r.id)}${regionProgress(r.id,s)}<div><button class="pixel-button" data-action="regionView" data-id="${r.id}">查看</button>${r.id!=='village'?`<button class="pixel-button gold" data-action="regionTravel" data-id="${r.id}">前往${r.name}</button>`:''}</div></article>`).join('')}</div><p class="modal-note">參考主世界的生態分區與河流配置。獵人沿橋樑通行；這個版本不含挖掘、放置方塊或無限地形。</p><div class="wm-foot"><button class="pixel-button" data-action="codex">魔物圖鑑</button><small>21 種野外魔物 · 各區棲息地與掉落</small><small class="wm-boss" data-boss-kills="${s.bossKills||0}">${regionBossLine(s)}</small></div>`;
 
   if(type==='build'){   // T112：先把庫存攤在上面，每張卡再寫自己的缺口，不用點進去才知道能不能蓋
     const stock=['gold',...Object.keys(MATERIALS)].map(k=>`<span class="bs-item" data-key="${k}">${iconHTML(k)} <span class="nm">${MATERIALS[k]?.name||'金幣'}</span> <b>${fmt(s[k]||0)}</b></span>`).join('');
