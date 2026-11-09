@@ -2,7 +2,7 @@ import {WORLD,REGIONS,BIOME_PALETTE,biomeAt} from './overworld.js';
 import {iconCanvas,iconsReady} from './pixel-icons.js';
 import {assetProgress,markPhase} from './asset-loading.js';
 import {createGame,OFFLINE,ENEMIES} from './pixel-game.js';
-import {sfx,sfxMuted,ambientSet} from './sfx.js';
+import {sfx,sfxMuted,ambientSet,ambientRain} from './sfx.js';
 import {REGION_MONSTERS,MONSTER_NAME,MONSTER_LORE} from './lore.js';
 import {createPixelWorld,drawPortrait,buildingDataURL,MAP_PALETTE,MAP_ACCENT,monsterPortrait} from './pixel-world.js';
 import {mountTmwPuppet} from './tmw-puppet.js';
@@ -907,6 +907,7 @@ function frame(now){requestAnimationFrame(frame);if(document.hidden){previous=no
     // T113：村莊環境音（打鐵、酒館、交易所、鐘聲）只在相機看得到村莊時響
     const c=world?.cameraXZ?.();const inVil=c?Math.hypot(c.x+15,c.z-3)<30:true;
     ambientSet(game.state.region||'village',(game.state.time%240)/240,game.state.buildings,inVil);
+      ambientRain(!!globalThis.__mistvaleRain?.on);   // T136：下雨就加一層雨聲
   }world.update(game.state.paused?0:dt,game.state);dungeonTick();runHudPaint();nextStepPaint();if(unitCardEl)unitCardPaint();liveModalTick(now);if(modal==='codex'&&now-codexFaceAt>400){codexFaceAt=now;paintPortraits();}if(now-last>400){paint();last=now;}if(now-lastSave>5000){save();lastSave=now;}}finally{const ms=performance.now()-t0;frameMs.avg=frameMs.avg?frameMs.avg*.9+ms*.1:ms;frameMs.max=Math.max(frameMs.max,ms);frameMs.n++;if(perfProbe)perfSample(now,ms);}}requestAnimationFrame(frame);}catch(err){console.error(err);$('#loading').innerHTML='<b>像素村莊載入失敗，請重新整理</b>';}
 
 // 讀取畫面:圖片全部載完(成功或失敗都算完成)、村莊地板與建築都用美術版畫好、圖示換成圖集之後才進村莊。

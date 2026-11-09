@@ -16,8 +16,8 @@ export function sfxMuted(v) {
   muted = !!v;
   if (master) { try { master.gain.value = muted ? 0 : volume; } catch { } }
   // T108：靜音也要把環境音收掉，不然關掉音效還會聽到風聲。
-  if (muted) { villageStop(); if (bed && ctx) killBed(ctx); }
-  else if (lastRegion && ctx) { bedName = ''; ambientSet(lastRegion, lastPhase, lastBuildings); }
+  if (muted) { villageStop(); rainStop(); if (bed && ctx) killBed(ctx); }
+  else if (lastRegion && ctx) { bedName = ''; ambientSet(lastRegion, lastPhase, lastBuildings); ambientRain(rainWant); }
   return muted;
 }
 export function sfxVolume(v) {
@@ -293,6 +293,73 @@ function villageState() {
   return { active: villageSources(), fired: { ...villageFired }, timers: Object.keys(villageTimers).length, levels: { ...villageLevels } };
 }
 
+// ── T136 雨聲：下雨時多一層高頻雨幕 + 稀疏滴水 ──
+// 跟風聲底噪是兩層獨立的 bed（風聲是區域的、雨聲是天氣的），可以同時存在。
+const RAIN = { cut: 2600, q: .6, gain: .05 };
+let rainBed = null, rainWant = false, rainCount = 0, dripCount = 0, dripTimer = 0;
+
+function makeRain(c) {
+  const src = c.createBufferSource();
+  src.buffer = noiseBuf; src.loop = true;
+  const flt = c.createBiquadFilter();
+  flt.type = 'bandpass'; flt.frequency.value = RAIN.cut; flt.Q.value = RAIN.q;
+  const g = c.createGain(); g.gain.value = 0.0001;
+  // 慢速 LFO 讓「雨量」一陣大一時小，不會是一條死板的嘶聲
+  const lfo = c.createOscillator(); lfo.type = 'sine'; lfo.frequency.value = 0.09 + Math.random() * 0.05;
+  const lfoGain = c.createGain(); lfoGain.gain.value = 900;
+  lfo.connect(lfoGain); lfoGain.connect(flt.frequency);
+  src.connect(flt); flt.connect(g); g.connect(master);
+  const t = c.currentTime;
+  g.gain.exponentialRampToValueAtTime(RAIN.gain, t + 1.2);
+  src.start(t); lfo.start(t);
+  rainBed = { src, flt, g, lfo };
+  rainCount++;
+  scheduleDrips();
+  return rainBed;
+}
+
+function rainStop() {
+  const old = rainBed;
+  rainBed = null;
+  clearTimeout(dripTimer); dripTimer = 0;
+  if (!old || !ctx) return;
+  try {
+    const t = ctx.currentTime;
+    old.g.gain.cancelScheduledValues(t);
+    old.g.gain.setValueAtTime(Math.max(0.0001, old.g.gain.value), t);
+    old.g.gain.exponentialRampToValueAtTime(0.0001, t + 0.8);
+    old.src.stop(t + 0.9); old.lfo.stop(t + 0.9);
+  } catch { }
+}
+
+// 雨滴：雨幕之上偶爾一兩聲很輕的「滴」，讓雨聽起來是在打東西而不是純噪音
+function scheduleDrips() {
+  clearTimeout(dripTimer); dripTimer = 0;
+  if (!rainBed) return;
+  dripTimer = setTimeout(() => {
+    if (!rainBed || muted || !ctx) return;
+    try {
+      const n = 1 + Math.floor(Math.random() * 2);
+      for (let i = 0; i < n; i++) {
+        const f = 1500 + Math.random() * 900;
+        tone(ctx, ctx.currentTime + 0.01 + i * 0.12, { type: 'sine', f0: f, f1: f * 0.86, dur: 0.05, peak: 0.007, attack: 0.004 });
+      }
+      dripCount += n;
+    } catch { }
+    scheduleDrips();
+  }, 700 + Math.random() * 1500);
+}
+
+/** 下雨時開一層雨聲（跟區域無關，跟天氣走）。重複呼叫同一狀態不會重建。 */
+export function ambientRain(on) {
+  const want = !!on;
+  rainWant = want;
+  if (!armed || muted || !ctx) return ambientState();
+  if (want && !rainBed) { try { makeRain(ctx); } catch { } }
+  else if (!want && rainBed) rainStop();
+  return ambientState();
+}
+
 /** 換環境音（區域 id + 一天中的相位 0–1；0.15 下午、0.7 半夜）。同一個區域／時段重複呼叫不會重做。
  *  buildings 是村莊建築等級表（T113：鐵匠鋪打鐵、酒館人聲、交易所零錢、大廳鐘聲依等級決定）。 */
 
@@ -318,15 +385,18 @@ export function ambientState() {
   try { gain = bed ? Math.round(bed.g.gain.value * 1000) / 1000 : 0; } catch { }
   const cfg = BEDS[bedName];
   const target = bed && cfg ? Math.round(cfg.gain * (bedNight ? 0.85 : 1) * 1000) / 1000 : 0;
-  return { bed: bedName, night: bedNight, playing: !!bed, gain, target, count: bedCount, sporadic: !!sporadic, chirps: chirpCount, armed, village: villageSources().length };
+  let rainGain = 0;
+  try { rainGain = rainBed ? Math.round(rainBed.g.gain.value * 1000) / 1000 : 0; } catch { }
+  return { bed: bedName, night: bedNight, playing: !!bed, gain, target, count: bedCount, sporadic: !!sporadic, chirps: chirpCount, armed, village: villageSources().length,
+    rain: !!rainBed, rainGain, rainTarget: rainBed ? RAIN.gain : 0, rainBuilds: rainCount, drips: dripCount };
 }
 
 // 分頁切到背景時把環境音收掉（背景不該一直播風聲），回來再長回來。
 if (hasWindow && typeof document !== 'undefined') {
   document.addEventListener('visibilitychange', () => {
     if (!ctx) return;
-    if (document.hidden) { villageStop(); killBed(ctx); bedName = ''; }
-    else if (lastRegion && !muted) { bedName = ''; ambientSet(lastRegion, lastPhase, lastBuildings); }
+    if (document.hidden) { villageStop(); rainStop(); killBed(ctx); bedName = ''; }
+    else if (lastRegion && !muted) { bedName = ''; ambientSet(lastRegion, lastPhase, lastBuildings); ambientRain(rainWant); }
   });
 }
 
@@ -338,6 +408,7 @@ if (hasWindow) {
     beds: () => Object.keys(BEDS),
     village: villageState,
     villagePlay: (id) => { try { villagePlay(id, (VILLAGE[id] || {}).gain || 0.04); villageFired[id] = (villageFired[id] || 0) + 1; } catch { } },
+    rain: ambientRain,
   };
   globalThis.__mistvaleSfx = {
     play: (k, o) => sfx(k, o),
