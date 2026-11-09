@@ -509,6 +509,12 @@ let signImg=null;function regionSignArt(){if(!signImg){const src=globalThis.PIXE
 let mshotImg=null;function mshotSheet(){if(!mshotImg){const src=globalThis.PIXEL_ASSETS?.ui?.['fx-mshots'];if(!src)return null;mshotImg=trackImage(new Image());mshotImg.src=src;}return mshotImg.complete&&mshotImg.naturalWidth?mshotImg:null;}
 function ensureMonsterSheets(){for(const id of monsterReq)ensureMonsterSheet(id);}
 const MON_SHEET=t=>{const id=t==='boss'?'treant':t;monsterReq.size<64&&monsterReq.add(id);ensureMonsterSheet(id);return monsterSheets[id];};
+// T110:魔物資訊卡的頭像 —— 取 sheet 的 idle 第 0 格,最近鄰放大到 size×size(沒有 sheet 就回空字串,卡片改畫色塊)。
+export function monsterPortrait(type,size=96){
+  const ms=MON_SHEET(type),acts=ms?.meta?.actions||{},a=acts.idle||acts.walk||acts.attack;
+  if(!a||!ms.img)return '';
+  try{const cv=document.createElement('canvas');cv.width=size;cv.height=size;const c=cv.getContext('2d');c.imageSmoothingEnabled=false;c.drawImage(ms.img,0,a.y,a.cell,a.cell,0,0,size,size);return cv.toDataURL();}catch{return '';}
+}
 // 進區前先叫齊該區魔物的 sheet(只會載入真的會用到的種類)。
 globalThis.__mistvalePreloadMonsters=(ids)=>{for(const id of ids||[]){if(!id)continue;monsterReq.add(id);ensureMonsterSheet(id);}};
 // 新版 sheet 還在解碼:這一幀先不畫(不退回舊程序圖),載好後 pixel-assets-ready 重畫。
@@ -1765,6 +1771,7 @@ let renderDprMax=Math.max(1,dprCap||autoDpr());   // 畫布解析度上限(devic
       if(old&&pose.pose==='idle'&&vdir!==(old.rowVdir??'side')&&nowT-(old.rowAt??-9)<0.25)vdir=old.rowVdir??'side';
       const [act,i]=monsterSheetPose(e,pose,walking,vdir);drawnFacing.set('enemy:'+e.id,{f:flip?-1:1,frame,act,i,x:e.x,z:e.z,t:state.time});rect=drawMonsterSheet(e.type,p,flip,act,i,1,pose);}  // 新規格 sheet:動作自帶位移/壓扁,不再疊 posed 變形
     else rect=posed(p,pose,q=>drawAtlasMonster(e.type,frame,q,sz,flip));
+    if(rect)hits.push({id:'foe:'+e.id,...padHit(rect,14,18)});  // T110:魔物也可以點開資訊卡
     if(!rect)procUse['enemy-missing:'+e.type]=(procUse['enemy-missing:'+e.type]||0)+1;  // 沒有程序繪製 fallback:sheet 缺了就只記數、不畫
     if(e.hp<e.maxHp||boss||targeted){bar(p.x-(boss?17:10)*scale,p.y-(sz+3)*scale,(boss?34:20)*scale,e.hp/(e.maxHp||1),boss?'#d27967':'#c68764');}}
 
@@ -2364,7 +2371,7 @@ let renderDprMax=Math.max(1,dprCap||autoDpr());   // 畫布解析度上限(devic
       .filter(cls=>heroSheets[cls]&&heroSheets[cls].meta.kind!=='part');   // 零件表不是角色，不要叫進村
     return list.filter(cls=>spawnVillager(cls));
   }
-  resize();render();return{update,resize:responsiveResize,project,assetsReady,warmupAssets,focus:(id)=>{homeFraming=false;focus(id);},/* 驗收用:建築與地區立牌的可點範圍 */enemyFacing:()=>[...drawnFacing.entries()].filter(([k])=>k.startsWith('enemy:')).map(([k,v])=>({id:k.slice(6),f:v.f,act:v.act||null,t:v.t})),hitRects:()=>hits.filter(h=>BUILDINGS.some(h2=>h2.id===h.id)).map(h=>({id:h.id,x:h.x,y:h.y,w:h.w,h:h.h})),unitRects:()=>hits.filter(h=>String(h.id).startsWith('hunter:')).map(h=>({id:String(h.id).slice(7),x:h.x,y:h.y,w:h.w,h:h.h})),signRects:()=>hits.filter(h=>String(h.id).startsWith('region:')).map(h=>({id:h.id,x:h.x,y:h.y,w:h.w,h:h.h})),buildingScale:id=>effectiveScale(id),lookAt:(x,z,v)=>{homeFraming=false;if(v)scale=Math.max(zoomFloor(),Math.min(ZOOM_MAX,v));target=iso(x,z);cam={...target};},zoomTo:(v)=>{homeFraming=false;scale=Math.max(zoomFloor(),Math.min(ZOOM_MAX,v));},getScale:()=>scale,setSelected,zoomBy,placeMode,setTime,setQuality,setFollow:(fn,opts)=>{followFn=typeof fn==='function'?fn:null;followOpts=(followFn&&opts&&typeof opts==='object')?opts:{};},dirFromScreen,followInfo:()=>followFn?(followOpts.centerBody?{centerBody:true,snap:!!followOpts.snap}:{centerBody:false,snap:!!followOpts.snap}):null,setShadows:(v)=>{shadowsOn=v!==false;compValid=false;},shake,hitStop:(ms)=>{if(!hitStopAllowed()||!(ms>0))return 0;hitStopUntil=performance.now()+ms;hitStopSeq++;hitStopPainted=-2;hitStopCount++;return ms;},unproject,setNight:(v)=>{nightOn=v!==false;},
+  resize();render();return{update,resize:responsiveResize,project,assetsReady,warmupAssets,focus:(id)=>{homeFraming=false;focus(id);},/* 驗收用:建築與地區立牌的可點範圍 */enemyFacing:()=>[...drawnFacing.entries()].filter(([k])=>k.startsWith('enemy:')).map(([k,v])=>({id:k.slice(6),f:v.f,act:v.act||null,t:v.t})),hitRects:()=>hits.filter(h=>BUILDINGS.some(h2=>h2.id===h.id)).map(h=>({id:h.id,x:h.x,y:h.y,w:h.w,h:h.h})),unitRects:()=>hits.filter(h=>String(h.id).startsWith('hunter:')).map(h=>({id:String(h.id).slice(7),x:h.x,y:h.y,w:h.w,h:h.h})),foeRects:()=>hits.filter(h=>String(h.id).startsWith('foe:')).map(h=>({id:String(h.id).slice(4),x:h.x,y:h.y,w:h.w,h:h.h})),signRects:()=>hits.filter(h=>String(h.id).startsWith('region:')).map(h=>({id:h.id,x:h.x,y:h.y,w:h.w,h:h.h})),buildingScale:id=>effectiveScale(id),lookAt:(x,z,v)=>{homeFraming=false;if(v)scale=Math.max(zoomFloor(),Math.min(ZOOM_MAX,v));target=iso(x,z);cam={...target};},zoomTo:(v)=>{homeFraming=false;scale=Math.max(zoomFloor(),Math.min(ZOOM_MAX,v));},getScale:()=>scale,setSelected,zoomBy,placeMode,setTime,setQuality,setFollow:(fn,opts)=>{followFn=typeof fn==='function'?fn:null;followOpts=(followFn&&opts&&typeof opts==='object')?opts:{};},dirFromScreen,followInfo:()=>followFn?(followOpts.centerBody?{centerBody:true,snap:!!followOpts.snap}:{centerBody:false,snap:!!followOpts.snap}):null,setShadows:(v)=>{shadowsOn=v!==false;compValid=false;},shake,hitStop:(ms)=>{if(!hitStopAllowed()||!(ms>0))return 0;hitStopUntil=performance.now()+ms;hitStopSeq++;hitStopPainted=-2;hitStopCount++;return ms;},unproject,setNight:(v)=>{nightOn=v!==false;},
     setDpr:(v)=>{dprCap=v==='auto'||v==null?null:Math.max(1,Math.min(3,Number(v)||autoDpr()));renderDprMax=Math.max(1,Math.min(dprCap||autoDpr(),globalThis.devicePixelRatio||1));resize();compValid=false;render();},
     dispose,drawDungeonStrip,spawnVillager,spawnClassVillagers,setPartsVisible:(v)=>{partsVisible=v!==false;},getPartsVisible:()=>partsVisible,landscapeStats:()=>({roads:roads.length,terrainRevision,
     decor:decorations.map(d=>({type:d.type,x:d.x,z:d.z,region:d.regionId||null}))})};

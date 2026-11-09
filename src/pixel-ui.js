@@ -1,10 +1,10 @@
 import {WORLD,REGIONS,BIOME_PALETTE,biomeAt} from './overworld.js';
 import {iconCanvas,iconsReady} from './pixel-icons.js';
 import {assetProgress,markPhase} from './asset-loading.js';
-import {createGame,OFFLINE} from './pixel-game.js';
+import {createGame,OFFLINE,ENEMIES} from './pixel-game.js';
 import {sfx,sfxMuted,ambientSet} from './sfx.js';
 import {REGION_MONSTERS,MONSTER_NAME,MONSTER_LORE} from './lore.js';
-import {createPixelWorld,drawPortrait,buildingDataURL,MAP_PALETTE,MAP_ACCENT} from './pixel-world.js';
+import {createPixelWorld,drawPortrait,buildingDataURL,MAP_PALETTE,MAP_ACCENT,monsterPortrait} from './pixel-world.js';
 import {mountTmwPuppet} from './tmw-puppet.js';
 import {BUILDINGS,CLASSES,RARITIES,TRAITS,MATERIALS,PRODUCTS,RECIPES,DIFFICULTIES,PILOT_ATTACK,SKILLS,SAVE_KEY} from './pixel-data.js';
 
@@ -505,39 +505,54 @@ let fpsTarget=30;
 function openHunter(id){const h=game.state.hunters.find(v=>v.id===id);if(!h)return;const wasOpen=modalShown(),prev=wasOpen?document.activeElement:null;if(!wasOpen)modalOpener=document.activeElement;modal='hunter-detail';$('#modal').dataset.type='hunter';$('#modal').dataset.kind='';modalTitle('hunter','hunter');$('#modal-content').innerHTML=`<div class="hunter-detail"><div class="detail-avatar"><img src="${portrait(h)}"><h3>${esc(h.name)}</h3><div class="rarity" data-rarity="${h.rarity}" style="--rarity:${RARITIES.find(r=>r.id===h.rarity)?.color}">${RARITIES.find(r=>r.id===h.rarity)?.name}</div></div><div><div class="detail-header"><strong>${iconHTML('em-'+h.classId)}${CLASSES.find(c=>c.id===h.classId)?.name} · Lv.${h.level}</strong><span>${esc(h.status)}</span></div><div class="stats-grid"><div>${iconHTML('atk')}攻擊<b>${h.attack}</b></div><div>${iconHTML('def')}防禦<b>${h.defense}</b></div><div>${iconHTML('rebirth')}轉世<b>${h.rebirths}</b></div></div>${[['hp','生命','hp'],['satiety','飽食','satiety'],['stamina','精力','stamina'],['mood','心情','mood']].map(([k,n,c])=>`<div class="need-row ${c}"><label>${iconHTML(c)}${n}</label><div class="progress"><span style="width:${k==='hp'?h.hp/h.maxHp*100:h[k]}%"></span><b>${Math.floor(k==='hp'?h.hp:h[k])}</b></div></div>`).join('')}<div class="equipment-row"><span>${iconHTML('gold')}個人金幣 <b>${fmt(h.gold)}</b></span><span class="${h.equipment.weapon?'has':'no'}">${iconHTML('swords')}${h.equipment.weapon?'精鐵武器':'未裝備武器'}</span><span class="${h.equipment.armor?'has':'no'}">${iconHTML('def')}${h.equipment.armor?'皮革護甲':'未裝備護甲'}</span></div></div></div><div class="hunter-actions"><button class="pixel-button" data-action="learnSkill" data-id="${h.id}">${iconHTML('scroll')}<span>學習技能<small>學院 · 技能 Lv.${h.skillLevel||0}</small></span></button><button class="pixel-button" data-action="train" data-id="${h.id}" ${h.gold<20||h.trainCooldown>0?'disabled':''}>${iconHTML('up')}<span>修煉<small>${h.trainCooldown>0?`冷卻 ${Math.ceil(h.trainCooldown)} 秒`:h.gold<20?'個人金幣不足 20':'20 個人金幣'}</small></span></button><button class="pixel-button" data-action="enhanceHunter" data-id="${h.id}">${iconHTML('anvil')}<span>強化裝備<small>精煉所 · +${h.weaponLevel||0}</small></span></button><button class="pixel-button ${h.level>=100?'gold':''}" data-action="reincarnate" data-id="${h.id}" ${h.level>=100?'':'disabled'}>${iconHTML('rebirth')}<span>轉世<small>${h.level>=100?'可以轉世':`Lv.100 才能（還差 ${100-h.level}）`}</small></span></button></div>`;setIcons($('#modal-content'));$('#modal-backdrop').classList.remove('hidden');document.body.dataset.modalTab='hunters';measureHud();hudInert(true);focusModalStart(prev);}
 function handleWorldSelect(id){
   if(!started)return;
-  if(id?.startsWith('hunter:')){showUnitCard(id.slice(7));return;}
+  if(id?.startsWith('hunter:')||id?.startsWith('foe:')){showUnitCard(id);return;}
   hideUnitCard();
   if(id?.startsWith('region:')){densityRegion=id.slice(7);openModal('density');}
   else if(id)inspect(id);
 }
 
-// T109:點世界裡的獵人時,只開一張小卡(頭像/名字/等級職業/生命/攻防),要看完整資料再按「詳細」。
-// 以前點一下就直接整頁跳進獵人名冊,看個人卻被抽離世界,是整個畫面最突兀的一段。
-let unitCardEl=null,unitCardId=null,unitCardSig="";
-function unitCardHunter(){return unitCardId?game.state.hunters.find(h=>h.id===unitCardId):null;}
-function hideUnitCard(){unitCardEl?.remove();unitCardEl=null;unitCardId=null;unitCardSig="";}
-function showUnitCard(id){
-  const h=game.state.hunters.find(v=>v.id===id);
-  if(!h){hideUnitCard();return;}
-  unitCardId=id;unitCardSig="";unitCardPaint(true);
+// T109/T110:點世界裡的獵人或魔物時,只開一張小卡(頭像/名字/等級職業或區域/生命/攻防),
+// 要看完整資料再按「詳細」。以前點一下就直接整頁跳進獵人名冊,看個人卻被抽離世界。
+let unitCardEl=null,unitCardSel=null,unitCardSig="";
+function unitCardTarget(){
+  if(!unitCardSel)return null;
+  if(unitCardSel.startsWith("hunter:")){const h=game.state.hunters.find(v=>v.id===unitCardSel.slice(7));return h?{kind:"hunter",u:h}:null;}
+  if(unitCardSel.startsWith("foe:")){const e=(game.state.enemies||[]).find(v=>v.id===unitCardSel.slice(4)&&v.hp>0);return e?{kind:"foe",u:e}:null;}
+  return null;
+}
+function hideUnitCard(){unitCardEl?.remove();unitCardEl=null;unitCardSel=null;unitCardSig="";}
+function showUnitCard(sel){
+  unitCardSel=sel;unitCardSig="";
+  if(!unitCardTarget()){hideUnitCard();return;}
+  unitCardPaint(true);
   openOtherPanelsClosed();
 }
 function openOtherPanelsClosed(){if(placing)return;const ins=$("#inspector");if(ins&&!ins.classList.contains("hidden"))closeInspector();}
-function unitCardPaint(force){
-  const h=unitCardHunter();
-  if(!h){hideUnitCard();return;}
-  if(!unitCardEl){unitCardEl=document.createElement("div");unitCardEl.id="unit-card";unitCardEl.setAttribute("role","group");unitCardEl.setAttribute("aria-label","選取單位");document.body.append(unitCardEl);}
-  const cls=CLASSES.find(c=>c.id===h.classId)||{},rng=(h.range||0)>=5?"遠程":"近戰",tr=TRAITS.find(t=>t.id===h.trait)?.name||"";
-  const sig=[h.id,h.name,h.classId,h.level,h.rarity,h.status,h.trait,h.attack,h.defense,h.maxHp,h.rebirths].join("|");
-  if(force||sig!==unitCardSig){
-    unitCardSig=sig;
-    unitCardEl.innerHTML=`<img class="uc-portrait" src="${portrait(h)}" alt=""><div class="uc-body"><div class="uc-head"><b class="uc-name">${esc(h.name)}</b><span class="uc-lv">Lv.${h.level}</span><em class="uc-status" data-status="${esc(h.status)}">${esc(h.status)}</em></div><div class="uc-sub">${iconHTML("em-"+h.classId)}<span>${esc(cls.name||"")} · ${rng} · ${esc(tr)}</span></div><div class="uc-hp"><i class="uc-bar"><span></span></i><b class="uc-hpnum"></b></div><div class="uc-stats"><span>${iconHTML("atk")}<b>${h.attack}</b></span><span>${iconHTML("def")}<b>${h.defense}</b></span><span>${iconHTML("rebirth")}<b>${h.rebirths}</b></span></div></div><div class="uc-actions"><button class="pixel-button gold uc-more" data-action="unitDetail" data-id="${h.id}">詳細</button><button class="uc-x" data-action="unitCardClose" aria-label="關閉單位資訊">✕</button></div>`;
+function unitCardHTML(t){
+  if(t.kind==="hunter"){
+    const h=t.u,cls=CLASSES.find(c=>c.id===h.classId)||{},rng=(h.range||0)>=5?"遠程":"近戰",tr=TRAITS.find(x=>x.id===h.trait)?.name||"";
+    return `<img class="uc-portrait" src="${portrait(h)}" alt=""><div class="uc-body"><div class="uc-head"><b class="uc-name">${esc(h.name)}</b><span class="uc-lv">Lv.${h.level}</span><em class="uc-status" data-status="${esc(h.status)}">${esc(h.status)}</em></div><div class="uc-sub">${iconHTML("em-"+h.classId)}<span>${esc(cls.name||"")} · ${rng} · ${esc(tr)}</span></div><div class="uc-hp"><i class="uc-bar"><span></span></i><b class="uc-hpnum"></b></div><div class="uc-stats"><span>${iconHTML("atk")}<b>${h.attack}</b></span><span>${iconHTML("def")}<b>${h.defense}</b></span><span>${iconHTML("rebirth")}<b>${h.rebirths}</b></span></div></div><div class="uc-actions"><button class="pixel-button gold uc-more" data-action="unitDetail" data-id="${h.id}">詳細</button><button class="uc-x" data-action="unitCardClose" aria-label="關閉單位資訊">✕</button></div>`;
   }
-  const ratio=Math.max(0,Math.min(1,h.hp/Math.max(1,h.maxHp)));
+  const e=t.u,data=ENEMIES[e.type]||{},boss=e.type==="boss";
+  const region=REGIONS.find(r=>r.id===e.regionId)?.name||"野外";
+  const drops=Object.keys(data.drops||{}).map(k=>MATERIALS[k]?.name||k).slice(0,3).join("、");
+  return `<img class="uc-portrait foe" src="${monsterPortrait(e.type,96)}" alt=""><div class="uc-body"><div class="uc-head"><b class="uc-name">${esc(MONSTER_NAME[e.type]||e.type)}</b><em class="uc-status" data-status="${boss?"boss":"foe"}">${boss?"首領":"魔物"}</em></div><div class="uc-sub">${iconHTML("skull")}<span>${esc(region)}${drops?" · 掉落 "+esc(drops):""}</span></div><div class="uc-hp"><i class="uc-bar foe"><span></span></i><b class="uc-hpnum"></b></div><div class="uc-stats"><span>${iconHTML("atk")}<b>${Math.round(e.attack)}</b></span><span>${iconHTML("gold")}<b>${data.gold||0}</b></span><span>${iconHTML("quest")}<b>${data.xp||0}</b></span></div></div><div class="uc-actions"><button class="uc-x" data-action="unitCardClose" aria-label="關閉單位資訊">✕</button></div>`;
+}
+function unitCardSigOf(t){
+  if(t.kind==="hunter")return ["hunter",t.u.id,t.u.name,t.u.classId,t.u.level,t.u.rarity,t.u.status,t.u.trait,t.u.attack,t.u.defense,t.u.maxHp,t.u.rebirths].join("|");
+  return ["foe",t.u.id,t.u.type,Math.round(t.u.maxHp),t.u.regionId].join("|");
+}
+function unitCardPaint(force){
+  const t=unitCardTarget();
+  if(!t){hideUnitCard();return;}
+  if(!unitCardEl){unitCardEl=document.createElement("div");unitCardEl.id="unit-card";unitCardEl.setAttribute("role","group");unitCardEl.setAttribute("aria-label","選取單位");document.body.append(unitCardEl);}
+  const sig=unitCardSigOf(t);
+  if(force||sig!==unitCardSig){unitCardSig=sig;unitCardEl.dataset.kind=t.kind;unitCardEl.innerHTML=unitCardHTML(t);}
+  const maxHp=Math.max(1,t.u.maxHp||1),hp=Math.max(0,t.u.hp||0),ratio=Math.max(0,Math.min(1,hp/maxHp));
   const bar=unitCardEl.querySelector(".uc-bar>span"),num=unitCardEl.querySelector(".uc-hpnum"),hpEl=unitCardEl.querySelector(".uc-hp");
   if(bar){bar.style.width=(ratio*100).toFixed(1)+"%";
-    num.textContent=Math.round(h.hp)+"/"+Math.round(h.maxHp);
-    hpEl.setAttribute("role","progressbar");hpEl.setAttribute("aria-valuemin","0");hpEl.setAttribute("aria-valuemax",String(Math.round(h.maxHp)));hpEl.setAttribute("aria-valuenow",String(Math.round(h.hp)));
+    num.textContent=Math.round(hp)+"/"+Math.round(maxHp);
+    hpEl.setAttribute("role","progressbar");hpEl.setAttribute("aria-valuemin","0");hpEl.setAttribute("aria-valuemax",String(Math.round(maxHp)));hpEl.setAttribute("aria-valuenow",String(Math.round(hp)));
     hpEl.classList.toggle("low",ratio>0&&ratio<.35);hpEl.classList.toggle("down",ratio<=0);}
 }
 document.addEventListener('click',e=>{const el=e.target.closest('[data-action]');if(el&&!el.disabled){sfx('ui');doAction(el);}});

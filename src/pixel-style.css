@@ -1506,3 +1506,12 @@ html.ui-m :is(.toast.error){border-width:8px}
 #unit-card .uc-x:hover{border-color:#c9a04d;color:#f4dc94}
 @media(max-width:760px){#unit-card{left:8px;right:8px;width:auto;bottom:calc(var(--bb,62px) + 34px);grid-template-columns:auto minmax(0,1fr);gap:8px;padding:7px 9px}#unit-card .uc-portrait{height:46px;width:35px}#unit-card .uc-actions{grid-column:1/-1;justify-content:flex-end;gap:8px}#unit-card .uc-x{width:26px;height:26px}#unit-card .uc-more{min-height:26px;padding:4px 10px}}
 @media(prefers-reduced-motion:reduce){#unit-card .uc-bar>span{transition:none}}
+/* ===== T110：魔物資訊卡（沿用 T109 的小卡骨架，換頭像、狀態與配色） ===== */
+#unit-card[data-kind="foe"]{border-color:#6a3c24;background:linear-gradient(180deg,#301c11f4,#1c1109f8)}
+#unit-card .uc-portrait.foe{background:radial-gradient(circle at 50% 42%,#3a2418,#150e08);border-color:#7a4a2c}
+#unit-card .uc-status[data-status="boss"]{border-color:#b4482f;background:#3a1a12;color:#f0a892}
+#unit-card .uc-status[data-status="foe"]{border-color:#6b7a4a;background:#232b1c;color:#c3d3a6}
+#unit-card .uc-bar.foe>span{background:linear-gradient(90deg,#c0562f,#e0935a)}
+#unit-card .uc-hp.low .uc-bar.foe>span{background:#e0a86a}
+#unit-card .uc-hp.down .uc-bar.foe>span{background:#6f2f22}
+
