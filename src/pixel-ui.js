@@ -291,7 +291,24 @@ function modalHTML(type){const s=game.state;
    return `<li class="quest-step ${st}"${st==='current'?' aria-current="step"':''}><span class="qs-num" aria-hidden="true">${st==='done'?'✓':String(i+1).padStart(2,'0')}</span><div class="qs-body"><div class="qs-head"><h3>${q.title}</h3><em class="qs-tag ${st}">${tagIcon}${tag}</em></div><p>${q.description}</p>${st==='current'?`<div class="progress qs-progress" role="progressbar" aria-valuemin="0" aria-valuemax="${s.quest.target}" aria-valuenow="${s.quest.progress}" aria-label="${q.title}進度"><span style="width:${pct.toFixed(1)}%"></span><b>${s.quest.progress}/${s.quest.target}</b></div>`:''}<div class="cost qs-reward"><small>獎勵</small>${costs(q.reward)}</div></div>${st==='current'?`<button class="pixel-button gold qs-claim" data-action="quest" ${claimable?'':'disabled'}>${claimable?'領取獎勵':'進行中'}</button>`:''}</li>`;};
   const head=`<div class="encounter-banner quests"><i>${iconHTML('quest')}</i><div class="qs-banner"><p>${s.quest.claimed?'全部章節都完成了。新的村莊傳說正在等待被書寫。':'完成手上的委託就能領取村莊獎勵，並解鎖下一章。'}</p><div class="qs-meta"><span>第 <b>${Math.min(cur+1,list.length)}</b> 章／共 ${list.length} 章</span><span>已解鎖 <b>${unlocked}</b> 章</span>${claimable?'<span class="qs-ready">本章獎勵可領取</span>':''}</div></div></div>`;
   return `${head}<ol class="quest-chain">${listHTML(list,step,'目前沒有新的委託','完成手上的章節就會解鎖下一章')}</ol>`;}
- if(type==='inventory'){const stock=id=>s[id]??s.stocks?.[id]??s.gearStock?.[id]??0;const stockRows=Object.entries({...MATERIALS,food:{name:'香烤麵包'},drink:{name:'莓果飲品'},bed:{name:'舒適床鋪'},bandage:{name:'亞麻繃帶'},weapon:{name:'精鐵武器'},armor:{name:'皮革護甲'}});return `<div class="encounter-banner inventory"><i>${iconHTML('chest')}</i><div><p>村莊倉庫保存建材、生活物資與鐵匠鋪製作的裝備。</p></div></div><div class="materials-grid">${listHTML(stockRows.some(([id])=>stock(id)>0)?stockRows:[],([id,m])=>`<div class="material-item">${iconHTML(id)}<div><span>${m.name}</span><b>${stock(id)}</b></div></div>`,'倉庫目前是空的','派獵人出門打獵，或到鐵匠鋪製作裝備')}</div>`;}
+ if(type==='inventory'){
+   const stock=id=>s[id]??s.stocks?.[id]??s.gearStock?.[id]??0;
+   const GOODS={food:{name:'香烤麵包',price:12},drink:{name:'莓果飲品',price:10},bed:{name:'舒適床鋪',price:14},bandage:{name:'亞麻繃帶',price:10}};
+   const GEAR={weapon:{name:'精鐵武器',price:85},armor:{name:'皮革護甲',price:70}};
+   const ALL={...MATERIALS,...GOODS,...GEAR};
+   // 用途與來源都從資料推導（改配方或掉落表時，說明會跟著變，不用另外維護文案）
+   const USES=[...Object.values(PRODUCTS),...RECIPES].map(p=>({name:p.name,cost:p.cost||{}}));
+   const usesOf=id=>USES.filter(u=>(u.cost[id]||0)>0).map(u=>u.name);
+   const sourcesOf=id=>Object.keys(ENEMIES).filter(t=>(ENEMIES[t].drops||{})[id]>0).map(t=>MONSTER_NAME[t]||t);
+   const held=id=>stock(id)>0;
+   const groups=[['材料',Object.keys(MATERIALS),'交易所收購'],['生活物資',Object.keys(GOODS),'在自己的設施製作'],['裝備',Object.keys(GEAR),'鐵匠鋪製作']];
+   const itemRow=(id,fb)=>{const m=ALL[id],q=stock(id),u=usesOf(id),src=sourcesOf(id);
+     return `<li class="stock-item${q>0?'':' empty'}" data-id="${id}"><i class="si-ic">${iconHTML(id)}</i><div class="si-main"><b class="si-nm">${m.name}</b><small class="si-use">用途：${u.length?u.join('、'):'交易或村莊委託'}</small><small class="si-src">來源：${src.length?src.join('、'):fb}</small></div><div class="si-num"><b>${q}</b><small>單價 ${m.price} 金</small></div></li>`;};
+   const totalKinds=Object.keys(ALL).filter(held).length,totalPieces=Object.keys(ALL).reduce((n,id)=>n+stock(id),0);
+   return `<div class="encounter-banner inventory"><i>${iconHTML('chest')}</i><div><p>倉庫保存建材、生活物資與鐵匠鋪的成品。數量 0 的項目會淡化，方便看出還有哪些資源可以收集。</p></div></div>
+   <div class="stock-summary" role="status">持有 <b>${totalKinds}</b>／${Object.keys(ALL).length} 種 · 共 <b>${totalPieces}</b> 件</div>
+   ${groups.map(([title,ids,fb])=>`<section class="stock-sec" data-sec="${title}"><h4 class="stock-sec-h"><span>${title}</span><small>${ids.filter(held).length}／${ids.length} 種</small></h4><ul class="stock-list">${ids.map(x=>itemRow(x,fb)).join('')}</ul></section>`).join('')}`;
+ }
  if(type==='difficulty'){
    // 跟 game.setDifficulty() 同一個算法：全體獵人的轉世次數加總（不是村莊的 counts.rebirths）
    const rb=s.hunters.reduce((n,h)=>n+(h.rebirths||0),0);
