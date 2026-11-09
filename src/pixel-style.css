@@ -1585,3 +1585,18 @@ html{font-variant-numeric:tabular-nums;font-feature-settings:'tnum' 1}
   .set-sec-h{font-size:12.5px;gap:6px;padding-bottom:4px}
   .set-sec-h small{white-space:normal;line-height:1.35}
 }
+
+/* ===== T116：訊息卡片化（toast）——左色條＝語意、圖示、滑入／淡出 ===== */
+#toasts{top:92px;gap:7px}
+.toast{display:flex;align-items:center;gap:8px;min-width:0;max-width:min(460px,88vw);padding:7px 12px 7px 9px;border:1px solid #5c4a2c;border-left:4px solid var(--tk,#c9a04d);border-radius:2px;background:linear-gradient(180deg,#2c1d10f2,#1b1208f7);box-shadow:0 4px 14px #0009;color:#f1e4c2;font-size:var(--fs-body);line-height:1.45;text-align:left;pointer-events:none;animation:toastIn .18s ease-out both}
+.toast .toast-ic{display:grid;place-items:center;flex:0 0 18px;width:18px;height:18px}
+.toast .toast-ic .inline-icon,.toast .toast-ic canvas{width:16px;height:16px}
+.toast .toast-check{display:grid;place-items:center;width:16px;height:16px;border-radius:50%;background:var(--tk);color:#1b1208;font:800 11px/1 var(--font-num)}
+.toast .toast-tx{min-width:0;overflow-wrap:anywhere}
+.toast.kind-error{border-color:#7a3a30}
+.toast.kind-reward{color:#ffe9b8}
+.toast.out{animation:toastOut .26s ease-in both}
+@keyframes toastIn{from{opacity:0;transform:translateY(-8px) scale(.98)}to{opacity:1;transform:none}}
+@keyframes toastOut{from{opacity:1;transform:none}to{opacity:0;transform:translateY(-6px)}}
+@media(prefers-reduced-motion:reduce){.toast,.toast.out{animation:none}}
+@media(max-width:760px){#toasts{top:104px;left:8px;right:auto;transform:none;max-width:calc(100vw - 106px);align-items:stretch}.toast{font-size:var(--fs-small);max-width:100%;padding:6px 10px 6px 8px}}   /* 手機：避開右側浮動鈕（地圖／暫停／速度） */

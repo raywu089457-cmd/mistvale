@@ -102,7 +102,16 @@ function partyPick(h,action,sel,note=''){
 function partyList(kind,ids,action,emptyText,emptyHint){return listHTML(game.state.hunters,h=>partyPick(h,action,ids.includes(h.id),''),emptyText,emptyHint);}
 function partySummary(ids){const hs=ids.map(id=>game.state.hunters.find(h=>h.id===id)).filter(Boolean);const atk=hs.reduce((a,h)=>a+h.attack,0),hp=hs.reduce((a,h)=>a+Math.max(0,Math.ceil(h.hp)),0),lv=hs.length?hs.reduce((a,h)=>a+h.level,0)/hs.length:0;return `<div class="party-summary" role="status">已選 <b>${hs.length}</b>/3 · 總攻擊 <b>${fmt(atk)}</b> · 總生命 <b>${fmt(hp)}</b>${hs.length?` · 平均 Lv.<b>${lv.toFixed(1)}</b>`:''}${hs.length<3?`<small class="ps-hint">再選 ${3-hs.length} 位才能出發</small>`:''}</div>`;}
 function partyGate(n,cooldown,idleLabel){if(cooldown>0)return {disabled:true,label:`小隊整備中 ${Math.ceil(cooldown)} 秒`};if(n<3)return {disabled:true,label:`還缺 ${3-n} 位獵人`};return {disabled:false,label:idleLabel};}
-function logToast(msg,ok=true){if(!ok)sfx('error');const e=document.createElement('div');e.className=`toast${ok?'':' error'}`;e.textContent=msg;const box=$('#toasts');box.append(e);while(box.children.length>4)box.firstElementChild.remove();setTimeout(()=>e.remove(),3300);}   // 最多同時 4 則(連點製作時不會疊滿整個畫面)
+// T116：訊息卡片化——圖示＋語意色（獎勵金／升級金／委託棕／失敗紅／一般綠），進場滑入、離場淡出。
+const TOAST_KINDS={ok:{mark:"✓",color:"#8ebc5e"},reward:{icon:"gold",color:"#e7be5e"},level:{icon:"horn",color:"#f2c96a"},quest:{icon:"scroll",color:"#cfae6a"},error:{icon:"skull",color:"#e0705f"}};
+const TOAST_RE=[[/升級|等級提升|轉世|Lv\.\d+/,"level"],[/金幣|獲得|獎勵|收入|成交|賣出|買到|收入/,"reward"],[/委託|章節|任務|完成/,"quest"]];
+const toastKindOf=(msg,ok)=>{if(!ok)return "error";const t=String(msg||"");for(const [re,k] of TOAST_RE)if(re.test(t))return k;return "ok";};
+function logToast(msg,ok=true,kind){const k=kind&&TOAST_KINDS[kind]?kind:toastKindOf(msg,ok),cfg=TOAST_KINDS[k];if(!ok)sfx("error");
+  const e=document.createElement("div");e.className=`toast kind-${k}`;e.dataset.kind=k;e.setAttribute("role","status");e.style.setProperty("--tk",cfg.color);
+  e.innerHTML=`<i class="toast-ic">${cfg.icon?iconHTML(cfg.icon):`<b class="toast-check">${cfg.mark}</b>`}</i><span class="toast-tx"></span>`;
+  e.querySelector(".toast-tx").textContent=msg;const box=$("#toasts");box.append(e);setIcons(e);
+  while(box.children.length>4)box.firstElementChild.remove();
+  setTimeout(()=>{e.classList.add("out");setTimeout(()=>e.remove(),260);},3000);}   // 最多同時 4 則（連點製作時不會疊滿整個畫面）
 function save(){if(!started||previewMode)return;try{const data=game.serialize();data.savedAt=Date.now();localStorage.setItem(SAVE_KEY,JSON.stringify(data));$('#save-label').textContent='已自動儲存';$('#save-label').classList.remove('warn');}catch{$('#save-label').textContent='請匯出存檔';$('#save-label').classList.add('warn');}}
 function costs(obj){return Object.entries(obj||{}).map(([k,v])=>`<span class="${game.state[k]<v?'short':''}">${iconHTML(k)} ${fmt(v)}</span>`).join('');}
 // T101：製作、交易所的「夠不夠」要看得到 — 材料寫成 現有/需要，不足整塊標紅；再算出這份成本最多能做幾批。
@@ -732,3 +741,5 @@ function paintMap(canvas,mini=false){
  for(const r of REGIONS){const[x,y]=to(r.x,r.z);g.fillStyle=r.id===game.state.region?'#ffe182':'#344634';g.fillRect(x-3,y-3,6,6);if(!mini){g.font='bold 12px Microsoft JhengHei';g.textAlign='center';const tw=g.measureText(r.name).width;g.fillStyle='#233428dd';g.fillRect(x-tw/2-4,y+6,tw+8,19);g.fillStyle='#ffebbd';g.fillText(r.name,x,y+20);}}
  if(mini)for(const h of game.state.hunters){const[x,y]=to(h.x,h.z);g.fillStyle='#fff7da';g.fillRect(x-1,y-1,3,3);}
 }
+
+globalThis.__toast=(msg,ok=true,kind)=>logToast(msg,ok,kind);
