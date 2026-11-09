@@ -1924,3 +1924,20 @@ html{font-variant-numeric:tabular-nums;font-feature-settings:'tnum' 1}
 @keyframes hintBob{0%,100%{transform:translateY(0)}50%{transform:translateY(2px)}}
 @media(prefers-reduced-motion:reduce){.scroll-hint b{animation:none}}
 @media(max-width:760px){.scroll-hint{padding:6px 0 7px;font-size:10.5px}}
+
+/* ===== T140：手機面板按鈕統一到 44px 觸控高度 ===== */
+@media(max-width:760px){
+  /* 觸控目標下限 44px：面板內的主要／次要動作按鈕統一高度。
+     小圖示鈕（×、±、開關）不在此列，維持原本尺寸避免擠壓版面。 */
+  #modal-content .pixel-button{min-height:44px;padding-left:12px;padding-right:12px}
+  #modal-content .pixel-button.small{min-height:40px}
+  #modal-content .modal-actions .pixel-button{min-height:44px}
+}
+
+/* ===== T140：面板一律同一個上緣（不再因為內容短而浮在畫面中間） ===== */
+#modal-backdrop{align-items:flex-start;justify-content:center;padding:calc(72px + env(safe-area-inset-top,0px)) 20px 16px}
+#modal{max-height:calc(100vh - 72px - 32px - env(safe-area-inset-top,0px))}
+@media(max-width:760px){
+  #modal-backdrop{padding:calc(96px + env(safe-area-inset-top,0px)) 10px 12px}
+  #modal{max-height:calc(100vh - 96px - 24px - env(safe-area-inset-top,0px))}
+}
