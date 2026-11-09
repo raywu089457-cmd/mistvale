@@ -125,7 +125,7 @@ const modalState = page => page.evaluate(() => {
 
 // ── 3. 手機 ───────────────────────────────────────────
 {
-  const ctx = await browser.newContext({ viewport: { width: 402, height: 712 }, deviceScaleFactor: 2, isMobile: true, hasTouch: true });
+  const ctx = await browser.newContext({ viewport: { width: 360, height: 640 }, deviceScaleFactor: 2, isMobile: true, hasTouch: true });
   const page = await ctx.newPage();
   const errs = [];
   page.on('pageerror', e => errs.push(String(e).slice(0, 200)));
@@ -149,7 +149,21 @@ const modalState = page => page.evaluate(() => {
       return { out, modal: { x: Math.round(m.x), w: Math.round(m.width) } };
     });
     if (inside.out) fix(`手機有 ${inside.out} 張步驟卡超出彈窗`);
-    if (!inside.out && st.hscroll <= 1 && !st.buttons.filter(b => b.h < 30).length) ok(`手機 402x712 嚮導 ${st.steps.length} 張卡都在彈窗內、按鈕 ${st.buttons.map(b => b.h + 'px').join('/')}、無橫向溢出`);
+    const vis = await page.evaluate(() => {
+      const c = document.querySelector('#modal-content');
+      c.scrollTop = 0;
+      const cr = c.getBoundingClientRect();
+      const list = [...document.querySelectorAll('#modal-content .welcome-actions .pixel-button')];
+      return list.map((b) => {
+        const r = b.getBoundingClientRect();
+        const mid = document.elementFromPoint(Math.round(r.left + r.width / 2), Math.round(r.top + r.height / 2));
+        return { t: b.textContent.trim(), fully: r.top >= cr.top - 1 && r.bottom <= cr.bottom + 1, hit: !!(mid && mid.closest('.welcome-actions')) };
+      });
+    });
+    const hidden = vis.filter((v) => !v.fully || !v.hit);
+    if (hidden.length) fix(`手機 360x640 不用捲就看得到的按鈕不足（${hidden.map((v) => v.t).join('、')} 被切掉或點不到）`);
+    else ok(`手機 360x640 不捲動就看得到而且點得到「${vis.map((v) => v.t).join('」/「')}」`);
+    if (!inside.out && st.hscroll <= 1 && !st.buttons.filter(b => b.h < 30).length) ok(`手機 360x640 嚮導 ${st.steps.length} 張卡都在彈窗內、按鈕 ${st.buttons.map(b => b.h + 'px').join('/')}、無橫向溢出`);
     if (process.env.SHOTS) await page.screenshot({ path: 'output/welcome/phone.png' });
   }
   if (errs.length) fix(`手機頁面錯誤：${errs.slice(0, 2).join(' | ')}`);

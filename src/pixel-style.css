@@ -1974,3 +1974,34 @@ body.piloting #pilot-hud .ph-btn.ghost{
   body.piloting #pilotlab .pl-tip{display:none}
   body.piloting #pilotlab{padding-top:8px;padding-bottom:8px}
 }
+
+
+/* ===== T146：360 寬的入門嚮導——收掉重複說明，三步驟與按鈕一次看得完 =====
+   原本內容 597px 高、可見區只有 401px，主要按鈕（開始遊戲）要捲到底才看得到。 */
+@media(max-width:480px){
+  #modal[data-type=welcome] .encounter-banner{min-height:0;padding:8px 10px}
+  #modal[data-type=welcome] .encounter-banner p{display:none}
+  #modal[data-type=welcome] .welcome-grid{gap:8px;margin:8px 0 6px}
+  #modal[data-type=welcome] .welcome-step{padding:8px 10px;column-gap:8px}
+  #modal[data-type=welcome] .welcome-step p{line-height:1.55}
+  #modal[data-type=welcome] .welcome-actions .pixel-button{min-height:44px}
+}
+@media(max-width:400px){
+  /* 提示內容「說明」面板也有，這裡省略 */
+  #modal[data-type=welcome] .welcome-tips{display:none}
+}
+@media(max-width:480px){
+  /* 兩顆按鈕並排，省下一整列高度，主要按鈕就進得了視窗 */
+  #modal[data-type=welcome] .welcome-actions{display:grid;grid-template-columns:1fr 1fr;gap:6px}
+}
+@media(max-width:380px){
+  /* 360 寬再收一級：三步驟內距與行高縮小，讓「開始遊戲」不用捲就看得到 */
+  #modal[data-type=welcome] .welcome-step{padding:6px 8px;column-gap:7px}
+  #modal[data-type=welcome] .welcome-step p{line-height:1.45}
+  #modal[data-type=welcome] .ws-num{width:20px;height:20px;font-size:11px}
+  #modal[data-type=welcome] .welcome-step h4{font-size:11.5px}
+}
+@media(max-width:400px){
+  /* 標題已經是「獵人入門」，橫幅整塊省略，三步驟＋按鈕才進得了 360 的視窗 */
+  #modal[data-type=welcome] .encounter-banner{display:none}
+}
