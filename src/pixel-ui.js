@@ -147,7 +147,7 @@ function miniRoster(){return listHTML(game.state.hunters.slice(0,3),h=>`<button 
 // 圖集載入完成後,立繪快取(portraitCache)必須清掉重畫 —— 
 // 不然 UI 永遠顯示圖集載入前生成的舊立繪。(實測踩到:截圖跟舊版逐像素相同)
 addEventListener('pixel-assets-ready',()=>{for(const k in portraitCache)delete portraitCache[k];paintPortraits();});
-function paintPortraits(){document.querySelectorAll('[data-portrait]').forEach(e=>{const h=game.state.hunters.find(v=>v.id===e.dataset.portrait);if(!h)return;e.src=portrait(h);});}
+function paintPortraits(){document.querySelectorAll('[data-portrait]').forEach(e=>{const h=game.state.hunters.find(v=>v.id===e.dataset.portrait);if(!h)return;e.src=portrait(h);});document.querySelectorAll('[data-mface]').forEach(e=>{if(e.src&&e.src.startsWith('data:'))return;const u=monsterPortrait(e.dataset.mface,96);if(u)e.src=u;});}   // T125:魔物頭像跟獵人頭像一樣在 sheet 載入後補上
 
 function paintQuest(){const q=game.state.quest;$('#quest-chapter').textContent=`CHAPTER ${String(q.index+1).padStart(2,'0')}`;$('#quest-title').textContent=q.title;$('#quest-desc').textContent=q.description;$('#quest-progress').textContent=`${q.progress}/${q.target}`;$('#quest-fill').style.width=`${Math.min(100,q.progress/q.target*100)}%`;$H('#quest-reward').innerHTML=costs(q.reward);$('#quest-button').textContent=q.claimed?'全部委託完成':q.complete?'領取獎勵':'查看委託';$('#quest-button').disabled=q.claimed;}
 // T111：建築面板要說清楚「這一級 → 下一級」、要付多少（現有／需要），
@@ -202,7 +202,7 @@ function floatDeltas(s){const keys=['gold','gems','wood','ore'],now=performance.
 function paint(force=false){const s=game.state;floatDeltas(s);['gold','wood','ore','gems'].forEach(k=>$('#'+k).textContent=topNum(s[k]));$('#population').textContent=`${s.hunters.length}/${s.capacity}`;$('#town-level').textContent=`村莊 Lv.${s.buildings.hall}`;$('#difficulty-name').textContent=DIFFICULTIES[s.difficulty].name;{const di=$('.difficulty-button [data-icon]');if(di)di.dataset.icon='diff-'+Math.max(0,Math.min(4,DIFFICULTIES.indexOf(DIFFICULTIES[s.difficulty])));}$H('#stock-list').innerHTML=resourceRows();$H('#mini-roster').innerHTML=miniRoster();paintPortraits();paintQuest();$('#pause').textContent=s.paused?'▶':'Ⅱ';$('#speed').textContent=`${s.speed}×`;$('#pause-label').classList.toggle('hidden',!s.paused);$H('#notice-feed').innerHTML=listHTML(s.log.slice(0,3),l=>`<div>${esc(l.text)}</div>`,'還沒有村莊消息','讓時間跑一下，獵人回村就會有動靜');if(selected)paintInspector();setIcons();document.body.dataset.kills=s.totalKills;document.body.dataset.services=s.counts.services;const landscape=world?.landscapeStats?.();if(landscape){document.body.dataset.trees=landscape.trees;document.body.dataset.arenas=landscape.arenas;document.body.dataset.roads=landscape.roads;}document.body.dataset.worldArea=WORLD.area;document.body.dataset.region=s.region;const rb=$('#region-badge');if(rb)rb.textContent=(REGIONS.find(r=>r.id===s.region)?.name||'向陽草原')+' · 狩獵中';pilotStatus();}
 // 主世界地圖畫布:長寬比跟世界一樣(一格世界單位在畫面上是正方形),四周各留 15 像素邊。
 const WORLD_MAP_H=392,WORLD_MAP_W=Math.round((WORLD_MAP_H-30)*WORLD.width/WORLD.height)+30;
-function modalTitle(t,ic='scroll'){const names={worldmap:'主世界地圖',build:'村莊建設',hunters:'獵人名冊',hunter:'獵人詳情',trade:'交易所',craft:'製作與庫存',dungeon:'地下城遠征',arena:'競技場模擬對戰',quests:'村長委託',inventory:'村莊倉庫',difficulty:'狩獵難度',offline:'離線收益',recruit:'招募訪客',settings:'遊戲設定',help:'村長入門手札',boss:'地圖首領',dispatch:'派遣出征 · 自由組隊',region:'地圖詳細資訊',density:'地區立牌 · 怪物數量',welcome:'獵人入門'};$('#modal-title').textContent=names[t]||t;$('#modal-icon').dataset.icon=ic;setIcons($('#modal'));}
+function modalTitle(t,ic='scroll'){const names={worldmap:'主世界地圖',build:'村莊建設',hunters:'獵人名冊',hunter:'獵人詳情',trade:'交易所',craft:'製作與庫存',dungeon:'地下城遠征',arena:'競技場模擬對戰',quests:'村長委託',inventory:'村莊倉庫',difficulty:'狩獵難度',offline:'離線收益',recruit:'招募訪客',settings:'遊戲設定',help:'村長入門手札',boss:'地圖首領',dispatch:'派遣出征 · 自由組隊',region:'地圖詳細資訊',density:'地區立牌 · 怪物數量',welcome:'獵人入門',codex:'魔物圖鑑'};$('#modal-title').textContent=names[t]||t;$('#modal-icon').dataset.icon=ic;setIcons($('#modal'));}
 function portrait(h){const key=h.classId+':'+h.rarity;if(portraitCache[key])return portraitCache[key];const c=document.createElement('canvas');c.width=84;c.height=96;drawPortrait(c,h,{scale:2.7});return portraitCache[key]=c.toDataURL();}
 
 const MODAL_TAB={build:'build',hunters:'hunters',hunter:'hunters',recruit:'hunters',dispatch:'hunters',region:'hunters',density:'hunters',trade:'trade',craft:'craft',dungeon:'dungeon',arena:'arena',quests:'quests'};
@@ -229,7 +229,7 @@ function dungeonTick(){if(modal!=='dungeon'){dgSig='';return;}const d=game.state
 function closeModal(){if(modal)sfx('close');modal='';document.body.dataset.modalTab='';document.body.classList.remove('hud-modal');$('#modal-backdrop').classList.add('hidden');hudInert(false);
  const back=modalOpener;modalOpener=null;if(back&&back!==document.body&&back.isConnected&&!back.closest('.hidden')&&back.getBoundingClientRect().width>0)back.focus();}
 function modalHTML(type){const s=game.state;
- if(type==='worldmap')return `<div class="world-map-header"><span>主世界 · 8 個區域</span><button class="pixel-button" data-action="worldOverview">全景查看</button><button class="pixel-button" data-action="recallHunters">召回獵人</button></div><canvas id="world-map-canvas" width="${WORLD_MAP_W}" height="${WORLD_MAP_H}" aria-label="主世界區域地圖"></canvas><div class="region-grid">${REGIONS.map(r=>`<article class="region-card ${s.region===r.id?'active':''}" data-region="${r.id}" style="--biome:${r.color}">${AS().ui?.['px-region-'+r.id]?`<div class="region-art" style="background-image:var(--ui-px-region-${r.id})"></div>`:''}<i class="region-emblem" data-icon="em-${r.id}"></i><h3>${r.name}</h3><small>${r.subtitle}</small><p>${r.description}</p>${loreList(r.id)}<div><button class="pixel-button" data-action="regionView" data-id="${r.id}">查看</button>${r.id!=='village'?`<button class="pixel-button gold" data-action="regionTravel" data-id="${r.id}">前往${r.name}</button>`:''}</div></article>`).join('')}</div><p class="modal-note">參考主世界的生態分區與河流配置。獵人沿橋樑通行；這個版本不含挖掘、放置方塊或無限地形。</p>`;
+ if(type==='worldmap')return `<div class="world-map-header"><span>主世界 · 8 個區域</span><button class="pixel-button" data-action="worldOverview">全景查看</button><button class="pixel-button" data-action="recallHunters">召回獵人</button></div><canvas id="world-map-canvas" width="${WORLD_MAP_W}" height="${WORLD_MAP_H}" aria-label="主世界區域地圖"></canvas><div class="region-grid">${REGIONS.map(r=>`<article class="region-card ${s.region===r.id?'active':''}" data-region="${r.id}" style="--biome:${r.color}">${AS().ui?.['px-region-'+r.id]?`<div class="region-art" style="background-image:var(--ui-px-region-${r.id})"></div>`:''}<i class="region-emblem" data-icon="em-${r.id}"></i><h3>${r.name}</h3><small>${r.subtitle}</small><p>${r.description}</p>${loreList(r.id)}<div><button class="pixel-button" data-action="regionView" data-id="${r.id}">查看</button>${r.id!=='village'?`<button class="pixel-button gold" data-action="regionTravel" data-id="${r.id}">前往${r.name}</button>`:''}</div></article>`).join('')}</div><p class="modal-note">參考主世界的生態分區與河流配置。獵人沿橋樑通行；這個版本不含挖掘、放置方塊或無限地形。</p><div class="wm-foot"><button class="pixel-button" data-action="codex">魔物圖鑑</button><small>21 種野外魔物 · 各區棲息地與掉落</small></div>`;
 
   if(type==='build'){   // T112：先把庫存攤在上面，每張卡再寫自己的缺口，不用點進去才知道能不能蓋
     const stock=['gold',...Object.keys(MATERIALS)].map(k=>`<span class="bs-item" data-key="${k}">${iconHTML(k)} <span class="nm">${MATERIALS[k]?.name||'金幣'}</span> <b>${fmt(s[k]||0)}</b></span>`).join('');
@@ -308,6 +308,21 @@ function modalHTML(type){const s=game.state;
    return `<div class="encounter-banner inventory"><i>${iconHTML('chest')}</i><div><p>倉庫保存建材、生活物資與鐵匠鋪的成品。數量 0 的項目會淡化，方便看出還有哪些資源可以收集。</p></div></div>
    <div class="stock-summary" role="status">持有 <b>${totalKinds}</b>／${Object.keys(ALL).length} 種 · 共 <b>${totalPieces}</b> 件</div>
    ${groups.map(([title,ids,fb])=>`<section class="stock-sec" data-sec="${title}"><h4 class="stock-sec-h"><span>${title}</span><small>${ids.filter(held).length}／${ids.length} 種</small></h4><ul class="stock-list">${ids.map(x=>itemRow(x,fb)).join('')}</ul></section>`).join('')}`;
+ }
+ if(type==='codex'){
+  const MON=Object.keys(ENEMIES).filter(k=>k!=='boss');
+  const sections=Object.keys(REGION_MONSTERS).map(rid=>{
+    const ids=REGION_MONSTERS[rid]||[];
+    const rg=REGIONS.find(r=>r.id===rid);
+    return {rid,name:rg?.name||rid,sub:rg?.subtitle||'',ids};
+  }).filter(x=>x.ids.length);
+  const card=(id)=>{
+    const e=ENEMIES[id]||{};
+    const drops=Object.keys(e.drops||{}).map(k=>`<span class="cx-drop">${iconHTML(k)}<b>${esc(MATERIALS[k]?.name||k)}</b><i>×${e.drops[k]}</i></span>`).join('');
+    return `<li class="cx-card" data-id="${id}"><img class="cx-face" data-mface="${id}" alt="" loading="lazy"><div class="cx-body"><b class="cx-nm">${esc(MONSTER_NAME[id]||id)}</b><div class="cx-stats"><span>生命 ${fmt(e.hp)}</span><span>攻擊 ${fmt(e.attack)}</span><span>金幣 ${fmt(e.gold)}</span><span>經驗 ${fmt(e.xp)}</span></div><div class="cx-drops">${drops}</div><p class="cx-lore">${esc(MONSTER_LORE[id]||'')}</p></div></li>`;
+  };
+  const bossCard=(()=>{const e=ENEMIES.boss||{};const drops=Object.keys(e.drops||{}).map(k=>`<span class="cx-drop">${iconHTML(k)}<b>${esc(MATERIALS[k]?.name||k)}</b><i>×${e.drops[k]}</i></span>`).join('');return `<li class="cx-card boss" data-id="boss"><img class="cx-face" data-mface="boss" alt="" loading="lazy"><div class="cx-body"><b class="cx-nm">${esc(MONSTER_NAME.boss||'地圖首領')}</b><div class="cx-stats"><span>生命 ${fmt(e.hp)}</span><span>攻擊 ${fmt(e.attack)}</span><span>金幣 ${fmt(e.gold)}</span><span>經驗 ${fmt(e.xp)}</span></div><div class="cx-drops">${drops}</div><p class="cx-lore">${esc(MONSTER_LORE.boss||'全區最強的存在，需要一隊人馬才打得下來。')}</p></div></li>`;})();
+  return `<div class="cx-summary" role="status">收錄 <b>${MON.length}</b> 種野外魔物 · <b>${sections.length}</b> 個區域 · 首領 <b>1</b></div><p class="modal-note">數值是基礎值（實際會隨狩獵難度加成）；掉落是每次擊殺的基底數量。</p>${sections.map(x=>`<section class="cx-sec"><h4 class="cx-h"><span>${esc(x.name)}</span><small>${esc(x.sub)} · ${x.ids.length} 種</small></h4><ul class="cx-list">${x.ids.map(card).join('')}</ul></section>`).join('')}<section class="cx-sec"><h4 class="cx-h"><span>首領</span><small>地圖深處</small></h4><ul class="cx-list">${bossCard}</ul></section>`;
  }
  if(type==='difficulty'){
    // 跟 game.setDifficulty() 同一個算法：全體獵人的轉世次數加總（不是村莊的 counts.rebirths）
@@ -447,6 +462,7 @@ function doAction(el){const a=el.dataset.action,id=el.dataset.id;let r;
   if(a==='unitDetail'){const uid=id;hideUnitCard();openHunter(uid);return;}
   if(a==='unitCardClose'){hideUnitCard();return;}
  if(a==='welcomeReplay'){openModal('welcome');return;}
+ if(a==='codex'){openModal('codex');return;}   // T125:魔物圖鑑
 if(a==='setDifficulty'){r=game.setDifficulty(Number(id));logToast(r.message,r.ok);if(r.ok)closeModal();paint();return;}
  if(a==='toggleQuality'){settingsOpen=!settingsOpen;return openModal('settings');}
  // ── 建築:建造 / 升級 / 移動 / 從建造面板選一棟（2026-10-20 補上：這些按鈕原本沒有任何處理函式，按了不會有反應）
@@ -658,7 +674,7 @@ function handleWorldSelect(id){
 
 // T109/T110:點世界裡的獵人或魔物時,只開一張小卡(頭像/名字/等級職業或區域/生命/攻防),
 // 要看完整資料再按「詳細」。以前點一下就直接整頁跳進獵人名冊,看個人卻被抽離世界。
-let unitCardEl=null,unitCardSel=null,unitCardSig="";
+let unitCardEl=null,unitCardSel=null,unitCardSig="";let codexFaceAt=0;
 function unitCardTarget(){
   if(!unitCardSel)return null;
   if(unitCardSel.startsWith("hunter:")){const h=game.state.hunters.find(v=>v.id===unitCardSel.slice(7));return h?{kind:"hunter",u:h}:null;}
@@ -775,7 +791,7 @@ function frame(now){requestAnimationFrame(frame);if(document.hidden){previous=no
     // T113：村莊環境音（打鐵、酒館、交易所、鐘聲）只在相機看得到村莊時響
     const c=world?.cameraXZ?.();const inVil=c?Math.hypot(c.x+15,c.z-3)<30:true;
     ambientSet(game.state.region||'village',(game.state.time%240)/240,game.state.buildings,inVil);
-  }world.update(game.state.paused?0:dt,game.state);dungeonTick();runHudPaint();if(unitCardEl)unitCardPaint();liveModalTick(now);if(now-last>400){paint();last=now;}if(now-lastSave>5000){save();lastSave=now;}}finally{const ms=performance.now()-t0;frameMs.avg=frameMs.avg?frameMs.avg*.9+ms*.1:ms;frameMs.max=Math.max(frameMs.max,ms);frameMs.n++;if(perfProbe)perfSample(now,ms);}}requestAnimationFrame(frame);}catch(err){console.error(err);$('#loading').innerHTML='<b>像素村莊載入失敗，請重新整理</b>';}
+  }world.update(game.state.paused?0:dt,game.state);dungeonTick();runHudPaint();if(unitCardEl)unitCardPaint();liveModalTick(now);if(modal==='codex'&&now-codexFaceAt>400){codexFaceAt=now;paintPortraits();}if(now-last>400){paint();last=now;}if(now-lastSave>5000){save();lastSave=now;}}finally{const ms=performance.now()-t0;frameMs.avg=frameMs.avg?frameMs.avg*.9+ms*.1:ms;frameMs.max=Math.max(frameMs.max,ms);frameMs.n++;if(perfProbe)perfSample(now,ms);}}requestAnimationFrame(frame);}catch(err){console.error(err);$('#loading').innerHTML='<b>像素村莊載入失敗，請重新整理</b>';}
 
 // 讀取畫面:圖片全部載完(成功或失敗都算完成)、村莊地板與建築都用美術版畫好、圖示換成圖集之後才進村莊。
 // 有圖載入失敗就停在錯誤畫面,不進村、也不會退回程序繪製的陽春素材。
