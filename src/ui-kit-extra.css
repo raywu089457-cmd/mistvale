@@ -208,3 +208,9 @@
 @media(min-width:761px) and (max-width:1199px){
   .map-hint{left:60%}
 }
+
+/* ── 段落孤字：交易所橫幅的說明斷成「…拿到／材料。」，最後一行只剩兩三個字。
+      面板內的說明段落一律用 pretty 斷行（瀏覽器不支援時維持原樣）。 ── */
+#modal p,#inspector p,#left-panel p{text-wrap:pretty}
+/* 橫幅說明最多兩行，pretty 對中文孤字沒作用（實測仍是 414px＋35px），改用 balance 平均分行。 */
+#modal .encounter-banner p{text-wrap:balance}
