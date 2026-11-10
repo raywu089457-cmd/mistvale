@@ -983,3 +983,46 @@ function paintMap(canvas,mini=false){
 }
 
 globalThis.__toast=(msg,ok=true,kind)=>logToast(msg,ok,kind);
+
+/* ===== 開場畫面（T150）：移除本段即回退 ===== */
+(function titleScreen(){
+  try{
+    if(new URLSearchParams(location.search).has('preview'))return;
+    if(sessionStorage.getItem('mistvale-title-seen'))return;
+  }catch(e){return;}
+  const hasSave=()=>{try{return !!localStorage.getItem(SAVE_KEY)}catch(e){return false}};
+  const close=()=>{const el=document.getElementById('title-screen');if(el)el.remove();try{sessionStorage.setItem('mistvale-title-seen','1')}catch(e){}};
+  const fresh=()=>{try{localStorage.removeItem(SAVE_KEY)}catch(e){};location.reload();};
+  const help=()=>{close();try{openModal('help')}catch(e){}};
+  const show=()=>{
+    if(document.getElementById('title-screen'))return;
+    const el=document.createElement('div');
+    el.id='title-screen'; el.setAttribute('role','dialog'); el.setAttribute('aria-label','暮影村 開場');
+    el.innerHTML=`<div class="ts-inner">
+      <i class="ts-crest" aria-hidden="true"></i>
+      <div class="ts-title">暮影村</div>
+      <div class="ts-sub">獵魔物語</div>
+      <div class="ts-rule"></div>
+      <div class="ts-actions">
+        <button class="pixel-button gold" type="button" data-ts="continue">${hasSave()?'繼續遊戲':'進入村莊'}</button>
+        ${hasSave()?'<button class="pixel-button" type="button" data-ts="fresh">重新開始</button>':''}
+        <button class="pixel-button" type="button" data-ts="help">遊戲說明</button>
+      </div>
+      <div class="ts-meta">插圖與圖示：PixelLab 生成 · v1.4.0</div>
+      <div class="ts-hint">按 Enter 或點擊畫面開始</div>
+    </div>`;
+    el.addEventListener('click',(ev)=>{
+      const b=ev.target.closest('[data-ts]');
+      const act=b?b.dataset.ts:'continue';
+      if(act==='fresh')return fresh();
+      if(act==='help')return help();
+      close();
+    });
+    document.addEventListener('keydown',function esc(ev){
+      if(ev.key==='Enter'||ev.key==='Escape'){document.removeEventListener('keydown',esc,true);close();}
+    },true);
+    document.body.appendChild(el);
+  };
+  const wait=()=>{ if(document.getElementById('loading')){ setTimeout(wait,400); return; } setTimeout(show,120); };
+  setTimeout(wait,500);
+})();
