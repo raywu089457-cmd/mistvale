@@ -1,0 +1,25 @@
+{
+  "source": "PixelLab v2 create-image-pixflux",
+  "size": [
+    64,
+    64
+  ],
+  "transparent": true,
+  "prompt_base": "pixel art isometric game building, single object centered, transparent background, thick 1px black outline, dark fantasy village palette, no text, no shadow, 64x64",
+  "ids": [
+    "academy",
+    "bounty",
+    "clinic",
+    "dungeon",
+    "enhancement",
+    "forge",
+    "hall",
+    "house",
+    "inn",
+    "restaurant",
+    "sanctuary",
+    "tavern",
+    "trading",
+    "training"
+  ]
+}
