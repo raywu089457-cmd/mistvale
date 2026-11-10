@@ -168,3 +168,64 @@
   .region-art{transition:filter .16s ease}
   .region-card:hover .region-art{filter:brightness(1.08)}
 }
+
+/* ===== T158 世界地圖：地圖與區域卡並排，不必先捲過一大塊地圖 ===== */
+.wm-body{display:grid;gap:14px}
+.wm-map{display:grid;gap:8px;justify-items:center}
+.wm-map-note{color:var(--muted,#9b9484);font-size:12px;line-height:1.6;text-align:center;max-width:44em}
+@media (min-width:980px){
+  .wm-body{grid-template-columns:minmax(280px,372px) minmax(0,1fr);align-items:start}
+  .wm-map{position:sticky;top:4px}
+  #world-map-canvas{max-height:none;width:100%;height:auto;margin:0}
+  .wm-body .region-grid{grid-template-columns:1fr}
+  .wm-body .region-card{padding:11px 13px}
+}
+@media (max-width:979px){
+  #world-map-canvas{max-height:190px}
+}
+@media (max-width:760px){
+  #world-map-canvas{max-height:150px}
+  .wm-map-note{font-size:11px}
+  .wm-body .region-art{height:62px}
+}
+
+/* T158b 世界地圖卡片改成「導覽卡」：只留一眼看得完的資訊，深度內容留給詳情頁 */
+.wm-body .region-card{display:flex;flex-direction:column;gap:6px}
+.wm-body .region-card h3{font-size:15px;margin:0}
+.wm-body .region-card>small{color:var(--muted,#9b9484)}
+.rg-meta{display:flex;align-items:center;justify-content:space-between;gap:10px;margin:2px 0 0;
+  padding:6px 0;border-top:1px solid #7b906338;border-bottom:1px solid #7b906338}
+.rg-meta .rg-risk{font-size:12px;letter-spacing:1px;color:var(--gold,#e0c37a);font-style:normal}
+.rg-meta small{font-size:12px;color:var(--muted,#9b9484)}
+.wm-body .region-card .rg-exp{margin:0}
+.wm-body .region-card>div:last-child{display:flex;gap:8px;margin-top:auto;padding-top:4px}
+.wm-body .region-card .pixel-button{flex:1;min-height:36px}
+@media (min-width:980px){ .wm-body .region-card{min-height:186px} }
+
+/* T158c 卡片表頭：徽記與名稱同一行，省下 60px 高度 */
+.wm-body .rg-head{display:flex;align-items:center;gap:10px}
+.wm-body .rg-head .region-emblem{width:34px;height:34px;flex:none}
+.wm-body .rg-head .region-emblem img,.wm-body .rg-head .region-emblem svg{width:100%;height:100%}
+.wm-body .rg-head h3{margin:0;font-size:15px;line-height:1.35}
+.wm-body .rg-head small{display:block;font-size:12px;color:var(--muted,#9b9484);margin-top:1px;line-height:1.4}
+.wm-body .region-card{gap:8px;padding:11px 13px}
+.wm-body .region-card .region-art{margin:0}
+.wm-body .region-card .rg-meta{padding:5px 0}
+.wm-body .region-card>div:last-child{padding-top:6px}
+@media (min-width:980px){ .wm-body .region-card{min-height:0} }
+
+/* T158d 卡片再收緊一點：同一屏能看到三張 */
+.wm-body .region-card{padding:10px 12px;gap:7px}
+.wm-body .region-card .region-art{height:64px;margin:0}
+.wm-body .region-card .rg-head{margin:0;gap:8px}
+.wm-body .region-card .rg-head .region-emblem{width:30px;height:30px}
+.wm-body .region-card .rg-head h3{font-size:14px}
+.wm-body .region-card .rg-meta{margin:0;padding:4px 0}
+.wm-body .region-card>div:last-child{padding-top:2px}
+.wm-body .region-card .pixel-button{min-height:34px;font-size:13px;padding:6px 10px}
+.wm-body .region-card .rg-exp small{font-size:11px}
+
+/* T158e 手機：地圖拉到滿寬、裁掉多餘高度，避免兩側留白 */
+.wm-crop{display:flex;justify-content:center;align-items:center;width:100%}
+@media (max-width:979px){ .wm-crop{max-height:190px;overflow:hidden} }
+@media (max-width:760px){ .wm-crop{max-height:196px} #world-map-canvas{width:100%;height:auto;max-height:none} }

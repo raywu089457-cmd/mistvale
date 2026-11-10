@@ -91,6 +91,7 @@ function trapModalTab(e){if(!modal||e.key!=='Tab')return;
 document.addEventListener('keydown',e=>trapModalTab(e),true);   // capture:在其他 handler 的 input/textarea/select 早退之前就處理 Tab
 document.addEventListener('keydown',e=>{if(e.key!=='Escape')return;if(placing){placing=null;$('#placement').classList.add('hidden');world?.placeMode(null);}else if(modalDismissible())closeModal();},true);   // Esc 走自己的 capture 監聽:焦點在交易所的數字輸入框裡也要關得掉
 let infoRegion='meadow';   // 「地圖詳細資訊」彈窗目前看的區域
+let regionFrom='dispatch';   // T158：region 面板從哪裡開的（dispatch 派遣流程 / map 世界地圖）
 let densityRegion='meadow';   // 地區立牌(怪物數量切換)目前看的區域
 const riskStars=risk=>{const n=Math.max(1,Math.min(5,Math.round((risk-1)/.16)+1));return '★'.repeat(n)+'☆'.repeat(5-n);};
 const aliveHunters=()=>game.state.hunters.filter(h=>h.hp>0);   // leftOpen=false:村長委託看板預設收起
@@ -333,7 +334,7 @@ function regionBossLine(s){
   return n?`首領已擊敗 ${n} 次`:'首領尚未挑戰';
 }
 function modalHTML(type){const s=game.state;
- if(type==='worldmap')return `<div class="encounter-banner mb worldmap"><i>${iconHTML('map')}</i><div><h3>七個生態區，越遠越硬</h3><p>參考主世界的生態分區與河流配置；獵人沿橋樑通行，離村莊越遠魔物越強。</p></div></div><div class="world-map-header"><span>主世界 · 8 個區域</span><button class="pixel-button" data-action="worldOverview">全景查看</button><button class="pixel-button" data-action="recallHunters">召回獵人</button></div><canvas id="world-map-canvas" width="${WORLD_MAP_W}" height="${WORLD_MAP_H}" aria-label="主世界區域地圖"></canvas><div class="region-grid">${REGIONS.map(r=>`<article class="region-card ${s.region===r.id?'active':''}" data-region="${r.id}" style="--biome:${r.color}">${AS().ui?.['px-region-'+r.id]?`<div class="region-art" style="background-image:url('${AS().ui['px-region-'+r.id]}')" aria-hidden="true"></div>`:''}<i class="region-emblem" data-icon="em-${r.id}"></i><h3>${r.name}</h3><small>${r.subtitle}</small><p>${r.description}</p>${loreList(r.id)}${regionProgress(r.id,s)}<div><button class="pixel-button" data-action="regionView" data-id="${r.id}">查看</button>${r.id!=='village'?`<button class="pixel-button gold" data-action="regionTravel" data-id="${r.id}">前往${r.name}</button>`:''}</div></article>`).join('')}</div><div class="wm-foot"><button class="pixel-button" data-action="codex">魔物圖鑑</button><small>21 種野外魔物 · 各區棲息地與掉落</small><small class="wm-boss" data-boss-kills="${s.bossKills||0}">${regionBossLine(s)}</small></div>`;
+ if(type==='worldmap')return `<div class="encounter-banner mb worldmap"><i>${iconHTML('map')}</i><div><h3>七個生態區，越遠越硬</h3><p>參考主世界的生態分區與河流配置；獵人沿橋樑通行，離村莊越遠魔物越強。</p></div></div><div class="world-map-header"><span>主世界 · 8 個區域</span><button class="pixel-button" data-action="worldOverview">全景查看</button><button class="pixel-button" data-action="recallHunters">召回獵人</button></div><div class="wm-body"><div class="wm-map"><div class="wm-crop"><canvas id="world-map-canvas" width="${WORLD_MAP_W}" height="${WORLD_MAP_H}" aria-label="主世界區域地圖"></canvas></div><small class="wm-map-note">點地圖上的區域可以直接移動鏡頭；卡片上的「詳情」看魔物與掉落。</small></div><div class="region-grid">${REGIONS.map(r=>`<article class="region-card ${s.region===r.id?'active':''}" data-region="${r.id}" style="--biome:${r.color}">${AS().ui?.['px-region-'+r.id]?`<div class="region-art" style="background-image:url('${AS().ui['px-region-'+r.id]}')" aria-hidden="true"></div>`:''}<div class="rg-head"><i class="region-emblem" data-icon="em-${r.id}"></i><div><h3>${r.name}</h3><small>${r.subtitle}</small></div></div><div class="rg-meta"><em class="rg-risk" aria-label="危險度">${riskStars(r.risk)}</em><small>${(REGION_MONSTERS[r.id]||[]).length?`${(REGION_MONSTERS[r.id]||[]).length} 種魔物`:'村莊 · 沒有野外魔物'}</small></div>${regionProgress(r.id,s)}<div><button class="pixel-button" data-action="regionDetail" data-id="${r.id}">詳情</button>${r.id!=='village'?`<button class="pixel-button gold" data-action="regionTravel" data-id="${r.id}">前往${r.name}</button>`:''}</div></article>`).join('')}</div></div><div class="wm-foot"><button class="pixel-button" data-action="codex">魔物圖鑑</button><small>21 種野外魔物 · 各區棲息地與掉落</small><small class="wm-boss" data-boss-kills="${s.bossKills||0}">${regionBossLine(s)}</small></div>`;
 
   if(type==='build'){   // T112：先把庫存攤在上面，每張卡再寫自己的缺口，不用點進去才知道能不能蓋
     const stock=['gold',...Object.keys(MATERIALS)].map(k=>`<span class="bs-item" data-key="${k}">${iconHTML(k)} <span class="nm">${MATERIALS[k]?.name||'金幣'}</span> <b>${fmt(s[k]||0)}</b></span>`).join('');
@@ -375,7 +376,7 @@ function modalHTML(type){const s=game.state;
    <ul class="rd-monsters">${rig.monsters.map(m=>`<li><div><b>${MONSTER_NAME[m.id]||m.id}</b><small>生命 ${m.hp} · 攻擊 ${m.attack} · ${m.gold} 金幣 · ${m.xp} 經驗</small></div><p>${MONSTER_LORE[m.id]||''}</p></li>`).join('')}</ul>
    <h4 class="dispatch-h">${iconHTML('trade')}每打倒一隻的平均掉落</h4>
    <div class="rd-loot">${lootRows}</div>
-   <div class="encounter-actions dispatch-go"><button class="pixel-button gold" data-action="dispatchRegion" data-id="${rig.id}">選為${team.name}的目的地</button><button class="pixel-button" data-action="regionInfoClose">返回派遣</button></div></article>`;
+   <div class="encounter-actions dispatch-go">${regionFrom==='map'?`<button class="pixel-button" data-action="regionView" data-id="${rig.id}">在地圖上定位</button><button class="pixel-button" data-action="worldmap">返回地圖</button>${rig.id!=='village'?`<button class="pixel-button gold" data-action="regionTravel" data-id="${rig.id}">前往${rig.name}</button>`:''}`:`<button class="pixel-button gold" data-action="dispatchRegion" data-id="${rig.id}">選為${team.name}的目的地</button><button class="pixel-button" data-action="regionInfoClose">返回派遣</button>`}</div></article>`;
  }
 
  if(type==='offline'){const o=offlineSum||{seconds:0,res:{},kills:0,levels:[]},hh=Math.floor(o.seconds/3600),mm=Math.floor(o.seconds%3600/60),NM={gold:'金幣',gems:'晶石',...Object.fromEntries(Object.entries(MATERIALS).map(([k,m])=>[k,m.name]))};
@@ -558,7 +559,8 @@ function doAction(el){const a=el.dataset.action,id=el.dataset.id;let r;
  if(a==='toggleDispatchHunter'){const team=game.state.dispatchTeams[dispatchTab];const ids=[...(team?.ids||[])];const i=ids.indexOf(id);if(i>=0)ids.splice(i,1);else ids.push(id);game.setDispatchTeam(dispatchTab,{ids});return openModal('dispatch');}
  if(a==='dispatchAll'){game.setDispatchTeam(dispatchTab,{ids:aliveHunters().map(h=>h.id)});return openModal('dispatch');}
  if(a==='dispatchNone'){game.setDispatchTeam(dispatchTab,{ids:[]});return openModal('dispatch');}
- if(a==='regionInfo'){infoRegion=id;return openModal('region');}
+ if(a==='regionInfo'){regionFrom='dispatch';infoRegion=id;return openModal('region');}
+ if(a==='regionDetail'){regionFrom='map';infoRegion=id;return openModal('region');}
  if(a==='densityFor'){densityRegion=id||'meadow';return openModal('density');}   // 驗收腳本用:不點世界立牌也能開這一頁
  if(a==='setDensity'){const r=game.setRegionDensity(densityRegion,Number(el.dataset.level));logToast(r.message,r.ok);save();paint();openModal('density');return;}
  if(a==='regionInfoClose')return openModal('dispatch');
