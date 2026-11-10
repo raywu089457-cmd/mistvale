@@ -474,7 +474,7 @@ function modalHTML(type){const s=game.state;
       ['交易與花費','獵人付錢吃飯、休息、喝酒、療傷'],
       ['建設再變強','升級設施、學技能、換裝備，滿百級轉世'],
     ].map(([t,d],i)=>`<li class="hl-step"><b class="hl-num">${i+1}</b><span class="hl-body"><strong>${t}</strong><small>${d}</small></span></li>`).join('<li class="hl-arrow" aria-hidden="true"></li>');
-    const keys=[['Space','暫停遊戲（操作獵人時是攻擊）'],['M','世界地圖'],['1 – 7','建設 · 名冊 · 交易所 · 製作 · 地下城 · 競技場 · 委託'],['Q / E','操作獵人時施放技能'],['Esc','關閉面板或單位小卡']]
+    const keys=[['Space','暫停遊戲（操作獵人時是攻擊）'],['M','世界地圖'],['1 – 7','建設 · 名冊 · 交易所 · 製作 · 地下城 · 競技場 · 委託'],['Q / E','操作獵人時施放技能'],['Ctrl/⌘ + K','指令面板（搜尋並跳到任何面板）'],['Esc','關閉面板或單位小卡']]
       .map(([k,d])=>`<div class="hk-row"><dt>${k}</dt><dd>${d}</dd></div>`).join('');
     const facilities=BUILDINGS.map(b=>`<li class="hf-item" data-id="${b.id}"><b>${esc(b.name)}</b><small>${esc(b.effect||b.desc||'')}</small></li>`).join('');
     const bullets=list=>`<ul class="help-list">${list.map(t=>`<li>${t}</li>`).join('')}</ul>`;
@@ -1046,4 +1046,61 @@ globalThis.__toast=(msg,ok=true,kind)=>logToast(msg,ok,kind);
   };
   const wait=()=>{ if(document.getElementById('loading')){ setTimeout(wait,400); return; } setTimeout(show,120); };
   setTimeout(wait,500);
+})();
+
+/* ===== 指令面板（Ctrl/⌘+K）：快速跳到任何面板 ===== */
+(()=>{
+  const CMDS=[
+    ['worldmap','主世界地圖','world map'],
+    ['build','村莊建設','build'],
+    ['hunters','獵人名冊','hunters roster'],
+    ['recruit','招募訪客','recruit'],
+    ['trade','交易所','trade'],
+    ['craft','製作與庫存','craft inventory'],
+    ['dungeon','地下城遠征','dungeon'],
+    ['arena','競技場模擬對戰','arena'],
+    ['quests','村長委託','quests'],
+    ['inventory','村莊倉庫','storehouse'],
+    ['codex','魔物圖鑑','codex'],
+    ['difficulty','狩獵難度','difficulty'],
+    ['settings','遊戲設定','settings'],
+    ['help','村長入門手札','help'],
+  ];
+  let box=null,input=null,list=null,rows=[],sel=0;
+  const close=()=>{if(!box)return;box.remove();box=null;input=null;list=null;rows=[];globalThis.__mistvaleCmdkOpen=false;};
+  const open=()=>{
+    if(box)return;
+    box=document.createElement('div');box.id='cmdk';
+    box.innerHTML='<div class="cmdk-box" role="dialog" aria-modal="true" aria-label="指令面板">'
+      +'<div class="cmdk-head"><span class="cmdk-key">⌘K</span>'
+      +'<input id="cmdk-input" type="text" placeholder="輸入面板名稱或關鍵字…" autocomplete="off" spellcheck="false" aria-label="搜尋面板">'
+      +'<button type="button" class="cmdk-esc" aria-label="關閉">ESC</button></div>'
+      +'<ul class="cmdk-list" role="listbox" aria-label="面板清單"></ul>'
+      +'<p class="cmdk-foot">↑↓ 選擇　Enter 開啟　Esc 關閉</p></div>';
+    document.body.appendChild(box);
+    input=box.querySelector('#cmdk-input');list=box.querySelector('.cmdk-list');
+    const paint=()=>{
+      const q=input.value.trim().toLowerCase();
+      rows=CMDS.filter(c=>!q||c[1].includes(q)||c[0].includes(q)||c[2].includes(q));
+      sel=Math.max(0,Math.min(sel,rows.length-1));
+      list.innerHTML=rows.length?rows.map((c,i)=>`<li class="cmdk-row${i===sel?' sel':''}" role="option" aria-selected="${i===sel}" data-type="${c[0]}"><b>${c[1]}</b><small>${c[2]}</small></li>`).join(''):'<li class="cmdk-empty">沒有符合的面板</li>';
+      list.dataset.count=String(rows.length);
+    };
+    const run=(i)=>{const c=rows[i];if(!c)return;close();openModal(c[0]);};
+    input.addEventListener('input',()=>{sel=0;paint();});
+    input.addEventListener('keydown',(e)=>{
+      if(e.key==='ArrowDown'){e.preventDefault();sel=Math.min(sel+1,rows.length-1);paint();}
+      else if(e.key==='ArrowUp'){e.preventDefault();sel=Math.max(sel-1,0);paint();}
+      else if(e.key==='Enter'){e.preventDefault();run(sel);}
+      else if(e.key==='Escape'){e.preventDefault();close();}
+    });
+    list.addEventListener('click',(e)=>{const li=e.target.closest('.cmdk-row');if(!li)return;run(rows.findIndex(c=>c[0]===li.dataset.type));});
+    box.addEventListener('click',(e)=>{if(e.target===box||e.target.closest('.cmdk-esc'))close();});
+    paint();input.focus();globalThis.__mistvaleCmdkOpen=true;
+  };
+  document.addEventListener('keydown',(e)=>{
+    if((e.ctrlKey||e.metaKey)&&(e.key==='k'||e.key==='K')){e.preventDefault();e.stopPropagation();box?close():open();return;}
+    if(e.key==='Escape'&&box){e.preventDefault();e.stopPropagation();close();}
+  },true);
+  globalThis.__mistvaleCmdk={open,close,isOpen:()=>!!box};
 })();
