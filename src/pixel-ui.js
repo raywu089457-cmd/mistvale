@@ -9,6 +9,24 @@ import {createPixelWorld,drawPortrait,buildingDataURL,MAP_PALETTE,MAP_ACCENT,mon
 import {mountTmwPuppet} from './tmw-puppet.js';
 import {BUILDINGS,CLASSES,RARITIES,TRAITS,MATERIALS,PRODUCTS,RECIPES,DIFFICULTIES,PILOT_ATTACK,SKILLS,SAVE_KEY} from './pixel-data.js';
 
+// ===== T157：把 PixelLab 的 UI 素材接上 CSS 變數 =====
+// CSS 早就寫好 var(--ui-px-banner-dungeon) 這種用法，但專案裡沒有任何地方定義 --ui-px-*，
+// 於是 14 張付費橫幅、卡片/視窗/按鈕底圖全部是「無效宣告」→ 面板頂部一直是純色。
+// build 會把 assets/ui/*.png 塞進 window.PIXEL_ASSETS.ui（鍵名 px-*），這裡一次轉成 :root 變數。
+function applyUiVars(){
+  const ui=globalThis.PIXEL_ASSETS?.ui||{};
+  let css=':root{';
+  for(const [k,v] of Object.entries(ui)){
+    if(!k.startsWith('px-')||typeof v!=='string'||!v)continue;
+    css+=`--ui-px-${k.slice(3)}:url("${v.replace(/"/g,'%22')}");`;
+  }
+  css+='}';
+  let el=document.getElementById('ui-px-vars');
+  if(!el){el=document.createElement('style');el.id='ui-px-vars';document.head.append(el);}
+  if(el.textContent!==css)el.textContent=css;
+}
+applyUiVars();
+
 const esc=s=>String(s??'').replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
 const fmt=n=>Math.floor(Number(n)||0).toLocaleString('en-US');
 // 區域切換過場：世界會整塊重建，直接換畫面會有一下跳動，所以先蓋一層霧再換。
