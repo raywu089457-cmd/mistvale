@@ -130,3 +130,81 @@
 .inline-icon .ui-ico{width:16px;height:16px;image-rendering:pixelated;display:block}
 .si-ic .ui-ico,.cx-drop .ui-ico,.hunter-stats .ui-ico,.uc-stats .ui-ico,.qs-reward .ui-ico{width:13px;height:13px}
 #topbar .ui-ico{width:14px;height:14px}
+
+/* ══ 建設卡片：成本改成對齊的三列讀數（原本三顆晶片一大兩小擠成兩行，數字不對齊）══
+   每列：圖示＋名稱靠左，「持有／需求」靠右、等寬數字。夠的綠、不夠的沿用警示色。 */
+.building-card .build-cost{display:grid;grid-template-columns:1fr;gap:0;width:100%;margin-top:6px;
+  border:1px solid #5c4a2c;background:#1c1209b8;border-radius:2px}
+.building-card .build-cost .cost-chip{display:flex;justify-content:flex-start;gap:5px;padding:3px 7px;
+  border:0;border-radius:0;background:none;font-variant-numeric:tabular-nums}
+.building-card .build-cost .cost-chip+.cost-chip{border-top:1px solid #5c4a2c66}
+.building-card .build-cost .cost-chip b{margin-left:auto}
+.building-card .build-cost .cost-chip.short{background:#3a1c1299}
+.building-card .build-cost .cost-chip.done{justify-content:center}
+
+/* 已建造且資源足夠的卡片：右上角原本只有一顆意義不明的「◆」，改成看得懂的「可升級」金牌。 */
+.building-card:not(.unbuilt)[aria-label*="資源足夠"]:not(:has(.cost-chip.done)) .build-level{
+  font-size:0;top:6px;right:6px}
+.building-card:not(.unbuilt)[aria-label*="資源足夠"]:not(:has(.cost-chip.done)) .build-level::after{
+  content:"▲ 可升級";display:block;padding:1px 6px;border:1px solid #e7be5e;border-radius:2px;
+  background:linear-gradient(180deg,#c9a04d,#a8823f);color:#20160c;font:800 11px/15px var(--font-ui);
+  box-shadow:0 1px 0 #120b05}
+
+/* ══ 頂欄資源數字變動時閃一下（由 pixel-ui.js 的 watchResTick 加上 .res-tick）══ */
+@keyframes resTick{0%{transform:scale(1);filter:brightness(1)}35%{transform:scale(1.18);filter:brightness(1.6)}100%{transform:scale(1);filter:brightness(1)}}
+#topbar .treasury b.res-tick{display:inline-block;animation:resTick .32s ease-out}
+@media(prefers-reduced-motion:reduce){#topbar .treasury b.res-tick{animation:none}}
+
+/* ── 手機直式：村莊名牌左邊新加的盾徽（約 20px）把文字欄擠到剩 43px，
+      「暮影村／村莊 Lv.1」斷成四行、上緣還超出頂欄。窄螢幕不顯示盾徽（旁邊已有大廳圖示），名稱不換行。 ── */
+@media(max-width:760px){
+  #topbar .town-badge::before{display:none}
+  #topbar .town-badge strong,#topbar .town-badge small{white-space:nowrap}
+}
+
+/* ── 橫幅標題與說明並排（委託等面板）：標題在左下、說明浮在右邊，讀起來是倒的。
+      標題是橫幅直接子項的版型一律改成上下堆疊：標題在上、說明在下，靠左下對齊。 ── */
+.encounter-banner:has(>h3){flex-direction:column;align-items:flex-start;justify-content:flex-end;gap:5px}
+.encounter-banner:has(>h3)>div:has(>p){flex:0 0 auto;width:100%}
+.encounter-banner:has(>h3)>h3{align-self:flex-start}
+
+/* ══ 獵人名冊卡片（桌機）：資訊原本全擠在左邊一直排、右半張卡是空的。
+   改成兩欄：左＝等級職業＋稀有度，右＝狀態＋攻防數值（靠右）；生命條上方顯示「生命 109/109」。══ */
+@media(min-width:761px){
+  #modal[data-type="hunters"] .hunter-card .hunter-meta{display:grid;grid-template-columns:1fr auto;
+    grid-template-rows:auto auto;gap:6px 12px;align-content:center;align-items:center}
+  #modal[data-type="hunters"] .hunter-card .hunter-meta>small{grid-column:1;grid-row:1}
+  #modal[data-type="hunters"] .hunter-card .hunter-meta>.rarity{grid-column:1;grid-row:2;justify-self:start}
+  #modal[data-type="hunters"] .hunter-card .hunter-meta>.status{grid-column:2;grid-row:1;justify-self:end;
+    padding:1px 8px;border:1px solid #5c4a2c;border-radius:2px;background:#1c1209b8}
+  #modal[data-type="hunters"] .hunter-card .hunter-meta>.hunter-stats{grid-column:2;grid-row:2;justify-self:end}
+  #modal[data-type="hunters"] .hunter-card .hunter-health::after{content:attr(aria-label);position:absolute;right:0;bottom:calc(100% + 2px);
+    font:600 11px/12px var(--font-num);color:#b9a77c;font-variant-numeric:tabular-nums;white-space:nowrap}
+}
+
+/* ══ 大螢幕：彈窗在 #game-ui 外面、不吃介面縮放。1920×1080（縮放 130%）時 HUD 放大了，
+   面板卻還是 830px 寬、12px 字，只佔畫面上半部。跟頂欄一樣只往上放大（小螢幕與手機不變）。══ */
+#modal{zoom:max(1,var(--ui-scale,1))}
+/* 高度：原本的上限是照「彈窗也被縮放」寫的（100vh ÷ 縮放），放大後面板只到畫面 64% 就被截掉。
+   改成頂欄與底欄之間的實際空間，換算回面板自己的座標。 */
+@media(min-width:761px) and (min-height:521px){
+  #modal-backdrop{max-height:none}
+  #modal{max-height:calc((100vh - var(--hud-top,76px) - var(--hud-bottom,100px) - 12px) / max(1,var(--ui-scale,1)))}
+}
+/* 手機：橫幅固定 96px 高且會裁切，標題改到上方後委託面板的標題被推出去裁掉 → 讓這種橫幅隨內容長高。 */
+@media(max-width:760px){
+  #modal .encounter-banner:has(>h3){height:auto;max-height:none;min-height:96px}
+}
+
+/* ── 矮視窗（橫向手機，高 ≤520px）：面板內容區只有 188px 高，橫幅卻佔 79–130px，
+      地下城／競技場一打開有七成是橫幅。矮視窗只留標題、收掉說明文字，橫幅壓到約 40px。 ── */
+@media(max-height:520px){
+  #modal .encounter-banner{min-height:0;height:auto;max-height:none;padding:8px 14px}
+  #modal .encounter-banner p{display:none}
+}
+
+/* ── 窄桌機（761–1199px）：介面縮放從 75% 提到 85% 後，左下事件訊息變寬，會碰到置中的操作提示。
+      提示往右挪一點避開。 ── */
+@media(min-width:761px) and (max-width:1199px){
+  .map-hint{left:60%}
+}

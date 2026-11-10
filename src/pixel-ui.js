@@ -268,6 +268,11 @@ function measureHud(){const top=$('#topbar'),bot=$('#bottom-bar'),vis=e=>e&&!e.c
  const tr=top.getBoundingClientRect(),br=bot.getBoundingClientRect();if(!tr.height||!br.height)return;
  const st=document.documentElement.style;st.setProperty('--hud-top',Math.max(0,Math.round(tr.bottom))+'px');st.setProperty('--hud-bottom',Math.max(0,Math.round(innerHeight-br.top))+'px');}
 addEventListener('resize',()=>{if(modal){measureHud();fitDispatchPad();}});
+// 頂欄資源數字（金幣／星晶／木材／鐵礦）一變動就加 .res-tick 閃一下；純視覺，不碰遊戲狀態。
+(function watchResTick(){if(typeof MutationObserver==='undefined')return;
+ for(const id of ['gold','gems','wood','ore']){const el=document.getElementById(id);if(!el)continue;let last=el.textContent;
+  new MutationObserver(()=>{if(el.textContent===last)return;last=el.textContent;el.classList.remove('res-tick');void el.offsetWidth;el.classList.add('res-tick');}).observe(el,{childList:true,characterData:true,subtree:true});
+  el.addEventListener('animationend',()=>el.classList.remove('res-tick'));}})();
 // T64: sticky 派遣鈕實際高度寫進 --dispatch-go-h,讓 #modal-content 的底部內距剛好等於鈕高+12px
 function fitDispatchPad(){const c=$('#modal-content'),go=c&&c.querySelector('.dispatch-go');if(go)c.style.setProperty('--dispatch-go-h',go.offsetHeight+'px');}
 // 2026-10-30:開著的彈窗跟著遊戲狀態即時更新(交易所的收購量會被回村的獵人消化、委託進度、倉庫、製作庫存),
@@ -739,7 +744,8 @@ let settingsOpen=false;   // 設定面板的「畫質與效能」是否展開(�
 const UI_SCALE_STEPS=[0.75,0.85,1,1.15,1.3,1.5];
 const uiScaleLabel=st=>st==='auto'?'自動':Math.round(st*100)+'%';
 // 這台機器容得下的最大倍率：桌機 1280x760、手機 402x712
-function uiScaleMaxRaw(){const d=innerWidth>760;return Math.min(innerWidth/(d?1280:402),innerHeight/(d?760:712));}
+// 2026-11-10：桌機寬度基準 1280 → 1180。1024 寬原本只能用 75%（12px 的字實際 9px）；實測 85% 時 HUD 各元件仍不重疊。
+function uiScaleMaxRaw(){const d=innerWidth>760;return Math.min(innerWidth/(d?1180:402),innerHeight/(d?760:712));}
 function uiScaleFit(){let f=UI_SCALE_STEPS[0];for(const s of UI_SCALE_STEPS)if(s<=uiScaleMaxRaw())f=s;return f;}   // 放得進畫面的最大級距（最小 0.75）
 function uiScaleAuto(){return Math.min(1.3,uiScaleFit());}   // 自動：能放多大就多大，但上限 1.3
 let uiScaleSetting='auto';
