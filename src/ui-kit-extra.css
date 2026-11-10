@@ -214,3 +214,13 @@
 #modal p,#inspector p,#left-panel p{text-wrap:pretty}
 /* 橫幅說明最多兩行，pretty 對中文孤字沒作用（實測仍是 414px＋35px），改用 balance 平均分行。 */
 #modal .encounter-banner p{text-wrap:balance}
+
+/* ══ 面板關閉動畫：原本只有開啟有淡入，關閉是瞬間消失。
+   純 CSS：display 用 allow-discrete 延後到淡出結束才切成 none；不支援的瀏覽器維持瞬間關閉。
+   只在使用者沒有要求減少動態時啟用。══ */
+@media(prefers-reduced-motion:no-preference){
+  #modal-backdrop{transition:opacity .12s ease-in,display .12s allow-discrete}
+  #modal-backdrop.hidden{opacity:0;pointer-events:none}
+  #modal-backdrop #modal{transition:transform .12s ease-in}
+  #modal-backdrop.hidden #modal{transform:translateY(6px) scale(.99)}
+}
