@@ -186,10 +186,11 @@ function paintInspector(){
     :'資源足夠，按下去就會升級。';
   const btnLabel=v.mode==='build'?'建造':v.mode==='max'?'已達最高等級':v.hallBlocked?'先升級大廳':'升級 Lv.'+v.next;
   const btnAct=l?'upgrade':'construct';
-  const art=img?'<img src="'+img+'" alt="'+b.name+'">':iconHTML(b.type);
+  const blueprint=v.mode==='build';   // T153:還沒蓋的建築顯示 AI 藍圖插圖
+  const art=blueprint?'<span class="bp-art" data-bid="'+b.id+'"></span>':(img?'<img src="'+img+'" alt="'+b.name+'">':iconHTML(b.type));
   const deltaHtml=delta?'<br><span class="inspect-delta">'+delta+'</span>':'';
   const costHtml=v.cost?'<div class="cost inspect-cost"><span>需求</span>'+needChips(v.cost)+'</div>':'';
-  $H('#inspect-content').innerHTML='<div class="inspect-art">'+art+'</div>'
+  $H('#inspect-content').innerHTML='<div class="inspect-art'+(blueprint?' blueprint':'')+'">'+art+'</div>'
     +'<div class="inspect-level">'+lvLine+'</div>'
     +'<p class="inspect-desc">'+b.desc+'</p>'
     +'<div class="inspect-effect"><strong>作用</strong><br>'+b.effect+deltaHtml+'</div>'
