@@ -1,0 +1,22 @@
+/* ===== M1 進出場動效與互動回饋 ===== */
+@keyframes mv-fade-in { from { opacity: 0 } to { opacity: 1 } }
+@keyframes mv-pop-in { from { opacity: 0; transform: translateY(10px) scale(.985) } to { opacity: 1; transform: none } }
+@keyframes mv-slide-left { from { opacity: 0; transform: translateX(-14px) } to { opacity: 1; transform: none } }
+@keyframes mv-slide-right { from { opacity: 0; transform: translateX(14px) } to { opacity: 1; transform: none } }
+
+.modal-backdrop { animation: mv-fade-in .16s ease-out both }
+.modal { animation: mv-pop-in .18s cubic-bezier(.2,.9,.3,1) both }
+#left-panel { animation: mv-slide-left .18s ease-out both }
+#inspector { animation: mv-slide-right .18s ease-out both }
+.game-panel { transition: box-shadow .16s ease, border-color .16s ease }
+
+/* 互動回饋只動顏色與陰影，不動位置：避免按鈕巡檢等不到元素穩定 */
+#game-ui button, #game-ui .btn { transition: filter .12s ease, box-shadow .12s ease, border-color .12s ease }
+#game-ui button:hover:not(:disabled), #game-ui .btn:hover:not(:disabled) { filter: brightness(1.08) }
+#game-ui button:active:not(:disabled), #game-ui .btn:active:not(:disabled) { filter: brightness(.94) }
+:is(button, .btn, a, [tabindex]):focus-visible { outline: 2px solid var(--gold-line, #d8c08a); outline-offset: 2px }
+
+@media (prefers-reduced-motion: reduce) {
+  .modal-backdrop, .modal, #left-panel, #inspector { animation: none !important }
+  #game-ui button, #game-ui .btn, .game-panel { transition: none !important }
+}
