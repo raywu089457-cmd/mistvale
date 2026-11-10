@@ -480,7 +480,9 @@ i[data-icon],span[data-icon]{width:24px;height:24px}
 
 /* ---------- 橫向手機（高 ≤520，寬窄都用這套） ---------- */
 @media(max-height:520px){
-  :root{--tb:calc(44px + max(4px,env(safe-area-inset-top)));--bb:calc(44px + max(4px,env(safe-area-inset-bottom)))}
+  /* T161：橫向時下排按鈕原本被壓到 36px 高，拇指很難按；拉回 44px（列高 56px）。
+     上方列維持 48px，世界畫面只少 8px。 */
+  :root{--tb:calc(48px + max(4px,env(safe-area-inset-top)));--bb:calc(56px + max(4px,env(safe-area-inset-bottom)))}
   /* 上方列一排：徽章、資源、難度、人數、設定 */
   #topbar{height:var(--tb);padding:max(4px,env(safe-area-inset-top)) max(8px,env(safe-area-inset-right)) 4px max(8px,env(safe-area-inset-left));
     align-items:center;gap:6px}
@@ -500,7 +502,7 @@ i[data-icon],span[data-icon]{width:24px;height:24px}
   /* 下方選單一排：圖示＋字並排；暫停／速度移到右上 */
   #bottom-bar{height:var(--bb);display:grid;grid-template-columns:repeat(7,1fr);gap:4px;
     padding:4px max(8px,env(safe-area-inset-right)) max(4px,env(safe-area-inset-bottom)) max(8px,env(safe-area-inset-left))}
-  #bottom-bar>button{width:auto;min-height:0;height:auto;flex-direction:row;justify-content:center;gap:5px;padding:0 3px;border-width:5px}
+  #bottom-bar>button{width:auto;min-width:0;height:100%;min-height:44px;flex-direction:row;justify-content:center;gap:5px;padding:0 3px;border-width:5px}
   #bottom-bar [data-icon]{flex:0 0 24px;width:24px;height:24px}
   #bottom-bar>button b{letter-spacing:1px}
   .map-hint{display:none}

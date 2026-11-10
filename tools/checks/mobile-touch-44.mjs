@@ -7,6 +7,8 @@ const URL = 'http://100.79.149.0:5024/?preview=1';
 const DEVICES = [
   { name: 'phone 402x712', width: 402, height: 712 },
   { name: 'phone 360x640', width: 360, height: 640 },
+  // T161：橫向時底欄原本只有 36px 高，加上這一格
+  { name: 'phone 844x390 橫向', width: 844, height: 390 },
   // 320 寬的舊機不在範圍內：底欄 9 格每格只能分到 ~35px，44px 會橫向溢出（維持原本 40px 級距）
 ];
 const SEL = '#bottom-bar button, #topbar button, .view-tools button, #reopen-left, .world-map-trigger, .skill-buttons .skill';
@@ -61,5 +63,5 @@ for (const dev of DEVICES) {
 }
 
 await browser.close();
-console.log(fails ? `FAIL ${fails} 項` : `PASS mobile touch: 402／360 寬手機的可點控制項都 ≥44×44、互不重疊、不出畫面（${oks} 項 ok）`);
+console.log(fails ? `FAIL ${fails} 項` : `PASS mobile touch: 手機（含 844×390 橫向）的可點控制項都 ≥44×44、互不重疊、不出畫面（${oks} 項 ok）`);
 process.exit(fails ? 1 : 0);

@@ -291,3 +291,23 @@
 @media(max-width:520px){#modal .encounter-actions .pixel-button[data-action="offlineOk"]{max-width:none}}
 .of-empty{color:#a7b0a4;font-size:12px;margin:0}
 @media(max-width:520px){.of-tiles{gap:6px}.of-tile{padding:9px 5px 8px}.of-tile b{font-size:14px}.of-tile small{font-size:10px}}
+
+/* ===== 橫向手機：下排按鈕高度回到 44px（T161） ===== */
+@media(max-height:520px){
+  /* #game-ui 有 zoom，這裡的 px 會被縮放，所以一律乘 --t52（=1/zoom）換成螢幕 px。 */
+  #bottom-bar{height:calc(56px / var(--ui-scale,1))}
+  #bottom-bar>button{height:calc(44px / var(--ui-scale,1));min-height:44px;padding:0 calc(4px / var(--ui-scale,1))}
+  #bottom-bar>button [data-icon],#bottom-bar>button i{width:calc(22px / var(--ui-scale,1));height:calc(22px / var(--ui-scale,1))}
+  #bottom-bar>button b{font-size:12px}
+  .view-tools{bottom:calc((56px + 8px) / var(--ui-scale,1))}
+  .skill-buttons{bottom:calc((56px + 8px) / var(--ui-scale,1))}
+  /* 右上角浮動鈕：暫停/速度、地圖、縮放三組原本照 CSS px 排，縮放後寬度不足互相壓到；
+     一律換算成螢幕 px 重排（8 + 2×44 + 5 + 8 的節奏）。 */
+  .play-controls{right:calc(8px / var(--ui-scale,1));gap:4px}
+  .play-controls>button{width:calc(44px / var(--ui-scale,1));height:calc(44px / var(--ui-scale,1))}
+  .world-map-trigger{right:calc((8px + 44px * 2 + 4px + 8px) / var(--ui-scale,1));
+    width:calc(44px / var(--ui-scale,1));height:calc(44px / var(--ui-scale,1))}
+  .zone-tools{right:calc((8px + 44px * 2 + 4px + 8px + 44px + 8px) / var(--ui-scale,1));gap:4px}
+  .zone-tools .pixel-button{width:calc(44px / var(--ui-scale,1));height:calc(44px / var(--ui-scale,1))}
+  [data-action="boss"]{min-width:calc(44px / var(--ui-scale,1))}
+}
