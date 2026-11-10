@@ -122,3 +122,22 @@
 .inspect-art.blueprint{background-image:repeating-linear-gradient(45deg,#c9a04d22 0 6px,transparent 6px 12px);animation:bpDrift 6s linear infinite}
 @keyframes bpDrift{to{background-position:34px 34px}}
 @media (prefers-reduced-motion: reduce){.inspect-art.blueprint{animation:none}}
+
+/* ===== T154 ===== */
+@media (pointer: coarse) {
+  #modal-content .pixel-button,
+  #modal-content button,
+  #modal-content .rp-info {
+    min-height: 44px;
+  }
+  #modal-content .pixel-button.small,
+  #modal-content .rp-info {
+    min-height: 44px;
+    padding-top: 6px;
+    padding-bottom: 6px;
+  }
+}
+@media (max-width: 380px) {
+  #modal .encounter-banner p { font-size: 11px; line-height: 1.5; }
+  #modal .encounter-banner h3 { font-size: 13px; }
+}
