@@ -141,3 +141,11 @@
   #modal .encounter-banner p { font-size: 11px; line-height: 1.5; }
   #modal .encounter-banner h3 { font-size: 13px; }
 }
+
+/* ===== T155 ===== */
+@media (min-width: 761px) {
+  #inspector { top: 170px; bottom: 200px; max-height: none; overflow-y: auto; overscroll-behavior: contain; }
+  #left-panel { top: 120px; bottom: 160px; max-height: none; overflow-y: auto; overscroll-behavior: contain; }
+  #left-panel .quest-panel { display: none; }
+  #left-panel .stock-panel { max-height: 250px; overflow-y: auto; overscroll-behavior: contain; }
+}
