@@ -229,3 +229,21 @@
 .wm-crop{display:flex;justify-content:center;align-items:center;width:100%}
 @media (max-width:979px){ .wm-crop{max-height:190px;overflow:hidden} }
 @media (max-width:760px){ .wm-crop{max-height:196px} #world-map-canvas{width:100%;height:auto;max-height:none} }
+
+/* ===== 開場畫面收尾（T159）：中央霧面底、放大徽記、小字可讀性 ===== */
+#title-screen .ts-inner{padding:30px 34px 26px;border-radius:16px;max-width:min(560px,92vw);
+  background:radial-gradient(125% 125% at 50% 42%,rgba(9,13,10,.88) 0%,rgba(9,13,10,.64) 52%,rgba(9,13,10,0) 100%)}
+#title-screen .ts-crest{width:56px;height:56px;filter:drop-shadow(0 3px 8px rgba(0,0,0,.85));animation:ts-float 6s ease-in-out infinite alternate}
+@keyframes ts-float{from{transform:translateY(-2px)}to{transform:translateY(2px)}}
+#title-screen .ts-title{font-size:clamp(38px,7vw,54px)}
+#title-screen .ts-actions{gap:12px;margin-top:10px}
+#title-screen .ts-actions .pixel-button{min-height:46px;padding:0 24px}
+#title-screen .ts-meta{margin-top:14px;color:#cbb891;text-shadow:0 1px 3px rgba(0,0,0,.9)}
+#title-screen .ts-hint{color:#bda98a;text-shadow:0 1px 3px rgba(0,0,0,.9)}
+@media(max-width:520px){
+  #title-screen .ts-inner{padding:24px 20px 20px;gap:12px;border-radius:14px}
+  #title-screen .ts-crest{width:48px;height:48px}
+  #title-screen .ts-actions{gap:9px}
+  #title-screen .ts-actions .pixel-button{min-height:44px;padding:0 16px;font-size:13px}
+}
+@media (prefers-reduced-motion:reduce){#title-screen .ts-crest{animation:none}}

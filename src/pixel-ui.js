@@ -51,6 +51,7 @@ function travelVeil(label,run){
 }
 // top-bar resources on phones: 5+ digits do not fit the 4-across row, so 12,345 → 12.3k (exact numbers stay in the storehouse)
 const TOP_NARROW=matchMedia('(max-width:760px),(max-height:520px)');
+const TOUCH_ONLY=matchMedia('(pointer:coarse)');
 // 系統設定「減少動態效果」:Web Animations 不受 CSS 的 prefers-reduced-motion 影響,所以文字淡入要自己關掉。
 const REDUCE_MOTION=matchMedia('(prefers-reduced-motion: reduce)');
 const topNum=v=>{const n=Math.floor(Number(v)||0);return !TOP_NARROW.matches||n<1e4?fmt(n):n<1e5?(Math.floor(n/100)/10).toFixed(1)+'k':n<1e6?Math.floor(n/1e3)+'k':(Math.floor(n/1e5)/10).toFixed(1)+'M';};
@@ -1050,7 +1051,7 @@ globalThis.__toast=(msg,ok=true,kind)=>logToast(msg,ok,kind);
         <button class="pixel-button" type="button" data-ts="help">遊戲說明</button>
       </div>
       <div class="ts-meta">插圖與圖示：PixelLab 生成 · v1.4.0</div>
-      <div class="ts-hint">按 Enter 或點擊畫面開始</div>
+      <div class="ts-hint">${(TOUCH_ONLY.matches||TOP_NARROW.matches)?'點擊畫面開始':'按 Enter 或點擊畫面開始'}</div>
     </div>`;
     el.addEventListener('click',(ev)=>{
       const b=ev.target.closest('[data-ts]');
