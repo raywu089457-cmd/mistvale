@@ -994,6 +994,12 @@ globalThis.__toast=(msg,ok=true,kind)=>logToast(msg,ok,kind);
   const close=()=>{const el=document.getElementById('title-screen');if(el)el.remove();try{sessionStorage.setItem('mistvale-title-seen','1')}catch(e){}};
   const fresh=()=>{try{localStorage.removeItem(SAVE_KEY)}catch(e){};location.reload();};
   const help=()=>{close();try{openModal('help')}catch(e){}};
+  const saveInfo=()=>{try{
+    const d=JSON.parse(localStorage.getItem(SAVE_KEY)||'null');
+    if(!d)return '';
+    const day=Math.floor((d.time||0)/240)+1, gold=Math.round(d.gold||0), n=(d.hunters||[]).length;
+    return `第 ${day} 天 · 金幣 ${gold.toLocaleString('en-US')} · 獵人 ${n} 位`;
+  }catch(e){return ''}};
   const show=()=>{
     if(document.getElementById('title-screen'))return;
     const el=document.createElement('div');
@@ -1003,6 +1009,7 @@ globalThis.__toast=(msg,ok=true,kind)=>logToast(msg,ok,kind);
       <div class="ts-title">暮影村</div>
       <div class="ts-sub">獵魔物語</div>
       <div class="ts-rule"></div>
+      <div class="ts-save">${saveInfo()}</div>
       <div class="ts-actions">
         <button class="pixel-button gold" type="button" data-ts="continue">${hasSave()?'繼續遊戲':'進入村莊'}</button>
         ${hasSave()?'<button class="pixel-button" type="button" data-ts="fresh">重新開始</button>':''}

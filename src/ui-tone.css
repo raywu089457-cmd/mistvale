@@ -70,6 +70,8 @@
   text-shadow:0 3px 0 #000b,0 0 26px rgba(0,0,0,.9)}
 #title-screen .ts-sub{font:600 13px/1.4 var(--font-ui);letter-spacing:.5em;color:#d9c39a;text-indent:.5em;margin-top:-2px}
 #title-screen .ts-rule{width:min(420px,72vw);height:2px;background:linear-gradient(90deg,transparent,#c9a04d,#f2c96a,#c9a04d,transparent);opacity:.9}
+#title-screen .ts-save{margin-top:-4px;font:600 12px/1.5 var(--font-num);color:#e3cf9f;letter-spacing:.04em}
+#title-screen .ts-save:empty{display:none}
 #title-screen .ts-actions{display:flex;flex-wrap:wrap;gap:10px;justify-content:center;margin-top:8px}
 #title-screen .ts-actions .pixel-button{min-height:44px;padding:0 22px;font-size:13px;letter-spacing:.08em}
 #title-screen .ts-meta{margin-top:10px;font:500 11px/1.5 var(--font-ui);color:#a99madd}
