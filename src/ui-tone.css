@@ -247,3 +247,47 @@
   #title-screen .ts-actions .pixel-button{min-height:44px;padding:0 16px;font-size:13px}
 }
 @media (prefers-reduced-motion:reduce){#title-screen .ts-crest{animation:none}}
+
+/* ===== 離線戰報（T160）：摘要磚＋資源變化卡 ===== */
+#modal .encounter-banner.offline{align-items:flex-start}
+.of-tiles{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:8px;margin:14px 0 12px}
+.of-tile{display:flex;flex-direction:column;align-items:center;gap:3px;padding:12px 8px 10px;border:1px solid rgba(224,214,181,.22);border-radius:5px;background:linear-gradient(180deg,rgba(58,52,38,.55),rgba(24,22,16,.72));text-align:center}
+.of-tile i{width:22px;height:22px;display:block;opacity:.95}
+.of-tile i svg,.of-tile i img{width:100%;height:100%;display:block}
+.of-tile b{font-size:16px;line-height:1.2;color:#e9c98a;font-variant-numeric:tabular-nums;letter-spacing:.02em}
+.of-tile small{font-size:11px;color:#b3a68c;letter-spacing:.06em}
+#modal .offline-h{margin:16px 0 8px;font-size:12px;letter-spacing:.14em;color:#c9b78f;text-transform:none}
+#modal .offline-h::after{content:'';display:block;height:1px;margin-top:6px;background:linear-gradient(90deg,rgba(224,214,181,.32),rgba(224,214,181,0))}
+#modal .offline-levels{list-style:none;display:grid;gap:6px;margin:0;padding:0}
+#modal .offline-levels li{display:flex;align-items:center;gap:8px;padding:7px 10px;border:1px solid rgba(224,214,181,.16);border-radius:4px;background:rgba(28,26,19,.6);font-size:12px}
+#modal .offline-levels li span{color:#a8b39c}
+#modal .offline-levels li b{color:#e9c98a;font-variant-numeric:tabular-nums}
+#modal .material-item.gain b{color:#bfe08f}
+#modal .material-item.lose b{color:#e2927a}
+#modal .offline-actions{margin-top:10px;padding:0}
+@media(max-width:520px){
+  #modal .offline-h{margin:10px 0 5px}
+  #modal .of-tiles{margin:9px 0 7px;gap:6px}
+  #modal .of-tile{padding:8px 4px 7px;gap:2px}
+  #modal .of-tile i{width:18px;height:18px}
+  #modal .offline-kills{font-size:11.5px;padding:5px 8px}
+  #modal .encounter-banner.offline{padding:8px 10px}
+  #modal .encounter-banner.offline p{font-size:11px;line-height:1.4;margin-top:2px}
+  #modal .materials-grid{grid-template-columns:repeat(3,minmax(0,1fr));gap:6px}
+  #modal .material-item{padding:7px 6px;column-gap:5px}
+  #modal .material-item [data-icon]{width:18px;height:18px}
+  #modal .material-item span{font-size:10.5px}
+  #modal .material-item b{font-size:12px}
+  #modal .offline-actions{margin-top:8px}
+  #modal .offline-actions .pixel-button{min-height:42px}
+}
+.of-tile b{white-space:nowrap}
+#modal .offline-kills{line-height:1.5}
+#modal .offline-kills{display:flex;align-items:center;gap:6px;flex-wrap:wrap}
+#modal .offline-kills b{white-space:nowrap}
+#modal .offline-kills span{color:#c6b795}
+@media(max-width:520px){.of-tile b{font-size:13px}.of-tile small{letter-spacing:.02em}}
+#modal .encounter-actions .pixel-button[data-action="offlineOk"]{min-height:44px;padding:0 24px;width:100%;max-width:340px;margin:2px auto 0}
+@media(max-width:520px){#modal .encounter-actions .pixel-button[data-action="offlineOk"]{max-width:none}}
+.of-empty{color:#a7b0a4;font-size:12px;margin:0}
+@media(max-width:520px){.of-tiles{gap:6px}.of-tile{padding:9px 5px 8px}.of-tile b{font-size:14px}.of-tile small{font-size:10px}}
