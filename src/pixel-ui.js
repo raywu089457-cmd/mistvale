@@ -1000,10 +1000,17 @@ globalThis.__toast=(msg,ok=true,kind)=>logToast(msg,ok,kind);
     const day=Math.floor((d.time||0)/240)+1, gold=Math.round(d.gold||0), n=(d.hunters||[]).length;
     return `第 ${day} 天 · 金幣 ${gold.toLocaleString('en-US')} · 獵人 ${n} 位`;
   }catch(e){return ''}};
+  const isNight=()=>{try{
+    const g=globalThis.__mistvaleGame;
+    if(g&&g.state&&typeof g.state.time==='number'){const ph=(((g.state.time%240)+240)%240)/240;return ph>=.5;}
+    const d=JSON.parse(localStorage.getItem(SAVE_KEY)||'null');
+    if(d){const ph=((((d.time||0))%240)+240)%240/240;return ph>=.5;}
+    const h=new Date().getHours();return h>=20||h<5;
+  }catch(e){return false}};
   const show=()=>{
     if(document.getElementById('title-screen'))return;
     const el=document.createElement('div');
-    el.id='title-screen'; el.setAttribute('role','dialog'); el.setAttribute('aria-label','暮影村 開場');
+    el.id='title-screen'; if(isNight())el.classList.add('ts-night'); el.setAttribute('role','dialog'); el.setAttribute('aria-label','暮影村 開場');
     el.innerHTML=`<div class="ts-inner">
       <i class="ts-crest" aria-hidden="true"></i>
       <div class="ts-title">暮影村</div>
