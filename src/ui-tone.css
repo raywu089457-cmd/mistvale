@@ -149,3 +149,22 @@
   #left-panel .quest-panel { display: none; }
   #left-panel .stock-panel { max-height: 250px; overflow-y: auto; overscroll-behavior: contain; }
 }
+
+/* ===== T156 區域全景插畫（PixelLab 640x200）===== */
+.region-card .region-art{display:block;height:66px;margin:0 0 9px;background-size:cover;background-position:center 42%;
+  image-rendering:pixelated;border-radius:2px;position:relative;box-shadow:inset 0 0 0 1px rgba(20,28,22,.6)}
+.region-card .region-art::after{content:'';position:absolute;inset:0;border-radius:2px;
+  background:linear-gradient(180deg,rgba(8,14,11,0) 38%,rgba(8,14,11,.72) 100%)}
+.region-card.active .region-art{box-shadow:inset 0 0 0 2px var(--brass,#c9a24f)}
+.region-detail-art{display:block;height:112px;margin:0 0 14px;background-size:cover;background-position:center 45%;
+  image-rendering:pixelated;border-radius:3px;position:relative;box-shadow:inset 0 0 0 1px rgba(20,28,22,.65)}
+.region-detail-art::after{content:'';position:absolute;inset:0;border-radius:3px;
+  background:linear-gradient(180deg,rgba(8,14,11,0) 45%,rgba(8,14,11,.7) 100%)}
+@media (max-width:760px){
+  .region-card .region-art{height:54px}
+  .region-detail-art{height:88px}
+}
+@media (prefers-reduced-motion:no-preference){
+  .region-art{transition:filter .16s ease}
+  .region-card:hover .region-art{filter:brightness(1.08)}
+}
