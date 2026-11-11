@@ -1,6 +1,12 @@
 // build-grid.mjs — T112：建設彈窗看得出來「現在能不能蓋／缺什麼／是不是被大廳卡住」。
-//   * 每張卡：等級、需求 chip（現有/需要）、缺口原因、滿級標示；上面一條村莊庫存列。
-//   * 資料一律跟 state 對：chip 的 have/need、short 標記、庫存列數字、缺口文字。
+//   * 每張卡：等級、成本（現有/需要）、缺口原因、滿級標示；上面一條村莊庫存列。
+//   * 資料一律跟 state 對：成本的 have/need、short 標記、庫存列數字、主按鈕上的缺口文字。
+// 2026-11-11 改寫（獵魔村風格第三階段）：舊版找 .cost-chip／.build-note／.chip.done／點整張卡開面板，新版已不存在。
+//   不變量沒變，換成新版面的對應元素：
+//     成本＝.hv-costs>.hv-cost（title＝「名稱 現有/需要」、.short＝不足、數字標紅），
+//     缺口／大廳鎖／滿級＝卡片唯一的主按鈕區（.hv-btn 文字、.hv-btn.locked、.bc-done），狀態同時寫在 data-state，
+//     開詳情＝右上角 .hv-i 小鈕（點卡片本體不再開面板，舊斷言改成點 .hv-i）。
+//   新增（取代舊 chip 排版隱含的保證）：每張卡的成本列、按鈕都不可超出卡片外框，成本數字不可被截斷。
 // Usage: node tools/checks/build-grid.mjs          (game server on 5024 expected)
 //        $env:SHOTS='1'; node tools/checks/build-grid.mjs     另外寫出 output/build-grid/*.png
 // Exit: 0 = PASS line only, 1 = FIX lines.
@@ -50,21 +56,32 @@ const readGrid = page => page.evaluate(() => {
   const stock = [...modal.querySelectorAll('.build-stock .bs-item')].map(el => ({
     key: el.dataset.key, nm: el.querySelector('.nm')?.textContent || '', val: Number((el.querySelector('b')?.textContent || '').replace(/[^\d]/g, '')),
   }));
+  const num = t => Number(String(t || '').replace(/[^\d]/g, ''));
   const cards = [...modal.querySelectorAll('.building-card')].map(el => {
     const id = el.dataset.id, lv = s.buildings[id] || 0;
-    const cost = el.classList.contains('unbuilt') ? null : null;
-    const chips = [...el.querySelectorAll('.build-cost .cost-chip')].map(c => ({
-      key: c.querySelector('.inline-icon')?.dataset.icon || c.dataset.key || '',
-      nm: c.querySelector('.nm')?.textContent || '',
-      have: Number(c.dataset.have || 0), need: Number(c.dataset.need || 0),
-      short: c.classList.contains('short'), done: c.classList.contains('done'),
-    }));
     const r = el.getBoundingClientRect(), cr = modal.getBoundingClientRect();
+    const chips = [...el.querySelectorAll('.hv-costs .hv-cost')].map(c => {
+      const m = (c.title || '').match(/^(.*?)\s([\d,]+)\/([\d,]+)$/), cb = c.getBoundingClientRect();
+      const b = c.querySelector('b');
+      return {
+        key: c.querySelector('[data-icon]')?.dataset.icon || '', nm: m ? m[1] : '',
+        have: m ? num(m[2]) : NaN, need: m ? num(m[3]) : NaN, shown: num(b?.textContent),
+        short: c.classList.contains('short'),
+        inside: cb.left >= r.left - 1 && cb.right <= r.right + 1 && cb.top >= r.top - 1 && cb.bottom <= r.bottom + 1,
+        clipped: !!b && b.scrollWidth > b.clientWidth + 1,
+      };
+    });
+    const btn = el.querySelector('.hv-btn'), br = btn?.getBoundingClientRect();
     return {
-      id, lv,
-      levelText: el.querySelector('small')?.textContent || '',
+      id, lv, state: el.dataset.state,
+      levelText: el.querySelector('.bc-head small')?.textContent || '',
       chips,
-      note: el.querySelector('.build-note')?.textContent || '',
+      done: !!el.querySelector('.bc-done'),
+      doneText: el.querySelector('.bc-done')?.textContent || '',
+      btnText: btn?.textContent.trim() || '', btnDisabled: !!btn?.disabled, btnLocked: !!btn?.classList.contains('locked'),
+      btnPrimary: !!btn?.classList.contains('primary'),
+      btnInside: !br || (br.left >= r.left - 1 && br.right <= r.right + 1 && br.bottom <= r.bottom + 1),
+      hasInfo: !!el.querySelector('.hv-i[data-action="selectBuilding"]'),
       aria: el.getAttribute('aria-label') || '',
       rect: { x: r.x, y: r.y, w: r.width, h: r.height, right: r.right },
       inside: r.x >= cr.x - 1 && r.right <= cr.right + 1,
@@ -116,28 +133,39 @@ const expectCost = (page, id, lv) => page.evaluate(({ id, lv }) => {
       for (const it of grid.stock) if (it.val !== Math.floor(Number(st[it.key] || 0))) fix(`desktop 庫存列 ${it.nm} 顯示 ${it.val}，state 是 ${st[it.key]}`);
       if (grid.stock.length !== 7) fix(`desktop 庫存列只有 ${grid.stock.length} 項（金幣＋6 種材料應為 7）`);
       if (!grid.stock.some(i => i.nm === '金幣')) fix('desktop 庫存列沒有金幣');
-      // 每張卡的需求 chip 跟 getUpgradeCost 對
+      // 每張卡的成本跟 getUpgradeCost 對（已建造的才有公開 API；未建造的只驗有成本、有數字）
       let checked = 0;
       for (const c of grid.cards) {
-        if (c.lv >= 5) { if (!c.chips.some(x => x.done)) fix(`desktop ${c.id} Lv.5 沒有「已達最高等級」`); continue; }
+        if (!/^Lv\.\d+$|^未建造$/.test(c.levelText)) fix(`desktop ${c.id} 卡片沒有等級標示（${JSON.stringify(c.levelText)}）`);
+        if (!c.hasInfo) fix(`desktop ${c.id} 卡片沒有右上角詳情鈕`);
+        if (c.lv >= 5) { if (!c.done) fix(`desktop ${c.id} Lv.5 沒有「已達最高等級」`); continue; }
+        if (!c.chips.length) fix(`desktop ${c.id} 沒有任何成本`);
+        for (const x of c.chips) {
+          if (!x.inside) fix(`desktop ${c.id} 成本 ${x.nm} 超出卡片外框`);
+          if (x.clipped) fix(`desktop ${c.id} 成本 ${x.nm} 的數字被截斷`);
+          if (x.shown !== x.need) fix(`desktop ${c.id} ${x.nm} 畫面上的數字 ${x.shown} != title 的需要 ${x.need}`);
+        }
         const cost = await expectCost(page, c.id, c.lv);
         if (!cost) continue;   // 未建造：成本表不在公開 API
         const keys = Object.keys(cost);
-        if (c.chips.filter(x => !x.done).length !== keys.length) fix(`desktop ${c.id} chip 數量 ${c.chips.length} != 需求 ${keys.length}`);
+        if (c.chips.length !== keys.length) fix(`desktop ${c.id} 成本數量 ${c.chips.length} != 需求 ${keys.length}`);
         for (const [k, v] of Object.entries(cost)) {
-          const chip = c.chips.find(x => x.nm === (k === 'gold' ? '金幣' : null) || x.need === v);
-          if (!chip) { fix(`desktop ${c.id} 缺 ${k} 的 chip`); continue; }
+          const chip = c.chips.find(x => x.key === k);
+          if (!chip) { fix(`desktop ${c.id} 缺 ${k} 的成本`); continue; }
+          if (chip.need !== v) fix(`desktop ${c.id} ${k} 需要 ${chip.need} != ${v}`);
           const have = Number(st[k] || 0);
           if (chip.have !== Math.floor(have)) fix(`desktop ${c.id} ${k} 現有 ${chip.have} != ${have}`);
           if (chip.short !== (have < v)) fix(`desktop ${c.id} ${k} short 標記不對（have ${have} need ${v}）`);
           checked++;
         }
       }
-      ok(`desktop 每張卡的需求 chip 與 getUpgradeCost／state 相符（檢查 ${checked} 個材料）`);
-      // 資源充足：不該有任何缺口文字
-      const notes = grid.cards.filter(c => c.note && c.lv < 5);
-      if (notes.length) fix(`desktop 資源充足卻有缺口文字：${notes.map(n => n.id + ':' + n.note).join(' / ')}`);
-      else ok('desktop 資源充足時沒有缺口文字，chips 全部達標');
+      ok(`desktop 每張卡的成本與 getUpgradeCost／state 相符且都在卡片內（檢查 ${checked} 個材料）`);
+      // 資源充足：不該有任何缺口文字，可蓋／可升的卡片主按鈕是啟用的
+      const notes = grid.cards.filter(c => c.lv < 5 && (/^缺/.test(c.btnText) || c.state === 'short'));
+      const dead = grid.cards.filter(c => c.lv < 5 && c.state !== 'locked' && (c.btnDisabled || !c.btnPrimary));
+      if (notes.length) fix(`desktop 資源充足卻有缺口文字：${notes.map(n => n.id + ':' + n.btnText).join(' / ')}`);
+      else if (dead.length) fix(`desktop 資源充足但主按鈕不是可按的主色鈕：${dead.map(n => n.id).join('/')}`);
+      else ok('desktop 資源充足時沒有缺口文字，成本全部達標，主按鈕可按');
       if (process.env.SHOTS) await page.screenshot({ path: 'output/build-grid/desktop-rich.png' });
 
       // 資源不足：金幣歸零 → 金幣 chip 標紅、卡片文字寫缺多少
@@ -148,10 +176,13 @@ const expectCost = (page, id, lv) => page.evaluate(({ id, lv }) => {
       const shortCards = grid.cards.filter(c => c.lv < 5 && c.chips.some(x => x.short));
       if (!shortCards.length) fix('desktop 金幣 0 卻沒有任何卡片標示資源不足');
       else {
-        const c0 = shortCards[0];
-        if (!c0.note.startsWith('缺 ')) fix(`desktop 資源不足的卡片沒有寫缺口：${JSON.stringify(c0.note)}`);
-        if (!/金幣/.test(c0.note)) fix(`desktop 缺口文字沒提到金幣：${c0.note}`);
-        ok(`desktop 金幣 0：${shortCards.length} 張卡標紅，例 ${c0.id}「${c0.note}」`);
+        const c0 = shortCards.find(c => c.state === 'short') || shortCards[0];
+        if (!c0.btnText.startsWith('缺')) fix(`desktop 資源不足的卡片沒有寫缺口：${JSON.stringify(c0.btnText)}`);
+        if (!c0.btnDisabled) fix(`desktop 資源不足的卡片主按鈕還能按：${c0.id}`);
+        if (!/金幣/.test(c0.btnText)) fix(`desktop 缺口文字沒提到金幣：${c0.btnText}`);
+        const goldChip = c0.chips.find(x => x.key === 'gold');
+        if (!goldChip || !goldChip.short) fix(`desktop ${c0.id} 金幣不足但金幣成本沒標 short`);
+        ok(`desktop 金幣 0：${shortCards.length} 張卡標紅，例 ${c0.id}「${c0.btnText}」`);
       }
       if (process.env.SHOTS) await page.screenshot({ path: 'output/build-grid/desktop-short.png' });
 
@@ -162,8 +193,8 @@ const expectCost = (page, id, lv) => page.evaluate(({ id, lv }) => {
       grid = await readGrid(page);
       const forge = grid.cards.find(c => c.id === 'forge');
       if (!forge) fix('desktop 找不到鐵匠鋪卡片');
-      else if (!/需要城鎮大廳 Lv\.3/.test(forge.note)) fix(`desktop 大廳不足時鐵匠鋪沒有寫原因：${JSON.stringify(forge.note)}`);
-      else ok(`desktop 大廳 Lv.1／鐵匠鋪 Lv.2：卡片寫「${forge.note}」`);
+      else if (!/需要大廳 Lv\.3/.test(forge.btnText) || !forge.btnLocked || !forge.btnDisabled) fix(`desktop 大廳不足時鐵匠鋪沒有寫原因或沒鎖住：${JSON.stringify(forge.btnText)} locked=${forge.btnLocked}`);
+      else ok(`desktop 大廳 Lv.1／鐵匠鋪 Lv.2：卡片寫「${forge.btnText}」`);
 
       // 滿級：小屋 Lv.5 → 已達最高等級
       await closeBuild(page);
@@ -172,24 +203,24 @@ const expectCost = (page, id, lv) => page.evaluate(({ id, lv }) => {
       grid = await readGrid(page);
       const house = grid.cards.find(c => c.id === 'house');
       if (!house) fix('desktop 找不到小屋卡片');
-      else if (!house.chips.some(x => x.done)) fix(`desktop 小屋 Lv.5 沒有滿級標示（${JSON.stringify(house.chips)}）`);
-      else if (house.note) fix(`desktop 小屋 Lv.5 還寫著缺口「${house.note}」`);
+      else if (!house.done || !/已達最高等級/.test(house.doneText)) fix(`desktop 小屋 Lv.5 沒有滿級標示（${JSON.stringify(house.doneText)}）`);
+      else if (house.btnText || house.chips.length) fix(`desktop 小屋 Lv.5 還有按鈕或成本「${house.btnText}」`);
       else ok('desktop 小屋 Lv.5：顯示「已達最高等級」且沒有缺口文字');
 
       // 點卡片仍然選到建築（面板開起來）
       await closeBuild(page);
       await setState(page, { res, buildings: { hall: 3, house: 2 } });
       await openBuild(page);
-      await page.evaluate(() => { document.querySelector('.building-card[data-id="house"]')?.click(); });
+      await page.evaluate(() => { document.querySelector('.building-card[data-id="house"] .hv-i')?.click(); });
       await page.waitForTimeout(420);
       const insp = await page.evaluate(() => {
         const el = document.querySelector('#inspector');
         return { open: !!el && !el.classList.contains('hidden'), level: el?.querySelector('.inspect-level')?.textContent || '', modal: document.body.dataset.modalTab || '' };
       });
-      if (!insp.open) fix('desktop 點建設彈窗的卡片沒有打開建築面板');
+      if (!insp.open) fix('desktop 點建設卡片右上角的詳情鈕沒有打開建築面板');
       else if (!insp.level.includes('Lv.2')) fix(`desktop 點小屋卡片打開的面板等級不對：${insp.level}`);
-      else if (insp.modal) fix(`desktop 點卡片後建設彈窗沒有關（modalTab=${insp.modal}）`);
-      else ok('desktop 點卡片仍然選到那棟建築並打開面板（彈窗關閉）');
+      else if (insp.modal) fix(`desktop 點詳情鈕後建設彈窗沒有關（modalTab=${insp.modal}）`);
+      else ok('desktop 點詳情鈕選到那棟建築並打開面板（彈窗關閉）');
     }
   }
   if (errs.length) fix(`desktop 頁面錯誤：${errs.slice(0, 2).join(' | ')}`);
@@ -211,9 +242,12 @@ const expectCost = (page, id, lv) => page.evaluate(({ id, lv }) => {
       if (out.length) fix(`phone ${out.map(c => c.id).join('/')} 卡片溢出內容框`);
       const shortCards = grid.cards.filter(c => c.chips.some(x => x.short));
       if (!shortCards.length) fix('phone 資源不足情境卻沒有標紅的卡片');
-      else ok(`phone ${shortCards.length} 張卡標紅並寫缺口（例 ${shortCards[0].id}「${shortCards[0].note}」）`);
-      const noNote = shortCards.filter(c => !c.note);
+      else ok(`phone ${shortCards.length} 張卡標紅並寫缺口（例 ${shortCards[0].id}「${shortCards[0].btnText}」）`);
+      const noNote = shortCards.filter(c => c.lv < 5 && c.state !== 'locked' && !/^缺/.test(c.btnText));
       if (noNote.length) fix(`phone 標紅的卡片沒有寫原因：${noNote.map(c => c.id).join('/')}`);
+      const spill = grid.cards.filter(c => c.lv < 5 && (c.chips.some(x => !x.inside || x.clipped) || !c.btnInside));
+      if (spill.length) fix(`phone 成本或按鈕超出卡片：${spill.map(c => c.id).join('/')}`);
+      else ok('phone 每張卡的成本列與按鈕都在卡片內');
       if (process.env.SHOTS) await page.screenshot({ path: 'output/build-grid/phone.png' });
     }
   }

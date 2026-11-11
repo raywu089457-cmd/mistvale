@@ -2,6 +2,12 @@
 //   規則：所有面板最上面都有一個 .encounter-banner（icon + h3 標題 + p 說明），
 //         h3 用 Ark Pixel、15px（手機 14px），比 modal 標題（24px）低一階；
 //         #modal-content 內距 20px；沒有橫向捲動。
+// 2026-11-11 改寫（獵魔村風格第三階段）：新規格（UI-REF §4.3）把面板內的標題橫幅插畫整個拿掉，只留抽屜頂部的一個標題頁籤，
+//   舊斷言（banner ≥84px、icon、15px h3、說明、modal 標題 24px、內距 20px）全部對應不到。「每個面板的標題一致」這個不變量換成：
+//     * 面板內沒有任何 .encounter-banner（沒有橫幅插畫；若哪天又出現就紅）
+//     * 抽屜頂部：#modal .modal-title h2 非空、Ark Pixel、14px，左邊 #modal-icon 有圖示，右上有 32px 圓形關閉鈕（手機 44px）
+//     * 16 個面板的標題字級、字體、內容區內距（桌機 12px／手機 10px）、關閉鈕尺寸全部一致，沒有橫向捲動
+//   舊的「banner 標題比 modal 標題小」層級斷言：沒有橫幅了，改成「標題 14px 不小於內容區內最大的 h3/h4 小標」。
 // Usage: node tools/checks/panel-headers.mjs
 //        $env:SHOTS='1'; node tools/checks/panel-headers.mjs
 // Exit: 0 = PASS line only, 1 = FIX lines.
@@ -42,21 +48,23 @@ const measure = page => page.evaluate(() => {
   const modal = document.querySelector('#modal');
   const content = document.querySelector('#modal-content');
   if (!modal || modal.parentElement.classList.contains('hidden')) return { missing: true };
-  const banner = modal.querySelector('.encounter-banner');
-  const h3 = banner?.querySelector('h3');
-  const p = banner?.querySelector('p');
   const h2 = modal.querySelector('.modal-title h2');
+  const icon = modal.querySelector('.modal-title #modal-icon');
+  const close = modal.querySelector('.modal-title [data-action="close"]');
   const cs = getComputedStyle(content);
-  const h3cs = h3 ? getComputedStyle(h3) : null;
+  const h2cs = h2 ? getComputedStyle(h2) : null;
+  const heads = [...content.querySelectorAll('h3,h4')].filter(e => e.offsetParent).map(e => parseFloat(getComputedStyle(e).fontSize));
+  const mr = modal.getBoundingClientRect(), hr = h2?.getBoundingClientRect();
   return {
-    banner: banner ? Math.round(banner.getBoundingClientRect().height) : 0,
-    icon: !!banner?.querySelector('i'),
-    h3: h3 ? (h3.textContent || '').trim() : '',
-    h3size: h3cs ? parseFloat(h3cs.fontSize) : 0,
-    h3fam: h3cs ? h3cs.fontFamily : '',
-    p: p ? (p.textContent || '').trim() : '',
-    h2size: h2 ? parseFloat(getComputedStyle(h2).fontSize) : 0,
-    padL: cs.paddingLeft, padT: cs.paddingTop,
+    banners: modal.querySelectorAll('.encounter-banner').length,
+    h2: h2 ? (h2.textContent || '').trim() : '',
+    h2size: h2cs ? parseFloat(h2cs.fontSize) : 0,
+    h2fam: h2cs ? h2cs.fontFamily : '',
+    h2inside: !!hr && hr.width > 0 && hr.left >= mr.left - 1 && hr.right <= mr.right + 1,
+    icon: !!icon && !!icon.dataset.icon && icon.getBoundingClientRect().width > 0 && icon.innerHTML.trim().length > 0,
+    closeW: close ? Math.round(close.getBoundingClientRect().width) : 0, closeH: close ? Math.round(close.getBoundingClientRect().height) : 0,
+    maxSub: heads.length ? Math.max(...heads) : 0,
+    padL: cs.paddingLeft, padT: cs.paddingTop, padR: cs.paddingRight,
     hscroll: content.scrollWidth - content.clientWidth,
     modalTop: Math.round(modal.getBoundingClientRect().top),
   };
@@ -80,30 +88,21 @@ const measure = page => page.evaluate(() => {
     const m = await measure(page);
     if (m.missing) { bad.push(`${a}: 面板沒出現`); continue; }
     const problems = [];
-    if (!m.banner || m.banner < 84) problems.push(`banner 高度 ${m.banner}`);
-    if (!m.icon) problems.push('沒有 icon');
-    if (!m.h3 || m.h3.length < 3) problems.push(`h3「${m.h3}」`);
-    if (m.h3size < 14 || m.h3size > 16) problems.push(`h3 字級 ${m.h3size}`);
-    if (!/Ark Pixel/.test(m.h3fam)) problems.push(`h3 字體 ${m.h3fam.split(',')[0]}`);
-    if (!m.p || m.p.length < 8) problems.push(`說明太短「${m.p}」`);
-    if (Math.abs(m.h2size - 24) > 0.6) problems.push(`modal 標題字級 ${m.h2size}`);
-    if (m.padL !== '20px' || m.padT !== '20px') problems.push(`內距 ${m.padT}/${m.padL}`);
+    if (m.banners) problems.push(`面板內還有 ${m.banners} 個橫幅插畫`);
+    if (!m.h2 || m.h2.length < 2) problems.push(`頂部標題「${m.h2}」`);
+    if (!m.h2inside) problems.push('標題超出面板');
+    if (!m.icon) problems.push('標題左邊沒有圖示');
+    if (Math.abs(m.h2size - 14) > 0.6) problems.push(`標題字級 ${m.h2size}`);
+    if (!/Ark Pixel/.test(m.h2fam)) problems.push(`標題字體 ${m.h2fam.split(',')[0]}`);
+    if (m.closeW !== 32 || m.closeH !== 32) problems.push(`關閉鈕 ${m.closeW}x${m.closeH}（桌機應為 32x32）`);
+    if (m.maxSub > m.h2size + 0.6) problems.push(`內容小標 ${m.maxSub}px 比頂部標題 ${m.h2size}px 還大`);
+    if (m.padL !== '12px' || m.padT !== '12px' || !['12px', '28px'].includes(m.padR)) problems.push(`內距 ${m.padT}/${m.padL}/${m.padR}（桌機應為 12px；可捲動時右內距 28px = 12 + 捲動箭頭專用邊）`);
     if (m.hscroll > 1) problems.push(`橫向溢出 ${m.hscroll}px`);
     if (problems.length) bad.push(`${a}: ${problems.join('、')}`);
     if (process.env.SHOTS) await page.screenshot({ path: `output/panel-headers/${a}.png` });
   }
   if (bad.length) for (const b of bad) fix(b);
-  else ok(`${ACTIONS.length} 個面板的標題帶都一致（icon＋15px 標題＋說明、banner ≥84px、modal 標題 24px、內距 20px、無橫向溢出）`);
-
-  // 標題帶的層級：banner h3 一定要比 modal 標題小
-  await openModal(page, 'inventory');
-  const sizes = await page.evaluate(() => {
-    const h2 = parseFloat(getComputedStyle(document.querySelector('#modal .modal-title h2')).fontSize);
-    const h3 = parseFloat(getComputedStyle(document.querySelector('#modal .encounter-banner h3')).fontSize);
-    return { h2, h3 };
-  });
-  if (!(sizes.h3 < sizes.h2)) fix(`層級不對：banner 標題 ${sizes.h3}px 沒有小於 modal 標題 ${sizes.h2}px`);
-  else ok(`標題層級正確（modal ${sizes.h2}px > banner ${sizes.h3}px）`);
+  else ok(`${ACTIONS.length} 個面板的頂部標題都一致（圖示＋14px Ark Pixel 標題＋32px 關閉鈕、沒有橫幅插畫、內距 12px、無橫向溢出）`);
 
   if (errs.length) fix(`desktop 頁面錯誤：${errs.slice(0, 2).join(' | ')}`);
   await ctx.close();
@@ -126,15 +125,18 @@ const measure = page => page.evaluate(() => {
     const m = await measure(page);
     if (m.missing) { bad.push(`${a}: 面板沒出現`); continue; }
     const problems = [];
-    if (!m.banner) problems.push('沒有 banner');
-    if (!m.h3) problems.push('沒有 h3');
-    if (m.h3size > 15.5) problems.push(`手機 h3 ${m.h3size}px 太大`);
+    if (m.banners) problems.push(`還有 ${m.banners} 個橫幅插畫`);
+    if (!m.h2 || !m.h2inside) problems.push(`頂部標題「${m.h2}」不在面板內`);
+    if (!m.icon) problems.push('標題左邊沒有圖示');
+    if (m.h2size > 15.5 || m.h2size < 13.5) problems.push(`手機標題 ${m.h2size}px 不是 14px`);
+    if (m.closeW < 44 || m.closeH < 44) problems.push(`手機關閉鈕 ${m.closeW}x${m.closeH}（觸控需 ≥44px）`);
+    if (m.padL !== '10px' || m.padT !== '10px' || !['10px', '28px'].includes(m.padR)) problems.push(`手機內距 ${m.padT}/${m.padL}/${m.padR}（應為 10px；可捲動時右內距 28px）`);
     if (m.hscroll > 1) problems.push(`橫向溢出 ${m.hscroll}px`);
     if (problems.length) bad.push(`phone ${a}: ${problems.join('、')}`);
     if (process.env.SHOTS && a === 'codex') await page.screenshot({ path: 'output/panel-headers/phone-codex.png' });
   }
   if (bad.length) for (const b of bad) fix(b);
-  else ok('phone 402x712 抽查 build／inventory／worldmap／codex 都有標題帶、字級縮小、沒有橫向溢出');
+  else ok('phone 402x712 抽查 build／inventory／worldmap／codex 都有頂部標題與圖示、44px 關閉鈕、10px 內距、沒有橫幅插畫、沒有橫向溢出');
   if (errs.length) fix(`phone 頁面錯誤：${errs.slice(0, 2).join(' | ')}`);
   await ctx.close();
 }
@@ -146,4 +148,4 @@ if (fails.length) {
   process.exit(1);
 }
 for (const o of oks) console.log('ok  ' + o);
-console.log('PASS panel headers: 每個面板最上方都有同一個標題帶（icon＋15px 標題＋說明），缺的兩個（世界地圖、魔物圖鑑）已補上，標題層級、內距與寬度一致');
+console.log('PASS panel headers: 每個面板頂部都是同一種標題頁籤（圖示＋14px 標題＋關閉鈕），面板內沒有橫幅插畫，標題字級、內距、關閉鈕尺寸一致');

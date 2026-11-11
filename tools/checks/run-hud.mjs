@@ -10,7 +10,10 @@ import fs from 'node:fs';
 const require = createRequire('C:/Users/ray/AppData/Roaming/npm/node_modules/');
 const { chromium } = require('playwright');
 
-const URL = process.env.TARGET || 'http://100.79.149.0:5024/?preview=1';
+import { startServer } from './fix-a-lib.mjs';
+const srv = await startServer();   // 沒設 TARGET(例如 verify.mjs 呼叫)→ 自己開臨時伺服器讀剛建好的版本
+process.on('exit', () => srv.stop());
+const URL = process.env.TARGET || (srv.url + '?preview=1');
 const fails = [], oks = [], shots = [];
 const fix = m => fails.push(m);
 const ok = m => oks.push(m);
@@ -46,14 +49,15 @@ const hudInfo = page => page.evaluate(() => {
   const units = [...el.querySelectorAll('.rh-unit')].map(u => ({
     cls: u.querySelector('.rh-cls')?.textContent, name: u.querySelector('.rh-name')?.textContent,
     num: u.querySelector('.rh-num')?.textContent,
+    // 2026-11-11:血條外框加了 1px 黑邊(風格改版),填色 span 在邊框裡面 → 比例要對「內寬」(clientWidth),不是含邊框的外寬
     fill: u.querySelector('.rh-bar>span')?.getBoundingClientRect().width,
-    track: u.querySelector('.rh-bar')?.getBoundingClientRect().width,
+    track: u.querySelector('.rh-bar')?.clientWidth,
     low: u.classList.contains('low'), down: u.classList.contains('down'),
   }));
   const foe = el.querySelector('.rh-foe') ? {
     num: el.querySelector('.rh-foe .rh-num')?.textContent,
     fill: el.querySelector('.rh-foe .rh-bar>span')?.getBoundingClientRect().width,
-    track: el.querySelector('.rh-foe .rh-bar')?.getBoundingClientRect().width,
+    track: el.querySelector('.rh-foe .rh-bar')?.clientWidth,
   } : null;
   const hb = document.elementFromPoint(Math.round(r.x + r.width / 2), Math.round(r.y + r.height / 2));
   return { rect: [r.x, r.y, r.width, r.height], text: el.innerText.replace(/\n+/g, ' | '), units, foe, hudHit: hb && hb.closest('#run-hud') !== null };
@@ -194,7 +198,7 @@ const hudInfo = page => page.evaluate(() => {
   await ctx.close();
 }
 
-await browser.close();
+await browser.close(); srv.stop();
 for (const m of oks) console.log('ok  ' + m);
 for (const m of fails) console.log('FIX ' + m);
 if (fails.length) { console.log(`\nFAIL run hud: ${fails.length} 個問題`); process.exit(1); }

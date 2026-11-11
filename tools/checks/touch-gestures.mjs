@@ -94,17 +94,28 @@ const state = () => page.evaluate(() => {
 // 4) 單點不受影響：點一下不會縮放，仍會選取目標
 {
   const a = await state();
-  const rect = await page.evaluate(() => { const r = globalThis.__mistvaleView.hitRects()[0]; return r; });
-  const screen = await page.evaluate(({ x, y, w, h }) => { const v = globalThis.__mistvaleView; return v.project(x + w / 2, y + h / 2); }, rect);
-  const sx = screen.sx ?? screen.x, sy = screen.sy ?? screen.y;
+  // hitRects 是世界畫布座標(跟 unproject 的 sx/sy 同一套),換成視窗座標才是手指要點的位置(舊寫法把它丟進 project(世界座標) → 點到畫面外,選取回歸根本沒測到)
+  const pt = await page.evaluate(() => { const v = globalThis.__mistvaleView, cv = document.querySelector('#world'), rc = cv.getBoundingClientRect(), bot = v.unproject(rc.right, rc.bottom);
+    const r = v.hitRects().filter(h => !String(h.id).includes(':')).find(h => { const x = rc.left + (h.x + h.w / 2) / bot.sx * rc.width, y = rc.top + (h.y + h.h / 2) / bot.sy * rc.height; return x > 20 && x < innerWidth - 60 && y > 140 && y < innerHeight - 160; });
+    return r ? { x: rc.left + (r.x + r.w / 2) / bot.sx * rc.width, y: rc.top + (r.y + r.h / 2) / bot.sy * rc.height } : null; });
+  if (!pt) { fix('畫面上找不到可點的建築'); }
+  const sx = pt?.x ?? 0, sy = pt?.y ?? 0;
   await tap(sx, sy, 401);
   await page.waitForTimeout(320);
   const b = await state();
   if (Math.abs(b.scale - a.scale) > 1e-6) fix(`單點也改變了比例（${a.scale.toFixed(3)} → ${b.scale.toFixed(3)}）`);
   else ok('單點不會縮放');
-  const selected = await page.evaluate(() => !document.querySelector('#inspector').classList.contains('hidden'));
-  if (!selected) fix('單點建築沒有開啟建築面板（選取回歸）');
-  else ok('單點建築仍會開啟建築面板');
+  // 2026-11-11 第二階段(規格 4.6):單點建築 → 腳下六角鈕(≥44px) → 按「資訊」才開建築面板
+  const hex = await page.evaluate(() => { const s = document.querySelector('#hv-sel'), b = s && !s.hidden && s.querySelector('[data-action="selInfo"]'); if (!b) return null; const r = b.getBoundingClientRect(); return { w: r.width, h: r.height }; });
+  if (!hex) fix('單點建築沒有出現六角鈕（選取回歸）');
+  else if (hex.w < 44 || hex.h < 44) fix(`六角鈕熱區 ${Math.round(hex.w)}x${Math.round(hex.h)} < 44px`);
+  else {
+    await page.evaluate(() => document.querySelector('#hv-sel [data-action="selInfo"]').click());
+    await page.waitForTimeout(260);
+    const selected = await page.evaluate(() => !document.querySelector('#inspector').classList.contains('hidden'));
+    if (!selected) fix('按六角鈕「資訊」沒有開啟建築面板（選取回歸）');
+    else ok('單點建築 → 六角鈕 → 資訊，仍會開啟建築面板');
+  }
 }
 
 if (errs.length) fix('頁面錯誤：' + errs.slice(0, 3).join(' | '));

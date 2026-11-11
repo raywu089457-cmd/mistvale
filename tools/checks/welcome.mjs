@@ -19,6 +19,8 @@ if (process.env.SHOTS) fs.mkdirSync('output/welcome', { recursive: true });
 const browser = await chromium.launch({ executablePath: 'C:/Program Files/Google/Chrome/Application/chrome.exe', args: ['--headless=new', '--mute-audio'] });
 
 const ready = page => page.waitForFunction(() => globalThis.__mistvaleGame && !document.querySelector('#loading'), null, { timeout: 180000 });
+// 全新玩家會先看到標題畫面(FIX-A B5:歡迎對話框等它關掉才打開) → 按 Enter 進村
+const dismissTitle = async page => { await page.waitForSelector('#title-screen', { timeout: 8000 }).catch(() => {}); await page.keyboard.press('Enter'); };
 const modalState = page => page.evaluate(() => {
   const m = document.querySelector('#modal');
   const backdrop = document.querySelector('#modal-backdrop');
@@ -48,7 +50,8 @@ const modalState = page => page.evaluate(() => {
   await page.evaluate(() => { try { localStorage.clear(); } catch {} });
   await page.reload({ waitUntil: 'commit' });
   await ready(page);
-  // 歡迎窗是啟動後 520ms 才彈，等它出現
+  await dismissTitle(page);   // FIX-A B5:歡迎窗要等標題畫面關掉才彈
+  // 歡迎窗是標題關掉後才彈，等它出現
   let st = null;
   for (let i = 0; i < 40; i++) { st = await modalState(page); if (st.open && st.type === 'welcome') break; await page.waitForTimeout(150); }
   if (!st.open || st.type !== 'welcome') fix(`全新玩家沒有看到入門嚮導（modal open=${st.open} type=${st.type || '(空)'}）`);
@@ -133,6 +136,7 @@ const modalState = page => page.evaluate(() => {
   await page.evaluate(() => { try { localStorage.clear(); } catch {} });
   await page.reload({ waitUntil: 'commit' });
   await ready(page);
+  await dismissTitle(page);
   let st = null;
   for (let i = 0; i < 40; i++) { st = await modalState(page); if (st.open && st.type === 'welcome') break; await page.waitForTimeout(150); }
   if (!st.open || st.type !== 'welcome') fix(`手機上沒有看到入門嚮導（open=${st.open} type=${st.type || '(空)'}）`);

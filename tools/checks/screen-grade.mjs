@@ -93,9 +93,9 @@ const samplePair = (page, onB64, offB64, pts) => page.evaluate(async ({ on, off,
   await page.evaluate(() => { document.querySelector('#screen-grade').style.display = ''; });
 
   const pts = [
-    { name: 'corner-tl', x: 24, y: 150 }, { name: 'corner-tr', x: 1416, y: 150 },
+    { name: 'corner-tl', x: 6, y: 330 }, { name: 'corner-tr', x: 1416, y: 330 },
     { name: 'corner-bl', x: 24, y: 760 }, { name: 'edge-left', x: 6, y: 450 },
-    { name: 'center', x: 720, y: 450 }, { name: 'hud-top', x: 720, y: 20 },
+    { name: 'center', x: 720, y: 450 }, { name: 'hud-tabbar', x: 720, y: 880 },
   ];
   const rows = await samplePair(page, onShot, offShot, pts);
   for (const r of rows) {
@@ -112,10 +112,10 @@ const samplePair = (page, onB64, offB64, pts) => page.evaluate(async ({ on, off,
   }
   const edges = rows.filter(r => /corner|edge/.test(r.name));
   const worst = edges.reduce((a, b) => (a.onLum / a.offLum < b.onLum / b.offLum ? a : b));
-  const hud = rows.find(r => r.name === 'hud-top'), centre = rows.find(r => r.name === 'center');
+  const hud = rows.find(r => r.name === 'hud-tabbar'), centre = rows.find(r => r.name === 'center');
   if (!fails.length) ok(`邊角變暗（${edges[0].name} ${edges[0].offLum}→${edges[0].onLum}，最暗 ${worst.name} 比例 ${(worst.onLum / worst.offLum).toFixed(2)}）、中央 Δ${centre.delta}、HUD Δ${hud.delta}`);
 
-  // 點擊仍然穿透：點一棟建築要開 inspector
+  // 點擊仍然穿透：點一棟建築要穿到世界層(之後出六角鈕、按資訊才開 inspector)
   const clicked = await page.evaluate(async () => {
     const view = globalThis.__mistvaleView;
     const rects = view.hitRects().filter(r => r.id && !String(r.id).includes(':'));

@@ -39,6 +39,8 @@ let css=await fs.readFile(path.join(root,'src/pixel-style.css'),'utf8');
  try { css += '\n' + await fs.readFile(path.join(root,'src/ui-tone.css'),'utf8'); } catch {}
 try { css += '\n' + await fs.readFile(path.join(root,'src/ui-motion.css'),'utf8'); } catch {}
  try { css += '\n' + await fs.readFile(path.join(root,'src/ui-grain.css'),'utf8'); } catch {}
+ // 2026-11-11 獵魔村風格(docs/research/UI-REF-HUNTER-VILLAGE-2026-11-11.md):最後載入,蓋過前面所有主題層
+ try { css += '\n' + await fs.readFile(path.join(root,'src/ui-hv.css'),'utf8'); } catch {}
 css=css.replace("@import url('');",'');
 let assetScript='';
 const put=(key,value)=>assetScript+=`window.PIXEL_ASSETS=window.PIXEL_ASSETS||{};window.PIXEL_ASSETS.${key}=${value};`;

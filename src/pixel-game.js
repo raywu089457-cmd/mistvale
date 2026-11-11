@@ -95,7 +95,7 @@ function normalizeSettings(raw) {
     if (typeof raw.shadows === 'boolean') s.shadows = raw.shadows;
     if (typeof raw.night === 'boolean') s.night = raw.night;
     if (typeof raw.shake === 'boolean') s.shake = raw.shake;
-    if (raw.uiScale === 'auto') s.uiScale = 'auto'; else if (Number.isFinite(raw.uiScale)) s.uiScale = [0.75, 0.85, 1, 1.15, 1.3, 1.5].reduce((a, b) => Math.abs(b - raw.uiScale) < Math.abs(a - raw.uiScale) ? b : a);   // '自動' 或級距(0.75/0.85/1/1.15/1.3/1.5)；舊存檔的數字(0.95、1.4…)夾到最近級距，其他一律 'auto'
+    if (raw.uiScale === 'auto') s.uiScale = 'auto'; else if (Number.isFinite(raw.uiScale)) s.uiScale = [1, 1.15, 1.3, 1.5].reduce((a, b) => Math.abs(b - raw.uiScale) < Math.abs(a - raw.uiScale) ? b : a);   /* 2026-11-11:介面只放大不縮小,舊的 0.75/0.85 落到 1 */   // '自動' 或級距(0.75/0.85/1/1.15/1.3/1.5)；舊存檔的數字(0.95、1.4…)夾到最近級距，其他一律 'auto'
   }
   return s;
 }
@@ -1320,7 +1320,7 @@ export function createGame(saved = null) {
       const p = layout[other.id];
       if (Math.abs(x - p.x) < (b.w + other.w) / 2 + 1.05 && Math.abs(z - p.z) < (b.d + other.d) / 2 + 1.05) return `請與${other.name}保持至少一格通道。`;
     }
-    if (checkActors && [...state.hunters, ...state.enemies].some(h => Math.abs(h.x - x) < b.w / 2 + 0.45 && Math.abs(h.z - z) < b.d / 2 + 0.45)) return '這個位置有獵人或魔物經過，請稍後再放置。';
+    if (checkActors && [...state.hunters, ...state.enemies].some(h => Math.abs(h.x - x) < b.w / 2 + 0.45 && Math.abs(h.z - z) < b.d / 2 + 0.45)) return '有獵人或魔物站在這一格，換個位置或等他們走開再放。';
     return null;
   }
 

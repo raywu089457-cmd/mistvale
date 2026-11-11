@@ -28,6 +28,8 @@ const SCREENS = ['village', 'worldmap', 'build', 'hunters', 'hunter', 'recruit',
 const PROPS = ['color', 'background-color', 'background-image', 'border-top-color', 'border-right-color', 'border-bottom-color', 'border-left-color',
   'outline-color', 'box-shadow', 'text-shadow', 'filter', 'opacity', 'fill', 'stroke', 'caret-color', 'text-decoration-color',
   'font-size', 'line-height', 'font-weight', 'font-family', 'letter-spacing', 'border-top-width', 'border-radius', 'padding', 'margin', 'gap', 'display', 'content'];
+// --border-image: also compare border-image / image-rendering (theme-layer work; old baselines were saved without these, so pass it to both --save and --compare)
+if (args.includes('--border-image')) PROPS.push('border-image-source', 'border-image-slice', 'border-image-width', 'image-rendering', 'border-left-width', 'background-size');
 
 if (!args.includes('--no-build')) execSync('node build.mjs', { cwd: ROOT, stdio: ['ignore', 'ignore', 'inherit'] });
 fs.mkdirSync(OUT, { recursive: true });

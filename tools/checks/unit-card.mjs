@@ -98,6 +98,19 @@ const cardInfo = page => page.evaluate(() => {
   };
 });
 
+
+// 2026-11-11 第二階段(規格 4.6):點世界裡的目標 → 腳下先出現兩顆六角鈕(資訊 i／取消 ×);按「資訊」才開詳情。
+// 回傳 true = 六角鈕出現且按了資訊;false = 這一下沒點到可選目標(六角鈕沒出現)。
+async function clickInfoHex(page) {
+  const sel = await page.$('#hv-sel:not([hidden])');
+  if (!sel) return false;
+  const box = await (await sel.$('[data-action="selInfo"]'))?.boundingBox();
+  if (!box || box.width < 44 || box.height < 44) return false;   // 熱區 ≥ 44px 也是不變量
+  await page.click('#hv-sel [data-action="selInfo"]');
+  await page.waitForTimeout(220);
+  return true;
+}
+
 // 依序試每位獵人，直到卡片真的打開（世界裡的點擊可能被別的單位／建築先接到）
 async function clickHunter(page) {
   const ids = await page.evaluate(() => globalThis.__mistvaleGame.state.hunters.map(h => h.id));
@@ -106,6 +119,7 @@ async function clickHunter(page) {
     if (!p || !p.inCanvas) continue;
     await page.mouse.click(p.x, p.y);
     await page.waitForTimeout(220);
+    if (!await clickInfoHex(page)) { await page.keyboard.press('Escape'); continue; }   // 點獵人 → 六角鈕 → 資訊 → 小卡
     const c = await cardInfo(page);
     if (c) {
       // 2026-11-09（T118）：世界裡兩個單位重疊時，點 A 的矩形可能被後畫的 B 接到，卡片就會是 B。
@@ -162,6 +176,7 @@ async function clickHunter(page) {
       if (!q || !q.inCanvas) continue;
       await page.mouse.click(q.x, q.y);
       await page.waitForTimeout(200);
+      await clickInfoHex(page);
       const c2 = await cardInfo(page);
       if (c2 && c2.name === q.name) { swapped = true; break; }
     }

@@ -7,6 +7,7 @@ import {TILE,GRID,STREET_X,STREET_Z,VILLAGE_BOUNDS,blockAt,blockCenter,EXITS,EXI
 import {trackImage,markPhase} from './asset-loading.js';
 import {pickHeroLine} from './hero-chatter.js';
 import {createGLRenderer,tagPattern} from './gl-renderer.js';
+import {layoutMapLabels} from './map-labels.js';
 
 // All artwork is rendered to a small integer pixel buffer and enlarged without
 // interpolation. World coordinates are shared with the village simulation.
@@ -671,6 +672,8 @@ function ensureAtlas() {
   }
 }
 
+// FIX-A B2:觸控裝置沒有 Esc,放置提示改成指向畫面上的「取消」鈕
+const PLACE_HINT_COARSE=typeof matchMedia==='function'&&matchMedia('(pointer:coarse)').matches;
 export function createWorld(canvas,{onSelect=()=>{},onPlace=()=>{},getState=()=>null}={}) {
   ensureAtlas();
   // 繪製後端:預設 WebGL2(gl-renderer.js;2026-10-28 使用者實機試過後改為預設);網址 ?renderer=2d 改回 Canvas 2D。getContext 只能叫一次,所以先決定模式。
@@ -723,6 +726,10 @@ export function createWorld(canvas,{onSelect=()=>{},onPlace=()=>{},getState=()=>
   // 所以燈另外放一層,用加法混合(lighter)疊上去。
   const lightsCanvas=(()=>{const el=document.createElement('canvas');el.setAttribute('aria-hidden','true');el.style.cssText='position:fixed;inset:0;width:100%;height:100%;pointer-events:none;z-index:3';document.body.appendChild(el);return el;})();
   const lightsG=lightsCanvas.getContext('2d',{alpha:true});
+  // 2026-11-11 第二階段:建築名牌層(z-index 4,在夜色 z2 與燈光/閃電 z3 之上、HUD 之下)。
+  // 名牌原本畫在世界畫布上,入夜會被正片疊底的夜色壓成灰色 → 改畫到這一層,不受日夜濾鏡影響(繪製順序:世界 → 夜色 → 窗光 → 名牌)。
+  const labelsCanvas=(()=>{const el=document.createElement('canvas');el.id='map-label-layer';el.setAttribute('aria-hidden','true');el.style.cssText='position:fixed;inset:0;width:100%;height:100%;pointer-events:none;z-index:4';document.body.appendChild(el);return el;})();
+  const labelsG=labelsCanvas.getContext('2d',{alpha:true});
   let lightsW=0,lightsH=0;
   // 位置一律取整到裝置像素:CSS 整數座標在 1.25、1.5 倍等非整數 DPR 下會落在半個裝置像素上,平移/縮放時最近鄰取樣的像素模式就跟著跳(抖動)。
   const R=v=>Math.round(v*DPRK)/DPRK;
@@ -1051,10 +1058,10 @@ let renderDprMax=Math.max(1,dprCap||autoDpr());   // 畫布解析度上限(devic
   let lastTapT=0,lastTapX=0,lastTapY=0;
   const zoomAt=(sx,sy,factor)=>{const before=unproject(sx,sy);zoomBy(factor);const after=unproject(sx,sy),b=iso(before.x,before.z),a=iso(after.x,after.z);target.x+=b.x-a.x;target.y+=b.y-a.y;cam={...target};clampCam();};
   function down(e){markInput();if(e.button!==undefined&&e.button!==0&&e.button!==1)return;try{canvas.setPointerCapture?.(e.pointerId);}catch{}   /* 取得到就鎖住指標;某些情況(合成事件、已被取消的指標)會拋錯,不能讓它中斷後面的手勢初始化 */pointers.set(e.pointerId,{x:e.clientX,y:e.clientY});if(pointers.size===2){const pts=[...pointers.values()];pinchDistance=Math.hypot(pts[0].x-pts[1].x,pts[0].y-pts[1].y);pointer=null;return;}pointer={id:e.pointerId,x:e.clientX,y:e.clientY,startX:e.clientX,startY:e.clientY,moved:false,t:performance.now(),vx:0,vy:0};inertia=null;canvas.style.cursor=placing?'crosshair':'grabbing';}
-  function move(e){markInput();hover=unproject(e.clientX,e.clientY);if(pointers.has(e.pointerId))pointers.set(e.pointerId,{x:e.clientX,y:e.clientY});if(pointers.size===2){const pts=[...pointers.values()],dist=Math.hypot(pts[0].x-pts[1].x,pts[0].y-pts[1].y);if(pinchDistance&&dist>0){zoomAt((pts[0].x+pts[1].x)/2,(pts[0].y+pts[1].y)/2,dist/pinchDistance);}pinchDistance=dist;return;}if(!pointer||pointer.id!==e.pointerId)return;const dx=e.clientX-pointer.x,dy=e.clientY-pointer.y;if(Math.hypot(e.clientX-pointer.startX,e.clientY-pointer.startY)>5)pointer.moved=true;if(!followFn){target.x-=dx/scale;target.y-=dy/scale;cam={...target};clampCam();}const nowMs=performance.now(),dtMs=Math.max(1,nowMs-(pointer.t||nowMs));pointer.vx=(e.clientX-pointer.x)/dtMs;pointer.vy=(e.clientY-pointer.y)/dtMs;pointer.t=nowMs;pointer.x=e.clientX;pointer.y=e.clientY;}   // 跟隨角色時不讓拖曳把鏡頭拉走(下一幀就會被拉回來,只會抖一下)
+  function move(e){markInput();hover=unproject(e.clientX,e.clientY);hoverBuilding=e.pointerType==='mouse'&&!pointer?hoverIdAt(hover.sx,hover.sy):null;if(pointers.has(e.pointerId))pointers.set(e.pointerId,{x:e.clientX,y:e.clientY});if(pointers.size===2){const pts=[...pointers.values()],dist=Math.hypot(pts[0].x-pts[1].x,pts[0].y-pts[1].y);if(pinchDistance&&dist>0){zoomAt((pts[0].x+pts[1].x)/2,(pts[0].y+pts[1].y)/2,dist/pinchDistance);}pinchDistance=dist;return;}if(!pointer||pointer.id!==e.pointerId)return;const dx=e.clientX-pointer.x,dy=e.clientY-pointer.y;if(Math.hypot(e.clientX-pointer.startX,e.clientY-pointer.startY)>5)pointer.moved=true;if(!followFn){target.x-=dx/scale;target.y-=dy/scale;cam={...target};clampCam();}const nowMs=performance.now(),dtMs=Math.max(1,nowMs-(pointer.t||nowMs));pointer.vx=(e.clientX-pointer.x)/dtMs;pointer.vy=(e.clientY-pointer.y)/dtMs;pointer.t=nowMs;pointer.x=e.clientX;pointer.y=e.clientY;}   // 跟隨角色時不讓拖曳把鏡頭拉走(下一幀就會被拉回來,只會抖一下)
   function up(e){const p=pointer;const wasTouch=(e.pointerType==='touch');pointers.delete(e.pointerId);pinchDistance=0;pointer=null;if(p&&p.moved&&wasTouch&&!followFn){inertia={vx:p.vx||0,vy:p.vy||0};}if(p&&!p.moved&&wasTouch&&!placing){const nowMs=performance.now();const near=Math.hypot(e.clientX-lastTapX,e.clientY-lastTapY)<28;if(nowMs-lastTapT<320&&near){lastTapT=0;inertia=null;zoomAt(e.clientX,e.clientY,scale>=ZOOM_MAX*0.98?1/1.25:1.25);canvas.style.cursor=placing?'crosshair':'grab';return;}lastTapT=nowMs;lastTapX=e.clientX;lastTapY=e.clientY;}canvas.style.cursor=placing?'crosshair':'grab';if(!p||p.moved)return;const q=unproject(e.clientX,e.clientY);if(placing){onPlace(placing,R(q.x*2)/2,Math.round(q.z*2)/2);return;}for(let i=hits.length-1;i>=0;i--){const hit=hits[i];if(q.sx>=hit.x&&q.sx<=hit.x+hit.w&&q.sy>=hit.y&&q.sy<=hit.y+hit.h){onSelect(hit.id);return;}}onSelect(null);}
   function wheel(e){e.preventDefault();markInput();const before=unproject(e.clientX,e.clientY);zoomBy(e.deltaY<0?1.1:1/1.1);const after=unproject(e.clientX,e.clientY),b=iso(before.x,before.z),a=iso(after.x,after.z);target.x+=b.x-a.x;target.y+=b.y-a.y;cam={...target};clampCam();}
-  canvas.addEventListener('pointerdown',down);canvas.addEventListener('pointermove',move);canvas.addEventListener('pointerup',up);canvas.addEventListener('pointercancel',up);canvas.addEventListener('wheel',wheel,{passive:false});canvas.style.cursor='grab';
+  canvas.addEventListener('pointerdown',down);canvas.addEventListener('pointermove',move);canvas.addEventListener('pointerup',up);canvas.addEventListener('pointercancel',up);canvas.addEventListener('wheel',wheel,{passive:false});canvas.addEventListener('pointerleave',()=>{hoverBuilding=null;});canvas.style.cursor='grab';
 
   // 腳底接觸暗(很小、很貼地):真正的影子是 cast() 的剪影投影。
   function contact(p,w=5){g.fillStyle='#221a3a40';g.beginPath();g.ellipse(p.x-.6*scale,p.y,Math.max(2,w*scale),Math.max(1,w*.32*scale),0,0,Math.PI*2);g.fill();}
@@ -1122,10 +1129,42 @@ let renderDprMax=Math.max(1,dprCap||autoDpr());   // 畫布解析度上限(devic
   function textFont(n,w='bold'){return w+' '+textSize(n)+'px "Ark Pixel 12", "Microsoft JhengHei", sans-serif';}
   // 文字一律排進 screenTexts,最後在裝置解析度的畫布上畫(高清、永遠在最上層)。
   const screenTexts=[];
+  // T151:建築名牌。drawBuilding 只把資料推進 uiLabels;這裡用 map-labels.js 的同一份排版算矩形再照矩形畫,
+  // 檢查器(tools/checks/map-labels.mjs)讀 __mistvaleMapLabels 拿到的就是畫出來的矩形。
+  // 預設只顯示名稱;滑鼠移到建築(或名牌)上、或選取時才顯示等級,展開的名牌釘在原位、其他名牌讓開。
+  let hoverBuilding=null,mapLabelRects=[],mapLabelKey='';
+  function hoverIdAt(sx,sy){for(const r of mapLabelRects)if(sx>=r.x&&sx<=r.x+r.w&&sy>=r.y&&sy<=r.y+r.h)return r.id;
+    for(let i=hits.length-1;i>=0;i--){const h=hits[i];if(sx>=h.x&&sx<=h.x+h.w&&sy>=h.y&&sy<=h.y+h.h)return h.id;}return null;}
+  function drawMapLabels(k){
+    if(labelsCanvas.width!==canvas.width||labelsCanvas.height!==canvas.height){labelsCanvas.width=canvas.width;labelsCanvas.height=canvas.height;}
+    const screen=labelsG;screen.setTransform(1,0,0,1,0,0);screen.clearRect(0,0,labelsCanvas.width,labelsCanvas.height);screen.imageSmoothingEnabled=false;screen.textAlign='center';screen.textBaseline='middle';
+    screen.font=textFont(11*k);
+    const items=[];for(const l of uiLabels){const ex=l.id===selected||l.id===hoverBuilding;if(l.show||ex)items.push({...l,expanded:ex&&l.built});}
+    const key=width+'x'+height+'@'+k+'|'+items.map(i=>`${i.id},${i.x.toFixed(2)},${i.y.toFixed(2)},${i.level},${i.expanded?1:0}`).join(';');
+    if(key!==mapLabelKey){
+      const opt={measure:t=>screen.measureText(t).width/k,width,height};
+      let out=layoutMapLabels(items.map(i=>({...i,expanded:false})),opt);
+      if(items.some(i=>i.expanded)){const at=new Map(out.map(r=>[r.id,r]));
+        out=layoutMapLabels(items.map(i=>i.expanded&&at.has(i.id)?{...i,pin:{cx:at.get(i.id).cx,cy:at.get(i.id).cy}}:i),opt);}
+      mapLabelRects=out;mapLabelKey=key;
+    }
+    for(const r of mapLabelRects){const x=Math.round(r.x*k),y=Math.round(r.y*k),w=Math.round(r.w*k),h=Math.round(r.h*k),u=Math.max(1,Math.round(k)),hot=r.id===selected||r.id===hoverBuilding;
+      // 2026-11-11 獵魔村風格名牌:炭黑半透明底(--hv-ink #14110f)、白字、無金邊;選取/滑過時字轉金(--hv-gold)。
+      // 未建造較淡:底只有 65% 不透明、字偏灰 —— 在最亮的雪地上(底色合成約 #666)字的對比仍 ≥ 3:1。
+      if(r.built){
+        screen.fillStyle='#14110fd9';screen.fillRect(x,y,w,h);
+        screen.fillStyle=hot?'#e6b43c':'#f4ecd6';
+      }else{
+        screen.fillStyle='#14110fa6';screen.fillRect(x,y,w,h);
+        screen.fillStyle=hot?'#f4ecd6':'#cfc6b2';
+      }
+      screen.fillText(r.text,Math.round(r.cx*k),Math.round(r.cy*k));screen.globalAlpha=1;}
+  }
+  globalThis.__mistvaleMapLabels=()=>({width,height,scale:+scale.toFixed(3),labels:mapLabelRects.map(r=>({id:r.id,text:r.text,built:r.built,x:+r.x.toFixed(2),y:+r.y.toFixed(2),w:+r.w.toFixed(2),h:r.h}))});
   function textLabel(text,x,y,opts={}){if(document.body.dataset.artReview==='1')return;screenTexts.push({text,x,y,alpha:g.globalAlpha,...opts});}
   function drawScreenText(t,k){if(t.bubble){drawBubble(t,k);return;}const {text,x:x0,y:y0,color='#fff7d9',size=7,back=true,alpha=1}=t,x=Math.round(x0*k),y=Math.round(y0*k);screen.globalAlpha=alpha;
     screen.font=textFont(size*2*k);const tw=Math.ceil(screen.measureText(text).width);
-    if(back){screen.fillStyle='#1c0e06cc';screen.fillRect(x-tw/2-5*k,y-10*k,tw+10*k,21*k);screen.fillStyle='#4a2611e6';screen.fillRect(x-tw/2-4*k,y-9*k,tw+8*k,19*k);screen.fillStyle='#8a5530e6';screen.fillRect(x-tw/2-4*k,y-9*k,tw+8*k,2*k);screen.fillStyle='#dab247aa';screen.fillRect(x-tw/2-3*k,y+9*k,tw+6*k,k);}
+    if(back){screen.fillStyle='#14110fd9';screen.fillRect(x-tw/2-5*k,y-10*k,tw+10*k,21*k);}   // 2026-11-11:地區名牌同建築名牌,炭黑半透明、無木框金線
     else{screen.lineWidth=Math.max(2,2.6*k);screen.strokeStyle='#1c0e06';screen.lineJoin='round';screen.strokeText(text,x,y);}
     screen.fillStyle=color;screen.fillText(text,x,y);screen.globalAlpha=1;}
   // 英雄對話框:奶油色像素泡泡(切角、深棕外框)＋往下的小尾巴,字畫在螢幕解析度那層(清楚)。
@@ -1221,10 +1260,10 @@ let renderDprMax=Math.max(1,dprCap||autoDpr());   // 畫布解析度上限(devic
     let selRing=null;   // 選取圈:畫在門口前的地面(畫完建築才知道門口在哪,所以先記下來)
     if(!level){
       // 空地:l0veyou 的施工地基(石基、木樁、繩子、木板堆),取代虛線菱形。
-      if(drawAtlasDetail('plot',p,52,40,10)){textLabel(b.name,p.x,p.y-36*scale,{color:'#dfd6b7'});
+      if(drawAtlasDetail('plot',p,52,40,10)){uiLabels.push({id:b.id,name:b.name,level:0,built:false,x:p.x,y:p.y-36*scale,box:{x:p.x-26*scale,y:p.y-40*scale,w:52*scale,h:50*scale},show:scale>1.12||s});
         {const dw=Math.max(40*scale,52*scale*.55),dh=Math.max(32*scale,42*scale*.5);hits.push({id:b.id,x:p.x-dw/2,y:p.y+10*scale-dh,w:dw,h:dh});}return;}   // 互動點在工地正面中央   // 名牌在施工地基上方:緊湊棋盤裡放在地基前面會落到前一棟的屋頂上,跟那一棟的名牌疊在一起
       procUse['plot']=(procUse['plot']||0)+1;
-      const r=24*scale;polygon(g,[[p.x-r,p.y],[p.x,p.y-r*.5],[p.x+r,p.y],[p.x,p.y+r*.5]],'#716b4f99');g.strokeStyle='#c6bc90';g.lineWidth=1;g.setLineDash([3,2]);g.beginPath();g.moveTo(p.x-r,p.y);g.lineTo(p.x,p.y-r*.5);g.lineTo(p.x+r,p.y);g.lineTo(p.x,p.y+r*.5);g.closePath();g.stroke();g.setLineDash([]);textLabel('+',p.x,p.y-7,{size:16,color:'#f1dfab',back:false});textLabel(b.name,p.x,p.y+13,{color:'#dfd6b7'});
+      const r=24*scale;polygon(g,[[p.x-r,p.y],[p.x,p.y-r*.5],[p.x+r,p.y],[p.x,p.y+r*.5]],'#716b4f99');g.strokeStyle='#c6bc90';g.lineWidth=1;g.setLineDash([3,2]);g.beginPath();g.moveTo(p.x-r,p.y);g.lineTo(p.x,p.y-r*.5);g.lineTo(p.x+r,p.y);g.lineTo(p.x,p.y+r*.5);g.closePath();g.stroke();g.setLineDash([]);textLabel('+',p.x,p.y-7,{size:16,color:'#f1dfab',back:false});uiLabels.push({id:b.id,name:b.name,level:0,built:false,x:p.x,y:p.y+13,box:{x:p.x-r,y:p.y-r*.5,w:2*r,h:r},show:scale>1.12||s});
       {const dw=Math.max(34*scale,r*.9),dh=Math.max(30*scale,r*.8);hits.push({id:b.id,x:p.x-dw/2,y:p.y+r*.55-dh,w:dw,h:dh});}return;   // 工地也一樣:互動點在正面中央
     }
     const conceptSprite=atlasCell(b.id);
@@ -1260,7 +1299,8 @@ let renderDprMax=Math.max(1,dprCap||autoDpr());   // 畫布解析度上限(devic
     }
     if(s&&selRing)ring(selRing,17,'#ffdc7b');   // 選取圈在門口前的地面
     // 名牌放在自己屋頂上(圖頂往下 18%):放在地基前緣會被前一排建築蓋住、看起來像別棟的名字。
-    if(scale>1.12||s)uiLabels.push({text:`${b.name} Lv.${level}`,x:rect.x+rect.w/2,y:rect.y+rect.h*.18,color:s?'#ffe195':'#fff5d1'});
+    // T151:只記資料,文字(要不要顯示等級)、避讓位移與畫法都在最後那一輪由 map-labels.js 決定。
+    uiLabels.push({id:b.id,name:b.name,level,built:true,x:rect.x+rect.w/2,y:rect.y+rect.h*.18,box:{x:rect.x,y:rect.y,w:rect.w,h:rect.h},show:scale>1.12||s});
     const products={restaurant:'food',inn:'bed',tavern:'drink',clinic:'bandage'},pid=products[b.id];
     const stock=pid?(state.stocks?.[pid]??state.stock?.[pid]??state.products?.[pid]??state.inventory?.[pid]):null;
     if(pid&&stock===0){textLabel('!',p.x+27*scale,p.y-45*scale,{size:9,color:'#ffda87'});}
@@ -2457,12 +2497,12 @@ let renderDprMax=Math.max(1,dprCap||autoDpr());   // 畫布解析度上限(devic
     nightLast=night;
     if(Math.abs(night-nightShown)>.008){nightShown=night;nightLayer.style.opacity=night>0?night.toFixed(3):'0';}
     // Placement preview projects to the same coordinate system as simulation.
-    if(placing&&hover){const blk=blockAt(hover.x,hover.z),snap=blk&&blk.use!=='plaza'?blk:hover,p=screenPoint(snap.x,snap.z),sp=atlasCell(placing)||buildingSprite(placing),w=conceptBuildingWidth(placing);ring(p,30,'#d8ebac');drawSprite(sp,p,w,w*sp.height/sp.width,9,.55);textLabel('點擊放置 · ESC 取消',p.x,p.y+22,{color:'#e6edbf'});}
+    if(placing&&hover){const blk=blockAt(hover.x,hover.z),snap=blk&&blk.use!=='plaza'?blk:hover,p=screenPoint(snap.x,snap.z),sp=atlasCell(placing)||buildingSprite(placing),w=conceptBuildingWidth(placing);ring(p,30,'#d8ebac');drawSprite(sp,p,w,w*sp.height/sp.width,9,.55);textLabel(PLACE_HINT_COARSE?'點擊放置 · 點取消鈕結束':'點擊放置 · ESC 取消',p.x,p.y+22,{color:'#e6edbf'});}
     // 地名:拉遠才顯示,畫在戰鬥空地外緣(北邊)而不是空地中央。
     if(scale<1.2){for(const r of REGIONS){const p=screenPoint(r.x,r.z);textLabel(r.name,p.x,p.y-6,{color:'#ffe6a6',size:8});}}
     screen.setTransform(1,0,0,1,0,0);if(glr)screen.clearRect(0,0,canvas.width,canvas.height);const k=canvas.width/width;screen.save();screen.textAlign='center';screen.textBaseline='middle';
     for(const t of screenTexts)drawScreenText(t,k);
-    screen.font=textFont(11*k);for(const l of uiLabels){const x=Math.round(l.x*k),y=Math.round(l.y*k),tw=screen.measureText(l.text).width;screen.fillStyle='#1c0e06cc';screen.fillRect(x-tw/2-6*k,y-9*k,tw+12*k,19*k);screen.fillStyle='#4a2611e6';screen.fillRect(x-tw/2-5*k,y-8*k,tw+10*k,17*k);screen.fillStyle='#8a5530e6';screen.fillRect(x-tw/2-5*k,y-8*k,tw+10*k,2*k);screen.fillStyle='#dab247aa';screen.fillRect(x-tw/2-4*k,y+8*k,tw+8*k,k);screen.fillStyle=l.color;screen.fillText(l.text,x,y);}screen.restore();
+    drawMapLabels(k);screen.restore();
     if(glr)glr.present();
   }
   let followFn=null,followOpts={};   // 跟隨:回傳 {x,z} 時每幀把鏡頭目標移到那裡(手動操控用)

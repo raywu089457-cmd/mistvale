@@ -77,6 +77,19 @@ const cardInfo = page => page.evaluate(() => {
   };
 });
 
+
+// 2026-11-11 第二階段(規格 4.6):點世界裡的目標 → 腳下先出現兩顆六角鈕(資訊 i／取消 ×);按「資訊」才開詳情。
+// 回傳 true = 六角鈕出現且按了資訊;false = 這一下沒點到可選目標(六角鈕沒出現)。
+async function clickInfoHex(page) {
+  const sel = await page.$('#hv-sel:not([hidden])');
+  if (!sel) return false;
+  const box = await (await sel.$('[data-action="selInfo"]'))?.boundingBox();
+  if (!box || box.width < 44 || box.height < 44) return false;   // 熱區 ≥ 44px 也是不變量
+  await page.click('#hv-sel [data-action="selInfo"]');
+  await page.waitForTimeout(220);
+  return true;
+}
+
 async function clickFoe(page) {
   for (let attempt = 0; attempt < 12; attempt++) {
     const list = await foeRects(page);
@@ -85,6 +98,7 @@ async function clickFoe(page) {
     for (const f of cand) {
       await page.mouse.click(f.x, f.y);
       await page.waitForTimeout(220);
+      if (!await clickInfoHex(page)) { await page.keyboard.press('Escape'); continue; }   // 點魔物 → 六角鈕 → 資訊 → 小卡
       const c = await cardInfo(page);
       if (c && c.kind === 'foe') return { f, c };
       await page.keyboard.press('Escape');

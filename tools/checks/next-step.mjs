@@ -1,7 +1,12 @@
-// next-step.mjs — T132：畫面下方的「下一步建議」條
+// next-step.mjs — T132：「下一步建議」
 //   * 只由 state 推導，條件消失就自己收起來；面板／單位小卡開著時不顯示。
 //   * 優先序：委託可領 > 有買得起的訪客 > 獵人夠了可進地下城 > 可蓋新建築 > 地下城缺人 > 全員待機。
-//   * 點一下要打開對應面板。
+//   * 點一下要能走到對應面板。
+// 2026-11-11 改寫（獵魔村風格第三階段）：舊版找「貼在底欄上方、置中的 #next-step 條」，點下去直接開面板。新版：
+//   * 建議條搬到左側任務追蹤下方的 #hv-advisor（小頭像＋兩行字，仍是 #next-step 按鈕）；位置斷言改成
+//     「在 #hv-advisor 裡、在任務追蹤 #hv-quest 下方不重疊、不超出畫面、不蓋底欄」。
+//   * 「委託可領」不再由建議條重複顯示，改由任務追蹤 #hv-quest.ready 顯示、點下去開委託面板——這條斷言跟著換成看 #hv-quest。
+//   * 點建議條先展開亮色顧問對話框（type=advisor，村長說話），再按對話框的主按鈕 [data-action=nextStepGo] 才開對應面板——斷言分兩步。
 // Usage: node tools/checks/next-step.mjs      (game server on 5024 expected)
 //        $env:SHOTS='1'; node tools/checks/next-step.mjs
 // Exit: 0 = PASS line only, 1 = FIX lines.
@@ -64,6 +69,7 @@ const readPill = page => page.evaluate(() => {
   const r = el.getBoundingClientRect();
   const cs = getComputedStyle(el);
   return {
+    inSlot: !!el.closest('#hv-advisor'),
     text: el.querySelector('.ns-tx')?.textContent?.trim() || '',
     go: el.querySelector('.ns-go')?.textContent?.trim() || '',
     key: el.getAttribute('data-key') || '',
@@ -79,8 +85,24 @@ const readPill = page => page.evaluate(() => {
 {
   const { ctx, page, errs } = await boot({ width: 1440, height: 900 });
 
+  // 委託可領：由左側任務追蹤標示（.ready＋「獎勵可以領取了」），建議條不重複；點任務追蹤開委託面板
+  await setup(page, 'quest');
+  await page.waitForTimeout(600);
+  const qd = await page.evaluate(() => {
+    const q = document.querySelector('#hv-quest');
+    return { ready: !!q?.classList.contains('ready'), goal: q?.querySelector('#hv-quest-goal')?.textContent || '', aria: q?.getAttribute('aria-label') || '', advisor: !!document.querySelector('#hv-advisor #next-step') };
+  });
+  if (!qd.ready) fix('情境 quest：任務追蹤沒有 .ready（可領獎勵要亮起）');
+  if (!/獎勵可以領取/.test(qd.goal) || !/獎勵可以領取/.test(qd.aria)) fix(`情境 quest：任務追蹤沒寫可領取（${qd.goal}／${qd.aria}）`);
+  if (qd.advisor) fix('情境 quest：顧問提示又重複了「委託可領」（應只由任務追蹤顯示）');
+  await page.evaluate(() => document.querySelector('#hv-quest').click());
+  await page.waitForTimeout(500);
+  const qOpened = await page.evaluate(() => document.querySelector('#modal')?.dataset.type || '');
+  if (qOpened !== 'quests') fix(`情境 quest：點任務追蹤開的是 ${qOpened}，應為 quests`);
+  await page.keyboard.press('Escape');
+  await page.waitForTimeout(300);
+
   const cases = [
-    ['quest', '村長委託的獎勵可以領了', 'quest', 'quests'],
     ['visitor', '有 1 位旅人願意加入', 'visitor', 'hunters'],
     ['dungeon', '位獵人待機，可以派去地下城', 'dungeon', 'dungeon'],
   ];
@@ -88,22 +110,32 @@ const readPill = page => page.evaluate(() => {
     await setup(page, kind);
     await page.waitForTimeout(500);
     const pill = await readPill(page);
-    if (!pill) { fix(`情境 ${kind}：沒有出現下一步建議條`); continue; }
-    if (!pill.visible) fix(`情境 ${kind}：建議條存在但不可見`);
+    if (!pill) { fix(`情境 ${kind}：沒有出現顧問提示`); continue; }
+    if (!pill.visible) fix(`情境 ${kind}：顧問提示存在但不可見`);
+    if (!pill.inSlot) fix(`情境 ${kind}：顧問提示不在左側 #hv-advisor 裡`);
     if (!pill.text.includes(want)) fix(`情境 ${kind}：文字是「${pill.text}」，應包含「${want}」`);
     if (pill.key !== wantKey) fix(`情境 ${kind}：data-key 是 ${pill.key}，應為 ${wantKey}`);
     if (pill.act !== wantModal) fix(`情境 ${kind}：data-act 是 ${pill.act}，應為 ${wantModal}`);
     if (!pill.aria.includes(want)) fix(`情境 ${kind}：aria-label 沒有寫出建議內容（${pill.aria}）`);
-    if (!['BUTTON'].includes(pill.tag)) fix(`情境 ${kind}：建議條是 <${pill.tag.toLowerCase()}>，應為可聚焦的 button`);
-    // 點下去要開對應面板
+    if (!['BUTTON'].includes(pill.tag)) fix(`情境 ${kind}：顧問提示是 <${pill.tag.toLowerCase()}>，應為可聚焦的 button`);
+    // 第一步：點下去展開顧問對話框，寫著同一句建議
     await page.evaluate(() => document.querySelector('#next-step').click());
     await page.waitForTimeout(500);
-    const opened = await page.evaluate(() => document.querySelector('#modal')?.dataset.type || '');
-    if (opened !== wantModal) fix(`情境 ${kind}：點下去開的是 ${opened}，應為 ${wantModal}`);
+    const dlg = await page.evaluate(() => ({ type: document.querySelector('#modal')?.dataset.type || '', say: document.querySelector('#modal .hv-dlg-say')?.textContent || '', go: document.querySelector('#modal [data-action="nextStepGo"]')?.dataset.act || '' }));
+    if (dlg.type !== 'advisor') fix(`情境 ${kind}：點顧問提示開的是 ${dlg.type || '(沒有)'}，應先展開 advisor 對話框`);
+    else {
+      if (!dlg.say.includes(want)) fix(`情境 ${kind}：對話框沒寫出建議「${want}」（${dlg.say.slice(0, 30)}）`);
+      if (dlg.go !== wantModal) fix(`情境 ${kind}：對話框主按鈕 data-act 是 ${dlg.go}，應為 ${wantModal}`);
+      // 第二步：按主按鈕才跳到對應面板
+      await page.evaluate(() => document.querySelector('#modal [data-action="nextStepGo"]')?.click());
+      await page.waitForTimeout(500);
+      const opened = await page.evaluate(() => document.querySelector('#modal')?.dataset.type || '');
+      if (opened !== wantModal) fix(`情境 ${kind}：按對話框主按鈕開的是 ${opened || '(沒有)'}，應為 ${wantModal}`);
+    }
     await page.keyboard.press('Escape');
     await page.waitForTimeout(300);
   }
-  if (!fails.length) ok('委託／訪客／地下城三種情境的建議文字與按鈕都對，點下去開對應面板');
+  if (!fails.length) ok('委託（任務追蹤）／訪客／地下城三種情境的文字與按鈕都對，顧問提示→對話框→主按鈕才開對應面板');
 
   // 全員待機 → 建議派去生態區
   await setup(page, 'hunt');
@@ -122,14 +154,14 @@ const readPill = page => page.evaluate(() => {
   if (none) fix(`情境 none：明明沒事可做仍顯示「${none.text}」`);
 
   // 開面板時收起
-  await setup(page, 'quest');
+  await setup(page, 'visitor');
   await page.waitForTimeout(500);
   await page.evaluate(() => { const b = document.createElement('button'); b.dataset.action = 'settings'; b.style.display = 'none'; document.body.append(b); b.click(); b.remove(); });
   await page.waitForTimeout(500);
-  if (await readPill(page)) fix('面板開著時建議條沒有收起');
+  if (await readPill(page)) fix('面板開著時顧問提示沒有收起');
   await page.keyboard.press('Escape');
   await page.waitForTimeout(400);
-  if (!(await readPill(page))) fix('關掉面板後建議條沒有回來');
+  if (!(await readPill(page))) fix('關掉面板後顧問提示沒有回來');
 
   // 點單位小卡（獵人）時也收起
   await page.evaluate(() => {
@@ -140,24 +172,28 @@ const readPill = page => page.evaluate(() => {
   await page.keyboard.press('Escape');
   await page.waitForTimeout(300);
 
-  // 位置：貼在底欄上方、不重疊
-  await setup(page, 'quest');
+  // 位置：顧問提示在左側任務追蹤下方，不重疊、不超出畫面、不蓋底欄、點得到自己
+  await setup(page, 'visitor');
   await page.waitForTimeout(500);
   const geom = await page.evaluate(() => {
-    const p = document.querySelector('#next-step').getBoundingClientRect();
+    const el = document.querySelector('#next-step');
+    if (!el) return null;
+    const p = el.getBoundingClientRect(), q = document.querySelector('#hv-quest').getBoundingClientRect();
     const bb = document.querySelector('#bottom-bar').getBoundingClientRect();
-    // 左下角是村莊日誌（canvas 文字），靠右可以避開它
-    // 村莊日誌畫在 canvas 左下（大約距底欄 20–34px）；建議條要落在它上方
+    const c = document.elementFromPoint(p.x + p.width / 2, p.y + p.height / 2);
     return {
-      pBottom: p.bottom, bbTop: bb.top, gap: bb.top - p.bottom,
-      centreOff: Math.abs((p.x + p.width / 2) - innerWidth / 2),
-      overLogBand: p.bottom > innerHeight - 40,
+      belowQuest: p.top - q.bottom, toBar: bb.top - p.bottom, left: p.left, right: p.right, top: p.top, h: p.height,
+      ownHit: c === el || el.contains(c),
     };
   });
-  if (geom.gap < 4 || geom.gap > 40) fix(`建議條與底欄的間距是 ${geom.gap.toFixed(1)}px（應 4–40px）`);
-  if (geom.centreOff > 3) fix(`桌機建議條沒有置中（偏移 ${geom.centreOff.toFixed(1)}px）`);
-  if (geom.overLogBand) fix('桌機建議條壓在底欄正上方那一帶（會蓋到村莊日誌）');
-  if (!fails.length) ok(`建議條置中、貼在底欄上方 ${geom.gap.toFixed(0)}px（高於左下角村莊日誌）`);
+  if (!geom) fix('桌機：看不到顧問提示，無法量位置');
+  else {
+    if (geom.belowQuest < 0) fix(`桌機顧問提示壓在任務追蹤上（差 ${geom.belowQuest.toFixed(1)}px，應在其下方）`);
+    if (geom.toBar < 8) fix(`桌機顧問提示距底欄只有 ${geom.toBar.toFixed(1)}px（會蓋住底欄）`);
+    if (geom.left < 0 || geom.right > 1440 || geom.top < 0) fix('桌機顧問提示超出畫面');
+    if (!geom.ownHit) fix('桌機顧問提示中心點被別的元素蓋住，點不到');
+    if (!fails.length) ok(`顧問提示在任務追蹤下方 ${geom.belowQuest.toFixed(0)}px、離底欄 ${geom.toBar.toFixed(0)}px、點得到`);
+  }
 
   if (process.env.SHOTS) await page.screenshot({ path: 'output/next-step/desktop.png' });
   if (errs.length) fix(`desktop 頁面錯誤：${errs.slice(0, 2).join(' | ')}`);
@@ -167,12 +203,13 @@ const readPill = page => page.evaluate(() => {
 // ── phone ───────────────────────────────────────────────
 {
   const { ctx, page, errs } = await boot({ width: 402, height: 712 }, { hasTouch: true, isMobile: true, deviceScaleFactor: 2 });
-  await setup(page, 'quest');
+  await setup(page, 'visitor');
   await page.waitForTimeout(600);
   const info = await page.evaluate(() => {
     const el = document.querySelector('#next-step');
     if (!el) return { missing: true };
     const p = el.getBoundingClientRect(), bb = document.querySelector('#bottom-bar').getBoundingClientRect();
+    const qb = document.querySelector('#hv-quest').getBoundingClientRect().bottom;
     const covered = [];
     for (const a of ['worldmap', 'pause', 'speed', 'boss', 'help', 'zoomIn', 'zoomOut']) {
       const b = document.querySelector(`[data-action="${a}"]`);
@@ -184,19 +221,20 @@ const readPill = page => page.evaluate(() => {
     const centre = document.elementFromPoint(p.x + p.width / 2, p.y + p.height / 2);
     return {
       inside: p.x >= 0 && p.x + p.width <= innerWidth + 0.5 && p.y >= 0,
-      gap: +(bb.top - p.bottom).toFixed(1), covered,
+      gap: +(bb.top - p.bottom).toFixed(1), belowQuest: +(p.top - qb).toFixed(1), covered,
       ownHit: centre === el || el.contains(centre),
       h: +p.height.toFixed(1),
     };
   });
-  if (info.missing) fix('phone：沒有出現建議條');
+  if (info.missing) fix('phone：沒有出現顧問提示');
   else {
     if (!info.inside) fix('phone：建議條超出畫面');
-    if (info.gap < 4) fix(`phone：建議條與底欄間距 ${info.gap}px（至少 4px）`);
+    if (info.gap < 4) fix(`phone：顧問提示與底欄間距 ${info.gap}px（至少 4px）`);
+    if (info.belowQuest < 0) fix(`phone：顧問提示壓在任務追蹤上（${info.belowQuest}px）`);
     if (info.covered.length) fix(`phone：建議條蓋住浮動鈕 ${info.covered.join(',')}`);
     if (!info.ownHit) fix('phone：建議條中心點不是自己（被別的元素蓋住）');
-    if (info.h < 26) fix(`phone：建議條只有 ${info.h}px 高，觸控太小`);
-    if (!fails.length) ok(`phone 402x712 建議條貼在底欄上方 ${info.gap}px、不擋浮動鈕、可點`);
+    if (info.h < 44) fix(`phone：顧問提示只有 ${info.h}px 高，觸控太小（需 ≥44px）`);
+    if (!fails.length) ok(`phone 402x712 顧問提示在任務追蹤下方、離底欄 ${info.gap}px、不擋浮動鈕、≥44px 可點`);
   }
   if (process.env.SHOTS) await page.screenshot({ path: 'output/next-step/phone.png' });
   if (errs.length) fix(`phone 頁面錯誤：${errs.slice(0, 2).join(' | ')}`);
@@ -210,4 +248,4 @@ if (fails.length) {
   process.exit(1);
 }
 for (const o of oks) console.log('ok  ' + o);
-console.log('PASS next step: 畫面下方會提示「現在最該做的一件事」（委託可領／旅人可招募／可進地下城／可蓋新建築／派去生態區），文字與按鈕跟著 state 換、點一下開對應面板、面板或單位小卡開著時自動收起、手機貼在底欄上方不擋浮動鈕');
+console.log('PASS next step: 左側任務追蹤下方的顧問提示會說「現在最該做的一件事」（委託可領由任務追蹤顯示／旅人可招募／可進地下城／可蓋新建築／派去生態區），文字與按鈕跟著 state 換、點一下展開對話框再開對應面板、面板開著時自動收起、手機 ≥44px 不擋浮動鈕');

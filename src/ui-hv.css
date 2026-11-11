@@ -1,0 +1,1534 @@
+/* ui-hv.css — 獵魔村風格（docs/research/UI-REF-HUNTER-VILLAGE-2026-11-11.md）第一階段：骨架
+   最後載入（build.mjs 串在 ui-grain.css 之後），用 html body #id 前綴＋!important 蓋過前面五層主題。
+   只換設計語言：炭黑面板、浮在場景上的描邊字、底部頁籤列、底部抽屜、單一主按鈕卡片。素材全部是專案自己的。
+   形狀：圓角 0–3px、1/2px 整數邊、陰影只用硬邊位移；不用 border-image、木紋、金箔九宮格、漸層條。 */
+
+/* ═══ 1. 設計代碼 ═══ */
+:root{
+  --hv-ink:#14110f; --hv-ink-a:rgba(20,17,15,.86); --hv-ink-deep:#0d0b0a;
+  --hv-panel:#1f1b18; --hv-panel-2:#2a2521;
+  --hv-line:#4a4138; --hv-line-hi:#6b5e50;
+  --hv-text:#f4ecd6; --hv-text-dim:#b3a78f;
+  --hv-gold:#e6b43c; --hv-quest:#f0a08c; --hv-ok:#8fd16a; --hv-warn:#e0604a;
+  --hv-btn-primary:#9a3324; --hv-btn-primary-hi:#b23f2c; --hv-btn-primary-lo:#7c281c;
+  --hv-btn-secondary:#8a6420; --hv-btn-secondary-hi:#a2772a; --hv-btn-secondary-lo:#6f5019;
+  --hv-btn-disabled:#3a3632; --hv-btn-disabled-text:#8a8377;
+  --hv-tab-active:#d9d2bf; --hv-tab-active-text:#231d18;
+  --hv-dialog:#e6e4da; --hv-dialog-text:#2a2622;
+  /* 描邊：四向＋四角 1px 黑（浮在場景上的字一律用） */
+  --hv-outline:1px 0 0 #000,-1px 0 0 #000,0 1px 0 #000,0 -1px 0 #000,1px 1px 0 #000,-1px 1px 0 #000,1px -1px 0 #000,-1px -1px 0 #000;
+  --hv-icon-outline:drop-shadow(1px 0 0 #000) drop-shadow(-1px 0 0 #000) drop-shadow(0 1px 0 #000) drop-shadow(0 -1px 0 #000);
+  --hv-tab-h:72px; --hv-hit:40px; --hv-gut:12px;
+  --hv-top-left-h:84px;   /* 左上徽記＋資源疊的高度（任務追蹤從它下面開始） */
+  --hv-right-h:120px;     /* 右上兩排圖示＋日夜列（行動徽章從它下面開始） */
+  --hv-chev:url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 9 10' shape-rendering='crispEdges'%3E%3Cpath fill='%23000' d='M0 0h3v1h1v1h1V1h1V0h3v2H8v1H7v1H6v1H3V4H2V3H1V2H0zM0 5h3v1h1v1h1V6h1V5h3v2H8v1H7v1H6v1H3V9H2V8H1V7H0z'/%3E%3Cpath fill='%238fd16a' d='M1 1h1v1h1v1h1v1h1V3h1V2h1V1h1v1H7v1H6v1H5v1H4V4H3V3H2V2H1zM1 6h1v1h1v1h1v1h1V8h1V7h1V6h1v1H7v1H6v1H5v1H4V9H3V8H2V7H1z'/%3E%3C/svg%3E");
+  --hv-x:url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 8 8' shape-rendering='crispEdges'%3E%3Cpath fill='%23f4ecd6' d='M0 0h2v1h1v1h2V1h1V0h2v2H7v1H6v2h1v1h1v2H6V7H5V6H3v1H2v1H0V6h1V5h1V3H1V2H0z'/%3E%3C/svg%3E");
+  --hv-lock:url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 10 12' shape-rendering='crispEdges'%3E%3Cpath fill='%23a79f90' d='M3 0h4v1h1v1h1v3H8V2H7V1H3v1H2v3H1V2h1V1h1zM0 5h10v7H0z'/%3E%3Cpath fill='%23231d18' d='M4 7h2v3H4z'/%3E%3C/svg%3E");
+}
+@media(max-width:760px),(max-height:520px){:root{--hv-tab-h:60px;--hv-hit:44px}}
+
+/* 工具類：描邊字、讀屏專用字 */
+.hv-outline{color:var(--hv-text);text-shadow:var(--hv-outline)}
+.hv-sr,#scroll-hint>span{position:absolute!important;width:1px!important;height:1px!important;overflow:hidden!important;clip:rect(0 0 0 0)!important;white-space:nowrap!important;padding:0!important;margin:-1px!important;border:0!important}
+
+/* 介面縮放：HUD 跟頂欄、面板一樣只往上放大，不縮小（縮到 75% 時 12px 的字只剩 9px，違反正文 ≥ 12px） */
+html body #game-ui{zoom:max(1,var(--ui-scale,1))!important}
+
+/* 舊主題的紙紋顆粒會把炭黑面板弄髒：在新面板與卡片上關掉 */
+html body :is(#modal,#left-panel,#inspector,.panel,#unit-card,.game-panel)::after,
+html body :is(.hunter-card,.visitor-card,.party-pick,.stock-item,.cx-card,.difficulty-card,.building-card,.welcome-step)::after{background:none!important;mix-blend-mode:normal!important}
+html body :is(#modal,#left-panel,#inspector,#unit-card,.game-panel,.panel)::after{content:none!important}
+html body :is(#modal,#left-panel,#inspector,#unit-card,.game-panel,.panel,.hunter-card,.visitor-card,.party-pick,.stock-item,.cx-card,.difficulty-card,.building-card,.welcome-step){background-image:none!important}
+#screen-grade{pointer-events:none}
+
+/* 按鈕三種（主＝磚紅、次＝金棕、停用＝灰＋鎖） */
+html body .hv-btn,
+html body :is(#modal,#inspector,#left-panel,#unit-card,#placement,#cmdk,#run-hud,.offline-calc) .pixel-button{
+  font:600 12px/1.25 var(--font-ui)!important;letter-spacing:.02em;color:#fff!important;
+  background:var(--hv-btn-secondary)!important;border:1px solid #000!important;border-radius:2px!important;border-image:none!important;
+  box-shadow:inset 0 1px 0 rgba(255,255,255,.2),inset 0 -2px 0 rgba(0,0,0,.25),0 2px 0 #000!important;
+  text-shadow:0 1px 0 rgba(0,0,0,.65)!important;min-height:32px;padding:6px 12px;filter:none!important;
+}
+html body .hv-btn:hover:not(:disabled),
+html body :is(#modal,#inspector,#left-panel,#unit-card,#placement,#cmdk,#run-hud) .pixel-button:hover:not(:disabled){background:var(--hv-btn-secondary-hi)!important;border-color:#000!important;color:#fff!important}
+html body .hv-btn.primary,
+html body :is(#modal,#inspector,#left-panel,#unit-card,#placement,#cmdk,#run-hud,.offline-calc) :is(.pixel-button.gold,.pixel-button.primary):not([aria-pressed]){background:var(--hv-btn-primary)!important;color:#fff!important}
+html body .hv-btn.primary:hover:not(:disabled),
+html body :is(#modal,#inspector,#left-panel,#unit-card,#placement,#cmdk,#run-hud) :is(.pixel-button.gold,.pixel-button.primary):not([aria-pressed]):hover:not(:disabled){background:var(--hv-btn-primary-hi)!important}
+html body .hv-btn:active:not(:disabled),
+html body :is(#modal,#inspector,#left-panel,#unit-card,#placement,#cmdk,#run-hud) .pixel-button:active:not(:disabled){transform:translateY(1px)!important;box-shadow:inset 0 1px 0 rgba(0,0,0,.3),0 1px 0 #000!important}
+html body .hv-btn.primary:active:not(:disabled),
+html body :is(#modal,#inspector,#left-panel,#unit-card,#placement,#cmdk,#run-hud) :is(.pixel-button.gold,.pixel-button.primary):not([aria-pressed]):active:not(:disabled){background:var(--hv-btn-primary-lo)!important}
+html body .hv-btn:disabled,html body .hv-btn.locked,
+html body :is(#modal,#inspector,#left-panel,#unit-card,#placement,#cmdk,#run-hud,.offline-calc) .pixel-button:disabled{
+  background:var(--hv-btn-disabled)!important;color:var(--hv-btn-disabled-text)!important;text-shadow:none!important;
+  box-shadow:inset 0 0 0 1px rgba(255,255,255,.05)!important;cursor:not-allowed;opacity:1!important;filter:none!important}
+html body :is(#modal,#inspector,#left-panel,#unit-card,#placement,#cmdk) .pixel-button.quiet:not(:disabled),html body .hv-btn.cancel{background:#4a4540!important;color:var(--hv-text)!important}
+html body :is(#modal,#inspector,#left-panel,#unit-card,#placement,#cmdk) .pixel-button.quiet:hover:not(:disabled),html body .hv-btn.cancel:hover{background:#5a544d!important}
+html body :is(#modal,#inspector,#left-panel,#unit-card) :is(.pixel-button.danger,.pixel-button[data-danger="true"]):not(:disabled){background:transparent!important;border-color:var(--hv-warn)!important;color:var(--hv-warn)!important;box-shadow:none!important;text-shadow:none!important}
+/* 切換鈕（篩選、排序、分段）：未選＝凹槽色，選中＝頁籤亮色 */
+html body :is(#modal,#inspector,#left-panel,#unit-card) .pixel-button[aria-pressed]{background:var(--hv-panel-2)!important;color:var(--hv-text-dim)!important;border-color:var(--hv-line)!important;box-shadow:none!important;text-shadow:none!important}
+html body :is(#modal,#inspector,#left-panel,#unit-card) .pixel-button[aria-pressed="true"]{background:var(--hv-tab-active)!important;color:var(--hv-tab-active-text)!important;border-color:#000!important}
+html body :is(#modal,#inspector,#left-panel,#unit-card) .pixel-button[aria-pressed]:hover:not(:disabled):not([aria-pressed="true"]){background:#353029!important;color:var(--hv-text)!important}
+.hv-lock{display:inline-block;width:10px;height:12px;margin-right:6px;vertical-align:-1px;background:var(--hv-lock) center/10px 12px no-repeat;image-rendering:pixelated}
+@media(max-width:760px),(max-height:520px){
+  html body :is(#modal,#inspector,#left-panel,#unit-card) .pixel-button,html body .hv-btn{min-height:44px}
+  html body #modal-content :is(.pixel-button[aria-pressed],[data-action=setOpt],[data-action=tradeStep]){min-width:44px!important;min-height:44px!important}
+  /* 手機正文下限 12px（首領面板的戰力對比、參戰名單原本 11px） */
+  html body #modal-content :is(.bf-side span,.bf-side small,.bs-info small,.bs-info b,.bs-atk){font-size:12px!important}
+}
+
+/* 鍵盤焦點：一律 2px 金框（不分新舊元件） */
+html body :is(button,a,[tabindex],input,select,textarea):focus-visible{outline:2px solid var(--hv-gold)!important;outline-offset:1px!important}
+
+/* tooltip（滑鼠才有）：炭黑底、1px 邊、白字、無箭頭 */
+@media(hover:hover) and (pointer:fine){
+  html body [data-tip]{position:relative}
+  html body [data-tip]:hover::after,html body [data-tip]:focus-visible::after{
+    content:attr(data-tip)!important;position:absolute!important;top:calc(100% + 6px);left:50%;right:auto;bottom:auto;transform:translateX(-50%);
+    display:block!important;width:max-content;max-width:220px;padding:4px 8px!important;z-index:60;pointer-events:none;
+    background:var(--hv-ink)!important;border:1px solid var(--hv-line)!important;border-radius:2px;color:var(--hv-text)!important;
+    font:600 12px/1.3 var(--font-ui)!important;text-shadow:none!important;box-shadow:0 2px 0 #000!important;white-space:nowrap;animation:none!important}
+  html body .hv-tr [data-tip]:hover::after,html body .view-tools [data-tip]:hover::after,html body .hv-tr [data-tip]:focus-visible::after,html body .view-tools [data-tip]:focus-visible::after{left:auto;right:0;transform:none}
+  html body .view-tools [data-tip]:hover::after,html body .view-tools [data-tip]:focus-visible::after{top:50%;right:calc(100% + 6px);transform:translateY(-50%)}
+}
+/* 獵人卡生命條上的數字提示也換成同一個 tooltip 外觀 */
+html body #modal[data-type="hunters"] .hunter-card .hunter-health::after{color:var(--hv-text-dim);font:600 12px/14px var(--font-num);text-shadow:none}
+
+/* ═══ 2. 主 HUD：浮在場景上，沒有頂欄底板 ═══ */
+html body #topbar{
+  position:fixed!important;top:0!important;left:0!important;right:0!important;bottom:auto!important;width:auto!important;height:auto!important;min-height:0!important;
+  display:flex!important;justify-content:space-between!important;align-items:flex-start!important;gap:8px!important;flex-wrap:nowrap!important;
+  padding:calc(8px + env(safe-area-inset-top,0px)) var(--hv-gut) 0!important;margin:0!important;
+  background:none!important;border:0!important;border-image:none!important;box-shadow:none!important;pointer-events:none!important;z-index:20}
+html body #topbar>*{pointer-events:none}
+html body #topbar :is(button,#day-clock,#region-badge){pointer-events:auto}
+html body #topbar button,html body .hv-hud button{
+  background:none!important;border:0!important;border-image:none!important;box-shadow:none!important;border-radius:2px!important;
+  color:var(--hv-text)!important;text-shadow:var(--hv-outline)!important;font-family:var(--font-ui)!important;padding:0!important;margin:0!important;
+  min-width:0;min-height:0;filter:none;transform:none}
+html body #topbar button:hover,html body .hv-hud button:hover{background:rgba(20,17,15,.38)!important}
+html body #topbar :is(.treasury,.population,.hv-ico,.hv-tr) [data-icon],html body .hv-hud :is(.hv-act,.view-tools) [data-icon],html body .hv-hud .square[data-icon]::before,html body #topbar .square[data-icon]::before{image-rendering:pixelated;filter:var(--hv-icon-outline)}
+html body #topbar .hv-ico.square[data-icon]::before{width:28px!important;height:28px!important}
+html body #game-ui .view-tools .square[data-icon]::before{width:24px!important;height:24px!important}
+html body #game-ui .view-tools #reopen-left.square[data-icon]{position:relative!important;inset:auto!important;background-image:none!important;animation:none!important}
+
+/* 左上：難度徽記方塊（村徽位＋下方色帶寫難度）＋右邊直排資源 */
+html body #topbar .hv-tl{display:flex!important;align-items:flex-start;gap:8px;position:static!important}
+html body #topbar .hv-crest{display:flex!important;flex-direction:column!important;align-items:stretch!important;justify-content:flex-start!important;gap:0!important;
+  width:52px!important;height:auto!important;min-height:0!important;border-radius:2px!important;overflow:hidden}
+html body #topbar .hv-crest>i[data-icon]{display:grid!important;place-items:center;width:52px!important;height:48px!important;margin:0!important;
+  background-color:var(--hv-ink-a)!important;background-size:36px 36px!important;background-repeat:no-repeat!important;background-position:center!important;border:1px solid var(--hv-line)!important;border-bottom:0!important;box-sizing:border-box}
+html body #topbar .hv-crest #difficulty-name{display:block!important;height:18px;line-height:18px!important;font:700 12px/18px var(--font-ui)!important;text-align:center;
+  color:#fff!important;background:var(--hv-btn-primary)!important;border:1px solid #000!important;text-shadow:0 1px 0 #000!important;white-space:nowrap;letter-spacing:.06em}
+html body #topbar .hv-crest>small{display:none!important}
+html body #topbar .hv-crest:hover{background:none!important}
+html body #topbar .hv-crest:hover>i[data-icon]{background:rgba(42,37,33,.92)!important}
+html body #topbar .hv-crest::before{content:none!important}
+
+html body #topbar .treasury{display:flex!important;flex-direction:column!important;align-items:flex-start!important;justify-content:flex-start!important;gap:0!important;
+  position:static!important;margin:0!important;padding:0 8px 2px 2px!important;width:auto!important;min-width:44px!important;flex:0 0 auto!important;height:auto!important;min-height:44px!important;text-align:left}
+html body #topbar .treasury .res-row{display:flex;align-items:center;gap:6px;height:21px;position:relative;white-space:nowrap}
+html body #topbar .treasury [data-icon]{display:grid!important;place-items:center;width:18px!important;height:18px!important;flex:0 0 18px!important;margin:0!important;border:0!important;background-color:transparent!important;background-size:contain!important;background-repeat:no-repeat!important;background-position:center!important}
+html body #topbar .treasury [data-icon] :is(canvas,img){width:18px!important;height:18px!important}
+html body #topbar .treasury b{font:700 13px/1 var(--font-num)!important;color:#fff!important;text-shadow:var(--hv-outline)!important;letter-spacing:.02em;min-width:0!important;white-space:nowrap}
+html body #topbar .treasury b.res-tick{display:inline-block}
+html body .res-float{font:700 12px/1 var(--font-num)!important;text-shadow:var(--hv-outline)!important;left:auto!important;right:-4px;transform:none}
+html body .res-float.up{color:var(--hv-ok)!important}html body .res-float.down{color:var(--hv-warn)!important}
+@keyframes hvFloat{0%{opacity:0;transform:translate(100%,2px)}15%{opacity:1}100%{opacity:0;transform:translate(100%,-12px)}}
+html body .res-float{animation:hvFloat 1.05s ease-out forwards!important}
+
+/* 右上：第一行 暫停／速度＋獵人數；第二行 無底板圖示鈕；第三行 日夜 */
+html body #topbar .hv-tr{display:flex!important;flex-direction:column!important;align-items:flex-end!important;gap:2px!important;position:static!important;margin-left:auto}
+html body #topbar .hv-tr1,html body #topbar .hv-tr2{display:flex!important;align-items:center!important;justify-content:flex-end;gap:2px!important}
+html body #topbar .play-controls{display:flex!important;flex-direction:row!important;flex-wrap:nowrap!important;align-items:center!important;gap:2px!important;grid-template-columns:none!important;position:static!important;inset:auto!important;transform:none!important;
+  margin:0!important;padding:0!important;background:none!important;border:0!important;box-shadow:none!important;width:auto!important;height:auto!important;visibility:visible!important}
+html body #topbar .play-controls>button{width:32px!important;height:32px!important;min-width:32px!important;display:grid!important;place-items:center;
+  font:700 14px/1 var(--font-num)!important}
+html body #topbar #save-label{width:auto!important;flex:0 0 auto!important;order:-1;display:block;font:600 12px/1 var(--font-ui)!important;color:var(--hv-text-dim)!important;text-shadow:var(--hv-outline)!important;margin:0 6px 0 4px!important;white-space:nowrap;position:static!important;background:none!important;border:0!important}
+html body #topbar #save-label.warn{color:var(--hv-warn)!important}
+html body #topbar .population{display:flex!important;align-items:center!important;gap:4px!important;height:32px!important;padding:0 4px!important;width:auto!important;min-width:32px!important}
+html body #topbar .population [data-icon]{display:grid!important;place-items:center;width:22px!important;height:22px!important;margin:0!important;background-color:transparent!important;background-size:contain!important;background-repeat:no-repeat!important;background-position:center!important;border:0!important}
+html body #topbar .population [data-icon] :is(canvas,img){width:22px!important;height:22px!important}
+html body #topbar #population{font:700 13px/1 var(--font-num)!important;color:#fff!important;text-shadow:var(--hv-outline)!important}
+html body #topbar .hv-ico{width:var(--hv-hit)!important;height:var(--hv-hit)!important;min-width:var(--hv-hit)!important;display:grid!important;place-items:center!important;
+  font:700 20px/1 var(--font-num)!important;position:relative}
+html body #topbar .hv-ico [data-icon],html body #topbar .hv-ico.square>:is(canvas,img){display:grid!important;place-items:center;width:28px!important;height:28px!important;margin:0!important;background-color:transparent!important;background-size:contain!important;background-repeat:no-repeat!important;background-position:center!important;border:0!important}
+html body #topbar .hv-ico :is(canvas,img){width:28px!important;height:28px!important}
+html body #topbar .hv-help>span{display:grid;place-items:center;width:26px;height:26px;border:2px solid #000;border-radius:50%;background:var(--hv-btn-secondary);
+  color:#fff;font:700 16px/1 var(--font-num);text-shadow:0 1px 0 #000;box-shadow:inset 0 1px 0 rgba(255,255,255,.25)}
+html body #topbar .hv-ico.plus::before,html body #topbar .hv-ico.plus .plus-label{content:none!important;display:none!important}
+
+html body #topbar #day-clock{display:flex!important;align-items:center!important;gap:6px!important;position:static!important;margin:2px 4px 0 0!important;padding:0!important;
+  background:none!important;border:0!important;box-shadow:none!important;height:auto!important;min-height:0!important;width:auto!important;color:var(--hv-text)!important}
+html body #topbar #day-clock .dc-dot{display:none!important}
+html body #topbar #day-clock .dc-tx{display:flex!important;gap:6px;align-items:baseline;flex-direction:row!important}
+html body #topbar #day-clock .dc-tx :is(b,small){font:600 12px/1 var(--font-ui)!important;color:var(--hv-text)!important;text-shadow:var(--hv-outline)!important;white-space:nowrap}
+html body #topbar #day-clock .dc-tx small::before{content:"·";margin-right:6px;color:var(--hv-text-dim)}
+html body #topbar #day-clock.night .dc-tx small{color:#a9c4ff!important}
+html body #topbar #day-clock .dc-bar{display:block!important;width:56px!important;height:4px!important;background:#000!important;border:0!important;box-shadow:0 0 0 1px #000!important;border-radius:0!important;position:relative;overflow:hidden}
+html body #topbar #day-clock .dc-bar>i{display:block!important;height:100%!important;background:var(--hv-gold)!important;border-radius:0!important}
+html body #topbar #day-clock.night .dc-bar>i{background:#a9c4ff!important}
+html body #topbar #region-badge{position:static!important;transform:none!important;inset:auto!important;margin:2px 4px 0 0!important;padding:0!important;
+  background:none!important;border:0!important;border-image:none!important;box-shadow:none!important;font:600 12px/1.2 var(--font-ui)!important;color:var(--hv-text-dim)!important;
+  text-shadow:var(--hv-outline)!important;white-space:nowrap;letter-spacing:.02em;min-height:0!important;height:auto!important}
+html body #topbar #region-badge::before,html body #topbar #region-badge::after{content:none!important}
+body.hud-modal #topbar #region-badge{display:none!important}
+
+/* 左側：任務追蹤 → 顧問提示 → 事件訊息（無底框、描邊字） */
+html body #hv-left{position:fixed;left:var(--hv-gut);top:calc(env(safe-area-inset-top,0px) + 8px + var(--hv-top-left-h) + 8px);z-index:8;
+  display:flex;flex-direction:column;align-items:flex-start;gap:8px;width:min(300px,calc(100vw - 2 * var(--hv-gut) - 88px));pointer-events:none}
+html body #hv-left>*{pointer-events:auto}
+/* 缺口 3：村務面板打開時任務追蹤要看得到（顧問提示與事件訊息先讓位，見 FIX-B 段） */
+html body .hv-quest{display:flex!important;flex-direction:column!important;align-items:flex-start!important;gap:4px!important;width:100%!important;min-height:44px!important;
+  padding:4px 6px 4px 4px!important;text-align:left!important;cursor:pointer;position:relative}
+html body .hv-quest .hq-head{display:flex;align-items:center;gap:10px;flex-wrap:wrap}
+html body .hv-quest .hq-title{font:700 13px/1.25 var(--font-ui);color:var(--hv-quest);text-shadow:var(--hv-outline)}
+html body .hv-quest .hq-reward{display:inline-flex;align-items:center;gap:4px;font:700 13px/1 var(--font-num);color:#fff;text-shadow:var(--hv-outline)}
+html body .hv-quest .hq-reward [data-icon]{display:inline-grid;width:16px;height:16px}
+html body .hv-quest .hq-reward [data-icon] :is(canvas,img){width:16px;height:16px;filter:var(--hv-icon-outline)}
+html body .hv-quest .hq-goal{font:600 12px/1.4 var(--font-ui);color:#fff;text-shadow:var(--hv-outline);padding-left:6px}
+html body .hv-quest.ready .hq-goal{color:var(--hv-ok)}
+html body .hv-quest.ready .hq-head::before{content:"";display:inline-block;width:8px;height:8px;margin-right:-4px;background:var(--hv-warn);box-shadow:0 0 0 1px #000;border-radius:1px;flex:0 0 8px}
+body.hud-modal :is(#hv-left,.hv-actions,#game-ui .view-tools,#game-ui .map-hint){visibility:hidden!important}
+@keyframes hvBlink{0%,100%{opacity:1}50%{opacity:.25}}
+html body .hv-quest.ready .hq-title{animation:hvBlink .5s steps(2,end) 0s 4}
+
+html body #hv-advisor{display:block;min-height:0}
+html body #hv-advisor:empty{display:none}
+html body #hv-advisor .next-step{position:static!important;inset:auto!important;transform:none!important;display:grid!important;grid-template-columns:36px 1fr;grid-template-rows:auto auto;
+  column-gap:8px;row-gap:2px;align-items:center;width:auto!important;max-width:100%!important;min-height:44px!important;padding:2px 6px 2px 2px!important;margin:0!important;
+  background:none!important;border:0!important;box-shadow:none!important;animation:none!important;text-align:left!important;cursor:pointer}
+html body #hv-advisor .next-step .ns-ic{grid-row:1/3;display:grid!important;place-items:center;width:36px!important;height:36px!important;background:var(--hv-ink-a)!important;border:1px solid var(--hv-line)!important;border-radius:2px;margin:0!important}
+html body #hv-advisor .next-step .ns-ic [data-icon],html body #hv-advisor .next-step .ns-ic :is(canvas,img){width:24px!important;height:24px!important;filter:none!important}
+html body #hv-advisor .next-step .ns-tx{font:600 12px/1.35 var(--font-ui)!important;color:#fff!important;text-shadow:var(--hv-outline)!important;white-space:normal!important;overflow:visible!important}
+html body #hv-advisor .next-step .ns-go{font:700 12px/1.2 var(--font-ui)!important;color:var(--hv-quest)!important;text-shadow:var(--hv-outline)!important;background:none!important;border:0!important;padding:0!important;margin:0!important;box-shadow:none!important}
+html body #hv-advisor .next-step .ns-go::before{content:"→ "}
+
+html body #notice-feed{position:static!important;inset:auto!important;transform:none!important;width:100%!important;max-width:none!important;margin:0!important;padding:0 0 0 4px!important;
+  display:flex!important;flex-direction:column!important;gap:2px!important;background:none!important;border:0!important;box-shadow:none!important;pointer-events:none!important}
+html body #notice-feed>*{background:none!important;border:0!important;padding:0!important;margin:0!important;box-shadow:none!important;
+  font:600 12px/1.4 var(--font-ui)!important;color:#fff!important;text-shadow:var(--hv-outline)!important;white-space:normal}
+html body #notice-feed>*:nth-child(2){opacity:.78}html body #notice-feed>*:nth-child(3){opacity:.55}
+html body #notice-feed .empty-state{display:none!important}
+
+/* 右側：行動徽章（圖示在上、兩行標籤在下） */
+html body .hv-actions{position:fixed;right:var(--hv-gut);top:calc(env(safe-area-inset-top,0px) + 8px + var(--hv-right-h) + 6px);z-index:8;display:flex;flex-direction:column;align-items:center;gap:4px}
+html body .hv-actions .hv-act{display:flex!important;flex-direction:column!important;align-items:center!important;justify-content:flex-start!important;gap:1px!important;
+  width:68px!important;min-height:64px!important;padding:2px 0 4px!important}
+html body .hv-actions .hv-act [data-icon]{display:grid!important;place-items:center;width:32px!important;height:32px!important;margin:0 0 2px!important;background-color:transparent!important;background-size:contain!important;background-repeat:no-repeat!important;background-position:center!important;border:0!important}
+html body .hv-actions .hv-act [data-icon] :is(canvas,img){width:32px!important;height:32px!important}
+html body .hv-actions .hv-act :is(.ha-l1,.ha-l2){display:block;font:700 12px/1.2 var(--font-ui);color:var(--hv-quest);text-shadow:var(--hv-outline);white-space:nowrap}
+html body .hv-actions .hv-act .ha-l2{color:#fff}
+html body .hv-actions .hv-act.cooling :is(.ha-l1,.ha-l2){color:var(--hv-text-dim)}
+html body .hv-actions .hv-act.cooling [data-icon]{opacity:.6}
+
+/* 右下：縮放／村莊全景／村務 —— 直排小圖示鈕，無底板 */
+html body #game-ui .view-tools{position:fixed!important;right:var(--hv-gut)!important;left:auto!important;top:auto!important;bottom:calc(var(--hv-tab-h) + env(safe-area-inset-bottom,0px) + 12px)!important;
+  display:flex!important;flex-direction:column!important;align-items:center;gap:4px!important;z-index:8;background:none!important;border:0!important;box-shadow:none!important;padding:0!important;margin:0!important;transform:none!important;width:auto!important}
+html body #game-ui .view-tools>button{width:var(--hv-hit)!important;height:var(--hv-hit)!important;min-width:var(--hv-hit)!important;min-height:var(--hv-hit)!important;display:grid!important;place-items:center!important;
+  background:rgba(20,17,15,.45)!important;border:1px solid rgba(74,65,56,.8)!important;border-radius:2px!important;font:700 18px/1 var(--font-num)!important;color:#fff!important;text-shadow:var(--hv-outline)!important;position:relative}
+html body #game-ui .view-tools>button:hover{background:rgba(42,37,33,.85)!important}
+html body #game-ui .view-tools>button.hidden{display:none!important}
+html body #game-ui .view-tools>button [data-icon],html body #game-ui .view-tools>button>:is(canvas,img){display:grid!important;place-items:center;width:24px!important;height:24px!important;margin:0!important;background-color:transparent!important;background-size:contain!important;background-repeat:no-repeat!important;background-position:center!important;border:0!important}
+html body #game-ui .view-tools>button :is(canvas,img){width:24px!important;height:24px!important}
+body:has(#inspector:not(.hidden)) :is(.hv-actions,#game-ui .view-tools){visibility:hidden!important}
+body.piloting :is(#hv-left,.hv-actions,#game-ui .view-tools){display:none!important}
+
+/* 操作提示：桌機一行淡字；觸控裝置不顯示 */
+html body #game-ui .map-hint{position:fixed!important;left:var(--hv-gut)!important;right:auto!important;top:auto!important;bottom:calc(var(--hv-tab-h) + 8px)!important;transform:none!important;
+  background:none!important;border:0!important;box-shadow:none!important;padding:0!important;margin:0!important;font:600 12px/1 var(--font-ui)!important;color:rgba(244,236,214,.72)!important;text-shadow:var(--hv-outline)!important;z-index:7;pointer-events:none;white-space:nowrap}
+@media(pointer:coarse),(max-width:760px),(max-height:520px){html body #game-ui .map-hint{display:none!important}}
+html body #game-ui #pause-label{position:fixed!important;left:50%!important;top:calc(env(safe-area-inset-top,0px) + 12px)!important;bottom:auto!important;transform:translateX(-50%)!important;
+  background:var(--hv-ink-a)!important;border:1px solid var(--hv-line)!important;border-radius:2px!important;box-shadow:0 2px 0 #000!important;padding:6px 12px!important;
+  font:700 13px/1 var(--font-ui)!important;color:#fff!important;text-shadow:none!important;z-index:21}
+html body #game-ui #pause-label small{font:600 12px/1 var(--font-ui)!important;color:var(--hv-text-dim)!important;margin-left:6px}
+html body #game-ui #pause-label.hidden{display:none!important}
+/* 手機(直向、橫向):頂部中央已被資源疊與圖示列占滿(暫停時會壓住金幣數字)→ 移到頁籤列上方;觸控沒有空白鍵,省略那段 */
+@media(max-width:760px),(max-height:520px){
+  html body #game-ui #pause-label{top:auto!important;bottom:calc(var(--bb,62px) + 2px)!important}
+  html body #game-ui #pause-label small{display:none!important}
+  /* 資訊小卡出現時,暫停標籤與小卡之間至少留 8px(原本只差 1px 貼在一起) */
+  html body:has(#pause-label:not(.hidden)) #unit-card{bottom:calc(var(--bb,62px) + 38px)!important}
+}
+html body #boss-bar{background:var(--hv-ink-a)!important;border:1px solid var(--hv-line)!important;border-image:none!important;box-shadow:0 2px 0 #000!important;border-radius:2px!important}
+html body #boss-bar strong{color:#fff!important;text-shadow:0 1px 0 #000!important}
+
+/* ═══ 3. 底部頁籤列 ═══ */
+html body #bottom-bar{
+  position:fixed!important;left:0!important;right:0!important;bottom:0!important;top:auto!important;width:auto!important;
+  height:calc(var(--hv-tab-h) + env(safe-area-inset-bottom,0px))!important;min-height:0!important;max-height:none!important;
+  padding:0 0 env(safe-area-inset-bottom,0px)!important;margin:0!important;display:flex!important;justify-content:center!important;align-items:stretch!important;gap:0!important;
+  background:var(--hv-ink)!important;border:0!important;border-top:1px solid var(--hv-line)!important;border-image:none!important;box-shadow:none!important;z-index:20;transform:none!important;overflow:visible!important}
+html body #bottom-bar::before,html body #bottom-bar::after{content:none!important}
+html body #bottom-bar>button{
+  flex:1 1 0!important;max-width:137px!important;min-width:0!important;width:auto!important;height:var(--hv-tab-h)!important;min-height:0!important;margin:0!important;padding:6px 2px 6px!important;
+  display:flex!important;flex-direction:column!important;align-items:center!important;justify-content:center!important;gap:4px!important;position:relative!important;top:0;
+  background:transparent!important;border:0!important;border-image:none!important;border-radius:0!important;box-shadow:none!important;color:var(--hv-text)!important;text-shadow:none!important;filter:none!important;transform:none!important;z-index:auto!important}
+html body #bottom-bar>button+button::before{content:""!important;position:absolute!important;left:0!important;top:12px!important;bottom:12px!important;width:1px!important;height:auto!important;
+  background:var(--hv-line)!important;border:0!important;display:block!important;padding:0!important;margin:0!important;box-shadow:none!important}
+html body #bottom-bar>button [data-icon]{display:grid!important;place-items:center!important;width:32px!important;height:32px!important;margin:0!important;background-color:transparent!important;background-size:contain!important;background-repeat:no-repeat!important;background-position:center!important;border:0!important;flex:0 0 auto!important}
+html body #bottom-bar>button [data-icon]{image-rendering:pixelated;filter:drop-shadow(0 1px 0 #000)}
+html body #bottom-bar>button b{display:block!important;font:700 12px/1 var(--font-ui)!important;color:var(--hv-text)!important;text-shadow:0 1px 0 #000!important;letter-spacing:.06em;white-space:nowrap;margin:0!important}
+html body #bottom-bar>button kbd{position:absolute!important;top:5px!important;left:7px!important;right:auto!important;display:block!important;min-width:0!important;padding:0!important;margin:0!important;
+  background:none!important;border:0!important;box-shadow:none!important;font:600 12px/1 var(--font-num)!important;color:#a89c82!important;text-shadow:none!important}
+html body #bottom-bar>button:hover{background:#1c1815!important}
+html body #bottom-bar>button:hover [data-icon]{filter:brightness(1.25) drop-shadow(0 1px 0 #000)}
+html body #bottom-bar>button:active{transform:none!important}
+/* 選中：整格變亮色塊並上凸 4px，圖示與字轉深色 */
+body:is([data-modal-tab=build],[data-modal-tab=hunters],[data-modal-tab=trade],[data-modal-tab=craft],[data-modal-tab=dungeon],[data-modal-tab=arena],[data-modal-tab=quests]) #bottom-bar>button:is(.hv-on){}
+body[data-modal-tab=build] #bottom-bar>[data-action=build],body[data-modal-tab=hunters] #bottom-bar>[data-action=hunters],body[data-modal-tab=trade] #bottom-bar>[data-action=trade],
+body[data-modal-tab=craft] #bottom-bar>[data-action=craft],body[data-modal-tab=dungeon] #bottom-bar>[data-action=dungeon],body[data-modal-tab=arena] #bottom-bar>[data-action=arena],
+body[data-modal-tab=quests] #bottom-bar>[data-action=quests]{
+  background:var(--hv-tab-active)!important;top:-4px!important;height:calc(var(--hv-tab-h) + 4px)!important;margin-bottom:-4px!important;z-index:2!important;
+  box-shadow:inset 0 2px 0 #fff8e6,inset 1px 0 0 #000,inset -1px 0 0 #000!important;filter:none!important}
+body[data-modal-tab=build] #bottom-bar>[data-action=build] b,body[data-modal-tab=hunters] #bottom-bar>[data-action=hunters] b,body[data-modal-tab=trade] #bottom-bar>[data-action=trade] b,
+body[data-modal-tab=craft] #bottom-bar>[data-action=craft] b,body[data-modal-tab=dungeon] #bottom-bar>[data-action=dungeon] b,body[data-modal-tab=arena] #bottom-bar>[data-action=arena] b,
+body[data-modal-tab=quests] #bottom-bar>[data-action=quests] b{color:var(--hv-tab-active-text)!important;text-shadow:none!important}
+body[data-modal-tab=build] #bottom-bar>[data-action=build] kbd,body[data-modal-tab=hunters] #bottom-bar>[data-action=hunters] kbd,body[data-modal-tab=trade] #bottom-bar>[data-action=trade] kbd,
+body[data-modal-tab=craft] #bottom-bar>[data-action=craft] kbd,body[data-modal-tab=dungeon] #bottom-bar>[data-action=dungeon] kbd,body[data-modal-tab=arena] #bottom-bar>[data-action=arena] kbd,
+body[data-modal-tab=quests] #bottom-bar>[data-action=quests] kbd{color:#4e4438!important}
+body[data-modal-tab=build] #bottom-bar>[data-action=build] [data-icon],body[data-modal-tab=hunters] #bottom-bar>[data-action=hunters] [data-icon],body[data-modal-tab=trade] #bottom-bar>[data-action=trade] [data-icon],
+body[data-modal-tab=craft] #bottom-bar>[data-action=craft] [data-icon],body[data-modal-tab=dungeon] #bottom-bar>[data-action=dungeon] [data-icon],body[data-modal-tab=arena] #bottom-bar>[data-action=arena] [data-icon],
+body[data-modal-tab=quests] #bottom-bar>[data-action=quests] [data-icon]{filter:none!important}
+body[data-modal-tab=build] #bottom-bar>[data-action=build]::before,body[data-modal-tab=build] #bottom-bar>[data-action=build]+button::before,
+body[data-modal-tab=hunters] #bottom-bar>[data-action=hunters]::before,body[data-modal-tab=hunters] #bottom-bar>[data-action=hunters]+button::before,
+body[data-modal-tab=trade] #bottom-bar>[data-action=trade]::before,body[data-modal-tab=trade] #bottom-bar>[data-action=trade]+button::before,
+body[data-modal-tab=craft] #bottom-bar>[data-action=craft]::before,body[data-modal-tab=craft] #bottom-bar>[data-action=craft]+button::before,
+body[data-modal-tab=dungeon] #bottom-bar>[data-action=dungeon]::before,body[data-modal-tab=dungeon] #bottom-bar>[data-action=dungeon]+button::before,
+body[data-modal-tab=arena] #bottom-bar>[data-action=arena]::before,body[data-modal-tab=arena] #bottom-bar>[data-action=arena]+button::before,
+body[data-modal-tab=quests] #bottom-bar>[data-action=quests]::before,body[data-modal-tab=quests] #bottom-bar>[data-action=quests]+button::before{display:none!important}
+/* 待辦徽章：圖示右上角的紅色小方塊數字 */
+html body #bottom-bar button[data-badge]:not([data-badge=""])::after{content:attr(data-badge)!important;position:absolute!important;top:5px!important;left:calc(50% + 8px)!important;right:auto!important;
+  min-width:18px!important;height:18px!important;padding:0 4px!important;display:grid!important;place-items:center!important;border-radius:2px!important;background:var(--hv-warn)!important;
+  border:1px solid #000!important;color:#fff!important;font:700 12px/1 var(--font-num)!important;box-shadow:0 1px 0 #000!important;text-shadow:0 1px 0 #000!important;box-sizing:border-box}
+@media(max-width:760px),(max-height:520px){
+  html body #bottom-bar>button{padding:4px 0!important;gap:3px!important}
+  html body #bottom-bar>button [data-icon],html body #bottom-bar>button [data-icon] :is(canvas,img){width:28px!important;height:28px!important}
+  html body #bottom-bar>button kbd{display:none!important}
+  html body #bottom-bar>button b{letter-spacing:0}
+  html body #bottom-bar button[data-badge]:not([data-badge=""])::after{top:3px!important;left:calc(50% + 6px)!important}
+}
+
+/* ═══ 4. 面板外殼：底部抽屜 ═══ */
+html body #modal-backdrop{inset:0!important;background:rgba(8,6,5,.32)!important;backdrop-filter:none!important;overflow:hidden!important;max-height:none!important;
+  padding:var(--hud-top,96px) 16px var(--hud-bottom,var(--hv-tab-h))!important;align-items:flex-end!important;justify-content:center!important;z-index:30}
+html body #modal-backdrop>*{max-height:none}
+html body #modal{
+  position:relative!important;display:flex!important;flex-direction:column!important;
+  width:min(960px,calc((100vw - 32px) / max(1,var(--ui-scale,1))))!important;max-width:none!important;min-width:0!important;
+  max-height:calc((100vh - max(var(--hud-top,96px),96px) - var(--hud-bottom,72px) - 4px) / max(1,var(--ui-scale,1)))!important;height:auto!important;
+  margin:0!important;padding:0!important;background:var(--hv-ink)!important;border:1px solid var(--hv-line)!important;border-bottom:0!important;border-image:none!important;
+  border-radius:3px 3px 0 0!important;box-shadow:0 -2px 0 #000!important;overflow:hidden!important;color:var(--hv-text)}
+html body #modal::before{content:none!important}
+html body #modal>*{z-index:auto}
+@keyframes hvDrawerIn{from{opacity:0;transform:translateY(18px)}to{opacity:1;transform:none}}
+@keyframes hvFadeIn{from{opacity:0}to{opacity:1}}
+html body #modal-backdrop:not(.hidden){animation:hvFadeIn .14s ease-out!important}
+html body #modal-backdrop:not(.hidden) #modal{animation:hvDrawerIn .16s cubic-bezier(.2,.8,.3,1)!important}
+@media(prefers-reduced-motion:reduce){html body #modal-backdrop:not(.hidden),html body #modal-backdrop:not(.hidden) #modal{animation:none!important}}
+
+/* 頂部：面板名＝選中的子頁籤（與面板同色連成一體）＋右上圓形 X */
+html body #modal .modal-title{display:flex!important;align-items:flex-end!important;gap:0!important;height:44px!important;min-height:0!important;margin:0!important;padding:0 6px 0 8px!important;
+  background:var(--hv-ink-deep)!important;border:0!important;border-bottom:1px solid var(--hv-line)!important;border-image:none!important;box-shadow:none!important;flex:0 0 auto;position:relative!important;overflow:visible}
+html body #modal .modal-title::before,html body #modal .modal-title::after{content:none!important}
+html body #modal .modal-title #modal-icon{order:0;display:grid!important;place-items:center;align-self:flex-end;width:20px!important;height:36px!important;margin:0 -28px 0 0!important;
+  padding:0 0 0 12px;position:relative;z-index:2;background:none!important;border:0!important;box-sizing:content-box}
+html body #modal .modal-title #modal-icon :is(canvas,img){width:18px!important;height:18px!important;image-rendering:pixelated}
+html body #modal .modal-title h2{order:0;display:flex!important;align-items:center;height:36px!important;margin:0 0 -1px!important;padding:0 16px 0 40px!important;
+  background:var(--hv-ink)!important;border:1px solid var(--hv-line)!important;border-bottom:1px solid var(--hv-ink)!important;border-radius:3px 3px 0 0!important;
+  font:700 14px/1 var(--font-ui)!important;color:#fff!important;text-shadow:none!important;letter-spacing:.06em;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;max-width:calc(100% - 64px);flex:0 1 auto}
+html body #modal .modal-title [data-action=close]{margin:0 0 0 auto!important;align-self:center!important;width:32px!important;height:32px!important;min-width:32px!important;min-height:32px!important;padding:0!important;
+  border-radius:50%!important;background:var(--hv-panel-2) var(--hv-x) center/12px 12px no-repeat!important;border:2px solid var(--hv-line-hi)!important;border-image:none!important;
+  box-shadow:0 2px 0 #000!important;font-size:0!important;color:transparent!important;text-shadow:none!important;image-rendering:pixelated;position:relative;flex:0 0 auto}
+html body #modal .modal-title [data-action=close]:hover{background-color:var(--hv-btn-primary)!important;border-color:#000!important}
+html body #modal .modal-title [data-action=close]>*{display:none!important}
+@media(max-width:760px),(max-height:520px){
+  html body #modal .modal-title{height:52px!important}
+  html body #modal .modal-title h2{height:40px!important}
+  html body #modal .modal-title #modal-icon{height:40px!important}
+  html body #modal .modal-title [data-action=close]{width:44px!important;height:44px!important;min-width:44px!important;min-height:44px!important;background-size:14px 14px!important}
+}
+
+/* 內容區自己捲動；上下小箭頭提示（取代「還有內容」漸層條） */
+html body #modal-content{flex:1 1 auto!important;min-height:0!important;overflow:auto!important;overscroll-behavior:contain;margin:0!important;padding:12px 12px 16px!important;
+  background:var(--hv-ink)!important;border:0!important;box-shadow:none!important;scrollbar-width:thin;scrollbar-color:var(--hv-line-hi) var(--hv-ink);color:var(--hv-text)}
+html body #modal-content::before,html body #modal-content::after{content:none!important}
+html body #modal #scroll-hint,html body #modal #scroll-hint-up{position:absolute!important;left:auto!important;right:14px!important;width:18px!important;height:20px!important;padding:0!important;margin:0!important;
+  display:block!important;background:none!important;border:0!important;box-shadow:none!important;pointer-events:none!important;z-index:5!important;opacity:1}
+html body #modal #scroll-hint{top:auto!important;bottom:6px!important}
+html body #modal #scroll-hint-up{top:50px!important;bottom:auto!important}
+html body #modal :is(#scroll-hint,#scroll-hint-up)[hidden]{display:none!important}
+html body #modal[data-scroll=""] #scroll-hint{opacity:0}
+html body .hv-chev{display:block;width:18px;height:20px;background:var(--hv-chev) center/18px 20px no-repeat;image-rendering:pixelated;animation:hvBob 1.2s steps(2,end) infinite}
+html body .hv-chev.up{transform:scaleY(-1);animation-name:hvBobUp}
+@keyframes hvBob{0%,100%{transform:translateY(0)}50%{transform:translateY(2px)}}
+@keyframes hvBobUp{0%,100%{transform:scaleY(-1) translateY(0)}50%{transform:scaleY(-1) translateY(2px)}}
+@media(prefers-reduced-motion:reduce){html body .hv-chev{animation:none!important}}
+@media(max-width:760px),(max-height:520px){html body #modal #scroll-hint-up{top:58px!important}}
+
+/* 手機：滿寬，高度到資源疊下方為止 */
+@media(max-width:760px),(max-height:520px){
+  html body #modal-backdrop{padding-left:0!important;padding-right:0!important}
+  html body #modal{width:100vw!important;max-height:calc(100vh - var(--hud-top,96px) - var(--hud-bottom,60px))!important;
+    height:calc(100vh - var(--hud-top,96px) - var(--hud-bottom,60px))!important;border-left:0!important;border-right:0!important;border-radius:0!important}
+  html body #modal-content{padding:10px 10px 18px!important}
+}
+
+/* 確認框：炭黑小面板置中＋兩顆鈕（主＝磚紅、取消＝灰） */
+html body #modal[data-kind=confirm]{width:min(360px,calc(100vw - 32px))!important;height:auto!important;max-height:none!important;border:1px solid var(--hv-line)!important;border-radius:3px!important;
+  box-shadow:0 0 0 1px #000,0 4px 0 #000!important;align-self:center!important}
+html body #modal-backdrop:has(#modal[data-kind=confirm]){align-items:center!important;padding:16px!important;background:rgba(8,6,5,.6)!important}
+html body #modal[data-kind=confirm] .modal-title [data-action=close]{display:none!important}
+html body #modal[data-kind=confirm] .modal-title h2{max-width:none}
+.hv-confirm p{margin:4px 2px 16px;font:600 13px/1.6 var(--font-ui);color:var(--hv-text)}
+.hv-confirm-row{display:flex;gap:8px;justify-content:flex-end}
+.hv-confirm-row .hv-btn{flex:1 1 0;min-height:40px}
+
+/* ═══ 5. 面板內容：去掉木紋、金線框、羊皮紙橫幅、漸層條 ═══ */
+html body #modal-content *:not(img):not(canvas):not([data-icon]):not([data-icon] *):not(.bp-art):not(.region-art):not(.region-detail-art):not(.hv-lock):not([style*="background-image"]){background-image:none!important}
+html body #modal-content *{border-image:none!important}
+html body #modal-content :is(h2,h3,h4,strong){color:var(--hv-text);text-shadow:none!important}
+html body #modal-content :is(p,small,li){text-shadow:none!important}
+html body #modal-content :is(.modal-note,.wm-map-note,.tf-note,.stock-note){color:var(--hv-text-dim)!important}
+/* 標題橫幅插畫 → 一行標題＋說明，無插畫 */
+html body #modal-content .encounter-banner{background:none!important;border:0!important;border-bottom:1px solid var(--hv-line)!important;box-shadow:none!important;border-radius:0!important;
+  min-height:0!important;height:auto!important;max-height:none!important;padding:0 2px 10px!important;margin:0 0 12px!important;display:block!important;overflow:visible!important}
+html body #modal-content .encounter-banner::before,html body #modal-content .encounter-banner::after{content:none!important;display:none!important}
+html body #modal-content .encounter-banner>i{display:none!important}
+html body #modal-content .encounter-banner>*{position:static!important}
+html body #modal-content .encounter-banner h3{font:700 13px/1.4 var(--font-ui)!important;color:var(--hv-quest)!important;margin:0 0 4px!important;text-shadow:none!important}
+html body #modal-content .encounter-banner p{font:600 12px/1.55 var(--font-ui)!important;color:var(--hv-text-dim)!important;margin:0!important;max-width:none!important;text-shadow:none!important}
+html body #modal-content .encounter-banner :is(.pill,.chip,b,em){text-shadow:none!important}
+html body #modal[data-type=build] .encounter-banner{display:none!important}
+/* 通用卡：panel 底、1px 外邊、內縮 2px 再一圈低透明度亮線 */
+html body #modal-content :is(.hv-card,.hunter-card,.visitor-card,.craft-card,.quest-list-row,.quest-step,.material-item,.region-card,.party-pick,.trade-row,.region-pick,.difficulty-card,
+  .cx-card,.welcome-step,.setting-row,.bs-hunter,.bf-side,.of-tile,.stock-item,.building-card,.empty-state,.stats-grid>div,.rd-stats>div,.rd-monsters>li,.inv-cell,.help-card,.help-section,.dungeon-panel,.arena-panel){
+  background-color:var(--hv-panel)!important;border:1px solid var(--hv-line)!important;border-radius:2px!important;
+  box-shadow:inset 0 0 0 2px var(--hv-panel),inset 0 0 0 3px rgba(107,94,80,.42)!important;color:var(--hv-text)}
+html body #modal-content :is(button.hunter-card,button.party-pick,.region-pick,.region-card,.stock-item):hover{background-color:var(--hv-panel-2)!important}
+html body #modal-content :is(.party-pick.selected,.party-pick[aria-pressed="true"],.region-card.active,.region-pick.on,.quest-step.current,.quest-list-row.current,.difficulty-card.current,.difficulty-card.active){
+  border-color:var(--hv-tab-active)!important;box-shadow:inset 0 0 0 2px var(--hv-panel),inset 0 0 0 3px var(--hv-line-hi)!important}
+html body #modal-content [data-rarity][style*="--rarity"]:is(.hunter-card,.visitor-card,.party-pick,.bs-hunter){border-left:3px solid var(--rarity)!important}
+/* 金線與木框殘留：細線一律換成 --hv-line */
+html body #modal-content :is(.build-stock,.trade-summary,.party-summary,.roster-bar,.modal-toolbar,.wm-foot,.world-map-header,.dispatch-head,.boss-loot,.boss-rounds,.encounter-status,.trade-footer,.rd-fit,.rd-loot,.craft-meta,.cost,.tabs,.dispatch-tabs,.dispatch-quick,.seg){border-color:var(--hv-line)!important;box-shadow:none!important}
+html body #modal-content :is(.build-stock,.trade-summary,.party-summary,.boss-rounds,.encounter-status,.rd-fit){background-color:var(--hv-ink-deep)!important;border:1px solid var(--hv-line)!important;border-radius:2px!important}
+html body #modal-content :is(.roster-bar,.modal-toolbar,.world-map-header,.wm-foot,.trade-footer,.dispatch-head){background-color:transparent!important}
+html body #modal-content :is(.cost-chip,.cost>span,.chip,.pill,.tag,.trait,.rarity,.status,.hs-trait,.hs-range,.vs-kind,.rg-risk,.rd-risk){box-shadow:none!important;text-shadow:none!important}
+html body #modal-content .cost-chip{background-color:transparent!important;border:0!important}
+html body #modal-content :is(.cost-chip.short,.cost>span.short,.short){color:var(--hv-warn)!important}
+html body #modal-content :is(.cost-chip.short,.cost>span.short) b{color:var(--hv-warn)!important}
+html body #modal-content :is(.trait,.status,.hs-range,.vs-kind){background-color:var(--hv-panel-2)!important;border:1px solid var(--hv-line)!important;border-radius:2px!important;color:var(--hv-text)!important}
+html body #modal-content .rarity{background-color:transparent!important;border:1px solid var(--rarity,var(--hv-line))!important;color:var(--rarity,var(--hv-text))!important;border-radius:2px!important}
+/* 子頁籤（製作等面板內的分頁）：選中與面板同色，未選較暗 */
+html body #modal-content .tabs{display:flex!important;gap:4px!important;border:0!important;border-bottom:1px solid var(--hv-line)!important;padding:0 0 0 2px!important;margin:0 0 12px!important;background:none!important}
+html body #modal-content .tabs>button{min-height:36px;padding:0 16px!important;margin:0 0 -1px!important;background:var(--hv-ink-deep)!important;border:1px solid var(--hv-line)!important;border-bottom-color:var(--hv-line)!important;
+  border-radius:3px 3px 0 0!important;color:var(--hv-text-dim)!important;font:700 13px/1 var(--font-ui)!important;box-shadow:none!important;text-shadow:none!important}
+html body #modal-content .tabs>button.active{background:var(--hv-ink)!important;color:#fff!important;border-bottom-color:var(--hv-ink)!important}
+@media(max-width:760px),(max-height:520px){html body #modal-content .tabs>button{min-height:44px}}
+/* 進度條：凹槽＋實色條（無漸層） */
+html body #modal-content :is(.progress,.tiny-health,.bs-hp,.hp-bar,.xp-bar,.q-bar,.qs-bar),html body :is(#left-panel,#inspector,#unit-card,#run-hud) :is(.progress,.tiny-health,.rh-bar){
+  background:var(--hv-ink-deep)!important;border:1px solid #000!important;box-shadow:none!important;border-radius:0!important}
+html body #modal-content :is(.progress,.tiny-health,.bs-hp,.hp-bar,.xp-bar,.q-bar,.qs-bar)>span,html body :is(#left-panel,#inspector,#unit-card,#run-hud) :is(.progress,.tiny-health,.rh-bar)>span{
+  background:var(--hv-ok)!important;box-shadow:inset 0 1px 0 rgba(255,255,255,.25)!important;border-radius:0!important}
+html body :is(#modal-content,#unit-card,#run-hud) :is(.tiny-health.hurt,.tiny-health[data-health=hurt])>span{background:var(--hv-gold)!important}
+html body :is(#modal-content,#unit-card,#run-hud) :is(.tiny-health.low,.tiny-health.down,.tiny-health[data-health=low],.tiny-health[data-health=down])>span{background:var(--hv-warn)!important}
+html body :is(#modal-content,#boss-bar) .progress.red>span,html body #modal-content .boss-hp .progress>span{background:var(--hv-warn)!important}
+html body #modal-content .progress>b{color:#fff!important;text-shadow:var(--hv-outline)!important;font:700 12px/1 var(--font-num)!important}
+/* 正文下限 12px（量測抓到的 11px 小字） */
+html body #modal-content :is(.vs-kind,.diff-now,.wm-map-note,.rg-exp small){font-size:12px!important}
+/* 表單元件 */
+html body #modal-content :is(input,select,textarea){background:var(--hv-ink-deep)!important;color:var(--hv-text)!important;border:1px solid var(--hv-line)!important;border-radius:2px!important;box-shadow:none!important;font-family:var(--font-ui)!important}
+html body #modal-content output{background:var(--hv-ink-deep)!important;border:1px solid var(--hv-line)!important;color:#fff!important;border-radius:2px}
+/* 首領對決、離線摘要、地區卡等強調框：保留語意色但改成細線 */
+html body #modal-content .bf-side.boss{border-color:#7c281c!important}
+html body #modal-content .bf-side b{color:#fff!important;text-shadow:none!important}
+html body #modal-content .bf-side.boss b{color:var(--hv-warn)!important}
+html body #modal-content .bf-vs{color:var(--hv-text-dim)!important;text-shadow:none!important}
+html body #modal-content .region-card{border-top:3px solid var(--biome,var(--hv-line))!important}
+/* 委託章節：時間軸連線與章節編號改成細線＋任務色，不用金漸層 */
+html body #modal-content .quest-step::after{background:var(--hv-line)!important;width:1px!important}
+html body #modal-content .quest-step.done::after{background:var(--hv-ok)!important}
+html body #modal-content .qs-num{background:var(--hv-ink-deep)!important;border:1px solid var(--hv-line-hi)!important;color:var(--hv-text-dim)!important;box-shadow:none!important;text-shadow:none!important}
+html body #modal-content .quest-step.current .qs-num{background:var(--hv-quest)!important;border-color:#000!important;color:#231d18!important}
+html body #modal-content .quest-step.done .qs-num{background:var(--hv-ok)!important;border-color:#000!important;color:#14200c!important}
+html body #modal-content .qs-tag{background:var(--hv-panel-2)!important;border:1px solid var(--hv-line)!important;color:var(--hv-text-dim)!important;border-radius:2px!important;box-shadow:none!important}
+html body #modal-content .qs-tag.current{border-color:var(--hv-quest)!important;color:var(--hv-quest)!important}
+html body #modal-content .qs-tag.done{border-color:var(--hv-ok)!important;color:var(--hv-ok)!important}
+html body #modal-content .qs-ready{background:var(--hv-btn-primary)!important;border:1px solid #000!important;color:#fff!important;border-radius:2px!important;box-shadow:none!important}
+html body #modal-content .quest-step.locked{opacity:.72}
+
+/* ═══ 6. 建設面板（完整範例） ═══ */
+html body #modal-content .build-stock{display:flex!important;flex-wrap:wrap;gap:4px 14px!important;padding:6px 10px!important;margin:0 0 12px!important}
+html body #modal-content .build-stock .bs-item{display:inline-flex!important;align-items:center;gap:4px;font:600 12px/1.4 var(--font-ui)!important;color:var(--hv-text-dim)!important;background:none!important;border:0!important;padding:0!important}
+html body #modal-content .build-stock .bs-item b{color:#fff!important;font:700 12px/1 var(--font-num)!important}
+html body #modal-content .build-stock .bs-item .nm{color:var(--hv-text-dim)}
+html body #modal-content .hv-build-grid{display:grid!important;grid-template-columns:repeat(5,minmax(0,1fr))!important;gap:8px!important;padding:0!important;margin:0!important}
+html body #modal-content .hv-card.building-card{display:flex!important;flex-direction:column!important;align-items:stretch!important;gap:6px!important;padding:6px 6px 8px!important;
+  min-height:0!important;height:auto!important;width:auto!important;text-align:left!important;cursor:default;transform:none!important;filter:none!important;opacity:1!important}
+html body #modal-content .hv-card.building-card::before{content:none!important;display:none!important}
+html body #modal-content .hv-card .bc-head{display:grid;grid-template-columns:1fr auto;grid-template-rows:auto auto;column-gap:4px;align-items:start;min-height:32px}
+html body #modal-content .hv-card .bc-head strong{grid-column:1;grid-row:1;font:700 13px/1.25 var(--font-ui)!important;color:#fff!important;padding:2px 0 0 2px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+html body #modal-content .hv-card .bc-head small{grid-column:1;grid-row:2;font:600 12px/1.3 var(--font-num)!important;color:var(--hv-text-dim)!important;padding-left:2px}
+html body #modal-content .hv-card .hv-i{grid-column:2;grid-row:1/3;display:grid!important;place-items:center!important;width:32px!important;height:32px!important;min-height:32px!important;padding:0!important;margin:-2px -2px 0 0!important;
+  background:none!important;border:0!important;box-shadow:none!important;cursor:pointer}
+html body #modal-content .hv-card .hv-i>span{display:grid;place-items:center;width:24px;height:24px;background:var(--hv-gold);border:1px solid #000;border-radius:2px;
+  box-shadow:inset 0 1px 0 #ffe7a3,inset 0 -2px 0 #a5781c;color:#231d18;font:700 14px/1 var(--font-num);text-shadow:none}
+html body #modal-content .hv-card .hv-i:hover>span{background:#f2c95a}
+html body #modal-content .hv-card .bc-art{display:grid;place-items:center;height:96px;margin:0 -2px;background:var(--hv-ink-deep);border:1px solid #0a0807;border-radius:1px;overflow:hidden}
+html body #modal-content .hv-card .bc-art img{display:block;width:auto!important;height:88px!important;max-width:100%;object-fit:contain;image-rendering:pixelated;margin:0!important;filter:none!important}
+html body #modal-content .hv-card.unbuilt .bc-art img{opacity:.55;filter:grayscale(.35)!important}
+html body #modal-content .hv-card .hv-costs{display:flex!important;flex-wrap:wrap;justify-content:center;gap:2px 10px!important;min-height:18px;margin:0!important;padding:0!important;background:none!important;border:0!important}
+html body #modal-content .hv-card .hv-cost{display:inline-flex;align-items:center;gap:3px;font:700 12px/1 var(--font-num);color:#fff}
+html body #modal-content .hv-card .hv-cost [data-icon],html body #modal-content .hv-card .hv-cost [data-icon] :is(canvas,img){width:16px!important;height:16px!important}
+html body #modal-content .hv-card .hv-cost.short b{color:var(--hv-warn)!important}
+html body #modal-content .hv-card .hv-btn{width:100%!important;min-height:34px;padding:4px 6px!important;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;margin-top:auto!important}
+html body #modal-content .hv-card .bc-done{margin:auto 0 0!important;min-height:34px;display:grid;place-items:center;font:700 12px/1.3 var(--font-ui)!important;color:var(--hv-ok)!important;text-align:center}
+html body #modal-content .hv-card .build-level,html body #modal-content .hv-card .build-note{display:none!important}
+@media(max-width:1100px){html body #modal-content .hv-build-grid{grid-template-columns:repeat(4,minmax(0,1fr))!important}}
+@media(max-width:760px),(max-height:520px){
+  html body #modal-content .hv-build-grid{grid-template-columns:repeat(3,minmax(0,1fr))!important;gap:6px!important}
+  html body #modal-content .hv-card.building-card{padding:4px 4px 6px!important;gap:4px!important}
+  html body #modal-content .hv-card .bc-head{min-height:44px}
+  html body #modal-content .hv-card .bc-head strong{font-size:12px!important;white-space:normal;line-height:1.2!important}
+  html body #modal-content .hv-card .hv-i{width:44px!important;height:44px!important;min-height:44px!important;margin:-4px -4px 0 -6px!important}
+  html body #modal-content .hv-card .bc-art{height:72px}
+  html body #modal-content .hv-card .bc-art img{height:64px!important}
+  html body #modal-content .hv-card .hv-costs{gap:2px 6px!important}
+  html body #modal-content .hv-card .hv-btn,html body #modal-content .hv-card .bc-done{min-height:44px}
+  html body #modal-content .hv-card .hv-btn{font-size:12px!important;padding:2px 2px!important;white-space:normal;line-height:1.2!important}
+  html body #modal-content .build-stock{gap:2px 10px!important}
+}
+@media(min-width:761px) and (max-height:520px){html body #modal-content .hv-build-grid{grid-template-columns:repeat(5,minmax(0,1fr))!important}}
+
+/* ═══ 7. 世界上的其他浮動面板（村務抽屜、建築資訊、單位小卡、放置提示、小隊 HUD、指令面板）→ 炭黑面板 ═══ */
+html body :is(#left-panel .game-panel,#inspector,#placement,#unit-card,#run-hud,.offline-calc,#cmdk .cmdk-box){
+  background:var(--hv-ink)!important;border:1px solid var(--hv-line)!important;border-image:none!important;border-radius:2px!important;box-shadow:0 2px 0 #000!important;color:var(--hv-text)!important}
+html body :is(#left-panel,#inspector,#unit-card,#run-hud,#cmdk) *{border-image:none!important}
+html body :is(#left-panel,#inspector,#unit-card,#run-hud) *:not(img):not(canvas):not([data-icon]):not([data-icon] *):not(.bp-art):not(.hv-lock):not([style*="background-image"]){background-image:none!important}
+html body :is(#left-panel,#inspector) .panel-title{background:var(--hv-ink-deep)!important;border:0!important;border-bottom:1px solid var(--hv-line)!important;box-shadow:none!important;color:#fff!important;text-shadow:none!important}
+html body :is(#left-panel,#inspector) .panel-title b{color:#fff!important;text-shadow:none!important;font:700 13px/1.2 var(--font-ui)!important}
+html body :is(#left-panel,#inspector) .panel-title>button{background:var(--hv-panel-2)!important;border:2px solid var(--hv-line-hi)!important;border-radius:50%!important;box-shadow:0 2px 0 #000!important;color:#fff!important;text-shadow:none!important;border-image:none!important}
+/* 上面那條 *{background-image:none} 會吃掉按鈕本身的 ✕ 圖 → ✕ 改畫在 ::after(偽元素不受那條規則影響) */
+html body #inspector .panel-title>[data-action=closeInspector]{position:relative;font-size:0!important;color:transparent!important}
+html body #inspector .panel-title>[data-action=closeInspector]::before{content:none!important}
+html body #inspector .panel-title>[data-action=closeInspector]::after{content:""!important;position:absolute;inset:0;background:var(--hv-x) center/12px 12px no-repeat;image-rendering:pixelated}
+html body #inspector .panel-title>[data-action=closeInspector]:hover{background-color:var(--hv-btn-primary)!important}
+html body :is(#left-panel,#inspector,#unit-card) :is(.stock-item,.mini-hunter,.inspect-effect,.inspect-cost,.inspect-note,.inspect-next,.inspect-level){background-color:var(--hv-panel)!important;border:1px solid var(--hv-line)!important;box-shadow:none!important;border-radius:2px!important}
+html body #inspector .inspect-art{background:var(--hv-ink-deep)!important;border:1px solid #000!important;box-shadow:none!important}
+html body #inspector .inspect-note.short{color:var(--hv-warn)!important}
+html body #inspector .inspect-actions .move{background:#4a4540!important;color:var(--hv-text)!important;border:1px solid #000!important;border-radius:2px!important;box-shadow:0 2px 0 #000!important;text-shadow:none!important}
+html body #inspector{right:calc(var(--hv-gut) + 0px)!important;top:calc(env(safe-area-inset-top,0px) + 8px + var(--hv-right-h) + 6px)!important;left:auto!important;bottom:auto!important;
+  max-height:calc(100vh - (env(safe-area-inset-top,0px) + 8px + var(--hv-right-h) + 6px) - var(--hv-tab-h) - 16px)!important;overflow:auto!important;z-index:12}
+html body #left-panel{left:var(--hv-gut)!important;top:calc(env(safe-area-inset-top,0px) + 8px + var(--hv-top-left-h) + 8px)!important;max-height:calc(100vh - (env(safe-area-inset-top,0px) + 8px + var(--hv-top-left-h) + 8px) - var(--hv-tab-h) - 16px)!important;z-index:12}
+html body #cmdk{background:rgba(8,6,5,.55)!important}
+html body #cmdk :is(.cmdk-head,.cmdk-foot){background:var(--hv-ink-deep)!important;border-color:var(--hv-line)!important;color:var(--hv-text-dim)!important}
+html body #cmdk input{background:var(--hv-ink-deep)!important;border:1px solid var(--hv-line)!important;color:var(--hv-text)!important;font-family:var(--font-ui)!important}
+html body #cmdk .cmdk-row{background:transparent!important;border:0!important;border-bottom:1px solid var(--hv-panel-2)!important;color:var(--hv-text)!important;box-shadow:none!important}
+html body #cmdk .cmdk-row:is(:hover,.on,[aria-selected=true]){background:var(--hv-panel-2)!important;color:#fff!important}
+
+/* ═══ 8. toast：小型亮色條，出現在頁籤列上方 ═══ */
+html body:not(.piloting) #toasts{position:fixed!important;top:auto!important;bottom:calc(var(--hv-tab-h) + env(safe-area-inset-bottom,0px) + 12px)!important;left:50%!important;right:auto!important;transform:translateX(-50%)!important;
+  display:flex!important;flex-direction:column!important;align-items:center!important;gap:6px!important;width:max-content;max-width:calc(100vw - 32px);z-index:45;pointer-events:none}
+body.hud-modal:not(.piloting) #toasts{bottom:auto!important;top:calc(var(--hud-top,96px) + 56px)!important}
+html body #toasts .toast{display:flex!important;align-items:center!important;gap:8px!important;min-height:0!important;width:auto!important;max-width:min(480px,calc(100vw - 32px))!important;margin:0!important;
+  padding:6px 12px 6px 8px!important;background:var(--hv-dialog)!important;border:1px solid #000!important;border-left:4px solid var(--tk,#8ebc5e)!important;border-image:none!important;border-radius:2px!important;
+  box-shadow:0 2px 0 #000!important;color:var(--hv-dialog-text)!important;font:600 13px/1.35 var(--font-ui)!important;text-shadow:none!important;pointer-events:none!important}
+html body #toasts .toast::before,html body #toasts .toast::after{content:none!important}
+html body #toasts .toast .toast-tx{color:var(--hv-dialog-text)!important;text-shadow:none!important}
+html body #toasts .toast .toast-ic{display:grid!important;place-items:center;width:20px!important;height:20px!important;flex:0 0 20px;background:none!important;border:0!important;margin:0!important}
+html body #toasts .toast .toast-ic :is(canvas,img,[data-icon]){width:20px!important;height:20px!important}
+html body #toasts .toast .toast-check{color:#3f7a25!important;font:700 14px/1 var(--font-num)!important;text-shadow:none!important}
+html body #toasts .toast.kind-error{border-left-color:#b33a24!important}
+html body #toasts .toast.kind-error .toast-tx{color:#7c1d10!important}
+
+/* ═══ 9. 手機直向（≤760 寬）：兩排 44px 圖示＋資源疊；行動徽章與工具列直排在右側 ═══ */
+@media(max-width:760px){
+  :root{--hv-gut:8px;--hv-top-left-h:84px;--hv-right-h:118px}
+  html body #topbar{padding-top:calc(6px + env(safe-area-inset-top,0px))!important}
+  html body #topbar .play-controls>button,html body #topbar .population{width:44px!important;height:44px!important;min-width:44px!important}
+  html body #topbar .population{width:auto!important;padding:0 6px!important}
+  html body #topbar #save-label:not(.warn){display:none!important}
+  html body #topbar .hv-tr2{gap:0!important}
+  html body #hv-left{width:min(250px,calc(100vw - 2 * var(--hv-gut) - 76px))}
+  html body .hv-actions .hv-act{width:64px!important}
+}
+/* 很矮的直向視窗（402x712 之類）：行動徽章縮成一排小圖示，留出縮放鈕的位置 */
+@media(max-width:760px) and (max-height:740px){
+  html body .hv-actions .hv-act{min-height:56px!important}
+  html body .hv-actions .hv-act [data-icon],html body .hv-actions .hv-act [data-icon] :is(canvas,img){width:26px!important;height:26px!important}
+}
+
+/* ═══ 10. 橫向手機／矮視窗（高 ≤520）：資源 2×2、右上一排圖示、徽章直排、工具橫排 ═══ */
+@media(max-height:520px){
+  :root{--hv-gut:10px;--hv-top-left-h:48px;--hv-right-h:62px}
+  html body #topbar{padding-top:calc(6px + env(safe-area-inset-top,0px))!important;padding-left:calc(var(--hv-gut) + env(safe-area-inset-left,0px))!important;padding-right:calc(var(--hv-gut) + env(safe-area-inset-right,0px))!important}
+  html body #topbar .hv-crest{width:44px!important}
+  html body #topbar .hv-crest>i[data-icon]{width:44px!important;height:28px!important;background-size:24px 24px!important}
+  body.hud-modal #topbar #day-clock{display:none!important}
+  html body #topbar .hv-crest>i[data-icon] :is(canvas,img){width:24px!important;height:24px!important}
+  html body #topbar .treasury{display:grid!important;grid-template-columns:auto auto;column-gap:10px}
+  html body #topbar .hv-tr{flex-direction:column!important}
+  html body #topbar .hv-tr1{order:0}
+  html body #topbar .hv-tr{display:grid!important;grid-template-columns:auto auto;grid-template-areas:"a b" "c c" "d d";justify-items:end;column-gap:2px}
+  html body #topbar .hv-tr1{grid-area:a}html body #topbar .hv-tr2{grid-area:b}html body #topbar #day-clock{grid-area:c}html body #topbar #region-badge{grid-area:d}
+  html body #topbar .play-controls>button,html body #topbar .population{height:44px!important;min-width:44px!important}
+  html body #topbar .play-controls>button{width:44px!important}
+  html body #topbar #save-label:not(.warn){display:none!important}
+  html body #topbar #region-badge{display:none!important}
+  html body #hv-left{width:min(300px,40vw)}
+  html body .hv-actions{flex-direction:column}
+  html body .hv-actions .hv-act{min-height:52px!important;width:64px!important}
+  html body .hv-actions .hv-act [data-icon],html body .hv-actions .hv-act [data-icon] :is(canvas,img){width:24px!important;height:24px!important}
+  html body #game-ui .view-tools{flex-direction:row!important;right:calc(var(--hv-gut) + 72px)!important}
+  html body #hv-advisor{display:none}
+}
+
+/* ═══════════════════════════════════════════════════════════════════════════
+   第二階段(2026-11-11):桌機加大、村莊等級、名冊格狀卡、世界內六角鈕、亮色對話框、各面板精修、橫向手機抽屜
+   ═══════════════════════════════════════════════════════════════════════════ */
+
+/* ── 圖示一律填滿自己的方格(第一階段只設了外框,內層 img 停在原尺寸 → 頁籤圖示看起來只有 20px) ── */
+html body #bottom-bar>button [data-icon] :is(canvas,img),
+html body .hv-actions .hv-act [data-icon] :is(canvas,img),
+html body #topbar .hv-crest>i[data-icon] :is(canvas,img){width:100%!important;height:100%!important;image-rendering:pixelated}
+html body #bottom-bar>button [data-icon],html body #bottom-bar>button [data-icon] :is(canvas,img){width:32px!important;height:32px!important}
+
+/* ── A2 左上徽記:下方色帶兩行「暮影村 Lv.N」＋難度 ── */
+html body #topbar .hv-crest{width:76px!important}
+html body #topbar .hv-crest>i[data-icon]{width:76px!important;height:48px!important}
+html body #topbar .hv-crest>i[data-icon] :is(canvas,img){width:32px!important;height:32px!important}
+html body #topbar .hv-crest .hv-crest-band{display:flex!important;flex-direction:column;align-items:stretch;border:1px solid #000;border-top:0;background:var(--hv-ink-a)}
+html body #topbar .hv-crest #hv-town{display:block;font:700 12px/16px var(--font-ui)!important;color:#fff!important;text-shadow:0 1px 0 #000!important;text-align:center;white-space:nowrap;padding:1px 2px 0;letter-spacing:0}
+html body #topbar .hv-crest #difficulty-name{border:0!important;border-top:1px solid #000!important;height:16px!important;line-height:16px!important}
+
+/* ── A1 桌機(≥1024 寬、不是矮視窗):HUD 與頁籤列加大加厚 ── */
+@media (min-width:1024px) and (min-height:521px){
+  :root{--hv-top-left-h:102px;--hv-right-h:150px;--hv-gut:16px}
+  html body #topbar{padding-top:12px!important}
+  html body #topbar .hv-tl{gap:12px}
+  html body #topbar .hv-crest{width:88px!important}
+  html body #topbar .hv-crest>i[data-icon]{width:88px!important;height:56px!important}
+  html body #topbar .hv-crest>i[data-icon] :is(canvas,img){width:40px!important;height:40px!important}
+  html body #topbar .hv-crest #hv-town{font-size:13px!important;line-height:18px}
+  html body #topbar .hv-crest #difficulty-name{font-size:13px!important;height:18px!important;line-height:18px!important}
+  html body #topbar .treasury .res-row{height:24px;gap:8px}
+  html body #topbar .treasury [data-icon],html body #topbar .treasury [data-icon] :is(canvas,img){width:20px!important;height:20px!important;flex-basis:20px!important}
+  html body #topbar .treasury b{font-size:16px!important}
+  html body #topbar .hv-tr{gap:4px!important}
+  html body #topbar .hv-tr2{gap:4px!important}
+  html body #topbar .hv-ico{width:44px!important;height:44px!important;min-width:44px!important}
+  html body #topbar .hv-ico [data-icon],html body #topbar .hv-ico [data-icon] :is(canvas,img),html body #topbar .hv-ico.square[data-icon]::before,html body #topbar .hv-ico.square>:is(canvas,img){width:32px!important;height:32px!important}
+  html body #topbar .hv-help>span{width:30px;height:30px;font-size:18px}
+  html body #topbar .play-controls>button{width:40px!important;height:40px!important;min-width:40px!important;font-size:16px!important}
+  html body #topbar #save-label{font-size:13px!important}
+  html body #topbar .population{height:40px!important;gap:6px!important}
+  html body #topbar .population [data-icon],html body #topbar .population [data-icon] :is(canvas,img){width:24px!important;height:24px!important}
+  html body #topbar #population{font-size:16px!important}
+  html body #topbar #day-clock .dc-tx :is(b,small){font-size:14px!important}
+  html body #topbar #day-clock .dc-bar{width:72px!important;height:6px!important}
+  html body #topbar #region-badge{font-size:13px!important}
+  html body #hv-left{width:340px;gap:10px}
+  html body .hv-quest .hq-title{font-size:15px}
+  html body .hv-quest .hq-reward{font-size:15px}
+  html body .hv-quest .hq-reward [data-icon],html body .hv-quest .hq-reward [data-icon] :is(canvas,img){width:20px;height:20px}
+  html body .hv-quest .hq-goal{font-size:14px}
+  html body #hv-advisor .next-step{grid-template-columns:44px 1fr}
+  html body #hv-advisor .next-step .ns-ic{width:44px!important;height:44px!important}
+  html body #hv-advisor .next-step .ns-tx{font-size:14px!important}
+  html body #hv-advisor .next-step .ns-go{font-size:13px!important}
+  html body #notice-feed>*{font-size:13px!important}
+  html body .hv-actions{gap:8px}
+  html body .hv-actions .hv-act{width:84px!important;min-height:80px!important;gap:2px!important}
+  html body .hv-actions .hv-act [data-icon],html body .hv-actions .hv-act [data-icon] :is(canvas,img){width:40px!important;height:40px!important}
+  html body .hv-actions .hv-act :is(.ha-l1,.ha-l2){font-size:13px}
+  html body #game-ui .view-tools>button{width:44px!important;height:44px!important;min-width:44px!important;min-height:44px!important;font-size:20px!important}
+  html body #game-ui .view-tools>button [data-icon],html body #game-ui .view-tools>button [data-icon] :is(canvas,img){width:32px!important;height:32px!important}
+  html body #game-ui .map-hint{font-size:13px!important}
+  html body #bottom-bar>button{gap:6px!important;max-width:150px!important}
+  html body #bottom-bar>button b{font-size:14px!important;letter-spacing:.08em}
+  html body #bottom-bar>button kbd{font-size:12px!important;top:6px!important;left:8px!important}
+  html body #bottom-bar button[data-badge]:not([data-badge=""])::after{left:calc(50% + 12px)!important;top:4px!important}
+}
+/* 1024×768 這種矮一點的桌機:事件訊息只留兩行 */
+@media (min-width:1024px) and (min-height:521px) and (max-height:800px){
+  html body #notice-feed>*:nth-child(3){display:none!important}
+}
+
+/* ── A6 面板容器拿到焦點時不畫框;X 只有鍵盤 :focus-visible 才畫 ── */
+html body #modal:focus,html body #modal:focus-visible{outline:none!important}
+html body #modal .modal-title [data-action=close]:focus:not(:focus-visible){outline:none!important}
+html body #modal .modal-title [data-action=close]:focus-visible{outline:2px solid var(--hv-gold)!important;outline-offset:2px!important}
+
+/* ── 面板頂部頁籤列右側的小工具(篩選、派遣、召回、招募) ── */
+html body #modal .modal-title .hv-mtools{display:flex;align-items:center;gap:4px;margin:0 8px 0 auto;align-self:center;min-width:0;flex:0 1 auto}
+html body #modal .modal-title .hv-mtools:empty{display:none}
+html body #modal .modal-title .hv-mtools:not(:empty)+[data-action=close]{margin-left:0!important}
+html body #modal .modal-title .hv-tool{display:inline-flex!important;align-items:center;gap:6px;height:32px;min-height:32px;padding:0 10px!important;margin:0!important;position:relative;
+  background:var(--hv-panel-2)!important;border:1px solid var(--hv-line)!important;border-radius:2px!important;box-shadow:0 1px 0 #000!important;
+  color:var(--hv-text)!important;font:700 13px/1 var(--font-ui)!important;text-shadow:none!important;white-space:nowrap;cursor:pointer}
+html body #modal .modal-title .hv-tool:hover{background:#353029!important}
+html body #modal .modal-title .hv-tool.on{background:var(--hv-tab-active)!important;color:var(--hv-tab-active-text)!important;border-color:#000!important}
+html body #modal .modal-title .hv-tool .hv-tool-cur{font:600 12px/1 var(--font-ui);color:var(--hv-text-dim)}
+html body #modal .modal-title .hv-tool.on .hv-tool-cur{color:#4a4138}
+html body #modal .modal-title .hv-caret{display:inline-block;width:0;height:0;border:4px solid transparent;border-top:5px solid currentColor;border-bottom:0;margin-top:2px}
+html body #modal .modal-title .hv-tool-sep{width:1px;height:20px;background:var(--hv-line);margin:0 4px}
+html body #modal .modal-title .hv-short{display:none}
+html body #modal .modal-title .hv-tool[data-badge]::after{content:attr(data-badge);position:absolute;top:-6px;right:-6px;min-width:16px;height:16px;padding:0 3px;display:grid;place-items:center;
+  background:var(--hv-warn);border:1px solid #000;border-radius:2px;color:#fff;font:700 12px/1 var(--font-num);box-sizing:border-box}
+@media(max-width:760px),(max-height:520px){
+  html body #modal .modal-title .hv-mtools{gap:2px;margin-right:4px}
+  html body #modal .modal-title .hv-tool{height:44px;min-height:44px;min-width:44px;padding:0 6px!important;justify-content:center}
+  html body #modal .modal-title .hv-tool .hv-tool-cur{display:none}
+  html body #modal .modal-title .hv-long{display:none}
+  html body #modal .modal-title .hv-short{display:inline}
+  html body #modal .modal-title .hv-tool-sep{display:none}
+  html body #modal .modal-title h2{padding-right:10px!important}
+}
+@media(max-width:400px){html body #modal .modal-title h2{padding-left:34px!important;padding-right:8px!important;letter-spacing:0}}
+
+/* ── 共通:一行摘要、一行次要說明、小標題(無金色豎線) ── */
+html body #modal-content .encounter-banner{display:none!important}
+html body #modal-content .hv-note{margin:0 2px 10px!important;font:600 12px/1.5 var(--font-ui)!important;color:var(--hv-text-dim)!important;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+html body #modal-content .hv-sumline{display:flex!important;flex-wrap:wrap;align-items:center;gap:4px 16px!important;padding:6px 10px!important;margin:0 0 10px!important;
+  background:var(--hv-ink-deep)!important;border:1px solid var(--hv-line)!important;border-radius:2px!important;box-shadow:none!important;font:600 12px/1.4 var(--font-ui)!important;color:var(--hv-text-dim)!important}
+html body #modal-content .hv-sumline b{color:#fff!important;font-family:var(--font-num)!important}
+html body #modal-content .hv-sumline :is(.over,small.over){color:var(--hv-warn)!important}
+html body #modal-content .hv-sumline .qs-meta{display:flex;flex-wrap:wrap;gap:4px 16px;align-items:center;margin:0!important;padding:0!important;background:none!important;border:0!important}
+html body #modal-content .hv-sumline .qs-meta>span{background:none!important;border:0!important;padding:0!important;margin:0!important;color:var(--hv-text-dim)!important;font:600 12px/1.4 var(--font-ui)!important}
+html body #modal-content .hv-sumline .qs-ready{color:var(--hv-ok)!important}
+html body #modal-content :is(.hv-h,.help-h,.set-sec-h,.stock-sec-h,.cx-h,.dispatch-h,.offline-h){display:flex!important;align-items:baseline;gap:8px;margin:14px 0 8px!important;padding:0 2px 6px!important;
+  border:0!important;border-bottom:1px solid var(--hv-line)!important;border-left:0!important;background:none!important;box-shadow:none!important;
+  font:700 14px/1.3 var(--font-ui)!important;color:#fff!important;text-shadow:none!important}
+html body #modal-content :is(.hv-h,.help-h,.set-sec-h,.stock-sec-h,.cx-h,.dispatch-h,.offline-h)::before,
+html body #modal-content :is(.hv-h,.help-h,.set-sec-h,.stock-sec-h,.cx-h,.dispatch-h,.offline-h)::after{content:none!important;display:none!important}
+html body #modal-content :is(.hv-h,.help-h,.set-sec-h,.stock-sec-h,.cx-h,.dispatch-h,.offline-h) small{font:600 12px/1.3 var(--font-ui)!important;color:var(--hv-text-dim)!important;margin-left:auto}
+html body #modal-content :is(.hv-h,.help-h,.set-sec-h,.stock-sec-h,.cx-h,.dispatch-h,.offline-h) i{display:none!important}
+html body #modal-content>:first-child:is(.hv-h,.help-h,.set-sec-h,.stock-sec-h,.cx-h,.dispatch-h,.offline-h),html body #modal-content section:first-child>:first-child:is(.help-h,.set-sec-h,.stock-sec-h,.cx-h){margin-top:0!important}
+/* 次按鈕(金棕)＝「請求／前往」這類小按鈕 */
+html body #modal-content .pixel-button.hv-sec:not(:disabled){background:var(--hv-btn-secondary)!important;color:#fff!important}
+html body #modal-content .pixel-button.hv-sec:hover:not(:disabled){background:var(--hv-btn-secondary-hi)!important}
+/* 狀態字用色一致:完成＝綠、不足/危險＝紅、需要照顧＝金 */
+html body #modal-content :is(.status.down,.short,.over,.diff-gate.short){color:var(--hv-warn)!important}
+html body #modal-content :is(.status.care){color:var(--hv-gold)!important}
+
+/* ── B 獵人名冊:格狀肖像卡 ── */
+html body #modal-content .hv-hgrid{display:grid!important;grid-template-columns:repeat(6,minmax(0,1fr))!important;gap:8px!important;margin:0!important;padding:0!important;list-style:none}
+@media(max-width:1100px){html body #modal-content .hv-hgrid{grid-template-columns:repeat(5,minmax(0,1fr))!important}}
+@media(max-width:760px){html body #modal-content .hv-hgrid{grid-template-columns:repeat(3,minmax(0,1fr))!important;gap:6px!important}}
+@media(min-width:761px) and (max-height:520px){html body #modal-content .hv-hgrid{grid-template-columns:repeat(6,minmax(0,1fr))!important;gap:6px!important}}
+html body #modal-content .hv-hcard{display:flex;flex-direction:column;gap:4px;min-width:0;padding:6px;margin:0;
+  background:var(--hv-panel);border:1px solid var(--hv-line);border-radius:2px;box-shadow:inset 0 0 0 2px var(--hv-panel),inset 0 0 0 3px rgba(107,94,80,.42);color:var(--hv-text)}
+html body #modal-content .hv-hcard .hc-head{display:flex;align-items:baseline;justify-content:space-between;gap:4px;min-width:0}
+html body #modal-content .hv-hcard .hc-name{font:700 13px/1.25 var(--font-ui);color:#fff;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;min-width:0}
+html body #modal-content .hv-hcard .hc-rar{font:700 13px/1 var(--font-num);font-style:normal;color:var(--rarity);text-shadow:0 1px 0 #000;flex:0 0 auto}
+html body #modal-content .hv-hcard .hc-sub{font:600 12px/1.25 var(--font-ui);color:var(--hv-text-dim);white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+html body #modal-content .hv-hcard .hc-art{--st-a:#3a3430;--st-b:#1a1714;display:grid;place-items:end center;height:100px;margin:2px -2px 0;overflow:hidden;
+  background:linear-gradient(180deg,var(--st-a) 0%,var(--st-b) 100%)!important;border:1px solid #000;border-radius:1px;box-shadow:inset 0 1px 0 rgba(255,255,255,.08)}
+html body #modal-content .hv-hcard .hc-art img{display:block;width:84px;height:96px;image-rendering:pixelated;margin:0;filter:drop-shadow(0 1px 0 rgba(0,0,0,.6))}
+html body #modal-content .hv-hcard[data-state=hunt] .hc-art{--st-a:#7a2a20;--st-b:#2a1210}
+html body #modal-content .hv-hcard[data-state=rest] .hc-art{--st-a:#4a5a6a;--st-b:#1c232b}
+html body #modal-content .hv-hcard[data-state=eat] .hc-art{--st-a:#8a5a24;--st-b:#2e1d0e}
+html body #modal-content .hv-hcard[data-state=hurt] .hc-art{--st-a:#5e3470;--st-b:#24152b}
+html body #modal-content .hv-hcard[data-state=down] .hc-art{--st-a:#1e1a18;--st-b:#070605}   /* 近黑:跟待機的炭色(#3a3430)拉開,再加上灰階立繪與紅字 */
+html body #modal-content .hv-hcard[data-state=down] .hc-art img{filter:grayscale(1) brightness(.7)}
+html body #modal-content .hv-hcard[data-state=away] .hc-art{--st-a:#3a3a9a;--st-b:#12122e}   /* 靛:跟休息的藍灰(#4a5a6a)、受傷的紫(#5e3470)各差 ≥ 50 */
+html body #modal-content .hv-hcard .hc-status{margin:0;font:600 12px/1.3 var(--font-ui);color:var(--hv-text);text-align:center;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+html body #modal-content .hv-hcard[data-state=hunt] .hc-status{color:var(--hv-quest)}
+html body #modal-content .hv-hcard[data-state=hurt] .hc-status{color:var(--hv-gold)}
+html body #modal-content .hv-hcard[data-state=down] .hc-status{color:var(--hv-warn)}
+html body #modal-content .hv-hcard[data-state=rest] .hc-status,html body #modal-content .hv-hcard[data-state=away] .hc-status{color:#a9c4ff}
+html body #modal-content .hv-hcard[data-state=eat] .hc-status{color:#f0c08c}
+html body #modal-content .hv-hcard .hc-hp{height:6px!important;margin:0 1px!important}
+html body #modal-content .hv-hcard .hc-btns{display:flex;gap:4px;margin-top:2px}
+html body #modal-content .hv-hcard .hc-btns .hv-btn{min-height:32px!important;padding:0 6px!important;font-size:13px!important}
+html body #modal-content .hv-hcard .hc-info{flex:1 1 auto;min-width:0}
+html body #modal-content .hv-hcard .hc-loc{flex:0 0 32px;width:32px;padding:0!important;display:grid!important;place-items:center}
+html body .hv-loc{display:block;width:16px;height:16px}
+html body .hv-loc::before{content:"";display:block;width:16px;height:16px;image-rendering:pixelated;
+  background:url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 16 16' shape-rendering='crispEdges'%3E%3Cpath fill='%23000' d='M7 0h2v3h2v1h1v1h1v2h3v2h-3v2h-1v1h-1v1H9v3H7v-3H5v-1H4v-1H3V9H0V7h3V5h1V4h1V3h2z'/%3E%3Cpath fill='%23fff' d='M7 1h2v3h1v1h1v1h1v1h2v2h-2v1h-1v1h-1v1H9v2H7v-2H6v-1H5v-1H4V9H2V7h2V6h1V5h1V4h1zm0 5v1H6v2h1v1h2V9h1V7H9V6z'/%3E%3C/svg%3E") center/16px 16px no-repeat}
+@media(max-width:760px),(max-height:520px){
+  html body #modal-content .hv-hcard .hc-btns .hv-btn{min-height:44px!important}
+  html body #modal-content .hv-hcard .hc-loc{flex-basis:44px;width:44px}
+}
+html body #modal-content .roster-bar{display:flex!important;flex-wrap:wrap;gap:6px 16px!important;align-items:center;padding:8px 10px!important;margin:0 0 10px!important;background:var(--hv-ink-deep)!important;border:1px solid var(--hv-line)!important;border-radius:2px!important}
+html body #modal-content .roster-bar>div{display:flex;flex-wrap:wrap;gap:4px;align-items:center}
+html body #modal-content .roster-bar>div>span{font:600 12px/1 var(--font-ui);color:var(--hv-text-dim);margin-right:4px}
+html body #modal-content .roster-bar em{margin-left:auto;font:600 12px/1 var(--font-ui);font-style:normal;color:var(--hv-text-dim)}
+/* 招募訪客卡的職業名還是舊的 24px 大標,比抽屜頂部的面板標題(14px)還大,層級倒掛(panel-headers 檢查) */
+html body #modal-content .visitor-card h3{font:700 14px/1.3 var(--font-ui)!important;margin:0 0 4px!important;color:var(--hv-text)!important}
+/* 手機:篩選／排序各一列、不換行（超出就橫向滑），按鈕 44px——取代舊的「375 以下壓成 28px」。整條 ≤150px,第一張卡仍在第一屏(hunters-fold 檢查) */
+@media(max-width:760px),(max-height:520px){
+  html body #modal-content .roster-bar{flex-direction:column!important;align-items:stretch!important;gap:4px!important}
+  html body #modal-content .roster-bar>div{display:flex!important;flex-wrap:nowrap!important;overflow-x:auto;gap:4px!important;grid-template-columns:none}
+  html body #modal-content .roster-bar .pixel-button{flex:0 0 auto;width:auto!important;min-width:44px!important;min-height:44px!important;font-size:12px!important;padding:0 10px!important}
+  html body #modal-content .roster-bar>div>span{flex:0 0 auto}
+  html body #modal-content .roster-bar em{margin-left:0}
+}
+
+/* ── C 世界內選取:兩顆六角鈕(資訊 i／取消 ×) ── */
+html body #hv-sel{position:fixed;left:0;top:0;z-index:15;display:flex;gap:6px;pointer-events:none;will-change:transform;transform:translate(-200px,-200px)}
+html body #hv-sel[hidden]{display:none!important}
+html body #hv-sel .hv-hex{pointer-events:auto;position:relative;width:48px;height:52px;min-width:48px;min-height:48px;padding:0;margin:0;border:0;border-radius:0;
+  background:none!important;box-shadow:none!important;cursor:pointer;display:grid;place-items:center;filter:none;transform:none;color:var(--hv-gold);font:700 22px/1 var(--font-num);text-shadow:0 2px 0 #000}
+html body #hv-sel .hv-hex::before,html body #hv-sel .hv-hex::after{content:"";position:absolute;clip-path:polygon(50% 0,100% 25%,100% 75%,50% 100%,0 75%,0 25%)}
+html body #hv-sel .hv-hex::before{inset:2px 4px;background:#000}
+html body #hv-sel .hv-hex::after{inset:5px 7px;background:linear-gradient(180deg,#3a322b 0%,#231d18 55%,#1a1512 100%);box-shadow:inset 0 2px 0 rgba(255,255,255,.12)}
+html body #hv-sel .hv-hex>span{position:relative;z-index:1;display:grid;place-items:center;width:20px;height:20px}
+html body #hv-sel .hv-hex-x>span{background:url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 8 8' shape-rendering='crispEdges'%3E%3Cpath fill='%23e0604a' d='M0 0h2v1h1v1h2V1h1V0h2v2H7v1H6v2h1v1h1v2H6V7H5V6H3v1H2v1H0V6h1V5h1V3H1V2H0z'/%3E%3C/svg%3E") center/16px 16px no-repeat;image-rendering:pixelated;filter:drop-shadow(0 2px 0 #000)}
+html body #hv-sel .hv-hex:hover::after{background:linear-gradient(180deg,#4a4038 0%,#2e2620 100%)}
+html body #hv-sel .hv-hex:active{transform:translateY(1px)}
+html body #hv-sel .hv-hex:focus-visible{outline:2px solid var(--hv-gold)!important;outline-offset:0!important}
+body.piloting #hv-sel{display:none!important}
+
+/* ── D 亮色對話框(開場導覽、顧問提示展開):底部亮色框、說話者名字掛在上緣、頭像在左 ── */
+html body #modal-backdrop:has(#modal[data-kind=dialog]){background:rgba(8,6,5,.22)!important}
+html body #modal[data-kind=dialog]{width:min(820px,calc(100vw - 24px))!important;height:auto!important;max-height:calc(100vh - var(--hud-top,96px) - var(--hud-bottom,72px) - 24px)!important;
+  margin:0 0 12px!important;overflow:visible!important;background:var(--hv-dialog)!important;color:var(--hv-dialog-text)!important;
+  border:2px solid #000!important;border-radius:3px!important;box-shadow:inset 0 0 0 2px #f7f5ee,inset 0 -3px 0 2px #c9c6b9,0 3px 0 #000!important}
+html body #modal[data-kind=dialog] .modal-title{position:absolute!important;left:14px;top:-15px;height:auto!important;padding:0!important;background:none!important;border:0!important;z-index:3}
+html body #modal[data-kind=dialog] .modal-title #modal-icon{display:none!important}
+html body #modal[data-kind=dialog] .modal-title h2{height:26px!important;padding:0 14px!important;margin:0!important;background:var(--hv-ink)!important;border:2px solid #000!important;border-radius:2px!important;
+  color:#fff!important;font:700 13px/1 var(--font-ui)!important;letter-spacing:.1em;max-width:none}
+html body #modal[data-kind=dialog] .modal-title [data-action=close]{display:none!important}
+html body #modal[data-kind=dialog] #modal-content{background:transparent!important;color:var(--hv-dialog-text)!important;padding:20px 16px 14px!important;border-radius:3px}
+html body #modal[data-kind=dialog] #modal-content :is(p,small,h4,strong,em,span){text-shadow:none!important}
+html body #modal[data-kind=dialog] :is(#scroll-hint,#scroll-hint-up){display:none!important}
+html body #modal-content .hv-dlg{display:grid;grid-template-columns:96px 1fr;gap:14px;align-items:start}
+html body #modal-content .hv-dlg-face{width:96px;height:108px;display:grid;place-items:end center;background:linear-gradient(180deg,#cfcabb,#b8b2a0);border:2px solid #2a2622;border-radius:2px;overflow:hidden}
+html body #modal-content .hv-dlg-face .hv-face{width:84px;height:96px;image-rendering:pixelated;display:block}
+html body #modal-content .hv-dlg-body{min-width:0;display:flex;flex-direction:column;gap:10px}
+html body #modal-content .hv-dlg-say{margin:0!important;font:600 15px/1.6 var(--font-ui)!important;color:#2a2622!important}
+html body #modal-content .hv-dlg-more{font:600 13px/1.5 var(--font-ui)!important;color:#5a5048!important}
+html body #modal-content .hv-dlg-steps{display:grid!important;grid-template-columns:repeat(3,minmax(0,1fr))!important;gap:8px!important;margin:0!important;padding:0!important}
+html body #modal[data-kind=dialog] #modal-content .welcome-step{display:grid!important;grid-template-columns:24px 1fr;gap:8px;align-items:start;padding:8px!important;margin:0!important;
+  background:#f4f2ea!important;border:1px solid #a9a493!important;border-radius:2px!important;box-shadow:none!important;color:#3a332c!important}
+html body #modal[data-kind=dialog] #modal-content .welcome-step .ws-num{display:grid;place-items:center;width:24px;height:24px;background:var(--hv-ink)!important;color:#fff!important;border:0!important;border-radius:2px;font:700 13px/1 var(--font-num)!important;box-shadow:none!important}
+html body #modal[data-kind=dialog] #modal-content .welcome-step h4{margin:2px 0 4px!important;font:700 13px/1.3 var(--font-ui)!important;color:#231d18!important}
+html body #modal[data-kind=dialog] #modal-content .welcome-step p{margin:0!important;font:600 12px/1.55 var(--font-ui)!important;color:#3a332c!important}
+html body #modal[data-kind=dialog] #modal-content .welcome-step strong{color:#8a3020!important}
+html body #modal[data-kind=dialog] #modal-content .welcome-step em{font-style:normal;color:#5a4a20!important}
+html body #modal[data-kind=dialog] #modal-content .welcome-tips{margin:0!important;padding:0!important;background:none!important;border:0!important}
+html body #modal[data-kind=dialog] #modal-content .welcome-tips small{font:600 12px/1.5 var(--font-ui)!important;color:#5a5048!important}
+html body #modal-content .hv-dlg-acts{display:flex!important;flex-wrap:wrap;justify-content:flex-end;gap:8px!important;margin:0!important;padding:0!important;background:none!important;border:0!important;position:static!important;box-shadow:none!important}
+html body #modal-content .hv-dlg-acts .hv-btn{display:inline-flex!important;align-items:center;gap:6px;min-height:40px!important;padding:0 16px!important;font-size:13px!important}
+html body #modal-content .hv-dlg-acts .hv-btn [data-icon],html body #modal-content .hv-dlg-acts .hv-btn [data-icon] :is(canvas,img){width:20px!important;height:20px!important}
+html body #modal[data-kind=dialog] #modal-content .hv-dlg-acts .hv-btn span{color:inherit!important}
+html body #modal[data-kind=dialog] #modal-content .hv-btn.cancel{background:#5a544d!important;color:#fff!important}
+@media(max-width:760px),(max-height:520px){
+  html body #modal[data-kind=dialog]{width:calc(100vw - 16px)!important;height:auto!important;max-height:calc(100vh - var(--hud-top,96px) - var(--hud-bottom,60px) - 24px)!important;border-left:2px solid #000!important;border-right:2px solid #000!important;border-radius:3px!important;overflow:visible!important}
+  html body #modal-backdrop:has(#modal[data-kind=dialog]){padding-left:8px!important;padding-right:8px!important}
+  html body #modal[data-kind=dialog] #modal-content{overflow:auto!important;padding:20px 10px 10px!important}
+  html body #modal-content .hv-dlg{grid-template-columns:64px 1fr;gap:10px}
+  html body #modal-content .hv-dlg-face{width:64px;height:76px}
+  html body #modal-content .hv-dlg-face .hv-face{width:63px;height:72px}
+  html body #modal-content .hv-dlg-say{font-size:14px!important}
+  html body #modal-content .hv-dlg-acts .hv-btn{min-height:44px!important;flex:1 1 0;justify-content:center}
+}
+@media(max-width:760px){
+  html body #modal-content .hv-dlg-body{display:contents}
+  html body #modal-content .hv-dlg .hv-dlg-say{grid-column:2;align-self:center}
+  html body #modal-content .hv-dlg-steps{grid-template-columns:1fr!important;grid-column:1/-1}
+  html body #modal-content .hv-dlg .welcome-tips,html body #modal-content .hv-dlg .hv-dlg-acts{grid-column:1/-1}
+}
+/* 離線戰報開場句:同一種亮色說話框(炭黑面板裡只有這一句是「故事」) */
+html body #modal-content .hv-say{display:grid;grid-template-columns:64px 1fr;gap:10px;align-items:end;margin:8px 0 14px}
+html body #modal-content .hv-say-face{width:64px;height:72px;display:grid;place-items:end center;background:linear-gradient(180deg,#cfcabb,#b8b2a0)!important;border:2px solid #000;border-radius:2px;overflow:hidden}
+html body #modal-content .hv-say-face .hv-face{width:63px;height:72px;image-rendering:pixelated}
+html body #modal-content .hv-say-box{position:relative;padding:14px 12px 10px;background:var(--hv-dialog)!important;border:2px solid #000;border-radius:3px;box-shadow:inset 0 -2px 0 #c9c6b9}
+html body #modal-content .hv-say-name{position:absolute;left:10px;top:-12px;padding:2px 10px;background:var(--hv-ink)!important;border:2px solid #000;border-radius:2px;color:#fff!important;font:700 12px/16px var(--font-ui)!important;letter-spacing:.1em}
+html body #modal-content .hv-say-box p{margin:0!important;font:600 13px/1.6 var(--font-ui)!important;color:var(--hv-dialog-text)!important}
+/* 顧問頭像(HUD 左側)用同一張村長立繪 */
+html body #hv-advisor .next-step .ns-ic{overflow:hidden;place-items:end center!important;background:linear-gradient(180deg,#4a4038,#231d18)!important}
+html body #hv-advisor .next-step .ns-ic .hv-face{width:42px!important;height:48px!important;image-rendering:pixelated;margin-bottom:-6px;filter:none!important}
+
+/* ── A4 首領面板:左(對比＋名單) 右(獎勵＋召喚鈕) ── */
+html body #modal-content .hv-boss{display:grid;grid-template-columns:minmax(0,1.35fr) minmax(0,1fr);gap:12px;align-items:start;max-width:900px;margin:0 auto}
+html body #modal-content .hv-boss-l,html body #modal-content .hv-boss-r{display:flex;flex-direction:column;gap:10px;min-width:0}
+html body #modal-content .hv-boss .boss-faceoff{display:grid!important;grid-template-columns:1fr auto 1fr;gap:8px;align-items:center;margin:0!important;max-width:none!important}
+html body #modal-content .hv-boss .bf-side{padding:8px!important;text-align:center;display:flex;flex-direction:column;gap:2px;min-width:0}
+html body #modal-content .hv-boss .bf-side b{font:700 24px/1.1 var(--font-num)!important}
+html body #modal-content .hv-boss .boss-rounds{margin:0!important;padding:6px 10px!important;font:600 12px/1.5 var(--font-ui)!important;color:var(--hv-text-dim)!important;text-align:left}
+html body #modal-content .hv-boss .hv-h{margin:4px 0 0!important}
+html body #modal-content .hv-boss .bs-party{display:grid!important;grid-template-columns:repeat(2,minmax(0,1fr))!important;gap:6px!important;margin:0!important;max-height:none!important}
+html body #modal-content .hv-boss-r .encounter-status{margin:0!important;padding:8px 10px!important;font:700 13px/1.4 var(--font-ui)!important;color:var(--hv-quest)!important;text-align:center}
+html body #modal-content .hv-boss-r .boss-loot{display:flex!important;flex-direction:column;gap:8px;padding:10px!important;margin:0!important;background:var(--hv-panel)!important;border:1px solid var(--hv-line)!important;border-radius:2px!important}
+html body #modal-content .hv-boss-r .boss-loot>span{font:700 13px/1.3 var(--font-ui)!important;color:#fff!important}
+html body #modal-content .hv-boss-r .boss-loot .cost{display:flex!important;flex-wrap:wrap;gap:6px 14px!important;background:none!important;border:0!important;padding:0!important;margin:0!important}
+html body #modal-content .hv-boss-r .boss-loot .cost>span{display:inline-flex;align-items:center;gap:4px;font:700 13px/1 var(--font-num)!important;color:var(--hv-gold)!important;background:none!important;border:0!important;padding:0!important}
+html body #modal-content .hv-boss-r .encounter-actions{margin:0!important;padding:0!important;position:static!important;background:none!important;border:0!important;box-shadow:none!important}
+html body #modal-content .hv-boss-r .encounter-actions .pixel-button{width:100%;min-height:48px!important;font-size:15px!important;display:inline-flex!important;align-items:center;justify-content:center;gap:8px}
+@media(max-width:760px){
+  html body #modal-content .hv-boss{grid-template-columns:1fr}
+  html body #modal-content .hv-boss-r{order:-1}
+  html body #modal-content .hv-boss .bs-party{grid-template-columns:1fr!important}
+}
+@media(min-width:761px) and (max-width:1100px){html body #modal-content .hv-boss .bs-party{grid-template-columns:1fr!important}}
+
+/* ── E 物品格(交易、倉庫):圖示方格＋名稱＋小按鈕 ── */
+html body #modal-content .hv-item-grid{display:grid!important;grid-template-columns:repeat(3,minmax(0,1fr))!important;gap:8px!important;margin:0!important;padding:0!important;list-style:none}
+@media(min-width:1100px){html body #modal-content .stock-list.hv-item-grid{grid-template-columns:repeat(4,minmax(0,1fr))!important}}
+@media(max-width:760px){html body #modal-content .hv-item-grid{grid-template-columns:repeat(2,minmax(0,1fr))!important;gap:6px!important}}
+@media(min-width:761px) and (max-height:520px){html body #modal-content .hv-item-grid{grid-template-columns:repeat(3,minmax(0,1fr))!important}}
+html body #modal-content .hv-item{display:flex!important;flex-direction:column!important;align-items:center!important;gap:6px!important;padding:10px 8px 8px!important;min-width:0;text-align:center;height:auto!important;min-height:0!important;grid-template-columns:none!important}
+html body #modal-content .hv-item.empty{opacity:.55}
+html body #modal-content .hv-item-ic{position:relative;display:grid!important;place-items:center;width:56px!important;height:56px!important;flex:0 0 56px;margin:0!important;
+  background:var(--hv-ink-deep)!important;border:1px solid #000!important;border-radius:2px;box-shadow:inset 0 0 0 1px var(--hv-line-hi)!important}
+html body #modal-content .hv-item-ic [data-icon],html body #modal-content .hv-item-ic [data-icon] :is(canvas,img){width:32px!important;height:32px!important;margin:0!important;image-rendering:pixelated}
+html body #modal-content .hv-item-q{position:absolute;right:-1px;bottom:-1px;min-width:20px;padding:1px 4px;background:var(--hv-ink);border:1px solid #000;border-radius:2px;font:700 12px/14px var(--font-num);font-style:normal;color:#fff;text-align:center}
+html body #modal-content .hv-item :is(.tr-name,.si-main){display:flex!important;flex-direction:column;align-items:center;gap:2px;min-width:0;width:100%}
+html body #modal-content .hv-item :is(.tr-name b,.si-nm){font:700 13px/1.3 var(--font-ui)!important;color:#fff!important}
+html body #modal-content .hv-item :is(.tr-name small,.si-use,.si-src,.si-num){display:block;max-width:100%;font:600 12px/1.4 var(--font-ui)!important;color:var(--hv-text-dim)!important;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+html body #modal-content .hv-item>.pixel-button{width:100%;min-height:32px;margin-top:auto!important}
+html body #modal-content .trade-row.hv-item .tr-step{display:flex!important;align-items:center;justify-content:center;gap:4px;width:100%}
+html body #modal-content .trade-row.hv-item .tr-step .pixel-button{min-width:32px;width:32px;padding:0!important}
+html body #modal-content .trade-row.hv-item .tr-step output{min-width:48px;height:32px;display:grid;place-items:center;font:700 14px/1 var(--font-num)}
+html body #modal-content .trade-row.hv-item .tr-big{display:flex;gap:4px;width:100%}
+html body #modal-content .trade-row.hv-item .tr-big .pixel-button{min-height:32px;padding:0 6px!important}
+html body #modal-content .trade-row.hv-item .tr-big .pixel-button:first-child{flex:0 0 auto}
+html body #modal-content .trade-row.hv-item .tr-big .pixel-button:last-child{flex:1 1 auto}
+html body #modal-content .trade-row.hv-item .tr-cost{font:600 12px/1.3 var(--font-ui)!important;color:var(--hv-text-dim)!important;background:none!important;border:0!important;padding:0!important;min-width:0!important;text-align:center}
+html body #modal-content .trade-row.hv-item.on{border-color:var(--hv-btn-secondary)!important}
+html body #modal-content .trade-row.hv-item.on .tr-cost{color:var(--hv-gold)!important}
+html body #modal-content .trade-row.hv-item .tr-cost.over{color:var(--hv-warn)!important}
+html body #modal-content .trade-footer{display:flex!important;align-items:center;justify-content:space-between;gap:10px;margin-top:10px!important;padding:8px 0 0!important;border-top:1px solid var(--hv-line)!important}
+@media(max-width:760px),(max-height:520px){
+  html body #modal-content .hv-item>.pixel-button,html body #modal-content .trade-row.hv-item .tr-big .pixel-button{min-height:44px}
+  html body #modal-content .trade-row.hv-item .tr-step .pixel-button{min-width:44px!important;width:44px;min-height:44px}
+  html body #modal-content .trade-row.hv-item .tr-step output{min-width:40px;height:44px}
+  html body #modal-content .trade-row.hv-item .tr-big .pixel-button:first-child{min-width:44px}
+  html body #modal-content .hv-item{padding:8px 6px 6px!important}
+}
+html body #modal-content .stock-sec{margin:0 0 6px!important;padding:0!important;background:none!important;border:0!important}
+
+/* ── E 製作:卡片統一,一顆主按鈕＋「做滿」灰色小鈕 ── */
+html body #modal-content .craft-grid{display:grid!important;grid-template-columns:repeat(2,minmax(0,1fr))!important;gap:8px!important}
+@media(min-width:1100px){html body #modal-content .craft-grid{grid-template-columns:repeat(4,minmax(0,1fr))!important}}
+@media(max-width:760px){html body #modal-content .craft-grid{grid-template-columns:1fr!important}}
+html body #modal-content .craft-card{display:flex!important;flex-direction:column;gap:8px!important;padding:10px!important}
+html body #modal-content .craft-card .craft-heading{display:flex!important;align-items:center;gap:10px;margin:0!important}
+html body #modal-content .craft-card .craft-heading>i{display:grid!important;place-items:center;width:48px!important;height:48px!important;flex:0 0 48px;background:var(--hv-ink-deep)!important;border:1px solid #000!important;border-radius:2px;box-shadow:inset 0 0 0 1px var(--hv-line-hi)!important}
+html body #modal-content .craft-card .craft-heading>i [data-icon],html body #modal-content .craft-card .craft-heading>i [data-icon] :is(canvas,img){width:32px!important;height:32px!important}
+html body #modal-content .craft-card h3{font:700 14px/1.3 var(--font-ui)!important;color:#fff!important;margin:0!important}
+html body #modal-content .craft-card .craft-heading small{font:600 12px/1.4 var(--font-ui)!important;color:var(--hv-text-dim)!important}
+html body #modal-content .craft-card>p{margin:0!important;font:600 12px/1.5 var(--font-ui)!important;color:var(--hv-text-dim)!important}
+html body #modal-content .craft-card .cost{display:flex!important;flex-wrap:wrap;gap:4px 10px!important;background:none!important;border:0!important;padding:0!important;margin:0!important}
+html body #modal-content .craft-card .craft-meta{font:600 12px/1.4 var(--font-ui)!important;color:var(--hv-text-dim)!important;background:none!important;border:0!important;padding:0!important;margin:0!important}
+html body #modal-content .craft-card .craft-meta b{color:var(--hv-ok)!important}
+html body #modal-content .craft-card .craft-buttons{display:flex!important;gap:6px;margin-top:auto!important}
+html body #modal-content .craft-card .pixel-button{min-height:36px}
+html body #modal-content .craft-card>.pixel-button{margin-top:auto!important}
+html body #modal-content .craft-card .craft-buttons .pixel-button:first-child{flex:1 1 auto}
+html body #modal-content .craft-card .craft-buttons .pixel-button.quiet{flex:0 0 auto}
+@media(max-width:760px),(max-height:520px){html body #modal-content .craft-card .pixel-button{min-height:44px!important}}
+
+/* ── E 子頁籤(製作分頁、派遣隊伍分頁):選中＝與面板同色連成一體,不用主按鈕紅 ── */
+html body #modal-content .dispatch-head{display:flex!important;flex-wrap:wrap;align-items:flex-end;justify-content:space-between;gap:8px;margin:0 0 10px!important;padding:0!important;border:0!important;background:none!important}
+html body #modal-content .dispatch-tabs.tabs{flex:1 1 auto;margin:0!important}
+html body #modal-content .dispatch-tabs.tabs>button{display:inline-flex!important;align-items:center;gap:2px}
+html body #modal-content .dispatch-tabs.tabs>button .dt-n{color:var(--hv-text-dim)}
+html body #modal-content .dispatch-quick{display:flex!important;align-items:center;gap:6px;font:600 12px/1 var(--font-ui);color:var(--hv-text-dim);background:none!important;border:0!important}
+html body #modal-content .dispatch-quick b{color:#fff}
+
+/* ── E 設定:列＝標題/說明在左、控制在右;分段選擇用切換樣式 ── */
+html body #modal-content .set-sec{margin:0 0 6px!important;padding:0!important;background:none!important;border:0!important}
+html body #modal-content .setting-row{display:flex!important;flex-wrap:wrap;align-items:center;gap:8px 16px;padding:10px!important;margin:0 0 6px!important}
+html body #modal-content .setting-row>div:first-child{flex:1 1 260px;min-width:0}
+html body #modal-content .setting-row strong{display:block;font:700 13px/1.4 var(--font-ui)!important;color:#fff!important}
+html body #modal-content .setting-row small{display:block;font:600 12px/1.5 var(--font-ui)!important;color:var(--hv-text-dim)!important}
+html body #modal-content .setting-row .seg{display:flex!important;gap:4px;flex-wrap:wrap;background:none!important;border:0!important;padding:0!important}
+html body #modal-content .setting-group{padding:0 0 0 12px!important;margin:0 0 6px!important;border:0!important;border-left:1px solid var(--hv-line)!important;background:none!important;box-shadow:none!important}
+html body #modal-content .ui-scale-now{font:600 12px/1.4 var(--font-ui)!important;color:var(--hv-text-dim)!important}
+html body #modal-content .cheat-grid .pixel-button{display:flex!important;flex-direction:column;align-items:flex-start;gap:2px;text-align:left}
+html body #modal-content .cheat-grid .pixel-button small{font:600 12px/1.3 var(--font-ui)!important;color:rgba(255,255,255,.75)!important}
+
+/* ── E 委託:時間軸卡片,目前章節用任務色細框(不用金色左豎線) ── */
+html body #modal-content .quest-step{border-left-width:1px!important}
+html body #modal-content .quest-step::before{content:none!important}
+html body #modal-content .quest-step.current{border-color:var(--hv-quest)!important}
+html body #modal-content .quest-step h3{font:700 14px/1.3 var(--font-ui)!important;color:#fff!important}
+html body #modal-content .quest-step p{font:600 12px/1.5 var(--font-ui)!important;color:var(--hv-text-dim)!important}
+html body #modal-content .qs-reward{background:none!important;border:0!important;padding:0!important}
+html body #modal-content .qs-reward small{color:var(--hv-text-dim)!important}
+html body #modal-content .qs-reward>span{color:var(--hv-gold)!important;background:none!important;border:0!important}
+
+/* ── E 世界地圖／地區詳情 ── */
+html body #modal-content .world-map-header{display:flex!important;align-items:center;gap:6px;margin:0 0 10px!important;padding:0!important;font:700 13px/1 var(--font-ui);color:#fff}
+html body #modal-content .world-map-header>span{margin-right:auto}
+html body #modal-content .region-card h3{font:700 14px/1.3 var(--font-ui)!important;color:#fff!important}
+html body #modal-content .region-card small{font:600 12px/1.4 var(--font-ui)!important;color:var(--hv-text-dim)!important}
+html body #modal-content :is(.region-card .rg-risk,.rd-risk){color:var(--hv-gold)!important;font-style:normal}
+html body #modal-content .region-detail .rd-head h3{font:700 16px/1.3 var(--font-ui)!important;color:#fff!important}
+html body #modal-content .region-detail .rd-desc{font:600 13px/1.6 var(--font-ui)!important;color:var(--hv-text-dim)!important}
+html body #modal-content .rd-fit{display:flex!important;align-items:center;gap:8px;padding:8px 10px!important}
+html body #modal-content .rd-fit.easy{border-color:var(--hv-ok)!important}
+html body #modal-content .rd-fit.hard{border-color:var(--hv-warn)!important}
+html body #modal-content .rd-loot{display:flex!important;flex-wrap:wrap;gap:6px!important;padding:8px!important}
+html body #modal-content .rd-loot>span{display:inline-flex;align-items:center;gap:4px;padding:4px 8px;background:var(--hv-panel)!important;border:1px solid var(--hv-line)!important;border-radius:2px}
+html body #modal-content .rd-loot b{color:var(--hv-gold)!important}
+
+/* ── E 獵人詳情 ── */
+html body #modal-content .hunter-detail .detail-avatar{background:linear-gradient(180deg,#3a3430,#1a1714)!important;border:1px solid #000!important;border-radius:2px!important;box-shadow:inset 0 0 0 1px var(--rarity,var(--hv-line))!important}
+html body #modal-content .hunter-detail .detail-avatar img{image-rendering:pixelated}
+html body #modal-content .hunter-detail .detail-avatar h3{font:700 15px/1.3 var(--font-ui)!important;color:#fff!important}
+html body #modal-content .detail-header strong{font:700 14px/1.3 var(--font-ui)!important;color:#fff!important}
+html body #modal-content .detail-header span{color:var(--hv-quest)!important;font:600 12px/1.4 var(--font-ui)!important}
+html body #modal-content .need-row label{font:600 12px/1.4 var(--font-ui)!important;color:var(--hv-text-dim)!important}
+html body #modal-content .equipment-row>span{background:var(--hv-panel)!important;border:1px solid var(--hv-line)!important;border-radius:2px!important;color:var(--hv-text)!important;box-shadow:none!important}
+html body #modal-content .equipment-row>span.no{color:var(--hv-text-dim)!important}
+/* 一張卡一顆主按鈕:修煉(最常用,隨時可做)＝整排主色鈕;學習技能／強化裝備／轉世＝下方一排小的次要鈕 */
+html body #modal-content .hunter-actions{display:flex!important;flex-direction:column!important;gap:8px!important;margin-top:12px!important}
+html body #modal-content .hunter-actions .pixel-button{display:flex!important;flex-direction:row!important;align-items:center;gap:8px;text-align:left;min-width:0}
+html body #modal-content .hunter-actions .pixel-button>[data-icon]{width:20px!important;height:20px!important;min-width:20px!important;flex:none}
+html body #modal-content .hunter-actions .pixel-button>span{display:flex;flex-direction:column;min-width:0;font:700 13px/1.25 var(--font-ui)!important}
+html body #modal-content .hunter-actions .pixel-button small{display:block;font:600 12px/1.3 var(--font-ui)!important;color:rgba(255,255,255,.75)!important}
+html body #modal-content .hunter-actions .hv-act-main{width:100%;min-height:48px!important;justify-content:center;padding:6px 16px!important}
+html body #modal-content .hunter-actions .hv-act-main>span{align-items:flex-start}
+html body #modal-content .hunter-actions .hv-act-sub{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:6px}
+html body #modal-content .hunter-actions .hv-act-s{min-height:44px!important;padding:4px 8px!important;gap:6px}
+html body #modal-content .hunter-actions .hv-act-s small{display:flex!important;flex-wrap:nowrap;align-items:baseline;white-space:nowrap;overflow:hidden;min-width:0}
+html body #modal-content .hunter-actions .hv-act-s small :is(.hv-w,.hv-k){font-style:normal}
+html body #modal-content .hunter-actions .hv-act-s small .hv-w{flex:0 1 auto;min-width:0;overflow:hidden;text-overflow:ellipsis;margin-right:.35em}
+html body #modal-content .hunter-actions .hv-act-s small .hv-k{flex:none;color:#fff}
+html body #modal-content .hunter-actions .hv-act-s.ready{outline:2px solid var(--hv-ok);outline-offset:-3px}
+
+/* ── E 說明 ── */
+html body #modal-content .help-nav{display:flex!important;flex-wrap:wrap;gap:4px;margin:0 0 10px!important;padding:0 0 8px!important;border:0!important;border-bottom:1px solid var(--hv-line)!important;background:none!important;box-shadow:none!important}
+html body #modal-content .help-nav-chip{min-height:32px;padding:0 12px!important;background:var(--hv-panel-2)!important;border:1px solid var(--hv-line)!important;border-radius:2px!important;color:var(--hv-text)!important;font:700 12px/1 var(--font-ui)!important;box-shadow:none!important;text-shadow:none!important}
+html body #modal-content .help-nav-chip:hover{background:#353029!important}
+@media(max-width:760px),(max-height:520px){html body #modal-content .help-nav-chip{min-height:44px}}
+html body #modal-content :is(.help-list li,.hf-item small,.hl-body small){color:var(--hv-text-dim)!important;font:600 12px/1.55 var(--font-ui)!important}
+html body #modal-content .hl-num{background:var(--hv-ink-deep)!important;border:1px solid var(--hv-line-hi)!important;color:var(--hv-quest)!important;box-shadow:none!important;text-shadow:none!important}
+html body #modal-content .help-keys dt{background:var(--hv-ink-deep)!important;border:1px solid var(--hv-line)!important;border-radius:2px!important;color:#fff!important;box-shadow:none!important}
+
+/* ── E 離線戰報:摘要磚 ── */
+html body #modal-content .of-tiles{display:grid!important;grid-template-columns:repeat(3,minmax(0,1fr))!important;gap:8px!important;margin:0 0 10px!important}
+html body #modal-content .of-tile{display:flex!important;flex-direction:column;align-items:center;gap:4px;padding:10px 6px!important;text-align:center}
+html body #modal-content .of-tile b{font:700 18px/1.2 var(--font-num)!important;color:#fff!important}
+html body #modal-content .of-tile small{font:600 12px/1.3 var(--font-ui)!important;color:var(--hv-text-dim)!important}
+html body #modal-content .offline-actions{display:flex!important;justify-content:center;margin-top:12px!important;background:none!important;border:0!important;position:static!important;box-shadow:none!important}
+html body #modal-content .offline-actions .pixel-button{min-width:200px;min-height:44px}
+
+/* ── E 地下城／競技場:狀態列與控制列 ── */
+html body #modal-content .encounter-status{font:700 13px/1.4 var(--font-ui)!important;color:var(--hv-quest)!important;padding:8px 10px!important;margin:0 0 8px!important}
+html body #modal-content .encounter-facts{font:600 12px/1.5 var(--font-ui)!important;color:var(--hv-text-dim)!important;margin:0 0 10px!important;background:none!important;border:0!important;padding:0 2px!important;box-shadow:none!important}
+html body #modal-content .dungeon-controls{display:flex!important;flex-wrap:wrap;align-items:center;gap:8px;margin:0 0 10px!important;padding:8px 10px!important;background:var(--hv-ink-deep)!important;border:1px solid var(--hv-line)!important;border-radius:2px!important;box-shadow:none!important}
+html body #modal-content .floor-pick{display:flex!important;align-items:center;gap:6px;font:600 12px/1 var(--font-ui);color:var(--hv-text-dim)}
+html body #modal-content .floor-pick b{color:#fff;font:700 13px/1 var(--font-ui)}
+html body #modal-content .encounter-actions{background:none!important;border:0!important;box-shadow:none!important}
+/* 派遣／地區詳情的黏底固定條:不能是透明的(卡片捲到它下面會跟按鈕疊在一起,看起來像蓋住卡片)。實心炭黑底＋上緣線＋滿版寬;
+   最後一張卡與固定條至少留 12px(捲到底時 margin-top 就是那段空隙),--dispatch-go-h 由 fitDispatchPad() 量出來給 scroll-padding 用 */
+html body #modal-content .dispatch-go{background:var(--hv-ink)!important;border-top:1px solid var(--hv-line)!important;box-shadow:0 -6px 6px -2px rgba(0,0,0,.45)!important;
+  margin:12px -12px 0!important;padding:8px 12px!important}
+@media(max-width:760px),(max-height:520px){html body #modal-content .dispatch-go{margin-left:-10px!important;margin-right:-10px!important;padding:8px 10px!important}}
+
+/* ── E 指令面板 #cmdk、手動操控 #pilotlab:炭黑面板 ── */
+html body #cmdk .cmdk-box{border-radius:3px!important}
+html body #pilotlab{background:var(--hv-ink)!important;border:1px solid var(--hv-line)!important;border-image:none!important;border-radius:3px!important;box-shadow:0 2px 0 #000!important;color:var(--hv-text)!important;background-image:none!important}
+html body #pilotlab *{border-image:none!important}
+html body #pilotlab :is(h2,h3,b,strong){color:#fff!important;text-shadow:none!important}
+html body #pilotlab :is(p,small){color:var(--hv-text-dim)!important;text-shadow:none!important}
+
+/* ── 建築資訊(#inspector)與單位小卡(#unit-card):按「資訊」才開的詳情,同一套炭黑外觀 ── */
+html body #inspector .inspect-desc{font:600 12px/1.55 var(--font-ui)!important;color:var(--hv-text-dim)!important}
+html body #inspector .inspect-actions{display:flex!important;gap:6px}
+html body #inspector .inspect-actions .pixel-button{flex:1 1 auto}
+html body #unit-card .uc-x::before{content:none!important}
+html body #unit-card .uc-x::after{content:""!important;position:absolute;inset:0;background:var(--hv-x) center/12px 12px no-repeat;image-rendering:pixelated}
+html body #unit-card .uc-x{position:relative;background:var(--hv-panel-2)!important;border:2px solid var(--hv-line-hi)!important;border-radius:50%!important;font-size:0!important;color:transparent!important;box-shadow:0 2px 0 #000!important;image-rendering:pixelated}
+html body #unit-card .uc-name{color:#fff!important;text-shadow:none!important}
+html body #unit-card .uc-status{background:var(--hv-panel-2)!important;border:1px solid var(--hv-line)!important;color:var(--hv-quest)!important;border-radius:2px!important;text-shadow:none!important}
+
+/* ── F 橫向手機(高 ≤520):抽屜改成頁籤列以上全高(蓋住 HUD),卡片改橫向排 ── */
+@media(max-height:520px){
+  html body #modal-backdrop:not(:has(#modal[data-kind=confirm])):not(:has(#modal[data-kind=dialog])){padding-top:0!important}
+  html body #modal-backdrop:not(:has(#modal[data-kind=confirm])):not(:has(#modal[data-kind=dialog])) #modal{height:calc(100vh - var(--hud-bottom,60px))!important;max-height:calc(100vh - var(--hud-bottom,60px))!important}
+  body.hud-modal:has(#modal-backdrop:not(.hidden) #modal:not([data-kind=dialog]):not([data-kind=confirm])) #topbar{visibility:hidden!important}
+  html body #modal .modal-title{height:48px!important}
+  html body #modal-content{padding:8px 10px 12px!important}
+  html body #modal-content .build-stock{flex-wrap:nowrap!important;overflow-x:auto;white-space:nowrap;padding:4px 8px!important;margin:0 0 8px!important;gap:2px 12px!important;scrollbar-width:none}
+  html body #modal-content .hv-build-grid{grid-template-columns:repeat(4,minmax(0,1fr))!important;gap:6px!important}
+  html body #modal-content .hv-card.building-card{display:grid!important;grid-template-columns:72px minmax(0,1fr);grid-template-rows:auto auto 1fr;column-gap:8px;row-gap:2px;padding:6px!important;position:relative}
+  html body #modal-content .hv-card .bc-head{grid-column:2;grid-row:1;min-height:0!important;padding-right:30px;display:block!important}
+  html body #modal-content .hv-card .bc-head strong{display:block;white-space:nowrap!important}
+  html body #modal-content .hv-card .bc-head small{display:block}
+  html body #modal-content .hv-card .hv-i{position:absolute!important;top:0;right:0;margin:0!important;width:44px!important;height:44px!important}
+  html body #modal-content .hv-card .bc-art{grid-column:1;grid-row:1/4;height:100%!important;min-height:88px;margin:0!important}
+  html body #modal-content .hv-card .bc-art img{height:64px!important}
+  html body #modal-content .hv-card .hv-costs{grid-column:2;grid-row:2;justify-content:flex-start!important}
+  html body #modal-content .hv-card :is(.hv-btn,.bc-done){grid-column:2;grid-row:3;align-self:end}
+  html body #modal-content .hv-boss{grid-template-columns:minmax(0,1.4fr) minmax(0,1fr)}
+  html body #modal-content .hv-boss-r{order:0}
+  html body #modal-content .hv-boss .bs-party{grid-template-columns:repeat(2,minmax(0,1fr))!important}
+  html body #modal-content .hv-boss .bf-side b{font-size:20px!important}
+  html body #modal-content .hv-dlg-steps{grid-template-columns:repeat(3,minmax(0,1fr))!important}
+}
+
+/* 第二階段補丁:面板內 *{background-image:none} 會吃掉元素本身的漸層 → 漸層改畫在 ::before(偽元素不受那條規則影響) */
+html body #modal-content .hv-hcard .hc-art{position:relative;background-color:var(--st-b)!important}
+html body #modal-content .hv-hcard .hc-art::before{content:"";position:absolute;inset:0;background:linear-gradient(180deg,var(--st-a) 0%,var(--st-b) 100%);pointer-events:none}
+html body #modal-content .hv-hcard .hc-art img{position:relative;z-index:1}
+html body #modal-content :is(.hv-dlg-face,.hv-say-face){background-color:#bdb7a5!important}
+html body #modal-content .stock-sec-h span,html body #modal-content .cx-h span,html body #modal-content .set-sec-h span{color:#fff!important;font:700 14px/1.3 var(--font-ui)!important}
+html body #modal-content .hv-sumline small{font:600 12px/1.4 var(--font-ui)!important;color:var(--hv-text-dim)!important}
+@media(max-height:520px){
+  :root{--hv-top-left-h:68px}
+  body.hud-modal:has(#modal-backdrop:not(.hidden) #modal:not([data-kind=dialog]):not([data-kind=confirm])) #topbar,
+  body.hud-modal:has(#modal-backdrop:not(.hidden) #modal:not([data-kind=dialog]):not([data-kind=confirm])) #topbar *{opacity:0!important;pointer-events:none!important}
+  html body #modal .modal-title{height:44px!important}
+  html body #modal .modal-title h2{height:36px!important}
+  html body #modal-content{padding:6px 10px 8px!important}
+  html body #modal-content .build-stock{padding:2px 8px!important;margin:0 0 6px!important}
+  html body #modal-content .hv-card.building-card{padding:4px!important;gap:4px!important;row-gap:4px!important}
+  html body #modal-content .hv-card.building-card::after,html body #modal-content .hv-card.building-card::before{content:none!important;display:none!important}
+  html body #modal-content .hv-card .bc-head{display:flex!important;align-items:baseline;gap:6px}
+  html body #modal-content .hv-card .bc-head strong{display:inline!important;padding:0!important}
+  html body #modal-content .hv-card .bc-head small{display:inline!important;padding:0!important}
+  html body #modal-content .hv-card .bc-art{min-height:0!important}
+}
+@media(max-height:520px){html body #modal-content .hv-card .hv-i{place-items:start end!important;padding:2px!important}html body #modal-content .hv-card .hv-i>span{width:22px;height:22px;font-size:13px}}
+/* 橫向手機:對話框可以蓋住 HUD 往上長(原本只剩 ~210px,按鈕被切掉);「隨時可以…」那行提示省略,內容自己能捲 */
+@media(max-height:520px){
+  html body #modal[data-kind=dialog]{max-height:calc(100vh - var(--hud-bottom,60px) - 26px)!important}
+  html body #modal[data-kind=dialog] #modal-content{overflow:auto!important;padding:16px 12px 8px!important}
+  html body #modal-content .hv-dlg-body{gap:6px}
+  html body #modal-content .hv-dlg-say{font-size:13px!important;line-height:1.45!important}
+  html body #modal[data-kind=dialog] #modal-content .welcome-tips{display:none!important}
+  html body #modal[data-kind=dialog] #modal-content .welcome-step{padding:6px!important}
+  html body #modal[data-kind=dialog] #modal-content .welcome-step p{font-size:12px!important;line-height:1.4!important}
+}
+html body #modal-content .hv-dlg-acts .hv-btn{white-space:nowrap!important;flex:0 0 auto;min-width:96px;justify-content:center}
+@media(max-width:760px){html body #modal-content .hv-dlg-acts .hv-btn{flex:1 1 0}}
+html body #modal[data-kind=dialog][data-type=advisor]{width:min(640px,calc(100vw - 24px))!important}
+/* 量測抓到的 11px 小字(圖鑑數值列、離線戰報的地下城/流浪英雄列) → 12px */
+html body #modal-content :is(.cx-stats span,.cx-drop,.cx-drop b,.cx-drop i,.cx-lore,.offline-kills,.offline-kills span,.offline-kills b){font-size:12px!important}
+html body #modal-content .material-item :is(span,b){font-size:12px!important}
+
+/* ═══ 第三階段:手機觸控下限 44px(tools/checks/touch-targets.mjs 實測抓到的幾顆;320 寬再縮一檔) ═══ */
+@media(max-width:760px),(max-height:520px){
+  html body :is(#left-panel [data-action=toggleLeft],#placement button,#modal-content [data-action=regionInfo],#modal-content [data-action=dgFloor],#pilotlab [data-pilot]){
+    min-width:44px!important;min-height:44px!important}
+}
+@media(max-width:340px){
+  html body #modal-content .hv-hgrid{grid-template-columns:repeat(2,minmax(0,1fr))!important}
+  html body #modal .modal-title #modal-icon{display:none!important}
+  html body #modal .modal-title h2{padding-left:10px!important}
+}
+
+/* ═══ 第四階段 ═══ */
+/* 1 獵人詳情:桌機「修煉」主鈕不整排拉滿(最大 360px),手機維持滿寬 */
+@media(min-width:761px) and (min-height:521px){
+  html body #modal-content .hunter-actions .hv-act-main{max-width:360px}
+}
+/* 3 手機:三顆小鈕改成一鈕一列(圖示＋標題＋說明在同一行),說明小字一行讀完、數字(等級/加成/還差幾級)放最後且不被省略 */
+@media(max-width:760px),(max-height:520px){
+  html body #modal-content .hunter-actions .hv-act-sub{grid-template-columns:minmax(0,1fr)!important;gap:6px}
+  html body #modal-content .hunter-actions .hv-act-s{min-height:44px!important;padding:4px 12px!important;gap:10px;justify-content:flex-start}
+  html body #modal-content .hunter-actions .hv-act-s>span{flex:1 1 auto;min-width:0;flex-direction:row;align-items:baseline;justify-content:space-between;gap:10px}
+  html body #modal-content .hunter-actions .hv-act-s>span>small{flex:0 1 auto;justify-content:flex-end;text-align:right}
+}
+/* 2 招募卡:手機版按鈕滿寬放在卡片最下面(一張卡一顆主按鈕);資訊小標籤靠左 */
+html body #modal-content .visitor-card .pixel-button{width:100%;min-height:44px}
+html body #modal-content .visitor-card .pixel-button.gold:disabled{background:var(--hv-btn-disabled)!important;color:var(--hv-btn-disabled-text)!important;border-color:#000!important;opacity:1!important}   /* 金幣不足:停用灰,字寫還缺多少(.gold 的主色規則特異度較高,要在這裡壓回去) */
+@media(max-width:760px){
+  html body #modal-content .visitor-card{grid-template-columns:80px minmax(0,1fr);align-items:start}
+  html body #modal-content .visitor-card .pixel-button{grid-column:1/-1;margin-top:8px}
+  html body #modal-content .visitor-card .rarity{margin:0 0 4px!important;justify-self:start}
+  html body #modal-content .visitor-card h3{margin:0 0 4px!important}
+}
+/* 4 世界地圖區域卡:風景圖是卡片內一塊 2:1 內容圖(1px 邊線、置中、不出血),順序＝標題 → 圖 → 資訊 → 按鈕 */
+html body #modal-content .region-card .region-art{display:block!important;position:relative;width:min(100%,200px)!important;height:auto!important;aspect-ratio:2/1;margin:2px auto!important;
+  background-size:cover;background-position:center;background-repeat:no-repeat;image-rendering:pixelated;border:1px solid var(--hv-line)!important;border-radius:0!important;box-shadow:none!important;opacity:1;filter:none}
+html body #modal-content .region-card .region-art::after{content:none!important;display:none!important}
+html body #modal-content .region-card:hover .region-art{filter:none}
+html body #modal-content .region-card .rg-head{order:1;justify-content:flex-start!important}
+html body #modal-content .region-card .region-art{order:2}
+html body #modal-content .region-card .rg-meta{order:3;justify-content:space-between!important}
+html body #modal-content .region-card .rg-exp{order:4}
+html body #modal-content .region-card>div:last-child{order:5}
+@media(max-width:760px){html body #modal-content .region-card .region-art{width:min(100%,160px)!important}}
+/* 4 地區詳情:風景圖縮成標題左側的一塊 2:1 內容圖(桌機 200x100;手機 144x72),與標題並排,不佔整列高度 */
+html body #modal-content .region-detail:has(.region-detail-art){display:grid;grid-template-columns:auto minmax(0,1fr);column-gap:14px;align-items:center}
+html body #modal-content .region-detail:has(.region-detail-art)>*{grid-column:1/-1}
+html body #modal-content .region-detail:has(.region-detail-art)>.region-detail-art{grid-column:1;grid-row:1}
+html body #modal-content .region-detail:has(.region-detail-art)>.rd-head{grid-column:2;grid-row:1}
+html body #modal-content .region-detail .region-detail-art{display:block!important;position:relative;width:200px;height:auto!important;aspect-ratio:2/1;margin:0 0 10px!important;
+  background-size:cover;background-position:center;background-repeat:no-repeat;image-rendering:pixelated;border:1px solid var(--hv-line)!important;border-radius:0!important;box-shadow:none!important;opacity:1;filter:none}
+html body #modal-content .region-detail .region-detail-art::after{content:none!important;display:none!important}
+html body #modal-content .region-detail:has(.region-detail-art)>.rd-head{margin:0 0 10px}
+@media(max-width:760px),(max-height:520px){
+  html body #modal-content .region-detail .region-detail-art{width:144px}
+  html body #modal-content .region-detail:has(.region-detail-art){column-gap:10px}
+}
+
+/* ===== FIX-A：互動與版面 bug（B1–B12、缺口 7/8/12/19/20）— 只有 FIX-A 代理改這段 ===== */
+/* 底部「堆疊」變數:手機/橫向的暫停標籤、放置提示、小隊 HUD、小卡、toast 都貼在頁籤列上方,彼此靠這些變數錯開 */
+html body{--fa-stack:calc(var(--fa-run,0px) + var(--fa-pl,0px) + var(--fa-uc,0px))}
+@media(max-width:760px),(max-height:520px){html body:has(#pause-label:not(.hidden)){--fa-pause:34px}}
+@media(max-width:760px){
+  html body:has(#placement:not(.hidden)){--fa-pl:56px}
+  html body:has(#run-hud){--fa-run:128px}
+  html body:has(#unit-card){--fa-uc:164px}
+  /* 出征中又點了獵人:小卡疊在小隊 HUD 上面,不互蓋 */
+  html body:has(#run-hud) #unit-card{bottom:calc(var(--bb,62px) + 34px + var(--fa-run,0px) + var(--fa-pause,0px))!important}
+}
+
+/* ── B1／B9 出征小隊 HUD #run-hud:有自己的位置,不蓋任務/顧問/通知、行動徽章、縮放鈕;按鈕夠大 ── */
+html body #run-hud :is(.rh-toggle,.rh-x){min-height:32px;min-width:44px;padding:4px 10px;display:inline-flex;align-items:center;justify-content:center}
+@media(pointer:coarse),(max-width:760px),(max-height:520px){html body #run-hud :is(.rh-toggle,.rh-x){min-height:44px;min-width:44px}}
+/* 平板／窄桌機(左邊的任務欄 hv-left 約到 x=356、右邊的行動徽章從 vw-100 起):HUD 夾在中間 */
+@media(min-width:761px) and (min-height:521px) and (max-width:1343px){
+  html body #run-hud{left:372px;right:112px;top:148px;transform:none;width:auto;min-width:0;max-width:600px}
+}
+/* 手機直向:貼在頁籤列上方、縮放鈕左邊(x 到 vw-62) */
+@media(max-width:760px){
+  html body #run-hud{top:auto;bottom:calc(var(--hv-tab-h) + env(safe-area-inset-bottom,0px) + 8px + var(--fa-pause,0px));left:var(--hv-gut);right:calc(var(--hv-gut) + 44px + 8px);transform:none;width:auto;min-width:0;max-width:none;padding:6px 8px 7px;gap:4px}
+}
+/* 橫向手機:夾在左邊任務欄(寬 300)與右邊行動徽章(寬 64)之間、頂欄下面 */
+@media(min-width:761px) and (max-height:520px){
+  html body #run-hud{top:calc(env(safe-area-inset-top,0px) + 92px);bottom:auto;left:calc(var(--hv-gut) + min(300px,40vw) + 12px);right:calc(var(--hv-gut) + 64px + 12px);transform:none;width:auto;min-width:0;max-width:none;padding:6px 8px 7px;gap:4px}
+}
+/* 手機/橫向:三位獵人緊湊排成三欄(名字＋血量字在上、血條在下),職業小標省略 */
+@media(max-width:760px),(max-height:520px){
+  html body #run-hud .rh-head{flex-wrap:wrap;gap:4px 6px}
+  html body #run-hud .rh-party{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:4px 8px}
+  html body #run-hud .rh-unit{display:grid;grid-template-columns:minmax(0,1fr) auto;gap:2px 4px;align-items:center}
+  html body #run-hud .rh-cls{display:none}
+  html body #run-hud .rh-name{order:1;max-width:none}
+  html body #run-hud .rh-num{order:2;min-width:0}
+  html body #run-hud .rh-bar{order:3;grid-column:1/-1;width:100%}
+  html body #run-hud .rh-foe .rh-bar{width:100%;flex:1}
+}
+
+/* ── B2／缺口 12 放置提示 #placement:手機/橫向不再是滿寬實心橫條,縮成貼在頁籤列上方的小型炭黑浮動條 ── */
+@media(max-width:760px),(max-height:520px){
+  html body #placement{top:auto!important;bottom:calc(var(--hv-tab-h) + env(safe-area-inset-bottom,0px) + 8px + var(--fa-pause,0px))!important;left:var(--hv-gut)!important;right:auto!important;transform:none!important;
+    width:auto!important;max-width:calc(100vw - 2 * var(--hv-gut) - 56px);padding:4px 4px 4px 10px!important;gap:8px!important;white-space:nowrap}
+  html body #placement span{flex:0 1 auto!important;white-space:nowrap!important}
+}
+
+/* ── B3 手動操控選角清單 #pilotlab(還沒選人時):手機/橫向改成頁籤列上方的底部抽屜,不蓋頂欄與行動徽章 ── */
+@media(max-width:760px),(max-height:520px){
+  html body:not(.piloting) #pilotlab{top:auto!important;bottom:calc(var(--hv-tab-h) + env(safe-area-inset-bottom,0px))!important;left:0!important;right:0!important;transform:none!important;width:auto!important;
+    max-height:min(50vh,calc(100vh - var(--hv-tab-h) - 72px));overflow:auto;border-left:0!important;border-right:0!important;border-radius:0!important;padding:8px var(--hv-gut) 10px!important}
+}
+/* 橫向:右邊那排行動徽章(寬 64)留給它,抽屜不往右蓋過去 */
+@media(min-width:761px) and (max-height:520px){html body:not(.piloting) #pilotlab{right:calc(var(--hv-gut) + 64px + 12px)!important}}
+
+/* ── B4／缺口 7 獵人小卡 #unit-card:關閉鈕熱區 桌機 ≥32、觸控 ≥44;手機直向小卡讓出右邊縮放鈕那一欄 ── */
+html body #unit-card .uc-x{width:32px;height:32px;min-width:32px;min-height:32px}
+@media(pointer:coarse),(max-width:760px),(max-height:520px){html body #unit-card .uc-x{width:44px;height:44px;min-width:44px;min-height:44px}}
+@media(max-width:760px){html body #unit-card{right:calc(var(--hv-gut) + 44px + 6px)}}
+
+/* ── 缺口 4／B10／缺口 19 toast:小型亮色條貼在頁籤列上方,不擋場景中央、不蓋按鈕中心;面板開著也留在頁籤列上方 ── */
+html body:not(.piloting) #toasts{bottom:calc(var(--hv-tab-h) + env(safe-area-inset-bottom,0px) + 12px + var(--fa-pause,0px) + var(--fa-stack,0px) + var(--fa-toast-lift,0px))!important}
+/* 面板開著:最低貼在頁籤列上方 6px;pixel-ui.js 的 toastDodge() 會把它上移到不蓋任何按鈕中心的位置(--fa-toast-lift) */
+html body.hud-modal:not(.piloting) #toasts{top:auto!important;bottom:calc(var(--hv-tab-h) + env(safe-area-inset-bottom,0px) + 6px + var(--fa-toast-lift,0px))!important}
+html body #toasts .toast:nth-last-child(n+4){display:none!important}
+html body #toasts .toast.fa-skip{display:none!important}   /* toastDodge() 找不到合格位置時暫時收起較舊的 */
+html body:not(.piloting) #toasts[data-lane=l]{left:var(--hv-gut)!important;right:auto!important;transform:none!important;align-items:flex-start!important}
+html body:not(.piloting) #toasts[data-lane=r]{left:auto!important;right:var(--hv-gut)!important;transform:none!important;align-items:flex-end!important}
+@media(max-width:760px),(max-height:520px){
+  html body:not(.piloting) #toasts{left:var(--hv-gut)!important;transform:none!important;align-items:flex-start!important;max-width:calc(100vw - 2 * var(--hv-gut) - 56px)!important}
+  html body #toasts .toast{max-width:100%!important}
+}
+/* 橫向(高 ≤520):頁籤列上方只剩一條不會落在畫面中央 50% 的空間 → 只顯示最新一則;右下縮放鈕那一排(寬 188)讓開 */
+@media(min-width:761px) and (max-height:520px){
+  html body:not(.piloting) #toasts{max-width:calc(100vw - 2 * var(--hv-gut) - 286px)!important}
+  html body #toasts .toast:not(:last-child){display:none!important}
+}
+
+/* ── B7 離線戰報:「收下戰報」黏在面板底部,內容再長也在一屏內看得到(橫向 330px 高的抽屜原本要捲到底) ── */
+html body #modal-content .offline-actions{position:sticky!important;bottom:0;z-index:2;margin:10px 0 0!important;padding:8px 0 4px!important;background:var(--hv-ink)!important;border-top:1px solid var(--hv-line)!important}
+
+/* ── 缺口 8／20 左側任務追蹤 #hv-left:不蓋難度色帶「初級」與右上日期標籤 ── */
+/* FIX-C:#hv-left 的 top 只留這一份(--hv-left-top);FIX-B 的 --hv-lp-top 也從它推出來 */
+:root{--hv-left-top:calc(env(safe-area-inset-top,0px) + 8px + var(--hv-top-left-h) + 8px)}
+@media(max-width:760px){:root{--hv-left-top:calc(env(safe-area-inset-top,0px) + 116px)}}
+@media(max-height:520px){:root{--hv-left-top:calc(env(safe-area-inset-top,0px) + 92px)}}
+html body #hv-left{top:var(--hv-left-top)}
+/* ===== FIX-A end ===== */
+
+/* ===== FIX-B：風格缺口（缺口 1–6、9–11、13–18）— 只有 FIX-B 代理改這段 ===== */
+/* ── 缺口 1：載入畫面 #loading → 炭黑底＋1px 線框＋像素字＋硬邊進度條（沒有木牌、金色雙框、金色進度條） ── */
+html body #loading{background:var(--hv-ink)!important;background-image:none!important;color:var(--hv-text)!important}
+html body #loading::before{content:none!important;background:none!important}
+html body #loading .loading-plate{padding:22px 28px 18px!important;border:1px solid var(--hv-line)!important;border-image:none!important;border-radius:2px!important;background:var(--hv-panel)!important;box-shadow:inset 0 0 0 2px var(--hv-ink),inset 0 0 0 3px var(--hv-line-hi)!important;gap:12px!important;min-width:min(300px,calc(100vw - 32px))}
+html body #loading .loading-mark{font-size:20px!important;color:var(--hv-text)!important;text-shadow:none!important}
+html body #loading .loading-title{color:var(--hv-text)!important;text-shadow:none!important;font-size:28px!important;letter-spacing:.18em!important}
+html body #loading .loading-sub{color:var(--hv-text-dim)!important;font-size:12px!important}
+html body #loading .loading-bar{width:240px!important;max-width:calc(100vw - 96px);height:8px!important;border:1px solid var(--hv-line-hi)!important;border-radius:0!important;background:var(--hv-ink-deep)!important}
+html body #loading .loading-bar span{background:var(--hv-text)!important;background-image:none!important;transition:none!important}
+html body #loading .loading-bar span::after{content:none!important;display:none!important}
+html body #loading.failed .loading-bar span{background:var(--hv-warn)!important}
+html body #loading .loading-meta{width:240px;max-width:calc(100vw - 96px);color:var(--hv-text-dim)!important}
+html body #loading .loading-meta :is(#loading-label,#loading-phase){color:var(--hv-text-dim)!important}
+html body #loading .loading-tip{color:var(--hv-text-dim)!important;font-size:12px!important;max-width:min(300px,calc(100vw - 96px))!important}
+
+/* ── 缺口 2＋9＋16：標題畫面 #title-screen → 炭黑小面板＋hv 按鈕，小字 ≥12px，844×390 完整放進視窗 ── */
+html body #title-screen{overflow:auto;overscroll-behavior:contain}
+html body #title-screen .ts-inner{box-sizing:border-box;width:min(400px,calc(100vw - 24px));max-width:min(420px,calc(100vw - 24px))!important;max-height:calc(100dvh - 16px);overflow:auto;padding:20px 24px 16px!important;gap:10px!important;
+  background:var(--hv-ink)!important;background-image:none!important;border:1px solid var(--hv-line)!important;border-radius:2px!important;box-shadow:inset 0 0 0 2px var(--hv-ink),inset 0 0 0 3px var(--hv-line-hi),0 2px 0 #000!important;backdrop-filter:none!important;scrollbar-width:thin}
+html body #title-screen .ts-crest{width:48px!important;height:48px!important;filter:none!important;animation:none!important}
+html body #title-screen .ts-title{font-size:clamp(32px,8vw,44px)!important;color:var(--hv-text)!important;text-shadow:0 2px 0 #000!important}
+html body #title-screen .ts-sub{color:var(--hv-text-dim)!important;font-size:12px!important}
+html body #title-screen .ts-rule{width:100%!important;height:1px!important;background:var(--hv-line)!important;background-image:none!important;opacity:1!important}
+html body #title-screen .ts-save{color:var(--hv-text)!important;font-size:12px!important}
+html body #title-screen .ts-actions{gap:8px!important;margin-top:4px!important;width:100%}
+html body #title-screen .ts-actions .pixel-button{flex:1 1 auto;min-width:0;min-height:44px!important;padding:6px 12px!important;font:600 13px/1.25 var(--font-ui)!important;letter-spacing:.04em!important;color:#fff!important;
+  background:var(--hv-btn-secondary)!important;background-image:none!important;border:1px solid #000!important;border-image:none!important;border-radius:2px!important;
+  box-shadow:inset 0 1px 0 rgba(255,255,255,.2),inset 0 -2px 0 rgba(0,0,0,.25),0 2px 0 #000!important;text-shadow:0 1px 0 rgba(0,0,0,.65)!important;filter:none!important}
+html body #title-screen .ts-actions .pixel-button.gold{background:var(--hv-btn-primary)!important}
+html body #title-screen .ts-actions .pixel-button:hover{background:var(--hv-btn-secondary-hi)!important}
+html body #title-screen .ts-actions .pixel-button.gold:hover{background:var(--hv-btn-primary-hi)!important}
+html body #title-screen .ts-actions .pixel-button:active{transform:translateY(1px)!important;box-shadow:inset 0 1px 0 rgba(0,0,0,.3),0 1px 0 #000!important}
+html body #title-screen .ts-meta{font-size:12px!important;color:var(--hv-text-dim)!important;text-shadow:none!important;margin-top:4px!important}
+html body #title-screen .ts-hint{font-size:12px!important;color:var(--hv-text-dim)!important;text-shadow:none!important}
+@media(max-width:520px){html body #title-screen .ts-title{font-size:32px!important}html body #title-screen .ts-actions{flex-direction:column}}
+@media(max-height:520px){
+  html body #title-screen .ts-inner{padding:10px 18px 8px!important;gap:4px!important;width:min(440px,calc(100vw - 24px));max-width:min(520px,calc(100vw - 24px))!important}
+  html body #title-screen .ts-crest{width:32px!important;height:32px!important}
+  html body #title-screen .ts-title{font-size:30px!important;line-height:1.05!important}
+  html body #title-screen .ts-actions{flex-direction:row;margin-top:2px!important}
+  html body #title-screen .ts-meta{margin-top:0!important}
+}
+/* ── 缺口 3：舊左面板 aside#left-panel → 炭黑面板，排在任務追蹤下方（任務追蹤不再被藏起來） ── */
+/* 面板 top＝任務追蹤的 top(--hv-left-top,FIX-A 段定義)＋ 任務追蹤高 44px ＋ 12px 間距 */
+:root{--hv-lp-top:calc(var(--hv-left-top) + 56px)}
+html body #left-panel{border:0!important;border-image:none!important;background:none!important;padding:0!important;box-shadow:none!important;
+  top:var(--hv-lp-top)!important;max-height:calc(100vh - var(--hv-lp-top) - var(--hv-tab-h) - 16px)!important}
+html body #left-panel:not(.hidden)~#hv-left :is(#hv-advisor,#notice-feed){display:none!important}
+
+/* ── 缺口 5：建築詳情 #inspector → 跟面板同一套底部抽屜幾何（桌機 min(960,100vw-32) 置中、手機滿寬），內容改格狀 ── */
+html body #inspector{position:fixed!important;left:50%!important;right:auto!important;top:auto!important;bottom:var(--hv-tab-h)!important;transform:translateX(-50%)!important;
+  width:min(960px,calc(100vw - 32px))!important;max-width:none!important;min-width:0!important;margin:0!important;
+  max-height:calc((100vh - max(var(--hud-top,96px),96px) - var(--hv-tab-h) - 4px) / max(1,var(--ui-scale,1)))!important;
+  border:1px solid var(--hv-line)!important;border-bottom:0!important;border-radius:3px 3px 0 0!important;box-shadow:0 -2px 0 #000!important;display:flex!important;flex-direction:column!important;overflow:hidden!important}
+html body #inspector.hidden{display:none!important}
+html body #inspector .panel-title{flex:0 0 auto;display:flex!important;align-items:center;justify-content:space-between;min-height:44px;padding:0 6px 0 12px!important}
+html body #inspector .panel-title>[data-action=closeInspector]{width:32px!important;height:32px!important;min-width:32px!important;min-height:32px!important;padding:0!important;flex:0 0 auto}
+html body #inspector #inspect-content{flex:1 1 auto;min-height:0;overflow:auto;overscroll-behavior:contain;display:grid!important;grid-template-columns:minmax(96px,132px) minmax(0,1fr);gap:8px 12px;align-items:start;padding:10px 12px 12px!important;scrollbar-width:thin;scrollbar-color:var(--hv-line-hi) var(--hv-ink)}
+html body #inspector #inspect-content>*{margin:0!important;min-width:0}
+html body #inspector .inspect-art{grid-column:1;grid-row:1/span 7;align-self:start;display:grid;place-items:center;min-height:96px;aspect-ratio:1;width:100%;max-width:132px}
+html body #inspector .inspect-art img{max-width:100%;max-height:100%;object-fit:contain;image-rendering:pixelated}
+html body #inspector #inspect-content>:not(.inspect-art){grid-column:2}
+html body #inspector .inspect-level{font:700 12px/1.3 var(--font-num)!important;color:var(--hv-gold)!important;padding:3px 8px!important;justify-self:start;width:auto}
+html body #inspector .inspect-desc{margin:0!important}
+html body #inspector .inspect-note{font:600 12px/1.5 var(--font-ui)!important;white-space:normal;color:var(--hv-text-dim)!important;padding:6px 8px!important}
+html body #inspector .inspect-note.short{color:var(--hv-warn)!important}
+html body #inspector .inspect-next{font:600 12px/1.4 var(--font-ui)!important;color:var(--hv-text)!important;padding:4px 8px!important;justify-self:start;width:auto}
+html body #inspector .inspect-effect{padding:6px 8px!important;font:600 12px/1.5 var(--font-ui)!important}
+html body #inspector .inspect-actions{display:flex!important;gap:6px;flex-wrap:wrap}
+html body #inspector .inspect-actions>button{flex:1 1 140px;min-height:36px}
+html body #inspector .inspect-actions .pixel-button:not(:disabled){}
+html body #inspector .inspect-done{margin:0!important;display:flex;align-items:center;min-height:36px;padding:0 4px;font:700 13px/1.3 var(--font-ui)!important;color:var(--hv-ok)!important}
+html body #inspector .inspect-actions .inspect-done{flex:1 1 140px}
+@media(max-width:760px),(max-height:520px){
+  html body #inspector{left:0!important;width:100%!important;max-height:calc(100vh - var(--hud-top,96px) - var(--hv-tab-h)) !important;transform:none!important;border-left:0!important;border-right:0!important;border-radius:0!important}
+  html body #inspector .panel-title>[data-action=closeInspector]{width:44px!important;height:44px!important;min-width:44px!important;min-height:44px!important}
+  html body #inspector .inspect-actions>button{min-height:44px}
+}
+@media(max-width:760px) and (min-height:521px){
+  html body #inspector .inspect-art{grid-row:1/span 2;min-height:88px}
+  html body #inspector #inspect-content>:is(.inspect-effect,.inspect-next,.inspect-cost,.inspect-note,.inspect-actions){grid-column:1/-1}
+  html body #inspector .inspect-next{justify-self:stretch}
+}
+@media(max-height:520px){
+  html body #inspector{max-height:calc(100vh - var(--hv-tab-h)) !important}
+  html body #inspector #inspect-content{grid-template-columns:minmax(88px,110px) minmax(0,1fr)}
+  html body #inspector .inspect-art{min-height:88px}
+}
+
+/* ── 缺口 6：獵人名冊格 → 手機 4 欄、桌機（含 1024）6 欄一列放完 ── */
+@media(max-width:1100px) and (min-width:761px){html body #modal-content .hv-hgrid{grid-template-columns:repeat(6,minmax(0,1fr))!important}}
+@media(max-width:760px){
+  html body #modal-content .hv-hgrid{grid-template-columns:repeat(4,minmax(0,1fr))!important;gap:6px 4px!important}
+  html body #modal-content .hv-hcard{display:grid;grid-template-columns:minmax(0,1fr);align-content:start;gap:3px;padding:4px;position:relative}
+  html body #modal-content .hv-hcard .hc-btns{display:contents}
+  html body #modal-content .hv-hcard .hc-head,html body #modal-content .hv-hcard .hc-sub{grid-column:1}
+  html body #modal-content .hv-hcard :is(.hc-name,.hc-sub,.hc-status){white-space:normal;overflow:visible;text-overflow:clip;overflow-wrap:anywhere}
+  html body #modal-content .hv-hcard .hc-art{grid-column:1;grid-row:3;height:84px;margin:2px 0 0}
+  html body #modal-content .hv-hcard .hc-art img{width:100%;max-width:72px;height:80px;object-fit:contain}
+  html body #modal-content .hv-hcard .hc-status{grid-row:4}
+  html body #modal-content .hv-hcard .hc-hp{grid-row:5}
+  html body #modal-content .hv-hcard .hc-info{grid-row:6;grid-column:1;width:100%;min-height:44px!important}
+  /* 定位鈕：44px 熱區蓋在立繪右上角，只畫 26px 方塊（其餘是透明邊） */
+  html body #modal-content .hv-hcard .hc-loc{grid-row:3;grid-column:1;justify-self:end;align-self:start;width:44px;height:44px;min-height:44px!important;flex:none;z-index:2;margin:0;
+    border:9px solid transparent!important;background-clip:padding-box!important;box-shadow:none!important;padding:0!important;display:grid!important;place-items:center}
+  html body #modal-content .hv-hcard .hc-loc .hv-loc{width:12px;height:12px}
+  html body #modal-content .hv-hcard .hc-loc .hv-loc::before{width:12px;height:12px;background-size:12px 12px}
+}
+@media(max-width:340px){html body #modal-content .hv-hgrid{grid-template-columns:repeat(2,minmax(0,1fr))!important}}
+@media(min-width:761px) and (max-height:520px){html body #modal-content .hv-hgrid{grid-template-columns:repeat(6,minmax(0,1fr))!important}}
+
+/* ── 缺口 11：對比 ≥ 4.5:1 ── */
+:root{--hv-btn-disabled-text:#a79f90}
+html body #modal-content .hunter-actions .pixel-button small,html body #modal-content .hunter-actions .hv-act-s small :is(.hv-w,.hv-k){color:#fff!important;opacity:1!important}
+html body #modal-content .cx-card.unknown :is(.cx-nm,.cx-stats,.cx-stats span,.cx-lore,.cx-drop.unknown-drop){color:#a89c82!important}
+html body #modal-content .diff-gate.short,html body #modal-content small.diff-gate.short{color:#ff8a76!important}
+html body #toasts .toast .toast-check{color:#1b1208!important}
+
+/* ── 缺口 13：Ctrl+K 指令面板 → 圓角 0–3px、字 ≥12px、控制項桌機 ≥32／手機 ≥44、沒有全螢幕 blur ── */
+html body #cmdk{backdrop-filter:none!important;-webkit-backdrop-filter:none!important;background:rgba(20,17,15,.6)!important}
+html body #cmdk .cmdk-box{border-radius:2px!important;background:var(--hv-ink)!important;background-image:none!important;border:1px solid var(--hv-line)!important;box-shadow:0 2px 0 #000!important}
+html body #cmdk .cmdk-head{padding:8px 10px!important;gap:8px!important}
+html body #cmdk .cmdk-key{border-radius:2px!important;font-size:12px!important;color:var(--hv-text-dim)!important;border-color:var(--hv-line-hi)!important;min-height:32px;display:inline-flex;align-items:center}
+html body #cmdk input{font-size:14px!important;min-height:32px!important;height:32px;border-radius:2px!important}
+html body #cmdk .cmdk-esc{border-radius:2px!important;font-size:12px!important;min-height:32px!important;min-width:44px;color:var(--hv-text-dim)!important;background:var(--hv-panel-2)!important;border-color:var(--hv-line-hi)!important}
+html body #cmdk .cmdk-row{border-radius:2px!important;min-height:36px;font-size:13px!important}
+html body #cmdk .cmdk-row small{font-size:12px!important;color:var(--hv-text-dim)!important}
+html body #cmdk .cmdk-row.sel{background:var(--hv-panel-2)!important;box-shadow:inset 0 0 0 1px var(--hv-line-hi)!important;background-image:none!important}
+html body #cmdk .cmdk-row.sel small{color:var(--hv-gold)!important}
+html body #cmdk :is(.cmdk-empty,.cmdk-foot){font-size:12px!important;color:var(--hv-text-dim)!important}
+@media(max-width:760px),(max-height:520px){
+  html body #cmdk .cmdk-esc,html body #cmdk .cmdk-key,html body #cmdk input{min-height:44px!important;height:44px}
+  html body #cmdk .cmdk-row{min-height:44px}
+}
+
+/* ── 缺口 15：捲動提示箭頭放在內容區外緣的專用邊（可捲動時內容右側多留一條），不再壓卡片「i」鈕與成本數字 ── */
+html body #modal[data-scroll]:not([data-scroll=""]) #modal-content{padding-right:28px!important}
+html body #modal #scroll-hint,html body #modal #scroll-hint-up{right:5px!important}
+
+/* ── 缺口 17／18：柔和陰影改硬邊、顧問圖示木色漸層拿掉、縮放鈕極淡底 ── */
+html body #modal-content .dispatch-go{box-shadow:0 -2px 0 #000!important}
+html body #modal-content #world-map-canvas,html body #world-map-canvas{border:1px solid var(--hv-line)!important;border-image:none!important;box-shadow:none!important}
+html body #hv-advisor .next-step .ns-ic{background:var(--hv-panel-2)!important;background-image:none!important}
+html body #game-ui .view-tools>button{background:rgba(20,17,15,.14)!important;border:1px solid transparent!important}
+html body #game-ui .view-tools>button:hover{background:rgba(20,17,15,.34)!important}
+html body #game-ui .view-tools>button [data-icon],html body #game-ui .view-tools>button :is(canvas,img){filter:var(--hv-icon-outline)}
+html body #game-ui .view-tools>button:focus-visible{border-color:var(--hv-gold)!important}
+
+/* ── B6／B8：建設卡「i」鈕在最上層；單行截斷改成換行 ── */
+html body #modal-content .hv-card .hv-i{z-index:3}
+html body #modal-content .hv-card .bc-head{z-index:4}
+@media(max-height:520px){
+  html body #modal-content .hv-card .bc-head{display:flex!important;flex-wrap:wrap;align-items:baseline;column-gap:6px;row-gap:0;padding-right:44px!important}
+  html body #modal-content .hv-card .bc-head strong{flex:1 1 100%;white-space:normal!important;overflow:visible!important;text-overflow:clip!important;line-height:1.25!important}
+}
+html body #modal-content .hv-note{white-space:normal!important;overflow:visible!important;text-overflow:clip!important}
+html body #modal-content .hv-item :is(.si-src,.si-use){white-space:normal!important;overflow:visible!important;text-overflow:clip!important;overflow-wrap:anywhere}
+html body #modal-content .cx-kill{font-size:12px!important}
+
+/* ── 缺口 14：停用／鎖定鈕的鎖頭（灰色像素鎖，跟字同高） ── */
+html body :is(#modal,#inspector,#left-panel) .pixel-button:disabled .hv-lock,html body .hv-btn:disabled .hv-lock,html body .hv-btn.locked .hv-lock{margin-right:6px;flex:none;opacity:1}
+html body #modal-content .hunter-actions .pixel-button>.hv-lock{width:12px;height:14px;background-size:12px 14px;margin:0 8px 0 4px;vertical-align:baseline}
+/* ── 缺口 10：列表裡的卡片只留一顆滿寬主按鈕；其他動作＝右上角小圖示鈕（桌機 32px、手機 44px 熱區，畫 24px 金色方塊） ── */
+html body #modal-content :is(.region-card,.craft-card){position:relative}
+html body #modal-content :is(.region-card .hv-i,.craft-card .hv-max){position:absolute!important;top:2px;right:2px;display:grid!important;place-items:center;width:32px!important;height:32px!important;min-width:32px!important;min-height:32px!important;padding:0!important;margin:0!important;
+  background:none!important;border:0!important;box-shadow:none!important;cursor:pointer;z-index:3;color:#231d18!important;text-shadow:none!important}
+html body #modal-content :is(.region-card .hv-i>span,.craft-card .hv-max>span:first-child){display:grid;place-items:center;width:24px;height:24px;background:var(--hv-gold);border:1px solid #000;border-radius:2px;
+  box-shadow:inset 0 1px 0 #ffe7a3,inset 0 -2px 0 #a5781c;color:#231d18;font:700 14px/1 var(--font-num);text-shadow:none}
+html body #modal-content :is(.region-card .hv-i:hover>span,.craft-card .hv-max:hover:not(:disabled)>span:first-child){background:#f2c95a}
+html body #modal-content .craft-card .pixel-button.hv-max:not(:disabled),html body #modal-content .craft-card .pixel-button.hv-max:not(:disabled):hover,html body #modal-content .craft-card .pixel-button.hv-max:not(:disabled):active{background:none!important;border:0!important;box-shadow:none!important;transform:none!important;filter:none!important}
+html body #modal-content .region-card .rg-head{padding-right:34px}
+html body #modal-content .craft-card:has(.hv-max) .craft-heading{padding-right:34px}
+html body #modal-content .region-card .rg-act{display:flex}
+html body #modal-content .region-card .rg-act>.pixel-button{flex:1 1 auto;width:100%;min-height:36px}
+html body #modal-content .craft-card .craft-buttons{display:flex!important}
+html body #modal-content .craft-card .craft-buttons>.pixel-button:not(.hv-max){flex:1 1 auto;width:100%}
+/* 交易列：− 鈕群（−10／−1／＋1）＝小方鈕，收購 +10 是唯一滿寬主按鈕 */
+html body #modal-content .trade-row.hv-item .tr-step{gap:4px}
+html body #modal-content .trade-row.hv-item .tr-step .pixel-button:first-child{min-width:44px;width:auto;padding:0 6px!important}
+html body #modal-content .trade-row.hv-item .tr-big>.pixel-button{flex:1 1 100%!important;width:100%}
+/* 區域詳情：磚紅主鈕最大、其他是較小的次按鈕 */
+html body #modal-content .region-detail .dispatch-go{display:flex!important;flex-wrap:wrap;gap:6px!important;align-items:stretch}
+html body #modal-content .region-detail .dispatch-go .pixel-button{flex:0 1 auto!important;min-width:0;padding:6px 14px!important;min-height:36px!important;white-space:nowrap}
+html body #modal-content .region-detail .dispatch-go .pixel-button.gold{flex:1 1 220px!important;order:2;min-height:44px!important}
+@media(max-width:760px){
+  html body #modal-content .trade-row.hv-item .tr-step output{position:absolute!important;width:1px!important;height:1px!important;min-width:0!important;overflow:hidden;clip:rect(0 0 0 0);white-space:nowrap;padding:0;margin:-1px}
+  html body #modal-content .trade-row.hv-item .tr-step{justify-content:center}
+  html body #modal-content .region-card .rg-act>.pixel-button{min-height:44px}
+  html body #modal-content .region-detail .dispatch-go .pixel-button{min-height:44px!important;flex:1 1 0!important}
+  html body #modal-content .region-detail .dispatch-go .pixel-button.gold{flex:1 1 100%!important;order:-1}
+}
+@media(max-width:760px),(max-height:520px){
+  html body #modal-content :is(.region-card .hv-i,.craft-card .hv-max){width:44px!important;height:44px!important;min-width:44px!important;min-height:44px!important;top:0;right:0}
+  html body #modal-content .region-card .rg-act>.pixel-button{min-height:44px}
+}
+@media(max-height:520px){
+  html body #modal-content .region-detail .dispatch-go .pixel-button.gold{flex:2 1 180px!important;order:2}
+}
+
+/* ── 獵人詳情：橫向手機改左右兩欄（資料｜按鈕），全部按鈕一屏內看得到；停用鈕鎖頭 ── */
+@media(max-height:520px){
+  html body #modal-content:has(>.hunter-detail){display:grid!important;grid-template-columns:minmax(0,1fr) 236px;column-gap:12px;align-items:start;align-content:start}
+  html body #modal-content:has(>.hunter-detail)>.hunter-detail{grid-column:1}
+  html body #modal-content:has(>.hunter-detail)>.hunter-actions{grid-column:2;margin-top:0!important;gap:6px!important}
+  html body #modal-content:has(>.hunter-detail) .hunter-actions .hv-act-main{max-width:none}
+  html body #modal-content:has(>.hunter-detail) .hunter-actions .hv-act-sub{grid-template-columns:minmax(0,1fr)!important;gap:6px}
+}
+/* 橫向招募卡：圖左資訊右、按鈕滿寬在最下面，三張一列一屏內放完 */
+@media(max-height:520px){
+  html body #modal-content .visitor-grid{grid-template-columns:repeat(3,minmax(0,1fr))!important;gap:8px!important}
+  html body #modal-content .visitor-card{display:grid!important;grid-template-columns:72px minmax(0,1fr);column-gap:10px;row-gap:3px;align-content:start;align-items:start;padding:8px!important;min-height:0!important}
+  html body #modal-content .visitor-card .visitor-art{grid-column:1;grid-row:1/span 4;height:auto!important;width:72px;margin:0!important}
+  html body #modal-content .visitor-card .visitor-art img{width:72px!important;height:auto!important;max-height:100px;object-fit:contain}
+  html body #modal-content .visitor-card>:not(.visitor-art):not(.pixel-button){grid-column:2;margin:0!important;min-width:0}
+  html body #modal-content .visitor-card>p{grid-column:1/-1;font-size:12px!important;line-height:1.4!important;margin:2px 0 0!important}
+  html body #modal-content .visitor-card .pixel-button{grid-column:1/-1;margin-top:6px!important;min-height:44px!important}
+}
+/* ===== FIX-B end ===== */
+
+/* ===== FIX-C：面板開著時的 toast／橫向資源條／合併「×N」 — 只有 FIX-C 代理改這段 ===== */
+/* 標題列空位 .hv-mslot:標題(或子頁籤)與 X 之間(橫向資源條住這裡);toast 容器 #toasts 開面板時由 pixel-ui.js 的 toastDock() 搬進標題列本身(FIX-D),關面板搬回 body */
+html body #modal .modal-title .hv-mslot,html body #inspector .panel-title .hv-mslot{flex:1 1 0;min-width:0;align-self:stretch;display:flex;align-items:center;gap:10px;margin:0 8px;container-type:inline-size}
+html body #modal[data-kind=dialog] .hv-mslot,html body #modal[data-kind=confirm] .hv-mslot{display:none!important}
+html body :is(#modal,#inspector) .hv-pt{flex:1 1 0;min-width:0;height:100%;display:flex;align-items:center;justify-content:flex-start}
+/* 資源條:只在 HUD 被藏起來的視窗(橫向手機／矮視窗)出現;建設面板自己有成本庫存列 → 不重複 */
+html body #modal .hv-pres{display:none;flex:0 0 auto;align-items:center;gap:10px;pointer-events:none}
+html body #modal .hv-pres .hv-pr{display:inline-flex;align-items:center;gap:4px;white-space:nowrap}
+html body #modal .hv-pres [data-icon]{display:grid;place-items:center;width:18px;height:18px;flex:0 0 18px}
+html body #modal .hv-pres [data-icon] :is(canvas,img){width:18px!important;height:18px!important;image-rendering:pixelated}
+html body #modal .hv-pres b{font:700 13px/1 var(--font-num);color:#fff;text-shadow:none;letter-spacing:.02em}
+@media(max-height:520px){
+  html body #modal:not([data-kind=dialog]):not([data-kind=confirm]):not([data-type=build]) .hv-pres{display:flex}
+}
+/* 開著面板時的 toast 改由 FIX-D 段處理:蓋住整個標題列(只留 X)、最多兩行、多則排隊依序顯示 */
+/* 合併(重複)時元素會被移到最後 → 不重播進場動畫(否則重播期間 opacity 0,看起來像消失) */
+html body #toasts .toast.again:not(.out){animation:none!important;opacity:1!important;transform:none!important}
+/* 合併後的 ×N(面板開著或關著都一樣) */
+html body #toasts .toast .toast-n{flex:0 0 auto;margin-left:2px;padding:1px 4px;background:var(--hv-ink);color:var(--hv-gold);border-radius:2px;font:700 12px/1.2 var(--font-num)}
+/* 開著面板時 FIX-A 的「toast 吃抽屜上方空間」規則不再適用 */
+html body.hud-modal:not(.piloting) #toasts[data-dock]{bottom:auto!important}
+/* ===== FIX-C end ===== */
+
+/* ===== FIX-D：橫向建築詳情右側抽屜／toast 蓋住整個標題列／手動操控清單與縮放鈕／對比 — 只有 FIX-D 代理改這段 ===== */
+/* ── G1／G2 橫向手機(高 ≤520)建築詳情 #inspector:改成右側抽屜(寬 min(440px,52vw),從頂到頁籤列),左半邊露出世界與左側 HUD,
+   還能點別棟建築切換;被抽屜蓋住的右側 HUD(頂欄右半、行動徽章、縮放鈕、操作提示、出征小隊 HUD)隱藏,不是壓在下面 ── */
+@media(max-height:520px){
+  html body #inspector{left:auto!important;right:0!important;top:env(safe-area-inset-top,0px)!important;bottom:calc(var(--hv-tab-h) + env(safe-area-inset-bottom,0px))!important;
+    width:min(440px,52vw)!important;max-width:none!important;height:auto!important;max-height:none!important;transform:none!important;z-index:24!important;
+    border:0!important;border-left:1px solid var(--hv-line)!important;border-radius:0!important;box-shadow:-2px 0 0 #000!important}
+  html body:has(#inspector:not(.hidden)):not(.piloting) :is(#topbar>:not(.hv-tl),#topbar>:not(.hv-tl) *,.hv-actions,.hv-actions *,#game-ui .view-tools,#game-ui .view-tools *,#game-ui .map-hint,#run-hud,#run-hud *,#unit-card,#unit-card *,#placement,#placement *){visibility:hidden!important;pointer-events:none!important}
+  /* 暫停標籤(畫面下方中間)移到抽屜左邊露出來的那塊中間,不被抽屜蓋住 */
+  html body:has(#inspector:not(.hidden)):not(.piloting) #game-ui #pause-label{left:calc((100vw - min(440px,52vw)) / 2)!important}
+  /* 抽屜窄了(約 440px):主按鈕黏在內容區底部,不必捲到底才看得到「升級」 */
+  html body #inspector #inspect-content{grid-template-columns:minmax(72px,88px) minmax(0,1fr);gap:6px 10px}
+  html body #inspector .inspect-art{min-height:72px;max-width:88px}
+  html body #inspector #inspect-content>.inspect-actions{grid-column:1/-1;position:sticky;bottom:-12px;z-index:2;background:var(--hv-ink);margin:0 -12px -12px!important;padding:8px 12px!important;border-top:1px solid var(--hv-line)}
+  html body #inspector .inspect-actions>button{flex:1 1 120px!important;width:auto!important;min-width:0}
+}
+/* ── G3／G4／G5 面板開著時的 toast:蓋住整個標題列(標題、子頁籤、工具鈕暫時被蓋,只有圓形 X 不蓋),寬度＝標題列寬減 X;
+   pointer-events:none(底下的鈕仍點得到);最多兩行自動換行,放不下兩行才省略;多則時由 pixel-ui.js 的 toastQueue() 排隊依序顯示(每則至少 1.2 秒) ── */
+:root{--fd-x:32px}
+@media(max-width:760px),(max-height:520px){:root{--fd-x:44px}}
+html body :is(#modal .modal-title,#inspector .panel-title){position:relative}
+html body :is(#modal,#inspector) :is(.modal-title,.panel-title)>#toasts{position:absolute!important;inset:0 calc(var(--fd-x) + 12px) 0 0!important;transform:none!important;
+  display:flex!important;flex-direction:row!important;align-items:stretch!important;justify-content:flex-start!important;width:auto!important;max-width:none!important;min-width:0;height:auto!important;margin:0!important;padding:0!important;gap:0!important;
+  overflow:hidden;pointer-events:none!important;z-index:6}
+html body :is(#modal,#inspector) :is(.modal-title,.panel-title)>#toasts .toast{display:flex!important;flex:1 1 auto;align-items:center!important;box-sizing:border-box;width:100%;max-width:none!important;min-width:0;height:100%;min-height:0!important;
+  padding:3px 10px 3px 8px!important;gap:8px!important;overflow:hidden;white-space:normal;border-radius:0!important;pointer-events:none!important}
+html body :is(#modal,#inspector) :is(.modal-title,.panel-title)>#toasts .toast .toast-tx{flex:1 1 auto;min-width:0;display:-webkit-box;-webkit-box-orient:vertical;-webkit-line-clamp:2;line-clamp:2;overflow:hidden;white-space:normal;overflow-wrap:anywhere;text-overflow:ellipsis;font:600 13px/1.2 var(--font-ui)}
+html body :is(#modal,#inspector) :is(.modal-title,.panel-title)>#toasts .toast .toast-ic{width:18px!important;height:18px!important;flex:0 0 18px}
+html body :is(#modal,#inspector) :is(.modal-title,.panel-title)>#toasts .toast .toast-ic :is(canvas,img,[data-icon]){width:18px!important;height:18px!important}
+/* 排隊:一次只顯示一則(.tq-wait 還沒輪到、.tq-done 已經看過);淡出的那一則直接收掉,免得跟下一則同時擠在一格 */
+html body :is(#modal,#inspector) :is(.modal-title,.panel-title)>#toasts .toast:is(.tq-wait,.out,.tq-done),html body #toasts .toast.tq-done{display:none!important}
+/* ── G6 手動操控選角清單 #pilotlab(還沒選人):手機/橫向是頁籤列上方的底部抽屜,右下縮放鈕(.view-tools)會被壓在下面 → 清單開著時縮放鈕隱藏(選了角色開始操控後 body.piloting,不受影響) ── */
+@media(max-width:760px),(max-height:520px){
+  html body:not(.piloting):has(#pilotlab) :is(#game-ui .view-tools,#game-ui .view-tools *){visibility:hidden!important;pointer-events:none!important}
+}
+/* ── G9 對比:鎖住的章節原本整列 opacity .72(說明 4.38:1、「未解鎖」4.03:1、不足的獎勵數字 3.12:1)→ 不透明,用暗字色表示鎖住;全部 ≥ 4.5:1 ── */
+html body #modal-content .quest-step.locked{opacity:1!important;filter:none!important}
+html body #modal-content .quest-step.locked :is(.qs-body>p,.qs-reward small){color:var(--hv-text-dim)!important}
+html body #modal-content .quest-step.locked .qs-tag{color:#c4b99f!important}
+/* ===== FIX-D end ===== */

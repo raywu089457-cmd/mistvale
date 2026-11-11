@@ -18,7 +18,7 @@ await page.waitForFunction(() => globalThis.__mistvaleGame && !document.querySel
 await page.evaluate(() => { const g = globalThis.__mistvaleGame; Object.assign(g.state, { gold: 99999, wood: 9999, ore: 9999, herb: 9999, cloth: 9999, flour: 9999, leather: 9999, gems: 999 });
   for (const id of Object.keys(g.state.buildings)) g.state.buildings[id] = Math.max(1, g.state.buildings[id]); });
 const act = (a, id) => page.evaluate(([a, id]) => { const el = document.createElement('button'); el.dataset.action = a; if (id != null) el.dataset.id = id; el.style.display = 'none'; document.body.append(el); el.click(); el.remove(); }, [a, id]);
-const closeAll = () => page.evaluate(() => { try { globalThis.__mistvaleGame.pilotStop?.(); } catch {} for (const k of ['leave', 'stop', 'exit', 'close']) document.querySelectorAll(`#pilotlab [data-pilot=${k}]`).forEach(b => b.offsetParent && b.click()); document.querySelector('#modal-backdrop:not(.hidden) [data-action=close]')?.click(); document.querySelector('[data-action=closeInspector]')?.offsetParent && document.querySelector('[data-action=closeInspector]').click(); });
+const closeAll = () => page.evaluate(() => { try { globalThis.__mistvaleGame.pilotStop?.(); } catch {} for (const k of ['leave', 'stop', 'exit', 'close']) document.querySelectorAll(`#pilotlab [data-pilot=${k}]`).forEach(b => b.offsetParent && b.click()); document.querySelector('#modal-backdrop:not(.hidden) [data-action=close]')?.click(); document.querySelector('[data-action=closeInspector]')?.offsetParent && document.querySelector('[data-action=closeInspector]').click(); try { globalThis.__mistvaleSelect?.(null); } catch {} document.querySelector('#unit-card [data-action=unitCardClose]')?.click(); });
 const hid = () => page.evaluate(() => globalThis.__mistvaleGame.state.hunters[0].id);
 const SCREENS = [
   ['hud', async () => { await closeAll(); }],
@@ -28,17 +28,22 @@ const SCREENS = [
   ['dungeon', () => act('dungeon')], ['arena', () => act('arena')], ['quests', () => act('quests')], ['inventory', () => act('inventory')],
   ['difficulty', () => act('difficulty')], ['settings', () => act('settings')], ['help', () => act('help')], ['boss', () => act('boss')],
   ['dispatch', () => act('dispatchHunters')], ['inspector', async () => { await closeAll(); await act('selectBuilding', 'forge'); }],
+  // 2026-11-11 第二階段:世界內選取的六角鈕(資訊／取消)、亮色對話框(開場導覽、顧問)。第三格 = 只巡這個容器裡的按鈕
+  ['select-building', async () => { await closeAll(); await page.evaluate(() => globalThis.__mistvaleView?.focus('home')); await page.waitForTimeout(500); await page.evaluate(() => globalThis.__mistvaleSelect('forge')); }, '#hv-sel'],
+  ['select-hunter', async () => { await closeAll(); await page.evaluate(() => { const g = globalThis.__mistvaleGame, h = g.state.hunters[0]; g.state.paused = true; globalThis.__mistvaleView?.lookAt(h.x, h.z, 2.2); }); await page.waitForTimeout(900); await page.evaluate(() => globalThis.__mistvaleSelect('hunter:' + globalThis.__mistvaleGame.state.hunters[0].id)); }, '#hv-sel'],
+  ['dialog-welcome', async () => { await closeAll(); await act('welcomeReplay'); }, '#modal'],
 ];
 const SKIP = new Set(['reset', 'export']);
 const sig = () => page.evaluate(() => { const s = globalThis.__mistvaleGame.state; return JSON.stringify([document.querySelector('#modal-backdrop')?.classList.contains('hidden') ? '' : document.querySelector('#modal-title')?.textContent, s.gold, s.paused, s.speed, s.region, s.difficulty, s.hunters.map(h => h.task + h.huntRegion).join(), document.querySelectorAll('#toasts > *').length]); });
 const shot = async () => crypto.createHash('md5').update(await page.screenshot()).digest('hex');
 const report = [];
-for (const [name, open] of SCREENS) {
+for (const [name, open, only] of SCREENS) {
+  if (process.env.ONLY && !process.env.ONLY.split(',').includes(name)) continue;   // ONLY=select-building,dialog-welcome 只巡這幾個畫面
   await closeAll(); await page.waitForTimeout(150); await open(); await page.waitForTimeout(350);
-  const list = await page.evaluate(() => {
+  const list = await page.evaluate(only => {
     const vis = e => { const r = e.getBoundingClientRect(), cs = getComputedStyle(e); return r.width > 0 && r.height > 0 && cs.visibility !== 'hidden' && cs.display !== 'none' && !e.closest('.hidden'); };
     const modalOpen = !document.querySelector('#modal-backdrop')?.classList.contains('hidden');
-    return [...document.querySelectorAll('[data-action]')].filter(vis).filter(e => !modalOpen || e.closest('#modal') || (document.body.classList.contains('hud-modal') && e.closest('#topbar,#bottom-bar'))).map((e, i) => {
+    return [...document.querySelectorAll('[data-action]')].filter(vis).filter(e => !only || e.closest(only)).filter(e => !modalOpen || e.closest('#modal') || (document.body.classList.contains('hud-modal') && e.closest('#topbar,#bottom-bar'))).map((e, i) => {
       e.dataset.auditIdx = String(i); e.scrollIntoView({ block: 'nearest' }); const r = e.getBoundingClientRect(), cx = r.left + r.width / 2, cy = r.top + r.height / 2;
       const top = document.elementFromPoint(cx, cy), covered = !(top && (e === top || e.contains(top) || top.contains(e)));
       const off = cx < 0 || cy < 0 || cx > innerWidth || cy > innerHeight;
@@ -47,7 +52,7 @@ for (const [name, open] of SCREENS) {
       const scope = ['#modal', '#topbar', '#bottom-bar', '#left-panel', '#inspector', '#pilotlab'].find(q => e.closest(q)) || 'body';
       return { i, sel, scope, action: e.dataset.action, id: e.dataset.id || '', w: Math.round(r.width), h: Math.round(r.height), covered: covered ? (top?.id || top?.className || top?.tagName || '?').toString().slice(0, 40) : '', off, label: label.replace(/\s+/g, ' ').slice(0, 18), disabled: !!e.disabled };
     });
-  });
+  }, only);
   for (const btn of list) {
     const row = { screen: name, ...btn, result: '', ms: null };
     if (SKIP.has(btn.action)) { row.result = 'skipped(dangerous)'; report.push(row); continue; }

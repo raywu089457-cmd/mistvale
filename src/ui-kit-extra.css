@@ -142,10 +142,11 @@
 .building-card .build-cost .cost-chip.short{background:#3a1c1299}
 .building-card .build-cost .cost-chip.done{justify-content:center}
 
-/* 已建造且資源足夠的卡片：右上角原本只有一顆意義不明的「◆」，改成看得懂的「可升級」金牌。 */
-.building-card:not(.unbuilt)[aria-label*="資源足夠"]:not(:has(.cost-chip.done)) .build-level{
+/* 已建造且資源足夠的卡片：右上角原本只有一顆意義不明的「◆」，改成看得懂的「可升級」金牌。
+   T152：用 .tight 判斷（資源不足或被大廳等級卡住），不看 aria-label——「資源足夠，需要大廳等級」也含「資源足夠」。 */
+.building-card:not(.unbuilt):not(.tight):not(:has(.cost-chip.done)) .build-level{
   font-size:0;top:6px;right:6px}
-.building-card:not(.unbuilt)[aria-label*="資源足夠"]:not(:has(.cost-chip.done)) .build-level::after{
+.building-card:not(.unbuilt):not(.tight):not(:has(.cost-chip.done)) .build-level::after{
   content:"▲ 可升級";display:block;padding:1px 6px;border:1px solid #e7be5e;border-radius:2px;
   background:linear-gradient(180deg,#c9a04d,#a8823f);color:#20160c;font:800 11px/15px var(--font-ui);
   box-shadow:0 1px 0 #120b05}
@@ -223,4 +224,11 @@
   #modal-backdrop.hidden{opacity:0;pointer-events:none}
   #modal-backdrop #modal{transition:transform .12s ease-in}
   #modal-backdrop.hidden #modal{transform:translateY(6px) scale(.99)}
+}
+
+/* ══ 獵人詳情的立繪（桌機）：84×96 的像素圖被放大成 121×138（1.44 倍），非整數倍讓像素粗細不一，
+   人物在 180×273 的框裡也顯得小。改成整數 2 倍（168×192）；圖四周本來就有透明留白，用負邊距吃掉。══ */
+@media(min-width:761px){
+  #modal[data-type="hunter"] .detail-avatar>img{width:168px;height:192px;max-width:none;flex:0 0 auto;
+    margin:-16px -6px -10px;image-rendering:pixelated}
 }

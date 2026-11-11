@@ -1,7 +1,7 @@
 // verify.mjs — 一個指令跑完驗收,只印一小段摘要(給 pi / Claude 看結果用,不用讀幾百行輸出)。
 // 用法:
 //   npm run verify          建置 + npm test + 按鈕巡檢(桌機＋手機同時跑,約 5–8 分鐘)
-//   npm run verify:quick    建置 + npm test(約 2 分鐘)
+//   npm run verify:quick    建置 + npm test + 村莊名牌檢查 + 首領面板檢查(約 3 分鐘)
 // 按鈕巡檢需要本機遊戲伺服器(node server.mjs,預設 http://100.79.149.0:5024)在跑;它每次請求都重讀 outputs/暮影村.html,建置完就是新版。
 // 詳細輸出寫在 output/ui-audit/(不進 git):build.log、test.log、buttons-desktop.txt、buttons-phone.txt、verify-summary.md。
 // 結束碼:全部通過 0;有任何一項失敗 1。
@@ -37,6 +37,39 @@ say(b.code === 0 && !!built, `build ${built ? built[1] : '失敗'} (${b.sec}s)`)
 const t = await run('npm', ['test'], 'test.log');
 const passes = (t.text.match(/^PASS/gm) || []).length, errLine = t.text.split('\n').find(l => /AssertionError|Error:/.test(l));
 say(t.code === 0 && passes >= 11, `npm test ${passes} 項 PASS${t.code ? ' — ' + (errLine || '').trim().slice(0, 120) : ''} (${t.sec}s)`);
+
+// 2b) T151 村莊名牌不重疊(自己開臨時伺服器讀剛建好的版本,不需要 5024 那台)
+const ml = await run('node', ['tools/checks/map-labels.mjs'], 'map-labels.txt');
+const mlFix = ml.text.split('\n').filter(l => l.startsWith('FIX'));
+say(ml.code === 0, `村莊名牌 ${(ml.text.match(/^PASS/gm) || []).length} 個情境 PASS${ml.code ? ' — ' + (mlFix[0] || ml.text.trim().split('\n').pop() || '').trim().slice(0, 120) : ''} (${ml.sec}s)`);
+
+// 2c) T162 首領面板(戰力對比、參戰名單、限時說明、召喚鈕第一屏);自己開臨時伺服器,quick 也跑
+const bp = await run('node', ['tools/checks/boss-panel.mjs'], 'boss-panel.txt', { TARGET: '' });
+const bpFix = bp.text.split('\n').filter(l => l.startsWith('FIX'));
+say(bp.code === 0, `首領面板 ${(bp.text.match(/^ok /gm) || []).length} 項 ok${bp.code ? ' — ' + (bpFix[0] || bp.text.trim().split('\n').pop() || '').trim().slice(0, 120) : ''} (${bp.sec}s)`);
+
+// 2d) FIX-A(2026-11-11 抓 bug 修正):出征 HUD 位置(B1)、移動建築取消(B2)、獵人小卡(B4)、toast 位置(缺口 4/19)、標題畫面(B5/B12)、離線戰報/手動操控/放置列版面(B3/B7/缺口 8,12,20)
+//     每支檢查都是「改回舊行為就會紅」;自己開臨時伺服器(TARGET 設空字串),quick 也跑
+for (const [file, label] of [['fix-a-runhud', '出征 HUD'], ['fix-a-cancelmove', '移動建築取消'], ['fix-a-unitcard', '獵人小卡'], ['fix-a-toast', 'toast 位置'], ['fix-a-title', '標題畫面'], ['fix-a-layout', '版面(手動操控/離線戰報/放置列/任務欄)']]) {
+  const r = await run('node', [`tools/checks/${file}.mjs`], `${file}.txt`, { TARGET: '' });
+  const fl = r.text.split('\n').filter(l => /^ - /.test(l));
+  say(r.code === 0, `${label} ${r.code === 0 ? (r.text.match(/^PASS.*$/m) || [''])[0].replace(/^PASS \S+:\s*/, '').slice(0, 60) : '— ' + (fl[0] || r.text.trim().split('\n').pop() || '').trim().slice(0, 140)} (${r.sec}s)`);
+}
+
+// 2e) FIX-B(2026-11-11 風格缺口補完):載入畫面/標題畫面/左面板/建築詳情/獵人名冊/卡片單一主按鈕/對比/指令面板/鎖頭/建設卡 i 鈕熱區;四種視窗,自己開臨時伺服器
+{
+  const r = await run('node', ['tools/checks/hv-fixb.mjs'], 'hv-fixb.txt', { TARGET: '' });
+  const fl = r.text.split('\n').filter(l => l.startsWith('FIX'));
+  say(r.code === 0, `風格缺口(FIX-B) ${(r.text.match(/^ok /gm) || []).length} 項 ok${r.code ? ' — ' + (fl[0] || r.text.trim().split('\n').pop() || '').trim().slice(0, 140) : ''} (${r.sec}s)`);
+}
+
+// 2f) FIX-C／FIX-D(2026-11-11 FIX-D = 第二輪回歸稽核 G1–G6、G9):面板開著 toast 在標題列／同句 ×N／橫向資源條／抽屜開著直接點另一棟／對齊值共用變數;
+//     另外 toast 卡片(T116)與出征小隊 HUD(T107)兩支舊檢查以前沒掛進來,FIX-A 回報它們修前就紅(圖示改 <img>、血條加邊框),已更新檢查後掛上
+for (const [file, label] of [['fix-c', 'FIX-C 面板 toast／資源條／切換建築'], ['toasts', 'toast 卡片'], ['run-hud', '出征小隊 HUD'], ['fix-d', 'FIX-D 橫向建築抽屜／面板 toast 蓋標題列／手動操控／對比']]) {
+  const r = await run('node', [`tools/checks/${file}.mjs`], `${file}.txt`, { TARGET: '' });
+  const fl = r.text.split(/\r?\n/).filter(l => /^ - |^FIX/.test(l));
+  say(r.code === 0, `${label} ${r.code === 0 ? (r.text.match(/^PASS.*$/m) || [''])[0].replace(/^PASS [^:]*:\s*/, '').slice(0, 50) : '— ' + (fl[0] || r.text.trim().split(/\r?\n/).pop() || '').trim().slice(0, 140)} (${r.sec}s)`);
+}
 
 // 3) 按鈕巡檢(桌機＋手機同時)
 if (!QUICK) {

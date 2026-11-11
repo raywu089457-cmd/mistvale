@@ -39,7 +39,12 @@ async function setup(page, { hall, levels = {}, res = {} }) {
   await page.waitForTimeout(150);
 }
 
+const coveredBy = [];   // 被抽屜蓋住、無法直接點的建築(只記錄,不拿來繞過)
+const NAME = { house: '獵人小屋', forge: '鐵匠鋪', academy: '學院' };
 async function selectBuilding(page, id) {
+  // 2026-11-11 FIX-C:建築詳情抽屜開著時,直接點世界上露出的另一棟建築就切換(不先關掉上一個);
+  //   若這棟被抽屜蓋住(點下去會打到抽屜)就記錄下來,由呼叫端決定——不再用「先關掉」繞過去
+  const wasOpen = await page.evaluate(() => !document.querySelector('#inspector')?.classList.contains('hidden'));
   // 世界回報的 hitRects 就是這一幀實際的可點矩形，換算成畫面座標再點（不要自己算投影）
   const r = await page.evaluate(bid => {
     const v = globalThis.__mistvaleView, cv = document.querySelector('#world');
@@ -50,7 +55,24 @@ async function selectBuilding(page, id) {
     return { x: rect.left + ((u.x + u.w / 2) / bot.sx) * rect.width, y: rect.top + ((u.y + u.h / 2) / bot.sy) * rect.height };
   }, id);
   if (!r) return false;
+  if (wasOpen) {
+    const covered = await page.evaluate(([x, y]) => !!document.elementFromPoint(x, y)?.closest('#inspector,#bottom-bar,#topbar'), [r.x, r.y]);
+    // 露出的 → 真的用滑鼠點;被抽屜蓋住的點不到 → 走 __mistvaleSelect(等同世界點擊的入口),一樣要直接切換內容
+    if (covered) { coveredBy.push(id); await page.evaluate(i => globalThis.__mistvaleSelect(i), id); }
+    else await page.mouse.click(r.x, r.y);
+    await page.waitForTimeout(260);
+    // 抽屜開著時點另一棟 → 內容直接換成那一棟(標題對得上),抽屜沒有關掉過
+    return await page.evaluate(n => { const el = document.querySelector('#inspector'); return !el.classList.contains('hidden') && el.querySelector('#inspect-title')?.textContent === n; }, NAME[id]);
+  }
   await page.mouse.click(r.x, r.y);
+  await page.waitForTimeout(260);
+  // 2026-11-11 第二階段(規格 4.6):點建築 → 腳下出現六角鈕(資訊 i／取消 ×);按「資訊」才開 #inspector
+  const hexShown = await page.evaluate(() => { const s = document.querySelector('#hv-sel'); return !!s && !s.hidden && s.dataset.target; });
+  if (!hexShown) return false;
+  const ib = await page.$('#hv-sel [data-action="selInfo"]');
+  const bb = ib && await ib.boundingBox();
+  if (!bb || bb.width < 44 || bb.height < 44) return false;
+  await ib.click();
   await page.waitForTimeout(260);
   return await page.evaluate(() => !document.querySelector('#inspector')?.classList.contains('hidden'));
 }
@@ -72,6 +94,7 @@ const info = page => page.evaluate(() => {
     })),
     note: q('.inspect-note')?.textContent || '',
     noteShort: !!q('.inspect-note.short'),
+    done: q('.inspect-done')?.textContent.trim() || '',   // 2026-11-11 FIX-B:滿級不放紅色主按鈕,改一行綠色狀態字
     btn: btn ? { label: btn.textContent.trim(), disabled: btn.disabled || btn.hasAttribute('aria-disabled'), action: btn.dataset.action } : null,
     rect: { x: r.x, y: r.y, w: r.width, h: r.height, bottom: r.bottom },
     vw: innerWidth, vh: innerHeight,
@@ -163,10 +186,11 @@ const upCost = (page, id, lv) => page.evaluate(({ id, lv }) => {
     const c = await info(page);
     if (!c) fix('desktop 滿級時面板不見了');
     else {
-      if (!c.btn || !c.btn.disabled || !c.btn.label.includes('已達最高')) fix(`desktop 滿級時按鈕應停用並寫「已達最高等級」：${JSON.stringify(c.btn)}`);
+      if (c.btn || !c.done.includes('已達最高')) fix(`desktop 滿級時不放升級主按鈕、改一行「已達最高等級」狀態字：btn=${JSON.stringify(c.btn)} done="${c.done}"`);
       if (c.chips.length) fix('desktop 滿級時不該再列需求');
       if (!c.note.includes('滿級')) fix(`desktop 滿級說明不對：${c.note}`);
-      ok(`desktop 已滿級：${c.btn.label} / ${c.note}`);
+      if (c.noteShort) fix('desktop 滿級說明不該標紅');
+      ok(`desktop 已滿級：${c.done} / ${c.note}`);
     }
   }
 

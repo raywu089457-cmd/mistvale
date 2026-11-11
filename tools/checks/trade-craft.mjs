@@ -221,7 +221,7 @@ for (const dev of DEVICES) {
     if (!wood || !woodRow) fix(`${t}: 木材 row vanished after +10`);
     else {
       if (woodRow.q !== 10) fix(`${t}: 木材 qty after +10 is ${woodRow.q}, expected 10`);
-      if (woodRow.cost !== `${fmt(10 * MATERIALS.wood.price)} 金`) fix(`${t}: 木材 cost "${woodRow.cost}" != "${fmt(10 * MATERIALS.wood.price)} 金"`);
+      if (woodRow.cost !== `支出 ${fmt(10 * MATERIALS.wood.price)} 金`) fix(`${t}: 木材 cost "${woodRow.cost}" != "支出 ${fmt(10 * MATERIALS.wood.price)} 金"`);   // 2026-11-11 物品格版面起成本行寫「支出 N 金」
       if (!res.footer.includes(fmt(10 * MATERIALS.wood.price))) fix(`${t}: footer "${res.footer}" does not book the ${fmt(10 * MATERIALS.wood.price)} 金 spend`);
       if (woodRow.minus['-10']) fix(`${t}: 木材 −10 should be enabled once qty is 10`);
     }
@@ -239,7 +239,7 @@ for (const dev of DEVICES) {
     if (!overRow) fix(`${t}: 木材 row vanished after the over-budget setup`);
     else {
       if (!overRow.over) fix(`${t}: 木材 row should be flagged .over when 20 金 > 金庫 10 金`);
-      if (overRow.cost !== `${fmt(20)} 金`) fix(`${t}: 木材 over-budget cost "${overRow.cost}"`);
+      if (overRow.cost !== `支出 ${fmt(20)} 金`) fix(`${t}: 木材 over-budget cost "${overRow.cost}"`);
     }
     if (!res.footer.includes(`超出 ${fmt(10)}`)) fix(`${t}: footer "${res.footer}" should say 超出 10`);
     if (!res.footerHTML.includes('over')) fix(`${t}: footer over-budget marker missing`);

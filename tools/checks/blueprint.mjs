@@ -47,6 +47,10 @@ async function run(label, viewport, isMobile) {
   }, target);
 
   if (!clicked) fix(`${label}: 找不到空地(${target})的可點矩形`);
+  await page.waitForTimeout(300);
+  // 2026-11-11 第二階段:點世界 → 腳下六角鈕 → 按「資訊」才開 #inspector
+  const hexA = await page.evaluate(() => { const b = document.querySelector('#hv-sel:not([hidden]) [data-action="selInfo"]'); if (b) b.click(); return !!b; });
+  if (!hexA) fix(`${label}: 點空地後沒有出現六角鈕（資訊／取消）`);
   await page.waitForTimeout(700);
 
   const st = await page.evaluate(() => {
@@ -83,8 +87,12 @@ async function run(label, viewport, isMobile) {
   // 已建成的建築仍要用世界同一張 sprite 縮圖
   const built = await page.evaluate(() => {
     const g = globalThis.__mistvaleGame, v = globalThis.__mistvaleView;
-    const id = Object.keys(g.state.buildings).find((k) => (g.state.buildings[k] || 0) > 0) || 'hall';
-    const r = v.hitRects().find((h) => h.id === id);
+    // 2026-11-11 浮在場景上的 HUD 會蓋住畫面邊緣:挑「已蓋好、中心點直接點得到世界層」的建築(不然合成點擊落在 HUD 上)
+    document.querySelector('#inspector:not(.hidden) [data-action="closeInspector"]')?.click();   // 手機上建築面板是底部抽屜,不收起會蓋住世界
+    const free = (h) => document.elementFromPoint(h.x + h.w / 2, h.y + h.h / 2)?.id === 'world';
+    const builtIds = Object.keys(g.state.buildings).filter((k) => (g.state.buildings[k] || 0) > 0);
+    const r = v.hitRects().find((h) => builtIds.includes(h.id) && free(h)) || v.hitRects().find((h) => builtIds.includes(h.id));
+    const id = r ? r.id : 'hall';
     if (r) {
       const x = r.x + r.w / 2, y = r.y + r.h / 2;
       const el = document.elementFromPoint(x, y) || document.body;
@@ -93,6 +101,9 @@ async function run(label, viewport, isMobile) {
     }
     return id;
   });
+  await page.waitForTimeout(300);
+  const hexB = await page.evaluate(() => { const b = document.querySelector('#hv-sel:not([hidden]) [data-action="selInfo"]'); if (b) b.click(); return !!b; });
+  if (!hexB) fix(`${label}: 點已蓋好的建築後沒有出現六角鈕（資訊／取消）`);
   await page.waitForTimeout(700);
   const st2 = await page.evaluate(() => {
     const wrap = document.querySelector('.inspect-art');

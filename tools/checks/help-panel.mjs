@@ -1,6 +1,9 @@
 // help-panel.mjs — T124：說明面板分段（核心循環／操作／獵人／設施／村外）
 //   * 設施用途要從 BUILDINGS 推導，所以數量、名稱、作用都要跟資料對得上。
 //   * 「重看開場」要真的能開回 T121 的入門嚮導。
+// 2026-11-11 改寫（獵魔村風格第三階段）：舊版從面板內的 .encounter-banner h3 讀標題「新手說明」；新規格拿掉面板內橫幅插畫，
+//   標題改由抽屜頂部的 #modal .modal-title h2 顯示（「村長入門手札」），所以標題斷言換成讀 h2，並新增兩條新設計的對應規則：
+//   「面板內沒有橫幅插畫」(.encounter-banner 數量 0)、「說明面板有導覽內容」(.help-nav 至少 4 顆連結、都指向存在的分段)。
 // Usage: node tools/checks/help-panel.mjs      (game server on 5024 expected)
 //        $env:SHOTS='1'; node tools/checks/help-panel.mjs
 // Exit: 0 = PASS line only, 1 = FIX lines.
@@ -41,7 +44,9 @@ const readHelp = page => page.evaluate(() => {
   const txt = el => (el?.textContent || '').replace(/\s+/g, ' ').trim();
   const buildingIds = globalThis.__mistvaleBuildings?.length || 0;
   return {
-    title: txt(c.querySelector('.encounter-banner h3')),
+    title: txt(document.querySelector('#modal .modal-title h2')),
+    banners: c.querySelectorAll('.encounter-banner').length,
+    nav: [...c.querySelectorAll('.help-nav button, .help-nav a')].map(a => ({ t: txt(a), target: a.dataset.target || (a.getAttribute('href') || '').slice(1), ok: !!(a.dataset.target || (a.getAttribute('href') || '').slice(1)) && !!c.querySelector('#' + (a.dataset.target || (a.getAttribute('href') || '').slice(1))) })),
     sections: [...c.querySelectorAll('.help-sec')].map(s => ({
       head: txt(s.querySelector('.help-h')),
       bullets: s.querySelectorAll('.help-list li').length,
@@ -62,7 +67,10 @@ const readHelp = page => page.evaluate(() => {
   const { ctx, page, errs } = await boot({ width: 1440, height: 900 });
   const h = await readHelp(page);
 
-  if (!/新手說明/.test(h.title)) fix(`說明面板標題是「${h.title}」，預期含新手說明`);
+  if (!/入門手札/.test(h.title)) fix(`說明面板標題是「${h.title}」，預期含入門手札`);
+  if (h.banners) fix(`說明面板內還有 ${h.banners} 個橫幅插畫（新設計不放橫幅）`);
+  if (h.nav.length < 4) fix(`說明面板導覽只有 ${h.nav.length} 顆（預期至少 4 顆：核心循環／操作／設施／村外）`);
+  else if (h.nav.some(n => !n.t || !n.ok)) fix(`說明導覽有空白或指向不存在分段的連結：${h.nav.filter(n => !n.t || !n.ok).map(n => n.t || n.target).join(',')}`);
   if (h.hscroll > 1) fix(`desktop 說明面板橫向溢出 ${h.hscroll}px`);
 
   // 核心循環：4 步 + 3 個箭頭

@@ -11,12 +11,16 @@ import fs from 'node:fs';
 const require = createRequire('C:/Users/ray/AppData/Roaming/npm/node_modules/');
 const { chromium } = require('playwright');
 
-const URL = process.env.TARGET || 'http://100.79.149.0:5024/?preview=1';
+import { startServer } from './fix-a-lib.mjs';
+const srv = await startServer();   // 沒設 TARGET(例如 verify.mjs 呼叫)→ 自己開臨時伺服器讀剛建好的版本
+process.on('exit', () => srv.stop());
+const URL = process.env.TARGET || (srv.url + '?preview=1');
 const fails = [], oks = [];
 const fix = m => fails.push(m);
 const ok = m => oks.push(m);
 if (process.env.SHOTS) fs.mkdirSync('output/toasts', { recursive: true });
 
+const ICON = { reward: 'gold', level: 'horn', quest: 'scroll', error: 'skull' };
 const COLOURS = { ok: '#8ebc5e', reward: '#e7be5e', level: '#f2c96a', quest: '#cfae6a', error: '#e0705f' };
 const browser = await chromium.launch({ executablePath: 'C:/Program Files/Google/Chrome/Application/chrome.exe', args: ['--headless=new', '--mute-audio'] });
 
@@ -39,7 +43,9 @@ const readToasts = page => page.evaluate(() => [...document.querySelectorAll('#t
     tk: (t.style.getPropertyValue('--tk') || '').trim(),
     txt: t.querySelector('.toast-tx')?.textContent || '',
     role: t.getAttribute('role') || '',
+    // 2026-11-11:圖示渲染從 <canvas> 改成 <img class="ui-ico" data-type=名稱>(setIcons);檢查要防的是「語意種類帶對應的圖集圖示、不是打勾字」,所以改量 data-type
     iconCanvas: !!t.querySelector('.toast-ic canvas'),
+    iconType: t.querySelector('.toast-ic img.ui-ico')?.dataset.type || '',
     check: t.querySelector('.toast-check')?.textContent || '',
     borderLeft: parseFloat(cs.borderLeftWidth) || 0,
     borderColour: cs.borderLeftColor,
@@ -76,7 +82,7 @@ const readToasts = page => page.evaluate(() => [...document.querySelectorAll('#t
     if (t.tk.toLowerCase() !== COLOURS[kind]) fix(`${kind} 語意色 ${t.tk}，預期 ${COLOURS[kind]}`);
     if (t.borderLeft < 3) fix(`${kind} 左側語意色條只有 ${t.borderLeft}px`);
     if (t.role !== 'status') fix(`${kind} 訊息沒有 role=status`);
-    if (glyph ? t.check !== glyph : !t.iconCanvas) fix(`${kind} 訊息圖示不對（check=${t.check} canvas=${t.iconCanvas}）`);
+    if (glyph ? t.check !== glyph : (t.iconType !== ICON[kind] && !t.iconCanvas)) fix(`${kind} 訊息圖示不對（check=${t.check} icon=${t.iconType || (t.iconCanvas ? 'canvas' : '無')}，預期 ${ICON[kind]}）`);
   }
   ok('五種語意訊息（一般／獎勵／升級／委託／失敗）都有對應色條、圖示與 role=status');
 
@@ -189,7 +195,7 @@ const readToasts = page => page.evaluate(() => [...document.querySelectorAll('#t
   await ctx.close();
 }
 
-await browser.close();
+await browser.close(); srv.stop();
 if (fails.length) {
   for (const f of fails) console.log('FIX ' + f);
   for (const o of oks) console.log('ok  ' + o);
