@@ -43,7 +43,9 @@ for (const [name, open, only] of SCREENS) {
   const list = await page.evaluate(only => {
     const vis = e => { const r = e.getBoundingClientRect(), cs = getComputedStyle(e); return r.width > 0 && r.height > 0 && cs.visibility !== 'hidden' && cs.display !== 'none' && !e.closest('.hidden'); };
     const modalOpen = !document.querySelector('#modal-backdrop')?.classList.contains('hidden');
-    return [...document.querySelectorAll('[data-action]')].filter(vis).filter(e => !only || e.closest(only)).filter(e => !modalOpen || e.closest('#modal') || (document.body.classList.contains('hud-modal') && e.closest('#topbar,#bottom-bar'))).map((e, i) => {
+    // Z1(2026-11-12):C 置中視窗與建築詳情的遮罩會蓋住頂欄與頁籤列,只巡視窗內的鈕;A 抽屜開著頁籤列仍可點
+    const inspOpen = !modalOpen && !document.querySelector('#inspector')?.classList.contains('hidden');
+    return [...document.querySelectorAll('[data-action]')].filter(vis).filter(e => !only || e.closest(only)).filter(e => !modalOpen || e.closest('#modal') || (document.body.classList.contains('hud-modal') && document.body.dataset.modalMode !== 'C' && e.closest('#topbar,#bottom-bar'))).filter(e => !inspOpen || e.closest('#inspector')).map((e, i) => {
       e.dataset.auditIdx = String(i); e.scrollIntoView({ block: 'nearest' }); const r = e.getBoundingClientRect(), cx = r.left + r.width / 2, cy = r.top + r.height / 2;
       const top = document.elementFromPoint(cx, cy), covered = !(top && (e === top || e.contains(top) || top.contains(e)));
       const off = cx < 0 || cy < 0 || cx > innerWidth || cy > innerHeight;

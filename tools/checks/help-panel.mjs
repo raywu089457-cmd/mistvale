@@ -90,7 +90,7 @@ const readHelp = page => page.evaluate(() => {
     if (ops.keys.length < 4) fix(`快捷鍵表只有 ${ops.keys.length} 列，預期至少 4 列`);
     const keyNames = ops.keys.map(k => k.k).join(' ');
     for (const k of ['Space', 'M', 'Esc']) if (!keyNames.includes(k)) fix(`快捷鍵表缺少 ${k}（現有：${keyNames}）`);
-    if (!/1 – 7|1-7/.test(keyNames)) fix(`快捷鍵表缺少 1–7 面板鍵（現有：${keyNames}）`);
+    if (!/1 – 5/.test(keyNames) || !/6 \/ 7 \/ 8/.test(keyNames)) fix(`快捷鍵表缺少 1–5 頁籤鍵與 6／7／8 子頁籤鍵(Z1)（現有：${keyNames}）`);
     if (!/拖曳/.test(h.gesture) || !/縮放/.test(h.gesture)) fix(`滑鼠操作說明沒寫拖曳／縮放：${h.gesture.slice(0, 40)}`);
   }
 
@@ -118,10 +118,10 @@ const readHelp = page => page.evaluate(() => {
   await page.waitForTimeout(500);
   const reopened = await page.evaluate(() => ({
     type: document.querySelector('#modal')?.dataset.type || '',
-    steps: document.querySelectorAll('#modal-content .welcome-step').length,
+    steps: document.querySelectorAll('#modal-content .z2d-dots i').length, one: document.querySelectorAll('#modal-content .z2d-bubble .z2d-step').length,   // Z2D:開場改成一次一步的氣泡(.z2d-step 同時只有 1 個、.z2d-dots 一個點一步)
   }));
   if (reopened.type !== 'welcome') fix(`按「重看開場」後開啟的是 ${reopened.type || '(沒有)'}，預期 welcome`);
-  else if (reopened.steps !== 3) fix(`重看開場的嚮導有 ${reopened.steps} 步，預期 3 步`);
+  else if (reopened.one !== 1 || reopened.steps < 3) fix(`重看開場的嚮導同時顯示 ${reopened.one} 步、共 ${reopened.steps} 步，預期一次 1 步、共 ≥3 步`);
   else ok('說明面板的分段與設施表都跟資料對得上，按「重看開場」會開回入門嚮導');
 
   if (process.env.SHOTS) {

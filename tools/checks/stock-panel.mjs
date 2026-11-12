@@ -43,12 +43,13 @@ const read = page => page.evaluate(() => {
     items: [...s.querySelectorAll('.stock-item')].map(it => ({
       id: it.dataset.id || '',
       name: it.querySelector('.si-nm')?.textContent?.trim() || '',
-      use: it.querySelector('.si-use')?.textContent?.trim() || '',
-      src: it.querySelector('.si-src')?.textContent?.trim() || '',
-      num: it.querySelector('.si-num b')?.textContent?.trim() || '',
-      price: it.querySelector('.si-num small')?.textContent?.trim() || '',
+      // Z2B:倉庫改方格;用途／來源／單價放在格子按鈕的 data-tip-*(點一格會在上方詳情框顯示,Z2A 的共用 tooltip 也從這裡取)
+      use: '用途：' + (it.querySelector('.sq-btn')?.dataset.tipUse || ''),
+      src: '來源：' + (it.querySelector('.sq-btn')?.dataset.tipFrom || ''),
+      num: it.querySelector('.sq-q')?.textContent?.trim() || '',
+      price: '單價 ' + (it.querySelector('.sq-btn')?.dataset.tipPrice || '') + ' 金',
       empty: it.classList.contains('empty'),
-      opacity: parseFloat(getComputedStyle(it).opacity),
+      opacity: parseFloat(getComputedStyle(it.querySelector('.sq-btn')).opacity),
       rect: (() => { const r = it.getBoundingClientRect(); return { x: r.x, y: r.y, w: r.width, h: r.height, right: r.right }; })(),
     })),
   }));
@@ -116,7 +117,7 @@ const read = page => page.evaluate(() => {
   if (byId('food').src.includes('交易所')) fix(`物資的來源應寫自己的設施製作：${byId('food').src}`);
   if (!byId('weapon').src.includes('鐵匠鋪製作')) fix(`裝備來源沒寫鐵匠鋪製作：${byId('weapon').src}`);
   if (!byId('ore').use.includes('精鐵武器')) fix(`鐵礦用途沒寫到精鐵武器：${byId('ore').use}`);
-  if (!fails.length) ok(`desktop 三組 12 項，數量與 state 相符；用途／來源由配方與掉落表推導（木材→精鐵武器、獸皮→舒適床鋪・皮革護甲、小麥粉→香烤麵包）`);
+  if (!fails.length) ok(`desktop 三組 12 格，數量與 state 相符；用途／來源由配方與掉落表推導（木材→精鐵武器、獸皮→舒適床鋪・皮革護甲、小麥粉→香烤麵包）`);
 
   if (process.env.SHOTS) await page.screenshot({ path: 'output/stock/desktop.png' });
 
@@ -138,11 +139,12 @@ const read = page => page.evaluate(() => {
   if (d.hscroll > 1) fix(`phone 402x712 倉庫橫向溢出 ${d.hscroll}px`);
   const outside = items.filter(i => i.rect.x < 0 || i.rect.right > 402 + 1);
   if (outside.length) fix(`phone 402x712 有 ${outside.length} 項超出畫面`);
-  // 單欄：同一組內每個品項的左緣應該相同、且明顯比雙欄寬
+  // Z2B 方格:手機至少 3 欄(每格 ≥44px 寬高),不橫向溢出
   const mat = d.secs.find(s => s.key === '材料');
   const xs = new Set((mat?.items || []).map(i => Math.round(i.rect.x)));
-  if (mat && xs.size > 1) fix(`phone 402x712 材料沒有排成單欄（左緣 ${[...xs].join('/')}）`);
-  if (!d.hscroll && !outside.length && xs.size === 1) ok(`phone 402x712 三組 12 項單欄排列、不橫向溢出、都在畫面內`);
+  if (mat && xs.size < 3) fix(`phone 402x712 材料方格應至少 3 欄（左緣 ${[...xs].join('/')}）`);
+  if (items.some(i => i.rect.w < 44 || i.rect.h < 44)) fix('phone 402x712 有方格小於 44px');
+  if (!d.hscroll && !outside.length && xs.size >= 3) ok(`phone 402x712 三組 12 格方格(${xs.size} 欄)、不橫向溢出、都在畫面內`);
   if (process.env.SHOTS) await page.screenshot({ path: 'output/stock/phone.png' });
   if (errs.length) fix(`phone 頁面錯誤：${errs.slice(0, 2).join(' | ')}`);
   await ctx.close();

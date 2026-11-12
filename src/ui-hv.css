@@ -375,15 +375,7 @@ html body .hv-chev.up{transform:scaleY(-1);animation-name:hvBobUp}
   html body #modal-content{padding:10px 10px 18px!important}
 }
 
-/* 確認框：炭黑小面板置中＋兩顆鈕（主＝磚紅、取消＝灰） */
-html body #modal[data-kind=confirm]{width:min(360px,calc(100vw - 32px))!important;height:auto!important;max-height:none!important;border:1px solid var(--hv-line)!important;border-radius:3px!important;
-  box-shadow:0 0 0 1px #000,0 4px 0 #000!important;align-self:center!important}
-html body #modal-backdrop:has(#modal[data-kind=confirm]){align-items:center!important;padding:16px!important;background:rgba(8,6,5,.6)!important}
-html body #modal[data-kind=confirm] .modal-title [data-action=close]{display:none!important}
-html body #modal[data-kind=confirm] .modal-title h2{max-width:none}
-.hv-confirm p{margin:4px 2px 16px;font:600 13px/1.6 var(--font-ui);color:var(--hv-text)}
-.hv-confirm-row{display:flex;gap:8px;justify-content:flex-end}
-.hv-confirm-row .hv-btn{flex:1 1 0;min-height:40px}
+/* 確認框：Z1 起是 C 置中視窗(外殼見檔尾 Z1 段)；底部列的 確定(橄欖綠)＋取消(紅) 由 mountFoot 搬進 #modal-foot */
 
 /* ═══ 5. 面板內容：去掉木紋、金線框、羊皮紙橫幅、漸層條 ═══ */
 html body #modal-content *:not(img):not(canvas):not([data-icon]):not([data-icon] *):not(.bp-art):not(.region-art):not(.region-detail-art):not(.hv-lock):not([style*="background-image"]){background-image:none!important}
@@ -1041,9 +1033,9 @@ html body #unit-card .uc-status{background:var(--hv-panel-2)!important;border:1p
 
 /* ── F 橫向手機(高 ≤520):抽屜改成頁籤列以上全高(蓋住 HUD),卡片改橫向排 ── */
 @media(max-height:520px){
-  html body #modal-backdrop:not(:has(#modal[data-kind=confirm])):not(:has(#modal[data-kind=dialog])){padding-top:0!important}
-  html body #modal-backdrop:not(:has(#modal[data-kind=confirm])):not(:has(#modal[data-kind=dialog])) #modal{height:calc(100vh - var(--hud-bottom,60px))!important;max-height:calc(100vh - var(--hud-bottom,60px))!important}
-  body.hud-modal:has(#modal-backdrop:not(.hidden) #modal:not([data-kind=dialog]):not([data-kind=confirm])) #topbar{visibility:hidden!important}
+  html body #modal-backdrop[data-mode=A]{padding-top:0!important}   /* Z1:橫向手機只有 A 抽屜是整頁高;C 置中視窗見檔尾 Z1 段 */
+  html body #modal-backdrop[data-mode=A] #modal{height:calc(100vh - var(--hud-bottom,60px))!important;max-height:calc(100vh - var(--hud-bottom,60px))!important}
+  body.hud-modal:has(#modal-backdrop[data-mode=A]:not(.hidden)) #topbar{visibility:hidden!important}
   html body #modal .modal-title{height:48px!important}
   html body #modal-content{padding:8px 10px 12px!important}
   html body #modal-content .build-stock{flex-wrap:nowrap!important;overflow-x:auto;white-space:nowrap;padding:4px 8px!important;margin:0 0 8px!important;gap:2px 12px!important;scrollbar-width:none}
@@ -1073,8 +1065,8 @@ html body #modal-content .stock-sec-h span,html body #modal-content .cx-h span,h
 html body #modal-content .hv-sumline small{font:600 12px/1.4 var(--font-ui)!important;color:var(--hv-text-dim)!important}
 @media(max-height:520px){
   :root{--hv-top-left-h:68px}
-  body.hud-modal:has(#modal-backdrop:not(.hidden) #modal:not([data-kind=dialog]):not([data-kind=confirm])) #topbar,
-  body.hud-modal:has(#modal-backdrop:not(.hidden) #modal:not([data-kind=dialog]):not([data-kind=confirm])) #topbar *{opacity:0!important;pointer-events:none!important}
+  body.hud-modal:has(#modal-backdrop[data-mode=A]:not(.hidden)) #topbar,
+  body.hud-modal:has(#modal-backdrop[data-mode=A]:not(.hidden)) #topbar *{opacity:0!important;pointer-events:none!important}
   html body #modal .modal-title{height:44px!important}
   html body #modal .modal-title h2{height:36px!important}
   html body #modal-content{padding:6px 10px 8px!important}
@@ -1481,7 +1473,7 @@ html body #modal .hv-pres [data-icon]{display:grid;place-items:center;width:18px
 html body #modal .hv-pres [data-icon] :is(canvas,img){width:18px!important;height:18px!important;image-rendering:pixelated}
 html body #modal .hv-pres b{font:700 13px/1 var(--font-num);color:#fff;text-shadow:none;letter-spacing:.02em}
 @media(max-height:520px){
-  html body #modal:not([data-kind=dialog]):not([data-kind=confirm]):not([data-type=build]) .hv-pres{display:flex}
+  html body #modal[data-mode=A]:not([data-type=build]) .hv-pres{display:flex}
 }
 /* 開著面板時的 toast 改由 FIX-D 段處理:蓋住整個標題列(只留 X)、最多兩行、多則排隊依序顯示 */
 /* 合併(重複)時元素會被移到最後 → 不重播進場動畫(否則重播期間 opacity 0,看起來像消失) */
@@ -1532,3 +1524,980 @@ html body #modal-content .quest-step.locked{opacity:1!important;filter:none!impo
 html body #modal-content .quest-step.locked :is(.qs-body>p,.qs-reward small){color:var(--hv-text-dim)!important}
 html body #modal-content .quest-step.locked .qs-tag{color:#c4b99f!important}
 /* ===== FIX-D end ===== */
+
+/* ===== Z1：圖鑑 v2 外殼與頁籤列 — 只有 Z1 改這段(之後各畫面內容重做的代理請在自己的段落改內容,外殼用這裡的 class) =====
+   規格：docs/research/UI-REF-HUNTER-VILLAGE-ZUKAN-2026-11-12.md 第 0、b、c、d 節＋「桌機改編」＋「決定」表。
+   視窗模式(JS 在 openModal 寫 #modal-backdrop／#modal 的 data-mode,body 的 data-modal-mode;建築詳情 #inspector 固定 data-mode=C):
+     A 頁籤抽屜(建設、獵人名冊、倉庫＋製作、交易、地下城＋競技場、派遣、招募)  C 置中視窗(其餘全部)  D 滿寬暗帶(新獵人到訪;先給外殼 class .z1-band)  dialog＝村長對話框(FIX-B 的另一套外觀)
+   共用 class：.z1-foot／.z1-foot-btn(C 視窗底部按鈕列,內容裡的按鈕標 data-foot=primary|secondary|only 會被搬進去)、.z1-title-tool／.z1-ghost(標題右上幽靈鈕)、
+              .z1-subtabs／.z1-subtab(子頁籤:A 在標題列、C 在標題下方;.z1-text 文字型、.z1-icons 圖示型)、.z1-sticky(抽屜／視窗底部固定動作列)、.z1-box／.z1-inset／.z1-hint(帶像素角括號的資訊框)
+   按鈕顏色：pixel-ui.js 的 zbPaint 依 data-action 設 data-zbr=red|olive|gold|ghost(也可直接在按鈕寫 data-zb),CSS 只看 data-zbr＋:disabled。 */
+:root{
+  --z1-sat:env(safe-area-inset-top,0px);--z1-sab:env(safe-area-inset-bottom,0px);--z1-sal:env(safe-area-inset-left,0px);--z1-sar:env(safe-area-inset-right,0px);   /* 安全區(瀏海／手勢列)：集中在這四個變數，驗收時可覆寫來模擬 */
+  --hv-tab-h:72px;--z1-tabbar:calc(var(--hv-tab-h) + var(--z1-sab));
+  --hv-drawer-h:45vh;                       /* A 抽屜高：桌機上限約 45%，手機約 50%（可調） */
+  --z1-c-w:560px;                           /* C 視窗最寬（清單類） */
+  --z1-edge:#aca99a;--z1-edge-side:#7c7764;--z1-win:#151110;--z1-panel:#1e1b17;--z1-rule:#85827b;
+  --zb-red:#8d3925;--zb-red-hi:#ab6357;--zb-red-lip:#4a1d12;
+  --zb-olive:#586810;--zb-olive-hi:#7e8f33;--zb-olive-lip:#2c3408;
+  --zb-gold:#906818;--zb-gold-hi:#b78d3e;--zb-gold-lip:#4a3408;
+  --zb-gray:#505050;--zb-gray-hi:#686868;--zb-gray-lip:#2a2a2a;
+  --zb-ghost:#3b3733;--zb-ghost-hi:#56514b;--zb-ghost-lip:#1f1c1a;
+  /* 階梯圓角(約 3px 的像素角):用 clip-path 切四個角 */
+  --zb-step:polygon(0 3px,1px 3px,1px 1px,3px 1px,3px 0,calc(100% - 3px) 0,calc(100% - 3px) 1px,calc(100% - 1px) 1px,calc(100% - 1px) 3px,100% 3px,100% calc(100% - 3px),calc(100% - 1px) calc(100% - 3px),calc(100% - 1px) calc(100% - 1px),calc(100% - 3px) calc(100% - 1px),calc(100% - 3px) 100%,3px 100%,3px calc(100% - 1px),1px calc(100% - 1px),1px calc(100% - 3px),0 calc(100% - 3px));
+  /* 四角 3 階像素角括號(10×10,米色) */
+  --z1-br-tl:url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 10 10' shape-rendering='crispEdges'%3E%3Cpath fill='%23aca99a' d='M0 0h10v2H4v2H2v6H0z'/%3E%3C/svg%3E");
+  --z1-br-tr:url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 10 10' shape-rendering='crispEdges'%3E%3Cpath fill='%23aca99a' d='M10 0H0v2h6v2h2v6h2z'/%3E%3C/svg%3E");
+  --z1-br-bl:url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 10 10' shape-rendering='crispEdges'%3E%3Cpath fill='%23aca99a' d='M0 0h2v6h2v2h6v2H0z'/%3E%3C/svg%3E");
+  --z1-br-br:url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 10 10' shape-rendering='crispEdges'%3E%3Cpath fill='%23aca99a' d='M10 0H8v6H6v2H0v2h10z'/%3E%3C/svg%3E");
+  --z1-brackets:var(--z1-br-tl) left top,var(--z1-br-tr) right top,var(--z1-br-bl) left bottom,var(--z1-br-br) right bottom;
+}
+@media(max-width:760px){:root{--hv-tab-h:70px;--hv-drawer-h:50vh;--hv-hit:44px}}
+@media(max-height:520px){:root{--hv-tab-h:58px;--hv-hit:44px}}
+
+/* ═══ Z1-1 底部頁籤列：5 格(建設、地下城、獵人、倉庫、交易)，規格 b ═══ */
+html body #bottom-bar{background:#1f1b10!important;border-top:2px solid #58544b!important;box-shadow:none!important;height:var(--z1-tabbar)!important;padding-bottom:var(--z1-sab)!important}
+html body #bottom-bar>button{flex:1 1 0!important;max-width:150px!important;gap:3px!important;padding:5px 2px 4px!important;position:relative!important;top:0!important;margin:0!important;
+  height:calc(var(--hv-tab-h) - 2px)!important;background:transparent!important;color:#c2bba3!important;overflow:visible}
+@media(max-width:760px){html body #bottom-bar>button{max-width:none!important}}
+/* 分隔線：2px 淺沙色，上下兩端淡出 */
+html body #bottom-bar>button+button::before{content:""!important;position:absolute!important;left:-1px!important;top:6px!important;bottom:6px!important;width:2px!important;height:auto!important;display:block!important;
+  background:linear-gradient(180deg,transparent 0,#c9bd9a 24%,#c9bd9a 76%,transparent 100%)!important;opacity:.42;border:0!important;box-shadow:none!important;padding:0!important;margin:0!important}
+html body #bottom-bar>button [data-icon]{width:40px!important;height:40px!important}
+html body #bottom-bar>button [data-icon] :is(canvas,img){width:40px!important;height:40px!important}
+html body #bottom-bar>button b{font:700 13px/1 var(--font-ui)!important;color:#c2bba3!important;text-shadow:var(--hv-outline)!important;letter-spacing:.04em!important}
+html body #bottom-bar>button kbd{font:600 12px/1 var(--font-num)!important;color:#c2bba3!important;top:5px!important;left:8px!important}
+html body #bottom-bar>button:hover{background:#2a2518!important}
+@media(max-width:760px){
+  html body #bottom-bar>button{padding:4px 0 3px!important}
+  html body #bottom-bar>button [data-icon],html body #bottom-bar>button [data-icon] :is(canvas,img){width:36px!important;height:36px!important}
+  html body #bottom-bar>button kbd{display:none!important}
+}
+@media(max-height:520px){
+  html body #bottom-bar>button{flex-direction:row!important;gap:6px!important;padding:2px 4px!important}
+  html body #bottom-bar>button [data-icon],html body #bottom-bar>button [data-icon] :is(canvas,img){width:30px!important;height:30px!important}
+}
+/* 選中：與列齊平，填 #948973，上緣 1px 米白，標籤深色；不上凸 */
+html body[data-modal-tab=build] #bottom-bar>[data-action=build],html body[data-modal-tab=dungeon] #bottom-bar>[data-action=dungeon],html body[data-modal-tab=hunters] #bottom-bar>[data-action=hunters],
+html body[data-modal-tab=inventory] #bottom-bar>[data-action=inventory],html body[data-modal-tab=trade] #bottom-bar>[data-action=trade]{
+  background:#948973!important;top:0!important;height:calc(var(--hv-tab-h) - 2px)!important;margin-bottom:0!important;z-index:auto!important;box-shadow:inset 0 1px 0 #f7f2d4!important}
+html body[data-modal-tab=build] #bottom-bar>[data-action=build] b,html body[data-modal-tab=dungeon] #bottom-bar>[data-action=dungeon] b,html body[data-modal-tab=hunters] #bottom-bar>[data-action=hunters] b,
+html body[data-modal-tab=inventory] #bottom-bar>[data-action=inventory] b,html body[data-modal-tab=trade] #bottom-bar>[data-action=trade] b{color:#1c160f!important;text-shadow:none!important}
+html body[data-modal-tab=build] #bottom-bar>[data-action=build] kbd,html body[data-modal-tab=dungeon] #bottom-bar>[data-action=dungeon] kbd,html body[data-modal-tab=hunters] #bottom-bar>[data-action=hunters] kbd,
+html body[data-modal-tab=inventory] #bottom-bar>[data-action=inventory] kbd,html body[data-modal-tab=trade] #bottom-bar>[data-action=trade] kbd{color:#1c160f!important}
+html body[data-modal-tab=build] #bottom-bar>[data-action=build]::before,html body[data-modal-tab=dungeon] #bottom-bar>[data-action=dungeon]::before,html body[data-modal-tab=hunters] #bottom-bar>[data-action=hunters]::before,
+html body[data-modal-tab=inventory] #bottom-bar>[data-action=inventory]::before,html body[data-modal-tab=trade] #bottom-bar>[data-action=trade]::before,
+html body[data-modal-tab=build] #bottom-bar>[data-action=build]+button::before,html body[data-modal-tab=dungeon] #bottom-bar>[data-action=dungeon]+button::before,html body[data-modal-tab=hunters] #bottom-bar>[data-action=hunters]+button::before,
+html body[data-modal-tab=inventory] #bottom-bar>[data-action=inventory]+button::before,html body[data-modal-tab=trade] #bottom-bar>[data-action=trade]+button::before{display:none!important}
+/* 待辦徽章 */
+html body #bottom-bar button[data-badge]:not([data-badge=""])::after{top:4px!important;left:calc(50% + 10px)!important}
+html body #topbar .hv-ico[data-badge]:not([data-badge=""])::after{content:attr(data-badge);position:absolute;top:2px;right:2px;min-width:16px;height:16px;padding:0 3px;display:grid;place-items:center;box-sizing:border-box;
+  background:var(--hv-warn);border:1px solid #000;border-radius:2px;color:#fff;font:700 12px/1 var(--font-num);text-shadow:0 1px 0 #000;box-shadow:0 1px 0 #000;pointer-events:none}
+
+/* ═══ Z1-2 按鈕顏色語意(決定 C2)：紅＝關閉／取消、橄欖綠＝確認與視窗主動作、金棕＝清單列動作、灰＋鎖頭＝不能用 ═══ */
+html body :is(#modal,#inspector,#left-panel,#placement,#unit-card,#run-hud) button.zb[data-zbr]:not(#z1){
+  --c:var(--zb-gold);--h:var(--zb-gold-hi);--l:var(--zb-gold-lip);
+  background:var(--c)!important;background-image:none!important;color:#fff!important;border:0!important;border-bottom:3px solid var(--l)!important;border-radius:0!important;
+  box-shadow:inset 0 1px 0 var(--h)!important;text-shadow:0 1px 0 rgba(0,0,0,.7)!important;clip-path:var(--zb-step);font-weight:700!important;filter:none!important}
+html body :is(#modal,#inspector,#left-panel,#placement,#unit-card,#run-hud) button.zb[data-zbr=red]:not(#z1){--c:var(--zb-red);--h:var(--zb-red-hi);--l:var(--zb-red-lip)}
+html body :is(#modal,#inspector,#left-panel,#placement,#unit-card,#run-hud) button.zb[data-zbr=olive]:not(#z1){--c:var(--zb-olive);--h:var(--zb-olive-hi);--l:var(--zb-olive-lip)}
+html body :is(#modal,#inspector,#left-panel,#placement,#unit-card,#run-hud) button.zb[data-zbr=ghost]:not(#z1){--c:var(--zb-ghost);--h:var(--zb-ghost-hi);--l:var(--zb-ghost-lip);color:var(--hv-text)!important}
+html body :is(#modal,#inspector,#left-panel,#placement,#unit-card,#run-hud) button.zb[data-zbr]:not(#z1):hover:not(:disabled){background:color-mix(in srgb,var(--c) 84%,#fff)!important}
+html body :is(#modal,#inspector,#left-panel,#placement,#unit-card,#run-hud) button.zb[data-zbr]:not(#z1):active:not(:disabled){transform:translateY(1px)!important;border-bottom-width:2px!important;background:color-mix(in srgb,var(--c) 90%,#000)!important}
+html body :is(#modal,#inspector,#left-panel,#placement,#unit-card,#run-hud) button.zb[data-zbr]:not(#z1):focus-visible{clip-path:none;outline:2px solid #ffe48f!important;outline-offset:2px}
+/* 灰＝不能用 */
+html body :is(#modal,#inspector,#left-panel,#placement,#unit-card,#run-hud) button.zb[data-zbr]:not(#z1):is(:disabled,[aria-disabled=true],.locked){
+  --c:var(--zb-gray);--h:var(--zb-gray-hi);--l:var(--zb-gray-lip);background:var(--zb-gray)!important;color:#a3a3a3!important;text-shadow:none!important;cursor:not-allowed;opacity:1!important;transform:none!important}
+html body :is(#modal,#inspector,#left-panel,#placement,#unit-card,#run-hud) button.zb.zb-lock[data-zbr]:not(#z1):is(:disabled,[aria-disabled=true]):not(:has(.hv-lock))::before{content:"";display:inline-block;width:10px;height:12px;margin-right:6px;vertical-align:-1px;flex:0 0 auto;background:var(--hv-lock) center/10px 12px no-repeat;image-rendering:pixelated}
+/* 清單格(建設卡)裡的鈕：沿用卡片的滿寬排版，只換顏色語意 */
+
+
+/* ═══ Z1-3 共用外殼元件 ═══ */
+.z1-box,.z1-inset,.z1-hint{position:relative;padding:10px 12px;color:var(--hv-text)}
+.z1-inset{background:#161211}.z1-hint{background:#292521}
+.z1-box::before,.z1-inset::before,.z1-hint::before{content:"";position:absolute;inset:2px;pointer-events:none;background:var(--z1-brackets);background-repeat:no-repeat;background-size:8px 8px}
+.z1-hint .ok{color:#b0c040}.z1-hint .no{color:#d08080}
+/* 標題右上幽靈鈕 */
+html body .z1-title-tool{position:absolute;right:10px;top:50%;transform:translateY(-50%);display:flex;gap:6px;z-index:3}
+html body .z1-title-tool:empty{display:none}
+html body .z1-title-tool .z1-ghost,html body .z1-ghost{min-height:28px!important;height:28px;padding:0 10px!important;background:#2d2b28!important;color:#a8a49b!important;border:0!important;border-radius:0!important;box-shadow:none!important;
+  font:600 12px/1 var(--font-ui)!important;text-shadow:none!important;clip-path:var(--zb-step);filter:none!important;border-bottom:0!important;width:auto!important;flex:0 0 auto!important}
+html body .z1-ghost:hover{background:#3a3733!important;color:#d6d1c4!important}
+@media(pointer:coarse){html body .z1-title-tool .z1-ghost,html body .z1-ghost{min-height:44px!important;height:44px;padding:0 12px!important}}
+/* 子頁籤：文字型(C，標題下方滿寬等分) */
+html body .z1-subtabs{display:flex;gap:0;flex:0 0 auto}
+html body .z1-subtabs[hidden]{display:none!important}
+html body #modal[data-mode=C] .z1-subtabs{margin:0 10px;background:#49413e}
+html body #modal[data-mode=C] .z1-subtabs .z1-subtab{flex:1 1 0;min-height:30px;background:#49413e;color:#cfc6c1;border:0;font:700 14px/1 var(--font-ui);padding:0 4px}
+html body #modal[data-mode=C] .z1-subtabs .z1-subtab.on{background:#ab9892;color:#241d1b}
+/* D 滿寬暗帶(新獵人到訪)：先給外殼，內容之後由別的代理做 */
+html body .z1-band{position:fixed;left:0;right:0;top:50%;transform:translateY(-50%);z-index:41;background:#1c1a19;border-top:1px solid #6c675f;border-bottom:1px solid #6c675f;box-shadow:0 -3px 0 #1c1a19,0 -4px 0 #4b4741,0 3px 0 #1c1a19,0 4px 0 #4b4741;padding:16px calc(12px + var(--z1-sar)) 16px calc(12px + var(--z1-sal))}
+html body #modal-backdrop[data-mode=D]{z-index:40!important;background:rgba(0,0,0,.56)!important;align-items:center!important;padding:0!important}
+html body #modal-backdrop[data-mode=D] #modal{width:100%!important;max-width:none!important;height:auto!important;max-height:none!important;background:#1c1a19!important;border:0!important;border-top:1px solid #6c675f!important;border-bottom:1px solid #6c675f!important;border-radius:0!important;box-shadow:0 -3px 0 #1c1a19,0 -4px 0 #4b4741,0 3px 0 #1c1a19,0 4px 0 #4b4741!important}
+html body #modal-backdrop[data-mode=D] .modal-title{display:none!important}
+
+/* ═══ Z1-4 A 模式：頁籤抽屜(貼在頁籤列上方、HUD 與場景不壓暗；手機約 50%、桌機寬 960 高上限約 45%) ═══ */
+@media(min-height:521px){
+  html body #modal-backdrop[data-mode=A]{background:transparent!important;padding:0 0 var(--hud-bottom,var(--z1-tabbar))!important;align-items:flex-end!important;justify-content:center!important}
+  html body #modal-backdrop[data-mode=A] #modal{width:min(960px,calc(100vw - 32px))!important;height:var(--hv-drawer-h)!important;max-height:var(--hv-drawer-h)!important;border-radius:3px 3px 0 0!important}
+  /* HUD 不壓暗：抽屜上方露出來的任務追蹤與行動徽章保持可見(它們被 JS inert，只是看) */
+  html body.hud-modal:has(#modal-backdrop[data-mode=A]:not(.hidden)) :is(#hv-left,.hv-actions){visibility:visible!important}
+}
+@media(max-width:760px) and (min-height:521px){
+  html body #modal-backdrop[data-mode=A] #modal{width:100vw!important;border-left:0!important;border-right:0!important;border-radius:0!important}
+}
+/* A 子頁籤：和標題頁籤同一排(圖示型頁籤：選中的較寬並顯示標題) */
+html body #modal[data-mode=A] #modal-subtabs{position:absolute;left:8px;top:0;height:44px;align-items:flex-end;gap:3px;z-index:4;max-width:calc(100% - 64px)}
+html body #modal[data-mode=A][data-subtabs] .modal-title :is(h2,#modal-icon){display:none!important}
+html body #modal[data-mode=A] .z1-subtab{display:flex;align-items:center;justify-content:center;height:36px;padding:0 16px;margin:0;background:#1b1716;color:var(--hv-text-dim);border:1px solid var(--hv-line);border-bottom:1px solid var(--hv-line);border-radius:3px 3px 0 0;
+  font:700 14px/1 var(--font-ui);letter-spacing:.06em;cursor:pointer;white-space:nowrap}
+html body #modal[data-mode=A] .z1-subtab.on{background:var(--hv-ink);color:#fff;border-bottom-color:var(--hv-ink);margin-bottom:-1px;height:37px}
+html body #modal[data-mode=A] .z1-subtab:not(.on):hover{background:#262120;color:var(--hv-text)}
+@media(max-width:760px),(pointer:coarse){html body #modal[data-mode=A] #modal-subtabs{height:52px}html body #modal[data-mode=A] .z1-subtab{height:44px;min-width:44px;padding:0 18px}html body #modal[data-mode=A] .z1-subtab.on{height:45px}}
+@media(max-height:520px){html body #modal[data-mode=A] #modal-subtabs{height:44px}html body #modal[data-mode=A] .z1-subtab{height:36px}html body #modal[data-mode=A] .z1-subtab.on{height:37px}}
+@media(max-height:520px) and (pointer:coarse){html body #modal[data-mode=A] .z1-subtab,html body #modal[data-mode=A] .z1-subtab.on{height:44px;min-width:44px}}
+/* 抽屜底部固定動作列(R5)：出發／開始／招募確認這類主要動作不必捲到底 */
+html body #modal-content .z1-sticky{position:sticky!important;bottom:-16px;z-index:3;margin:12px -12px -16px!important;padding:10px 12px!important;background:var(--hv-ink)!important;border-top:1px solid var(--hv-line)!important;display:flex;gap:8px;justify-content:center}
+@media(max-width:760px),(max-height:520px){html body #modal-content .z1-sticky{bottom:-18px;margin:12px -10px -18px!important;padding:10px!important}}
+@media(max-height:520px){html body #modal-content .z1-sticky{bottom:-12px;margin:8px -10px -12px!important;padding:6px 10px!important}}
+html body #modal-content .z1-sticky>button{min-width:0!important;width:min(100%,420px);flex:1 1 auto}
+html body #modal-content .encounter-actions:empty{display:none!important}
+
+/* ═══ Z1-5 C 模式：置中視窗(遮罩 55% 蓋住場景與頁籤列、1dp 米色邊框＋四角像素括號、標題 48dp、底部按鈕列、沒有 X) ═══ */
+html body #modal-backdrop[data-mode=C]{z-index:40!important;background:rgba(0,0,0,.55)!important;align-items:center!important;justify-content:center!important;
+  padding:calc(var(--z1-sat) + 16px) var(--z1-sar) calc(var(--hud-bottom,var(--z1-tabbar)) + 16px) var(--z1-sal)!important}
+html body #modal-backdrop[data-mode=C] #modal{width:min(var(--z1-c-w),85%)!important;max-width:100%!important;height:auto!important;max-height:min(760px,100%)!important;min-height:0!important;
+  background:var(--z1-win)!important;border:1px solid var(--z1-edge)!important;border-left-color:var(--z1-edge-side)!important;border-right-color:var(--z1-edge-side)!important;border-radius:0!important;
+  box-shadow:0 0 0 1px #000,0 6px 0 rgba(0,0,0,.45)!important;align-self:center!important;overflow:hidden!important;border-bottom:1px solid var(--z1-edge)!important}
+html body #modal-backdrop[data-mode=C] #modal[data-type=worldmap]{width:min(880px,94%)!important}
+html body #modal-backdrop[data-mode=C] #modal::before{content:""!important;position:absolute!important;inset:3px!important;pointer-events:none!important;z-index:6;
+  background:var(--z1-brackets)!important;background-repeat:no-repeat!important;background-size:10px 10px!important}
+html body #modal-backdrop[data-mode=C] #modal .modal-title{height:48px!important;min-height:48px!important;margin:0!important;padding:0 12px!important;position:relative!important;display:flex!important;align-items:center!important;justify-content:center!important;
+  background:var(--z1-win)!important;border:0!important;border-bottom:1px solid var(--z1-rule)!important;border-radius:0!important;flex:0 0 auto}
+html body #modal-backdrop[data-mode=C] #modal .modal-title::before,html body #modal-backdrop[data-mode=C] #modal .modal-title::after{content:none!important}
+html body #modal-backdrop[data-mode=C] #modal .modal-title h2{height:24px!important;display:block!important;margin:0!important;padding:0!important;max-width:calc(100% - 140px)!important;border:0!important;border-radius:0!important;background:none!important;
+  font:700 20px/24px var(--font-ui)!important;letter-spacing:.08em;color:#fff!important;text-align:center;text-shadow:0 2px 0 #000!important;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;flex:0 1 auto}
+html body #modal-backdrop[data-mode=C] #modal .modal-title :is(#modal-icon,#modal-slot,#modal-tools,[data-action=close]){display:none!important}
+html body #modal-backdrop[data-mode=C] #modal-content{background:var(--z1-panel)!important;margin:10px 10px 0!important;padding:12px!important;border:1px solid #2c2824!important;flex:1 1 auto!important;min-height:0!important}
+html body #modal-backdrop[data-mode=C] #modal .z1-subtabs{margin:10px 10px 0}
+html body #modal-backdrop[data-mode=C] #modal .z1-subtabs+#modal-content{margin-top:0!important}
+html body #modal-backdrop[data-mode=C] #modal #scroll-hint-up{top:66px!important}
+html body #modal-backdrop[data-mode=C] #modal #scroll-hint{bottom:88px!important}
+/* 底部按鈕列：只有關閉(130×42)／主動作＋關閉、確認＋取消(各 118×43、間距 14、整組置中)；離下框約 20dp */
+html body #modal-foot,html body #inspect-foot{display:flex;flex-wrap:wrap;justify-content:center;align-items:center;gap:10px 14px;flex:0 0 auto;padding:12px 12px 20px}
+html body #modal-foot[hidden]{display:none!important}
+html body :is(#modal-foot,#inspect-foot) .z1-foot-btn{flex:0 1 auto;min-width:118px!important;width:auto;height:43px;min-height:43px!important;padding:0 12px!important;max-width:100%;font:700 18px/1 var(--font-ui)!important;letter-spacing:.06em;
+  text-shadow:0 2px 0 rgba(0,0,0,.75)!important;display:inline-flex;align-items:center;justify-content:center;white-space:nowrap}
+html body #modal-foot[data-n="2"] .z1-foot-btn{flex:1 1 118px;max-width:170px}
+html body :is(#modal-foot,#inspect-foot)[data-n="1"] .z1-foot-btn{min-width:130px!important;height:42px;min-height:42px!important}
+html body #modal-foot:not([data-n]) {display:none}
+/* 觸控:底部按鈕高度提到 44(規格 42/43 在觸控熱區下限以下) */
+@media(pointer:coarse){html body :is(#modal-foot,#inspect-foot) .z1-foot-btn,html body :is(#modal-foot,#inspect-foot)[data-n="1"] .z1-foot-btn{height:44px;min-height:44px!important}}
+/* 確認框：小視窗＋說明內凹框 */
+html body #modal-backdrop[data-mode=C] #modal[data-kind=confirm]{width:min(320px,85%)!important;max-width:min(360px,100%)!important}
+html body #modal-backdrop[data-mode=C] #modal[data-kind=confirm] #modal-content{min-height:96px}
+html body .hv-confirm p{margin:0;padding:14px 12px;background:#161211;border:1px solid #2c2824;text-align:center;font:600 14px/1.6 var(--font-ui);color:var(--hv-text)}
+html body .hv-confirm-row:empty{display:none}
+/* 橫向手機：C 視窗高 = 100% − 24px，寬最多 640 */
+@media(max-height:520px){
+  html body #modal-backdrop[data-mode=C]{padding:calc(var(--z1-sat) + 12px) calc(var(--z1-sar) + 12px) calc(var(--z1-sab) + 12px) calc(var(--z1-sal) + 12px)!important}
+  html body #modal-backdrop[data-mode=C] #modal{width:min(720px,92%)!important;max-height:100%!important}
+  html body #modal-backdrop[data-mode=C] #modal[data-type=worldmap]{width:min(820px,100%)!important}
+  html body #modal-backdrop[data-mode=C] #modal[data-kind=confirm]{width:min(320px,85%)!important;max-height:none!important}
+  html body #modal-backdrop[data-mode=C] #modal .modal-title{height:40px!important;min-height:40px!important}
+  html body #modal-backdrop[data-mode=C] #modal .modal-title h2{font-size:18px!important}
+  html body #modal-backdrop[data-mode=C] #modal-content{margin-top:6px!important;padding:8px 10px!important}
+  html body #modal-foot,html body #inspect-foot{padding:6px 12px 10px}
+  html body #modal-backdrop[data-mode=C] #modal #scroll-hint{bottom:62px!important}
+}
+/* 桌機：清單類最寬 560、高 = min(100vh − 頁籤列 − 32px, 760px)(max-height 已含) */
+/* 建築詳情 #inspector：同一套 C 視窗(固定 data-mode=C)，遮罩 #inspector-scrim 蓋住場景與頁籤列、點遮罩關閉 */
+html body #inspector-scrim{display:none;position:fixed;inset:0;background:rgba(0,0,0,.55);z-index:40}
+html body:has(#inspector:not(.hidden)) #inspector-scrim{display:block}
+html body #inspector[data-mode=C]{position:fixed!important;left:50%!important;right:auto!important;top:calc(var(--z1-sat) + 16px + (100dvh - var(--z1-sat) - 32px - var(--hud-bottom,var(--z1-tabbar))) / 2)!important;bottom:auto!important;transform:translate(-50%,-50%)!important;
+  width:min(var(--z1-c-w),85vw)!important;max-width:calc(100vw - var(--z1-sal) - var(--z1-sar))!important;height:auto!important;min-width:0!important;
+  max-height:min(760px,calc(100dvh - var(--z1-sat) - 32px - var(--hud-bottom,var(--z1-tabbar))))!important;margin:0!important;z-index:41!important;display:flex!important;flex-direction:column!important;overflow:hidden!important;
+  background:var(--z1-win)!important;border:1px solid var(--z1-edge)!important;border-left-color:var(--z1-edge-side)!important;border-right-color:var(--z1-edge-side)!important;border-radius:0!important;box-shadow:0 0 0 1px #000,0 6px 0 rgba(0,0,0,.45)!important}
+html body #inspector[data-mode=C].hidden{display:none!important}
+html body #inspector[data-mode=C]::before{content:""!important;position:absolute!important;inset:3px!important;pointer-events:none!important;z-index:6;background:var(--z1-brackets)!important;background-repeat:no-repeat!important;background-size:10px 10px!important}
+html body #inspector[data-mode=C] .panel-title{height:48px!important;min-height:48px!important;padding:0 12px!important;position:relative!important;display:flex!important;align-items:center!important;justify-content:center!important;background:var(--z1-win)!important;border:0!important;border-bottom:1px solid var(--z1-rule)!important;border-radius:0!important;flex:0 0 auto}
+html body #inspector[data-mode=C] .panel-title>b{flex:0 1 auto!important;max-width:calc(100% - 140px);font:700 20px/24px var(--font-ui)!important;letter-spacing:.08em;color:#fff!important;text-align:center;text-shadow:0 2px 0 #000!important;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+html body #inspector[data-mode=C] .panel-title :is(.hv-mslot,[data-action=closeInspector]){display:none!important}
+html body #inspector[data-mode=C] #inspect-content{background:var(--z1-panel)!important;margin:10px 10px 0!important;border:1px solid #2c2824!important}
+html body #inspector[data-mode=C] .inspect-actions:empty{display:none!important}
+html body #inspector[data-mode=C] .inspect-actions .z1-ghost{display:none}
+@media(max-height:520px){
+  html body #inspector[data-mode=C]{width:min(720px,92vw)!important;max-height:calc(100dvh - 24px)!important;top:50%!important}
+  html body #inspector[data-mode=C] .panel-title{height:40px!important;min-height:40px!important}
+  html body #inspector[data-mode=C] #inspect-content{margin-top:6px!important}
+  html body #inspector[data-mode=C] #inspect-content>.inspect-actions{position:static!important;margin:0!important;padding:0!important;border:0!important}
+  /* 抽屜版的 HUD 隱藏規則不再適用(現在是置中視窗＋遮罩) */
+  html body:has(#inspector:not(.hidden)):not(.piloting) :is(#topbar>:not(.hv-tl),#topbar>:not(.hv-tl) *,.hv-actions,.hv-actions *,#game-ui .view-tools,#game-ui .view-tools *,#game-ui .map-hint,#run-hud,#run-hud *,#unit-card,#unit-card *,#placement,#placement *){visibility:visible!important}
+  html body:has(#inspector:not(.hidden)):not(.piloting) #game-ui #pause-label{left:50%!important}
+}
+/* C 視窗開著：toast 出現在視窗上方的遮罩區(中上方、單行、最新一則)，不蓋視窗標題 */
+html body[data-z1-c]:not(.piloting) #toasts{position:fixed!important;top:calc(var(--z1-sat) + 2px)!important;bottom:auto!important;left:50%!important;right:auto!important;transform:translateX(-50%)!important;
+  align-items:center!important;width:max-content;max-width:calc(100vw - 24px)!important;z-index:60!important}
+html body[data-z1-c]:not(.piloting) #toasts .toast{max-height:24px;min-height:0!important;padding:2px 10px!important;line-height:1.2!important;overflow:hidden}
+html body[data-z1-c]:not(.piloting) #toasts .toast .toast-tx{white-space:nowrap!important;overflow:hidden;text-overflow:ellipsis;font-size:12px!important;display:block!important;-webkit-line-clamp:unset!important}
+html body[data-z1-c]:not(.piloting) #toasts .toast:not(:last-child){display:none!important}
+@media(max-height:520px){html body[data-z1-c]:not(.piloting) #toasts{top:1px!important}html body[data-z1-c]:not(.piloting) #toasts .toast{max-height:18px;padding:1px 8px!important}}
+html body[data-z1-c]:not(.piloting) #toasts .toast .toast-ic{width:16px!important;height:16px!important}
+html body[data-z1-c]:not(.piloting) #toasts .toast .toast-ic :is(canvas,img,[data-icon]){width:16px!important;height:16px!important}
+
+/* ═══ Z1-6 安全區(R2/R3)與平板觸控(R8) ═══ */
+/* R3：橫向手機(瀏海在左右)——A 抽屜、頂欄、頁籤列內容都留出左右安全區 */
+@media(max-height:520px){
+  html body #modal[data-mode=A]{padding-left:var(--z1-sal)!important;padding-right:var(--z1-sar)!important}
+  html body #bottom-bar{padding-left:var(--z1-sal)!important;padding-right:var(--z1-sar)!important}
+}
+/* R8：觸控(含平板，不只 ≤760 寬)熱區 ≥44px */
+@media(pointer:coarse){
+  :root{--hv-hit:44px}
+  html body :is(#modal,#inspector,#left-panel,#placement,#cmdk) .pixel-button,html body :is(#modal,#inspector) .hv-btn,html body #modal-content :is(.hv-btn,.pixel-button){min-height:44px!important}
+  html body #modal-content :is(.pixel-button[aria-pressed],[data-action=setOpt],[data-action=tradeStep],[data-action=dgFloor],.hv-i,.rp-info,.rp-body){min-width:44px!important;min-height:44px!important}
+  html body #modal .modal-title [data-action=close]{width:44px!important;height:44px!important;min-width:44px!important;min-height:44px!important;background-size:14px 14px!important}
+  html body #topbar .play-controls>button,html body #topbar .population{height:44px!important;min-width:44px!important}
+  html body #topbar .play-controls>button{width:44px!important}
+  html body #topbar .hv-ico{width:44px!important;height:44px!important;min-width:44px!important}
+  html body #modal-content :is(.hv-tool,.hc-info,.hc-loc),html body #modal .hv-tool{min-height:44px!important;min-width:44px!important}
+  html body #modal-content .hv-hcard .hc-loc{flex-basis:44px;width:44px;height:44px}
+  html body #game-ui .view-tools button,html body .hv-actions .hv-act{min-width:44px;min-height:44px}
+}
+/* ===== Z1 end ===== */
+
+/* ===== Z2A：獵人（獵人卡、名冊、招募、新獵人暗帶、tooltip）— 只有 Z2A 代理改這段 ===== */
+/* 規格:docs/research/UI-REF-HUNTER-VILLAGE-ZUKAN-2026-11-12.md 的 f(名冊)、g(獵人卡)、i(tooltip)、j(新獵人暗帶)。HTML 在 src/z2a-hunter.js、src/ui-tip.js。
+   注意:第 5 節的 #modal-content *{background-image:none!important} 會吃掉元素本身的漸層／圖 → 漸層一律畫在 ::before／::after(偽元素不受影響)。 */
+:root{--z2-orange:#f89830;--z2-pink:#c86878;--z2-star:#e873b0;--z2-gc-normal:#d3cab2;--z2-gc-rare:#6fbe8b;--z2-gc-superior:#6caeee;--z2-gc-heroic:#c184e1;--z2-gc-legendary:#efb955}
+/* 品級色(名稱、圖示框):tooltip 與清單列共用 */
+html body :is(.ui-tip,#modal-content) [data-grade=normal]{--g:var(--z2-gc-normal)}html body :is(.ui-tip,#modal-content) [data-grade=rare]{--g:var(--z2-gc-rare)}
+html body :is(.ui-tip,#modal-content) [data-grade=superior]{--g:var(--z2-gc-superior)}html body :is(.ui-tip,#modal-content) [data-grade=heroic]{--g:var(--z2-gc-heroic)}
+html body :is(.ui-tip,#modal-content) [data-grade=legendary]{--g:var(--z2-gc-legendary)}
+html body :is(.ui-tip,#modal-content) :is(.ui-tip-name,.z2-row-n)[data-grade]{color:var(--g)!important}
+
+/* ═══ Z2A-1 獵人卡(C 視窗 #modal[data-type=hunter]；規格 g) ═══ */
+html body #modal-backdrop[data-mode=C] #modal[data-type=hunter]{width:min(85%,404px)!important}   /* 寬 = 高 × 0.53 ≈ 404(手機取 85%) */
+html body #modal-backdrop[data-mode=C] #modal[data-type=hunter]{height:min(760px,100%)!important}   /* 固定高:換子頁籤時視窗不跳動 */
+html body #modal[data-type=hunter] #modal-content{display:flex!important;flex-direction:column;overflow:hidden!important;padding:8px 10px!important}
+html body #modal[data-type=hunter] .z2-hc{flex:1 1 auto;min-height:0;display:flex;flex-direction:column;gap:6px;color:var(--hv-text)}
+html body #modal[data-type=hunter] .z2-left{flex:0 0 auto;display:flex;flex-direction:column;gap:4px}
+html body #modal[data-type=hunter] .z2-right{flex:1 1 auto;min-height:0;display:flex;flex-direction:column;gap:0}
+html body #modal[data-type=hunter] .z2-top{display:flex;justify-content:space-between;align-items:flex-start;gap:8px}
+html body #modal[data-type=hunter] .z2-star-box{display:flex;flex-direction:column;gap:3px}
+html body #modal[data-type=hunter] .z2-stars{display:flex;gap:4px}
+html body #modal[data-type=hunter] .z2-stars i{display:block;width:15px;height:15px;background:#3b3731;clip-path:polygon(50% 0,62% 38%,100% 50%,62% 62%,50% 100%,38% 62%,0 50%,38% 38%)}
+html body #modal[data-type=hunter] .z2-stars i.on{background:var(--z2-star)}
+html body #modal[data-type=hunter] .z2-rb{font:700 12px/1.2 var(--font-ui);color:var(--z2-star);text-shadow:none!important}
+html body #modal[data-type=hunter] .z2-gold{display:flex;align-items:center;gap:6px;min-width:132px;padding:4px 10px;background:#161311;border:1px solid #938b79;border-radius:3px}
+html body #modal[data-type=hunter] .z2-gold small{font:600 12px/1 var(--font-ui);color:var(--hv-text-dim);text-shadow:none!important}
+html body #modal[data-type=hunter] .z2-gold b{margin-left:auto;font:700 14px/1 var(--font-num);color:#fff}
+html body #modal[data-type=hunter] .z2-gold .inline-icon{width:16px;height:16px}
+/* 立繪＋裝備環：決定 C1 只放 武器、護甲 2 格＋3 個暫空位(空格淡圖示、還能裝備的紫框) */
+html body #modal[data-type=hunter] .z2-ring{position:relative;flex:0 0 auto;width:100%;max-width:300px;height:164px;margin:0 auto}
+html body #modal[data-type=hunter] .z2-spot::before{content:"";position:absolute;left:50%;top:50%;width:200px;height:190px;transform:translate(-50%,-50%);pointer-events:none;
+  background:radial-gradient(closest-side,color-mix(in srgb,var(--rarity) 38%,transparent) 0,color-mix(in srgb,var(--rarity) 14%,transparent) 55%,transparent 100%)}
+html body #modal[data-type=hunter] .z2-fig{position:absolute;left:50%;top:50%;width:80px;height:92px;transform:translate(-50%,-46%);object-fit:contain;image-rendering:pixelated;z-index:1;filter:drop-shadow(0 2px 0 rgba(0,0,0,.55))}
+html body #modal[data-type=hunter] .z2-slot{position:absolute;box-sizing:border-box;width:48px;height:48px;display:grid;place-items:center;padding:0;background:#35312e;border:1px solid #57514a;border-radius:3px;color:inherit;z-index:2}
+html body #modal[data-type=hunter] .z2-slot .inline-icon{width:28px;height:28px}
+html body #modal[data-type=hunter] .z2-slot.ghost{opacity:.55;pointer-events:none}html body #modal[data-type=hunter] .z2-slot.ghost .inline-icon{opacity:.35;filter:grayscale(1)}
+html body #modal[data-type=hunter] .z2-slot.open{background:#1f1925;border-color:#e4c0ee;cursor:pointer}html body #modal[data-type=hunter] .z2-slot.open .inline-icon{opacity:.5}
+html body #modal[data-type=hunter] .z2-slot.eq{background:#2d2a26;border-color:#8a8372;cursor:pointer}
+html body #modal[data-type=hunter] .z2-slot:is(button):hover{border-color:#fff}
+html body #modal[data-type=hunter] .z2-slot.tip-on{outline:2px solid #ffe48f;outline-offset:1px}
+html body #modal[data-type=hunter] .z2-slot.s-top{left:50%;top:0;margin-left:-24px}
+html body #modal[data-type=hunter] .z2-slot.s-w{left:2%;top:58px}html body #modal[data-type=hunter] .z2-slot.s-a{right:2%;top:58px}
+html body #modal[data-type=hunter] .z2-slot.s-bl{left:21%;bottom:0}html body #modal[data-type=hunter] .z2-slot.s-br{right:21%;bottom:0}
+html body #modal[data-type=hunter] .z2-sstars{position:absolute;left:0;right:0;bottom:2px;display:flex;justify-content:center;gap:1px;pointer-events:none}
+html body #modal[data-type=hunter] .z2-sstars i{display:block;width:7px;height:7px;background:#f6c844;clip-path:polygon(50% 0,62% 38%,100% 50%,62% 62%,50% 100%,38% 62%,0 50%,38% 38%)}
+/* 經驗條：置中白字、兩端端蓋 */
+html body #modal[data-type=hunter] .z2-xp{position:relative;flex:0 0 auto;height:20px;margin:2px 10px 0;background:#12100e;border:1px solid #3a352f}
+html body #modal[data-type=hunter] .z2-xp::before,html body #modal[data-type=hunter] .z2-xp::after{content:"";position:absolute;top:-3px;bottom:-3px;width:5px;background:#8a8372;clip-path:polygon(0 0,100% 20%,100% 80%,0 100%)}
+html body #modal[data-type=hunter] .z2-xp::before{left:-9px}html body #modal[data-type=hunter] .z2-xp::after{right:-9px;transform:scaleX(-1)}
+html body #modal[data-type=hunter] .z2-xp-fill{position:absolute;left:0;top:0;bottom:0;background:#3a5a8c}
+html body #modal[data-type=hunter] .z2-xp b{position:relative;display:block;text-align:center;font:700 12px/18px var(--font-num);color:#fff;text-shadow:var(--hv-outline)}
+/* 圖示子頁籤 */
+html body #modal[data-type=hunter] .z2-tabs{display:flex;flex:0 0 auto;border-bottom:1px solid #a2a094}
+html body #modal[data-type=hunter] .z2-tab{flex:1 1 0;min-width:0;min-height:36px;display:flex;align-items:center;justify-content:center;gap:4px;padding:0 2px;background:#1b1716;border:1px solid #3b3731;border-bottom:0;border-radius:0;color:var(--hv-text-dim);font:700 12px/1 var(--font-ui);cursor:pointer;text-shadow:none!important}
+html body #modal[data-type=hunter] .z2-tab .inline-icon{width:18px;height:18px;flex:none}
+html body #modal[data-type=hunter] .z2-tab.on{background:#57534a;border-color:#a2a094;color:#fff}
+html body #modal[data-type=hunter] .z2-tab:not(.on):hover{background:#262120;color:var(--hv-text)}
+@media(pointer:coarse){html body #modal[data-type=hunter] .z2-tab{min-height:44px}}
+html body #modal[data-type=hunter] .z2-panel{flex:1 1 auto;min-height:96px;overflow:auto;padding:8px;background:#181512;border:1px solid #2c2824;border-top:0;scrollbar-width:thin}
+/* 資訊頁 */
+html body #modal[data-type=hunter] .z2-id{display:flex;justify-content:space-between;gap:8px;align-items:flex-start;margin-bottom:8px}
+html body #modal[data-type=hunter] .z2-rar{display:block;font:italic 700 18px/1.15 var(--font-ui);text-shadow:0 1px 0 #000!important}
+html body #modal[data-type=hunter] .z2-cls{display:block;font:700 14px/1.35 var(--font-ui);color:#fff}html body #modal[data-type=hunter] .z2-cls b{color:var(--z2-pink)}
+html body #modal[data-type=hunter] .z2-st{display:block;font:600 12px/1.3 var(--font-ui);color:var(--hv-text-dim)}
+html body #modal[data-type=hunter] .z2-dps{text-align:right;flex:0 0 auto}html body #modal[data-type=hunter] .z2-dps small{display:block;font:600 12px/1.3 var(--font-ui);color:var(--hv-text-dim)}
+html body #modal[data-type=hunter] .z2-dps b{display:block;font:700 18px/1.2 var(--font-num);color:#fff}
+html body #modal[data-type=hunter] .z2-cols{display:grid;grid-template-columns:minmax(0,1.2fr) minmax(0,1fr);gap:0}
+html body #modal[data-type=hunter] .z2-bars{display:flex;flex-direction:column;gap:5px;padding-right:8px;border-right:1px solid #3b3731}
+html body #modal[data-type=hunter] .z2-vals{display:flex;flex-direction:column;gap:5px;padding-left:8px}
+html body #modal[data-type=hunter] .z2-bar{display:flex;align-items:center;gap:4px;min-width:0}
+html body #modal[data-type=hunter] .z2-bar-ic .inline-icon,html body #modal[data-type=hunter] .z2-val i .inline-icon{width:16px;height:16px}
+html body #modal[data-type=hunter] .z2-bar-box{position:relative;flex:1 1 auto;min-width:0;height:18px;background:#14110f;border:1px solid #000;overflow:hidden}
+html body #modal[data-type=hunter] .z2-bar-fill{position:absolute;left:0;top:0;bottom:0;background:var(--c)}
+html body #modal[data-type=hunter] .z2-bar.hp{--c:#f06848}html body #modal[data-type=hunter] .z2-bar.satiety{--c:#f8b060}html body #modal[data-type=hunter] .z2-bar.stamina{--c:#78c070}html body #modal[data-type=hunter] .z2-bar.mood{--c:#4088c8}
+html body #modal[data-type=hunter] .z2-bar-box b{position:relative;display:block;text-align:center;font:700 12px/16px var(--font-num);color:#fff;text-shadow:var(--hv-outline);white-space:nowrap}
+html body #modal[data-type=hunter] .z2-val{display:flex;align-items:center;gap:5px;height:18px;min-width:0}
+html body #modal[data-type=hunter] .z2-val span{flex:1 1 auto;min-width:0;font:600 12px/1 var(--font-ui);color:#fff;white-space:nowrap}
+html body #modal[data-type=hunter] .z2-val b{flex:0 0 auto;font:700 13px/1 var(--font-num);color:var(--z2-orange)}
+html body #modal[data-type=hunter] .z2-train{margin:8px 0 0;padding:6px 8px;font:600 12px/1.5 var(--font-ui);color:var(--hv-text)}
+/* 清單列(技能／裝備／轉世頁；規格 e：金棕動作鈕、停用灰＋鎖頭) */
+html body #modal[data-type=hunter] .z2-list{display:flex;flex-direction:column;gap:6px}
+html body #modal[data-type=hunter] .z2-row{display:grid;grid-template-columns:40px minmax(0,1fr) auto;gap:8px;align-items:center;padding:6px;background:#1e1b17;border:1px solid #2e2926}
+html body #modal[data-type=hunter] .z2-row-ic{width:40px;height:40px;display:grid;place-items:center;background:#35312e;border:1px solid #57514a}
+html body #modal[data-type=hunter] .z2-row-ic .inline-icon{width:26px;height:26px}
+html body #modal[data-type=hunter] .z2-row-b{display:flex;flex-direction:column;gap:2px;min-width:0}
+html body #modal[data-type=hunter] .z2-row-n{font:700 14px/1.3 var(--font-ui);color:#f6cccc}
+html body #modal[data-type=hunter] .z2-row-d{font:600 12px/1.4 var(--font-ui);color:#f6f0d2}
+html body #modal[data-type=hunter] .z2-row-c{display:flex;align-items:center;gap:3px;font:600 12px/1.4 var(--font-ui);color:#fcde8a}html body #modal[data-type=hunter] .z2-row-c .inline-icon{width:14px;height:14px}
+html body #modal[data-type=hunter] .z2-row-w{font:600 12px/1.4 var(--font-ui)}
+html body #modal[data-type=hunter] :is(.z2-row-w,.z2-train) .ok{color:#b0c040}html body #modal[data-type=hunter] :is(.z2-row-w,.z2-train) .no{color:#d08080}
+html body #modal[data-type=hunter] .z2-row-w span+span{margin-left:8px}
+html body #modal[data-type=hunter] .z2-rowbtn{min-width:64px!important;min-height:36px!important;height:auto;padding:0 8px!important;font:700 14px/1 var(--font-ui)!important;display:inline-flex;align-items:center;justify-content:center;white-space:nowrap}
+@media(pointer:coarse){html body #modal[data-type=hunter] .z2-rowbtn{min-height:44px!important}}
+/* 窄寬／短高：裝備環縮小、暫空位收起來,一屏看得到主要資訊 */
+@media(max-width:760px) and (max-height:700px){
+  html body #modal[data-type=hunter] .z2-ring{height:104px}
+  html body #modal[data-type=hunter] .z2-slot.ghost{display:none}
+  html body #modal[data-type=hunter] .z2-slot.s-w,html body #modal[data-type=hunter] .z2-slot.s-a{top:28px}
+  html body #modal[data-type=hunter] .z2-fig{width:70px;height:80px;transform:translate(-50%,-50%)}
+  html body #modal[data-type=hunter] .z2-spot::before{width:170px;height:150px}
+}
+html body #modal[data-type=hunter] :is(#scroll-hint,#scroll-hint-up){display:none!important}   /* 內容自己在子頁籤裡捲，不用「還有內容」箭頭 */
+/* 桌機／平板：窗高有餘裕 → 裝備環放大 */
+@media(min-width:761px) and (min-height:701px){
+  html body #modal[data-type=hunter] .z2-ring{height:204px;max-width:340px}
+  html body #modal[data-type=hunter] .z2-fig{width:100px;height:116px}
+  html body #modal[data-type=hunter] .z2-slot{width:52px;height:52px}
+  html body #modal[data-type=hunter] .z2-slot.s-top{margin-left:-26px}
+  html body #modal[data-type=hunter] .z2-slot.s-w,html body #modal[data-type=hunter] .z2-slot.s-a{top:76px}
+  html body #modal[data-type=hunter] .z2-spot::before{width:260px;height:240px}
+  html body #modal[data-type=hunter] .z2-panel{padding:10px}
+}
+@media(max-width:760px) and (max-height:700px){html body #modal[data-type=hunter] .z2-val:nth-child(5){display:none}}
+/* 橫向手機：左＝星級/金幣/裝備環/經驗條,右＝子頁籤＋內容 */
+@media(max-height:520px){
+  html body #modal-backdrop[data-mode=C] #modal[data-type=hunter]{width:min(720px,94%)!important}
+  html body #modal[data-type=hunter] #modal-content{padding:6px 10px!important}
+  html body #modal[data-type=hunter] .z2-hc{flex-direction:row;gap:12px}
+  html body #modal[data-type=hunter] .z2-left{flex:0 0 244px;justify-content:space-between}
+  html body #modal[data-type=hunter] .z2-ring{height:150px;max-width:244px}
+  html body #modal[data-type=hunter] .z2-slot.ghost{display:grid}
+  html body #modal[data-type=hunter] .z2-slot.s-w,html body #modal[data-type=hunter] .z2-slot.s-a{top:52px}
+  html body #modal[data-type=hunter] .z2-fig{width:72px;height:84px;transform:translate(-50%,-48%)}
+  html body #modal[data-type=hunter] .z2-gold{min-width:0}
+  html body #modal[data-type=hunter] .z2-right{flex:1 1 0;min-width:0}
+}
+
+/* ═══ Z2A-2 獵人名冊卡(A 抽屜 #modal[data-type=hunters]；規格 f：頂端稀有度字、稀有度邊框與漸層底、立繪、底部名字；資訊入口＝右上金色小「i」，跟建築卡一致) ═══ */
+html body #modal[data-type=hunters] #modal-content .hv-hgrid .hv-hcard{position:relative;display:grid!important;grid-template-columns:minmax(0,1fr)!important;grid-auto-rows:auto;align-content:start;gap:2px!important;padding:0 0 5px!important;overflow:hidden;isolation:isolate;
+  background:#1b1714!important;border:2px solid color-mix(in srgb,var(--rarity) 72%,#000)!important;border-radius:2px;box-shadow:none!important}
+html body #modal[data-type=hunters] #modal-content .hv-hgrid .hv-hcard::before{content:"";position:absolute;inset:0;z-index:-1;pointer-events:none;background:linear-gradient(180deg,color-mix(in srgb,var(--rarity) 36%,#1b1714) 0,#1b1714 66%)}
+html body #modal[data-type=hunters] #modal-content .hv-hcard .hc-head{display:flex;align-items:flex-start;justify-content:flex-start;min-height:22px;padding:3px 0 0 5px;grid-column:1;grid-row:1}
+html body #modal[data-type=hunters] #modal-content .hv-hcard .hc-rar{font:italic 700 12px/1.3 var(--font-ui);color:var(--rarity);text-shadow:0 1px 0 #000;white-space:nowrap;max-width:calc(100% - 26px);overflow:hidden;text-overflow:ellipsis}
+html body #modal[data-type=hunters] #modal-content .hv-hcard .hc-info{position:absolute;grid-row:auto;grid-column:auto;top:0;right:0;z-index:3;display:grid!important;place-items:start end;width:44px!important;height:44px!important;min-width:44px!important;min-height:44px!important;margin:0!important;padding:2px!important;flex:none;background:none!important;border:0!important;box-shadow:none!important;clip-path:none}
+html body #modal[data-type=hunters] #modal-content .hv-hcard .hc-info>span{display:grid;place-items:center;width:22px;height:22px;background:var(--hv-gold);border:1px solid #000;border-radius:2px;color:#1a1208;font:700 13px/1 var(--font-num)}
+html body #modal[data-type=hunters] #modal-content .hv-hcard .hc-info:hover>span{background:#f2c95a}
+html body #modal[data-type=hunters] #modal-content .hv-hcard .hc-art{grid-column:1;grid-row:2;height:88px;margin:0;background:none!important;display:grid;place-items:end center}
+html body #modal[data-type=hunters] #modal-content .hv-hcard .hc-art::before{display:none}
+html body #modal[data-type=hunters] #modal-content .hv-hcard .hc-art img{width:100%;max-width:72px;height:84px;object-fit:contain}
+html body #modal[data-type=hunters] #modal-content .hv-hcard .hc-name{grid-column:1;grid-row:3;margin:0;padding:0 3px;text-align:center;font:700 13px/1.3 var(--font-ui);color:#fff;text-shadow:0 1px 0 #000;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+html body #modal[data-type=hunters] #modal-content .hv-hcard .hc-sub{grid-column:1;grid-row:4;text-align:center;padding:0 3px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+html body #modal[data-type=hunters] #modal-content .hv-hcard .hc-status{grid-column:1;grid-row:5;padding:0 3px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+html body #modal[data-type=hunters] #modal-content .hv-hcard .hc-hp{grid-column:1;grid-row:6;margin:1px 6px 0!important}
+html body #modal[data-type=hunters] #modal-content .hv-hcard .hc-btns{display:block;position:absolute;right:0;top:44px;width:44px;height:44px;margin:0;z-index:2}
+html body #modal[data-type=hunters] #modal-content .hv-hcard .hc-loc{position:static;grid-row:auto;width:44px!important;height:44px!important;min-height:44px!important;margin:0;border:9px solid transparent!important;background-clip:padding-box!important;box-shadow:none!important;padding:0!important;display:grid!important;place-items:center}
+/* 標題列子頁籤「招募」的待辦數字 */
+html body #modal[data-mode=A] .z1-subtab[data-badge]{position:relative}
+html body #modal[data-mode=A] .z1-subtab[data-badge]::after{content:attr(data-badge);position:absolute;top:2px;right:2px;min-width:16px;height:16px;padding:0 3px;box-sizing:border-box;display:grid;place-items:center;background:var(--hv-warn);border:1px solid #000;border-radius:2px;color:#fff;font:700 12px/1 var(--font-num);text-shadow:0 1px 0 #000}
+
+/* ═══ Z2A-3 新獵人到訪(D 暗帶 #modal[data-type=visitors]；規格 j) ═══ */
+html body #modal-backdrop[data-mode=D] #modal #modal-content{background:none!important;border:0!important;margin:0!important;padding:14px 12px 16px!important;overflow:visible!important;max-height:none!important}
+html body #modal-backdrop[data-mode=D] #modal :is(#modal-foot,#scroll-hint,#scroll-hint-up){display:none!important}
+html body .z2-band{display:flex;flex-direction:column;align-items:center;gap:8px;max-width:520px;margin:0 auto;color:var(--hv-text)}
+html body .z2-band-t{margin:0!important;font:italic 700 22px/1.2 var(--font-ui)!important;letter-spacing:.06em;color:#fff!important;text-shadow:0 2px 0 #000!important}
+html body .z2-vcards{display:flex;align-items:flex-end;justify-content:center;gap:12px;min-height:158px}
+html body .z2-vcard{position:relative;display:flex;flex-direction:column;align-items:center;gap:2px;width:84px;padding:0 0 4px;overflow:hidden;isolation:isolate;cursor:pointer;color:#fff;
+  background:#1b1714;border:2px solid color-mix(in srgb,var(--rarity) 70%,#000);border-radius:2px;font:inherit}
+html body .z2-vcard::before{content:"";position:absolute;inset:0;z-index:-1;pointer-events:none;background:linear-gradient(180deg,color-mix(in srgb,var(--rarity) 42%,#1b1714) 0,#1b1714 70%)}
+html body .z2-vcard.on{width:118px;border-color:var(--rarity);box-shadow:0 0 0 1px #000,0 0 12px color-mix(in srgb,var(--rarity) 55%,transparent)}
+html body .z2-vcard .z2-vr{align-self:flex-start;padding:3px 0 0 5px;font:italic 700 12px/1.3 var(--font-ui);color:var(--rarity);text-shadow:0 1px 0 #000}
+html body .z2-vcard img{width:100%;max-width:72px;height:84px;object-fit:contain;image-rendering:pixelated}
+html body .z2-vcard.on img{max-width:100px;height:118px}
+html body .z2-vcard .z2-vn{padding:0 3px;font:700 13px/1.3 var(--font-ui);color:#fff;text-shadow:0 1px 0 #000;white-space:nowrap}
+html body .z2-vcard:hover{filter:brightness(1.12)}
+html body .z2-band-p{margin:0;text-align:center;font:600 13px/1.6 var(--font-ui);color:var(--hv-text)}
+html body .z2-band-s{font-size:12px;color:var(--hv-text-dim)}html body .z2-band-s .no{color:#d08080}
+html body .z2-band-btns{display:flex;gap:14px;justify-content:center;width:100%}
+html body .z2-band-btns .pixel-button{flex:0 1 130px;min-width:110px;height:44px;min-height:44px!important;font:700 18px/1 var(--font-ui)!important;letter-spacing:.06em;display:inline-flex;align-items:center;justify-content:center}
+html body .z2-band-all{background:none!important;border:0!important;box-shadow:none!important;min-height:44px;padding:0 12px;color:var(--hv-gold)!important;font:600 13px/1 var(--font-ui);text-decoration:underline;cursor:pointer}
+@media(max-height:520px){
+  html body #modal-backdrop[data-mode=D] #modal #modal-content{padding:8px 12px 10px!important}
+  html body .z2-band{display:grid;grid-template-columns:auto minmax(0,1fr);column-gap:16px;row-gap:4px;max-width:none;align-items:center}
+  html body .z2-band-t{grid-column:1/-1}html body .z2-vcards{grid-column:1;grid-row:2/5;min-height:0}
+  html body .z2-band-p,html body .z2-band-btns,html body .z2-band-all{grid-column:2}
+  html body .z2-band-all{justify-self:center}
+  html body .z2-vcard{width:70px}html body .z2-vcard img{height:64px;max-width:60px}html body .z2-vcard.on{width:98px}html body .z2-vcard.on img{height:90px;max-width:84px}
+}
+
+/* ═══ Z2A-4 tooltip 迷你視窗(規格 i；src/ui-tip.js) ═══ */
+html body .ui-tip{position:fixed;z-index:90;left:0;top:0;box-sizing:border-box;width:max-content;min-width:176px;padding:10px 12px 10px;pointer-events:none;background:#161211;border:1px solid #aca99a;box-shadow:0 0 0 1px #000,0 4px 0 rgba(0,0,0,.45);color:var(--hv-text);font:600 12px/1.5 var(--font-ui);text-align:left}
+html body .ui-tip[hidden]{display:none}
+html body .ui-tip::before{content:"";position:absolute;inset:2px;pointer-events:none;background:var(--z1-brackets);background-repeat:no-repeat;background-size:7px 7px}
+html body .ui-tip-name{display:block;text-align:center;font:700 14px/1.3 var(--font-ui);letter-spacing:.04em;text-shadow:0 1px 0 #000}
+html body .ui-tip-head{display:flex;align-items:center;gap:10px;margin:8px 0 6px}
+html body .ui-tip-ic{position:relative;flex:0 0 auto;width:44px;height:44px;display:grid;place-items:center;background:#35312e;border:1px solid var(--g,#57514a)}
+html body .ui-tip-ic .inline-icon{width:28px;height:28px}
+html body .ui-tip-stars{position:absolute;left:0;right:0;bottom:1px;display:flex;justify-content:center;gap:1px}
+html body .ui-tip-stars i{display:block;width:7px;height:7px;background:#f6c844;clip-path:polygon(50% 0,62% 38%,100% 50%,62% 62%,50% 100%,38% 62%,0 50%,38% 38%)}
+html body .ui-tip-lv{position:absolute;top:1px;right:3px;font:700 12px/1 var(--font-num);color:#fff;text-shadow:var(--hv-outline)}
+html body .ui-tip-stats{flex:1 1 auto;margin:0;display:flex;flex-direction:column;gap:2px;min-width:0}
+html body .ui-tip-stats div{display:flex;justify-content:space-between;gap:12px}html body .ui-tip-stats dt{color:var(--hv-text-dim);margin:0}html body .ui-tip-stats dd{margin:0;color:#fff;font-weight:700;text-align:right}
+html body .ui-tip-lines{margin:0;padding:0;list-style:none;display:flex;flex-direction:column;gap:2px}
+html body .ui-tip-lines li{margin:0;padding:0}
+html body .ui-tip-lines .pos{color:#5f90c6}html body .ui-tip-lines .neg{color:#f05858}html body .ui-tip-lines .note{color:#dec68a}
+/* ===== Z2A end ===== */
+
+/* ===== Z2B：建築與經濟（建築視窗、建設、交易、倉庫製作、委託、確認框）— 只有 Z2B 代理改這段 ===== */
+/* 規格 e(清單列)／f(方格)／h(確認)／k+n(委託、雙細線區段標籤)／c(內凹框、提示框)。
+   色：名稱粉 #f6cccc、說明米白 #f6f0d2、關鍵數字藍 #5aa0e0、費用金 #fcde8a、達成綠 #b0c040、未達成粉紅 #e8908a、列底 #2e2926。
+   按鈕顏色一律交給 Z1 的 zbPaint(金棕＝清單動作、橄欖綠＝視窗主動作、紅＝關閉／取消、灰＝不能用)，這裡只管排版。 */
+:root{--z2b-pink:#f6cccc;--z2b-cream:#f6f0d2;--z2b-blue:#5aa0e0;--z2b-fee:#fcde8a;--z2b-ok:#b0c040;--z2b-no:#e8908a;--z2b-row:#2e2926;--z2b-row-edge:#181810;--z2b-frame:#6c675f}
+/* ─── 共用：雙細線區段標籤(n 節)、清單列(e 節)、圖示格 ─── */
+html body :is(#inspect-content,#modal-content) .z2b-sep{display:flex;align-items:center;gap:10px;list-style:none;margin:4px 0 2px;padding:0;background:none!important;border:0!important;box-shadow:none!important;color:#d8d2bc;font:700 13px/1.2 var(--font-ui);letter-spacing:.08em}
+html body :is(#inspect-content,#modal-content) .z2b-sep::before,html body :is(#inspect-content,#modal-content) .z2b-sep::after{content:"";flex:1 1 0;height:4px;border-top:1px solid #85827b;border-bottom:1px solid #85827b;background:none!important;opacity:.85;position:static;width:auto}
+html body :is(#inspect-content,#modal-content) .z2b-rows{list-style:none;margin:0;padding:0;display:flex;flex-direction:column;gap:6px}
+html body :is(#inspect-content,#modal-content) .z2b-row{display:flex!important;flex-direction:row!important;align-items:center;gap:10px;padding:8px!important;min-height:60px;background:var(--z2b-row)!important;border:1px solid var(--z2b-row-edge)!important;border-radius:0!important;box-shadow:none!important;color:var(--z2b-cream);position:relative;height:auto!important;width:auto!important;text-align:left!important}
+html body :is(#inspect-content,#modal-content) .z2b-row::before,html body :is(#inspect-content,#modal-content) .z2b-row::after{content:none!important}
+html body :is(#inspect-content,#modal-content) .z2b-ic{position:relative;flex:0 0 44px;width:44px!important;height:44px!important;display:grid!important;place-items:center;margin:0;background:#181410;border:1px solid var(--z2b-frame);box-shadow:inset 0 0 0 1px #0d0b0a;font-style:normal;padding:0}
+html body :is(#inspect-content,#modal-content) .z2b-ic [data-icon],html body :is(#inspect-content,#modal-content) .z2b-ic [data-icon] :is(canvas,img){width:32px!important;height:32px!important;margin:0!important;image-rendering:pixelated}
+html body :is(#inspect-content,#modal-content) .z2b-ic>img{width:38px;height:38px;object-fit:contain;image-rendering:pixelated}
+html body :is(#inspect-content,#modal-content) .z2b-q{position:absolute;right:-1px;bottom:-1px;min-width:18px;padding:0 3px;background:#14110f;border:1px solid #000;font:700 12px/16px var(--font-num);font-style:normal;color:#fff;text-align:center}
+html body :is(#inspect-content,#modal-content) .z2b-rb{flex:1 1 auto;min-width:0;display:flex;flex-direction:column;gap:3px}
+html body :is(#inspect-content,#modal-content) .z2b-nm{display:flex;flex-wrap:wrap;align-items:center;gap:4px 8px;color:var(--z2b-pink);font:700 14px/1.3 var(--font-ui);margin:0}
+html body :is(#inspect-content,#modal-content) .z2b-ds{margin:0;color:var(--z2b-cream);font:600 12px/1.5 var(--font-ui)}
+html body :is(#inspect-content,#modal-content) .z2b-n{color:var(--z2b-blue);font:700 12px/1.5 var(--font-num)}
+html body :is(#inspect-content,#modal-content) .z2b-fee{display:inline-flex;align-items:center;gap:4px;color:var(--z2b-fee);font:700 12px/1.3 var(--font-num)}
+html body :is(#inspect-content,#modal-content) .z2b-fee b{color:var(--z2b-fee)}
+html body :is(#inspect-content,#modal-content) .z2b-fee [data-icon],html body :is(#inspect-content,#modal-content) .z2b-fee [data-icon] :is(canvas,img){width:14px!important;height:14px!important}
+html body :is(#inspect-content,#modal-content) .z2b-act{flex:0 0 auto;display:flex;flex-direction:column;align-items:stretch;gap:6px;margin:0}
+html body :is(#inspect-content,#modal-content) .z2b-act .pixel-button:not(.hv-max){min-width:64px;min-height:44px;padding:0 10px!important;font:700 15px/1.15 var(--font-ui)!important;display:inline-flex;flex-direction:column;align-items:center;justify-content:center;white-space:nowrap}
+html body :is(#inspect-content,#modal-content) .z2b-act .pixel-button small{font:600 12px/1.1 var(--font-ui);opacity:.9}
+html body :is(#inspect-content,#modal-content) .z2b-act .z2b-max{min-width:64px}
+html body :is(#inspect-content,#modal-content) .z2b-act .z2b-max::before{display:none!important}
+/* 材料需求(現有/需要)：夠＝米白、不夠＝粉紅 */
+html body :is(#inspect-content,#modal-content) .z2b-chips{display:flex;flex-wrap:wrap;gap:2px 10px}
+html body :is(#inspect-content,#modal-content) .z2b-chips .cost-chip{display:inline-flex;align-items:center;gap:3px;padding:0!important;background:none!important;border:0!important;font:600 12px/1.5 var(--font-num);color:var(--z2b-cream);white-space:nowrap}
+html body :is(#inspect-content,#modal-content) .z2b-chips .cost-chip .nm{color:var(--z2b-cream);font-weight:600}
+html body :is(#inspect-content,#modal-content) .z2b-chips .cost-chip b{color:#fff;font-weight:700}
+html body :is(#inspect-content,#modal-content) .z2b-chips .cost-chip i{font-style:normal;color:#b9b19c}
+html body :is(#inspect-content,#modal-content) .z2b-chips .cost-chip [data-icon],html body :is(#inspect-content,#modal-content) .z2b-chips .cost-chip [data-icon] :is(canvas,img){width:14px!important;height:14px!important}
+html body :is(#inspect-content,#modal-content) .z2b-chips .cost-chip.short,html body :is(#inspect-content,#modal-content) .z2b-chips .cost-chip.short :is(.nm,b,i){color:var(--z2b-no)!important}
+/* 文字型子頁籤(d 節)：選中 #ab9892 深字、未選 #49413e；觸控 44px */
+html body :is(#inspector,#modal) .z2b-tabs{display:flex!important;gap:0;margin:0!important;padding:0;position:static!important;height:auto!important;max-width:none!important;background:#49413e;flex:0 0 auto;align-items:stretch}
+html body :is(#inspector,#modal) .z2b-tabs .z1-subtab,html body :is(#inspector,#modal) .z2b-tabs .z1-subtab.on{flex:1 1 0;min-height:34px;height:auto!important;margin:0!important;padding:0 6px;background:#49413e;color:#cfc6c1;border:0!important;border-radius:0!important;font:700 14px/1 var(--font-ui);letter-spacing:.06em;display:flex;align-items:center;justify-content:center;cursor:pointer}
+html body :is(#inspector,#modal) .z2b-tabs .z1-subtab.on{background:#ab9892;color:#241d1b}
+html body :is(#inspector,#modal) .z2b-tabs .z1-subtab:not(.on):hover{background:#574d49}
+@media(pointer:coarse),(max-width:760px){html body :is(#inspector,#modal) .z2b-tabs .z1-subtab,html body :is(#inspector,#modal) .z2b-tabs .z1-subtab.on{min-height:44px}}
+/* 說明內凹框／提示框 */
+html body :is(#inspect-content,#modal-content) .z2b-info{margin:0 0 8px;text-align:center;background:#161211!important;border:1px solid #2c2824!important}
+html body :is(#inspect-content,#modal-content) .z2b-info p{margin:0;color:var(--z2b-cream);font:600 13px/1.55 var(--font-ui)}
+
+/* ─── 建築詳情(C 視窗 #inspector)：圖鑑 23/24/30 ─── */
+html body #inspector[data-mode=C] #inspect-content{display:flex!important;flex-direction:column;gap:10px;grid-template-columns:none!important;align-items:stretch;padding:8px!important;overflow:auto}
+html body #inspector[data-mode=C] #inspect-content>*{grid-column:auto!important;grid-row:auto!important;margin:0!important;min-width:0}
+html body #inspector[data-mode=C] .z2b-top{display:flex;gap:10px;align-items:stretch}
+html body #inspector[data-mode=C] .z2b-top .inspect-art{flex:0 0 88px;width:88px!important;max-width:88px!important;min-height:88px!important;height:auto;aspect-ratio:auto!important;display:grid;place-items:center;grid-row:auto}
+html body #inspector[data-mode=C] .z2b-top .inspect-art img{max-width:100%;max-height:80px;object-fit:contain;image-rendering:pixelated}
+html body #inspector[data-mode=C] .z2b-desc{flex:1 1 auto;display:flex;flex-direction:column;gap:6px;justify-content:center;text-align:left;background:#161211!important;border:1px solid #2c2824!important;padding:10px 12px!important}
+html body #inspector[data-mode=C] .z2b-desc .inspect-level{align-self:flex-start;padding:0!important;background:none!important;border:0!important;color:var(--z2b-fee)!important;font:700 12px/1.3 var(--font-num)!important}
+html body #inspector[data-mode=C] .z2b-desc .inspect-desc{margin:0!important;color:var(--z2b-cream)!important;font:600 13px/1.55 var(--font-ui)!important}
+html body #inspector[data-mode=C] .z2b-rows .z2b-row{background:var(--z2b-row)!important;border:1px solid var(--z2b-row-edge)!important}
+html body #inspector[data-mode=C] .inspect-effect .z2b-ds{color:var(--z2b-cream)}
+html body #inspector[data-mode=C] .inspect-req{display:flex;flex-direction:column;gap:6px;padding:10px;background:#292521!important;border:1px solid #3b3731!important}
+html body #inspector[data-mode=C] .inspect-req :is(.inspect-next,.inspect-cost,.inspect-note,.inspect-done){background:none!important;border:0!important;box-shadow:none!important;padding:0!important;margin:0!important;justify-self:auto}
+html body #inspector[data-mode=C] .inspect-req .inspect-next{color:#fff!important;font:700 13px/1.4 var(--font-ui)!important}
+html body #inspector[data-mode=C] .inspect-req .inspect-cost{display:flex;flex-wrap:wrap;align-items:center;gap:2px 12px}
+html body #inspector[data-mode=C] .inspect-req .inspect-cost>span:first-child{color:#b9b19c;font:600 12px/1.5 var(--font-ui)}
+html body #inspector[data-mode=C] .inspect-req .cost-chip{display:inline-flex;align-items:center;gap:3px;padding:0!important;background:none!important;border:0!important;font:600 12px/1.5 var(--font-num)!important;color:var(--z2b-ok)!important;white-space:nowrap}
+html body #inspector[data-mode=C] .inspect-req .cost-chip :is(.nm,b,i){color:inherit!important;font-style:normal}
+html body #inspector[data-mode=C] .inspect-req .cost-chip.short{color:var(--z2b-no)!important}
+html body #inspector[data-mode=C] .inspect-req .inspect-note{color:var(--z2b-ok)!important;font:600 12px/1.5 var(--font-ui)!important}
+html body #inspector[data-mode=C] .inspect-req .inspect-note.short{color:var(--z2b-no)!important}
+html body #inspector[data-mode=C] .inspect-req .inspect-done{color:var(--z2b-ok)!important;font:700 14px/1.4 var(--font-ui)!important;display:block;min-height:0}
+@media(max-width:420px){html body #inspector[data-mode=C] .z2b-top .inspect-art{flex-basis:76px;width:76px!important;max-width:76px!important;min-height:76px!important}}
+@media(max-height:520px){html body #inspector[data-mode=C] #inspect-content{gap:8px;padding:8px!important}html body #inspector[data-mode=C] .z2b-top .inspect-art{min-height:72px!important;flex-basis:72px;width:72px!important;max-width:72px!important}}
+
+/* ─── 建設抽屜(A)：UX #10 — 成本字 ≥12px、缺的成本項目紅色、缺料灰鈕寫全、未建造卡加用途說明 ─── */
+html body #modal-content .hv-card .hv-cost{font:700 13px/1 var(--font-num)}
+html body #modal-content .hv-card .hv-cost.short{color:#f08a7c}
+html body #modal-content .hv-card .hv-cost.short b{color:#f08a7c!important;text-decoration:underline;text-decoration-thickness:1px;text-underline-offset:2px}
+html body #modal-content .hv-card .bc-use{margin:0;padding:0 2px;color:var(--z2b-cream);font:600 12px/1.4 var(--font-ui);text-align:left;display:-webkit-box;-webkit-box-orient:vertical;-webkit-line-clamp:3;overflow:hidden}
+html body #modal-content .hv-card .hv-btn.short-btn{white-space:normal!important;line-height:1.25!important;font-size:12px!important;overflow:visible;text-overflow:clip;height:auto;min-height:44px;padding:4px 6px!important;overflow-wrap:anywhere}
+html body #modal-content .hv-card .hv-btn.short-btn::before{display:none!important}
+@media(max-width:520px) and (min-height:521px){
+  html body #modal-content .hv-build-grid{grid-template-columns:repeat(2,minmax(0,1fr))!important;gap:8px!important}
+  html body #modal-content .hv-card.building-card{padding:6px 6px 8px!important;gap:6px!important}
+  html body #modal-content .hv-card .bc-head strong{font-size:14px!important}
+  html body #modal-content .hv-card .bc-art{height:80px}
+  html body #modal-content .hv-card .bc-art img{height:72px!important}
+}
+@media(max-height:520px){
+  html body #modal-content .hv-card.unbuilt{grid-template-rows:auto auto auto 1fr!important}
+  html body #modal-content .hv-card.unbuilt .bc-art{grid-row:1/5!important}
+  html body #modal-content .hv-card .bc-use{grid-column:2;grid-row:3;display:-webkit-box;-webkit-line-clamp:2;font-size:12px;line-height:1.3}
+  html body #modal-content .hv-card.unbuilt :is(.hv-btn,.bc-done){grid-row:4!important}
+}
+
+/* ─── 交易所(A)：圖鑑 29 — 上方說明框、3 欄方格(圖示框＋白名稱＋庫存/單價)、下方金棕膠囊主鈕＋±10/±1 步進 ─── */
+html body #modal-content .trade-list.hv-item-grid{grid-template-columns:repeat(3,minmax(0,1fr))!important;gap:8px!important}
+@media(max-width:760px){html body #modal-content .trade-list.hv-item-grid{grid-template-columns:repeat(3,minmax(0,1fr))!important;gap:6px!important}}
+html body #modal-content .trade-row.z2b-cell{padding:8px 5px!important;gap:4px!important;background:#1e1b17!important;border:1px solid #3b3731!important;box-shadow:none!important;border-radius:0!important}
+html body #modal-content .trade-row.z2b-cell.on{border-color:#906818!important}
+html body #modal-content .trade-row.z2b-cell .hv-item-ic{width:52px!important;height:52px!important;flex:0 0 52px;background:#181410!important;border:1px solid var(--z2b-frame)!important;border-radius:0!important;box-shadow:inset 0 0 0 1px #0d0b0a!important}
+html body #modal-content .trade-row.z2b-cell .tr-name b{color:#fff!important;font:700 14px/1.3 var(--font-ui)!important}
+html body #modal-content .trade-row.z2b-cell .tr-name small{font:600 12px/1.35 var(--font-ui)!important;white-space:normal!important;overflow:visible!important;text-align:center;color:#c4bba3!important}
+html body #modal-content .trade-row.z2b-cell .tr-cost{font:600 12px/1.3 var(--font-ui)!important}
+html body #modal-content .trade-row.z2b-cell .tr-big{width:100%}
+html body #modal-content .trade-row.z2b-cell .tr-big .pixel-button{width:100%;min-height:44px;padding:0 4px!important;font:700 14px/1 var(--font-ui)!important;border-radius:0}
+html body #modal-content .trade-row.z2b-cell .tr-step{display:grid!important;grid-template-columns:repeat(2,minmax(0,1fr));gap:4px!important;width:100%}
+html body #modal-content .trade-row.z2b-cell .tr-step .pixel-button{width:100%!important;min-width:0!important;min-height:44px!important;padding:0!important;font:700 14px/1 var(--font-num)!important}
+html body #modal-content .trade-row.z2b-cell .tr-step output{min-width:0;height:44px;display:grid;place-items:center;font:700 15px/1 var(--font-num);color:#fff;background:#161211;border:1px solid #2c2824}
+@media(min-width:761px){html body #modal-content .trade-row.z2b-cell .tr-step{grid-template-columns:repeat(4,minmax(0,1fr))}}
+
+/* ─── 倉庫(A)：圖鑑 29/03 — 方格(圖示框＋右下數量＋白名稱)，點一格看用途／來源 ─── */
+html body #modal-content .z2b-detail{margin:0 0 10px;padding:10px 12px!important;display:flex;flex-direction:column;gap:4px;background:#161211!important;border:1px solid #2c2824!important}
+html body #modal-content .z2b-detail.empty{text-align:center;color:#b9b19c;font:600 12px/1.5 var(--font-ui)}
+html body #modal-content .z2b-detail .zd-head{display:flex;align-items:center;gap:10px}
+html body #modal-content .z2b-detail .zd-t{flex:1 1 auto;min-width:0;display:flex;flex-direction:column;gap:2px}
+html body #modal-content .z2b-detail .si-nm{color:var(--z2b-pink);font:700 15px/1.3 var(--font-ui)}
+html body #modal-content .z2b-detail small{display:block;color:var(--z2b-cream);font:600 12px/1.5 var(--font-ui)}
+html body #modal-content .z2b-detail .si-num b{color:var(--z2b-blue)}
+html body #modal-content .z2b-detail .zd-head .pixel-button{flex:0 0 auto;min-width:64px;min-height:44px;padding:0 12px!important;font:700 14px/1 var(--font-ui)!important}
+html body #modal-content .hv-sq-grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(78px,1fr));gap:8px;list-style:none;margin:0;padding:0}
+html body #modal-content .stock-item.hv-sq{background:none!important;border:0!important;box-shadow:none!important;padding:0!important;min-height:0!important;display:block!important}
+html body #modal-content .hv-sq .sq-btn{width:100%;min-height:96px;display:flex;flex-direction:column;align-items:center;justify-content:flex-start;gap:6px;padding:8px 4px 6px;background:#1e1b17;border:1px solid #3b3731;border-radius:0;color:#fff;cursor:pointer;font:700 13px/1.3 var(--font-ui)}
+html body #modal-content .hv-sq .sq-btn:hover{background:#2a2521}
+html body #modal-content .hv-sq.sel .sq-btn{border-color:#ab9892;background:#2e2926;box-shadow:inset 0 0 0 1px #ab9892}
+html body #modal-content .hv-sq.empty .sq-btn{opacity:.55}
+html body #modal-content .hv-sq .sq-ic{position:relative;width:52px;height:52px;display:grid;place-items:center;background:#181410;border:1px solid var(--z2b-frame);box-shadow:inset 0 0 0 1px #0d0b0a}
+html body #modal-content .hv-sq .sq-ic [data-icon],html body #modal-content .hv-sq .sq-ic [data-icon] :is(canvas,img){width:32px!important;height:32px!important;margin:0!important;image-rendering:pixelated}
+html body #modal-content .hv-sq .sq-q{position:absolute;right:-1px;bottom:-1px;min-width:20px;padding:0 4px;background:#14110f;border:1px solid #000;font:700 12px/16px var(--font-num);font-style:normal;color:#fff;text-align:center}
+html body #modal-content .hv-sq .si-nm{color:#fff;font:700 13px/1.3 var(--font-ui);text-align:center;overflow-wrap:anywhere}
+
+/* ─── 製作(A，倉庫的子頁籤)：清單列 ─── */
+html body #modal-content .z2b-note{margin:8px 0;color:var(--z2b-cream);font:600 12px/1.5 var(--font-ui)}
+html body #modal-content .zc-row .z2b-out{padding:0 6px;background:#505050;color:#e8e4d8;font:700 12px/18px var(--font-ui);font-style:normal}
+html body #modal-content .zc-row.sold-out{border-color:#7a3a2c!important}
+html body #modal-content .zc-meta{font:600 12px/1.4 var(--font-ui);color:var(--z2b-cream);background:none!important;border:0!important;padding:0!important;margin:0!important}
+html body #modal-content .zc-meta b{color:var(--z2b-blue)}
+html body #modal-content .zc-meta .short{color:var(--z2b-no)!important;font-weight:700}
+html body #modal-content .zc-row .z2b-act{flex-direction:row;align-items:center}
+html body #modal-content .zc-row .z2b-act .hv-max{flex:0 0 auto;display:grid!important;place-items:center;width:44px!important;height:44px!important;min-width:44px!important;min-height:44px!important;padding:0!important;background:none!important;border:0!important;box-shadow:none!important;position:static!important;filter:none!important}
+html body #modal-content .zc-row .z2b-act .hv-max>span:first-child{display:grid;place-items:center;width:28px;height:28px;background:#4a4540;border:1px solid #000;color:#fff;font:700 13px/1 var(--font-ui)}
+@media(max-width:420px){html body #modal-content .zc-row .z2b-act{flex-direction:column}}
+
+/* ─── 委託(C)：圖鑑 38 — 每列標題＋進度膠囊 x/y＋獎勵；可領取＝金棕「領取」；領過的列壓暗 ─── */
+html body #modal-content .quest-chain{list-style:none;margin:8px 0 0;padding:0;display:flex;flex-direction:column;gap:6px}
+html body #modal-content .zq-row{display:grid;grid-template-columns:40px minmax(0,1fr) auto;gap:10px;align-items:center;padding:8px;background:var(--z2b-row);border:1px solid var(--z2b-row-edge);border-radius:0;box-shadow:none;color:var(--z2b-cream);position:relative}
+html body #modal-content .zq-num{width:40px;height:40px;display:grid;place-items:center;background:#181410;border:1px solid var(--z2b-frame);box-shadow:inset 0 0 0 1px #0d0b0a;color:#b9b19c;font:700 14px/1 var(--font-num)}
+html body #modal-content .zq-row.current .zq-num{color:var(--z2b-fee);border-color:#b78d3e}
+html body #modal-content .zq-row.done .zq-num{color:var(--z2b-ok)}
+html body #modal-content .zq-body{min-width:0;display:flex;flex-direction:column;gap:3px}
+html body #modal-content .zq-body h3{margin:0;color:var(--z2b-pink);font:700 14px/1.3 var(--font-ui);white-space:normal}
+html body #modal-content .zq-body p{margin:0;color:var(--z2b-cream);font:600 12px/1.5 var(--font-ui)}
+html body #modal-content .zq-line{display:flex;flex-wrap:wrap;align-items:center;gap:4px 10px;margin-top:2px}
+html body #modal-content .zq-cap{position:relative;min-width:64px;height:22px;padding:0 10px;overflow:hidden;display:grid;place-items:center;background:#161211;border:1px solid #4b4741;border-radius:11px}
+html body #modal-content .zq-cap>span{position:absolute;left:0;top:0;bottom:0;background:#586810;opacity:.8}
+html body #modal-content .zq-cap>b{position:relative;color:#fff;font:700 12px/1 var(--font-num)}
+html body #modal-content .zq-reward{display:flex;align-items:center;flex-wrap:wrap;gap:2px 8px;margin:0;padding:0;background:none!important;border:0!important}
+html body #modal-content .zq-reward>small{color:#b9b19c;font:600 12px/1.2 var(--font-ui);letter-spacing:.04em}
+html body #modal-content .zq-reward>span{display:inline-flex;align-items:center;gap:3px;color:var(--z2b-fee);font:700 12px/1.2 var(--font-num);background:none!important;border:0!important;padding:0}
+html body #modal-content .zq-reward>span.short{color:var(--z2b-fee)!important}
+html body #modal-content .zq-reward [data-icon],html body #modal-content .zq-reward [data-icon] :is(canvas,img){width:14px!important;height:14px!important}
+html body #modal-content .zq-side{display:flex;justify-content:flex-end;min-width:0}
+html body #modal-content .zq-claim{min-width:76px;min-height:44px;padding:0 12px!important;font:700 15px/1 var(--font-ui)!important}
+html body #modal-content .zq-tag{display:inline-flex;align-items:center;gap:4px;min-height:24px;margin-left:auto;padding:0 10px;background:#505050;color:#b4b4b4;border:0;font:700 12px/1 var(--font-ui);font-style:normal;white-space:nowrap}
+html body #modal-content .zq-tag.locked{background:#3a3633;color:#a8a49b}
+html body #modal-content .zq-tag .inline-icon[data-icon]{width:12px;height:12px}
+html body #modal-content .zq-row.done{background:#363636;border-color:#2a2a2a}
+html body #modal-content .zq-row.done :is(h3,p,.zq-reward>span,.zq-reward>small){color:#9a9a9a}
+html body #modal-content .zq-row.done .zq-cap>span{background:#4b4f3a}
+html body #modal-content .zq-row.locked{background:#26221f}
+html body #modal-content .zq-row.locked h3{color:#c9b3b3}
+html body #modal-content .zq-row.ready{box-shadow:inset 0 0 0 2px #906818}
+@media(max-width:420px){
+  html body #modal-content .zq-row{grid-template-columns:36px minmax(0,1fr);gap:8px}
+  html body #modal-content .zq-num{width:36px;height:36px}
+  html body #modal-content .zq-side{grid-column:1/-1;justify-content:stretch}
+  html body #modal-content .zq-claim{width:100%}
+}
+
+/* ─── 確認框(C 小視窗)：規格 h — 標題帶、說明內凹框(像素角括號)、一行提問、確認(橄欖綠)＋取消(紅) ─── */
+html body #modal[data-kind=confirm] .hv-confirm{display:flex;flex-direction:column;gap:12px;padding:4px 0}
+html body #modal[data-kind=confirm] .hv-confirm p{position:relative;margin:0;padding:16px 14px;background:#161211;border:1px solid #2c2824;color:var(--z2b-cream);text-align:center;font:600 14px/1.6 var(--font-ui)}
+html body #modal[data-kind=confirm] .hv-confirm p::before{content:"";position:absolute;inset:2px;pointer-events:none;background:var(--z1-brackets);background-repeat:no-repeat;background-size:8px 8px}
+html body #modal[data-kind=confirm] .z2b-ask{margin:0;text-align:center;color:#fff;font:700 16px/1.4 var(--font-ui);text-shadow:0 2px 0 #000}
+/* ===== Z2B end ===== */
+
+/* ===== Z2C：戰鬥與地圖（地下城、競技場、結算、離線戰報、首領、世界地圖、派遣、出征 HUD）— 只有 Z2C 代理改這段 ===== */
+/* 規格：UI-REF-HUNTER-VILLAGE-ZUKAN-2026-11-12.md a(首領血條)、d、m、n、決定 C2/C4。JS 在 pixel-ui.js 的「Z2C」段。 */
+:root{--z2c-map-h:200px;--z2c-ok:#8fd16a;--z2c-need:#f0a860}
+/* ── 判定標籤(輕鬆／可行／危險)：綠／黃／紅 */
+html body .z2c-v{display:inline-block;font:700 12px/1 var(--font-ui);font-style:normal;padding:3px 6px;border:1px solid;white-space:nowrap;border-radius:0;letter-spacing:0;flex:0 0 auto}
+html body .z2c-v.easy{color:#b8f08c;background:#243c1b;border-color:#4f8a3a}
+html body .z2c-v.ok{color:#f6dc78;background:#4a3c12;border-color:#8a7228}
+html body .z2c-v.hard{color:#ff9c8a;background:#4a1c16;border-color:#9a3a2c}
+html body .z2c-v.home{color:#cfc6c1;background:#2a2521;border-color:#4a4138}
+
+/* ── 隊伍選人列(地下城／競技場／派遣)：一列約 54px，數字帶「攻／防」小標籤 */
+html body #modal-content .party-grid{display:grid!important;grid-template-columns:1fr!important;gap:4px!important}
+@media(min-width:761px) and (min-height:521px){html body #modal-content .party-grid{grid-template-columns:repeat(2,minmax(0,1fr))!important}}
+html body #modal-content .party-pick{display:grid!important;grid-template-columns:40px minmax(0,1fr) 18px!important;align-items:center;gap:8px!important;min-height:54px;padding:5px 8px 5px 6px!important;text-align:left}
+html body #modal-content .party-pick>img{width:40px!important;height:44px!important;object-fit:contain;image-rendering:pixelated}
+html body #modal-content .party-pick .pp-body{display:grid!important;grid-template-columns:minmax(0,1fr) auto!important;grid-template-areas:"n s" "t h"!important;gap:2px 8px!important;line-height:1.2;min-width:0}
+html body #modal-content .party-pick .pp-name{grid-area:n;font:700 14px/1.2 var(--font-ui)!important;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+html body #modal-content .party-pick .pp-sub{grid-area:s;font:600 12px/1.2 var(--font-ui)!important;text-align:right;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;max-width:150px}
+html body #modal-content .party-pick .pp-stats{grid-area:t;display:flex;align-items:center;gap:3px;flex-wrap:nowrap;white-space:nowrap}
+html body #modal-content .party-pick .pp-stats .pp-k{font:700 12px/1 var(--font-ui);font-style:normal;color:var(--hv-text-dim);margin-left:2px}
+html body #modal-content .party-pick .pp-stats .pp-k:first-child{margin-left:0}
+html body #modal-content .party-pick .pp-hpline{grid-area:h;min-width:84px;margin:0}
+html body #modal-content .party-pick .pp-hp{min-width:30px}
+
+/* ── 資訊卡、未解鎖提示、步進列 */
+html body #modal-content .z2c-info{display:flex;flex-wrap:wrap;align-items:center;gap:4px 12px;margin:0 0 8px!important;padding:8px 12px!important}
+html body #modal-content .z2c-info>.encounter-status{flex:1 1 auto;min-width:0}
+html body #modal-content .z2c-info>.z2c-rec{flex:0 0 auto}
+html body #modal-content .z2c-info>.encounter-facts{flex:1 0 100%}
+html body #modal-content .z2c-info .encounter-status{margin:0!important;padding:0!important;background:none!important;border:0!important;text-align:left!important;font:700 13px/1.4 var(--font-ui)!important}
+html body #modal-content .z2c-info .encounter-facts{margin:0!important;padding:0!important}
+html body #modal-content .z2c-rec{display:flex;flex-wrap:wrap;align-items:center;gap:2px 12px;font:600 12px/1.5 var(--font-ui);color:var(--hv-text-dim)}
+html body #modal-content .z2c-rw{display:inline-flex;align-items:center;gap:4px}
+html body #modal-content .z2c-rw b{font:700 13px/1 var(--font-num);color:#fcde8a}
+html body #modal-content .z2c-rw .inline-icon{width:16px;height:16px}
+html body #modal-content .z2c-lock{display:flex;flex-wrap:wrap;align-items:center;gap:8px 12px;margin:0 0 8px!important;padding:8px 12px!important}
+html body #modal-content .z2c-lock p{margin:0;flex:1 1 170px;font:600 13px/1.55 var(--font-ui)}
+html body #modal-content .z2c-lock .pixel-button{flex:0 0 auto;min-width:96px;min-height:40px}
+html body #modal-content .z2c-steps{flex:1 0 100%;display:flex;flex-wrap:wrap;align-items:center;justify-content:space-between;gap:4px 10px;margin:2px 0 0;padding:6px 0 0;border-top:1px solid var(--hv-line)}
+html body #modal-content .z2c-floors{display:flex!important;align-items:center;gap:6px}
+html body #modal-content .z2c-floors>span{font:600 12px/1 var(--font-ui);color:var(--hv-text-dim)}
+html body #modal-content .z2c-floors>b{min-width:48px;text-align:center;font:700 14px/1 var(--font-ui)!important}
+html body #modal-content .z2c-floors .pixel-button{min-width:40px;min-height:40px;padding:0 8px}
+html body #modal-content .z2c-floors{gap:4px}
+@media(max-width:480px){html body #modal-content .z2c-fl-l{display:none}}
+html body #modal-content .z2c-auto{min-height:40px;padding:0 8px;display:inline-flex;align-items:center;gap:4px}
+html body #modal-content .z2c-auto.on{color:#b8f08c}
+html body #modal-content .dungeon-strip{margin-bottom:8px}
+@media(max-height:520px){html body #modal-content .dungeon-strip{max-height:120px;width:auto;margin:0 auto 8px;display:block}}
+
+/* ── 抽屜底部固定列：左＝已選／總攻擊／狀態，右＝出發鈕 */
+html body #modal-content .z2c-dock{display:grid!important;grid-template-columns:minmax(0,1.05fr) minmax(0,1fr);gap:8px;align-items:stretch;justify-content:stretch}
+html body #modal-content .z2c-dock .party-summary{display:grid!important;grid-template-columns:auto minmax(0,1fr);grid-template-areas:"sel st" "nums nums";gap:0 6px;align-content:center;margin:0!important;padding:4px 8px!important;min-height:44px;font:600 12px/1.4 var(--font-ui);color:var(--hv-text);background:var(--hv-ink-deep)!important}
+html body #modal-content .z2c-dock .party-summary .ps-sel{grid-area:sel}
+html body #modal-content .z2c-dock .party-summary .ps-nums{grid-area:nums;color:var(--hv-text-dim)}
+html body #modal-content .z2c-dock .party-summary .ps-state{grid-area:st;justify-self:end;font:700 13px/1.4 var(--font-ui);font-style:normal}
+html body #modal-content .z2c-dock .ps-state.ok{color:var(--z2c-ok)}
+html body #modal-content .z2c-dock .ps-state.need{color:var(--z2c-need)}
+html body #modal-content .z2c-dock>.pixel-button{width:100%!important;min-height:44px;white-space:normal;line-height:1.25;font-size:14px!important}
+html body #modal-content .z2c-dock-run{grid-template-columns:1fr 1fr}
+html body #modal-content .z2c-dock-run>.pixel-button{min-height:44px}
+html body #modal-content .z2c-wait{grid-column:1/-1;text-align:center;font:600 13px/1.4 var(--font-ui);color:var(--hv-text-dim);padding:10px 0}
+@media(max-height:520px){html body #modal-content .z2c-dock .party-summary{grid-template-columns:auto auto 1fr;grid-template-areas:"sel nums st";align-items:center}}
+
+/* ── 競技場進行中 */
+html body #modal-content .z2c-live{display:grid;gap:6px;margin:0 0 8px!important;padding:8px 12px!important}
+html body #modal-content .z2c-live-h{display:flex;align-items:baseline;gap:8px;font:700 14px/1.3 var(--font-ui)}
+html body #modal-content .z2c-live-h em{font-style:normal;color:#7896d8}
+html body #modal-content .z2c-live-h span{margin-left:auto;font:600 12px/1 var(--font-ui);color:var(--hv-text-dim)}
+html body #modal-content .z2c-bar-row{display:grid;grid-template-columns:minmax(64px,34%) minmax(0,1fr) 62px;gap:8px;align-items:center;font:600 12px/1.2 var(--font-ui);color:var(--hv-text)}
+html body #modal-content .z2c-bar-row>span{white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+html body #modal-content .z2c-bar-row>b{text-align:right;font:600 12px/1 var(--font-num);color:var(--hv-text-dim)}
+html body #modal-content .z2c-bar{display:block;height:8px;background:#2a1c14;border:1px solid #3b2a20}
+html body #modal-content .z2c-bar>span{display:block;height:100%;width:0;background:#7ccf6a}
+html body #modal-content .z2c-bar-row.foe .z2c-bar>span{background:var(--hv-warn)}
+html body #modal-content .z2c-bar-row.down{opacity:.5}
+
+/* 地下城／競技場抽屜在矮手機(≤720 高)不能只有 50%：資訊卡＋底部列就吃掉大半，選人列要看得到至少兩列 */
+@media(max-width:760px) and (min-height:521px){
+  html body #modal-backdrop[data-mode=A] #modal:is([data-type=dungeon],[data-type=arena]){height:min(max(var(--hv-drawer-h),372px),calc(100vh - 220px))!important;max-height:min(max(var(--hv-drawer-h),372px),calc(100vh - 220px))!important}
+}
+/* 橫向手機：資訊卡兩列(狀態＋獎勵／規則＋步進＋自動續戰)，選人列兩欄 */
+@media(max-height:520px){
+  html body #modal-content .z2c-info{padding:6px 10px!important;gap:2px 12px}
+  html body #modal-content .z2c-info>.encounter-facts{flex:1 1 auto;align-self:center}
+  html body #modal-content .z2c-steps{flex:0 0 auto;margin:0;padding:0;border-top:0}
+  html body #modal-content .party-grid{grid-template-columns:repeat(2,minmax(0,1fr))!important}
+}
+/* ── 建設面板被標出的那一格(前往建設) */
+html body #modal-content .z2c-flash{outline:2px solid var(--hv-gold)!important;outline-offset:-2px;animation:z2cflash .7s ease-in-out 6 alternate}
+@keyframes z2cflash{from{outline-color:var(--hv-gold)}to{outline-color:rgba(230,180,60,.15)}}
+
+/* ── 結算視窗與離線戰報：緞帶標題(暗帶＋細線＋皇冠記號)，標題色勝＝青、敗＝紅 */
+html body #modal-backdrop[data-mode=C] #modal:is([data-type=result],[data-type=offline]) .modal-title{background:#1a1816!important;border-top:1px solid #6c675f!important;border-bottom:1px solid #6c675f!important;box-shadow:0 -3px 0 #1a1816,0 -4px 0 #4b4741,0 3px 0 #1a1816,0 4px 0 #4b4741!important;gap:8px;margin:6px 0!important}
+html body #modal-backdrop[data-mode=C] #modal:is([data-type=result],[data-type=offline]) .modal-title h2{color:#6fd6d2!important;font-size:22px!important;letter-spacing:.12em}
+html body #modal-backdrop[data-mode=C] #modal[data-type=result][data-tone=lose] .modal-title h2{color:#ff8c78!important}
+html body #modal-backdrop[data-mode=C] #modal:is([data-type=result],[data-type=offline]) .modal-title::before{content:""!important;display:block;flex:0 0 auto;width:18px;height:14px;background:url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 12 9' shape-rendering='crispEdges'%3E%3Cpath fill='%236fd6d2' d='M0 9V2h2v1h1v1h1V2h1V0h2v2h1v2h1V3h1V2h2v7z'/%3E%3C/svg%3E") center/contain no-repeat;position:static!important;inset:auto!important;image-rendering:pixelated}
+html body #modal-backdrop[data-mode=C] #modal[data-type=result][data-tone=lose] .modal-title::before{background-image:url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 12 9' shape-rendering='crispEdges'%3E%3Cpath fill='%23ff8c78' d='M0 9V2h2v1h1v1h1V2h1V0h2v2h1v2h1V3h1V2h2v7z'/%3E%3C/svg%3E")!important}
+html body #modal-backdrop[data-mode=C] #modal[data-type=result]{width:min(340px,88%)!important}
+html body #modal-content .z2c-result{display:grid;gap:10px;text-align:center}
+html body #modal-content .z2c-rline{margin:0;font:600 14px/1.6 var(--font-ui);color:var(--hv-text)}
+html body #modal-content .z2c-rsub{margin:-4px 0 0;font:600 12px/1.4 var(--font-ui);color:var(--hv-text-dim)}
+html body #modal-content .z2c-cells{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:8px}
+html body #modal-content .z2c-cell{display:grid;justify-items:center;gap:4px;padding:10px 4px 8px;background:#161211;border:1px solid #2c2824;min-width:0}
+html body #modal-content .z2c-cell>i{display:grid;place-items:center;width:32px;height:32px}
+html body #modal-content .z2c-cell .inline-icon{width:28px;height:28px}
+html body #modal-content .z2c-cell b{font:700 18px/1.1 var(--font-num);color:#fcde8a}
+html body #modal-content .z2c-cell small{font:600 12px/1.3 var(--font-ui);color:#cfc6c1;text-align:center}
+html body #modal-content .z2c-cell.nil{opacity:.55}
+html body #modal-content .z2c-cell.nil b{color:#8a8377}
+html body #modal-content .z2c-result .encounter-actions:empty{display:none}
+/* 離線戰報：3 格摘要＋兩列清單＋資源格 */
+html body #modal-content .of-note{margin:0 0 8px;text-align:center;font:600 12px/1.5 var(--font-ui);color:var(--hv-text-dim)}
+html body #modal-content .of-list{display:grid;gap:6px;margin:10px 0 0}
+html body #modal-content .of-list .offline-kills{display:grid!important;grid-template-columns:24px minmax(0,1fr) auto;grid-template-areas:"i n k" "i d d";gap:0 8px;align-items:center;margin:0!important;padding:6px 10px!important;background:#161211;border:1px solid #2c2824;min-height:44px}
+html body #modal-content .of-list .offline-kills>.inline-icon{grid-area:i;width:24px;height:24px}
+html body #modal-content .of-list .offline-kills>span:nth-of-type(2){grid-area:n;font:700 13px/1.3 var(--font-ui);color:#f6cccc;white-space:nowrap}
+html body #modal-content .of-list .offline-kills>b{grid-area:k;font:700 13px/1.3 var(--font-ui);color:#fff;text-align:right;white-space:nowrap}
+html body #modal-content .of-list .offline-kills>span:nth-of-type(3){grid-area:d;font:600 12px/1.4 var(--font-ui);color:var(--hv-text-dim)}
+html body #modal-content .of-tiles .of-tile b{white-space:normal;text-align:center;font-size:15px!important;line-height:1.25!important;overflow-wrap:anywhere}
+html body #modal-content .offline-h{margin:12px 0 6px!important}
+@media(max-height:520px){html body #modal-content .of-list{grid-template-columns:repeat(2,minmax(0,1fr))}html body #modal-content .of-list .of-dg{grid-column:1/-1}}
+
+/* ── 首領召喚確認(小視窗)與出征 HUD 頂部中央的首領血條 */
+html body #modal-content .z2c-bconf{display:grid;gap:10px}
+html body #modal-content .z2c-bc-name{text-align:center;font:700 20px/1.3 var(--font-ui);color:#f6cccc;text-shadow:0 2px 0 #000;letter-spacing:.08em}
+html body #modal-content .z2c-bc-list{display:grid;gap:6px;margin:0;padding:10px 12px;background:#161211;border:1px solid #2c2824}
+html body #modal-content .z2c-bc-list>div{display:flex;align-items:baseline;justify-content:space-between;gap:10px}
+html body #modal-content .z2c-bc-list dt{font:600 13px/1.4 var(--font-ui);color:var(--hv-text-dim)}
+html body #modal-content .z2c-bc-list dd{margin:0;font:700 15px/1.4 var(--font-num);color:#fff}
+html body #modal-content .z2c-bc-list dd small{font:600 12px/1 var(--font-ui);color:var(--hv-text-dim);margin-left:4px}
+html body #modal-content .z2c-bconf>p{margin:0!important;padding:8px 10px!important;font:600 13px/1.6 var(--font-ui)!important;text-align:center}
+html body #boss-bar[data-z2c="1"]{position:fixed!important;left:50%!important;right:auto!important;transform:translateX(-50%)!important;top:calc(var(--z1-sat,0px) + 4px)!important;bottom:auto!important;width:min(300px,calc(100vw - 24px))!important;z-index:21;
+  display:grid!important;grid-template-columns:auto 1fr auto;grid-template-areas:"n s t" "b b b";gap:2px 8px;align-items:baseline;padding:4px 8px 6px!important;pointer-events:none}
+html body #boss-bar.hidden{display:none!important}
+html body #boss-bar[data-z2c="1"] strong{grid-area:n;font:700 14px/1.2 var(--font-ui)!important;text-shadow:var(--hv-outline)!important}
+html body #boss-bar[data-z2c="1"] .z2c-bs{grid-area:s;font:700 12px/1.2 var(--font-ui);font-style:normal;color:#7896d8;text-shadow:var(--hv-outline)}
+html body #boss-bar[data-z2c="1"] .z2c-bt{grid-area:t;font:700 13px/1.2 var(--font-num);color:#fff;text-shadow:var(--hv-outline)}
+html body #boss-bar[data-z2c="1"] .progress{grid-area:b;position:relative;height:14px!important;min-height:0!important;margin:0!important;background:#2a2a2c!important;border:1px solid #6c675f!important}
+html body #boss-bar[data-z2c="1"] .progress>b{position:absolute;inset:0;display:grid;place-items:center;font:700 12px/1 var(--font-num)!important;color:#fff;text-shadow:var(--hv-outline)}
+
+/* ── 世界地圖(C 視窗)：小地圖固定在視窗頂端、每區一行(名稱／星數／判定／前往) */
+html body #modal[data-type=worldmap] #modal-content{display:flex!important;flex-direction:column;overflow:hidden!important;padding:10px!important}
+html body #modal[data-type=worldmap] .z2c-wm{display:flex;flex-direction:column;gap:8px;flex:1 1 auto;min-height:0}
+html body #modal[data-type=worldmap] .wm-top{display:flex;gap:10px;align-items:flex-start;flex:0 0 auto}
+html body #modal[data-type=worldmap] .wm-map{flex:0 0 auto;display:block;position:static!important;min-width:0}
+html body #modal[data-type=worldmap] .wm-crop{display:block!important;width:auto!important;max-height:none!important;overflow:visible!important}
+html body #modal[data-type=worldmap] #world-map-canvas{display:block!important;width:auto!important;height:var(--z2c-map-h)!important;max-width:100%!important;max-height:none!important;margin:0!important;aspect-ratio:418/392}
+html body #modal[data-type=worldmap] .wm-tools{display:flex!important;flex-direction:column;align-items:stretch;gap:6px;flex:1 1 0;min-width:0;padding:0!important;border:0!important;background:none!important}
+html body #modal[data-type=worldmap] .wm-tools .wm-count{font:700 13px/1.3 var(--font-ui);color:#fff}
+html body #modal[data-type=worldmap] .wm-tools .pixel-button{min-height:40px;padding:0 8px;font-size:13px!important;white-space:nowrap}
+html body #modal[data-type=worldmap] .wm-tools .wm-boss{font:600 12px/1.4 var(--font-ui);color:var(--hv-text-dim)}
+html body #modal[data-type=worldmap] .z2c-legend{flex:0 0 auto;font:600 12px/1.4 var(--font-ui);color:var(--hv-text-dim)}
+html body #modal[data-type=worldmap] .z2c-rows{display:grid!important;grid-template-columns:1fr!important;gap:6px;align-content:start;flex:1 1 auto;min-height:0;overflow-y:auto;overscroll-behavior:contain;padding-right:2px}
+html body #modal[data-type=worldmap] .z2c-row{display:grid!important;grid-template-columns:minmax(0,1fr) auto;align-items:center;gap:0 8px;padding:0 8px 0 0!important;min-height:56px;border-left:4px solid var(--biome)!important}
+html body #modal[data-type=worldmap] .z2c-row-main{display:grid;grid-template-columns:30px minmax(0,1fr) auto;grid-template-rows:auto auto;align-items:center;column-gap:8px;row-gap:1px;min-height:54px;padding:6px 4px 6px 8px;background:none;border:0;color:var(--hv-text);text-align:left;cursor:pointer;font-family:var(--font-ui);width:100%}
+html body #modal[data-type=worldmap] .z2c-row-main .region-emblem{grid-row:1/3;width:30px;height:30px}
+html body #modal[data-type=worldmap] .z2c-r-name{display:contents}
+html body #modal[data-type=worldmap] .z2c-r-name b{grid-column:2;grid-row:1;font:700 15px/1.3 var(--font-ui);color:#f6cccc;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+html body #modal[data-type=worldmap] .z2c-r-name small{grid-column:2;grid-row:2;font:600 12px/1.3 var(--font-ui);color:var(--hv-text-dim);white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+html body #modal[data-type=worldmap] .z2c-row-main>.z2c-v{grid-column:3;grid-row:1;justify-self:end}
+html body #modal[data-type=worldmap] .z2c-row-main>.rg-risk{grid-column:3;grid-row:2;justify-self:end;font:600 12px/1.3 var(--font-ui);font-style:normal;letter-spacing:0;color:#e6b43c;white-space:nowrap}
+html body #modal[data-type=worldmap] .z2c-go{min-width:64px;min-height:44px;padding:0 10px;font-size:14px!important}
+html body #modal[data-type=worldmap] .z2c-more{display:none;grid-column:1/-1;align-items:center;flex-wrap:wrap;gap:6px 10px;padding:6px 8px 8px 12px;border-top:1px solid var(--hv-line)}
+html body #modal[data-type=worldmap] .z2c-row.open .z2c-more{display:flex}
+html body #modal[data-type=worldmap] .z2c-more .region-art{flex:0 0 100%;width:100%!important;height:64px!important;aspect-ratio:auto!important;margin:0!important;background-size:cover;background-position:center;image-rendering:pixelated}
+html body #modal[data-type=worldmap] .z2c-more .z2c-mm{font:600 12px/1.4 var(--font-ui);color:var(--hv-text-dim)}
+html body #modal[data-type=worldmap] .z2c-more .rg-exp{flex:1 1 160px;margin:0}
+html body #modal[data-type=worldmap] .z2c-detail{min-height:40px;padding:0 12px;margin-left:auto}
+/* 橫向手機／矮視窗：地圖在左、工具與區域列在右(R4：地圖畫布按顯示尺寸畫，不再被塞進 223px 高的框) */
+@media(max-height:520px){
+  :root{--z2c-map-h:min(210px,calc(100vh - 150px))}
+  html body #modal[data-type=worldmap] .z2c-wm{display:grid;grid-template-columns:auto minmax(0,1fr);grid-template-rows:auto minmax(0,1fr);gap:6px 10px}
+  html body #modal[data-type=worldmap] .wm-top{display:contents}
+  html body #modal[data-type=worldmap] .wm-map{grid-column:1;grid-row:1/3}
+  html body #modal[data-type=worldmap] .wm-tools{grid-column:2;grid-row:1;flex-direction:row;flex-wrap:wrap;align-items:center}
+  html body #modal[data-type=worldmap] .wm-tools{justify-content:flex-start;gap:6px}
+  html body #modal[data-type=worldmap] .wm-tools .wm-count{display:none}
+  html body #modal[data-type=worldmap] .wm-tools .wm-boss{flex:1 0 100%;display:none}
+  html body #modal[data-type=worldmap] .z2c-legend{display:none}
+  html body #modal[data-type=worldmap] .z2c-rows{grid-column:2;grid-row:2}
+}
+@media(min-width:761px) and (min-height:521px){:root{--z2c-map-h:260px}}
+@media(max-width:760px) and (min-height:521px) and (max-height:720px){:root{--z2c-map-h:150px}}
+/* 出征 HUD(R1)：667×375、740×360 這種「寬 ≤760 但高 ≤520」的橫向手機，不能套手機直向的「貼在頁籤列上方」——那裡是縮放鈕與行動徽章。
+   改夾在左邊任務欄(寬 ≤300)與右邊行動徽章(寬 64)之間、頂欄下面(和 ≥761 寬的橫向規則同一組數字)。 */
+@media(max-width:760px) and (max-height:520px){
+  html body #run-hud{top:calc(env(safe-area-inset-top,0px) + 92px)!important;bottom:auto!important;left:calc(var(--hv-gut) + min(300px,40vw) + 12px)!important;right:calc(var(--hv-gut) + 64px + 12px)!important;transform:none!important;width:auto!important;max-width:none!important}
+}
+@media(max-height:520px){html body:has(#boss-bar[data-z2c="1"]:not(.hidden)) #run-hud{top:calc(env(safe-area-inset-top,0px) + 92px + 50px)!important}}
+/* 首領血條位置：桌機＝頂部中央；手機直向＝任務欄下面(JS 量 top)、避開右邊行動徽章；橫向＝頂欄下面、夾在任務欄與行動徽章之間 */
+html body #boss-bar[data-z2c="1"][data-pos=port]{top:var(--z2c-boss-top,116px)!important;left:8px!important;transform:none!important;width:min(300px,calc(100vw - 8px - 76px))!important}
+html body #boss-bar[data-z2c="1"][data-pos=land]{top:calc(var(--z1-sat,0px) + 92px)!important;left:auto!important;right:calc(var(--hv-gut,12px) + 64px + 12px)!important;transform:none!important;width:min(300px,calc(100vw - 2*var(--hv-gut,12px) - 64px - 24px - min(300px,40vw)))!important}
+/* 派遣：區域列直接顯示判定標籤 */
+html body #modal-content .region-pick .rp-body{display:flex;align-items:center;gap:8px}
+html body #modal-content .region-pick .rp-body>.z2c-v{margin-left:auto}
+/* ===== Z2C end ===== */
+
+/* ===== Z2D：HUD、toast、引導、標題、小尺寸與橫向版面 — 只有 Z2D 代理改這段 ===== */
+/* 規格：docs/research/UI-REF-HUNTER-VILLAGE-ZUKAN-2026-11-12.md 第 a(主 HUD)、l(新手引導氣泡)、m(事件公告)節；diff #13、#16、#17；UX #2、#4、#9；round3-mobile R6–R13。
+   選擇器都帶 html body 前綴(或更高)，蓋得過 FIX-A～D／Z1 的 !important 舊規則；JS 對應處在 pixel-ui.js 的「Z2D」註解。 */
+:root{--z2d-finger:url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 12 14' shape-rendering='crispEdges'%3E%3Cpath fill='%23000' d='M4 0h2v1h1v4h2v1h2v1h1v7H3v-1H2v-2H1V9H0V6h2v1h1V1h1z'/%3E%3Cpath fill='%23fff' d='M4 1h2v6h1V5h2v2h1V6h1v4h-1v2H4v-1H3v-1H2V9H1V8h2v1h1V1z'/%3E%3C/svg%3E")}
+
+/* ═══ Z2D-1 主 HUD(規格 a、diff #13)：資源數字 17px(熱區不變)、金幣／星晶旁小「＋」框、任務追蹤 N 徽章 ═══ */
+html body #topbar .treasury b{font:700 17px/1 var(--font-num)!important}
+html body #topbar .treasury .res-row{height:22px}
+html body #topbar .treasury .res-row:has(.res-plus){min-width:104px}
+html body #topbar .treasury .res-plus{flex:0 0 30px;width:30px;height:22px;margin-left:auto;position:relative;display:block;cursor:pointer}
+html body #topbar .treasury .res-plus::before{content:"";position:absolute;right:2px;top:3px;width:16px;height:16px;box-sizing:border-box;border:1px solid #aca99a;background:
+  linear-gradient(#f2c96a,#f2c96a) center/8px 2px no-repeat,linear-gradient(#f2c96a,#f2c96a) center/2px 8px no-repeat,rgba(20,17,15,.82);box-shadow:0 0 0 1px #000,inset 0 1px 0 rgba(255,255,255,.14);image-rendering:pixelated}
+html body #topbar .treasury:hover .res-plus::before{border-color:#f2c96a}
+/* 窄手機(≤400 寬)：徽記收窄、數字 16px、＋框貼右，資源疊不把右側圖示列擠出畫面(360 寬時右側圖示列固定 176px) */
+@media(max-width:400px){
+  html body #topbar .treasury b{font-size:16px!important}
+  html body #topbar .treasury .res-row{gap:4px}
+  html body #topbar .treasury .res-row:has(.res-plus){min-width:0}
+  html body #topbar .treasury .res-plus{flex:0 0 22px;width:22px}
+  html body #topbar .treasury .res-plus::before{right:0}
+  html body #topbar .hv-tl{gap:6px!important}
+  html body #topbar .hv-crest:not(#z2d){width:58px!important}
+  html body #topbar .hv-crest:not(#z2d)>i[data-icon]{width:58px!important}
+  html body #topbar .treasury:not(#z2d){padding-right:2px!important}
+}
+/* 任務追蹤：可領獎勵時只亮紅色 N 徽章(不閃、不說話；主引導只留顧問一條，見 pixel-ui.js 的 WELCOME_STEPS 註解) */
+html body .hv-quest.ready .hq-head::before{content:"1";order:9;display:inline-grid;place-items:center;box-sizing:border-box;width:auto;min-width:16px;height:16px;padding:0 3px;margin:0 0 0 2px;flex:0 0 auto;
+  background:var(--hv-warn);border:1px solid #000;border-radius:2px;color:#fff;font:700 12px/1 var(--font-num);text-shadow:0 1px 0 #000;box-shadow:0 1px 0 #000}
+html body .hv-quest.ready .hq-title{animation:none!important}
+
+/* ═══ Z2D-2 toast(規格 m、diff #16)：半透明暗帶＋金字(失敗紅字)、最多 2 行；位置規則不變(沒開窗＝頁籤列上方、C 視窗＝視窗上方遮罩區、A 抽屜＝抽屜上方) ═══ */
+html body #toasts .toast{background:rgba(14,11,9,.74)!important;border:0!important;border-top:1px solid rgba(172,169,154,.5)!important;border-bottom:1px solid rgba(172,169,154,.5)!important;border-left:3px solid var(--tk,#f2c96a)!important;border-radius:0!important;box-shadow:none!important;
+  padding:5px 14px!important;color:#f2c96a!important;-webkit-backdrop-filter:blur(1px);backdrop-filter:blur(1px)}
+html body #toasts .toast .toast-tx{color:#f2c96a!important;text-shadow:0 1px 0 #000,0 0 3px #000!important;font:700 14px/1.35 var(--font-ui)!important;display:-webkit-box!important;-webkit-box-orient:vertical;-webkit-line-clamp:2;line-clamp:2;overflow:hidden;overflow-wrap:anywhere}
+html body #toasts .toast .toast-check{color:#f2c96a!important;text-shadow:0 1px 0 #000!important}
+html body #toasts .toast.kind-error .toast-tx{color:#ff7d6b!important}
+html body #toasts .toast .toast-n{background:rgba(0,0,0,.6);color:#f2c96a}
+/* A 抽屜開著：toast 貼在抽屜上緣上方(pixel-ui.js toastDodge 把「螢幕底到抽屜頂」的距離寫進 --z2d-dtop)，不蓋標題列的子頁籤與工具鈕(R13) */
+html body[data-z2d-a]:not(.piloting) #toasts{position:fixed!important;top:auto!important;bottom:calc(var(--z2d-dtop,0px) + 8px)!important;left:50%!important;right:auto!important;transform:translateX(-50%)!important;align-items:center!important;
+  max-width:calc(100vw - 24px)!important;z-index:45!important}
+html body[data-z2d-a]:not(.piloting) #toasts .toast:nth-last-child(n+3){display:none!important}
+/* 失敗訊息由按鈕觸發：該按鈕上方(放不下就下方)一行小提示，按鈕短暫紅框(UX #9) */
+html body .z2d-tip{position:fixed;z-index:80;box-sizing:border-box;max-width:min(320px,calc(100vw - 16px));padding:5px 10px;background:rgba(14,11,9,.94);border:1px solid #b24a36;border-radius:0;color:#ff8a78;font:700 13px/1.35 var(--font-ui);text-shadow:0 1px 0 #000;pointer-events:none;box-shadow:0 2px 0 #000;animation:z2dTipIn .14s ease-out}
+html body .z2d-tip .z2d-tip-tx{display:-webkit-box;-webkit-box-orient:vertical;-webkit-line-clamp:2;line-clamp:2;overflow:hidden;overflow-wrap:anywhere}
+html body .z2d-tip::after{content:"";position:absolute;left:var(--tx,50%);width:8px;height:8px;background:#0e0b09;border:1px solid #b24a36;transform:translateX(-50%) rotate(45deg)}
+html body .z2d-tip[data-side=up]::after{bottom:-5px;border-left:0;border-top:0}
+html body .z2d-tip[data-side=down]::after{top:-5px;border-right:0;border-bottom:0}
+html body .z2d-tip.out{opacity:0;transition:opacity .25s}
+@keyframes z2dTipIn{from{opacity:0;transform:translateY(4px)}to{opacity:1;transform:none}}
+html body .z2d-fail{outline:2px solid #e0705f!important;outline-offset:1px;animation:z2dFail .3s steps(3,end) 2}
+@keyframes z2dFail{0%,100%{outline-color:#e0705f}50%{outline-color:transparent}}
+
+/* ═══ Z2D-3 新手引導(規格 l、diff #17、UX #4)：白色像素氣泡＋粗黑框＋尾巴指向村長大頭像；一次一步；目標頁籤高亮＋手指 ═══ */
+html body #modal-backdrop:has(#modal[data-kind=dialog]){background:rgba(8,6,5,.18)!important}
+html body #modal[data-kind=dialog]{width:min(720px,calc(100vw - 16px))!important;background:none!important;border:0!important;box-shadow:none!important;border-radius:0!important;overflow:visible!important;margin:0 0 12px!important}
+html body #modal[data-kind=dialog] .modal-title{display:none!important}
+html body #modal[data-kind=dialog] #modal-content{padding:0!important;overflow:visible!important;background:none!important}
+html body #modal[data-kind=dialog] #modal-content .hv-dlg{display:grid!important;grid-template-columns:auto minmax(0,1fr)!important;gap:22px!important;align-items:end}
+html body #modal[data-kind=dialog] #modal-content .hv-dlg-face{width:104px;height:118px;background:linear-gradient(180deg,#cfcabb,#b8b2a0)!important;border:3px solid #000!important;border-radius:0!important;box-shadow:0 3px 0 rgba(0,0,0,.45);overflow:hidden;align-self:end}
+html body #modal[data-kind=dialog] #modal-content .hv-dlg-face .hv-face{width:96px;height:112px;image-rendering:pixelated}
+html body #modal[data-kind=dialog] #modal-content .hv-dlg-body.z2d-bubble{display:flex!important;flex-direction:column;gap:8px;position:relative;box-sizing:border-box;min-width:0;padding:12px 14px 12px!important;
+  background:#fffdf3;color:#111;border:4px solid #000;border-radius:6px;box-shadow:0 4px 0 rgba(0,0,0,.38)}
+/* 尾巴：黑色外三角＋白色內三角，指向左邊的頭像 */
+html body #modal[data-kind=dialog] #modal-content .z2d-bubble::before{content:"";position:absolute;left:-23px;bottom:20px;border-style:solid;border-width:11px 18px 11px 0;border-color:transparent #000 transparent transparent}
+html body #modal[data-kind=dialog] #modal-content .z2d-bubble::after{content:"";position:absolute;left:-14px;bottom:24px;border-style:solid;border-width:7px 13px 7px 0;border-color:transparent #fffdf3 transparent transparent}
+html body #modal[data-kind=dialog] #modal-content .z2d-step{margin:0!important;font:700 15px/1.6 var(--font-ui)!important;color:#111!important;text-shadow:none!important}
+html body #modal[data-kind=dialog] #modal-content .z2d-step p{margin:0!important;font:inherit!important;color:#111!important}
+html body #modal[data-kind=dialog] #modal-content .z2d-step .z2d-h{display:block;margin:0 0 2px;font:700 16px/1.4 var(--font-ui);color:#8a3020}
+html body #modal[data-kind=dialog] #modal-content .z2d-step strong{color:#8a3020!important}
+html body #modal[data-kind=dialog] #modal-content .z2d-step em{font-style:normal;color:#1f4a8a!important}
+html body #modal[data-kind=dialog] #modal-content .z2d-step small{display:block;margin-top:4px;font:600 12px/1.5 var(--font-ui)!important;color:#4a4036!important}
+html body #modal[data-kind=dialog] #modal-content .z2d-dots{display:flex;gap:6px}
+html body #modal[data-kind=dialog] #modal-content .z2d-dots i{width:8px;height:8px;background:#c9c3ae;border:1px solid #000}
+html body #modal[data-kind=dialog] #modal-content .z2d-dots i.on{background:#586810}
+html body #modal[data-kind=dialog] #modal-content .z2d-bubble .hv-dlg-acts{margin-top:2px!important}
+html body #modal[data-kind=dialog][data-type=advisor]{width:min(720px,calc(100vw - 16px))!important}
+/* 目標高亮＋手指(pixel-ui.js z2dMarkPaint：同一時間最多一個)：頁籤列的鈕手指在上方朝下、右上圖示的鈕手指在下方朝上 */
+html body [data-z2d-target]{animation:z2dGlow .9s steps(2,end) infinite}
+html body #bottom-bar>[data-z2d-target]{outline:3px solid #ffe48f;outline-offset:-5px}
+html body #topbar .hv-ico[data-z2d-target]{outline:3px solid #ffe48f;outline-offset:-3px;background:rgba(255,228,143,.16)!important}
+@keyframes z2dGlow{0%{box-shadow:inset 0 0 0 1px #000,0 0 0 rgba(255,228,143,0)}100%{box-shadow:inset 0 0 0 1px #000,0 0 14px rgba(255,228,143,.75)}}
+html body .z2d-finger{position:absolute;left:50%;width:26px;height:30px;margin-left:-13px;background:var(--z2d-finger) center/contain no-repeat;image-rendering:pixelated;pointer-events:none;z-index:6;filter:drop-shadow(0 1px 0 rgba(0,0,0,.6))}
+html body #bottom-bar>[data-z2d-target] .z2d-finger{top:-32px;transform:rotate(180deg);animation:z2dPokeDown .7s steps(2,end) infinite}
+html body #topbar .hv-ico[data-z2d-target] .z2d-finger{bottom:-30px;animation:z2dPokeUp .7s steps(2,end) infinite}
+@keyframes z2dPokeDown{0%{margin-top:0}100%{margin-top:6px}}
+@keyframes z2dPokeUp{0%{margin-bottom:0}100%{margin-bottom:-6px}}
+body:has([data-z2d-target]) #modal[data-kind=dialog]{margin-bottom:30px!important}
+@media(prefers-reduced-motion:reduce){html body [data-z2d-target],html body .z2d-finger{animation:none!important}}
+@media(max-width:760px){
+  html body #modal[data-kind=dialog] #modal-content .hv-dlg{gap:18px!important}
+  html body #modal[data-kind=dialog] #modal-content .hv-dlg-face{width:84px;height:96px}
+  html body #modal[data-kind=dialog] #modal-content .hv-dlg-face .hv-face{width:78px;height:90px}
+  html body #modal[data-kind=dialog] #modal-content .hv-dlg-body.z2d-bubble{display:flex!important;grid-column:auto}
+  html body #modal[data-kind=dialog] #modal-content .z2d-step{font-size:14px!important}
+  html body #modal[data-kind=dialog] #modal-content .z2d-bubble::before{left:-21px}
+  html body #modal[data-kind=dialog] #modal-content .z2d-bubble::after{left:-12px}
+}
+@media(max-height:520px){
+  html body #modal[data-kind=dialog] #modal-content .hv-dlg-face{width:72px;height:84px}
+  html body #modal[data-kind=dialog] #modal-content .hv-dlg-face .hv-face{width:66px;height:78px}
+  html body #modal[data-kind=dialog] #modal-content .z2d-step{font-size:13px!important;line-height:1.45!important}
+  html body #modal[data-kind=dialog] #modal-content .z2d-step .z2d-h{font-size:14px}
+  html body #modal[data-kind=dialog] #modal-content .hv-dlg-body.z2d-bubble{padding:8px 12px!important}
+  html body #modal[data-kind=dialog] #modal-content .z2d-step small{display:none}
+}
+
+/* ═══ Z2D-4 標題畫面(UX #2)：「重新開始」是主按鈕下方的小文字連結；確認框抬到標題畫面上方 ═══ */
+html body #title-screen .ts-link{display:block;margin:2px auto 0;min-height:44px;padding:0 14px;background:none!important;border:0!important;box-shadow:none!important;border-radius:0;
+  color:var(--hv-text-dim,#a89f8a);font:600 12px/1 var(--font-ui);text-decoration:underline;text-underline-offset:3px;cursor:pointer}
+html body #title-screen .ts-link:hover{color:#fff}
+html body:has(#title-screen) #modal-backdrop{z-index:120!important}
+/* 氣泡裡的兩顆鈕並排(窄螢幕不要各佔一行) */
+html body #modal[data-kind=dialog] #modal-content .z2d-bubble .hv-dlg-acts{flex-wrap:nowrap!important;gap:8px!important}
+html body #modal[data-kind=dialog] #modal-content .z2d-bubble .hv-dlg-acts .hv-btn{flex:1 1 0!important;min-width:0!important;padding:0 8px!important}
+
+/* ═══ Z2D-5 小尺寸、橫向與平板(round3-mobile R6、R7、R9、R10、R11) ═══ */
+/* R6 橫向手機：獵人小卡不橫跨整個畫面——限寬靠左，讓出右邊的縮放鈕、行動徽章 */
+@media(max-height:520px){
+  html body #unit-card:not(#z2d){left:var(--hv-gut)!important;right:auto!important;width:min(420px,calc(100vw - 300px))!important}
+}
+/* R10 橫向左側委託面板：領取鈕要在頁籤列上方——面板 top 維持原值(fix-c 的對齊量測)，收掉章節、說明、獎勵列並收緊間距，讓第一區塊(委託＋領取鈕)放得進頁籤列上方 */
+@media(max-height:520px){
+  html body #left-panel .quest-panel :is(#quest-chapter,#quest-desc,#quest-reward){display:none!important}
+  html body #left-panel .quest-panel .panel-body{padding:6px 8px!important;gap:4px!important}
+  html body #left-panel .quest-panel .panel-body h2{margin:0 0 2px!important;font-size:14px!important;line-height:1.2!important}
+  html body #left-panel .quest-panel .progress{margin:2px 0 4px!important}
+  html body:has(#left-panel:not(.hidden)) #hv-left>#hv-quest{visibility:hidden}
+  /* R6 補：小卡開著時任務追蹤先藏起來(小卡高 136 在矮視窗一定會碰到它) */
+  html body:has(#unit-card) #hv-left{visibility:hidden}
+  /* R9 補：橫向手動操控清單讓出右邊那排行動徽章(任何寬度，不只 >760) */
+  html body:not(.piloting) #pilotlab:not(#z2d){right:calc(var(--hv-gut) + 64px + 12px)!important}
+}
+/* R11 小高度直向(360×640、375×667)：行動徽章縮窄、只留最新一則事件訊息，頂部堆疊不超過約 38% 高 */
+@media(max-width:760px) and (max-height:740px){
+  html body .hv-actions .hv-act:not(#z2d){width:58px!important;min-height:52px!important}
+  html body #notice-feed>*:nth-child(n+2){display:none!important}
+}
+/* R9 平板(觸控、>760 寬、>520 高)：手動操控清單與放置提示改成頁籤列上方的浮條，不蓋頂部 HUD；鈕一律 ≥44px */
+@media(pointer:coarse) and (min-width:761px) and (min-height:521px){
+  html body:not(.piloting) #pilotlab:not(#z2d){top:auto!important;bottom:calc(var(--hv-tab-h) + env(safe-area-inset-bottom,0px) + 8px)!important;left:50%!important;right:auto!important;transform:translateX(-50%)!important;width:min(560px,calc(100vw - 150px))!important;max-height:min(50vh,calc(100vh - var(--hv-tab-h) - 160px));overflow:auto}
+  html body #placement:not(#z2d){top:auto!important;bottom:calc(var(--hv-tab-h) + env(safe-area-inset-bottom,0px) + 8px + var(--fa-pause,0px))!important;left:var(--hv-gut)!important;right:auto!important;transform:none!important;width:auto!important;max-width:calc(100vw - 2 * var(--hv-gut) - 80px)}
+}
+@media(pointer:coarse){html body #pilotlab :is(.pixel-button,[data-pilot]):not(#z2d){min-height:44px!important;min-width:44px}}
+/* R7 橫向：招募鈕黏在卡片可視範圍底部、難度卡縮成緊湊的多欄，主按鈕不必捲才看到 */
+@media(max-height:520px){
+  html body #modal-content .visitor-card>p{display:none!important}
+  html body #modal-content .visitor-card .visitor-art{max-height:64px}
+  html body #modal[data-type=difficulty] #modal-content .hv-note{display:none!important}
+  html body #modal[data-type=difficulty] #modal-content .diff-summary{margin:0 0 6px!important;padding:3px 10px!important}
+  html body #modal[data-type=difficulty] .difficulty-card{padding:6px 8px!important}
+  html body #modal[data-type=difficulty] .difficulty-grid{grid-template-columns:repeat(auto-fit,minmax(190px,1fr))!important;gap:8px!important}
+  html body #modal[data-type=difficulty] .difficulty-card{display:grid!important;grid-template-columns:40px minmax(0,1fr);column-gap:8px;row-gap:2px;align-items:center;padding:8px!important}
+  html body #modal[data-type=difficulty] .difficulty-card>i{grid-row:1/3;grid-column:1}
+  html body #modal[data-type=difficulty] .difficulty-card>h3{grid-column:2;margin:0!important}
+  html body #modal[data-type=difficulty] .difficulty-card>dl{grid-column:1/-1;margin:2px 0!important;display:flex!important;flex-wrap:wrap;gap:2px 10px}
+  html body #modal[data-type=difficulty] .difficulty-card>dl>div{display:flex;gap:4px}
+  html body #modal[data-type=difficulty] .difficulty-card>small{grid-column:1/-1;margin:0!important}
+  html body #modal[data-type=difficulty] .difficulty-card>.pixel-button{grid-column:1/-1;min-height:40px!important}
+}
+/* ===== Z2D end ===== */

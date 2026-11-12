@@ -45,7 +45,7 @@ for (const v of VIEWS) {
       const q = s => document.querySelector(s);
       const face = [...document.querySelectorAll('#modal .bf-side b')].map(e => e.textContent.trim());
       const rows = [...document.querySelectorAll('#modal .bs-hunter')].map(e => [e.querySelector('b')?.textContent.trim(), e.querySelector('img')?.getAttribute('src')?.slice(0, 12)]);
-      const btn = q('#modal [data-action="startBoss"]');
+      const btn = q('#modal [data-action="bossAsk"]');
       const br = btn.getBoundingClientRect();
       const rounds = q('#modal .boss-rounds')?.textContent || '';
       return {

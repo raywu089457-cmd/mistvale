@@ -66,20 +66,20 @@ async function act(page, action, id) {
 const READ_CRAFT = () => {
   const c = document.querySelector('#modal-content');
   if (!c) return { open: false };
-  const cards = [...c.querySelectorAll('.craft-card')].map(card => {
-    const chips = [...card.querySelectorAll('.cost .cost-chip')].map(ch => ({
+  const cards = [...c.querySelectorAll('.zc-row')].map(card => {
+    const chips = [...card.querySelectorAll('.z2b-chips .cost-chip')].map(ch => ({
       short: ch.classList.contains('short'),
       have: ch.dataset.have, need: ch.dataset.need,
       sw: ch.scrollWidth, cw: ch.clientWidth,
     }));
-    const btns = [...card.querySelectorAll('.craft-buttons .pixel-button, button.pixel-button')].map(b => ({
+    const btns = [...card.querySelectorAll('.z2b-act .pixel-button, button.pixel-button')].map(b => ({
       action: b.dataset.action || '', batches: b.dataset.batches ?? null, text: b.textContent.trim(),
       disabled: b.disabled, insideCard: card.contains(b),
     }));
-    const meta = card.querySelector('.craft-meta')?.textContent.trim() || '';
+    const meta = card.querySelector('.zc-meta')?.textContent.trim() || '';
     const r = card.getBoundingClientRect();
     return {
-      title: card.querySelector('h3')?.textContent.trim() || '',
+      title: card.querySelector('.z2b-nm')?.firstChild?.textContent.trim() || '',   // Z2B:製作改清單列(.zc-row),名稱是 .z2b-nm 的第一段文字(後面可能接「賣完了」標記)
       chips, meta, btns, h: r.height, sw: card.scrollWidth, cw: card.clientWidth,
       out: [...card.querySelectorAll('*')].filter(e => { const q = e.getBoundingClientRect(); return q.width > 0 && q.right > r.right + .5; }).length,
     };

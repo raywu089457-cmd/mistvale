@@ -1,7 +1,7 @@
 // fix-c.mjs — FIX-C(2026-11-11):面板開著時的 toast 住進標題列、同句合併「×N」、橫向資源條、抽屜開著直接點另一棟建築
 //   四種視窗:1440×900、1024×768、390×844(mobile+touch)、844×390(mobile+touch)
-//   A. toast(規格 4.3/4.7;FIX-D 改版):任何底部抽屜面板開著時,toast 蓋住該面板整個標題列(只留圓形 X)、一次顯示一則(多則排隊,詳見 fix-d.mjs),
-//      不蓋 X、不疊在內容區上;面板關著時維持在頁籤列上方。
+//   A. toast(規格 4.3/4.7;FIX-D 改版、Z2D 再改):底部抽屜(A 模式)開著時,toast 不再蓋標題列(R13:蓋住子頁籤與工具鈕),
+//      直向手機／桌機出現在抽屜上緣上方、最多 2 則,橫向(抽屜滿版)留在頁籤列上方;不蓋標題列的鈕、不疊在內容區上;面板關著時維持在頁籤列上方。
 //      所有情況下同一句話連續出現要合併成一條(DOM 只有一個 .toast、data-n=N、寬度夠時顯示「×N」)。
 //   B. 資源條:HUD 被藏起來的視窗(橫向)面板標題列有 金幣/星晶/木材/鐵礦(圖示＋數字),數字跟頂欄同一份資料、即時更新;
 //      HUD 看得到的視窗不出現;不擠掉 X 與子頁籤鈕,不跟 toast 互蓋。(建設面板自己有庫存列 → 不放)
@@ -28,7 +28,7 @@ const measure = () => {
   const title = host ? host.querySelector('.modal-title,.panel-title') : null;
   const all = [...document.querySelectorAll('#toasts .toast')].filter(vis);
   const t = all[all.length - 1] || null, tr = R(t);
-  const out = { host: host?.id || '', nShown: all.length, nDom: document.querySelectorAll('#toasts .toast').length, text: t?.textContent || '', badge: t?.querySelector('.toast-n')?.textContent || '', dataN: +(t?.dataset.n || 0), toast: tr, inTitleDom: !!(title && t && title.contains(t)) };
+  const out = { host_t: host ? R(host).t : 0, host: host?.id || '', nShown: all.length, nDom: document.querySelectorAll('#toasts .toast').length, text: t?.textContent || '', badge: t?.querySelector('.toast-n')?.textContent || '', dataN: +(t?.dataset.n || 0), toast: tr, inTitleDom: !!(title && t && title.contains(t)) };
   if (title) {
     const tt = R(title); out.title = tt;
     out.inside = !!tr && tr.l >= tt.l - 1 && tr.r <= tt.r + 1 && tr.t >= tt.t - 1 && tr.b <= tt.b + 1;
@@ -72,15 +72,16 @@ for (const view of ['desktop', 'tablet', 'phone', 'land']) {
     await fire(page); await page.waitForTimeout(450);
     m = await page.evaluate(measure); const tag = `${view}/${tab}`;
     if (!m.nShown) { fix(`${tag}: toast 沒有出現`); await closeAll(page); continue; }
-    if (!m.inTitleDom) fix(`${tag}: toast 不在面板標題列裡(host=${m.host})`);
-    if (m.nShown !== 1) fix(`${tag}: 面板開著時應只顯示最新一則,實際 ${m.nShown} 則`);
+    // Z2D(R13):A 抽屜開著時 toast 不再住進標題列(會蓋住子頁籤與工具鈕)→ 直向手機／桌機出現在抽屜上方;橫向(抽屜滿版)留在頁籤列上方並閃避按鈕。z2d-hud.mjs 也量這件事。
+    const landscapeA = view === 'land';
+    if (m.inTitleDom) fix(`${tag}: toast 還在面板標題列裡(host=${m.host});Z2D 起應在抽屜上方,不蓋標題列工具鈕`);
+    if (m.nShown > 2) fix(`${tag}: 面板開著時最多顯示 2 則,實際 ${m.nShown} 則`);
     if (m.nDom !== 1 || m.dataN !== 3) fix(`${tag}: 同句 ×3 沒合併(DOM ${m.nDom} 條、n=${m.dataN})`);
-    if (!m.inside) fix(`${tag}: toast ${JSON.stringify(m.toast && [m.toast.l, m.toast.t, m.toast.r, m.toast.b].map(Math.round))} 超出標題列 ${JSON.stringify(m.title && [m.title.l, m.title.t, m.title.r, m.title.b].map(Math.round))}`);
-    if (m.title && m.x && m.toast && (m.toast.l > m.title.l + 2 || m.toast.r > m.x.l + 0.5 || m.toast.r < m.x.l - 16)) fix(`${tag}: toast ${Math.round(m.toast.l)}–${Math.round(m.toast.r)} 要從標題列左緣 ${Math.round(m.title.l)} 蓋到 X 左邊(X 左緣 ${Math.round(m.x.l)})`);
-    if (m.overContent) fix(`${tag}: toast 疊在面板內容區上`);
+    if (m.overlaps && m.overlaps.length) fix(`${tag}: toast 蓋住標題列的 ${m.overlaps.join('、')}`);
+    if (!landscapeA && m.toast && m.title && m.toast.b > m.host_t + 1.5) fix(`${tag}: toast 底 ${Math.round(m.toast.b)} 沒在抽屜上緣(${Math.round(m.host_t)})以上`);
+    if (!landscapeA && m.overContent) fix(`${tag}: toast 疊在面板內容區上`);
     if (!m.xOk) fix(`${tag}: 關閉鈕被擠出標題列或看不到`);
-    if (m.toast && m.toast.h > 0 && Math.abs(m.toast.h - m.title.h) > 3) fix(`${tag}: toast 高 ${Math.round(m.toast.h)} 應蓋滿標題列高 ${Math.round(m.title.h)}`);
-    // 寬度夠(≥ 140px)時 ×N 與文字都要看得到;太窄時縮成只剩圖示,但仍不蓋東西
+    // 寬度夠(≥ 140px)時 ×N 與文字都要看得到
     if (m.toast && m.toast.w >= 140 && m.badge !== '×3') fix(`${tag}: 空位 ${Math.round(m.toast.w)}px 夠寬卻沒顯示 ×3`);
     // ── B. 資源條 ──
     const isBuild = tab === 'build';

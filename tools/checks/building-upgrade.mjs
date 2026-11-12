@@ -44,7 +44,9 @@ const NAME = { house: '獵人小屋', forge: '鐵匠鋪', academy: '學院' };
 async function selectBuilding(page, id) {
   // 2026-11-11 FIX-C:建築詳情抽屜開著時,直接點世界上露出的另一棟建築就切換(不先關掉上一個);
   //   若這棟被抽屜蓋住(點下去會打到抽屜)就記錄下來,由呼叫端決定——不再用「先關掉」繞過去
-  const wasOpen = await page.evaluate(() => !document.querySelector('#inspector')?.classList.contains('hidden'));
+  // 2026-11-12 Z1:建築詳情是 C 置中視窗(55% 遮罩蓋住世界),不能再直接點世界切換建築;已開著就先用 Esc 關掉再走一般流程(點建築→六角鈕→資訊)
+  let wasOpen = await page.evaluate(() => !document.querySelector('#inspector')?.classList.contains('hidden'));
+  if (wasOpen) { await page.keyboard.press('Escape'); await page.waitForTimeout(220); wasOpen = false; }
   // 世界回報的 hitRects 就是這一幀實際的可點矩形，換算成畫面座標再點（不要自己算投影）
   const r = await page.evaluate(bid => {
     const v = globalThis.__mistvaleView, cv = document.querySelector('#world');
@@ -81,7 +83,7 @@ const info = page => page.evaluate(() => {
   const el = document.querySelector('#inspector');
   if (!el || el.classList.contains('hidden')) return null;
   const q = s => el.querySelector(s);
-  const btn = q('.inspect-actions [data-action="upgrade"], .inspect-actions [data-action="construct"]');
+  const btn = q('#inspect-foot [data-action="upgrade"], #inspect-foot [data-action="construct"], .inspect-actions [data-action="upgrade"], .inspect-actions [data-action="construct"]');
   const r = el.getBoundingClientRect();
   return {
     title: q('#inspect-title')?.textContent || '',
@@ -134,7 +136,7 @@ const upCost = (page, id, lv) => page.evaluate(({ id, lv }) => {
     if (process.env.SHOTS) await page.screenshot({ path: 'output/building-upgrade/desktop-ok.png' });
 
     // 按下去真的升級，面板跟著更新
-    await page.click('#inspector .inspect-actions [data-action="upgrade"]');
+    await page.click('#inspector [data-action="upgrade"]');
     // 面板是下一次 paint() 才重畫，輪詢等它更新（固定等 300ms 會偶發讀到舊字）
     await page.waitForFunction(() => document.querySelector('#inspector .inspect-level')?.textContent.includes('Lv.3'), null, { timeout: 2500 }).catch(() => {});
     await page.waitForTimeout(160);
@@ -223,7 +225,7 @@ const upCost = (page, id, lv) => page.evaluate(({ id, lv }) => {
       if (c.rect.x < 0 || c.rect.w > c.vw) fix(`phone 面板超出畫面 ${JSON.stringify(c.rect)} vw=${c.vw}`);
       if (!c.note) fix('phone 沒有升級說明');
       const tiny = await page.evaluate(() => {
-        const el = document.querySelector('#inspector .inspect-actions [data-action="upgrade"]');
+        const el = document.querySelector('#inspector [data-action="upgrade"]');
         if (!el) return 0;
         const r = el.getBoundingClientRect();
         return Math.min(r.width, r.height);

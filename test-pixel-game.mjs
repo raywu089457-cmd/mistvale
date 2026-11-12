@@ -136,11 +136,32 @@ const marketBlock = blockCenter(-2, 0), plazaBlock = blockCenter(0, 0);
 assert.equal(buildings.moveBuilding('bounty', marketBlock.x + 1, marketBlock.z - 1).ok, true); assert.equal(buildings.moveBuilding('hall', plazaBlock.x, plazaBlock.z).ok, false, 'plaza stays open'); assert.equal(buildings.moveBuilding('hall', -100, 0).ok, false); assert.equal(buildings.moveBuilding('dungeon', 0, 0).ok, false);
 const movedSaved = createGame(buildings.serialize()); assert.deepEqual(movedSaved.state.layout.bounty, { x: marketBlock.x, z: marketBlock.z }, 'moves snap to the nearest block center');
 
-// 新玩法:招募英雄不自己出村打怪,待機在村內等玩家派指令。
-const idle = createGame(); run(idle, 60, false, assertFiniteEconomy);
-assert.equal(idle.state.totalKills, 0, 'Recruited hunters idle in town and never hunt on their own');
-assert.ok(idle.state.hunters.every(h => h.inTown || h.task), 'Recruited hunters wait in town for orders');
+// 2026-11-12(UX 稽核 round3 #5):沒有玩家指令的獵人會自己挑「輕鬆」的區出村打怪,缺東西回村辦事,再出發。
+// (2026-10-04 f6a44fe 曾改成只等派令,全新存檔不下指令就永遠待在村裡。)
+const idle = createGame(); const idleOut = new Set();
+run(idle, 60, false, s => { assertFiniteEconomy(s); for (const h of s.hunters) if (h.autoHunt) idleOut.add(h.id); });
+assert.ok(idle.state.totalKills > 0, 'Hunters without orders go hunting on their own');
+assert.ok(idleOut.size >= 4, `most hunters head out by themselves (${idleOut.size})`);
+assert.ok(idle.state.hunters.every(h => !h.huntRegion || h.autoHunt), 'Self-chosen hunts are marked autoHunt (no player order was given)');
 assert.ok(idle.state.counts.services > 0, 'Hunters visibly use town services within 60 seconds');
+{ // 自己挑的區一定是「輕鬆」的(跟地圖面板的 fit 同一條公式);玩家派令優先、召回後先待在村裡
+  const g = createGame(); run(g, 30);
+  for (const h of g.state.hunters) if (h.autoHunt) assert.equal(g.regionInfo(h.huntRegion).fit([h.id]).verdict, 'easy', `${h.classId} picked an easy region`);
+  const a = g.state.hunters.find(h => h.autoHunt); assert.ok(a, 'someone is hunting on their own');
+  assert.equal(g.dispatchHunters('forest', [a.id]).ok, true); assert.equal(a.huntRegion, 'forest'); assert.equal(a.autoHunt, false, 'a player order replaces the self-chosen hunt');
+  assert.equal(g.recallHunters().ok, true); run(g, 60);
+  assert.ok(g.state.hunters.every(h => !h.huntRegion), 'recalled hunters stay home for a while');
+  const weak = createGame(); for (const h of weak.state.hunters) { h.attack = 1; h.defense = 0; h.level = 1; }
+  run(weak, 30); assert.ok(weak.state.hunters.every(h => !h.huntRegion), 'hunters too weak for every region stay in town');
+  // 存檔相容:舊存檔(沒有 autoHunt/autoReadyAt、counts 沒有收入分帳欄位)照常讀,讀完一樣會自己出門;出征中存檔讀回來也不會卡在野外
+  const old = createGame().serialize(); for (const h of old.hunters) { delete h.autoHunt; delete h.autoReadyAt; }
+  for (const k of ['hunterGold', 'hunterPay', 'wanderGold', 'wanderPay']) delete old.counts[k];
+  const re = createGame(old); assert.ok(['hunterGold', 'hunterPay', 'wanderGold', 'wanderPay'].every(k => re.state.counts[k] === 0), 'old saves get zeroed income ledgers');
+  run(re, 60); assert.ok(re.state.totalKills > 0 && re.state.counts.hunterGold > 0, 'hunters from an old save hunt on their own');
+  const out = createGame(); run(out, 30); assert.ok(out.state.hunters.some(h => h.autoHunt && !h.inTown));
+  const mid = createGame(out.serialize()); run(mid, 60, false, assertFiniteEconomy);
+  assert.ok(mid.state.hunters.some(h => h.autoHunt), 'a save taken mid-hunt resumes hunting after load');
+}
 assert.ok(Array.isArray(idle.state.wanderers) && idle.state.wanderers.length >= 1, 'Wandering heroes roam the field');
 assert.ok(idle.state.wanderKills > 0, 'Wandering heroes hunt monsters on their own');
 // 流浪英雄:自己的錢包與需求、自己挑狩獵區、缺東西會自己回村買(跟獵人一樣的服務流程)。
@@ -190,7 +211,7 @@ run(squads, 150, false, state => {
 });
 assert.ok(squadTargets.length > 0, 'Dispatched squads pick targets'); assert.ok(squadTargets.every(Boolean), 'Each squad only fights monsters in its own region');
 assert.ok(['meadow', 'forest', 'taiga'].every(r => squads.state.visitedRegions.includes(r)), 'Every dispatched squad reaches its region');
-assert.ok(squads.state.totalKills > 0, 'Squads in several regions earn kills'); assert.ok(!s4.huntRegion, 'The unassigned hunter never leaves for a region');
+assert.ok(squads.state.totalKills > 0, 'Squads in several regions earn kills'); assert.ok(!s4.huntRegion || s4.autoHunt, 'The unassigned hunter never gets a squad order (he may hunt on his own)');
 const squadLoad = createGame(squads.serialize());
 assert.deepEqual(squadLoad.state.dispatchTeams.map(t => t.ids), squads.state.dispatchTeams.map(t => t.ids)); assert.deepEqual(squadLoad.state.dispatchTeams.map(t => t.region), ['meadow', 'forest', 'taiga', 'meadow']);
 const dupSave = squads.serialize(); dupSave.dispatchTeams[3] = { ids: [s0.id, s4.id], region: 'desert' };

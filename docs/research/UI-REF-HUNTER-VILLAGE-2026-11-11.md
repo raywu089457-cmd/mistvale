@@ -1,5 +1,7 @@
 # UI/UX 風格規格：參考《獵魔村物語》（2026-11-11）
 
+> **2026-11-12 修訂**：依使用者提供的 51 張 UI 圖鑑，視窗模式、頁籤列、按鈕顏色語意等改以 [UI-REF-HUNTER-VILLAGE-ZUKAN-2026-11-12.md](UI-REF-HUNTER-VILLAGE-ZUKAN-2026-11-12.md) 為準；兩份衝突時以新版為準。
+
 > 使用者指示（2026-11-11）：上網找《獵魔村物語》的 UI/UX 設計風格參考，完整套用到暮影村。
 > 《獵魔村物語》＝ SuperPlanet 的 Evil Hunter Tycoon（2020，直向手機，像素風經營＋獵人養成）。
 > 這份文件取代 [UI-THEME-PROTOTYPES-2026-11-10.md](UI-THEME-PROTOTYPES-2026-11-10.md) 的「金箔框主題」方向。

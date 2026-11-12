@@ -75,3 +75,15 @@ output/ui-audit/
 output/pi-results/
 output/pi-sessions/
 output/pi-worktrees/
+.l0veyou-profile/
+
+# 代理工作區(各自有 worktree).與解開的第三方 UI kit 樣本
+.agents/
+diag/
+
+# output/ 根目錄的臨時腳本、除錯截圖與筆記(成品都在 output/<主題>/)
+output/*.mjs
+output/*.py
+output/*.txt
+output/*.png
+output/*.md

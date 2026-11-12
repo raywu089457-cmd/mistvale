@@ -1,6 +1,6 @@
 // build-card-costs.mjs — static assert for T51: every building card in the build modal must show its cost
 // (resource icons + amounts) all the time, with unaffordable entries marked by colour, on desktop and phone.
-// Usage: node tools/checks/build-card-costs.mjs       (no server needed; reads the sources)
+// Usage: node tools/checks/build-card-costs.mjs       (no server needed; reads the sources)  — Z2B 2026-11-12 改寫成新的 hv-cost 結構
 //   T51_ROOT=<dir> checks another checkout (used to prove this file fails on the pre-T51 tree).
 // Exit: 0 = every requirement holds, 1 = at least one miss (each miss is printed as MISS ...).
 import fs from 'node:fs';
@@ -12,7 +12,7 @@ const read = rel => fs.readFileSync(path.join(ROOT, rel), 'utf8');
 const misses = [];
 const miss = (file, why) => misses.push(`MISS ${file}: ${why}`);
 
-// ---- 1. src/pixel-ui.js: the build branch of modalHTML must emit a cost line for every card ----
+// ---- 1. src/pixel-ui.js: the build branch of modalHTML must emit a cost line for every card (Z2B 2026-11-12: hv-cost chips) ----
 const ui = read('src/pixel-ui.js');
 const from = ui.indexOf("if(type==='build')");
 const to = ui.indexOf("if(type==='hunters')");
@@ -20,38 +20,27 @@ if (from < 0 || to < 0 || to <= from) {
   miss('src/pixel-ui.js', "cannot slice modalHTML from if(type==='build') to if(type==='hunters')");
 } else {
   const branch = ui.slice(from, to);
-  // the card must always carry the cost line (built and unbuilt cards alike)
-  if (!branch.includes('class="build-cost"')) miss('src/pixel-ui.js', 'build branch has no <small class="build-cost">');
-  // and it must be the shared costs() renderer, so icons and the `.short` marker come for free
-  if (!branch.includes('costs(')) miss('src/pixel-ui.js', 'build branch does not call costs()');
-  // built buildings show the next level price, so the upgrade cost lookup must be in the branch
-  if (!branch.includes('getUpgradeCost(')) miss('src/pixel-ui.js', 'build branch does not call game.getUpgradeCost()');
-  // regressions this check exists for
-  if (branch.includes("l?'':`<small class=\"build-cost\"")) miss('src/pixel-ui.js', "cost line is still hidden behind the l?'': guard");
-  if (branch.includes('Object.entries(b.cost')) miss('src/pixel-ui.js', 'cost line still builds its own Object.entries(b.cost) label map');
-  if (/gold\s*:\s*'金'/.test(branch)) miss('src/pixel-ui.js', "cost line still maps resource keys with 金/木/鐵 labels");
+  // the card must always carry the cost line (built and unbuilt cards alike), one .hv-cost chip per resource, `.short` on the ones you cannot afford
+  if (!branch.includes('class="cost build-cost hv-costs"')) miss('src/pixel-ui.js', 'build branch has no .build-cost.hv-costs line');
+  if (!/hv-cost\$\{\(s\[k\]\|\|0\)<n\?' short':''\}/.test(branch)) miss('src/pixel-ui.js', 'cost chips lost the per-resource .short marker');
+  // built buildings show the next level price, so the upgrade cost lookup must be reachable (upgradeView → game.getUpgradeCost)
+  if (!branch.includes('upgradeView(')) miss('src/pixel-ui.js', 'build branch does not use upgradeView()');
+  if (!/function upgradeView[\s\S]{0,600}getUpgradeCost\(/.test(ui)) miss('src/pixel-ui.js', 'upgradeView does not call game.getUpgradeCost()');
+  // Z2B(UX #10): the grey button names every missing resource (no「等」), unbuilt cards carry a one-line purpose
+  if (/' 等'/.test(branch)) miss('src/pixel-ui.js', 'short-resource button is back to 「缺…等」');
+  if (!/short-btn[^`]*缺 \$\{miss\.map\(/.test(branch)) miss('src/pixel-ui.js', 'short-resource button no longer lists every missing item');
+  if (!branch.includes('class="bc-use"')) miss('src/pixel-ui.js', 'unbuilt cards lost the one-line purpose (.bc-use)');
 }
 
-// ---- 2. src/pixel-style.css: flex row of icon+amount chips, colour token for the short entries ----
-const css = read('src/pixel-style.css');
-const rule = sel => {
-  const m = new RegExp(sel.replace(/[.*+?^${}()|[\]\\]/g, '\\$&') + '\\{([^}]*)\\}').exec(css);
-  return m ? m[1] : null;
-};
-const costRule = rule('.building-card .build-cost');
-if (costRule == null) miss('src/pixel-style.css', 'no .building-card .build-cost{...} rule');
+// ---- 2. src/ui-hv.css (Z2B block): cost chips >=12px, short ones red ----
+const css = read('src/ui-hv.css');
+const z2b = css.slice(css.indexOf('/* ===== Z2B：'), css.indexOf('/* ===== Z2B end'));
+if (!z2b) miss('src/ui-hv.css', 'no Z2B block');
 else {
-  if (!/flex-wrap\s*:\s*wrap/.test(costRule)) miss('src/pixel-style.css', '.build-cost lost flex-wrap:wrap (chips must wrap instead of being cut)');
-  if (!/color\s*:\s*var\(/.test(costRule)) miss('src/pixel-style.css', '.build-cost lost its color token');
-  if (/opacity\s*:/.test(costRule)) miss('src/pixel-style.css', '.build-cost still fades with opacity instead of colour');
+  const m = /\.hv-card \.hv-cost\{font:\d+ (\d+)px/.exec(z2b);
+  if (!m || Number(m[1]) < 12) miss('src/ui-hv.css', '.hv-cost font is below 12px');
+  if (!/\.hv-cost\.short b\{color:#f08a7c/.test(z2b)) miss('src/ui-hv.css', '.hv-cost.short is no longer red');
 }
-const spanRule = rule('.building-card .build-cost>span');
-if (spanRule == null) miss('src/pixel-style.css', 'no .building-card .build-cost>span{...} rule (icon + amount must sit on one line)');
-else if (!/inline-flex/.test(spanRule)) miss('src/pixel-style.css', '.build-cost>span is not inline-flex');
-const shortRule = rule('.building-card .build-cost .short');
-if (shortRule == null) miss('src/pixel-style.css', 'no .building-card .build-cost .short{...} rule (unaffordable entries would look affordable)');
-else if (!/color\s*:\s*var\(/.test(shortRule)) miss('src/pixel-style.css', '.build-cost .short does not set a colour token');
-if (!/--cost-short\s*:\s*#[0-9a-f]{6}/i.test(css)) miss('src/pixel-style.css', 'no --cost-short colour token declared');
 
 // ---- 3. auditing tools: the 375x812 phone size must exist and the phone shot size must stay overridable ----
 const layout = read('pipeline/scripts/ui-audit/layout.mjs');

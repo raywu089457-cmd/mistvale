@@ -23,6 +23,9 @@ async function run(label, viewport, isMobile) {
   });
   await page.waitForTimeout(700);
 
+  // Z2C:世界地圖改成每區一行,全景圖放在展開後的詳情區 → 先把每一行展開再量
+  await page.evaluate(() => document.querySelectorAll('#modal .region-card .z2c-row-main').forEach((b) => b.click()));
+  await page.waitForTimeout(200);
   const cards = await page.evaluate(() => [...document.querySelectorAll('#modal .region-card')].map((c) => {
     const art = c.querySelector('.region-art');
     if (!art) return { id: c.dataset.region, art: false };

@@ -20,7 +20,9 @@ const RESOURCE_KEYS = ['gold', 'wood', 'ore', 'herb', 'cloth', 'flour', 'leather
 const MATERIAL_KEYS = Object.keys(MATERIALS), PRODUCT_KEYS = Object.keys(PRODUCTS);
 const UNBUILT = new Set(['academy', 'training', 'enhancement', 'dungeon']);
 const GATE = { ...EXITS[0].out };  // 東門外
-const NAMES = ['艾登', '莉雅', '羅恩', '賽琳', '伊諾', '芙蕾雅', '瑪琳', '卡爾', '艾莉', '奧斯卡', '薇拉', '雷恩', '希露', '米洛', '露娜', '阿斯特'];
+const NAMES = ['艾登', '莉雅', '羅恩', '賽琳', '伊諾', '芙蕾雅', '瑪琳', '卡爾', '艾莉', '奧斯卡', '薇拉', '雷恩', '希露', '米洛', '露娜', '阿斯特',
+  // 後 16 個(Z2A,UX 稽核 #15):獵人＋流浪英雄加起來常常超過 16 位,名字不夠用就會同名;前 16 個的順序不動(開局獵人照 index 取名)
+  '凱爾', '提亞', '朵拉', '維克', '蕾娜', '格雷', '諾亞', '菲歐', '史黛', '塔倫', '貝琳', '洛基', '妮可', '伊森', '索菲', '亞倫'];
 // 英雄與流浪英雄看得到魔物的距離(格):狩獵區很大,看不到的魔物要在區內搜尋才找得到。
 const SIGHT = 12;
 // 魔物的「主動攻擊範圍」(世界單位):超出這個距離的敵人不會被追、也不會被鎖定。
@@ -62,7 +64,7 @@ const QUESTS = [
   { title: '建立戰利品循環', description: '透過交易所向獵人收購 10 份材料', target: 10, reward: { gold: 250, ore: 25 }, metric: s => s.counts.traded },
   { title: '鐵匠爐火', description: '把鐵匠鋪升至 2 級', target: 2, reward: { gold: 300, ore: 40 }, metric: s => s.buildings.forge },
   { title: '獵人的新武器', description: '製造 1 件精鐵武器，等待獵人返村選購', target: 1, reward: { gold: 150, gems: 3 }, metric: s => s.counts.weaponsCrafted },
-  { title: '暮林領主', description: '召集獵人，擊敗 1 位森林領主', target: 1, reward: { gold: 500, gems: 10 }, metric: s => s.bossKills },
+  { title: '討伐森林領主', description: '召集獵人，擊敗 1 位森林領主', target: 1, reward: { gold: 500, gems: 10 }, metric: s => s.bossKills },
   { title: '地下城的門後', description: '建造地下城入口，完成 1 層三人探險', target: 1, reward: { gold: 500, leather: 40, flour: 100 }, metric: s => s.counts.dungeonWins },
   { title: '下一段獵魔人生', description: '讓 1 位 Lv.100 獵人在復活聖所轉世', target: 1, reward: { gold: 800, gems: 20 }, metric: s => s.counts.rebirths },
 ];
@@ -337,9 +339,51 @@ export function createGame(saved = null) {
   }
 
   function idleInTown(h) {
-    // 招募英雄待機:留在村內等玩家派指令,不自己出村打怪。
+    // 沒有狩獵指令:先在村內待一下(AUTO_HUNT.dwell 秒),之後由 step() 的待機分支自己挑區出村(見 autoHuntRegion)。
     h.task = null; h.serviceProduct = null; h.serviceStarted = false; h.destination = null; h.inTown = true;
     h.targetId = null; h.rallying = false; h.route = []; h.status = '待機';
+    h.autoReadyAt = Math.max(h.autoReadyAt ?? 0, state.time + AUTO_HUNT.dwell * (0.6 + random() * 0.8));
+  }
+
+  // ── 獵人自主狩獵(2026-11-12 UX 稽核 round3 #5) ──
+  // 2026-10-04 f6a44fe 起招募英雄「只等玩家派令」,全新存檔不下指令就永遠待在村裡,收入全靠流浪英雄。
+  // 現在:沒有玩家指令(huntRegion 空)的獵人,吃飽睡飽後自己挑「打得動」的區出村,需求不夠或受傷就回村辦事,辦完再出發。
+  // 玩家指令永遠優先:exploreRegion/dispatchHunters/dispatchTeam/setRally 會把 autoHunt 清掉(變成玩家指定的 huntRegion);
+  // 召回後先在村裡待 recallHold 秒才會再自己出門。autoHunt/autoReadyAt 是暫態:讀檔時 restore() 不讀它們(huntRegion 本來也不讀),
+  // 讀檔後一律從「待在村裡、稍後自己決定」開始 → 存檔格式不變、舊存檔不用遷移。
+  const AUTO_HUNT = { dwell: 6, recallHold: 180, retreatHp: 0.4 };
+  // 「這組打不打得動」:comfort vs threat → easy(輕鬆)/ok(可行)/hard(危險)。地圖詳細資訊的 fit() 與獵人自主挑區共用這一條。
+  // mult:魔物強度倍率(自主挑區帶難度倍率,實際生出來的魔物就是這麼強;地圖面板沿用原本不帶倍率的算法)。
+  function regionFit(units, r, mult = 1) {
+    if (!units.length) return null;
+    const comfort = units.reduce((n, h) => n + h.defense * 2 + h.level * 0.5 + h.attack * 0.15 + 8, 0) / units.length;
+    const threat = Math.max(0, ...[...new Set(mixOf(r.id))].map(t => ENEMIES[t]?.attack || 0)) * r.risk * mult;
+    return { comfort, threat, verdict: comfort >= threat * 1.15 ? 'easy' : comfort >= threat ? 'ok' : 'hard' };
+  }
+  // 自己挑狩獵區:只考慮「輕鬆」的區,挑其中最難的(經驗與戰利品較多),同難度挑離村近的、目前主狩獵區(魔物最多)小加分。
+  // 沒有輕鬆的區就退一步挑「可行」裡最簡單的;連可行都沒有 → null(留在村裡,不去送死)。
+  function autoHuntRegion(h) {
+    const mult = DIFFICULTIES[state.difficulty]?.mult ?? 1, home = REGIONS.find(r => r.id === 'village') || CAMP;
+    let easy = null, easyScore = -Infinity, ok = null, okThreat = Infinity;
+    for (const r of REGIONS) {
+      if (r.id === 'village') continue;
+      const fit = regionFit([h], r, mult);
+      if (fit.verdict === 'easy') {
+        const score = r.risk * 10 - Math.hypot(r.x - home.x, r.z - home.z) * 0.02 + (r.id === state.region ? 0.3 : 0);
+        if (score > easyScore) { easy = r; easyScore = score; }
+      } else if (fit.verdict === 'ok' && fit.threat < okThreat) { ok = r; okThreat = fit.threat; }
+    }
+    return (easy || ok)?.id ?? null;
+  }
+  // 待機中的獵人:時間到、不缺東西就自己出門。回傳 true = 已出發(或先去辦事)。
+  function autoHuntStep(h) {
+    if (h.task || !h.inTown || state.time < (h.autoReadyAt ?? 0)) return false;
+    if (needProduct(h, true)) { returnToTown(h); return true; }   // 出門前先把飯吃了、覺睡了
+    const rid = autoHuntRegion(h);
+    if (!rid) { h.autoReadyAt = state.time + 30; return false; }   // 沒有打得動的區:隔一陣子再看
+    h.huntRegion = rid; h.autoHunt = true;
+    if (!state.visitedRegions.includes(rid)) state.visitedRegions.push(rid);
+    depart(h); return true;
   }
 
   // 找怪:還沒進狩獵區就先走到區的邊緣;進了區就在區內隨機挑一點走過去(走到或超過時間就換一點),路上看到的魔物由戰鬥邏輯接手。
@@ -358,7 +402,7 @@ export function createGame(saved = null) {
     }
   }
   function depart(h) {
-    // 只有玩家下過狩獵指令(h.huntRegion)才出村;否則留在村內待機。
+    // 有狩獵區(玩家指令,或自主狩獵挑好的)才出村;否則留在村內待機,稍後由 autoHuntStep 自己決定。
     if (!h.huntRegion) { idleInTown(h); return; }
     h.task = null; h.serviceProduct = null; h.serviceStarted = false; h.destination = null; h.inTown = false; h.targetId = null; h.rallying = false; h.status = '出征中'; h.lastTownVisit = state.time;
     const region = REGIONS.find(r => r.id === h.huntRegion);
@@ -373,10 +417,16 @@ export function createGame(saved = null) {
   // 刺客:刀光是攻擊列自己畫的(PixelLab X 字斬),遊戲只補命中火花。
   const ATTACK_FX_DELAY = { arrow: 0.2, spell: 0.25, holy: 0.16, hit: 0.07, slash: 0.07 };
   const attackFx = classId => { const kind = classId === 'sorcerer' ? 'spell' : classId === 'archer' ? 'arrow' : classId === 'priest' ? 'holy' : classId === 'assassin' ? 'hit' : 'slash'; return { kind, delay: ATTACK_FX_DELAY[kind] }; };
+  // 取名(UX 稽核 #15):從 NAMES 的 start 位置起,跳過已被獵人或流浪英雄用掉的名字,村裡不會有兩位同名;16 個名字都用完才容許重複。擲骰次數不變(只換掉撞名的那一個)。
+  const freeName = start => {
+    const used = new Set([...(state.hunters || []), ...(state.wanderers || [])].map(a => a.name));
+    for (let i = 0; i < NAMES.length; i++) { const n = NAMES[(start + i) % NAMES.length]; if (!used.has(n)) return n; }
+    return NAMES[start % NAMES.length];
+  };
   function newHunter(classId, position = CAMP, initialIndex = -1) {
     const roll = random(), rarity = initialIndex >= 0 ? ['normal', 'rare', 'normal', 'superior', 'rare'][initialIndex % 5] : roll < 0.55 ? 'normal' : roll < 0.82 ? 'rare' : roll < 0.94 ? 'superior' : roll < 0.99 ? 'heroic' : 'legendary';
     const p = onRoadPoint(safePoint(position));
-    const h = { id: id('h'), name: NAMES[state.hunters.length % NAMES.length], classId, rarity, trait: TRAITS[Math.floor(random() * TRAITS.length)].id, level: initialIndex >= 0 ? 3 + initialIndex % 3 : 1, xp: 0, rebirths: 0, skillLevel: 0, weaponLevel: 0, equipment: { weapon: false, armor: false }, gold: 100, inventory: Object.fromEntries(MATERIAL_KEYS.map(key => [key, 0])), satiety: initialIndex >= 0 ? 70 + initialIndex * 4 : 90, mood: initialIndex >= 0 ? 88 - initialIndex * 4 : 90, stamina: initialIndex >= 0 ? 78 + initialIndex * 2 : 90, x: p.x, z: p.z, hp: CLASS[classId].hp, maxHp: CLASS[classId].hp, status: '待機', targetId: null, attackTimer: random() * 0.5, route: [], task: null, serviceProduct: null, actionTimer: 0, trainCooldown: 0, reviveTimer: 0, lastTownVisit: state.time, tradedVisit: false, shoppedVisit: false, servedVisit: [], inTown: true, huntRegion: null };
+    const h = { id: id('h'), name: freeName(state.hunters.length), classId, rarity, trait: TRAITS[Math.floor(random() * TRAITS.length)].id, level: initialIndex >= 0 ? 3 + initialIndex % 3 : 1, xp: 0, rebirths: 0, skillLevel: 0, weaponLevel: 0, equipment: { weapon: false, armor: false }, gold: 100, inventory: Object.fromEntries(MATERIAL_KEYS.map(key => [key, 0])), satiety: initialIndex >= 0 ? 70 + initialIndex * 4 : 90, mood: initialIndex >= 0 ? 88 - initialIndex * 4 : 90, stamina: initialIndex >= 0 ? 78 + initialIndex * 2 : 90, x: p.x, z: p.z, hp: CLASS[classId].hp, maxHp: CLASS[classId].hp, status: '待機', targetId: null, attackTimer: random() * 0.5, route: [], task: null, serviceProduct: null, actionTimer: 0, trainCooldown: 0, reviveTimer: 0, lastTownVisit: state.time, tradedVisit: false, shoppedVisit: false, servedVisit: [], inTown: true, huntRegion: null };
     updateStats(h); h.hp = h.maxHp; state.hunters.push(h); idleInTown(h); return h;
   }
 
@@ -419,7 +469,7 @@ export function createGame(saved = null) {
     state.codex = state.codex || {}; state.codex[enemy.type] = (state.codex[enemy.type] || 0) + 1;   // T126:圖鑑擊殺紀錄
     const data = ENEMIES[enemy.type], multiplier = DIFFICULTIES[state.difficulty].mult;
     const gold = Math.round(data.gold * Math.sqrt(multiplier));
-    w.gold += gold;
+    w.gold += gold; state.counts.wanderGold = (state.counts.wanderGold || 0) + gold;
     for (const [key, amount] of Object.entries(data.drops)) w.inventory[key] += amount;
     effect('death', enemy, { enemyType: enemy.type, flipHint: (enemy.hitFromX ?? enemy.x) - (enemy.hitFromZ ?? enemy.z) < enemy.x - enemy.z });
     effect('loot', enemy, { text: `+${gold}`, color: '#efcd82', delay: 0.35 });
@@ -445,7 +495,7 @@ export function createGame(saved = null) {
     const rarity = roll < 0.6 ? 'normal' : roll < 0.9 ? 'rare' : 'superior';
     const region = REGIONS[1 + Math.floor(random() * Math.max(1, REGIONS.length - 1))] || REGIONS[1];
     const p = safePoint({ x: region.x - 4 + random() * 8, z: region.z - 4 + random() * 8 });
-    const w = { id: id('w'), name: NAMES[Math.floor(random() * NAMES.length)], classId: c.id, rarity, trait: 'brave', level: 3 + Math.floor(random() * 6), xp: 0,
+    const w = { id: id('w'), name: freeName(Math.floor(random() * NAMES.length)), classId: c.id, rarity, trait: 'brave', level: 3 + Math.floor(random() * 6), xp: 0,
       rebirths: 0, skillLevel: 0, weaponLevel: 0, equipment: { weapon: false, armor: false }, inventory: Object.fromEntries(MATERIAL_KEYS.map(key => [key, 0])),
       gold: WANDER_START_GOLD, satiety: 100, stamina: 100, mood: 100,
       regionId: region.id, x: p.x, z: p.z, hp: c.hp, maxHp: c.hp, attack: c.attack, defense: c.defense, range: Math.max(c.range, 1.75),
@@ -483,7 +533,8 @@ export function createGame(saved = null) {
     depart(h);
   }
 
-  function returnToTown(h) { h.inTown = true; h.tradedVisit = false; h.shoppedVisit = false; h.servedVisit = []; h.targetId = null; nextTownTask(h); }
+  // 自主狩獵的這一趟到回村為止:清掉自己挑的區,辦完事再重新挑(可能已經升級、能去更難的區)。玩家指定的 huntRegion 不動。
+  function returnToTown(h) { if (h.autoHunt) { h.autoHunt = false; h.huntRegion = null; } h.inTown = true; h.tradedVisit = false; h.shoppedVisit = false; h.servedVisit = []; h.targetId = null; nextTownTask(h); }
 
   // 村內辦事:吃飯/喝飲料/睡覺/療傷、賣材料、買裝備。獵人與流浪英雄共用,
   // 做完各自的下一步不同(獵人等玩家指令、流浪英雄自己回去打怪) → 由呼叫者傳 next 進來。
@@ -530,9 +581,11 @@ export function createGame(saved = null) {
     h.tradedVisit = true;
   }
 
+  // 付給村莊的錢記到誰的帳上(離線戰報分開列「你的獵人」與「流浪英雄」帶給村莊的收入)
+  function payLedger(a, gold) { const k = wandererOf(a) ? 'wanderPay' : 'hunterPay'; state.counts[k] = (state.counts[k] || 0) + gold; }
   function shop(h) {
     for (const recipe of RECIPES) if (!h.equipment[recipe.type] && state.gearStock[recipe.type] > 0 && h.gold >= recipe.price) {
-      h.gold -= recipe.price; state.gold += recipe.price; state.gearStock[recipe.type]--; h.equipment[recipe.type] = true; state.counts.gearSold++; updateStats(h, true);
+      h.gold -= recipe.price; state.gold += recipe.price; payLedger(h, recipe.price); state.gearStock[recipe.type]--; h.equipment[recipe.type] = true; state.counts.gearSold++; updateStats(h, true);
       log(`${h.name} 花費 ${recipe.price} 金幣購買${recipe.name}。`, 'success'); effect('upgrade', h);
     }
     h.shoppedVisit = true;
@@ -542,7 +595,7 @@ export function createGame(saved = null) {
     const p = PRODUCTS[h.serviceProduct], paid = state.stocks[h.serviceProduct] > 0 && h.gold >= p.price;
     h.serviceStarted = true; h.actionTimer = paid ? 3.2 : 5.2; h.serviceDuration = h.actionTimer;
     h.status = ({ food: '用餐中', drink: '飲用中', bed: '休息中', bandage: '休養中' })[h.serviceProduct];
-    if (paid) { h.gold -= p.price; state.gold += p.price; state.stocks[h.serviceProduct]--; state.counts.services++; state.counts.serviceIncome += p.price; }
+    if (paid) { h.gold -= p.price; state.gold += p.price; payLedger(h, p.price); state.stocks[h.serviceProduct]--; state.counts.services++; state.counts.serviceIncome += p.price; }
     else state.counts.basicServices++;
     const current = p.need === 'hp' ? h.hp / h.maxHp * 100 : h[p.need];
     const restore = paid ? p.restore * (1 + (state.buildings[p.building] - 1) * 0.05) : 65;
@@ -771,14 +824,14 @@ export function createGame(saved = null) {
     enemy.rewarded = true; enemy.hp = 0; state.totalKills++; state.kills = state.totalKills;
     state.codex = state.codex || {}; state.codex[enemy.type] = (state.codex[enemy.type] || 0) + 1;   // T126:圖鑑擊殺紀錄
     const data = ENEMIES[enemy.type], multiplier = DIFFICULTIES[state.difficulty].mult;
-    const gold = Math.round(data.gold * Math.sqrt(multiplier)); hunter.gold += gold;
+    const gold = Math.round(data.gold * Math.sqrt(multiplier)); hunter.gold += gold; state.counts.hunterGold = (state.counts.hunterGold || 0) + gold;   // 離線戰報分開記「你的獵人」與流浪英雄
     for (const [key, amount] of Object.entries(data.drops)) hunter.inventory[key] += amount;
     effect('death', enemy, { enemyType: enemy.type, flipHint: (enemy.hitFromX ?? enemy.x) - (enemy.hitFromZ ?? enemy.z) < enemy.x - enemy.z });  // 打的人在左邊 → 翻面朝左(面向打倒牠的人)
     effect('loot', enemy, { text: `+${gold}`, color: '#efcd82', delay: 0.35 });
     for (const h of state.hunters) if (h.hp > 0 && h.task !== 'dungeon' && h.task !== 'arena' && (distance(h, enemy) < 12 || h === hunter)) gainXp(h, Math.round(data.xp * Math.sqrt(multiplier)));
     if (enemy.type === 'boss') {
       state.bossKills++; state.gems += 5; Object.assign(state.expedition, { active: false, bossHp: 0, cooldown: 55, elapsed: 0 });
-      log('暮林領主已被擊敗！村莊獲得 5 顆晶石，獵人帶回稀有戰利品。', 'success'); effect('victory', enemy);
+      log('森林領主已被擊敗！村莊獲得 5 顆晶石，獵人帶回稀有戰利品。', 'success'); effect('victory', enemy);
     }
   }
 
@@ -1082,7 +1135,10 @@ export function createGame(saved = null) {
       if (h.task === 'trade' || h.task === 'shop' || h.task === 'service') { runTownTask(h, dt, nextTownTask); continue; }
       const bagSize = MATERIAL_KEYS.reduce((sum, key) => sum + h.inventory[key], 0);
       if (needProduct(h) || (bagSize >= 14 && tradeAvailable(h) && state.time - h.lastTownVisit > 12) || (state.time - h.lastTownVisit > 60 && gearAvailable(h))) { returnToTown(h); continue; }
-      // 沒有狩獵指令就待機在村內(只自衢打到眼前的魔物),不自己跑出去打怪。
+      // 自己出來打獵的比較謹慎:血掉到 AUTO_HUNT.retreatHp 就回村療傷(玩家派出去的照原本 28% 才回)。
+      if (h.autoHunt && h.hp < h.maxHp * AUTO_HUNT.retreatHp) { returnToTown(h); continue; }
+      // 沒有狩獵區:在村裡待一下,時間到就自己挑區出門(autoHuntStep);還沒到就待機(只自衛打眼前的魔物)。
+      if (!h.huntRegion && !h.targetId && autoHuntStep(h)) continue;
       if (!h.huntRegion && !h.targetId) {
         const near = state.enemies.find(e => e.hp > 0 && distance(h, e) < 5);
         if (!near) {
@@ -1293,7 +1349,7 @@ export function createGame(saved = null) {
   function fresh() {
 
     for (const key of Object.keys(state)) delete state[key];
-    Object.assign(state, { version: 2, layoutRevision: 3, worldRevision: 4, region: 'meadow', visitedRegions:['village','meadow'], gold: 1500, wood: 160, ore: 120, herb: 60, cloth: 60, flour: 80, leather: 50, gems: 20, day: 1, time: 0, paused: false, speed: 1, difficulty: 0, kills: 0, totalKills: 0, bossKills: 0, codex: {}, recruited: 0, hunters: [], enemies: [], buildings: Object.fromEntries(BUILDINGS.map(b => [b.id, UNBUILT.has(b.id) ? 0 : 1])), layout: Object.fromEntries(BUILDINGS.map(b => [b.id, { x: b.x, z: b.z }])), stocks: { food: 30, drink: 30, bed: 30, bandage: 30 }, gearStock: { weapon: 0, armor: 0 }, tradeRequests: { wood: 30, ore: 40, herb: 30, cloth: 30, flour: 40, leather: 30 }, counts: { crafted: 0, foodCrafted: 0, traded: 0, gearCrafted: 0, weaponsCrafted: 0, gearSold: 0, services: 0, basicServices: 0, serviceIncome: 0, dungeonWins: 0, rebirths: 0, deaths: 0, trained: 0 }, effects: [], log: [], quest: { index: 0, claimed: false }, expedition: { active: false, bossHp: 0, bossMaxHp: 1150, cooldown: 0, elapsed: 0 }, dungeon: { active: false, floor: 1, bestFloor: 0, wave: 0, enemyHp: 0, enemyMaxHp: 0, time: 0, hunterIds: [], reward: {}, cooldown: 0, phase: '待命', attackTimer: 1, foes: [], events: [], auto: false, startFloor: 0, rest: 0 }, healCooldown: 0, capacity: 8, spawnTimer: 0, seed: 918273, nextId: 0, rally: null, dispatchTeams: defaultDispatchTeams(), regionDensity: normalizeRegionDensity(null), settings: { ...DEFAULT_SETTINGS } });
+    Object.assign(state, { version: 2, layoutRevision: 3, worldRevision: 4, region: 'meadow', visitedRegions:['village','meadow'], gold: 1500, wood: 160, ore: 120, herb: 60, cloth: 60, flour: 80, leather: 50, gems: 20, day: 1, time: 0, paused: false, speed: 1, difficulty: 0, kills: 0, totalKills: 0, bossKills: 0, codex: {}, recruited: 0, hunters: [], enemies: [], buildings: Object.fromEntries(BUILDINGS.map(b => [b.id, UNBUILT.has(b.id) ? 0 : 1])), layout: Object.fromEntries(BUILDINGS.map(b => [b.id, { x: b.x, z: b.z }])), stocks: { food: 30, drink: 30, bed: 30, bandage: 30 }, gearStock: { weapon: 0, armor: 0 }, tradeRequests: { wood: 30, ore: 40, herb: 30, cloth: 30, flour: 40, leather: 30 }, counts: { crafted: 0, foodCrafted: 0, traded: 0, gearCrafted: 0, weaponsCrafted: 0, gearSold: 0, services: 0, basicServices: 0, serviceIncome: 0, dungeonWins: 0, rebirths: 0, deaths: 0, trained: 0, hunterGold: 0, hunterPay: 0, wanderGold: 0, wanderPay: 0 }, effects: [], log: [], quest: { index: 0, claimed: false }, expedition: { active: false, bossHp: 0, bossMaxHp: 1150, cooldown: 0, elapsed: 0 }, dungeon: { active: false, floor: 1, bestFloor: 0, wave: 0, enemyHp: 0, enemyMaxHp: 0, time: 0, hunterIds: [], reward: {}, cooldown: 0, phase: '待命', attackTimer: 1, foes: [], events: [], auto: false, startFloor: 0, rest: 0 }, healCooldown: 0, capacity: 8, spawnTimer: 0, seed: 918273, nextId: 0, rally: null, dispatchTeams: defaultDispatchTeams(), regionDensity: normalizeRegionDensity(null), settings: { ...DEFAULT_SETTINGS } });
     rebuildNavigation();
     state.visitors = [];
     state.arena = { active: false, wins: 0, losses: 0, enemyHp: 0, enemyMaxHp: 0, time: 0, hunterIds: [], cooldown: 0, phase: '待命', attackTimer: 1, opponent: '暮林訓練隊', reward: 0 };
@@ -1308,7 +1364,7 @@ export function createGame(saved = null) {
     for (let i = 0; i < 10; i++) { const m = mixOf('meadow'); spawn(m[Math.floor(random() * m.length)], null, 'meadow'); }  // 開局草原就有 10 隻
     // 其他狩獵區各 5 隻;*不*預先下載牠們的 sheet(21 隻要 5.6 MB)——真的畫到或進區時才載。
     for (const a of REGIONS) if (a.id !== 'village' && a.id !== 'meadow') { const mix = mixOf(a.id); for (let i = 0; i < 5; i++) spawn(mix[Math.floor(random() * mix.length)], null, a.id); }
-    log('五位獵人抵達暮影村。準備餐點、收購戰利品，讓小鎮繁盛起來。', 'success'); refreshQuest();
+    log(`${['零', '一', '二', '三', '四', '五', '六', '七', '八', '九', '十'][state.hunters.length] ?? state.hunters.length}位獵人抵達暮影村。準備餐點、收購戰利品，讓小鎮繁盛起來。`, 'success'); refreshQuest();   // Z2D:人數從資料讀(開局每個職業一位),不寫死「五位」
   }
 
   function validPlacement(buildingId, x, z, layout = state.layout, checkActors = false) {
@@ -1598,12 +1654,12 @@ export function createGame(saved = null) {
       state.healCooldown = 40; return result(true, '所有存活獵人恢復 45% 生命。');
     },
     expedition() {
-      if (state.expedition.active) return result(false, '獵人正在討伐暮林領主。');
+      if (state.expedition.active) return result(false, '獵人正在討伐森林領主。');
       if (state.expedition.cooldown > 0) return result(false, `整備中，${Math.ceil(state.expedition.cooldown)} 秒後可再次討伐。`);
       if (!state.hunters.some(h => h.hp > 0 && h.task !== 'dungeon' && h.task !== 'arena')) return result(false, '目前沒有可出征的獵人。');
       const boss = spawn('boss', regionCenter(state.region) || REGIONS[1]); Object.assign(state.expedition, { active: true, bossHp: boss.hp, bossMaxHp: boss.maxHp, elapsed: 0 });
       for (const h of state.hunters) if (!h.task && h.hp > 0) h.targetId = boss.id;
-      log('暮林領主現身！村外獵人開始集結討伐。', 'warning'); effect('boss', boss); return result(true, '暮林領主已出現，獵人正前往討伐！');
+      log('森林領主現身！村外獵人開始集結討伐。', 'warning'); effect('boss', boss); return result(true, '森林領主已出現，獵人正前往討伐！');
     },
     retreatDungeon() { if (!state.dungeon.active) return result(false, '地下城小隊不在探險中。'); endDungeon(false, true); return result(true, '小隊撤退，正返回村莊。'); },
     setDungeonAuto(on) { state.dungeon.auto = !!on; return result(true, on ? '自動續戰：打完一層會直接挑戰下一層。' : '自動續戰已關閉：打完這一層就回村。'); },
@@ -1679,10 +1735,14 @@ export function createGame(saved = null) {
       const sum = { seconds: Math.round(sampled + rest), capped: number(totalSeconds, 0) > OFFLINE.max, kills: state.totalKills - snap.kills, wanderKills: (state.wanderKills || 0) - snap.wanderKills, res: {}, levels: [],
         dungeon: state.dungeon.bestFloor > snap.bestFloor || state.dungeon.active ? { from: snap.bestFloor, to: state.dungeon.bestFloor, active: state.dungeon.active, floor: state.dungeon.floor } : null };
       for (const k of RESOURCE_KEYS) sum.res[k] = state[k] - snap.res[k];
+      // 2026-11-12:「你的獵人」與「流浪英雄」分開列:擊倒數、打怪拿到的金幣(gold)、付給村莊的金幣(paid = 村莊從他們身上的收入)
+      const dc = k => Math.max(0, (state.counts[k] || 0) - (snap.counts?.[k] || 0));
+      sum.hunters = { kills: sum.kills, gold: dc('hunterGold'), paid: dc('hunterPay') };
+      sum.wanderers = { kills: sum.wanderKills, gold: dc('wanderGold'), paid: dc('wanderPay') };
       for (const h of state.hunters) { const s0 = snap.hunters[h.id]; if (s0 && h.level > s0.level && h.rebirths === s0.rebirths) sum.levels.push({ name: h.name, from: s0.level, to: h.level }); }
       refreshQuest();
       const hh = Math.floor(sum.seconds / 3600), mm = Math.floor(sum.seconds % 3600 / 60);
-      log(`離線 ${hh ? hh + ' 小時 ' : ''}${mm} 分鐘：獵人擊倒 ${sum.kills} 隻魔物，村莊金幣 ${sum.res.gold >= 0 ? '+' : ''}${sum.res.gold}。`, 'success');
+      log(`離線 ${hh ? hh + ' 小時 ' : ''}${mm} 分鐘：你的獵人擊倒 ${sum.kills} 隻魔物、流浪英雄擊倒 ${sum.wanderKills} 隻，村莊金幣 ${sum.res.gold >= 0 ? '+' : ''}${sum.res.gold}。`, 'success');
       return sum;
     },
     questList() { return QUESTS.map(q => ({ title: q.title, description: q.description, target: q.target, reward: { ...q.reward } })); },   // 委託章節鏈畫面用(唯讀)
@@ -1695,7 +1755,7 @@ export function createGame(saved = null) {
     setRally(x, z) {
       if (!walkable(x,z) || inVillage(x,z) || blocked({ x, z })) return result(false, '請在村外空地設定集結點。');
       state.rally = { x, z }; effect('rally', state.rally);
-      for (const h of state.hunters) if (h.hp > 0) { h.huntRegion = h.huntRegion ?? state.region; h.targetId = null; if (!h.task) { h.status = '出征中'; h.rallying = true; route(h,[state.rally]); } }
+      for (const h of state.hunters) if (h.hp > 0) { h.huntRegion = h.huntRegion ?? state.region; h.autoHunt = false; h.targetId = null; if (!h.task) { h.status = '出征中'; h.rallying = true; route(h,[state.rally]); } }
       return result(true, '已設定獵人集結點。');
     },
     exploreRegion(regionId) {
@@ -1704,7 +1764,7 @@ export function createGame(saved = null) {
       state.region=region.id;state.rally=null;if(!state.visitedRegions.includes(region.id))state.visitedRegions.push(region.id);
       state.enemies=state.enemies.filter(e=>e.type==='boss'||e.regionId!==region.id);const mix=mixOf(region.id);preloadMix(mix);for(let i=0;i<12;i++)spawn(mix[Math.floor(random()*mix.length)],null,region.id);
       // 給「所有」存活獵人下指令(正在村內辦事的也先記下,辦完就出發),不要漏掉。
-      for(const h of state.hunters)if(h.hp>0){h.huntRegion=region.id;h.targetId=null;if(!h.task){h.rallying=true;h.status='出征中';route(h,ringWaypoints({x:h.x,z:h.z},regionEdge(region.id)));}}
+      for(const h of state.hunters)if(h.hp>0){h.huntRegion=region.id;h.autoHunt=false;h.targetId=null;if(!h.task){h.rallying=true;h.status='出征中';route(h,ringWaypoints({x:h.x,z:h.z},regionEdge(region.id)));}}
       log(`已派遣獵人前往${region.name}。隊伍會經由橋樑穿越河流。`,'success');return result(true,`出發探索${region.name}！`);
     },
     dispatchHunters(regionId = null, hunterIds = null) {
@@ -1722,7 +1782,7 @@ export function createGame(saved = null) {
       const chosen = Array.isArray(hunterIds) && hunterIds.length ? new Set(hunterIds) : null;
       let n = 0;
       for (const h of state.hunters) if (h.hp > 0 && (!chosen || chosen.has(h.id))) {
-        h.huntRegion = region.id; h.targetId = null;
+        h.huntRegion = region.id; h.autoHunt = false; h.targetId = null;   // 玩家派令優先:自主狩獵的也改聽指令
         if (!h.task) { h.rallying = true; h.status = '出征中'; route(h, ringWaypoints({ x: h.x, z: h.z }, regionEdge(region.id))); }
         n++;
       }
@@ -1801,17 +1861,16 @@ export function createGame(saved = null) {
         // 「這組打不打得動」用跟流浪英雄挑區域同一條公式(comfort vs threat),不要另立一套標準。
         fit(ids = []) {
           const team = state.hunters.filter(h => h.hp > 0 && (!ids.length || ids.includes(h.id)));
-          if (!team.length) return null;
-          const comfort = team.reduce((n, h) => n + h.defense * 2 + h.level * 0.5 + h.attack * 0.15 + 8, 0) / team.length;
-          const threat = Math.max(...monsters.map(m => m.attack)) * r.risk;
-          return { comfort: Math.round(comfort), threat: Math.round(threat), verdict: comfort >= threat * 1.15 ? 'easy' : comfort >= threat ? 'ok' : 'hard' };
+          const f = regionFit(team, r);   // 同一條公式也給獵人自主挑區用(autoHuntRegion)
+          return f && { comfort: Math.round(f.comfort), threat: Math.round(f.threat), verdict: f.verdict };
         },
       };
     },
     recallHunters(regionId=null) {
-      // 收回狩獵指令:沒有指令的獵人會回到村內待機,等下一次派令。
+      // 收回狩獵指令(含自己出去打獵的):回村待機,AUTO_HUNT.recallHold 秒內不會再自己出門;之後照常自主狩獵,或等下一次派令。
       let n=0;
-      for(const h of state.hunters){ if(regionId&&h.huntRegion!==regionId)continue; if(h.huntRegion){h.huntRegion=null;h.targetId=null;h.rallying=false;if(!h.task)idleInTown(h);n++;} }
+      // 全體召回時,剛好在村裡辦事/待機的也一起「先別出門」(不然召回完,下一秒他們又自己出發)。
+      for(const h of state.hunters){ if(regionId&&h.huntRegion!==regionId)continue; h.autoReadyAt=state.time+AUTO_HUNT.recallHold; if(h.huntRegion){h.huntRegion=null;h.autoHunt=false;h.targetId=null;h.rallying=false;if(!h.task)idleInTown(h);n++;} }
       if(!n)return result(false,'目前沒有正在出征的獵人。');
       log(`已召回 ${n} 位獵人回村待機。`,'success');return result(true,`${n} 位獵人回村待機。`);
     },

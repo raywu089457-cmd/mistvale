@@ -8,6 +8,8 @@
 //     * 抽屜頂部：#modal .modal-title h2 非空、Ark Pixel、14px，左邊 #modal-icon 有圖示，右上有 32px 圓形關閉鈕（手機 44px）
 //     * 16 個面板的標題字級、字體、內容區內距（桌機 12px／手機 10px）、關閉鈕尺寸全部一致，沒有橫向捲動
 //   舊的「banner 標題比 modal 標題小」層級斷言：沒有橫幅了，改成「標題 14px 不小於內容區內最大的 h3/h4 小標」。
+// 2026-11-12 Z1:面板分兩種外殼——A 頁籤抽屜(標題＝頁籤、圖示、右上圓形 X、14px)與 C 置中視窗(置中標題 20px、沒有圖示與 X、底部按鈕列有關閉)。
+//   兩種都要「同一模式內全部一致、沒有橫幅插畫、沒有橫向溢出」;有子頁籤的 A 抽屜(地下城／倉庫)以選中的子頁籤當標題。
 // Usage: node tools/checks/panel-headers.mjs
 //        $env:SHOTS='1'; node tools/checks/panel-headers.mjs
 // Exit: 0 = PASS line only, 1 = FIX lines.
@@ -48,8 +50,9 @@ const measure = page => page.evaluate(() => {
   const modal = document.querySelector('#modal');
   const content = document.querySelector('#modal-content');
   if (!modal || modal.parentElement.classList.contains('hidden')) return { missing: true };
-  const h2 = modal.querySelector('.modal-title h2');
-  const icon = modal.querySelector('.modal-title #modal-icon');
+  const sub = modal.querySelector('#modal-subtabs:not([hidden]) .z1-subtab.on');
+  const h2 = sub || modal.querySelector('.modal-title h2');
+  const icon = sub || modal.querySelector('.modal-title #modal-icon');
   const close = modal.querySelector('.modal-title [data-action="close"]');
   const cs = getComputedStyle(content);
   const h2cs = h2 ? getComputedStyle(h2) : null;
@@ -61,7 +64,8 @@ const measure = page => page.evaluate(() => {
     h2size: h2cs ? parseFloat(h2cs.fontSize) : 0,
     h2fam: h2cs ? h2cs.fontFamily : '',
     h2inside: !!hr && hr.width > 0 && hr.left >= mr.left - 1 && hr.right <= mr.right + 1,
-    icon: !!icon && !!icon.dataset.icon && icon.getBoundingClientRect().width > 0 && icon.innerHTML.trim().length > 0,
+    mode: modal.dataset.mode, footBtn: !!modal.querySelector('#modal-foot button') && modal.querySelector('#modal-foot button').getBoundingClientRect().height >= 40,
+    icon: !!sub || (!!icon && !!icon.dataset.icon && icon.getBoundingClientRect().width > 0 && icon.innerHTML.trim().length > 0),
     closeW: close ? Math.round(close.getBoundingClientRect().width) : 0, closeH: close ? Math.round(close.getBoundingClientRect().height) : 0,
     maxSub: heads.length ? Math.max(...heads) : 0,
     padL: cs.paddingLeft, padT: cs.paddingTop, padR: cs.paddingRight,
@@ -91,18 +95,27 @@ const measure = page => page.evaluate(() => {
     if (m.banners) problems.push(`面板內還有 ${m.banners} 個橫幅插畫`);
     if (!m.h2 || m.h2.length < 2) problems.push(`頂部標題「${m.h2}」`);
     if (!m.h2inside) problems.push('標題超出面板');
-    if (!m.icon) problems.push('標題左邊沒有圖示');
-    if (Math.abs(m.h2size - 14) > 0.6) problems.push(`標題字級 ${m.h2size}`);
-    if (!/Ark Pixel/.test(m.h2fam)) problems.push(`標題字體 ${m.h2fam.split(',')[0]}`);
-    if (m.closeW !== 32 || m.closeH !== 32) problems.push(`關閉鈕 ${m.closeW}x${m.closeH}（桌機應為 32x32）`);
-    if (m.maxSub > m.h2size + 0.6) problems.push(`內容小標 ${m.maxSub}px 比頂部標題 ${m.h2size}px 還大`);
-    if (m.padL !== '12px' || m.padT !== '12px' || !['12px', '28px'].includes(m.padR)) problems.push(`內距 ${m.padT}/${m.padL}/${m.padR}（桌機應為 12px；可捲動時右內距 28px = 12 + 捲動箭頭專用邊）`);
+    if (m.mode === 'C') {
+      if (m.icon) problems.push('C 視窗標題左邊不該有圖示');
+      if (Math.abs(m.h2size - 20) > 0.6) problems.push(`C 視窗標題字級 ${m.h2size}（應 20）`);
+      if (!/Ark Pixel/.test(m.h2fam)) problems.push(`標題字體 ${m.h2fam.split(',')[0]}`);
+      if (m.closeW !== 0) problems.push(`C 視窗不該有右上 X（${m.closeW}x${m.closeH}）`);
+      if (!m.footBtn) problems.push('C 視窗底部沒有按鈕列');
+      if (m.padL !== '12px' || m.padT !== '12px') problems.push(`內距 ${m.padT}/${m.padL}/${m.padR}（C 視窗應為 12px）`);
+    } else {
+      if (!m.icon) problems.push('標題左邊沒有圖示');
+      if (Math.abs(m.h2size - 14) > 0.6) problems.push(`標題字級 ${m.h2size}`);
+      if (!/Ark Pixel/.test(m.h2fam)) problems.push(`標題字體 ${m.h2fam.split(',')[0]}`);
+      if (m.closeW !== 32 || m.closeH !== 32) problems.push(`關閉鈕 ${m.closeW}x${m.closeH}（桌機 A 抽屜應為 32x32）`);
+      if (m.maxSub > m.h2size + 0.6) problems.push(`內容小標 ${m.maxSub}px 比頂部標題 ${m.h2size}px 還大`);
+      if (m.padL !== '12px' || m.padT !== '12px' || !['12px', '28px'].includes(m.padR)) problems.push(`內距 ${m.padT}/${m.padL}/${m.padR}（桌機應為 12px；可捲動時右內距 28px = 12 + 捲動箭頭專用邊）`);
+    }
     if (m.hscroll > 1) problems.push(`橫向溢出 ${m.hscroll}px`);
     if (problems.length) bad.push(`${a}: ${problems.join('、')}`);
     if (process.env.SHOTS) await page.screenshot({ path: `output/panel-headers/${a}.png` });
   }
   if (bad.length) for (const b of bad) fix(b);
-  else ok(`${ACTIONS.length} 個面板的頂部標題都一致（圖示＋14px Ark Pixel 標題＋32px 關閉鈕、沒有橫幅插畫、內距 12px、無橫向溢出）`);
+  else ok(`${ACTIONS.length} 個面板的標題外殼各模式一致（A 抽屜：圖示＋14px 標題＋32px X；C 視窗：20px 置中標題、沒有圖示與 X、底部按鈕列；沒有橫幅插畫、內距 12px、無橫向溢出）`);
 
   if (errs.length) fix(`desktop 頁面錯誤：${errs.slice(0, 2).join(' | ')}`);
   await ctx.close();
@@ -127,10 +140,16 @@ const measure = page => page.evaluate(() => {
     const problems = [];
     if (m.banners) problems.push(`還有 ${m.banners} 個橫幅插畫`);
     if (!m.h2 || !m.h2inside) problems.push(`頂部標題「${m.h2}」不在面板內`);
-    if (!m.icon) problems.push('標題左邊沒有圖示');
-    if (m.h2size > 15.5 || m.h2size < 13.5) problems.push(`手機標題 ${m.h2size}px 不是 14px`);
-    if (m.closeW < 44 || m.closeH < 44) problems.push(`手機關閉鈕 ${m.closeW}x${m.closeH}（觸控需 ≥44px）`);
-    if (m.padL !== '10px' || m.padT !== '10px' || !['10px', '28px'].includes(m.padR)) problems.push(`手機內距 ${m.padT}/${m.padL}/${m.padR}（應為 10px；可捲動時右內距 28px）`);
+    if (m.mode === 'C') {
+      if (m.icon || m.closeW !== 0 || !m.footBtn) problems.push(`手機 C 視窗要沒有圖示與 X、底部有按鈕列（icon=${m.icon} X=${m.closeW} foot=${m.footBtn}）`);
+      if (Math.abs(m.h2size - 20) > 0.6) problems.push(`手機 C 視窗標題 ${m.h2size}px 不是 20px`);
+      if (m.padL !== '12px' || m.padT !== '12px') problems.push(`手機 C 視窗內距 ${m.padT}/${m.padL}/${m.padR}（應為 12px）`);
+    } else {
+      if (!m.icon) problems.push('標題左邊沒有圖示');
+      if (m.h2size > 15.5 || m.h2size < 13.5) problems.push(`手機標題 ${m.h2size}px 不是 14px`);
+      if (m.closeW < 44 || m.closeH < 44) problems.push(`手機關閉鈕 ${m.closeW}x${m.closeH}（觸控需 ≥44px）`);
+      if (m.padL !== '10px' || m.padT !== '10px' || !['10px', '28px'].includes(m.padR)) problems.push(`手機內距 ${m.padT}/${m.padL}/${m.padR}（應為 10px；可捲動時右內距 28px）`);
+    }
     if (m.hscroll > 1) problems.push(`橫向溢出 ${m.hscroll}px`);
     if (problems.length) bad.push(`phone ${a}: ${problems.join('、')}`);
     if (process.env.SHOTS && a === 'codex') await page.screenshot({ path: 'output/panel-headers/phone-codex.png' });

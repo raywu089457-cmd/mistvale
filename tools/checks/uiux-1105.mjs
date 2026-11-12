@@ -267,26 +267,28 @@ if (chromium) {
         const hid = await page.evaluate(() => globalThis.__mistvaleGame.state.hunters[0]?.id);
         await act(page, 'hunter', hid); await sleep(500);
         const st = await page.evaluate(() => {
-          const c = document.querySelector('#modal-content'), d = c?.querySelector('.hunter-detail'), acts = c?.querySelector('.hunter-actions');
-          if (!d || !acts) return { open: false };
+          // Z2A:獵人卡改成 .z2-hc(裝備環＋子頁籤);動作鈕＝底部列 修煉(橄欖綠)＋關閉(紅)＋子頁籤清單列(細項見 z2a-hunter.mjs)
+          const c = document.querySelector('#modal-content'), d = c?.querySelector('.z2-hc');
+          if (!d) return { open: false };
           const cr = c.getBoundingClientRect();
           const kids = [...d.children].map(e => { const r = e.getBoundingClientRect(); return { right: r.right, left: r.left, w: r.width }; });
-          const btns = [...acts.querySelectorAll('button')];
-          const primary = btns.filter(b => getComputedStyle(b).backgroundColor.replace(/\s/g, '') === 'rgb(154,51,36)');
+          const foot = [...document.querySelectorAll('#modal-foot button')];
+          const btns = [...foot, ...c.querySelectorAll('button')].filter(b => b.getBoundingClientRect().width > 0);
+          const primary = foot.filter(b => b.dataset.foot === 'primary' && ['rgb(88,104,16)', 'rgb(80,80,80)'].includes(getComputedStyle(b).backgroundColor.replace(/\s/g, '')));   // 主動作(修煉)：可用＝橄欖綠、條件不足(新存檔沒蓋修煉地)＝灰
           return {
             open: true, overflow: c.scrollWidth - c.clientWidth,
             outside: kids.filter(k => k.right > cr.right + 1 || k.left < cr.left - 1 || k.w < 40).length,
-            nBtn: btns.length, nPrimary: primary.length,
-            small: btns.filter(b => b.getBoundingClientRect().height < 43.5 || b.getBoundingClientRect().width < 43.5).map(b => b.dataset.action),
-            actions: btns.map(b => b.dataset.action).sort(),
+            nBtn: foot.length, nPrimary: primary.length,
+            small: btns.filter(b => b.getBoundingClientRect().height < 43.5 || b.getBoundingClientRect().width < 43.5).map(b => b.dataset.action || b.className),
+            actions: foot.map(b => b.dataset.action).sort(),
           };
         });
         if (!st.open) fix('U5 hunter detail did not open');
         else {
           if (st.overflow > 1) fix(`U5 hunter detail scrollWidth overflows by ${st.overflow}px at 390x844`);
           if (st.outside) fix(`U5 ${st.outside} hunter-detail column(s) outside the panel or collapsed`);
-          if (st.nBtn !== 4) fix(`U5 hunter detail has ${st.nBtn} action buttons, expected 4 (${st.actions.join(',')})`);
-          if (st.nPrimary !== 1) fix(`U5 hunter detail has ${st.nPrimary} primary-coloured buttons, expected exactly 1`);
+          if (st.nBtn !== 2) fix(`U5 hunter detail foot has ${st.nBtn} buttons, expected 2 (train + close: ${st.actions.join(',')})`);
+          if (st.nPrimary !== 1) fix(`U5 hunter detail has ${st.nPrimary} primary buttons in the foot, expected exactly 1`);
           if (st.small.length) fix(`U5 hunter detail buttons under 44px: ${st.small.join(',')}`);
         }
         await ctx.close();

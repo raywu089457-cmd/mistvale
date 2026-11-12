@@ -3,7 +3,7 @@ import { createRequire } from 'node:module';
 const require = createRequire('C:/Users/ray/AppData/Roaming/npm/node_modules/');
 const { chromium } = require('playwright');
 
-const URL = 'http://100.79.149.0:5024/?preview=1';
+const URL = process.env.TARGET || 'http://100.79.149.0:5024/?preview=1';
 const DEVICES = [
   { name: 'phone 402x712', width: 402, height: 712 },
   { name: 'phone 360x640', width: 360, height: 640 },

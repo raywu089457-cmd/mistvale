@@ -6,8 +6,11 @@
 //   node pipeline/scripts/pixelfx/export-sheet.mjs impacts/crit-spray crit-spray
 //   node pipeline/scripts/pixelfx/export-sheet.mjs --dir D:/code/pixelfx impacts/crit-spray crit-spray
 //   node pipeline/scripts/pixelfx/export-sheet.mjs --opts '{"palette":["#000","#fff"]}' fire/fireball fireball
+//   node pipeline/scripts/pixelfx/export-sheet.mjs --actor moves/<move> <out-name>
 //
 // Exports with bg:"none" and no stand-in actor, so only the effect's own pixels land in the sheet.
+// With --actor an effect that exports `act` is rendered as an acted-out move instead: renderAct
+// draws its rigged actor and poses, one sheet cell per pose, and the pivot becomes the feet.
 // PIXELFX_DIR (or --dir) points at the pixelfx checkout; default is C:/Users/ray/pixelfx.
 //
 // Effects this project wrote (not upstream pixelfx ones) live in pipeline/scripts/pixelfx/vendor/<id>.js
@@ -24,15 +27,17 @@ const OUT_DIR = path.join(ROOT, 'assets/vfx-sheets');
 const argv = process.argv.slice(2);
 let repo = process.env.PIXELFX_DIR || 'C:/Users/ray/pixelfx';
 let opts = null;
+let actor = false;
 const rest = [];
 for (let i = 0; i < argv.length; i++) {
   if (argv[i] === '--dir') repo = argv[++i];
   else if (argv[i] === '--opts') opts = JSON.parse(argv[++i]);
+  else if (argv[i] === '--actor') actor = true;
   else rest.push(argv[i]);
 }
 const [id, nameArg] = rest;
 if (!id) {
-  console.error('usage: node pipeline/scripts/pixelfx/export-sheet.mjs [--dir <pixelfx repo>] <fx-id> [out-name]');
+  console.error('usage: node pipeline/scripts/pixelfx/export-sheet.mjs [--dir <pixelfx repo>] [--actor] <fx-id> [out-name]');
   process.exit(1);
 }
 const name = nameArg ?? id.split('/')[1];
@@ -53,8 +58,14 @@ if (fs.existsSync(vendored)) {
 }
 
 const fx = await lib.loadEffect(id);
-const r = lib.renderFrames(fx, { bg: 'none', actor: false, options: opts ?? undefined });
+// --actor: an act (a rigged walk/move) is one sheet cell per pose; otherwise the effect's own
+// pixels, plus pixelfx's stand-in actor when the effect asks for one (meta.actor).
+const acted = actor && fx.mod.act;
+const r = acted
+  ? lib.renderAct(fx, { fps: fx.meta.fps, bg: 'none', target: false, seconds: fx.meta.duration - 1 / fx.meta.fps })
+  : lib.renderFrames(fx, { bg: 'none', actor: actor, options: opts ?? undefined });
 const sheet = lib.spriteSheet(fx, r, name);
+if (acted) sheet.json.meta.pixelfx = { ...sheet.json.meta.pixelfx, ...(fx.meta.sheetExtra ?? {}), pivot: r.pivot };
 
 fs.mkdirSync(OUT_DIR, { recursive: true });
 fs.writeFileSync(path.join(OUT_DIR, `${name}.png`), sheet.png);

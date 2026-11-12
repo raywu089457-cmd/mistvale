@@ -1,7 +1,8 @@
-// welcome.mjs — T121：首次開局入門嚮導
+// welcome.mjs — T121：首次開局入門嚮導(Z2D 2026-11-12 改成白色像素氣泡、一次一步)
 //   * 只有「沒有存檔」且「不是 ?preview=1」時才該出現：自動化與老玩家都不會被擋。
-//   * 三張步驟卡要說明真正的循環（出征→蓋設施→委託與地圖），按「開始遊戲」關閉並存檔，
-//     之後重新整理不應再出現。
+//   * 氣泡一次只說一步(.z2d-step 同時 1 個、.z2d-dots 一點一步)，用「下一步」走完(出征→蓋設施→委託與地圖)，最後一步按「開始遊戲」關閉並存檔，
+//     之後重新整理不應再出現。人數從資料讀(不寫死「五位」)；開始遊戲後不再多丟「先派去地下城」的 toast(只留顧問一條主引導)。
+//   * 細節(白底粗黑框、尾巴、頭像大小、高亮手指)由 z2d-hud.mjs 量；這裡守流程。
 // Usage: node tools/checks/welcome.mjs       (game server on 5024 expected)
 //        $env:SHOTS='1'; node tools/checks/welcome.mjs
 // Exit: 0 = PASS line only, 1 = FIX lines.
@@ -28,12 +29,13 @@ const modalState = page => page.evaluate(() => {
   const content = document.querySelector('#modal-content');
   return {
     open, type: m?.dataset.type || '', title: document.querySelector('#modal-title')?.textContent || '',
-    steps: [...document.querySelectorAll('#modal-content .welcome-step')].map(s => ({
-      num: s.querySelector('.ws-num')?.textContent || '',
-      h: s.querySelector('h4')?.textContent || '',
-      p: s.querySelector('p')?.textContent?.trim() || '',
+    steps: [...document.querySelectorAll('#modal-content .z2d-step')].map(s => ({
+      num: s.dataset.step || '',
+      h: s.querySelector('.z2d-h')?.textContent || '',
+      p: s.textContent.trim(),
     })),
-    tips: document.querySelector('#modal-content .welcome-tips')?.textContent?.trim() || '',
+    dots: document.querySelectorAll('#modal-content .z2d-dots i').length,
+    n: globalThis.__mistvaleGame?.state.hunters.length || 0,
     buttons: [...document.querySelectorAll('#modal-content .welcome-actions .pixel-button')].map(b => ({ a: b.dataset.action, t: b.textContent.trim(), w: Math.round(b.getBoundingClientRect().width), h: Math.round(b.getBoundingClientRect().height) })),
     hscroll: content ? content.scrollWidth - content.clientWidth : 0,
     contentW: content ? content.clientWidth : 0,
@@ -56,21 +58,25 @@ const modalState = page => page.evaluate(() => {
   for (let i = 0; i < 40; i++) { st = await modalState(page); if (st.open && st.type === 'welcome') break; await page.waitForTimeout(150); }
   if (!st.open || st.type !== 'welcome') fix(`全新玩家沒有看到入門嚮導（modal open=${st.open} type=${st.type || '(空)'}）`);
   else {
-    if (!/歡迎|入門/.test(st.title)) fix(`入門嚮導標題是「${st.title}」`);
-    if (st.steps.length !== 3) fix(`入門嚮導有 ${st.steps.length} 張步驟卡，預期 3 張`);
-    const nums = st.steps.map(s => s.num).join('');
-    if (nums !== '123') fix(`步驟編號是 ${nums}，預期 123`);
-    const heads = st.steps.map(s => s.h);
-    for (const want of ['選人出征', '把村子蓋起來', '接著看委託與地圖']) {
-      if (!heads.includes(want)) fix(`入門嚮導缺少步驟「${want}」（目前：${heads.join('/')}）`);
+    if (st.steps.length !== 1) fix(`入門嚮導同時顯示 ${st.steps.length} 步，應一次一步`);
+    if (st.dots < 3) fix(`入門嚮導只有 ${st.dots} 步(.z2d-dots)，預期 ≥3(歡迎＋出征／蓋設施＋委託與地圖)`);
+    const cn = ['零', '一', '二', '三', '四', '五', '六', '七', '八', '九', '十'][st.n];
+    if (!st.steps[0] || !st.steps[0].p.includes(cn + '位獵人') || /五位/.test(st.steps[0].p) && st.n !== 5) fix(`第一步沒有從資料讀人數(應含「${cn}位獵人」)：${st.steps[0]?.p.slice(0, 40)}`);
+    // 逐步走完:每步都有「下一步」或「開始遊戲」，步驟內文至少 20 字
+    const seen = []; let guard = 0, cur = st;
+    while (guard++ < 8) {
+      if (cur.steps.length === 1) seen.push(cur.steps[0].p);
+      if (cur.steps[0] && cur.steps[0].p.length < 20) fix(`步驟 ${cur.steps[0].num} 說明太短（${cur.steps[0].p.length} 字）`);
+      if (cur.buttons.some(b => b.a === 'welcomeNext')) { await page.click('#modal-content [data-action="welcomeNext"]'); await page.waitForTimeout(350); cur = await modalState(page); } else break;
     }
-    for (const s of st.steps) if (s.p.length < 20) fix(`步驟 ${s.num}「${s.h}」說明太短（${s.p.length} 字）`);
-    if (!/說明/.test(st.tips)) fix(`入門嚮導沒有提示列：${st.tips}`);
-    const acts = st.buttons.map(b => b.a);
-    if (!acts.includes('welcomeStart') || !acts.includes('welcomeHelp')) fix(`入門嚮導按鈕是 ${acts.join(',')}，缺少 welcomeStart／welcomeHelp`);
+    const acts = cur.buttons.map(b => b.a);
+    if (!acts.includes('welcomeStart') || !acts.includes('welcomeHelp')) fix(`入門嚮導最後一步按鈕是 ${acts.join(',')}，缺少 welcomeStart／welcomeHelp`);
+    if (seen.length !== st.dots) fix(`走完只看到 ${seen.length} 步，點數是 ${st.dots}`);
+    if (!/委託/.test(seen.join('')) || !/地圖/.test(seen.join('')) || !/建設|蓋/.test(seen.join(''))) fix('入門嚮導沒有講到 建設／委託／地圖');
     if (st.hscroll > 1) fix(`入門嚮導橫向溢出 ${st.hscroll}px`);
-    ok(`全新玩家看到入門嚮導：${st.steps.map(s => s.num + '.' + s.h).join(' / ')}，按鈕 ${acts.join('、')}`);
+    ok(`全新玩家看到入門嚮導：一次一步、共 ${seen.length} 步，最後按鈕 ${acts.join('、')}`);
     if (process.env.SHOTS) await page.screenshot({ path: 'output/welcome/desktop.png' });
+    st = cur;
   }
 
   // 「看完整說明」→ 切到說明面板；再回來按「開始遊戲」
@@ -95,8 +101,8 @@ const modalState = page => page.evaluate(() => {
     const saved = await page.evaluate(() => { try { return !!localStorage.getItem('mistvale-pixel-v2'); } catch { return false; } });
     if (!saved) fix('按「開始遊戲」後沒有寫入存檔');
     const toast = await page.evaluate(() => [...document.querySelectorAll('#toasts .toast .toast-tx')].map(t => t.textContent));
-    if (!toast.some(t => /出發/.test(t))) fix(`按「開始遊戲」沒有提示訊息（目前：${toast.join(' / ') || '無'}）`);
-    if (!after.open && running && saved && toast.some(t => /出發/.test(t))) ok('按「開始遊戲」關閉嚮導、開始跑遊戲、寫入存檔並給一句提示');
+    if (toast.some(t => /出發吧|先派/.test(t))) fix(`按「開始遊戲」後還多丟一則 toast「${toast.join(' / ')}」，那是第三條引導(只留顧問一條)`);
+    if (!after.open && running && saved && !toast.some(t => /出發吧|先派/.test(t))) ok('按「開始遊戲」關閉嚮導、開始跑遊戲、寫入存檔，沒有多餘的引導 toast');
   }
 
   // 同一個存檔再整理一次：不應再出現
@@ -142,21 +148,18 @@ const modalState = page => page.evaluate(() => {
   if (!st.open || st.type !== 'welcome') fix(`手機上沒有看到入門嚮導（open=${st.open} type=${st.type || '(空)'}）`);
   else {
     if (st.hscroll > 1) fix(`手機入門嚮導橫向溢出 ${st.hscroll}px`);
-    const small = st.buttons.filter(b => b.h < 30);
+    const small = st.buttons.filter(b => b.h < 44);
     if (small.length) fix(`手機按鈕太矮：${small.map(b => b.a + ' ' + b.h + 'px').join(',')}`);
     const inside = await page.evaluate(() => {
-      const m = document.querySelector('#modal').getBoundingClientRect();
-      const out = [...document.querySelectorAll('#modal-content .welcome-step')].filter(s => {
+      const out = [...document.querySelectorAll('#modal-content .z2d-bubble,#modal-content .hv-dlg-face')].filter(s => {
         const r = s.getBoundingClientRect();
-        return r.left < m.left - 1 || r.right > m.right + 1;
+        return r.left < -1 || r.right > innerWidth + 1 || r.top < 0 || r.bottom > innerHeight + 1;
       }).length;
-      return { out, modal: { x: Math.round(m.x), w: Math.round(m.width) } };
+      return { out };
     });
-    if (inside.out) fix(`手機有 ${inside.out} 張步驟卡超出彈窗`);
+    if (inside.out) fix(`手機氣泡／頭像有 ${inside.out} 個超出畫面`);
     const vis = await page.evaluate(() => {
-      const c = document.querySelector('#modal-content');
-      c.scrollTop = 0;
-      const cr = c.getBoundingClientRect();
+      const cr = { top: 0, bottom: innerHeight };
       const list = [...document.querySelectorAll('#modal-content .welcome-actions .pixel-button')];
       return list.map((b) => {
         const r = b.getBoundingClientRect();
@@ -167,7 +170,7 @@ const modalState = page => page.evaluate(() => {
     const hidden = vis.filter((v) => !v.fully || !v.hit);
     if (hidden.length) fix(`手機 360x640 不用捲就看得到的按鈕不足（${hidden.map((v) => v.t).join('、')} 被切掉或點不到）`);
     else ok(`手機 360x640 不捲動就看得到而且點得到「${vis.map((v) => v.t).join('」/「')}」`);
-    if (!inside.out && st.hscroll <= 1 && !st.buttons.filter(b => b.h < 30).length) ok(`手機 360x640 嚮導 ${st.steps.length} 張卡都在彈窗內、按鈕 ${st.buttons.map(b => b.h + 'px').join('/')}、無橫向溢出`);
+    if (!inside.out && st.hscroll <= 1 && !st.buttons.filter(b => b.h < 30).length) ok(`手機 360x640 嚮導氣泡與頭像都在畫面內、按鈕 ${st.buttons.map(b => b.h + 'px').join('/')}、無橫向溢出`);
     if (process.env.SHOTS) await page.screenshot({ path: 'output/welcome/phone.png' });
   }
   if (errs.length) fix(`手機頁面錯誤：${errs.slice(0, 2).join(' | ')}`);
@@ -181,4 +184,4 @@ if (fails.length) {
   process.exit(1);
 }
 for (const o of oks) console.log('ok  ' + o);
-console.log('PASS welcome: 全新玩家會看到三步驟入門嚮導（出征／蓋設施／委託與地圖），可按「開始遊戲」開始並存檔、也可切到完整說明；有存檔或 ?preview=1 都不會再彈；手機不溢出、按鈕夠大');
+console.log('PASS welcome: 全新玩家會看到一次一步的氣泡入門嚮導（歡迎／出征與蓋設施／委託與地圖），最後可按「開始遊戲」開始並存檔、也可切到完整說明；有存檔或 ?preview=1 都不會再彈；手機不溢出、按鈕 ≥44px');

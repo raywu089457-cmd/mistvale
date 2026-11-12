@@ -26,7 +26,7 @@ for (const [label, vp, shot] of [['desktop', { width: 1440, height: 900 }, 'outp
       tiles,
       items,
       growth: [...modal.querySelectorAll('.offline-levels li')].map(tx),
-      action: tx(modal.querySelector('.encounter-actions .pixel-button')),
+      action: tx(modal.querySelector('#modal-foot [data-action=offlineOk], .encounter-actions .pixel-button')),   // Z1:收下戰報搬進 C 視窗底部按鈕列
       innerW: Math.round(modal.getBoundingClientRect().width),
       overflowX: modal.scrollWidth > modal.clientWidth + 2,
       tileW: modal.querySelector('.of-tile') ? Math.round(modal.querySelector('.of-tile').getBoundingClientRect().width) : 0,

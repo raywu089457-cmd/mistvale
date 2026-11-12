@@ -11,7 +11,8 @@ const require = createRequire('C:/Users/ray/AppData/Roaming/npm/node_modules/');
 const { chromium } = require('playwright');
 
 const URL = process.env.TARGET || 'http://100.79.149.0:5024/?preview=1';
-const ACTIONS = ['build', 'hunters', 'trade', 'craft', 'dungeon', 'arena', 'quests'];
+// Z1(2026-11-12):頁籤列只剩 5 格(建設、地下城、獵人、倉庫、交易);委託徽章住在右上委託圖示;競技場/製作已併入地下城/倉庫子頁籤(本來就沒有徽章)
+const ACTIONS = ['build', 'dungeon', 'hunters', 'inventory', 'trade', 'quests'];
 const fails = [], oks = [];
 const fix = m => fails.push(m);
 const ok = m => oks.push(m);
@@ -33,7 +34,7 @@ async function boot(viewport, opts = {}) {
 const readBadges = page => page.evaluate(actions => {
   const out = {};
   for (const a of actions) {
-    const b = document.querySelector(`#bottom-bar [data-action="${a}"]`);
+    const b = document.querySelector(`#bottom-bar [data-action="${a}"], .hv-tr2 [data-action="${a}"]`);
     if (!b) { out[a] = null; continue; }
     const r = b.getBoundingClientRect();
     out[a] = {
@@ -41,7 +42,7 @@ const readBadges = page => page.evaluate(actions => {
       content: getComputedStyle(b, '::after').content,
       aria: b.getAttribute('aria-label') || '',
       w: Math.round(r.width * 10) / 10, h: Math.round(r.height * 10) / 10,
-      label: b.querySelector('b')?.textContent || '',
+      label: b.querySelector('b')?.textContent || b.getAttribute('aria-label') || '',
     };
   }
   return out;
@@ -82,7 +83,7 @@ const readBadges = page => page.evaluate(actions => {
   if (!/1 件獎勵可領取/.test(rich.quests?.aria || '')) fix(`quests 的 aria-label 沒寫件數：${rich.quests?.aria}`);
   if (rich.hunters?.badge !== '1') fix(`有一位買得起的訪客時 hunters 徽章是 ${rich.hunters?.badge}，預期 1`);
   if (rich.trade?.badge !== '') fix(`交易不該有徽章，實際 ${rich.trade?.badge}`);
-  if (rich.craft?.badge !== '') fix(`製作不該有徽章（日常可做不算待處理），實際 ${rich.craft?.badge}`);
+  if (rich.inventory?.badge !== '' || rich.dungeon?.badge !== '') fix(`倉庫／地下城不該有徽章（製作、競技場日常可做不算待處理），實際 ${rich.inventory?.badge}/${rich.dungeon?.badge}`);
 
   // 建設徽章必須等於「建設面板裡不是 .tight、也沒有滿級」的卡片數（超過 9 顯示 9+）
   await page.evaluate(() => {
@@ -104,7 +105,7 @@ const readBadges = page => page.evaluate(actions => {
 
   // 有徽章時按鈕照樣可以按
   const opened = await page.evaluate(async () => {
-    document.querySelector('#bottom-bar [data-action="quests"]').click();
+    document.querySelector('.hv-tr2 [data-action="quests"]').click();
     await new Promise(r => setTimeout(r, 400));
     return document.querySelector('#modal')?.dataset.type || '';
   });
@@ -132,7 +133,7 @@ const readBadges = page => page.evaluate(actions => {
   const rows = await readBadges(page);
   const withBadge = ACTIONS.filter(a => rows[a] && rows[a].badge !== '');
   if (!withBadge.length) fix('phone 402x712 資源充足時一個徽章都沒有');
-  const inside = await page.evaluate(() => [...document.querySelectorAll('#bottom-bar button[data-badge]')].filter(b => b.dataset.badge).map(b => {
+  const inside = await page.evaluate(() => [...document.querySelectorAll('#bottom-bar button[data-badge], .hv-tr2 button[data-badge]')].filter(b => b.dataset.badge).map(b => {
     const r = b.getBoundingClientRect();
     return { a: b.dataset.action, x: Math.round(r.x), right: Math.round(r.right), vw: innerWidth };
   }).filter(o => o.x < 0 || o.right > o.vw + 1));

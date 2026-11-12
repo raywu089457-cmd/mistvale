@@ -38,6 +38,13 @@ const t = await run('npm', ['test'], 'test.log');
 const passes = (t.text.match(/^PASS/gm) || []).length, errLine = t.text.split('\n').find(l => /AssertionError|Error:/.test(l));
 say(t.code === 0 && passes >= 11, `npm test ${passes} 項 PASS${t.code ? ' — ' + (errLine || '').trim().slice(0, 120) : ''} (${t.sec}s)`);
 
+// 2a) 獵人自主狩獵(UX 稽核 round3 #5):全新存檔不下指令 20 分鐘,初始獵人要自己出村、有擊倒、錢有進帳;離線戰報分開列獵人/流浪英雄。純 node,quick 也跑
+{
+  const r = await run('node', ['tools/checks/hunter-autonomy.mjs'], 'hunter-autonomy.txt');
+  const fl = r.text.split(/\r?\n/).filter(l => /^ - /.test(l));
+  say(r.code === 0, `獵人自主狩獵 ${r.code === 0 ? (r.text.match(/^PASS.*$/m) || [''])[0].replace(/^PASS [^:]*:\s*/, '').slice(0, 60) : '— ' + (fl[0] || r.text.trim().split(/\r?\n/).pop() || '').trim().slice(0, 140)} (${r.sec}s)`);
+}
+
 // 2b) T151 村莊名牌不重疊(自己開臨時伺服器讀剛建好的版本,不需要 5024 那台)
 const ml = await run('node', ['tools/checks/map-labels.mjs'], 'map-labels.txt');
 const mlFix = ml.text.split('\n').filter(l => l.startsWith('FIX'));
@@ -69,6 +76,34 @@ for (const [file, label] of [['fix-c', 'FIX-C 面板 toast／資源條／切換�
   const r = await run('node', [`tools/checks/${file}.mjs`], `${file}.txt`, { TARGET: '' });
   const fl = r.text.split(/\r?\n/).filter(l => /^ - |^FIX/.test(l));
   say(r.code === 0, `${label} ${r.code === 0 ? (r.text.match(/^PASS.*$/m) || [''])[0].replace(/^PASS [^:]*:\s*/, '').slice(0, 50) : '— ' + (fl[0] || r.text.trim().split(/\r?\n/).pop() || '').trim().slice(0, 140)} (${r.sec}s)`);
+}
+
+// 2g) Z1(2026-11-12 圖鑑 v2 外殼):頁籤列 5 格、A 抽屜／C 置中視窗(遮罩蓋頁籤列、底部按鈕列、Esc／遮罩可關)、建築詳情同套外殼、按鈕語意色、舊入口可達、觸控熱區;六種視窗,自己開臨時伺服器
+{
+  const r = await run('node', ['tools/checks/z1-shell.mjs'], 'z1-shell.txt', { TARGET: '' });
+  const fl = r.text.split(/\r?\n/).filter(l => /^ - /.test(l));
+  say(r.code === 0, `Z1 外殼與頁籤列 ${(r.text.match(/^ok /gm) || []).length} 項 ok${r.code ? ' — ' + (fl[0] || r.text.trim().split(/\r?\n/).pop() || '').trim().slice(0, 140) : ''} (${r.sec}s)`);
+}
+
+// 2h) Z2A(2026-11-12 圖鑑 v2 的獵人相關畫面):獵人卡(裝備環、經驗條、子頁籤、四色狀態條、動作在底部／清單列)、名冊卡(稀有度字／邊框／右上 i)、新獵人暗帶(D)、tooltip、流浪英雄不與獵人同名;四種視窗,自己開臨時伺服器
+{
+  const r = await run('node', ['tools/checks/z2a-hunter.mjs'], 'z2a-hunter.txt', { TARGET: '' });
+  const fl = r.text.split(/\r?\n/).filter(l => /^ - /.test(l));
+  say(r.code === 0, `Z2A 獵人卡／名冊／新獵人暗帶／tooltip ${(r.text.match(/^ok /gm) || []).length} 項 ok${r.code ? ' — ' + (fl[0] || r.text.trim().split(/\r?\n/).pop() || '').trim().slice(0, 140) : ''} (${r.sec}s)`);
+}
+
+// 2i) Z2D(2026-11-12 圖鑑 v2 的 HUD 與引導):主 HUD(數字 16–18px、金幣／星晶＋框、N 徽章)、toast(暗帶金字、失敗在按鈕旁、A 抽屜上方)、開場氣泡一次一步＋高亮手指、標題「重新開始」文字連結＋確認、簡體字、小尺寸與橫向版面(R6–R11);九種視窗,自己開臨時伺服器
+{
+  const r = await run('node', ['tools/checks/z2d-hud.mjs'], 'z2d-hud.txt', { TARGET: '' });
+  const fl = r.text.split(/\r?\n/).filter(l => /^ - /.test(l));
+  say(r.code === 0, `Z2D HUD／toast／引導／標題／橫向版面 ${(r.text.match(/^ok /gm) || []).length} 項 ok${r.code ? ' — ' + (fl[0] || r.text.trim().split(/\r?\n/).pop() || '').trim().slice(0, 140) : ''} (${r.sec}s)`);
+}
+
+// 2j) Z2B(2026-11-12 圖鑑 v2 的建築與經濟畫面):建築詳情(標題 Lv.n、清單列、子頁籤、需求提示框、MAX)、建設卡(用途說明、缺料寫全)、交易所 3 欄方格、倉庫方格、製作清單列、委託列、確認框、商品賣完徽章與顧問提示;四種視窗,自己開臨時伺服器
+{
+  const r = await run('node', ['tools/checks/z2b-econ.mjs'], 'z2b-econ.txt', { TARGET: '' });
+  const fl = r.text.split(/\r?\n/).filter(l => /^ - /.test(l));
+  say(r.code === 0, `Z2B 建築詳情／建設／交易／倉庫／製作／委託／確認框／賣完導引 ${(r.text.match(/^ok /gm) || []).length} 項 ok${r.code ? ' — ' + (fl[0] || r.text.trim().split(/\r?\n/).pop() || '').trim().slice(0, 140) : ''} (${r.sec}s)`);
 }
 
 // 3) 按鈕巡檢(桌機＋手機同時)

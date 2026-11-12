@@ -6,6 +6,7 @@
 //   * 標題帶：橫幅插畫被規格拿掉（面板內不得有 .encounter-banner），標題改在抽屜頂部的 #modal .modal-title h2。
 //     斷言換成「面板內沒有橫幅插畫」＋「頂部有非空標題 h2 與關閉鈕，且都在面板範圍內」。
 //   * 按鈕高度：除了 .pixel-button，新版主按鈕 .hv-btn 與右上 .hv-i 也要 ≥44px（觸控）。
+// 2026-11-12 Z1:A 頁籤抽屜(10px 內距、標題＋右上 X)與 C 置中視窗(12px 內距、置中標題、底部按鈕列、沒有 X)分開驗;寬度在各模式內一致,上緣一致只要求 A 抽屜(C 視窗依內容高度垂直置中)。
 // Usage: node tools/checks/panel-mobile.mjs
 //        $env:SHOTS='1'; node tools/checks/panel-mobile.mjs
 import { createRequire } from 'node:module';
@@ -55,9 +56,11 @@ const measure = page => page.evaluate(() => {
   const btns = [...modal.querySelectorAll('button')].map(b => ({ el: b, r: b.getBoundingClientRect() })).filter(o => o.r.width > 0 && o.r.height > 0);
   const tiny = btns.filter(o => o.r.height < 34).map(o => `${(o.el.textContent || '').trim().slice(0, 6) || o.el.dataset.action}:${Math.round(o.r.height)}`);
   const primary = [...modal.querySelectorAll('.pixel-button,.hv-btn,.hv-i')].map(b => b.getBoundingClientRect().height).filter(h => h > 0);
-  const h2 = modal.querySelector('.modal-title h2'), closeBtn = modal.querySelector('.modal-title [data-action="close"]');
+  const sub0 = modal.querySelector('#modal-subtabs:not([hidden]) .z1-subtab.on');
+  const h2 = sub0 || modal.querySelector('.modal-title h2'), closeBtn = modal.querySelector('.modal-title [data-action="close"]');
   const inside = e => { if (!e) return false; const r = e.getBoundingClientRect(); return r.width > 0 && r.left >= mr.left - 1 && r.right <= mr.right + 1 && r.top >= mr.top - 1 && r.bottom <= mr.bottom + 1; };
   return {
+    mode: modal.dataset.mode, foot: !!modal.querySelector('#modal-foot button'),
     w: Math.round(mr.width), top: Math.round(mr.top), bottom: Math.round(mr.bottom),
     padT: cs.paddingTop, padL: cs.paddingLeft, padR: cs.paddingRight,
     banners: modal.querySelectorAll('.encounter-banner').length,
@@ -75,29 +78,29 @@ for (const a of ACTIONS) {
   await open(a);
   const m = await measure(page);
   if (m.missing) { fix(`${a}: 面板沒出現`); bad++; continue; }
-  if (m.padT !== '10px' || m.padL !== '10px' || !['10px', '28px'].includes(m.padR)) { fix(`${a}: 內距 ${m.padT}/${m.padL}/${m.padR}（手機應為 10px；內容可捲動時右內距 28px = 10 + 捲動箭頭專用邊）`); bad++; }
+  const isC = m.mode === 'C';
+  if (isC ? (m.padT !== '12px' || m.padL !== '12px') : (m.padT !== '10px' || m.padL !== '10px' || !['10px', '28px'].includes(m.padR))) { fix(`${a}: 內距 ${m.padT}/${m.padL}/${m.padR}（手機應為 10px；內容可捲動時右內距 28px = 10 + 捲動箭頭專用邊）`); bad++; }
   if (m.banners) { fix(`${a}: 面板內還有 ${m.banners} 個橫幅插畫（新設計不放橫幅）`); bad++; }
   if (!m.title || !m.titleInside) { fix(`${a}: 抽屜頂部沒有標題或標題超出面板（「${m.title}」）`); bad++; }
-  if (!m.closeInside) { fix(`${a}: 抽屜右上的關閉鈕不在面板內`); bad++; }
+  if (isC ? !m.foot : !m.closeInside) { fix(`${a}: ${isC ? 'C 視窗底部沒有按鈕列' : '抽屜右上的關閉鈕不在面板內'}`); bad++; }
   if (m.hscroll > 1) { fix(`${a}: 橫向溢出 ${m.hscroll}px`); bad++; }
   if (m.primaryCount > 0 && m.primaryMin < 44) { fix(`${a}: 主要按鈕只有 ${m.primaryMin}px 高（手機觸控目標 ≥44px）`); bad++; }
   if (m.tiny.length) { fix(`${a}: 有 ${m.tiny.length} 個按鈕小於 34px（${m.tiny.slice(0, 3).join('、')}）`); bad++; }
-  geo.push({ a, w: m.w, top: m.top, bottom: m.bottom });
+  geo.push({ a, w: m.w, top: m.top, bottom: m.bottom, mode: m.mode });
   if (process.env.SHOTS && ['build', 'codex', 'settings'].includes(a)) await page.screenshot({ path: `output/panel-mobile/${a}.png` });
 }
 if (!bad) ok(`${ACTIONS.length} 個面板都有頂部標題與關閉鈕、沒有橫幅插畫、內距 10px、主要按鈕 ≥44px、沒有小於 34px 的按鈕、沒有橫向溢出`);
 
-// 版型不變量：寬度一致、上緣一致（短面板內容自適應高度是允許的）、下緣不超出畫面
-const widths = [...new Set(geo.map(g => g.w))];
-const tops = [...new Set(geo.map(g => g.top))];
-const maxBottom = Math.max(...geo.map(g => g.bottom));
-const shortPanel = geo.find(g => g.bottom < maxBottom - 20);
-if (widths.length > 1) fix(`面板寬度不一致：${widths.join(' / ')}`);
-if (tops.length > 1) fix(`面板上緣不一致（不該因為內容短就浮在畫面中間）：${tops.join(' / ')}`);
-if (widths.length === 1 && tops.length === 1) {
-  ok(`面板版型一致：${widths[0]}px 寬、上緣都是 ${tops[0]}px（${ACTIONS.length - (shortPanel ? 1 : 0)} 個填滿、${shortPanel ? shortPanel.a + ' 內容短所以比較矮' : '無例外'}）`);
+// 版型不變量(各模式內)：寬度一致、A 抽屜上緣一致、下緣不蓋到頁籤列
+for (const mode of ['A', 'C']) {
+  const g = geo.filter(x => x.mode === mode); if (!g.length) continue;
+  const widths = [...new Set(g.map(x => x.w))], tops = [...new Set(g.map(x => x.top))], maxBottom = Math.max(...g.map(x => x.bottom));
+  const okW = mode === 'C' ? widths.filter(w => Math.abs(w - VW * 0.85) > 3 && Math.abs(w - VW * 0.94) > 3 && Math.abs(w - 320) > 3) : (widths.length > 1 ? widths : []);
+  if (okW.length) fix(`${mode} 模式面板寬度不一致：${widths.join(' / ')}`);
+  if (mode === 'A' && tops.length > 1) fix(`A 抽屜上緣不一致：${tops.join(' / ')}`);
+  if (maxBottom > VH - 70 - (mode === 'C' ? 15 : 0) + 1) fix(`${mode} 模式面板下緣 ${maxBottom} 蓋到頁籤列或太靠近（${VH}）`);
+  if (!okW.length && (mode === 'C' || tops.length === 1)) ok(`${mode} 模式 ${g.length} 個面板版型一致：寬 ${widths.join('/')}px${mode === 'A' ? `、上緣都是 ${tops[0]}px` : '（85%／世界地圖 94%／確認框 320）'}`);
 }
-if (maxBottom > VH - 40) fix(`面板下緣 ${maxBottom} 太靠近／超出畫面底部（${VH}）`);
 if (errs.length) fix(`頁面錯誤：${errs.slice(0, 2).join(' | ')}`);
 
 await browser.close();

@@ -129,15 +129,16 @@ if (sceneNeeded) for (const v of VIEWS) {
       const I = document.querySelector('#inspector'), r = I.getBoundingClientRect(), bar = document.querySelector('#bottom-bar').getBoundingClientRect(), note = I.querySelector('.inspect-note'), lv = I.querySelector('.inspect-level');
       const acts = [...I.querySelectorAll('.inspect-actions button')].map(b => ({ cls: b.className, bg: getComputedStyle(b).backgroundColor, dis: b.disabled }));
       const done = I.querySelector('.inspect-done');
-      return { open: !I.classList.contains('hidden'), l: r.left, rr: innerWidth - r.right, w: r.width, gap: bar.top - r.bottom, noteW: note ? note.getBoundingClientRect().width : 0, lvPx: lv ? parseFloat(getComputedStyle(lv).fontSize) * (lv.currentCSSZoom || 1) : 0, acts, done: done ? { text: done.textContent.trim(), c: getComputedStyle(done).color } : null, lock: !!I.querySelector('.hv-lock'), I: I.scrollHeight > I.clientHeight + 1 };
+      return { mode: I.dataset.mode, h: r.height, open: !I.classList.contains('hidden'), l: r.left, rr: innerWidth - r.right, w: r.width, gap: bar.top - r.bottom, noteW: note ? note.getBoundingClientRect().width : 0, lvPx: lv ? parseFloat(getComputedStyle(lv).fontSize) * (lv.currentCSSZoom || 1) : 0, acts, done: done ? { text: done.textContent.trim(), c: getComputedStyle(done).color } : null, lock: !!I.querySelector('.hv-lock'), I: I.scrollHeight > I.clientHeight + 1 };
     });
     if (want('G5')) {
       const g = await geo(); const W = Math.min(960, v.w - 32);
       chk(g.open, T('建築詳情') + ': 打得開', T('建築詳情') + ': 沒打開');
-      chk(Math.abs(g.gap) <= 1, T('建築詳情') + ': 下緣貼在頁籤列上方', T('建築詳情') + `: 不是底部抽屜（下緣離頁籤列 ${Math.round(g.gap)}px）`);
-      if (landscapeDrawer) chk(Math.abs(g.rr) <= 1 && Math.abs(g.w - Math.min(440, v.w * .52)) <= 3, T('建築詳情') + `: 橫向右側抽屜（貼右、寬 ${Math.round(g.w)}＝min(440,52vw)）`, T('建築詳情') + `: 橫向應是右側抽屜 min(440,52vw)，實際寬 ${Math.round(g.w)}、右空 ${Math.round(g.rr)}px`);
-      else if (drawerFull) chk(Math.abs(g.l) <= 1 && Math.abs(g.rr) <= 1, T('建築詳情') + ': 手機滿寬（左右各 0）', T('建築詳情') + `: 手機沒有滿寬（左空 ${Math.round(g.l)}px、右空 ${Math.round(g.rr)}px）`);
-      else chk(Math.abs(g.w - W) <= 1.5 && Math.abs(g.l - g.rr) <= 1.5, T('建築詳情') + `: 寬 ${Math.round(g.w)}＝min(960,100vw-32) 且置中`, T('建築詳情') + `: 寬 ${Math.round(g.w)}（應 ${W}）、左 ${Math.round(g.l)}／右 ${Math.round(g.rr)} 不置中`);
+      // Z1(2026-11-12):建築詳情是 C 置中視窗(遮罩蓋頁籤列、水平置中、高 ≤ min(100vh−頁籤列−32,760)、橫向 ≤ 100%−24),不再是底部抽屜;完整幾何見 z1-shell.mjs
+      const cw = landscapeDrawer ? Math.min(720, v.w * .92) : portraitPhone ? v.w * .85 : Math.min(560, v.w * .85);
+      chk(g.mode === 'C' && Math.abs(g.l - g.rr) <= 1.5, T('建築詳情') + ': C 置中視窗且水平置中', T('建築詳情') + `: 不是置中 C 視窗(mode=${g.mode}、左 ${Math.round(g.l)}／右 ${Math.round(g.rr)})`);
+      chk(Math.abs(g.w - cw) <= 2.5, T('建築詳情') + `: 寬 ${Math.round(g.w)}＝${Math.round(cw)}`, T('建築詳情') + `: 寬 ${Math.round(g.w)} 應 ${Math.round(cw)}`);
+      chk(landscapeDrawer ? g.h <= v.h - 24 + 1.5 : g.gap >= 15, T('建築詳情') + ': 底緣離頁籤列 ≥16(橫向高 ≤ 100%−24)', T('建築詳情') + `: 底緣離頁籤列 ${Math.round(g.gap)}px／高 ${Math.round(g.h)}`);
       if (portraitPhone) chk(g.noteW >= g.w * .8, T('建築詳情') + `: 說明列用滿寬（${Math.round(g.noteW)}/${Math.round(g.w)}）`, T('建築詳情') + `: 說明列只有 ${Math.round(g.noteW)}px（擠成窄欄）`);
       chk(g.lvPx >= 11.95, T('建築詳情') + `: 等級字 ${g.lvPx}px ≥ 12`, T('建築詳情') + `: 等級字 ${g.lvPx}px < 12`);
       await shot(page, 'inspector-' + v.w + 'x' + v.h);
@@ -177,11 +178,13 @@ if (sceneNeeded) for (const v of VIEWS) {
   if (want('G10')) {
     const cardsOf = (sel) => page.evaluate(sel => [...document.querySelectorAll('#modal-content ' + sel)].map(c => { const cr = c.getBoundingClientRect(); const bs = [...c.querySelectorAll('button')].map(b => { const r = b.getBoundingClientRect(); return { w: r.width, h: r.height, f: r.width / cr.width }; }); const big = bs.filter(b => b.f >= .85), small = bs.filter(b => b.f < .85); return { big: big.length, small: small.length, minS: small.length ? Math.min(...small.map(b => Math.min(b.w, b.h))) : 99, maxS: small.length ? Math.max(...small.map(b => Math.max(b.w, b.h))) : 0 }; }), sel);
     const lim = v.phone ? 43.5 : 31.5;
-    for (const [scene, sel, label] of [['trade', '.trade-row', '交易列'], ['craft', '.craft-card', '製作卡'], ['worldmap', '.region-card', '區域卡']]) {
+    // Z2B(2026-11-12 圖鑑 e/f 節):交易列=方格(一顆滿寬金棕膠囊＋2×2 步進鈕,步進鈕不再是 ≤48 的小圖示鈕);製作卡=清單列(.zc-row:右側一顆金棕「製作」＋小鈕「做滿」,沒有滿寬鈕)
+    for (const [scene, sel, label] of [['trade', '.trade-row', '交易列'], ['craft', '.zc-row', '製作卡'], ['worldmap', '.region-card', '區域卡']]) {
       await reset(page); await act(page, scene); await page.waitForTimeout(500);
       const cs = await cardsOf(sel);
+      if (scene === 'craft') { chk(cs.length > 0 && cs.every(c => c.big === 0 && c.small >= 1 && c.minS >= lim), T(label) + `: ${cs.length} 列清單,每列右側金棕動作鈕＋小鈕(≥${lim}px)`, T(label) + `: 清單列按鈕結構不對(滿寬 ${[...new Set(cs.map(c => c.big))].join('/')}、小鈕 ${[...new Set(cs.map(c => c.small))].join('/')}、最小 ${Math.min(...cs.map(c => c.minS))})`); if (v.w === 1440 || v.w === 390) await shot(page, `${scene}-${v.w}x${v.h}`); continue; }
       chk(cs.length > 0 && cs.every(c => c.big === 1), T(label) + `: ${cs.length} 張卡每張一顆滿寬主按鈕`, T(label) + `: 每張卡的滿寬按鈕數 ${[...new Set(cs.map(c => c.big))].join('/')}（應 1），小按鈕數 ${[...new Set(cs.map(c => c.small))].join('/')}`);
-      chk(cs.every(c => c.minS >= lim && c.maxS <= 48.5), T(label) + `: 其餘動作是 ${v.phone ? 44 : 32}px 小圖示鈕`, T(label) + `: 小鈕尺寸不對（最小 ${Math.min(...cs.map(c => c.minS))}、最大 ${Math.max(...cs.map(c => c.maxS))}）`);
+      chk(cs.every(c => c.minS >= lim && (scene === 'trade' || c.maxS <= 48.5)), T(label) + `: 其餘動作是 ${v.phone ? 44 : 32}px 小圖示鈕`, T(label) + `: 小鈕尺寸不對（最小 ${Math.min(...cs.map(c => c.minS))}、最大 ${Math.max(...cs.map(c => c.maxS))}）`);
       if (v.w === 1440 || v.w === 390) await shot(page, `${scene}-${v.w}x${v.h}`);
     }
     // 製作與交易的功能不能少:-10/-1/+1/+10 都在、做滿在
@@ -189,18 +192,19 @@ if (sceneNeeded) for (const v of VIEWS) {
     const ds = await page.evaluate(() => [...document.querySelectorAll('#modal-content .trade-row')][0] ? [...new Set([...document.querySelectorAll('#modal-content .trade-row')[0].querySelectorAll('[data-action=tradeStep]')].map(b => b.dataset.d))].sort().join(',') : '');
     chk(ds === '-1,-10,1,10', T('交易列') + ': −10／−1／＋1／＋10 四個動作都還在', T('交易列') + `: 動作不全（${ds}）`);
     await reset(page); await act(page, 'craft'); await page.waitForTimeout(400);
-    const mx = await page.evaluate(() => document.querySelectorAll('#modal-content .craft-card [data-batches]').length);
+    const mx = await page.evaluate(() => document.querySelectorAll('#modal-content .zc-row [data-batches]').length);
     chk(mx >= 1, T('製作卡') + ': 「做滿」動作還在（小圖示鈕）', T('製作卡') + ': 做滿動作不見了');
-    // 詳情頁:一顆磚紅主按鈕、全部按鈕一屏看得到
+    // 詳情頁(Z2A 改版):底部列 修煉(橄欖綠)＋關閉(紅),一屏看得到;學習技能／強化裝備／轉世在子頁籤清單列(見 z2a-hunter.mjs)
     const hid = await page.evaluate(() => globalThis.__mistvaleGame.state.hunters[0].id);
     await reset(page); await act(page, 'hunter', hid); await page.waitForTimeout(500);
-    const hd = await page.evaluate(() => { const c = document.querySelector('#modal-content'), cr = c.getBoundingClientRect(); const bs = [...c.querySelectorAll('.hunter-actions button')].map(b => { const r = b.getBoundingClientRect(); return { vis: r.top >= cr.top - .5 && r.bottom <= cr.bottom + .5, red: getComputedStyle(b).backgroundColor === 'rgb(154, 51, 36)', lock: !!b.querySelector('.hv-lock'), dis: b.disabled }; }); return { n: bs.length, vis: bs.every(b => b.vis), red: bs.filter(b => b.red).length, lockOk: bs.filter(b => b.dis).every(b => b.lock) }; });
-    chk(hd.n === 4 && hd.red === 1, T('獵人詳情') + ': 4 顆按鈕只有 1 顆磚紅主按鈕', T('獵人詳情') + `: 按鈕 ${hd.n} 顆、磚紅 ${hd.red} 顆`);
+    const hd = await page.evaluate(() => { const c = document.querySelector('#modal-content'), cr = c.getBoundingClientRect(); const bs = [...document.querySelectorAll('#modal-foot button')].map(b => { const r = b.getBoundingClientRect(); return { vis: r.top >= 0 && r.bottom <= innerHeight, red: getComputedStyle(b).backgroundColor === 'rgb(88, 104, 16)', lock: !!b.querySelector('.hv-lock'), dis: b.disabled }; }); return { n: bs.length, vis: bs.every(b => b.vis), red: bs.filter(b => b.red).length, lockOk: bs.filter(b => b.dis).every(b => b.lock) }; });
+    chk(hd.n === 2 && hd.red === 1, T('獵人詳情') + ': 底部按鈕列 修煉＋關閉,只有 1 顆橄欖綠主按鈕(Z2A:其餘動作在子頁籤清單列)', T('獵人詳情') + `: 按鈕 ${hd.n} 顆、橄欖綠 ${hd.red} 顆`);
     chk(hd.vis, T('獵人詳情') + ': 全部按鈕一屏內看得到（不用捲動）', T('獵人詳情') + ': 有按鈕要捲動才看得到');
     await shot(page, `hunter-detail-${v.w}x${v.h}`);
     await reset(page); await act(page, 'regionDetail', 'meadow'); await page.waitForTimeout(500);
-    const rd = await page.evaluate(() => { const c = document.querySelector('#modal-content'), cr = c.getBoundingClientRect(); const bs = [...c.querySelectorAll('.dispatch-go button')].map(b => { const r = b.getBoundingClientRect(); return { w: r.width, vis: r.top >= cr.top - .5 && r.bottom <= cr.bottom + .5, red: getComputedStyle(b).backgroundColor === 'rgb(154, 51, 36)' }; }); const red = bs.find(b => b.red); return { n: bs.length, red: bs.filter(b => b.red).length, vis: bs.every(b => b.vis), redWidest: !!red && bs.every(b => b === red || b.w * 1.4 <= red.w) }; });
-    chk(rd.n >= 2 && rd.red === 1 && rd.redWidest, T('區域詳情') + ': 只有一顆磚紅主按鈕且明顯最寬（其餘 ≤ 主鈕 70%），其餘是較小次按鈕', T('區域詳情') + `: 主按鈕結構不對（按鈕 ${rd.n}、磚紅 ${rd.red}、主鈕最寬 ${rd.redWidest}）`);
+    // Z1:區域詳情的 前往(橄欖綠)＋返回地圖(紅)住在 C 視窗底部按鈕列;「在地圖上定位」留在內容裡(金棕清單動作)
+    const rd = await page.evaluate(() => { const f = document.querySelector('#modal-foot'), fr = f.getBoundingClientRect(), bs = [...f.querySelectorAll('button')].map(b => { const r = b.getBoundingClientRect(), bg = getComputedStyle(b).backgroundColor; return { w: r.width, vis: r.top >= fr.top - .5 && r.bottom <= fr.bottom + .5, red: bg === 'rgb(88, 104, 16)', cancel: bg === 'rgb(141, 57, 37)' }; }); return { n: bs.length, red: bs.filter(b => b.red).length, cancel: bs.filter(b => b.cancel).length, vis: bs.every(b => b.vis), redWidest: true }; });
+    chk(rd.n >= 2 && rd.red === 1 && rd.cancel === 1, T('區域詳情') + ': 底部按鈕列 = 一顆橄欖綠主動作(前往)＋一顆紅(返回)', T('區域詳情') + `: 主按鈕結構不對（按鈕 ${rd.n}、橄欖綠 ${rd.red}、紅 ${rd.cancel}）`);
     chk(rd.vis, T('區域詳情') + ': 按鈕列一屏內看得到', T('區域詳情') + ': 按鈕列在視窗外');
     if (v.h <= 520) {
       await reset(page); await act(page, 'recruit'); await page.waitForTimeout(500);
@@ -218,8 +222,8 @@ if (sceneNeeded) for (const v of VIEWS) {
     const dl = await page.evaluate(() => [...document.querySelectorAll('#modal-content .difficulty-card.locked button:disabled')].map(b => { const i = b.querySelector('.hv-lock'); return { has: !!i, img: i ? getComputedStyle(i).backgroundImage !== 'none' : false }; }));
     chk(dl.length > 0 && dl.every(l => l.has && l.img), T('鎖頭(難度 未解鎖)') + `: ${dl.length} 顆都有鎖頭`, T('鎖頭(難度 未解鎖)') + `: ${dl.length} 顆未解鎖鈕沒有鎖頭圖示`);
     const hid = await page.evaluate(() => globalThis.__mistvaleGame.state.hunters[0].id);
-    await reset(page); await act(page, 'hunter', hid); await page.waitForTimeout(450);
-    const hl = await page.evaluate(() => { const b = document.querySelector('#modal-content [data-action=reincarnate]'); const i = b && b.querySelector('.hv-lock'); return { dis: b ? b.disabled : null, has: !!i, img: i ? getComputedStyle(i).backgroundImage !== 'none' : false }; });
+    await reset(page); await act(page, 'hunter', hid); await page.waitForTimeout(450); await act(page, 'hunterTab', 'rebirth'); await page.waitForTimeout(250);   // Z2A:轉世在獵人卡的「轉世」子頁籤,條件不足＝aria-disabled(仍可點,點了用提示說明)
+    const hl = await page.evaluate(() => { const b = document.querySelector('#modal-content [data-action=reincarnate]'); const i = b && b.querySelector('.hv-lock'); return { dis: b ? b.getAttribute('aria-disabled') === 'true' : null, has: !!i, img: i ? getComputedStyle(i).backgroundImage !== 'none' : false }; });
     chk(hl.dis && hl.has && hl.img, T('鎖頭(獵人詳情 轉世)') + ': 停用的轉世鈕有鎖頭', T('鎖頭(獵人詳情 轉世)') + `: 轉世鈕停用但沒有鎖頭（${JSON.stringify(hl)}）`);
   }
 

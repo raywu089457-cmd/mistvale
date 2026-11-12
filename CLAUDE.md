@@ -14,6 +14,7 @@
 - 派工:`node tools/pi-dispatch.mjs T30 T31 ...` 背景跑一次(`run_in_background`),只在完成通知時醒一次、只讀它最後的輸出——不要用會逾時的前景指令等、不要中途查看(每次醒來快取過期就重寫整段上下文,實驗 5 一張卡多花 ~335k);不要從子代理派工;它會自己跑 `Accept:`、失敗自動重派一次、記帳到 `docs/pi-tasks/cost-log.csv`。`accept PASS` 就是證據,不用自己重跑驗收。
 - **預設寫「只有目標」的卡**:`node tools/pi-card.mjs <slug> --goal-only --accept "<cmd>"|auto`,內文只寫 `## Goal`。pi 自己規劃 → 實作 → 驗收 → 另一個 pi 審核(有 high 自動重做，最多 3 次)。每張卡只印一行;`DONE accept:PASS scope:ok review:OK` 就是證據。
 - Opus 判斷只花在兩處、只讀 pi 的濃縮檔，不讀程式:有設計取捨的卡加 `Gate: plan`(停在規劃，讀 `Txx.plan.md` 後 `--approved --note "方向"`);結果行下面出現 `opus:<原因>` 時讀那份 diff,再 `node tools/pi-dispatch.mjs --opus-verdict Txx ok|missed|fixed "說明"` 記帳。
+- **審核後續派到達標(2026-11-07 使用者指示)**:Opus 讀完結果(拼圖或被標記的 diff)沒達到使用者的任務目標時，不用再問使用者，直接寫修正卡再派，一直到達標為止;每輪只讀一張拼圖或一份 diff。停下回報的條件：同一目標連續 3 張修正卡仍沒達標、累計超過 $1、或下一步需要使用者決定方向或參考(有歧義才問)。視覺卡開卡前先用一句話寫明參考圖(檔名)與成功標準。
 - 派工期間主對話不要改檔(範圍檢查會算到 pi 頭上)。
 - 執行者:2026-11-05 起正式用 dsh(DeepSeek Harness,`tools/dsh-overlay.yml`,沙箱關閉;比較結論見 `docs/pi-tasks/COST-LOG.md`)。下文的「pi」泛指派工執行者;dsh 故障時才用 `DISPATCH_AGENT=pi` 備援。
 - 依遊戲開發任務類型分工(2026-11-05 起固定,細節見 PLAYBOOK §1b):程式碼一律由執行者讀寫;Claude 只做判斷，而且只讀濃縮的輸入(一張拼圖、plan.md、被標記的 diff)。

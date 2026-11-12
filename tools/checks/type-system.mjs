@@ -170,7 +170,7 @@ await closeAll();
 // ── 4) 小字對比 ────────────────────────────────────────
 const pairs = [];
 await openModal('quests');
-const qm = await measure({ '獎勵標籤': '.qs-reward>small', '鎖住章節標籤': '.qs-tag.locked', '章節說明': '.quest-step p' });
+const qm = await measure({ '獎勵標籤': '.zq-reward>small', '鎖住章節標籤': '.zq-tag.locked', '章節說明': '.zq-row p' }   /* Z2B:委託改 .zq-row 清單列 */);
 for (const [k, v] of Object.entries(qm)) if (v) pairs.push([k, v, k === '獎勵標籤' ? 5.5 : 4.5]);
 await closeAll();
 await openModal('hunters');

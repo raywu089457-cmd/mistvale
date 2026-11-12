@@ -6,7 +6,7 @@ export const BUILDINGS = [
  {id:'trading',name:'交易所',x:-21.7,z:3.9,w:4,d:3.5,type:'trading',roof:'#427dc7',cost:{gold:160,wood:30,ore:10},desc:'發布收購委託，用村莊金幣向獵人購買戰利品，補充生產材料。',effect:'獵人出售材料 → 村莊收購'},
  {id:'restaurant',name:'餐廳',x:-12.8,z:10.8,w:4,d:3.5,type:'restaurant',roof:'#427dc7',cost:{gold:150,wood:25,ore:5},desc:'用小麥粉製作餐點。飢餓的獵人會前來購買食物。',effect:'餐點恢復飽食度',product:'food'},
  {id:'inn',name:'旅館',x:-21,z:13,w:4.3,d:3.5,type:'inn',roof:'#427dc7',cost:{gold:180,wood:35,ore:5},desc:'準備舒適床鋪，讓疲憊的獵人休息並恢復精力。',effect:'床鋪恢復精力',product:'bed'},
- {id:'tavern',name:'酒館',x:-4.6,z:18.1,w:4,d:3.4,type:'tavern',roof:'#9767bb',cost:{gold:160,wood:25,ore:10},desc:'製作飲品，讓战鬥中情緒低落的獵人重新振作。',effect:'飲品恢復心情',product:'drink'},
+ {id:'tavern',name:'酒館',x:-4.6,z:18.1,w:4,d:3.4,type:'tavern',roof:'#9767bb',cost:{gold:160,wood:25,ore:10},desc:'製作飲品，讓戰鬥中情緒低落的獵人重新振作。',effect:'飲品恢復心情',product:'drink'},
  {id:'clinic',name:'治療所',x:-23,z:20,w:4,d:3.4,type:'clinic',roof:'#b85c62',cost:{gold:150,wood:20,ore:15},desc:'準備繃帶，治療負傷的獵人。傷者會自動返村接受治療。',effect:'繃帶恢復生命',product:'bandage'},
  {id:'forge',name:'鐵匠鋪',x:-9.6,z:-13.1,w:4,d:3.3,type:'forge',roof:'#626d98',cost:{gold:220,wood:25,ore:30},desc:'用戰利品製造裝備；獵人購買後，村莊會收到貨款。',effect:'製作、販售武器與護甲'},
  {id:'academy',name:'學院',x:-2.5,z:-10.5,w:3.5,d:3.2,type:'academy',roof:'#6555ad',cost:{gold:240,wood:30,ore:25},desc:'教授戰鬥技能與轉世特性。每位獵人都可以走出不同的成長路線。',effect:'技能提高攻擊力'},

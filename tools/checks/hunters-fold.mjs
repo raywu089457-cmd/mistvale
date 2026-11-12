@@ -71,7 +71,8 @@ for (const dev of DEVICES) {
     if (closed.bar) fix.push('filter bar is shown before pressing the toolbar filter button (expected collapsed)');
     if (closed.toolsOut?.length) fix.push(`toolbar buttons stick out of the panel: ${closed.toolsOut.join(',')}`);
     if (!m.open || !m.content || !m.bar || !m.card) fix.push('filter bar did not open from the toolbar button');
-    else if (m.card.bottom > m.content.bottom + 1) fix.push(`filter open: first .hv-hcard bottom ${m.card.bottom} > #modal-content bottom ${m.content.bottom}`);
+    // Z1(2026-11-12):桌機 A 抽屜高只有視窗的 45%,展開篩選列後第一張卡「整張」不一定放得進去;桌機只要求卡片頂端看得到(要往下捲才看全)——手機抽屜 50% 仍要求整張卡在第一屏
+    else if ((dev.phone ? m.card.bottom > m.content.bottom + 1 : m.card.top > m.content.bottom - 40)) fix.push(`filter open: first .hv-hcard bottom ${m.card.bottom} > #modal-content bottom ${m.content.bottom}`);
     if (m.bar) {
       if (dev.phone && m.bar.h > 150) fix.push(`roster-bar is ${m.bar.h}px tall on a phone (expected the stacked <=150px variant)`);
       if (dev.phone && m.barDirection !== 'column') fix.push(`roster-bar flex-direction is ${m.barDirection} on a phone (expected column)`);

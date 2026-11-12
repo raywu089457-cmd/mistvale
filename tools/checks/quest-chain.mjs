@@ -1,4 +1,4 @@
-// quest-chain.mjs — T103: 村長委託的章節鏈要是「時間軸」，獎勵靠左、狀態固定在標題右側、鎖住也要能預覽。
+// quest-chain.mjs — T103→Z2B: 村長委託是清單列(標題＋進度膠囊 x/y＋獎勵;可領取=金棕「領取」、領過的壓暗、進行中/之後/已完成三段雙細線標籤)。
 // Usage: node tools/checks/quest-chain.mjs        (game server on 5024 expected; TARGET overrides)
 //        $env:SHOTS='1'; node tools/checks/quest-chain.mjs   also writes output/quests/montage.png
 // Exit: 0 = PASS line only, 1 = FIX lines.
@@ -22,42 +22,20 @@ const READ = () => {
   const c = document.querySelector('#modal-content');
   if (!c) return { open: false };
   const num = n => Math.round(n * 10) / 10;
-  const steps = [...c.querySelectorAll('.quest-step')].map(li => {
-    const r = li.getBoundingClientRect();
-    const after = getComputedStyle(li, '::after');
-    const badge = li.querySelector('.qs-num');
-    const br = badge.getBoundingClientRect();
-    const head = li.querySelector('.qs-head');
-    const h3 = li.querySelector('h3');
-    const tag = li.querySelector('.qs-tag');
-    const reward = li.querySelector('.qs-reward');
-    const chips = reward ? [...reward.querySelectorAll(':scope > span')] : [];
-    const btn = li.querySelector('button.qs-claim');
-    const prog = li.querySelector('.qs-progress');
+  const steps = [...c.querySelectorAll('.zq-row')].map(li => {
+    const r = li.getBoundingClientRect(), btn = li.querySelector('button.zq-claim'), prog = li.querySelector('.zq-cap'), reward = li.querySelector('.zq-reward');
     return {
-      cls: li.className,
-      current: li.getAttribute('aria-current'),
-      w: num(r.width),
-      badgeX: num(br.left), badgeW: num(br.width),
-      spine: { content: after.content, width: after.width, bg: after.backgroundImage },
-      title: h3 ? h3.textContent.trim() : '',
-      titleLeft: h3 ? num(h3.getBoundingClientRect().left) : 0,
-      tagText: tag ? tag.textContent.replace(/\s+/g, ' ').trim() : '',
-      tagRight: tag ? num(tag.getBoundingClientRect().right) : 0,
-      tagLock: tag ? !!tag.querySelector('[data-icon=lock]') : false,
-      headRight: head ? num(head.getBoundingClientRect().right) : 0,
-      desc: li.querySelector('p')?.textContent.trim() || '',
-      reward: reward ? {
-        label: reward.querySelector('small')?.textContent.trim() || '',
-        left: num(reward.getBoundingClientRect().left),
-        chips: chips.map(s => ({ text: s.textContent.replace(/\s+/g, ' ').trim(), icons: s.querySelectorAll('[data-icon]').length, left: num(s.getBoundingClientRect().left) })),
-      } : null,
-      btn: btn ? { label: btn.textContent.trim(), disabled: btn.disabled } : null,
+      cls: li.className, current: li.getAttribute('aria-current'), w: num(r.width), bg: getComputedStyle(li).backgroundColor,
+      title: li.querySelector('h3')?.textContent.trim() || '', desc: li.querySelector('p')?.textContent.trim() || '',
+      tagText: li.querySelector('.zq-tag')?.textContent.replace(/\s+/g, ' ').trim() || '', tagLock: !!li.querySelector('.zq-tag [data-icon=lock]'),
+      reward: reward ? { label: reward.querySelector('small')?.textContent.trim() || '', chips: [...reward.querySelectorAll(':scope > span')].map(s => ({ text: s.textContent.replace(/\s+/g, ' ').trim(), icons: s.querySelectorAll('[data-icon]').length })) } : null,
+      btn: btn ? { label: btn.textContent.trim(), disabled: btn.disabled, bg: getComputedStyle(btn).backgroundColor } : null,
       prog: prog ? { now: prog.getAttribute('aria-valuenow'), max: prog.getAttribute('aria-valuemax'), bar: prog.querySelector('b')?.textContent.trim(), pct: num(parseFloat(prog.querySelector('span')?.style.width) || 0), role: prog.getAttribute('role') } : null,
     };
   });
-  const banner = c.querySelector('.encounter-banner.quests')?.textContent.replace(/\s+/g, ' ').trim() || '';
-  return { open: true, steps, banner, scrollX: c.scrollWidth - c.clientWidth, contentW: c.clientWidth };
+  const seps = [...c.querySelectorAll('.z2b-sep')].map(s => ({ t: s.textContent.trim(), lines: parseFloat(getComputedStyle(s, '::before').borderTopWidth) + parseFloat(getComputedStyle(s, '::before').borderBottomWidth) }));
+  const banner = c.querySelector('.qs-banner')?.textContent.replace(/\s+/g, ' ').trim() || '';
+  return { open: true, steps, seps, banner, scrollX: c.scrollWidth - c.clientWidth, contentW: c.clientWidth };
 };
 
 async function boot(dev) {
@@ -96,72 +74,54 @@ for (const dev of DEVICES) {
     if (!/第 3 章／共 \d+ 章/.test(m.banner)) fix(`${tag}: 橫幅沒寫「第 3 章／共 N 章」— ${m.banner}`);
     if (!/已解鎖 3 章/.test(m.banner)) fix(`${tag}: 橫幅的已解鎖章數不對（應為 3）— ${m.banner}`);
 
-    // 2. 只有一個 current，且它能領/不能領的狀態正確
+    // Z2B(圖鑑 38／規格 k):順序＝進行中、之後的章節、已完成(各夾雙細線標籤);每列 標題＋進度膠囊 x/y＋獎勵
+    if (!m.seps.length || m.seps.some(s => s.lines < 2) || m.seps.map(s => s.t).join('|') !== '進行中|之後的章節|已完成') fix(`${tag}: 區段標籤應為「進行中｜之後的章節｜已完成」且夾雙細線 — ${JSON.stringify(m.seps)}`);
     const cur = m.steps.filter(s => s.cls.includes('current'));
     if (cur.length !== 1) fix(`${tag}: current 章節有 ${cur.length} 個`);
-    if (m.steps[2].current !== 'step') fix(`${tag}: 目前章節沒有 aria-current="step"`);
-    const c0 = m.steps[2];
-    if (/進行中/.test(c0.tagText) === false) fix(`${tag}: 未完成的當前章節標籤應寫「進行中」— ${c0.tagText}`);
-    if (!c0.btn || !c0.btn.disabled) fix(`${tag}: 未完成時領取鈕應 disabled — ${c0.btn && c0.btn.label}`);
-    if (!c0.prog) fix(`${tag}: 目前章節沒有進度條`);
+    const c0 = cur[0];
+    if (!c0) { fix(`${tag}: 沒有目前章節`); continue; }
+    if (m.steps[0] !== c0 && m.steps[0].cls !== c0.cls) fix(`${tag}: 進行中的章節應排在最上面`);
+    if (c0.current !== 'step') fix(`${tag}: 目前章節沒有 aria-current="step"`);
+    if (!c0.btn || !c0.btn.disabled || c0.btn.label !== '進行中') fix(`${tag}: 未完成時鈕應 disabled 並寫「進行中」 — ${JSON.stringify(c0.btn)}`);
+    if (!c0.prog) fix(`${tag}: 目前章節沒有進度膠囊`);
     else {
-      if (c0.prog.role !== 'progressbar') fix(`${tag}: 進度條沒有 role=progressbar`);
-      if (c0.prog.now !== '1' || c0.prog.max !== '3') fix(`${tag}: 進度條 aria 值不是 1/3 — ${c0.prog.now}/${c0.prog.max}`);
-      if (!/^1\/3$/.test(c0.prog.bar)) fix(`${tag}: 進度數字不是 1/3 — ${c0.prog.bar}`);
-      if (Math.abs(c0.prog.pct - 33.3) > 1.5) fix(`${tag}: 進度條寬度不是 1/3（${c0.prog.pct}%）`);
+      if (c0.prog.role !== 'progressbar') fix(`${tag}: 進度膠囊沒有 role=progressbar`);
+      if (c0.prog.now !== '1' || c0.prog.max !== '3') fix(`${tag}: 進度 aria 值不是 1/3 — ${c0.prog.now}/${c0.prog.max}`);
+      if (c0.prog.bar !== '1/3') fix(`${tag}: 進度膠囊文字不是 1/3 — ${c0.prog.bar}`);
+      if (Math.abs(c0.prog.pct - 33.3) > 1.5) fix(`${tag}: 進度填色不是 1/3（${c0.prog.pct}%）`);
     }
-
-    // 3. 已完成章節：✓、標籤「已完成」、不能有領取鈕
-    for (const i of [0, 1]) {
-      const s = m.steps[i];
-      if (!s.cls.includes('done')) fix(`${tag}: 第 ${i + 1} 章應為 done — ${s.cls}`);
-      if (!/已完成/.test(s.tagText)) fix(`${tag}: 第 ${i + 1} 章標籤應寫「已完成」— ${s.tagText}`);
-      if (s.btn) fix(`${tag}: 已完成的第 ${i + 1} 章不該有領取鈕`);
+    const done = m.steps.filter(s => s.cls.includes('done')), locked = m.steps.filter(s => s.cls.includes('locked'));
+    if (done.length !== 2) fix(`${tag}: 已完成章節應 2 個,實際 ${done.length}`);
+    for (const s of done) {
+      if (s.bg !== 'rgb(54, 54, 54)') fix(`${tag}: 完成的列應壓暗成 #363636 — ${s.bg}`);
+      if (!/已完成/.test(s.tagText) || s.btn) fix(`${tag}: 完成列應是灰色「已完成」且沒有領取鈕 — ${s.tagText}`);
+      if (!s.prog || s.prog.bar !== s.prog.max + '/' + s.prog.max) fix(`${tag}: 完成列的進度膠囊應是滿的 — ${s.prog && s.prog.bar}`);
     }
-
-    // 4. 鎖住的章節：鎖頭圖示＋未解鎖、沒有可按的鈕、但說明與獎勵要能預覽
-    const locked = m.steps.slice(3);
     if (locked.length < 3) fix(`${tag}: 後面鎖住的章節只有 ${locked.length} 章`);
     for (const s of locked) {
-      if (!s.cls.includes('locked')) fix(`${tag}: 「${s.title}」應該是 locked — ${s.cls}`);
-      if (!s.tagLock) fix(`${tag}: 「${s.title}」的未解鎖標籤沒有鎖頭圖示`);
-      if (!/未解鎖/.test(s.tagText)) fix(`${tag}: 「${s.title}」標籤應寫「未解鎖」— ${s.tagText}`);
+      if (!s.tagLock || !/未解鎖/.test(s.tagText)) fix(`${tag}: 「${s.title}」應有鎖頭＋「未解鎖」 — ${s.tagText}`);
       if (s.btn) fix(`${tag}: 鎖住的「${s.title}」不該有領取鈕`);
       if (!s.desc) fix(`${tag}: 鎖住的「${s.title}」沒有說明可以預覽`);
-      if (!s.reward || !s.reward.chips.length) fix(`${tag}: 鎖住的「${s.title}」沒有獎勵可以預覽`);
+      if (!s.prog || !/^0\//.test(s.prog.bar)) fix(`${tag}: 鎖住的「${s.title}」進度膠囊應從 0 起 — ${s.prog && s.prog.bar}`);
     }
-
-    // 5. 獎勵靠左對齊標題、狀態固定在標題右側
     for (const s of m.steps) {
-      if (!s.reward) { fix(`${tag}: 「${s.title}」沒有獎勵列`); continue; }
+      if (!s.reward || !s.reward.chips.length) { fix(`${tag}: 「${s.title}」沒有獎勵`); continue; }
       if (!s.reward.label) fix(`${tag}: 「${s.title}」獎勵列沒有「獎勵」小標`);
-      if (Math.abs(s.reward.left - s.titleLeft) > 2) fix(`${tag}: 「${s.title}」獎勵列沒有對齊標題左緣（${s.reward.left} vs ${s.titleLeft}）`);
-      if (!s.reward.chips.length) fix(`${tag}: 「${s.title}」獎勵列是空的`);
       for (const ch of s.reward.chips) if (!ch.icons) fix(`${tag}: 「${s.title}」的獎勵「${ch.text}」沒有圖示`);
-      if (Math.abs(s.tagRight - s.headRight) > 2) fix(`${tag}: 「${s.title}」狀態沒有貼齊標題列右緣（${s.tagRight} vs ${s.headRight}）`);
-      if (Math.abs(s.badgeX - m.steps[0].badgeX) > 1) fix(`${tag}: 「${s.title}」圓章沒有和其他章節同一條垂直線（x=${s.badgeX}）`);
       if (s.w > m.contentW + 1) fix(`${tag}: 「${s.title}」超出面板寬度 ${s.w} > ${m.contentW}`);
     }
 
-    // 6. 時間軸接線：除最後一章外都要有 2px 的連接線
-    for (let i = 0; i < m.steps.length - 1; i++) {
-      const sp = m.steps[i].spine;
-      if (sp.content === 'none' || sp.content === 'normal') fix(`${tag}: 第 ${i + 1} 章沒有時間軸連接線`);
-      if (Math.abs(parseFloat(sp.width) - 2) > 0.5) fix(`${tag}: 第 ${i + 1} 章的連接線寬度不是 2px（${sp.width}）`);
-      if (!sp.bg || sp.bg === 'none') fix(`${tag}: 第 ${i + 1} 章的連接線沒有顏色`);
-    }
-
-    // 7. 進度達成後：可領取、橫幅提示、已解鎖章數 +1
+    // 進度達成後:可領取＝金棕「領取」、橫幅提示、已解鎖章數 +1
     await page.evaluate(() => { const s = globalThis.__mistvaleGame.state; s.quest.progress = 3; s.quest.complete = true; });
     await openQuests(page);
     m = await page.evaluate(READ);
-    const c1 = m.steps[2];
-    if (!/可領取/.test(c1.tagText)) fix(`${tag}: 完成後標籤應寫「可領取」— ${c1.tagText}`);
-    if (!c1.btn || c1.btn.disabled) fix(`${tag}: 完成後領取鈕應可按 — ${c1.btn && c1.btn.label}`);
-    else if (!/領取獎勵/.test(c1.btn.label)) fix(`${tag}: 完成後領取鈕文字應為「領取獎勵」— ${c1.btn.label}`);
+    const c1 = m.steps.find(s => s.cls.includes('current'));
+    if (!c1 || !c1.cls.includes('ready')) fix(`${tag}: 完成後目前列應標 ready`);
+    if (!c1 || !c1.btn || c1.btn.disabled) fix(`${tag}: 完成後領取鈕應可按 — ${c1 && c1.btn && c1.btn.label}`);
+    else if (c1.btn.label !== '領取' || c1.btn.bg !== 'rgb(144, 104, 24)') fix(`${tag}: 完成後應是金棕「領取」 — ${JSON.stringify(c1.btn)}`);
     if (!/本章獎勵可領取/.test(m.banner)) fix(`${tag}: 橫幅沒有提示本章獎勵可領取 — ${m.banner}`);
     if (!/已解鎖 4 章/.test(m.banner)) fix(`${tag}: 完成後已解鎖章數應為 4 — ${m.banner}`);
-    if (c1.prog && Math.abs(c1.prog.pct - 100) > 1) fix(`${tag}: 完成後進度條應滿格（${c1.prog.pct}%）`);
+    if (c1 && c1.prog && Math.abs(c1.prog.pct - 100) > 1) fix(`${tag}: 完成後進度膠囊應滿格（${c1.prog.pct}%）`);
 
     if (process.env.SHOTS) {
       await page.evaluate(() => { document.querySelector('#modal-content').scrollTop = 0; });

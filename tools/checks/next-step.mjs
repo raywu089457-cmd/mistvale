@@ -36,7 +36,7 @@ async function boot(viewport, opts = {}) {
 }
 
 // 把 state 調成指定情境（每次都先回到「什麼建議都沒有」的乾淨底）
-const setup = (page, kind) => page.evaluate(kind => {
+const setup = (page, kind) => page.evaluate(async kind => {
   const g = globalThis.__mistvaleGame, s = g.state;
   s.paused = true;
   s.quest = { index: 0, claimed: false, complete: false };
@@ -48,7 +48,11 @@ const setup = (page, kind) => page.evaluate(kind => {
   if (kind === 'quest') s.quest = { index: 0, claimed: false, complete: true };
   if (kind === 'visitor') {
     s.gold = 900;
+    // Z2A:閒著時「新」旅人到會自動彈出「新的獵人！」暗帶 → 先開著面板把旅人換上去(算已見過、不彈),再關掉,留下的就是左側的顧問提示
+    { const b = document.createElement('button'); b.dataset.action = 'settings'; b.style.display = 'none'; document.body.append(b); b.click(); b.remove(); }
     s.visitors = [{ id: 'nv1', classId: 'archer', rarity: 'rare', trait: 'swift', cost: 120 }];
+    await new Promise(r => setTimeout(r, 150));
+    document.querySelector('#modal [data-action=close], #modal-foot [data-action=close]')?.click();
   }
   if (kind === 'dungeon') {
     s.buildings = { hall: 2, house: 1, dungeon: 1 };
@@ -122,7 +126,11 @@ const readPill = page => page.evaluate(() => {
     await page.evaluate(() => document.querySelector('#next-step').click());
     await page.waitForTimeout(500);
     const dlg = await page.evaluate(() => ({ type: document.querySelector('#modal')?.dataset.type || '', say: document.querySelector('#modal .hv-dlg-say')?.textContent || '', go: document.querySelector('#modal [data-action="nextStepGo"]')?.dataset.act || '' }));
-    if (dlg.type !== 'advisor') fix(`情境 ${kind}：點顧問提示開的是 ${dlg.type || '(沒有)'}，應先展開 advisor 對話框`);
+    if (kind === 'visitor') {   // Z2A:旅人提示直接開「新的獵人！」D 暗帶(邀請／稍後)，不再先出對話框再接長清單
+      if (dlg.type !== 'visitors') fix(`情境 ${kind}：點旅人提示開的是 ${dlg.type || '(沒有)'}，應為 visitors(新的獵人！暗帶)`);
+      const band = await page.evaluate(() => ({ mode: document.querySelector('#modal')?.dataset.mode, btns: [...document.querySelectorAll('.z2-band-btns button')].map(b => b.textContent.trim()).join('|') }));
+      if (band.mode !== 'D' || band.btns !== '邀請|稍後') fix(`情境 ${kind}：暗帶模式 ${band.mode}／按鈕 ${band.btns}（應 D／邀請|稍後）`);
+    } else if (dlg.type !== 'advisor') fix(`情境 ${kind}：點顧問提示開的是 ${dlg.type || '(沒有)'}，應先展開 advisor 對話框`);
     else {
       if (!dlg.say.includes(want)) fix(`情境 ${kind}：對話框沒寫出建議「${want}」（${dlg.say.slice(0, 30)}）`);
       if (dlg.go !== wantModal) fix(`情境 ${kind}：對話框主按鈕 data-act 是 ${dlg.go}，應為 ${wantModal}`);

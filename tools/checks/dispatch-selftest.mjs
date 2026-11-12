@@ -26,6 +26,8 @@ const CASES = [
   { file: `${FIX}/plan-gate-steps.md`, stages: ['plan'], line: /^\S+ DRY-RUN accept:n\/a scope:ok review:pending precheck:n\/a 0x 0m \$0\.000$/, opus: '-', planReady: true },
   // a card whose Files name tier C code must be escalated to Opus from the file list alone
   { file: `${FIX}/opus-tierc.md`, stages: ['implement', 'accept', 'review'], line: /^\S+ DRY-RUN accept:n\/a scope:ok review:OK precheck:n\/a 0x 0m \$0\.000$/, opus: 'tier-c' },
+  // the montage gate stops after plan -> implement -> accept and one look at the montage: review is pending, no PLAN-READY
+  { file: `${FIX}/montage.md`, stages: ['implement', 'accept', 'montage-gate'], line: /^\S+ DRY-RUN accept:n\/a scope:ok review:pending precheck:n\/a 0x 0m \$0\.000$/, opus: '-', montage: true, noLine: true },
 ];
 
 let bad = 0;
@@ -46,8 +48,8 @@ for (const c of CASES) {
 
   const line = out.split('\n').find(l => / DRY-RUN /.test(l));
   if (!line) fail(c.file, 'no one-line summary line');
-  else if (!c.line.test(line)) fail(c.file, `one-line output malformed: ${line}`);
-  else if (!c.planReady && !LINE.test(line)) fail(c.file, `one-line output off format: ${line}`);
+  else if (!c.noLine && !c.line.test(line)) fail(c.file, `one-line output malformed: ${line}`);
+  else if (!c.noLine && !c.planReady && !LINE.test(line)) fail(c.file, `one-line output off format: ${line}`);
 
   const opus = (out.match(/^opus: (.+)$/m) || [])[1];
   if (opus !== c.opus) fail(c.file, `opus reason ${opus} != ${c.opus} (the escalation is decided from the file list)`);
@@ -58,11 +60,16 @@ for (const c of CASES) {
   if (c.planReady) {
     if (!/^\S+ PLAN-READY plan: \S+ \(\d+ lines\)$/m.test(out)) fail(c.file, 'no `Txx PLAN-READY plan: <file> (N lines)` line');
     if (/^--- stage (implement|accept|review)/m.test(out)) fail(c.file, 'a gated card must stop after the plan stage');
+  } else if (c.montage) {
+    if (/ PLAN-READY /.test(out)) fail(c.file, 'a montage-gated card must not print PLAN-READY');
+    if (!/^montage: \S+/m.test(out)) fail(c.file, 'no `montage: <path>` line');
+    if (/^--- stage review/m.test(out)) fail(c.file, 'a montage-gated card must stop before the review stage');
   } else {
     if (!/^--- stage implement/m.test(out)) fail(c.file, 'no implement stage prompt');
     if (/ PLAN-READY /.test(out)) fail(c.file, 'only a `Gate: plan` card may stop with PLAN-READY');
   }
   if ((c.file.includes('goal-only') || c.planReady) && !/^--- stage plan/m.test(out)) fail(c.file, 'goal-only card has no plan stage prompt');
+  if (c.montage && /^--- stage plan/m.test(out)) fail(c.file, 'a montage card with Steps must not get a plan stage (T84)');
 
   // a dry run must not touch the card
   const status = (fs.readFileSync(path.join(ROOT, c.file), 'utf8').match(/^Status:\s*(.+)$/m) || [])[1];
@@ -70,7 +77,13 @@ for (const c of CASES) {
 }
 
 if ((fs.existsSync(LOCK) ? fs.readFileSync(LOCK, 'utf8') : null) !== lockBefore) fail('dry-run', 'created or changed the .running lock');
-for (const f of ['normal', 'goal-only', 'scout', 'plan-gate', 'plan-gate-steps', 'opus-tierc']) if (fs.existsSync(path.join(ROOT, 'output/pi-results', `.running-${f}`))) fail('dry-run', `left .running-${f} behind`);
+for (const f of ['normal', 'goal-only', 'scout', 'plan-gate', 'plan-gate-steps', 'opus-tierc', 'montage']) if (fs.existsSync(path.join(ROOT, 'output/pi-results', `.running-${f}`))) fail('dry-run', `left .running-${f} behind`);
+
+// --montage-selftest: the whole montage-gate flow against a throwaway repo with a fake agent (no dsh, no repo data)
+const montage = spawnSync(process.execPath, ['tools/pi-dispatch.mjs', '--montage-selftest'], { cwd: ROOT, encoding: 'utf8', maxBuffer: 32 << 20 });
+const montageOut = `${montage.stdout || ''}${montage.stderr || ''}`;
+if (montage.status !== 0) fail('--montage-selftest', `exit ${montage.status}: ${montageOut.trim().split('\n').slice(-8).join(' / ')}`);
+else if (!/^montage-selftest: PASS$/m.test(montageOut)) fail('--montage-selftest', 'missing `montage-selftest: PASS`');
 
 // --opus-verdict: one row per verdict, reason and pi_review taken from the latest cost-log row for that card
 const tmp = fs.mkdtempSync(path.join(os.tmpdir(), 'dispatch-selftest-'));
