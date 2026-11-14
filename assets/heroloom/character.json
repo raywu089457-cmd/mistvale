@@ -1,0 +1,1201 @@
+{
+ "version": "1.0.0",
+ "cell": [
+  64,
+  56
+ ],
+ "columns": 8,
+ "foot": [
+  26,
+  51
+ ],
+ "faces": "right",
+ "ink": "#150d1b",
+ "actions": {
+  "idle": {
+   "row": 0,
+   "frames": 4,
+   "ms": 200,
+   "loop": true
+  },
+  "walk": {
+   "row": 1,
+   "frames": 6,
+   "ms": 90,
+   "loop": true
+  },
+  "attack": {
+   "row": 2,
+   "frames": 6,
+   "ms": 70,
+   "loop": false
+  },
+  "hurt": {
+   "row": 3,
+   "frames": 3,
+   "ms": 100,
+   "loop": false
+  },
+  "jump": {
+   "row": 4,
+   "frames": 5,
+   "ms": 90,
+   "loop": false
+  },
+  "cast": {
+   "row": 5,
+   "frames": 5,
+   "ms": 110,
+   "loop": false
+  },
+  "thrust": {
+   "row": 6,
+   "frames": 5,
+   "ms": 70,
+   "loop": false
+  },
+  "shoot": {
+   "row": 7,
+   "frames": 5,
+   "ms": 100,
+   "loop": false
+  }
+ },
+ "layers": [
+  {
+   "slot": "back",
+   "layer": "main"
+  },
+  {
+   "slot": "cape",
+   "layer": "main"
+  },
+  {
+   "slot": "hair",
+   "layer": "back"
+  },
+  {
+   "slot": "hat",
+   "layer": "back"
+  },
+  {
+   "slot": "body",
+   "layer": "back"
+  },
+  {
+   "slot": "top",
+   "layer": "back"
+  },
+  {
+   "slot": "shield",
+   "layer": "main"
+  },
+  {
+   "slot": "body",
+   "layer": "main"
+  },
+  {
+   "slot": "bottom",
+   "layer": "main"
+  },
+  {
+   "slot": "shoes",
+   "layer": "main"
+  },
+  {
+   "slot": "top",
+   "layer": "main"
+  },
+  {
+   "slot": "weapon",
+   "layer": "back"
+  },
+  {
+   "slot": "body",
+   "layer": "head"
+  },
+  {
+   "slot": "face",
+   "layer": "main"
+  },
+  {
+   "slot": "acc",
+   "layer": "main"
+  },
+  {
+   "slot": "hair",
+   "layer": "main"
+  },
+  {
+   "slot": "hat",
+   "layer": "main"
+  },
+  {
+   "slot": "acc",
+   "layer": "front"
+  },
+  {
+   "slot": "weapon",
+   "layer": "main"
+  },
+  {
+   "slot": "body",
+   "layer": "front"
+  },
+  {
+   "slot": "top",
+   "layer": "front"
+  },
+  {
+   "slot": "cape",
+   "layer": "front"
+  }
+ ],
+ "slots": {
+  "back": {
+   "required": false,
+   "color": "cloth",
+   "parts": {
+    "backpack": {
+     "layers": {
+      "main": "parts/back/backpack.png"
+     }
+    }
+   }
+  },
+  "cape": {
+   "required": false,
+   "color": "cloth",
+   "parts": {
+    "cape": {
+     "layers": {
+      "main": "parts/cape/cape.png"
+     }
+    }
+   }
+  },
+  "hair": {
+   "required": false,
+   "color": "hair",
+   "parts": {
+    "short": {
+     "layers": {
+      "main": "parts/hair/short.png",
+      "under": "parts/hair/short.under.png"
+     }
+    },
+    "spiky": {
+     "layers": {
+      "main": "parts/hair/spiky.png",
+      "under": "parts/hair/spiky.under.png"
+     }
+    },
+    "ponytail": {
+     "layers": {
+      "main": "parts/hair/ponytail.png",
+      "back": "parts/hair/ponytail.back.png",
+      "under": "parts/hair/ponytail.under.png"
+     }
+    },
+    "long": {
+     "layers": {
+      "main": "parts/hair/long.png",
+      "back": "parts/hair/long.back.png",
+      "under": "parts/hair/long.under.png"
+     }
+    }
+   }
+  },
+  "hat": {
+   "required": false,
+   "color": "cloth",
+   "parts": {
+    "wizard": {
+     "layers": {
+      "main": "parts/hat/wizard.png"
+     },
+     "coversHair": true
+    },
+    "helmet": {
+     "layers": {
+      "main": "parts/hat/helmet.png",
+      "back": "parts/hat/helmet.back.png"
+     },
+     "coversHair": true
+    },
+    "band": {
+     "layers": {
+      "main": "parts/hat/band.png",
+      "back": "parts/hat/band.back.png"
+     }
+    }
+   }
+  },
+  "body": {
+   "required": true,
+   "color": "skin",
+   "parts": {
+    "base": {
+     "layers": {
+      "main": "parts/body/base.png",
+      "back": "parts/body/base.back.png",
+      "front": "parts/body/base.front.png",
+      "head": "parts/body/base.head.png"
+     }
+    }
+   }
+  },
+  "top": {
+   "required": false,
+   "color": "cloth",
+   "parts": {
+    "tunic": {
+     "layers": {
+      "main": "parts/top/tunic.png",
+      "back": "parts/top/tunic.back.png",
+      "front": "parts/top/tunic.front.png"
+     }
+    },
+    "robe": {
+     "layers": {
+      "main": "parts/top/robe.png",
+      "back": "parts/top/robe.back.png",
+      "front": "parts/top/robe.front.png"
+     }
+    },
+    "armor": {
+     "layers": {
+      "main": "parts/top/armor.png",
+      "back": "parts/top/armor.back.png",
+      "front": "parts/top/armor.front.png"
+     }
+    }
+   }
+  },
+  "shield": {
+   "required": false,
+   "color": "cloth",
+   "parts": {
+    "buckler": {
+     "layers": {
+      "main": "parts/shield/buckler.png"
+     }
+    }
+   }
+  },
+  "bottom": {
+   "required": false,
+   "color": "cloth",
+   "parts": {
+    "pants": {
+     "layers": {
+      "main": "parts/bottom/pants.png"
+     }
+    },
+    "skirt": {
+     "layers": {
+      "main": "parts/bottom/skirt.png"
+     }
+    }
+   }
+  },
+  "shoes": {
+   "required": false,
+   "color": "leather",
+   "parts": {
+    "boots": {
+     "layers": {
+      "main": "parts/shoes/boots.png"
+     }
+    },
+    "sandals": {
+     "layers": {
+      "main": "parts/shoes/sandals.png"
+     }
+    }
+   }
+  },
+  "weapon": {
+   "required": false,
+   "color": null,
+   "parts": {
+    "sword": {
+     "layers": {
+      "main": "parts/weapon/sword.png",
+      "back": "parts/weapon/sword.back.png"
+     }
+    },
+    "staff": {
+     "layers": {
+      "main": "parts/weapon/staff.png",
+      "back": "parts/weapon/staff.back.png"
+     }
+    },
+    "dagger": {
+     "layers": {
+      "main": "parts/weapon/dagger.png",
+      "back": "parts/weapon/dagger.back.png"
+     }
+    },
+    "bow": {
+     "layers": {
+      "main": "parts/weapon/bow.png",
+      "back": "parts/weapon/bow.back.png"
+     }
+    }
+   }
+  },
+  "face": {
+   "required": true,
+   "color": "eye",
+   "parts": {
+    "eyes": {
+     "layers": {
+      "main": "parts/face/eyes.png"
+     }
+    }
+   }
+  },
+  "acc": {
+   "required": false,
+   "color": "cloth",
+   "parts": {
+    "glasses": {
+     "layers": {
+      "main": "parts/acc/glasses.png"
+     }
+    },
+    "beard": {
+     "layers": {
+      "main": "parts/acc/beard.png"
+     },
+     "colorFrom": "hair"
+    }
+   }
+  }
+ },
+ "palettes": {
+  "skin": {
+   "base": [
+    "#5a282b",
+    "#7a3a34",
+    "#b86a4c",
+    "#e2a87c",
+    "#f2cfa4",
+    "#fcecd0"
+   ],
+   "variants": {
+    "light": [
+     "#5a282b",
+     "#7a3a34",
+     "#b86a4c",
+     "#e2a87c",
+     "#f2cfa4",
+     "#fcecd0"
+    ],
+    "tan": [
+     "#492127",
+     "#64302e",
+     "#985840",
+     "#c48a62",
+     "#e0b488",
+     "#f2d8b0"
+    ],
+    "dark": [
+     "#331621",
+     "#462028",
+     "#703c30",
+     "#986040",
+     "#bc8a5c",
+     "#dcb688"
+    ],
+    "moss": [
+     "#162c2a",
+     "#1e3c34",
+     "#3c6440",
+     "#6c9450",
+     "#a0bc6c",
+     "#d4dca0"
+    ]
+   }
+  },
+  "hair": {
+   "base": [
+    "#311925",
+    "#40222e",
+    "#6a4040",
+    "#946a52",
+    "#bc9670",
+    "#e0c8a0"
+   ],
+   "variants": {
+    "brown": [
+     "#311925",
+     "#40222e",
+     "#6a4040",
+     "#946a52",
+     "#bc9670",
+     "#e0c8a0"
+    ],
+    "black": [
+     "#302a42",
+     "#3a3450",
+     "#5a5270",
+     "#7c7490",
+     "#a098ac",
+     "#c8c4d0"
+    ],
+    "blonde": [
+     "#42212a",
+     "#5a2e34",
+     "#8e5a40",
+     "#bc8c4c",
+     "#e0bc6c",
+     "#f4e4a4"
+    ],
+    "red": [
+     "#3c0b22",
+     "#54102a",
+     "#8c2428",
+     "#c04c2c",
+     "#e4844c",
+     "#f8c488"
+    ],
+    "blue": [
+     "#151745",
+     "#1c2260",
+     "#284c90",
+     "#4484b8",
+     "#7cbcd4",
+     "#c4ece8"
+    ],
+    "pink": [
+     "#431844",
+     "#5c2458",
+     "#904470",
+     "#c4708c",
+     "#e8a0ac",
+     "#fcd4d4"
+    ],
+    "silver": [
+     "#383043",
+     "#463c52",
+     "#6a6078",
+     "#9088a0",
+     "#b8b2c4",
+     "#e6e2ea"
+    ]
+   }
+  },
+  "cloth": {
+   "base": [
+    "#1b244c",
+    "#222e5c",
+    "#34507c",
+    "#5478a0",
+    "#88aac4",
+    "#c8dfe4"
+   ],
+   "variants": {
+    "blue": [
+     "#1b244c",
+     "#222e5c",
+     "#34507c",
+     "#5478a0",
+     "#88aac4",
+     "#c8dfe4"
+    ],
+    "red": [
+     "#3d1322",
+     "#501828",
+     "#7c2c34",
+     "#a84a44",
+     "#cc7a60",
+     "#ecb490"
+    ],
+    "green": [
+     "#0a222a",
+     "#0e3038",
+     "#1c5444",
+     "#44844c",
+     "#84b464",
+     "#d0dc98"
+    ],
+    "purple": [
+     "#302344",
+     "#3e2c58",
+     "#5e4680",
+     "#8468a0",
+     "#a890bc",
+     "#d4c4dc"
+    ],
+    "black": [
+     "#131123",
+     "#1a1830",
+     "#2c2e4c",
+     "#484e6c",
+     "#70788c",
+     "#a8b0b4"
+    ],
+    "white": [
+     "#3f395a",
+     "#544e74",
+     "#8884a0",
+     "#b8b8c8",
+     "#dcdee4",
+     "#fafaf4"
+    ],
+    "yellow": [
+     "#492e29",
+     "#5a3c34",
+     "#846648",
+     "#a89068",
+     "#ccb890",
+     "#ece0c0"
+    ]
+   }
+  },
+  "leather": {
+   "base": [
+    "#2e1318",
+    "#3e1a1c",
+    "#643422",
+    "#8c5430",
+    "#b88248",
+    "#e0b874"
+   ],
+   "variants": {
+    "brown": [
+     "#2e1318",
+     "#3e1a1c",
+     "#643422",
+     "#8c5430",
+     "#b88248",
+     "#e0b874"
+    ],
+    "black": [
+     "#16111d",
+     "#1e1826",
+     "#34303e",
+     "#524e58",
+     "#7c7878",
+     "#b0aca0"
+    ],
+    "white": [
+     "#463e52",
+     "#5c5468",
+     "#8c8894",
+     "#bcbac0",
+     "#e0dfe0",
+     "#fbfbf6"
+    ]
+   }
+  },
+  "eye": {
+   "base": [
+    "#1a0f1e",
+    "#3a1470",
+    "#5c2cb0",
+    "#8c5ce8",
+    "#c4a8ff",
+    "#ffffff"
+   ],
+   "variants": {
+    "violet": [
+     "#1a0f1e",
+     "#3a1470",
+     "#5c2cb0",
+     "#8c5ce8",
+     "#c4a8ff",
+     "#ffffff"
+    ],
+    "red": [
+     "#1a0f1e",
+     "#5a0c1a",
+     "#961826",
+     "#d43030",
+     "#f87060",
+     "#ffffff"
+    ],
+    "green": [
+     "#1a0f1e",
+     "#0c3a24",
+     "#16663a",
+     "#2a9c50",
+     "#6cd080",
+     "#ffffff"
+    ],
+    "blue": [
+     "#1a0f1e",
+     "#0e2a5a",
+     "#184c94",
+     "#2c7ccc",
+     "#70b8f0",
+     "#ffffff"
+    ],
+    "brown": [
+     "#1a0f1e",
+     "#3a1c10",
+     "#6a381c",
+     "#9c5c2c",
+     "#cc8c4c",
+     "#ffffff"
+    ]
+   }
+  }
+ },
+ "anchors": {
+  "idle": [
+   {
+    "head": [
+     25,
+     26
+    ],
+    "hand": [
+     21,
+     41
+    ],
+    "weaponAngle": 14,
+    "smear": false
+   },
+   {
+    "head": [
+     25,
+     27
+    ],
+    "hand": [
+     21,
+     42
+    ],
+    "weaponAngle": 14,
+    "smear": false
+   },
+   {
+    "head": [
+     25,
+     27
+    ],
+    "hand": [
+     21,
+     43
+    ],
+    "weaponAngle": 16,
+    "smear": false
+   },
+   {
+    "head": [
+     25,
+     25
+    ],
+    "hand": [
+     21,
+     42
+    ],
+    "weaponAngle": 15,
+    "smear": false
+   }
+  ],
+  "walk": [
+   {
+    "head": [
+     27,
+     26
+    ],
+    "hand": [
+     22,
+     41
+    ],
+    "weaponAngle": 8,
+    "smear": false
+   },
+   {
+    "head": [
+     27,
+     27
+    ],
+    "hand": [
+     22,
+     42
+    ],
+    "weaponAngle": 12,
+    "smear": false
+   },
+   {
+    "head": [
+     27,
+     26
+    ],
+    "hand": [
+     21,
+     40
+    ],
+    "weaponAngle": 16,
+    "smear": false
+   },
+   {
+    "head": [
+     27,
+     26
+    ],
+    "hand": [
+     20,
+     41
+    ],
+    "weaponAngle": 12,
+    "smear": false
+   },
+   {
+    "head": [
+     27,
+     27
+    ],
+    "hand": [
+     20,
+     42
+    ],
+    "weaponAngle": 8,
+    "smear": false
+   },
+   {
+    "head": [
+     27,
+     26
+    ],
+    "hand": [
+     21,
+     40
+    ],
+    "weaponAngle": 4,
+    "smear": false
+   }
+  ],
+  "attack": [
+   {
+    "head": [
+     24,
+     26
+    ],
+    "hand": [
+     24,
+     36
+    ],
+    "weaponAngle": -128,
+    "smear": false
+   },
+   {
+    "head": [
+     23,
+     27
+    ],
+    "hand": [
+     23,
+     36
+    ],
+    "weaponAngle": -135,
+    "smear": false
+   },
+   {
+    "head": [
+     28,
+     28
+    ],
+    "hand": [
+     34,
+     39
+    ],
+    "weaponAngle": -12,
+    "smear": true
+   },
+   {
+    "head": [
+     29,
+     29
+    ],
+    "hand": [
+     34,
+     42
+    ],
+    "weaponAngle": 22,
+    "smear": true
+   },
+   {
+    "head": [
+     28,
+     29
+    ],
+    "hand": [
+     34,
+     41
+    ],
+    "weaponAngle": 15,
+    "smear": false
+   },
+   {
+    "head": [
+     26,
+     27
+    ],
+    "hand": [
+     29,
+     42
+    ],
+    "weaponAngle": -10,
+    "smear": false
+   }
+  ],
+  "hurt": [
+   {
+    "head": [
+     19,
+     26
+    ],
+    "hand": [
+     28,
+     39
+    ],
+    "weaponAngle": -75,
+    "smear": false
+   },
+   {
+    "head": [
+     22,
+     27
+    ],
+    "hand": [
+     28,
+     41
+    ],
+    "weaponAngle": -85,
+    "smear": false
+   },
+   {
+    "head": [
+     24,
+     27
+    ],
+    "hand": [
+     24,
+     43
+    ],
+    "weaponAngle": -20,
+    "smear": false
+   }
+  ],
+  "jump": [
+   {
+    "head": [
+     25,
+     28
+    ],
+    "hand": [
+     21,
+     44
+    ],
+    "weaponAngle": 10,
+    "smear": false
+   },
+   {
+    "head": [
+     26,
+     21
+    ],
+    "hand": [
+     23,
+     34
+    ],
+    "weaponAngle": -5,
+    "smear": false
+   },
+   {
+    "head": [
+     25,
+     18
+    ],
+    "hand": [
+     23,
+     31
+    ],
+    "weaponAngle": 0,
+    "smear": false
+   },
+   {
+    "head": [
+     25,
+     22
+    ],
+    "hand": [
+     21,
+     34
+    ],
+    "weaponAngle": 8,
+    "smear": false
+   },
+   {
+    "head": [
+     25,
+     28
+    ],
+    "hand": [
+     21,
+     44
+    ],
+    "weaponAngle": 10,
+    "smear": false
+   }
+  ],
+  "cast": [
+   {
+    "head": [
+     24,
+     26
+    ],
+    "hand": [
+     28,
+     38
+    ],
+    "weaponAngle": -70,
+    "smear": false
+   },
+   {
+    "head": [
+     25,
+     25
+    ],
+    "hand": [
+     31,
+     34
+    ],
+    "weaponAngle": -82,
+    "smear": false
+   },
+   {
+    "head": [
+     25,
+     25
+    ],
+    "hand": [
+     31,
+     34
+    ],
+    "weaponAngle": -78,
+    "smear": false
+   },
+   {
+    "head": [
+     26,
+     27
+    ],
+    "hand": [
+     34,
+     38
+    ],
+    "weaponAngle": -40,
+    "smear": false
+   },
+   {
+    "head": [
+     26,
+     26
+    ],
+    "hand": [
+     32,
+     39
+    ],
+    "weaponAngle": -20,
+    "smear": false
+   }
+  ],
+  "thrust": [
+   {
+    "head": [
+     24,
+     26
+    ],
+    "hand": [
+     20,
+     40
+    ],
+    "weaponAngle": -2,
+    "smear": false
+   },
+   {
+    "head": [
+     23,
+     27
+    ],
+    "hand": [
+     18,
+     41
+    ],
+    "weaponAngle": -3,
+    "smear": false
+   },
+   {
+    "head": [
+     29,
+     28
+    ],
+    "hand": [
+     35,
+     42
+    ],
+    "weaponAngle": 0,
+    "smear": false
+   },
+   {
+    "head": [
+     29,
+     28
+    ],
+    "hand": [
+     36,
+     42
+    ],
+    "weaponAngle": 1,
+    "smear": false
+   },
+   {
+    "head": [
+     26,
+     27
+    ],
+    "hand": [
+     28,
+     42
+    ],
+    "weaponAngle": 5,
+    "smear": false
+   }
+  ],
+  "shoot": [
+   {
+    "head": [
+     25,
+     26
+    ],
+    "hand": [
+     30,
+     39
+    ],
+    "weaponAngle": -70,
+    "smear": false
+   },
+   {
+    "head": [
+     24,
+     26
+    ],
+    "hand": [
+     34,
+     38
+    ],
+    "weaponAngle": -88,
+    "smear": false
+   },
+   {
+    "head": [
+     24,
+     26
+    ],
+    "hand": [
+     34,
+     38
+    ],
+    "weaponAngle": -88,
+    "smear": false
+   },
+   {
+    "head": [
+     22,
+     26
+    ],
+    "hand": [
+     35,
+     38
+    ],
+    "weaponAngle": -88,
+    "smear": false
+   },
+   {
+    "head": [
+     25,
+     26
+    ],
+    "hand": [
+     33,
+     39
+    ],
+    "weaponAngle": -80,
+    "smear": false
+   }
+  ]
+ },
+ "looks": {
+  "knight": {
+   "parts": {
+    "hair": "spiky",
+    "top": "armor",
+    "bottom": "pants",
+    "shoes": "boots",
+    "cape": "cape",
+    "weapon": "sword"
+   },
+   "colors": {
+    "hair": "blonde",
+    "top": "red",
+    "bottom": "white",
+    "cape": "red",
+    "face": "blue"
+   }
+  },
+  "mage": {
+   "parts": {
+    "hair": "long",
+    "top": "robe",
+    "shoes": "boots",
+    "hat": "wizard",
+    "weapon": "staff"
+   },
+   "colors": {
+    "hair": "silver",
+    "top": "purple",
+    "hat": "purple",
+    "body": "tan"
+   }
+  },
+  "rogue": {
+   "parts": {
+    "hair": "ponytail",
+    "top": "tunic",
+    "bottom": "pants",
+    "shoes": "boots",
+    "hat": "band",
+    "weapon": "sword"
+   },
+   "colors": {
+    "hair": "red",
+    "top": "green",
+    "bottom": "white",
+    "hat": "yellow",
+    "face": "green"
+   }
+  },
+  "villager": {
+   "parts": {
+    "hair": "short",
+    "top": "tunic",
+    "bottom": "pants",
+    "shoes": "boots"
+   },
+   "colors": {
+    "top": "yellow",
+    "bottom": "blue",
+    "body": "dark",
+    "hair": "black",
+    "face": "brown"
+   }
+  }
+ },
+ "pack": "core",
+ "name": "Heroloom — Free"
+}

@@ -1,0 +1,24 @@
+Heroloom Free — Asset License
+Version 1.0.0
+
+You bought a licence to use these assets, not ownership of them.
+
+YOU MAY
+- Use the assets in any number of your own games and interactive projects, commercial or non-commercial.
+- Modify the assets (recolour, edit, combine, add your own parts) for use in those projects.
+- Show the assets in screenshots, trailers and promotional material for those projects.
+- Ship the runtime code included in this pack inside your projects.
+
+YOU MAY NOT
+- Redistribute, resell, share or sublicense the assets or the pack's files as assets, whether original or modified,
+  alone or as part of another asset pack, template, engine plugin, character generator, clip-art or stock collection.
+- Offer a tool or service whose main purpose is to let others export images made from these assets
+  (the included Character Maker is for the licence holder's own use).
+- Use the assets to create NFTs or other blockchain tokens.
+- Use the assets as training data for machine-learning or generative AI systems.
+- Claim that you are the original creator of the assets.
+
+OTHER TERMS
+- One licence covers one person or one company/team working on its own projects.
+- Credit is appreciated but not required.
+- The assets are provided "as is", without warranty of any kind.

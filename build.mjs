@@ -108,6 +108,50 @@ try{assetScript+=`window.PIXEL_ASSETS=window.PIXEL_ASSETS||{};window.PIXEL_ASSET
  const ui={};for(const f of uf.filter(f=>f.endsWith('.png'))){const id=f.slice(0,-4);
    ui[id]=await media(path.join(ud,f),`ui/${f}`);}
  assetScript+=`window.PIXEL_ASSETS.ui=${JSON.stringify(ui)};`;}
+// 2026-11-13 紙娃娃引擎第 1 期(docs/PAPERDOLL.md):assets/paperdoll/ 原樣複製到 media/paperdoll/(不內嵌、不轉 webp),
+// HTML 只多一個路徑字串;只有 ?doll=1 的實驗面板(src/paperdoll-lab.js)才會 fetch/載圖,平常遊戲完全不碰。
+{const pd=path.join(root,'assets/paperdoll');let pf=[];try{pf=await fs.readdir(pd);}catch{}
+ pf=pf.filter(f=>/\.(png|json)$/.test(f));
+ if(pf.includes('paperdoll.json')){const dest=path.join(mediaDir,'paperdoll');await fs.mkdir(dest,{recursive:true});
+  for(const f of pf){await fs.copyFile(path.join(pd,f),path.join(dest,f));external++;externalBytes+=(await fs.stat(path.join(pd,f))).size;}
+  assetScript+=`window.PIXEL_ASSETS=window.PIXEL_ASSETS||{};window.PIXEL_ASSETS.paperdollBase="media/paperdoll/";`;}}
+// 2026-11-13 六部位裝備真美術包(docs/PAPERDOLL-EQUIPMENT-6.md §5):assets/paperdoll-classes/ → media/paperdoll-classes/,
+// 同樣原樣複製、不內嵌。兩包格式相同;有這包時紙娃娃英雄優先用它(src/paperdoll-hero.js 的 base 優先序),沒有就退回上面那包。
+// 2026-11-13 使用者:遊戲不再讀這包(改用 assets/paperdoll-dv2)。只有設 DOLL_CLASSES_PACK=1 才照舊複製,給該包自己的工具用;遊戲端 base 永遠不選它。
+{const pdc=path.join(root,'assets/paperdoll-classes');let pcf=[];if(process.env.DOLL_CLASSES_PACK==='1')try{pcf=await fs.readdir(pdc);}catch{}
+ pcf=pcf.filter(f=>/\.(png|json)$/.test(f));
+ if(pcf.includes('paperdoll.json')){const dest=path.join(mediaDir,'paperdoll-classes');await fs.mkdir(dest,{recursive:true});
+  for(const f of pcf){await fs.copyFile(path.join(pdc,f),path.join(dest,f));external++;externalBytes+=(await fs.stat(path.join(pdc,f))).size;}
+  assetScript+=`window.PIXEL_ASSETS=window.PIXEL_ASSETS||{};window.PIXEL_ASSETS.paperdollClassesBase="media/paperdoll-classes/";`;}}
+// 2026-11-13 DV2 格式原創英雄美術包(sprites/DV2_FORMAT_SPEC.md;pipeline/scripts/dv2fmt/build_pack.py 產生):assets/paperdoll-dv2/*.{png,json} → media/paperdoll-dv2/
+// (src/ 子資料夾是原始分層圖,不出貨)。遊戲預設用這包(src/paperdoll-hero.js 的 base 優先序)。
+{const pdd=path.join(root,'assets/paperdoll-dv2');let pdf=[];try{pdf=(await fs.readdir(pdd,{withFileTypes:true})).filter(e=>e.isFile()).map(e=>e.name);}catch{}
+ pdf=pdf.filter(f=>/\.(png|json)$/.test(f));
+ if(pdf.includes('paperdoll.json')){const dest=path.join(mediaDir,'paperdoll-dv2');await fs.mkdir(dest,{recursive:true});
+  for(const f of pdf){await fs.copyFile(path.join(pdd,f),path.join(dest,f));external++;externalBytes+=(await fs.stat(path.join(pdd,f))).size;}
+  assetScript+=`window.PIXEL_ASSETS=window.PIXEL_ASSETS||{};window.PIXEL_ASSETS.paperdollDv2Base="media/paperdoll-dv2/";`;}}
+// 2026-11-14 騎乘(docs/PAPERDOLL.md §20):坐騎表 assets/mounts.json(pipeline/scripts/dv2fmt/gen_mounts.py 產生,約 3 KB)直接內嵌,
+// 紙娃娃與 ?doll=off 兩條繪製路徑、實驗面板都同步讀得到。
+{try{assetScript+=`window.PIXEL_ASSETS=window.PIXEL_ASSETS||{};window.PIXEL_ASSETS.mounts=${JSON.stringify(JSON.parse(await fs.readFile(path.join(root,'assets/mounts.json'),'utf8')))};`;}catch{}}
+// 2026-11-14 單層怪物紙娃娃(DV2 C2,docs/PAPERDOLL.md §21;pipeline/scripts/dv2fmt/build_monster_pack.py 產生):assets/monsterdoll/ → media/monsterdoll/,
+// 原樣複製、不內嵌。只有 ?mdoll=1 才會載(預設魔物仍畫 assets/monsters3)。
+{const mdd=path.join(root,'assets/monsterdoll');let mdf=[];try{mdf=(await fs.readdir(mdd)).filter(f=>/\.(png|json)$/.test(f));}catch{}
+ if(mdf.includes('monsterdoll.json')){const dest=path.join(mediaDir,'monsterdoll');await fs.mkdir(dest,{recursive:true});
+  for(const f of mdf){await fs.copyFile(path.join(mdd,f),path.join(dest,f));external++;externalBytes+=(await fs.stat(path.join(mdd,f))).size;}
+  assetScript+=`window.PIXEL_ASSETS=window.PIXEL_ASSETS||{};window.PIXEL_ASSETS.monsterDollBase="media/monsterdoll/";`;}}
+// 2026-11-14 Heroloom 紙娃娃引擎(docs/HEROLOOM.md):assets/heroloom/(74 檔:character.json + parts/ 46 張 512×448 分層圖
+// + icons/ 23 張 32×32 + runtime/js/paperdoll.js + 授權檔)→ media/heroloom/,原樣複製不內嵌、不轉 webp:
+// 分層圖必須保留原始像素色,執行期才能做「6 色精確 RGB 對調」的調色盤換色(src/heroloom.js)。
+// 例外:maker.html 是廠商的角色製造器,授權只准授權持有人自用、不得散布或當工具提供他人,所以不出貨;
+// 遊戲只需要 character.json + parts/ + icons/。沒有這包時路徑字串不出現,呼叫端自行 fallback。
+{const hd=path.join(root,'assets/heroloom');const hwalk=async(d,pre='')=>{let o=[],es=[];try{es=await fs.readdir(d,{withFileTypes:true});}catch{return o;}
+  for(const e of es){const rel=pre?pre+'/'+e.name:e.name;if(e.isDirectory())o=o.concat(await hwalk(path.join(d,e.name),rel));else o.push(rel);}return o;};
+ const hl=(await hwalk(hd)).filter(rel=>rel!=='maker.html');
+ if(hl.includes('character.json')){const dest=path.join(mediaDir,'heroloom');
+  for(const rel of hl){const src=path.join(hd,rel),dst=path.join(dest,rel);
+   await fs.mkdir(path.dirname(dst),{recursive:true});
+   await fs.copyFile(src,dst);external++;externalBytes+=(await fs.stat(src)).size;}
+  assetScript+=`window.PIXEL_ASSETS=window.PIXEL_ASSETS||{};window.PIXEL_ASSETS.heroloomBase="media/heroloom/";`;}}
 html=html.replace('/*__STYLE__*/',()=>css).replace('/*__ASSETS__*/',()=>assetScript).replace('/*__SCRIPT__*/',()=>ui.outputFiles[0].text.replaceAll('</script','<\\/script'));
 for (const block of html.matchAll(/<script>([\s\S]*?)<\/script>/g)) new vm.Script(block[1]);
 const file=path.join(out,'暮影村.html');await fs.writeFile(file,html,'utf8');
