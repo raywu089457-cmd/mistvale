@@ -1,7 +1,7 @@
 // z2a-hunter.js — Z2A(圖鑑規格 v2 的 f、g、j 節):獵人卡(C 視窗內容)、名冊卡、新獵人到訪暗帶(D)的 HTML。
 // 只產生字串;狀態(游標位置、哪張子頁籤)放在這裡的 hc／vb,事件接線在 pixel-ui.js 的 doAction。
 import {tipAttr,tipGradeName} from './ui-tip.js';
-import {RECIPES,GEAR_SLOTS} from './pixel-data.js';
+import {GEAR_SLOTS,EQUIPMENT,EQUIP_SLOTS} from './pixel-data.js';
 let C=null;   // { esc, fmt, iconHTML, portrait, game:()=>game, RARITIES, CLASSES, TRAITS }
 export const initHunterUI=ctx=>{C=ctx;};
 
@@ -13,23 +13,25 @@ const attackInterval=h=>(h.classId==='sorcerer'?1.65:h.classId==='priest'?1.4:h.
 const gradeOfLv=lv=>lv>=10?'legendary':lv>=7?'heroic':lv>=4?'superior':lv>=1?'rare':'normal';
 const STARS=5,STEP=4;   // 轉世 4 次點亮 1 顆星,20 次滿 5 星
 
-function weaponTip(h){const lv=h.weaponLevel||0,on=!!h.equipment.weapon,g=gradeOfLv(on?lv:0);
- return on?{name:'精鐵武器',grade:g,icon:'swords',stars:Math.ceil(lv/2),level:'+'+lv,stats:[['品質',tipGradeName(g)],['強化',`+${lv} / 10`],['攻擊','+7']],
-   lines:[['pos','攻擊 +7（基礎）'],lv?['pos',`強化 +${lv}：攻擊再 +${lv*7}%`]:null,lv<10?['note','強化精煉所可以繼續強化']:['note','已強化到最高 +10']]}
-  :{name:'武器（空）',grade:'normal',icon:'swords',stats:[['狀態','未裝備']],lines:[['neg','少了 攻擊 +7'],['note','在鐵匠鋪製造武器後，獵人回村會用個人金幣購買']]};}
-// 六件防具：裝備環一格一件(tooltip 寫生命／防禦，空的有缺少數值的紅字)
-const GEAR_RECIPES=RECIPES.filter(r=>GEAR_SLOTS.includes(r.type));
-function gearTip(r,h){const on=!!h.equipment?.[r.type];
- return on?{name:r.name,grade:'normal',icon:'def',stats:[['品質','普通'],['生命','+'+r.hp],['防禦','+'+r.def]],lines:[['pos',`生命 +${r.hp}`],['pos',`防禦 +${r.def}`],['note','獵人回村時用個人金幣購買']]}
-  :{name:`${r.slotName}（空）`,grade:'normal',icon:'def',stats:[['狀態','未裝備']],lines:[['neg',`少了 生命 +${r.hp}、防禦 +${r.def}`],['note',`在鐵匠鋪製造${r.slotName}後，獵人回村會用個人金幣購買`]]};}
+// 2026-11-15 裝備物品化:每個格子顯示穿在身上的真實物品(沒有 h.gear 的舊物件才退回 equipment 布林值)
+const SLOT_LABEL={weapon:'武器',helm:'頭盔',chest:'胸甲',belt:'腰帶',legs:'腿甲',boots:'靴子',gloves:'手套'};
+const itemIn=(h,slot)=>h&&h.gear&&h.gear[slot]?EQUIPMENT[h.gear[slot].itemId]||null:null;
+const statLine=it=>{const s=(it&&it.stats)||{},parts=[];if(s.atk)parts.push(`攻擊 +${s.atk}`);if(s.hp)parts.push(`生命 +${s.hp}`);if(s.def)parts.push(`防禦 +${s.def}`);return parts.length?parts.join(' · '):'沒有數值加成';};
+function gearSlotTip(h,slot){const it=itemIn(h,slot);
+ return it?{name:it.name,grade:it.tier==='craft'?'superior':'normal',icon:slot==='weapon'?'swords':'def',stats:[['位置',SLOT_LABEL[slot]],['攻擊','+'+(it.stats.atk||0)],['生命','+'+(it.stats.hp||0)],['防禦','+'+(it.stats.def||0)]],lines:[['pos',statLine(it)]]}
+  :{name:`${SLOT_LABEL[slot]}（空）`,grade:'normal',icon:slot==='weapon'?'swords':'def',stats:[['狀態','未穿戴']],lines:[['neg','這個位置沒有數值加成'],['note',`倉庫裡有${SLOT_LABEL[slot]}時可以在裝備頁穿上`]]};}
+function weaponTip(h){const lv=h.weaponLevel||0,it=itemIn(h,'weapon'),on=!!(it||h.equipment?.weapon),g=gradeOfLv(on?lv:0),atk=(it&&it.stats&&it.stats.atk)||7;
+ return on?{name:it?it.name:'精鐵武器',grade:g,icon:'swords',stars:Math.ceil(lv/2),level:'+'+lv,stats:[['品質',tipGradeName(g)],['強化',`+${lv} / 10`],['攻擊','+'+atk]],
+   lines:[['pos',`攻擊 +${atk}（基礎）`],lv?['pos',`強化 +${lv}：攻擊再 +${lv*7}%`]:null,lv<10?['note','強化精煉所可以繼續強化']:['note','已強化到最高 +10']]}
+  :{name:'武器（空）',grade:'normal',icon:'swords',stats:[['狀態','未穿戴']],lines:[['neg','少了 攻擊 +7'],['note','在鐵匠鋪製造武器後，獵人回村會用個人金幣購買']]};}
 
 const SLOT_GLYPH={helm:'盔',chest:'甲',belt:'腰',legs:'腿',boots:'靴',gloves:'手'};
-function ringHTML(h){const I=C.iconHTML,wOn=!!h.equipment.weapon,wl=h.weaponLevel||0,ws=Math.ceil(wl/2);
+function ringHTML(h){const I=C.iconHTML,wl=h.weaponLevel||0,ws=Math.ceil(wl/2),wIt=itemIn(h,'weapon'),wOn=!!(wIt||h.equipment?.weapon);
  const stars=n=>n?`<span class="z2-sstars" aria-hidden="true">${'<i></i>'.repeat(Math.min(5,n))}</span>`:'';
  return `<div class="z2-ring"><i class="z2-spot" aria-hidden="true"></i>`
-  +`<button type="button" class="z2-slot s-w ${wOn?'eq':'open'}" aria-label="武器：${wOn?'精鐵武器 +'+wl:'未裝備'}"${tipAttr(weaponTip(h))}>${I('swords',true)}${wOn?stars(ws||1):''}</button>`
-  +GEAR_RECIPES.map((r,i)=>{const on=!!h.equipment?.[r.type];
-    return `<button type="button" class="z2-slot s-g${i+1} ${on?'eq':'open'}" aria-label="${r.slotName}：${on?r.name:'未裝備'}"${tipAttr(gearTip(r,h))}><span class="z2-glyph" aria-hidden="true">${SLOT_GLYPH[r.type]||'甲'}</span></button>`;}).join('')
+  +`<button type="button" class="z2-slot s-w ${wOn?'eq':'open'}" aria-label="武器：${wIt?wIt.name+(wl?' +'+wl:''):wOn?'已裝備':'未穿戴'}"${tipAttr(weaponTip(h))}>${I('swords',true)}${wOn?stars(ws||1):''}</button>`
+  +GEAR_SLOTS.map((slot,i)=>{const it=itemIn(h,slot),on=!!it||!!h.equipment?.[slot];
+    return `<button type="button" class="z2-slot s-g${i+1} ${on?'eq':'open'}" aria-label="${SLOT_LABEL[slot]}：${it?it.name:'未穿戴'}"${tipAttr(gearSlotTip(h,slot))}><span class="z2-glyph" aria-hidden="true">${SLOT_GLYPH[slot]||'甲'}</span></button>`;}).join('')
   +`<img class="z2-fig" src="${C.portrait(h)}" alt="${C.esc(h.name)}"></div>`;}
 
 function barHTML(kind,icon,label,cur,max){const pct=max>0?Math.max(0,Math.min(100,cur/max*100)):0;
@@ -58,15 +60,27 @@ function skillPanel(h){const s=C.game().state,lv=h.skillLevel||0,cost={gold:80+l
  else if(!s.buildings.academy){ok=false;reason='<span class="no">要先建造學院</span>';}
  else if(s.gold<cost.gold||s.ore<cost.ore){ok=false;reason=need('金幣',s.gold,cost.gold)+' '+need('鐵礦',s.ore,cost.ore);}
  return `<div class="z2-list">`+rowHTML({icon:'scroll',name:`戰鬥技能 Lv.${lv}/5`,desc:'每級攻擊 +10%，在學院學習',cost:lv<5?`費用 ${C.iconHTML('gold',true)} ${C.fmt(cost.gold)} · 鐵礦 ${cost.ore}`:'',reason,btn:rowBtn('learnSkill',h.id,btn,ok)})+`</div>`;}
-function gearPanel(h){const s=C.game().state,wl=h.weaponLevel||0,cost={gold:60+wl*30,ore:6+wl*3};let reason='',ok=true,btn='強化';
- if(!h.equipment.weapon){ok=false;reason='<span class="no">還沒有武器：鐵匠鋪製造後，獵人回村會自己購買</span>';}
+function gearBtn(action,id,slot,label,tone){return `<button type="button" class="pixel-button z2-rowbtn"${slot?` data-slot="${slot}"`:''} data-action="${action}" data-id="${id}" data-zb="${tone||'ghost'}"><span>${label}</span></button>`;}
+// 一格一列真實物品：有穿→名稱/數值/卸下·存倉·出售·分解;沒穿→倉庫同位置候選直接穿上
+function gearRow(h,slot){const it=itemIn(h,slot),s=C.game().state,I=C.iconHTML;
+ if(it){const stats=statLine(it),desc=it.name.includes(SLOT_LABEL[slot])?stats:`${SLOT_LABEL[slot]} · ${stats}`;
+  return `<div class="z2-row gear-slot" data-slot="${slot}"><i class="z2-row-ic" aria-hidden="true">${I(slot==='weapon'?'swords':'def',true)}</i>`
+   +`<div class="z2-row-b"><b class="z2-row-n"${it.tier==='craft'?' data-grade="superior"':''}>${C.esc(it.name)}</b><small class="z2-row-d">${desc}</small><div class="gear-btns">`
+   +gearBtn('gearUnequip',h.id,slot,'卸下','gold')+gearBtn('gearStore',h.id,slot,'存倉')+gearBtn('gearSell',h.id,slot,'出售','red')+gearBtn('gearSalvage',h.id,slot,'分解')
+   +`</div></div></div>`;}
+ const cands=(s.gearStorage||[]).map(g=>{const i=EQUIPMENT[g.itemId];return i&&i.slot===slot?{uid:g.uid,it:i}:null;}).filter(Boolean);
+ const body=cands.length?cands.map(c=>`<button type="button" class="pixel-button z2-rowbtn gear-cand" data-action="gearEquip" data-id="${h.id}" data-uid="${c.uid}" data-zb="olive" aria-label="穿上${C.esc(c.it.name)}"><span>穿上 · ${C.esc(c.it.name)}</span></button>`).join(''):`<small class="z2-row-w">倉庫沒有可穿的${SLOT_LABEL[slot]}</small>`;
+ return `<div class="z2-row gear-slot empty" data-slot="${slot}"><i class="z2-row-ic" aria-hidden="true">${I(slot==='weapon'?'swords':'def',true)}</i>`
+  +`<div class="z2-row-b"><b class="z2-row-n">未穿戴</b><small class="z2-row-d">${SLOT_LABEL[slot]} · 沒有數值加成</small><div class="gear-btns">${body}</div></div></div>`;}
+function gearPanel(h){const s=C.game().state,wl=h.weaponLevel||0,cost={gold:60+wl*30,ore:6+wl*3},wIt=itemIn(h,'weapon'),hasWeapon=!!(wIt||h.equipment?.weapon);let reason='',ok=true,btn='強化';
+ if(!hasWeapon){ok=false;reason='<span class="no">還沒有武器：從倉庫穿上一把，或讓獵人買鐵匠鋪的武器</span>';}
  else if(wl>=10){ok=false;btn='MAX';reason='<span class="ok">武器已強化到 +10</span>';}
  else if(!s.buildings.enhancement){ok=false;reason='<span class="no">要先建造強化精煉所</span>';}
  else if(s.gold<cost.gold||s.ore<cost.ore){ok=false;reason=need('金幣',s.gold,cost.gold)+' '+need('鐵礦',s.ore,cost.ore);}
  return `<div class="z2-list">`
-  +rowHTML({icon:'swords',name:h.equipment.weapon?`精鐵武器 +${wl}`:'未裝備武器',tone:h.equipment.weapon?gradeOfLv(wl):'',desc:'攻擊 +7，每級強化再 +7%',cost:h.equipment.weapon&&wl<10?`費用 ${C.iconHTML('gold',true)} ${C.fmt(cost.gold)} · 鐵礦 ${cost.ore}`:'',reason,btn:rowBtn('enhanceHunter',h.id,btn,ok)})
-  +GEAR_RECIPES.map(r=>{const on=!!h.equipment?.[r.type];
-    return rowHTML({icon:'def',name:on?r.name:`未裝備${r.slotName}`,desc:`生命 +${r.hp} · 防禦 +${r.def}`,reason:on?'':`<span class="no">鐵匠鋪製造${r.slotName}後，獵人回村會自己購買</span>`});}).join('')
+  +rowHTML({icon:'swords',name:hasWeapon?`${wIt?wIt.name:'精鐵武器'} +${wl}`:'未裝備武器',tone:hasWeapon?gradeOfLv(wl):'',desc:`攻擊 +${(wIt&&wIt.stats&&wIt.stats.atk)||7}，每級強化再 +7%`,cost:hasWeapon&&wl<10?`費用 ${C.iconHTML('gold',true)} ${C.fmt(cost.gold)} · 鐵礦 ${cost.ore}`:'',reason,btn:rowBtn('enhanceHunter',h.id,btn,ok)})
+  +`<p class="gear-hint">穿在身上的裝備是真的物品：卸下、出售、分解或存進倉庫，角色外觀也會跟著變。</p>`
+  +EQUIP_SLOTS.map(slot=>gearRow(h,slot)).join('')
   +`</div>`;}
 function rebirthPanel(h){const ready=h.level>=100,maxed=h.rebirths>=20;
  return `<div class="z2-list">`+rowHTML({icon:'rebirth',name:`轉世 ${h.rebirths}/20`,desc:'Lv.100 可轉世：等級回到 1，基礎能力永久 +35%、防禦 +2',

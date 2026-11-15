@@ -2509,4 +2509,18 @@ html body #modal[data-kind=dialog] #modal-content .z2d-bubble .hv-dlg-acts .hv-b
   html body #modal[data-type=difficulty] .difficulty-card>small{grid-column:1/-1;margin:0!important}
   html body #modal[data-type=difficulty] .difficulty-card>.pixel-button{grid-column:1/-1;min-height:40px!important}
 }
+/* ===== 裝備物品化(gear items) 2026-11-15: 裝備頁七列、倉庫裝備列表 ===== */
+html body #modal[data-type=hunter] .z2-row.gear-slot{grid-template-columns:40px minmax(0,1fr)!important;align-items:start;row-gap:4px}
+html body #modal[data-type=hunter] .z2-row.gear-slot .gear-btns{display:flex;flex-wrap:wrap;gap:6px;margin-top:4px}
+html body #modal[data-type=hunter] .z2-row.gear-slot .gear-btns .z2-rowbtn{min-height:32px!important;min-width:0!important;padding:0 10px!important;font:700 13px/1 var(--font-ui)!important}
+html body #modal[data-type=hunter] .z2-row.gear-slot .gear-cand{flex:1 1 auto;min-width:132px;max-width:100%;justify-content:flex-start;text-align:left}
+html body #modal[data-type=hunter] .z2-row.gear-slot .gear-cand span{overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+html body #modal[data-type=hunter] .gear-hint{margin:2px 2px 4px;font:600 12px/1.45 var(--font-ui);color:var(--hv-text-dim);opacity:.9}
+html body #modal-content .gear-store-row{z-index:0}
+html body #modal-content .gear-store-row .z2b-act{flex-direction:row!important;flex-wrap:wrap;align-items:center}
+html body #modal-content .gear-store-row .z2b-act .pixel-button{min-height:36px!important;min-width:0!important;padding:0 10px!important;font:700 13px/1 var(--font-ui)!important}
+html body #modal-content .gear-store-who{display:flex;align-items:center;gap:6px;flex-wrap:wrap}
+html body #modal-content .gear-store-who select{min-height:36px;max-width:100%;background:#1e1b17;color:var(--hv-text);border:1px solid #4a4540;font:700 13px/1 var(--font-ui);padding:0 6px}
+html body #modal-content .gear-store-empty{opacity:.85}
+@media(pointer:coarse){html body #modal-content .gear-store-row .z2b-act .pixel-button{min-height:44px!important}}
 /* ===== Z2D end ===== */

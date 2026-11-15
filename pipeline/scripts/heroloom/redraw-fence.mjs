@@ -42,10 +42,15 @@ const MOSS = [92, 115, 52];
 const CELL_W = 112, CELL_H = 104;
 const SLOPE = 0.35;   // art-space slope; engine adds .125 -> .475 display vs .5 pitch
 const GROUND = 107;   // ground y at x = 0
-const POST_W = 22, POST_H = 72, CAP_H = 6;
-const POSTS = [{x0: 2, seed: 2}, {x0: 89, seed: 9}];
-const RAIL_HI = [48, 64];  // distance above the ground line (upper rail)
-const RAIL_LO = [22, 36];  // lower rail
+const POST_W = 26, POST_H = 88, CAP_H = 7;
+// Two capped posts per bay, one at each cell edge. Adjacent bays overlap by ~19%, and the
+// engine's decoration draw order differs from my offline simulator's, so the safe shape is
+// a post at BOTH ends: whichever panel is painted last, the overlap region always ends in a
+// post, never in a bare rail crossing over a neighbour's post. The two posts land on top of
+// each other at every bay boundary and read as one thick composite post.
+const POSTS = [{x0: 2, seed: 2, h: POST_H}, {x0: 85, seed: 9, h: POST_H}];
+const RAIL_HI = [42, 64];  // distance above the ground line (upper rail), 22 art rows thick
+const RAIL_LO = [14, 36];  // lower rail, 22 art rows thick
 
 function hash2(x, y, seed = 0) {
   let h = (x * 374761393 + y * 668265263 + seed * 1442695040) | 0;
@@ -54,16 +59,18 @@ function hash2(x, y, seed = 0) {
   return h / 4294967295;
 }
 
-// explicit pixel cross-section for a rail of `th` rows: ink edge, lit top face,
-// front face with one darker step, shadowed underside, ink edge again.
+// explicit pixel cross-section for a chunky rail of `th` rows (24 at 1x):
+// 1 ink edge, lit top face (perspective surface), mid front face, dark underside,
+// 1 ink edge. A rail must read as a solid plank at ~0.366 display scale, so the
+// lit face is ~25% of the thickness and the body has two distinct ramp steps.
 function railBands(th) {
-  const b = [INK_SOFT];
-  const topN = Math.max(1, Math.round(th * 0.22));
-  const botN = Math.max(1, Math.round(th * 0.16));
+  const b = [INK];
+  const topN = Math.max(2, Math.round(th * 0.26));
+  const botN = Math.max(2, Math.round(th * 0.14));
   const midN = Math.max(1, th - 2 - topN - botN);
-  for (let i = 0; i < topN; i++) b.push(i === 0 ? RAIL_TOP : RAIL_FACE);
-  for (let i = 0; i < midN; i++) b.push(i < midN * 0.6 ? RAIL_MID : RAIL_DARK);
-  for (let i = 0; i < botN; i++) b.push(RAIL_BOT);
+  for (let i = 0; i < topN; i++) b.push(i === 0 ? CAP_HI : i < topN - 1 ? RAIL_TOP : RAIL_FACE);
+  for (let i = 0; i < midN; i++) b.push(i < midN * 0.42 ? RAIL_FACE : i < midN * 0.75 ? RAIL_MID : RAIL_DARK);
+  for (let i = 0; i < botN; i++) b.push(i === botN - 1 ? RAIL_BOT : RAIL_DARK);
   b.push(INK);
   return b;
 }
@@ -87,11 +94,11 @@ export function renderFenceCell(S = 1) {
       for (let k = 0; k < th; k++) {
         const y = yTop + k, t = k / Math.max(1, th - 1);
         let c = bands[Math.min(k, bands.length - 1)];
-        // long, sparse grain runs on the front face (deterministic, not speckle)
-        if (t > 0.35 && t < 0.78) {
-          const run = hash2(Math.floor(x / (8 * S)), 1, seed);
-          if (run > 0.78 && t > 0.45 && t < 0.65) c = GRAIN_DARK;
-          if (run > 0.985 && t < 0.45) c = GRAIN_LIGHT;
+        // sparse, short grain streaks on the front face only (never on the lit top face,
+        // where light specks read as dirt at 0.37 display scale)
+        if (t > 0.50 && t < 0.66) {
+          const run = hash2(Math.floor(x / (11 * S)), 1, seed);
+          if (run > 0.93) c = GRAIN_DARK;
         }
         put(x, y, c);
       }
@@ -100,72 +107,74 @@ export function renderFenceCell(S = 1) {
   drawRail(RAIL_HI[0], RAIL_HI[1], 3);
   drawRail(RAIL_LO[0], RAIL_LO[1], 7);
 
-  // ── posts ─────────────────────────────────────────────────────────────────
+  // ── post (drawn over its own rails: chunky square post, overhanging lit cap) ──
   const drawPost = (post) => {
     const seed = post.seed;
     const x0 = post.x0 * S, x1 = (post.x0 + POST_W) * S;   // [x0, x1)
     const cx = (x0 + x1) / 2;
+    const w = x1 - x0;
     const baseY = Math.round(GROUND * S - SLOPE * cx);
-    const topY = baseY - POST_H * S;               // may be < 0 for the far post
+    const topY = baseY - post.h * S;
     const bodyTop = Math.max(0, topY + CAP_H * S);
-    const corner = x0 + Math.round((x1 - x0) * 0.58);
-    // vertical body: lit left edge, front-left face, ink corner seam, shaded right
+    const seamX = x0 + Math.round(w * 0.42);
+    // body: lit left face, ink corner seam, shaded right face, vertical ramp
     for (let y = bodyTop; y < baseY; y++) {
-      const t = Math.min(1, (y - bodyTop) / Math.max(1, baseY - bodyTop));
+      const t = (y - bodyTop) / Math.max(1, baseY - bodyTop);
       for (let x = x0; x < x1; x++) {
-        const fx = (x - x0) / (x1 - x0);
         let c;
         if (x === x0 || x === x1 - 1) c = INK;
-        else if (fx < 0.12) c = POST_HI;
-        else if (fx < 0.50) c = t < 0.34 ? POST_LIGHT : POST_MID;
-        else if (fx < 0.55) c = INK_SOFT;
-        else c = t < 0.40 ? POST_MID : POST_DARK;
-        // sparse 1px vertical grain streaks (quantised to the art grid)
-        const g = hash2(Math.floor((x - x0) / (2 * S)), Math.floor((y - topY) / (5 * S)), seed);
-        if (x !== x0 && x !== x1 - 1 && Math.abs(fx - 0.53) > 0.03 && g > 0.90 && t > 0.28 && t < 0.82) c = GRAIN_DARK;
-        // ambient occlusion just under the cap, darker contact at the base
+        else if (x < seamX) c = t < 0.28 ? POST_HI : t < 0.68 ? POST_LIGHT : POST_MID;
+        else if (x < seamX + S) c = INK_SOFT;
+        else c = t < 0.28 ? POST_MID : t < 0.78 ? POST_DARK : POST_DEEP;
+        // sparse vertical grain streaks, quantised to the art grid (very few)
+        const g = hash2(Math.floor((x - x0) / (3 * S)), Math.floor((y - topY) / (7 * S)), seed);
+        if (x !== x0 && x !== x1 - 1 && x < seamX && g > 0.93 && t > 0.25 && t < 0.8) c = GRAIN_DARK;
+        // ambient occlusion under the cap + darker contact at the base
         if (y < bodyTop + 2 * S) c = POST_DARK;
         if (y >= baseY - 2 * S) c = POST_DEEP;
         put(x, y, c);
       }
     }
-    // rail shadows: the beams sit in front, so drop a 2-row shade where each rail
-    // crosses the post (ties posts and rails together and adds depth)
-    for (const [d0] of [RAIL_HI, RAIL_LO]) {
-      const yBot = Math.round(GROUND * S - SLOPE * cx - d0 * S);
-      for (let x = x0 + S; x < x1 - S; x++) put(x, yBot, INK_SOFT);
-    }
-    // ground contact: ink corners + soft shadow row
+    // ground contact: ink corners + soft AO strip so the post sits in the grass
     for (let x = x0; x < x1; x++) put(x, baseY, x === x0 || x === x1 - 1 ? INK : SHADOW);
-    // cap: overhanging lip, lit top face, bevel, ink bottom seam
-    const capRows = [
-      [2, INK, true], [1, CAP_HI, false], [-1, CAP_TOP, true], [-1, CAP_TOP, true],
-      [-1, CAP_FACE, true], [-1, POST_MID, true], [-1, INK_SOFT, true],
-    ];
-    for (let r = 0; r < capRows.length; r++) {
-      const [inset, color, endInk] = capRows[r];
-      const rx0 = x0 + inset * S, rx1 = x1 - inset * S;
-      for (let yy = 0; yy < S; yy++) {
-        const y = topY + r * S + yy;
-        if (y < 0 || y >= H) continue;
-        for (let x = rx0; x < rx1; x++) {
-          const c = endInk && (x === rx0 || x === rx1 - 1) ? INK_SOFT : color;
-          put(x, y, c);
-        }
+    for (let x = x0 - S; x < x1 + S; x++) put(x, baseY + S, POST_DEEP);
+    // cap: 2px overhang each side, lit top face, bevel, ink bottom seam
+    const capRows = ['ink', 'hi', 'top', 'top', 'hi', 'face', 'mid', 'soft'];
+    const over = 2 * S;
+    for (let r = 0; r < CAP_H * S; r++) {
+      const y = topY + r;
+      if (y < 0 || y >= H) continue;
+      const kind = capRows[Math.min(capRows.length - 1, Math.floor(r / S))];
+      const rx0 = Math.max(0, x0 - over), rx1 = Math.min(W, x1 + over);
+      for (let x = rx0; x < rx1; x++) {
+        const c = kind === 'ink' ? INK : kind === 'hi' ? CAP_HI : kind === 'top' ? CAP_TOP
+          : kind === 'face' ? CAP_FACE : kind === 'mid' ? POST_MID : INK_SOFT;
+        put(x, y, c);
       }
     }
-    // nails where each rail crosses this post (2x2 ink + 1px lit top)
+    // where each rail meets the post: a soft shadow band across the post face plus a
+    // 2x2 ink nail with a lit pixel, so the rails read as nailed on, not floating by
     for (const [d0, d1] of [RAIL_HI, RAIL_LO]) {
       const yTop = Math.round(GROUND * S - SLOPE * cx - d1 * S);
-      const yMid = yTop + Math.round((d1 - d0) * S * 0.45);
-      const nx = x0 + Math.round((x1 - x0) * 0.30);
+      const yBot = Math.round(GROUND * S - SLOPE * cx - d0 * S);
+      for (let y = yTop; y < yBot; y++) {
+        for (let x = x0 + S; x < x1 - S; x++) {
+          const i = (y * W + x) * 4;
+          if (!rgba[i + 3]) continue;
+          rgba[i] = Math.max(0, rgba[i] - 30);
+          rgba[i + 1] = Math.max(0, rgba[i + 1] - 24);
+          rgba[i + 2] = Math.max(0, rgba[i + 2] - 16);
+        }
+      }
+      const yMid = yTop + Math.round((d1 - d0) * S * 0.46);
+      const nx = x0 + Math.round(w * 0.30);
       for (let dy = 0; dy < 2 * S; dy++) for (let dx = 0; dx < 2 * S; dx++) put(nx + dx, yMid + dy, INK);
       put(nx, yMid - 1, GRAIN_LIGHT);
     }
     // a couple of moss specks at the base (deterministic, minimal)
     for (let i = 0; i < 2; i++) {
-      const mx = x0 + S + Math.round(hash2(i, seed, 31) * (x1 - x0 - 3 * S));
-      const my = baseY - 1 - Math.round(hash2(i, seed + 5, 37) * 3 * S);
+      const mx = x0 + S + Math.round(hash2(i, seed, 31) * (w - 3 * S));
+      const my = baseY - 1 - Math.round(hash2(i, seed + 5, 37) * 2 * S);
       if (hash2(i, seed + 9, 41) > 0.42) put(mx, my, MOSS);
     }
   };

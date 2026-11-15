@@ -188,3 +188,47 @@ node tools/checks/heroloom-scene-assets.mjs    # 第一輪的，已更新以容�
 **2b 後的已知限制**：材質在檔案層幾乎是平的（見 §5 第一點），近看 cell 會覺得「太素」，這是配合 runtime 正規化的刻意選擇；bridge 板縫改成短段錯位後，近看比較不像整片木板、而像風化橋面；水面偏「平靜」，沒有舊版那種浪線節奏。若之後要更有結構，正確做法是**改 runtime**（讓 GRASS_TONE 不要做全格標準化，或改用固定的材質對比曲線），而不是在檔案層加圖樣。
 
 重建指令（2b 不變）：`node pipeline/scripts/heroloom/redraw-terrain.mjs` → `node pipeline/scripts/heroloom/scene2-proofs.mjs` → `node tools/checks/heroloom-terrain-fence.mjs` / `node tools/checks/heroloom-scene-assets.mjs` → `node build.mjs`。
+---
+
+# 第三輪（task-12）：村莊圍牆 fenceRail 重繪（粗木柱＋厚橫桿）
+
+背景：使用者反映第二輪的柵欄還是「細、像繩子」。第三輪**只重畫** `assets/heroloom-scene/details@1x.png`、`details@2x.png` 裡的 **fenceRail** 這一個 cell；其他所有 cell、manifest、尺寸、alpha 語意都不變（矩形外逐 byte 相同）。
+
+## 1. 這輪改了什麼
+
+| 項目 | 內容 |
+| --- | --- |
+| cell 幾何 | 1x `[154,1094,112,104]`、2x `[306,2180,224,208]`；manifest 完全未改 |
+| 柱 | 每個 bay 兩根立柱（x0=2/85）：`POST_W 26`、`POST_H 88`、`CAP_H 7`，柱帽左右各外伸 2 art px |
+| 橫桿 | 兩條：`RAIL_HI 42–64`、`RAIL_LO 14–36`（各 22 art rows），斜率 0.35 已烘進圖（引擎再 shear 0.125 補到 2:1 iso） |
+| 色盤 | 墨線 `#150d1b`、柱面暖棕 `#b07c46 / #916037 / #70482b`、桿面 `#dfb98a` 系、柱帽 `#e4c484`、苔點 `#5c7334`；整個 cell 26 色 |
+| 質感 | 柱帽 2×2 墨釘＋1px 亮點、橫桿穿柱處 2px 軟影、柱腳 AO 與影子條、短木紋只在前立面（t .50–.66、hash>0.93、量化到 art grid） |
+
+**為什麼改成「每個 bay 兩根柱」**：引擎裝飾物的繪製順序不是離線模擬器的 ascending 順序；單柱版本實測在遊戲內會被鄰格橫桿蓋過柱面（看起來像柱子在橫桿後面斷掉）。改成每個 bay 兩根柱後，接縫落在兩根柱身重疊的區域，遊戲內每根複合柱就是一根粗柱。代價是複合柱其實是兩根柱重疊，比單柱寬、柱身有一道內縫（4x 看得到，1x 遊戲內大致融合）。
+
+## 2. 方法與重建
+
+- **`pipeline/scripts/heroloom/redraw-fence.mjs`**：固定 `hash2()` 程序化繪製 → `splice()` 只覆寫 fenceRail 矩形 → 檢查矩形外 0 byte 變動、alpha 只有 0/255 → 寫 `assets/heroloom-scene/details@{1x,2x}.png` 與 `redraw-fence-report.json`。@2x 用 2 倍座標獨立繪製（不是把 1x 放大），整數座標落在 2px 網格。
+- 重建：`node pipeline/scripts/heroloom/redraw-fence.mjs`
+- A/B 對照片（scratch 生成器）：`node output/tmp-fence-contact.mjs` → `output/heroloom-ext/scene3/fence-before-after-4x.png`
+- 遊戲內截圖（scratch）：`node output/tmp-fence-shots.mjs`（Playwright，需先 `node build.mjs`）
+
+## 3. 驗證（2026-11-15）
+
+```powershell
+node tools/checks/heroloom-scene-assets.mjs    # 209/209 PASS, exit 0
+node tools/checks/heroloom-terrain-fence.mjs   # 136/136 PASS, exit 0
+```
+
+- 自檢 `output/tmp-fence-verify.mjs`：cell 矩形外 0 byte 變動；半透明像素 0（alpha 只有 0/255）；coverage 原 47.4% → 新 59.8%(1x) / 59.2%(2x)（柱與桿都變粗，這是設計結果；checker 的 ±5% 覆蓋率規則只適用非 fence 檔案，details 的閘門是「矩形外遮罩完全相同」）；顏色數 33 → 26。
+- 遊戲內：`node build.mjs` → `dist/暮影村.html` 2.23 MB · media 191 files / 16.0 MB；`http://100.79.149.0:5026/?preview=1`。截圖在 `output/heroloom-ext/scene3/`：`fence-north-1440x900.png`（`lookAt(-16.5,-11.25,4.0)`）、`fence-run-1440x900.png`（-16.5,-13.5,2.6）、`fence-closeup-1440x900.png`（-16.5,-16,2.2）、`fence-north-402x712.png`、`fence-closeup-402x712.png`（手機 402×712、DPR2）；`shots-report.json` 0 console error / 0 failed request。
+- A/B：`fence-before-after-4x.png`（2060×1000，上排舊 v1 cell 4x | 新 cell 4x；下排離線引擎數學 composite 舊 | 新）。
+
+## 4. 第三輪的已知限制（誠實說明）
+
+- **複合柱是兩根柱重疊**：遊戲內每根柱比單柱寬、柱身有一道內縫；1x 距離大致看不出，4x 明顯。
+- **沒有對角斜撐**：任務標為 optional，這輪沒做。
+- **覆蓋率 +12pt**：柱變粗、桿變厚造成，不是 alpha 錯誤；矩形外遮罩逐 byte 相同已驗。
+- **建築院子外的低矮繩狀圍欄不在這輪範圍**：那些是烘在建築 sprite 裡（`assets/details@*.manifest.json` 只有 `fenceRail` 一個 cell），不是 fenceRail，需另開建築重繪任務。
+- **離線 composite 模擬器用 ascending 繪製順序**，和引擎實際 decoration 順序不同；判斷以遊戲內截圖為準，模擬圖只做初篩。
+- 沒有改 `src/`、`build.mjs`、任何 manifest；沒有 commit / push。build 接線不需要改：details atlas 已經走 Lead 的 `sceneOrOrig()` prefer-if-present 路徑。
