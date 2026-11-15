@@ -7,6 +7,7 @@
 //      HUD 看得到的視窗不出現;不擠掉 X 與子頁籤鈕,不跟 toast 互蓋。(建設面板自己有庫存列 → 不放)
 //   C. 建築詳情抽屜開著時,用滑鼠直接點世界上露出的另一棟建築 → 抽屜內容直接換成那一棟(沒關過、沒出六角鈕)。
 //   D. #hv-left 與 #left-panel 的對齊值共用一個變數 --hv-left-top;量測值要等於修前(align-before.json)。
+//      2026-11-15: 量測前先把面板的開場動畫(mvPanelIn / mv-slide-left .16–.18s)跑完;機器忙時動畫晚開始,400ms 內量到的是動畫中途(170、171.4 對 172)。
 //   每一項都是「改回舊行為就會紅」。用法:node tools/checks/fix-c.mjs(TARGET 空＝自己開臨時伺服器)
 import * as L from './fix-a-lib.mjs';
 import fs from 'node:fs';
@@ -158,7 +159,7 @@ for (const view of ['desktop', 'tablet', 'phone', 'land']) {
   let before = null; try { before = JSON.parse(fs.readFileSync(new URL('../../output/ui-audit/fix-c/align-before.json', import.meta.url), 'utf8')); } catch { }
   for (const view of ['desktop', 'tablet', 'phone', 'land']) {
     const ctx = await L.newCtx(browser, L.VIEWS[view]); const page = await ctx.newPage(); await L.boot(page, url);
-    const r = await page.evaluate(() => { if (document.querySelector('#left-panel').classList.contains('hidden')) document.querySelector('#reopen-left')?.click(); return new Promise(res => setTimeout(() => { const p = document.createElement('div'); p.style.cssText = 'position:fixed;left:0;width:1px;height:1px;visibility:hidden;top:var(--hv-left-top)'; document.body.appendChild(p); const base = p.getBoundingClientRect().top; p.remove(); res({ base, hvLeftTop: document.querySelector('#hv-left').getBoundingClientRect().top, lpTop: document.querySelector('#left-panel').getBoundingClientRect().top }); }, 400)); });
+    const r = await page.evaluate(() => { if (document.querySelector('#left-panel').classList.contains('hidden')) document.querySelector('#reopen-left')?.click(); return new Promise(res => setTimeout(() => { document.querySelectorAll('#left-panel,#hv-left').forEach(e => e.getAnimations().forEach(x => x.finish())); const p = document.createElement('div'); p.style.cssText = 'position:fixed;left:0;width:1px;height:1px;visibility:hidden;top:var(--hv-left-top)'; document.body.appendChild(p); const base = p.getBoundingClientRect().top; p.remove(); res({ base, hvLeftTop: document.querySelector('#hv-left').getBoundingClientRect().top, lpTop: document.querySelector('#left-panel').getBoundingClientRect().top }); }, 400)); });
     const exp = before && before[view] ? before[view] : { hvLeftTop: r.base, lpTop: r.base + 56 };
     if (Math.abs(r.hvLeftTop - exp.hvLeftTop) > 0.5 || Math.abs(r.lpTop - exp.lpTop) > 0.5) fix(`D ${view}: #hv-left top ${r.hvLeftTop}/#left-panel top ${r.lpTop},預期 ${exp.hvLeftTop}/${exp.lpTop}`);
     else ok(`D ${view}: #hv-left ${r.hvLeftTop} / #left-panel ${r.lpTop}(同${before && before[view] ? '修前紀錄' : '共用變數 --hv-left-top(+56)'})`);

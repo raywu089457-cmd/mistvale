@@ -1,4 +1,5 @@
 // check_anim.mjs — 動畫流暢度:實機逐幀記錄每隻角色畫出來的姿勢/格,找「閃一格」(A→B→A 且 B 只出現 1 幀,B 不是走路循環格)
+// 2026-11-15: entities not drawn for >0.25 s of game time get a gap marker; walkSkip/flicker/switches never compare across it (off-screen pairs 2.8-46 s apart were counted as walk skips).
 // 2026-11-13: hitShown 只算受擊 0.4 秒內有被畫到的實體;鏡頭外的另列 hitsOffscreen(以前會被算成「沒顯示」而誤判失敗)。
 // 與走路循環跳格(walkN 之後不是 walkN 或 walk(N+1));受擊回饋:每次被打(hitAt)0.4 秒內要畫出受擊/出手/倒地格(出手中被打保留出手圖)。
 // 門檻:閃格率 ≤ 0.5% 的姿勢切換、走路跳格 0、受擊有畫出 ≥ 95%。
@@ -20,11 +21,11 @@ else console.log('doll off (hero sheets)');
 const r=await p.evaluate(async([secs,view])=>{const V=__mistvaleView;if(view.startsWith('look:')){const [x,z,s]=view.slice(5).split(',').map(Number);V.lookAt(x,z,s);}
  const hist=new Map(),t0=performance.now();let frames=0,dollN=0;const hits=new Map(),seenHurt=new Map(),dmg=new Set(),hitIds=new Set();
  await new Promise(res=>{let last=null;const step=()=>{const F=__mistvaleFacing(),st=__mistvaleGame.state.time;if(st!==last){last=st;frames++;const S=__mistvaleGame.state;for(const e of [...S.hunters,...S.enemies]){const id=S.hunters.includes(e)?e.id:'enemy:'+e.id;if(e.hitAt!=null&&e.hitAt<=st&&!hitIds.has(id+'@'+e.hitAt)){hitIds.add(id+'@'+e.hitAt);hits.set(id+'@'+e.hitAt,{id,t:e.hitAt,hurt:false});}}for(const fx of S.effects)if(fx.value!=null)dmg.add(fx.id);
-   for(const [id,v] of Object.entries(F)){if(v.t!==st)continue;for(const hv of hits.values())if(hv.id===id&&st>=hv.t&&st-hv.t<.4)hv.drawn=true;const k0=v.pose??('m'+v.frame),k=v.doll?(v.doll.act==='walk'?'walk'+(v.doll.slot+1):v.doll.act==='idle'?'idle':k0+'#'+v.doll.act+':'+v.doll.slot):k0;if(v.doll)dollN++;if(k0==='hurt'||k0==='hurt2'||k0==='falling'||k0==='m4'||k0==='m8'||k0==='strike'||k0==='m2'||k0==='m7'||k0==='strike2'||k0==='dead')for(const [hk,hv] of hits)if(hv.id===id&&st-hv.t<.4&&st>=hv.t)hv.hurt=true;let h=hist.get(id);if(!h)hist.set(id,h=[]);h.push(k);}}
+   for(const [id,v] of Object.entries(F)){if(v.t!==st)continue;for(const hv of hits.values())if(hv.id===id&&st>=hv.t&&st-hv.t<.4)hv.drawn=true;const k0=v.pose??('m'+v.frame),k=v.doll?(v.doll.act==='walk'?'walk'+(v.doll.slot+1):v.doll.act==='idle'?'idle':k0+'#'+v.doll.act+':'+v.doll.slot):k0;if(v.doll)dollN++;if(k0==='hurt'||k0==='hurt2'||k0==='falling'||k0==='m4'||k0==='m8'||k0==='strike'||k0==='m2'||k0==='m7'||k0==='strike2'||k0==='dead')for(const [hk,hv] of hits)if(hv.id===id&&st-hv.t<.4&&st>=hv.t)hv.hurt=true;let h=hist.get(id);if(!h)hist.set(id,h=[]);if(h.lt!=null&&st-h.lt>.25)h.push('gap');h.lt=st;h.push(k);}}
   if(performance.now()-t0<secs*1000)requestAnimationFrame(step);else res();};step();});
  let switches=0,flicker=0,walkSkip=0;const ex=[],fc={};
- for(const [id,h] of hist){for(let i=1;i<h.length;i++){if(h[i]!==h[i-1])switches++;
-   if(i>=2&&h[i]===h[i-2]&&h[i-1]!==h[i]&&!/^walk|^m(3|6|10|11)$|^m[05]$|^idle2?$|^blink$/.test(h[i-1])){flicker++;fc[h[i-1]]=(fc[h[i-1]]||0)+1;if(ex.length<10)ex.push(id+': '+h.slice(i-3,i+2).join('>'));}
+ for(const [id,h] of hist){for(let i=1;i<h.length;i++){if(h[i]==='gap'||h[i-1]==='gap')continue;if(h[i]!==h[i-1])switches++;
+   if(i>=2&&h[i-2]!=='gap'&&h[i]===h[i-2]&&h[i-1]!==h[i]&&!/^walk|^m(3|6|10|11)$|^m[05]$|^idle2?$|^blink$/.test(h[i-1])){flicker++;fc[h[i-1]]=(fc[h[i-1]]||0)+1;if(ex.length<10)ex.push(id+': '+h.slice(i-3,i+2).join('>'));}
    const a=/^walk(\d)$/.exec(h[i-1]),c=/^walk(\d)$/.exec(h[i]);if(a&&c){const d=(+c[1]-+a[1]+4)%4;if(d>1)walkSkip++;}}}
  const H0=[...hits.values()].filter(h=>h.t<__mistvaleGame.state.time-.5),H=H0.filter(h=>h.drawn);return{hitsOffscreen:H0.length-H.length,frames,dollSamples:dollN,entities:hist.size,switches,flicker,walkSkip,byPose:fc,ex,hits:H.length,hitShown:H.filter(h=>h.hurt).length,dmgNumbers:dmg.size};},[secs,view]);
 console.log(JSON.stringify(r));await b.close();process.exit(r.flicker>r.switches*.005||r.walkSkip||r.hitShown<r.hits*.95?1:0);

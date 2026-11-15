@@ -1228,7 +1228,8 @@ function runHudPaint(){
     ?`<b>地下城</b><span>第 ${d.floor} 層 · 第 ${Math.max(1,d.wave||1)}/3 波</span>`
     :`<b>競技場</b><span>vs ${esc(a.opponent||'訓練隊')}</span>`;
   const phase=esc(o.phase||'待命');
-  const shape=[on,o.floor,o.wave,phase,on==='dungeon'?!!d.auto:'',party.map(h=>h.id+h.name+h.classId).join(',')].join('|');
+  // 樓層/波數/階段只就地改字,不重建 DOM:否則階段切換時撤退鈕被換掉,按到一半(pointerdown→up)會點空。
+  const shape=[on,on==='dungeon'?!!d.auto:'',party.map(h=>h.id+h.name+h.classId).join(',')].join('|');
   if(shape!==runHudShape||!runHudEl){
     runHudShape=shape;
     if(!runHudEl){runHudEl=document.createElement('div');runHudEl.id='run-hud';document.body.appendChild(runHudEl);}
@@ -1242,6 +1243,7 @@ function runHudPaint(){
     runHudUnits=[...runHudEl.querySelectorAll('.rh-unit')].map((el,i)=>({h:party[i],fill:el.querySelector('.rh-bar>span'),num:el.querySelector('.rh-num'),el}));
     runHudFoe=on==='arena'?{fill:runHudEl.querySelector('.rh-foe .rh-bar>span'),num:runHudEl.querySelector('.rh-foe .rh-num')}:null;
   }
+  {const hs=runHudEl.querySelector('.rh-head>span'),ps=runHudEl.querySelector('.rh-phase');const ht=on==='dungeon'?`第 ${d.floor} 層 · 第 ${Math.max(1,d.wave||1)}/3 波`:`vs ${a.opponent||'訓練隊'}`;if(hs&&hs.textContent!==ht)hs.textContent=ht;if(ps&&ps.textContent!==(o.phase||'待命'))ps.textContent=o.phase||'待命';}
   for(const u of runHudUnits){const h=u.h,ratio=Math.max(0,Math.min(1,h.hp/(h.maxHp||1)));u.fill.style.width=(ratio*100).toFixed(1)+'%';u.num.textContent=`${Math.round(h.hp)}/${Math.round(h.maxHp)}`;u.el.classList.toggle('down',h.hp<=0);u.el.classList.toggle('low',ratio<.35);}
   if(runHudFoe&&a?.active){const ratio=Math.max(0,Math.min(1,a.enemyHp/(a.enemyMaxHp||1)));runHudFoe.fill.style.width=(ratio*100).toFixed(1)+'%';runHudFoe.num.textContent=`${Math.round(a.enemyHp)}/${Math.round(a.enemyMaxHp)}`;}
 }

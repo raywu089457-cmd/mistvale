@@ -1172,6 +1172,11 @@ html body #run-hud :is(.rh-toggle,.rh-x){min-height:32px;min-width:44px;padding:
 @media(min-width:761px) and (min-height:521px) and (max-width:1343px){
   html body #run-hud{left:372px;right:112px;top:148px;transform:none;width:auto;min-width:0;max-width:600px}
 }
+/* 2026-11-15 寬桌機(≥1344px):HUD 仍置中，但寬度固定。以前寬度跟著樓層/波數/階段/生命數字變，每次變字整條重新置中，
+   撤退/自動續戰鈕一直左右移(verify 的點擊等「位置穩定」逾時，真人也可能點偏)。 */
+@media(min-width:1344px) and (min-height:521px){
+  html body #run-hud{width:min(600px,calc(100vw - 24px))}
+}
 /* 手機直向:貼在頁籤列上方、縮放鈕左邊(x 到 vw-62) */
 @media(max-width:760px){
   html body #run-hud{top:auto;bottom:calc(var(--hv-tab-h) + env(safe-area-inset-bottom,0px) + 8px + var(--fa-pause,0px));left:var(--hv-gut);right:calc(var(--hv-gut) + 44px + 8px);transform:none;width:auto;min-width:0;max-width:none;padding:6px 8px 7px;gap:4px}

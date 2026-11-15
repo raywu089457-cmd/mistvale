@@ -240,7 +240,7 @@ export function createDollHero(opts = {}) {
     const from = p.base.map(HEX), to = p.variants[useVariant].map(HEX);
     if (from.every((c, i) => c.join() === to[i].join())) return img;
     const cv = makeCanvas(img.width, img.height);
-    const ctx = cv.getContext('2d');
+    const ctx = cv.getContext('2d', { willReadFrequently: true });
     ctx.drawImage(img, 0, 0);
     const d = ctx.getImageData(0, 0, cv.width, cv.height), a = d.data;
     for (let i = 0; i < a.length; i += 4) {
@@ -286,7 +286,7 @@ export function createDollHero(opts = {}) {
     const hit = cellCache.get(key);
     if (hit) { cellCache.delete(key); cellCache.set(key, hit); return hit; }
     const cv = makeCanvas(cw, ch);
-    const ctx = cv.getContext('2d');
+    const ctx = cv.getContext('2d', { willReadFrequently: true });
     ctx.drawImage(img, sx, sy, cw, ch, 0, 0, cw, ch);
     const d = ctx.getImageData(0, 0, cw, ch), a = d.data;
     for (let i = 0; i < a.length; i += 4) {
@@ -338,7 +338,7 @@ export function createDollHero(opts = {}) {
   function cropCell(cell, mirror) {
     const [cw, ch] = HEROLOOM_CELL;
     const src = makeCanvas(cw, ch);
-    const sctx = src.getContext('2d');
+    const sctx = src.getContext('2d', { willReadFrequently: true })   // 2026-11-15: CPU-backed — these 3 canvases are read back (getImageData); GPU canvases stalled ~1 ms per readback;
     if (mirror) { sctx.translate(cw, 0); sctx.scale(-1, 1); }
     sctx.drawImage(cell, 0, 0);
     const d = sctx.getImageData(0, 0, cw, ch).data;
@@ -533,12 +533,12 @@ export function createDollHero(opts = {}) {
    * One outfit frame, or null to let compose() fall back to the layered rig (missing sheet,
    * unusable action row, or a fully transparent frame cell).
    */
-  function composeOutfitFrame(id, look, action, tick, mirror, dir) {
+  function composeOutfitFrame(id, look, action, tick, mirror, dir, walkPhase) {
     outfitComposes++;
     const sheet = outfitSheets.get(id);
     const pb = sheet && sheet.playback[action];
     if (!sheet || !pb || !sheet.usable[action]) { outfitFallbacks++; return null; }
-    const frame = outfitFrameIndex(pb.af, tick);
+    const frame = walkFrameOf(action, walkPhase, pb.af.length) ?? outfitFrameIndex(pb.af, tick);
     const ck = id + '|' + action + '|' + frame + '|' + (mirror ? 1 : 0) + '|' + sheet.info.at;
     let e = outfitCropCache.get(ck);
     if (e) { outfitHits++; outfitCropCache.delete(ck); outfitCropCache.set(ck, e); }
@@ -569,6 +569,16 @@ export function createDollHero(opts = {}) {
     };
   }
 
+  // Walk frame from the gait phase (0..1, pixel-world: sheet gait slot (i+0.5)/n), not from the integer DV2 tick.
+  // HeroLoom's walk frames are 1.8 ticks long (90 ms) and the outfit walk has its own 8-frame table, so going
+  // phase -> floored tick -> frame drops frames (traveler: 9 gait slots -> tick 7,9 -> slot 3,5) and the outfit
+  // path only ever reached frames 0..4 of 8. floor(phase*frames) is monotone, so a +1 gait step is at most +1 frame.
+  function walkFrameOf(action, walkPhase, frames) {
+    if (action !== 'walk' || walkPhase == null || !(frames > 0) || !Number.isFinite(walkPhase)) return null;
+    const ph = ((walkPhase % 1) + 1) % 1;
+    return Math.min(frames - 1, Math.floor(ph * frames));
+  }
+
   function compose(h, req = {}) {
     if (!isOn() || !data) return null;
     const t0 = typeof performance !== 'undefined' && performance.now ? performance.now() : 0;
@@ -593,19 +603,22 @@ export function createDollHero(opts = {}) {
       loaded: true,
     });
     if (outfitPick.id) {
-      const outfitComposed = composeOutfitFrame(outfitPick.id, look, action, tick, mirror, dir);
+      const outfitComposed = composeOutfitFrame(outfitPick.id, look, action, tick, mirror, dir, req.walkPhase);
       if (outfitComposed) {
         if (t0) composeMs += performance.now() - t0;
         return outfitComposed;
       }
     }
-    const frame = heroloomFrameIndex(af, tick);
+    const frame = walkFrameOf(action, req.walkPhase, af ? af.length : 0) ?? heroloomFrameIndex(af, tick);
     const recipe = heroloomRecipe(look, { hideWeapon: !!req.hideWeapon });
     const key = heroloomRecipeSig(recipe) + '|' + action + '|' + frame + '|' + (mirror ? 1 : 0);
     const ck = key;
     let e = cropCache.get(ck);
     if (e) { hits++; cropCache.delete(ck); cropCache.set(ck, e); }
     else {
+      // 2026-11-15: a miss used to cost ~10–25 ms (22 GPU readbacks) and stalled dungeon starts to ~3 fps; the readback canvases
+      // in tintCell/tintImage/cropCell are now willReadFrequently (CPU-backed). A per-frame miss budget with a last-frame fallback
+      // was tried and dropped: the stale frame showed the old facing/walk frame (check_facing heroWalkBad 44, check_anim walkSkip 3).
       misses++;
       const cell = composeCell(recipe, action, frame);
       if (!cell) return null;

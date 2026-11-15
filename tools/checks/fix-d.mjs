@@ -85,7 +85,7 @@ for (const view of ['desktop', 'tablet', 'phone', 'land']) {
     await openPanel(page, name);
     const tag = `${view}/${name}`;
     if (C_PANELS.has(name)) {
-      await page.evaluate(m => { document.querySelectorAll('#toasts .toast').forEach(e => e.remove()); globalThis.__toast(m, false); }, MSG22); await page.waitForTimeout(430);
+      await page.evaluate(m => { document.querySelectorAll('#toasts .toast').forEach(e => e.remove()); globalThis.__toast(m, false); }, MSG22); await page.waitForTimeout(430); await page.evaluate(() => document.querySelectorAll('#toasts .toast:not(.out)').forEach(e => e.getAnimations().forEach(x => x.finish())));   // 2026-11-15: 機器忙時進場動畫晚開始,430ms 內還在淡入會被當成沒出現
       const r = await ev(page, P => {
         const host = document.querySelector('#modal-backdrop').classList.contains('hidden') ? document.querySelector('#inspector') : document.querySelector('#modal');
         const title = host.querySelector('#modal-title,#inspect-title'), ts = [...document.querySelectorAll('#toasts .toast')].filter(P.vis), t = ts[0], tx = t?.querySelector('.toast-tx');
@@ -107,7 +107,7 @@ for (const view of ['desktop', 'tablet', 'phone', 'land']) {
     // B1 一則 22 字訊息(手機另測 34 字兩行)——Z2D:A 抽屜開著時 toast 不再蓋標題列(R13:會蓋住子頁籤與工具鈕),
     //    直向手機／桌機貼在抽屜上緣上方,橫向(抽屜滿版)留在頁籤列上方並閃避按鈕。量:不在標題列裡、不蓋標題列任何鈕、X 與標題列的鈕都點得到、訊息完整、最多兩行
     for (const msg of view === 'phone' || view === 'land' ? [MSG22, MSG_LONG] : [MSG22]) {
-      await page.evaluate(m => { document.querySelectorAll('#toasts .toast').forEach(e => e.remove()); globalThis.__toast(m, false); }, msg); await page.waitForTimeout(430);
+      await page.evaluate(m => { document.querySelectorAll('#toasts .toast').forEach(e => e.remove()); globalThis.__toast(m, false); }, msg); await page.waitForTimeout(430); await page.evaluate(() => document.querySelectorAll('#toasts .toast:not(.out)').forEach(e => e.getAnimations().forEach(x => x.finish())));   // 2026-11-15: 機器忙時進場動畫晚開始,430ms 內還在淡入會被當成沒出現
       const r = await ev(page, (P, m) => {
         const modalOpen = !document.querySelector('#modal-backdrop').classList.contains('hidden');
         const host = modalOpen ? document.querySelector('#modal') : document.querySelector('#inspector');

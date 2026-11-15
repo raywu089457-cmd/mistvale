@@ -1520,6 +1520,8 @@ let renderDprMax=Math.max(1,dprCap||autoDpr());   // 畫布解析度上限(devic
   // 蓄力(攻擊計時剩 <0.3 秒:往後縮、壓低)→ 出手(近戰往目標衝再收回、遠程後座)→ 受擊(往反方向退、閃光、抖)。
   // 有生成的姿勢圖(<職業>_windup/_strike/_hurt、<魔物>2)就換圖;沒有就只用位移/剪切/縮放。
   const ease=t=>1-(1-t)*(1-t);
+  // 目標在畫面左(-1)或右(+1);幾乎正上/正下(|x| ≤ .1)回 prev
+  function sideOf(h,tx,tz,prev){if(tx==null||tz==null)return prev||0;const d=screenDir(h.x,h.z,tx,tz).x;return Math.abs(d)>.1?(d>0?1:-1):(prev||0);}
   function screenDir(fx,fz,tx,tz){const dx=(tx-fx-(tz-fz))*PX,dy=(tx-fx+(tz-fz))*PY,l=Math.hypot(dx,dy)||1;return{x:dx/l,y:dy/l};}
   // 四格走路循環(左腳著地 → 經過 → 右腳著地 → 經過),每秒 8 格;每格的武器握法一致(l0veyou walk4 表)。
   const walkFrame=(t,seed)=>'walk'+(1+Math.floor(t*8+(seed%4))%4);
@@ -1815,7 +1817,8 @@ let renderDprMax=Math.max(1,dprCap||autoDpr());   // 畫布解析度上限(devic
     // 蓄力被打斷(目標死了、換目標)後重新蓄力,中間隔了走路/待機 → 新的一段,從 slot 0 開始,不沿用舊的最大值。
     if(sp.pose==='windup'){const w=dollWind.get(h.id);if(w&&w.stamp===h.atkAt&&w.key===req.action&&t-w.t>=0&&t-w.t<.25)req.tick=Math.max(w.tick,req.tick);dollWind.set(h.id,{stamp:h.atkAt,key:req.action,tick:req.tick,t});}
     // sideHint:只給只有側面美術的 HeroLoom(上/下象限畫側面時朝哪邊);DV2 包不看它
-    const c=dollHero.compose(h,{action:req.action,tick:req.tick,dir:dollDirName(vdir,facing),sideHint:facing<0?-1:1,hideWeapon:!partsVisible,globalTick:Math.floor(t*(data.tickRate||20))});
+    const wn=req.action==='walk'&&/^walk/.test(sp.pose)?actOf(meta,sp.act)?.frames:0;   // 走路相位給 HeroLoom 自己換算格(見 heroloom-hero.js walkFrameOf)
+    const c=dollHero.compose(h,{action:req.action,tick:req.tick,walkPhase:wn>0?((((sp.i||0)%wn)+wn)%wn+.5)/wn:null,dir:dollDirName(vdir,facing),sideHint:facing<0?-1:1,hideWeapon:!partsVisible,globalTick:Math.floor(t*(data.tickRate||20))});
     if(!c)return null;
     heroLodUse['1x']++;   // 紙娃娃沒有 @2x;計數照算,LOD 切換邏輯不受影響
     const W=c.cv.width,H=c.cv.height,k=(HERO_H/c.heroHeight)*scale,dw=Math.round(W*k),dh=Math.round(H*k);
@@ -1938,7 +1941,7 @@ let renderDprMax=Math.max(1,dprCap||autoDpr());   // 畫布解析度上限(devic
     if(armed&&ad.stamp!==(h.atkAt??-99)&&h.atkX!=null){
       ad.stamp=h.atkAt??-99;
       // 有蓄力(畫面上先演了 0.3 秒)就沿用蓄力時鎖定的方向,整段攻擊同一列;沒有蓄力才用出手那刻的位置算
-      if(ad.mode!=='windup')ad.dir=moveDir(h.atkX-h.x,h.atkZ-h.z,ad.dir);
+      if(ad.mode!=='windup'){ad.dir=moveDir(h.atkX-h.x,h.atkZ-h.z,ad.dir);ad.sx=sideOf(h,h.atkX,h.atkZ,ad.sx);}
       ad.mode='strike';
     }
     const vMove=vdir;   // 移動方向(走路列用)
@@ -1947,6 +1950,7 @@ let renderDprMax=Math.max(1,dprCap||autoDpr());   // 畫布解析度上限(devic
       // 蓄力:進入時算一次;蓄力中目標走開就跟著換象限(10° 遲滯,不會在邊界上抖)。出手(armed)之後就不再改。
       if(ad.mode!=='windup'){ad.mode='windup';ad.dir=moveDir(target.x-h.x,target.z-h.z,ad.dir);}
       else ad.dir=moveDirStable(target.x-h.x,target.z-h.z,ad.dir);
+      ad.sx=sideOf(h,target.x,target.z,ad.sx);
       vdir=ad.dir;
     }else ad.mode='';   // 攻擊結束後「方向不動」:維持出手/走路時鎖定的方向,下一個動作(出手或起步)才重算
     atkDirs.set(h.id,ad);
@@ -1961,11 +1965,14 @@ let renderDprMax=Math.max(1,dprCap||autoDpr());   // 畫布解析度上限(devic
     // 受擊/技能也是 4 象限:受擊朝打來的人、技能朝施放目標;每次事件(hitAt / skillAt)開始時鎖一次,整段不變。
     // (sheetPose 的受擊/技能列不看 vdir;紙娃娃 dollDirName 看,所以這裡改 vdir 就是改畫出來的方向。)之後的待機沿用這個方向。
     if(sp.act==='hurt'&&h.hitFromX!=null){const hs=h.hitAt+'|'+h.hitFromX+'|'+h.hitFromZ;   // 同一刻被兩隻打到:跟最後打到的那隻
-      if(ad.hurtStamp!==hs){ad.hurtStamp=hs;ad.hurtDir=moveDir(h.hitFromX-h.x,h.hitFromZ-h.z,vdir);}vdir=ad.hurtDir;}
+      if(ad.hurtStamp!==hs){ad.hurtStamp=hs;ad.hurtDir=moveDir(h.hitFromX-h.x,h.hitFromZ-h.z,vdir);ad.hurtSx=sideOf(h,h.hitFromX,h.hitFromZ,0);}vdir=ad.hurtDir;}
     else if(sp.act==='skill'&&h.atkX!=null){if(ad.skillStamp!==h.skillAt){ad.skillStamp=h.skillAt;ad.skillDir=moveDir(h.atkX-h.x,h.atkZ-h.z,vdir);}vdir=ad.skillDir;}
     // 朝向:畫的是戰鬥格(普攻/受擊/技能)才用戰鬥朝向(面向目標/打來的一側);走路/待機一律照移動方向 —— 出手後 0.3–0.36 秒換追下一個目標時,不會倒退走
     if(sp.act.startsWith('attack')||['hurt','skill','death'].includes(sp.act)){if(pose.face)facing=pose.face>0?1:-1;
-      {const t=state.time||0,sk=t-(h.skillAt??-99);if(sp.act==='skill'&&sk>=0&&h.atkX!=null){const d=screenDir(h.x,h.z,h.atkX,h.atkZ).x;if(Math.abs(d)>.1)facing=d>0?1:-1;}}}
+      {const t=state.time||0,sk=t-(h.skillAt??-99);if(sp.act==='skill'&&sk>=0&&h.atkX!=null){const d=screenDir(h.x,h.z,h.atkX,h.atkZ).x;if(Math.abs(d)>.1)facing=d>0?1:-1;}}
+      // 上/下象限的出手/受擊:左右 = 鎖方向那一刻目標(受擊 = 打來的人)在畫面哪一側。只有側面美術的 HeroLoom 用這個 facing 鏡像畫上/下(sideHint),
+      // 以前沿用 pose.face / 上一個動作的 facing,目標在左上卻畫成朝右(check_facing heroCombat)。DV2 的上/下列不看它,只影響前衝的左右。
+      if(vdir==='up'||vdir==='down'){const sx=sp.act==='hurt'?ad.hurtSx:/^attack/.test(sp.act)?ad.sx:0;if(sx)facing=sx;}}
     // 側面方向時左右鏡像 = 動畫方向(走路、出手、受擊、技能、待機都一樣),不會出現「方向是右、圖朝左」
     if(sp.act!=='death')facing=mirrorOf(vdir,facing);
     previousPositions.set(h.id,{x:h.x,z:h.z,facing,vdir,walkUntil,fightUntil});{const row=actOf(heroSheets[h.classId].meta,sp.act)||{frames:1};sp.i=Math.max(0,Math.min(row.frames-1,sp.i));}  // 時間超過最後一格就停在最後一格
