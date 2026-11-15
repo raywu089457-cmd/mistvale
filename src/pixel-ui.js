@@ -9,7 +9,7 @@ import {createPixelWorld,drawPortrait,buildingDataURL,MAP_PALETTE,MAP_ACCENT,mon
 import {mountTmwPuppet} from './tmw-puppet.js';
 import {mountHeroLoomLab} from './heroloom-lab.js';  // ?loom=1 HeroLoom 紙娃娃實驗面板(docs/HEROLOOM.md)
 import {mountPaperdollLab} from './paperdoll-lab.js';  // ?dv2lab=1 DV2 紙娃娃實驗面板(32 組動作、性別、石化、帽子、新武器;docs/DV2-PHASE6.md)
-import {BUILDINGS,CLASSES,RARITIES,TRAITS,MATERIALS,PRODUCTS,RECIPES,DIFFICULTIES,PILOT_ATTACK,SKILLS,SAVE_KEY} from './pixel-data.js';
+import {BUILDINGS,CLASSES,RARITIES,TRAITS,MATERIALS,PRODUCTS,RECIPES,DIFFICULTIES,PILOT_ATTACK,SKILLS,SAVE_KEY,EQUIPMENT} from './pixel-data.js';
 import {tipAttr,initTips} from './ui-tip.js';   // Z2A:迷你視窗 tooltip(給任何面板用:元素加 ${tipAttr({name,grade,icon,stars,level,stats,lines})},說明見 ui-tip.js 開頭)
 import {hc,HC_TABS,initHunterUI,hunterDetailHTML,vb,visitorBandHTML,visitorArrival} from './z2a-hunter.js';   // Z2A:獵人卡、新獵人暗帶
 
@@ -422,7 +422,7 @@ function paint(force=false){const s=game.state;floatDeltas(s);['gold','wood','or
 // 主世界地圖畫布:長寬比跟世界一樣(一格世界單位在畫面上是正方形),四周各留 15 像素邊。
 const WORLD_MAP_H=392,WORLD_MAP_W=Math.round((WORLD_MAP_H-30)*WORLD.width/WORLD.height)+30;
 function modalTitle(t,ic='scroll'){const names={worldmap:'主世界地圖',build:'村莊建設',hunters:'獵人名冊',hunter:'獵人詳情',trade:'交易所',craft:'製作與庫存',dungeon:'地下城遠征',arena:'競技場模擬對戰',quests:'村長委託',inventory:'村莊倉庫',difficulty:'狩獵難度',offline:'離線戰報',recruit:'招募訪客',visitors:'新的獵人！',settings:'遊戲設定',help:'村長入門手札',boss:'地圖首領',dispatch:'派遣出征 · 自由組隊',region:'地圖詳細資訊',density:'地區立牌 · 怪物數量',welcome:'村長',advisor:'村長',codex:'魔物圖鑑',confirm:'請確認',result:resultReq?.title||'結算',bossconfirm:'召喚確認'};$('#modal-title').textContent=names[t]||t;$('#modal-icon').dataset.icon=ic;setIcons($('#modal'));}
-function portrait(h){const e=h.equipment||{},key=h.classId+':'+h.rarity+':'+(e.weapon===true?'f':'')+(e.helm===true||e.armor===true?'h':'')+(Object.entries(e).some(([s,v])=>s!=='weapon'&&v===true)?'a':'');/* 立繪會畫精良武器/頭盔/護甲:鍵要帶裝備,不然同職業同稀有度共用第一位畫到的 */if(portraitCache[key])return portraitCache[key];const c=document.createElement('canvas');c.width=84;c.height=96;drawPortrait(c,h,{scale:2.7});const u=c.toDataURL();if(u.length<1200)return u;return portraitCache[key]=u;}   // 還沒畫出東西(英雄表未載完)的空白圖不快取,下一輪再畫
+function portrait(h){const e=h.equipment||{},gk=h.gear?Object.values(h.gear).map(g=>g&&g.itemId||'-').join(','):'',key=h.classId+':'+h.rarity+':'+gk+':'+(e.weapon===true?'f':'')+(e.helm===true||e.armor===true?'h':'')+(Object.entries(e).some(([s,v])=>s!=='weapon'&&v===true)?'a':'');/* 立繪會畫精良武器/頭盔/護甲:鍵要帶裝備,不然同職業同稀有度共用第一位畫到的;2026-11-15 物品化後改帶真裝備 id */if(portraitCache[key])return portraitCache[key];const c=document.createElement('canvas');c.width=84;c.height=96;drawPortrait(c,h,{scale:2.7});const u=c.toDataURL();if(u.length<1200)return u;return portraitCache[key]=u;}   // 還沒畫出東西(英雄表未載完)的空白圖不快取,下一輪再畫
 
 // Z1(2026-11-12 圖鑑 v2):底部頁籤列 5 格＝建設、地下城、獵人、倉庫、交易;競技場併入地下城、製作併入倉庫(子頁籤),委託由任務追蹤與右上圖示進入。
 const MODAL_TAB={build:'build',hunters:'hunters',hunter:'hunters',recruit:'hunters',dispatch:'hunters',region:'hunters',density:'hunters',trade:'trade',craft:'inventory',inventory:'inventory',dungeon:'dungeon',arena:'dungeon'};
@@ -657,8 +657,16 @@ function modalHTML(type){const s=game.state;
    const pickFb=groups.flatMap(([,ids,fb])=>ids.map(x=>[x,fb])).find(([x])=>x===invPick);
    const detail=pickFb?(()=>{const {m,q,act,lab,use,from}=infoOf(pickFb[0],pickFb[1]);return `<div class="z1-inset z2b-detail" data-id="${pickFb[0]}"><div class="zd-head"><i class="z2b-ic">${iconHTML(gearIcon(pickFb[0]))}</i><div class="zd-t"><b class="si-nm">${m.name}</b><small class="si-num">庫存 <b>${fmt(q)}</b> · 單價 ${m.price} 金</small></div><button class="pixel-button hv-sec" data-action="${act}" aria-label="${m.name}：前往${lab}">前往${lab}</button></div><small class="si-use">用途：${esc(use)}</small><small class="si-src">來源：${esc(from)}</small></div>`;})():`<div class="z1-inset z2b-detail empty"><small>點一下物品，看它的用途與來源。</small></div>`;
    const totalKinds=Object.keys(ALL).filter(held).length,totalPieces=Object.keys(ALL).reduce((n,id)=>n+stock(id),0);
+    // 2026-11-15 裝備物品化:倉庫裡的「真裝備」(state.gearStorage)→ 可穿在指定獵人身上／出售／分解
+    const GEAR_LABEL={weapon:'武器',helm:'頭盔',chest:'胸甲',belt:'腰帶',legs:'腿甲',boots:'靴子',gloves:'手套'};
+    const gearStats=it=>{const st=it.stats||{},p=[];if(st.atk)p.push('攻擊 +'+st.atk);if(st.hp)p.push('生命 +'+st.hp);if(st.def)p.push('防禦 +'+st.def);return p.join(' · ')||'沒有數值加成';};
+    const storedGear=Array.isArray(s.gearStorage)?s.gearStorage:[];
+    const aliveHunters=(s.hunters||[]).filter(Boolean);
+    const storeRows=storedGear.map(g=>{const it=EQUIPMENT[g.itemId];if(!it)return '';
+      return `<li class="z2b-row gear-store-row" data-uid="${g.uid}"><i class="z2b-ic">${iconHTML(it.slot==='weapon'?'swords':'def')}</i><div class="z2b-rb"><b class="z2b-nm">${esc(it.name)}</b><small class="z2b-ds">${GEAR_LABEL[it.slot]||it.slot} · ${gearStats(it)}</small></div><div class="z2b-act">${aliveHunters.length?`<select data-store-who="${g.uid}" aria-label="要讓哪一位獵人穿上${esc(it.name)}">${aliveHunters.map(h=>`<option value="${h.id}">${esc(h.name)}</option>`).join('')}</select><button type="button" class="pixel-button" data-action="gearStoreEquip" data-uid="${g.uid}" data-zb="olive">穿上</button>`:'<small>沒有可裝備的獵人</small>'}<button type="button" class="pixel-button" data-action="gearStoreSell" data-uid="${g.uid}" data-zb="red">出售</button><button type="button" class="pixel-button" data-action="gearStoreSalvage" data-uid="${g.uid}">分解</button></div></li>`;}).join('');
+    const storeSection=`<section class="stock-sec gear-store" data-sec="裝備倉庫"><h4 class="stock-sec-h"><span>裝備倉庫</span><small>${storedGear.length} 件</small></h4>${storedGear.length?`<ul class="z2b-rows">${storeRows}</ul>`:`<p class="gear-store-empty">倉庫裡沒有裝備。在獵人「裝備」頁把身上的裝備「存倉」就會出現在這裡。</p>`}</section>`;
    return `<div class="stock-summary hv-sumline" role="status"><span>持有 <b>${totalKinds}</b>／${Object.keys(ALL).length} 種</span><span>共 <b>${totalPieces}</b> 件</span><small>數量 0 的淡化顯示</small></div>${detail}
-   ${groups.map(([title,ids,fb])=>`<section class="stock-sec" data-sec="${title}"><h4 class="stock-sec-h"><span>${title}</span><small>${ids.filter(held).length}／${ids.length} 種</small></h4><ul class="stock-list hv-sq-grid">${ids.map(x=>itemRow(x,fb)).join('')}</ul></section>`).join('')}`;
+   ${groups.map(([title,ids,fb])=>`<section class="stock-sec" data-sec="${title}"><h4 class="stock-sec-h"><span>${title}</span><small>${ids.filter(held).length}／${ids.length} 種</small></h4><ul class="stock-list hv-sq-grid">${ids.map(x=>itemRow(x,fb)).join('')}</ul></section>`).join('')}${storeSection}`;
  }
  if(type==='codex'){
   const MON=Object.keys(ENEMIES).filter(k=>k!=='boss');
@@ -866,6 +874,17 @@ if(a==='setDifficulty'){r=game.setDifficulty(Number(id));logToast(r.message,r.ok
  if(a==='train'){r=game.train(id);logToast(r.message,r.ok);openHunter(id);paint();return;}
  if(a==='enhanceHunter'){r=game.enhance(id);logToast(r.message,r.ok);openHunter(id);paint();return;}
  if(a==='reincarnate'){r=game.reincarnate(id);logToast(r.message,r.ok);openHunter(id);paint();return;}
+  // ── 裝備物品(2026-11-15):身上的七格 → 卸下／存倉／出售／分解;空位直接從倉庫穿上
+  if(a==='gearUnequip'){r=game.unequipGear(id,el.dataset.slot);logToast(r.message,r.ok);openHunter(id);paint();save();return;}
+  if(a==='gearStore'){r=game.storeGear(id,el.dataset.slot);logToast(r.message,r.ok);openHunter(id);paint();save();return;}
+  if(a==='gearSell'){r=game.sellGear(id,el.dataset.slot);logToast(r.message,r.ok);openHunter(id);paint();save();return;}
+  if(a==='gearSalvage'){r=game.salvageGear(id,el.dataset.slot);logToast(r.message,r.ok);openHunter(id);paint();save();return;}
+  if(a==='gearEquip'){r=game.equipFromStorage(id,el.dataset.uid);logToast(r.message,r.ok);openHunter(id);paint();save();return;}
+  if(a==='gearStoreEquip'){const uid=el.dataset.uid,sel=document.querySelector(`[data-store-who="${uid}"]`),hid=sel&&sel.value;
+    if(!hid){logToast('先選一位獵人再穿上。',false);return;}
+    r=game.equipFromStorage(hid,uid);logToast(r.message,r.ok);openModal('inventory');paint();save();return;}
+  if(a==='gearStoreSell'){r=game.sellStoredGear(el.dataset.uid);logToast(r.message,r.ok);openModal('inventory');paint();save();return;}
+  if(a==='gearStoreSalvage'){r=game.salvageStoredGear(el.dataset.uid);logToast(r.message,r.ok);openModal('inventory');paint();save();return;}
  // ── 招募 / 委託 / 首領
  if(a==='recruitVisitor'){r=game.recruit(id);visitorArrival(true);logToast(r.message,r.ok);paint();save();if(r.ok){if(modal==='visitors')closeModal();else if(modal==='recruit')openModal('recruit');}return;}   // Z2A:暗帶邀請成功就收起;招募清單重畫(換成新來的旅人)
  if(a==='visitorPick'){vb.pick=id;openModal('visitors');return;}   // Z2A:新獵人暗帶:點卡切換選中(放大)
