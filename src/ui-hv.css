@@ -2524,3 +2524,25 @@ html body #modal-content .gear-store-who select{min-height:36px;max-width:100%;b
 html body #modal-content .gear-store-empty{opacity:.85}
 @media(pointer:coarse){html body #modal-content .gear-store-row .z2b-act .pixel-button{min-height:44px!important}}
 /* ===== Z2D end ===== */
+
+/* ===== 2026-11-16 裝備縮圖(gear icons,m03470) =====
+   來源:build.mjs 內嵌 assets/gear-icons/<itemId>.png 32×32 → window.PIXEL_ASSETS.gearIcons。
+   固定尺寸 + pixelated,缺 key 時 JS 退回文字單字/平面圖示,版面不跳動。 */
+.gico{display:block;flex:none;width:32px;height:32px;object-fit:contain;image-rendering:pixelated;image-rendering:crisp-edges;pointer-events:none;filter:drop-shadow(0 0 1px rgba(226,216,196,.75)) drop-shadow(0 1px 0 rgba(0,0,0,.8))}
+html body #modal[data-type=hunter] .z2-row-ic.gico-box{display:grid;place-items:center;padding:0}
+html body #modal[data-type=hunter] .z2-row-ic.gico-box .gico{width:32px;height:32px}
+html body #modal[data-type=hunter] .z2-slot .gico{width:34px;height:34px}
+html body #modal[data-type=hunter] .z2-slot.open .gico{opacity:.82}
+html body :is(#inspect-content,#modal-content) .z2b-ic>img.gico{width:32px!important;height:32px!important;margin:0!important}
+html body #modal-content .gear-store-row .z2b-ic{flex-basis:44px}
+/* 倉庫「已穿全套」小圖條:七格各顯示該獵人身上那件裝備的縮圖,空位是淡字 */
+html body #modal-content .gear-set{margin:2px 0 10px;padding:8px;background:#17141a;border:1px solid #2e2926;border-radius:4px}
+html body #modal-content .gear-set-h{display:flex;align-items:center;justify-content:space-between;gap:8px;margin-bottom:6px;min-height:36px}
+html body #modal-content .gear-set-h small{opacity:.85;white-space:nowrap}
+html body #modal-content .gear-set-who{min-height:36px;max-width:60%;background:#1e1b17;color:var(--hv-text);border:1px solid #4a4540;font:700 13px/1 var(--font-ui);padding:0 6px}
+html body #modal-content .gear-set-strip{display:flex;gap:6px;flex-wrap:wrap}
+html body #modal-content .gear-set-slot{display:grid;place-items:center;width:40px;height:40px;background:#1c1916;border:1px solid #3a342e;border-radius:4px}
+html body #modal-content .gear-set-slot.empty{background:#141117;border-style:dashed;border-color:#2c2723;opacity:.6}
+html body #modal-content .gear-set-gl{font:700 14px/1 var(--font-ui);color:#cbbfa8;text-shadow:0 1px 0 rgba(0,0,0,.6)}
+html body #modal-content .gear-set-slot .gico{width:32px;height:32px}
+@media(pointer:coarse){html body #modal-content .gear-set-who{min-height:44px;font-size:14px}}

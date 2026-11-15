@@ -16,6 +16,10 @@ const STARS=5,STEP=4;   // 轉世 4 次點亮 1 顆星,20 次滿 5 星
 // 2026-11-15 裝備物品化:每個格子顯示穿在身上的真實物品(沒有 h.gear 的舊物件才退回 equipment 布林值)
 const SLOT_LABEL={weapon:'武器',helm:'頭盔',chest:'胸甲',belt:'腰帶',legs:'腿甲',boots:'靴子',gloves:'手套'};
 const itemIn=(h,slot)=>h&&h.gear&&h.gear[slot]?EQUIPMENT[h.gear[slot].itemId]||null:null;
+// 2026-11-16 裝備縮圖(使用者 m03470):build.mjs 把 assets/gear-icons/<itemId>.png 內嵌成
+// window.PIXEL_ASSETS.gearIcons;沒有 key 時回傳空字串,呼叫端退回文字/圖示(不顯示破圖)。
+export const gearIconSrc=id=>{const m=globalThis.PIXEL_ASSETS&&globalThis.PIXEL_ASSETS.gearIcons;return m&&id&&m[id]?m[id]:'';};
+export function gearIconHTML(it,size=28,extra=''){const src=it&&gearIconSrc(it.id);return src?`<img class="gico${extra?' '+extra:''}" src="${src}" alt="" width="${size}" height="${size}" loading="lazy" decoding="async">`:'';}
 const statLine=it=>{const s=(it&&it.stats)||{},parts=[];if(s.atk)parts.push(`攻擊 +${s.atk}`);if(s.hp)parts.push(`生命 +${s.hp}`);if(s.def)parts.push(`防禦 +${s.def}`);return parts.length?parts.join(' · '):'沒有數值加成';};
 function gearSlotTip(h,slot){const it=itemIn(h,slot);
  return it?{name:it.name,grade:it.tier==='craft'?'superior':'normal',icon:slot==='weapon'?'swords':'def',stats:[['位置',SLOT_LABEL[slot]],['攻擊','+'+(it.stats.atk||0)],['生命','+'+(it.stats.hp||0)],['防禦','+'+(it.stats.def||0)]],lines:[['pos',statLine(it)]]}
@@ -29,9 +33,9 @@ const SLOT_GLYPH={helm:'盔',chest:'甲',belt:'腰',legs:'腿',boots:'靴',glove
 function ringHTML(h){const I=C.iconHTML,wl=h.weaponLevel||0,ws=Math.ceil(wl/2),wIt=itemIn(h,'weapon'),wOn=!!(wIt||h.equipment?.weapon);
  const stars=n=>n?`<span class="z2-sstars" aria-hidden="true">${'<i></i>'.repeat(Math.min(5,n))}</span>`:'';
  return `<div class="z2-ring"><i class="z2-spot" aria-hidden="true"></i>`
-  +`<button type="button" class="z2-slot s-w ${wOn?'eq':'open'}" aria-label="武器：${wIt?wIt.name+(wl?' +'+wl:''):wOn?'已裝備':'未穿戴'}"${tipAttr(weaponTip(h))}>${I('swords',true)}${wOn?stars(ws||1):''}</button>`
+  +`<button type="button" class="z2-slot s-w ${wOn?'eq':'open'}" aria-label="武器：${wIt?wIt.name+(wl?' +'+wl:''):wOn?'已裝備':'未穿戴'}"${tipAttr(weaponTip(h))}>${(wIt&&gearIconHTML(wIt,34))||I('swords',true)}${wOn?stars(ws||1):''}</button>`
   +GEAR_SLOTS.map((slot,i)=>{const it=itemIn(h,slot),on=!!it||!!h.equipment?.[slot];
-    return `<button type="button" class="z2-slot s-g${i+1} ${on?'eq':'open'}" aria-label="${SLOT_LABEL[slot]}：${it?it.name:'未穿戴'}"${tipAttr(gearSlotTip(h,slot))}><span class="z2-glyph" aria-hidden="true">${SLOT_GLYPH[slot]||'甲'}</span></button>`;}).join('')
+    return `<button type="button" class="z2-slot s-g${i+1} ${on?'eq':'open'}" aria-label="${SLOT_LABEL[slot]}：${it?it.name:'未穿戴'}"${tipAttr(gearSlotTip(h,slot))}>${(it&&gearIconHTML(it,32))||`<span class="z2-glyph" aria-hidden="true">${SLOT_GLYPH[slot]||'甲'}</span>`}</button>`;}).join('')
   +`<img class="z2-fig" src="${C.portrait(h)}" alt="${C.esc(h.name)}"></div>`;}
 
 function barHTML(kind,icon,label,cur,max){const pct=max>0?Math.max(0,Math.min(100,cur/max*100)):0;
@@ -64,7 +68,7 @@ function gearBtn(action,id,slot,label,tone){return `<button type="button" class=
 // 一格一列真實物品：有穿→名稱/數值/卸下·存倉·出售·分解;沒穿→倉庫同位置候選直接穿上
 function gearRow(h,slot){const it=itemIn(h,slot),s=C.game().state,I=C.iconHTML;
  if(it){const stats=statLine(it),desc=it.name.includes(SLOT_LABEL[slot])?stats:`${SLOT_LABEL[slot]} · ${stats}`;
-  return `<div class="z2-row gear-slot" data-slot="${slot}"><i class="z2-row-ic" aria-hidden="true">${I(slot==='weapon'?'swords':'def',true)}</i>`
+  return `<div class="z2-row gear-slot" data-slot="${slot}"><i class="z2-row-ic gico-box" aria-hidden="true">${gearIconHTML(it,32)||I(slot==='weapon'?'swords':'def',true)}</i>`
    +`<div class="z2-row-b"><b class="z2-row-n"${it.tier==='craft'?' data-grade="superior"':''}>${C.esc(it.name)}</b><small class="z2-row-d">${desc}</small><div class="gear-btns">`
    +gearBtn('gearUnequip',h.id,slot,'卸下','gold')+gearBtn('gearStore',h.id,slot,'存倉')+gearBtn('gearSell',h.id,slot,'出售','red')+gearBtn('gearSalvage',h.id,slot,'分解')
    +`</div></div></div>`;}

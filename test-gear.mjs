@@ -149,4 +149,26 @@ eq(paladin.gear.chest.itemId, 'craft_chest', 'crafted chest occupies the chest s
 ok(paladin.maxHp > beforeHp, 'crafted chest raises maxHp above the starter chest');
 eq(g4.state.gearStorage.at(-1).itemId, 'paladin_plate', 'the replaced starter chest goes back to the warehouse');
 
+// ── 9. 裝備縮圖(使用者 m03470):每個裝備都要有一張 32×32 PNG,而且 build.mjs 要把圖表塞進 PIXEL_ASSETS.gearIcons ──
+{
+  const fs = await import('node:fs');
+  const path = await import('node:path');
+  const iconDir = path.join(process.cwd(), 'assets/gear-icons');
+  ok(fs.existsSync(iconDir), 'assets/gear-icons/ exists');
+  const pngIds = new Set(fs.readdirSync(iconDir).filter(f => f.endsWith('.png')).map(f => f.replace(/\.png$/, '')));
+  for (const id of Object.keys(EQUIPMENT)) {
+    ok(pngIds.has(id), `${id} has a gear icon png`);
+    const buf = fs.readFileSync(path.join(iconDir, `${id}.png`));
+    ok(buf.length > 80 && buf[0] === 0x89 && buf[1] === 0x50, `${id} icon is a real png`);
+    eq(buf.readUInt32BE(16), 32, `${id} icon width 32`);
+    eq(buf.readUInt32BE(20), 32, `${id} icon height 32`);
+  }
+  eq(pngIds.size, Object.keys(EQUIPMENT).length, 'gear-icons dir has no stray/extra item pngs');
+  const buildSrc = fs.readFileSync(path.join(process.cwd(), 'build.mjs'), 'utf8');
+  ok(buildSrc.includes('assets/gear-icons') && buildSrc.includes('PIXEL_ASSETS.gearIcons'), 'build.mjs wires assets/gear-icons into PIXEL_ASSETS.gearIcons');
+  const uiSrc = fs.readFileSync(path.join(process.cwd(), 'src/z2a-hunter.js'), 'utf8');
+  const ui2 = fs.readFileSync(path.join(process.cwd(), 'src/pixel-ui.js'), 'utf8');
+  ok(uiSrc.includes('gearIcons') && ui2.includes('gearIcons'), 'gear tab and warehouse read PIXEL_ASSETS.gearIcons');
+}
+
 console.log(`test-gear: ${passed} passed`);

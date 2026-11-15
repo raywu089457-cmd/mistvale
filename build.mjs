@@ -196,6 +196,12 @@ try{assetScript+=`window.PIXEL_ASSETS=window.PIXEL_ASSETS||{};window.PIXEL_ASSET
    assetScript+=`window.PIXEL_ASSETS=window.PIXEL_ASSETS||{};window.PIXEL_ASSETS.heroloomMonstersBase="media/heroloom-monsters/";`
      +`window.PIXEL_ASSETS.loomMonsters=${JSON.stringify(metas)};`;
  }}
+// 2026-11-16 裝備縮圖(docs/EQUIPMENT-ITEMS.md §縮圖):assets/gear-icons/<itemId>.png 32×32 由
+// pipeline/scripts/heroloom/gear-icons.mjs 產生。小檔(<16 KB)照 media() 規則內嵌成 data URI,
+// PIXEL_ASSETS.gearIcons[itemId] = 圖片來源;UI 沒拿到 key 時自己 fallback 成文字/slot 圖示。
+{const gi=path.join(root,'assets/gear-icons');let files=[];try{files=(await fs.readdir(gi)).filter(f=>f.endsWith('.png')).sort();}catch{}
+ if(files.length){const icons={};for(const f of files){const id=f.replace(/\.png$/,'');icons[id]=await media(path.join(gi,f),`gear-icons/${f}`);}
+  assetScript+=`window.PIXEL_ASSETS=window.PIXEL_ASSETS||{};window.PIXEL_ASSETS.gearIcons=${JSON.stringify(icons)};`;}}
 html=html.replace('/*__STYLE__*/',()=>css).replace('/*__ASSETS__*/',()=>assetScript).replace('/*__SCRIPT__*/',()=>ui.outputFiles[0].text.replaceAll('</script','<\\/script'));
 for (const block of html.matchAll(/<script>([\s\S]*?)<\/script>/g)) new vm.Script(block[1]);
 const file=path.join(out,'暮影村.html');await fs.writeFile(file,html,'utf8');
