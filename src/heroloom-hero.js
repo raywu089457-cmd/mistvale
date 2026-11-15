@@ -6,7 +6,7 @@
 //     -> { setSpec, status, covers, compose, get on, get data, weaponTypeOf, resolve }
 // plus lab/test extras: look(), recipe(), composeRecipe(recipe, …), bakeRecipe(recipe), frame(), counters().
 //
-// compose(hunter, {action, tick, dir, hideWeapon}) returns
+// compose(hunter, {action, tick, dir, hideWeapon, outfit}) returns
 //   { cv, footX, footY, heroHeight, parts, look, key, shadow }
 // where cv is the frame cell cropped to its alpha bbox (+1 px pad) and footX/footY are the pack's foot
 // anchor [26,51] re-expressed in crop pixels, so the consumer draws it exactly like a DV2 doll:
@@ -20,6 +20,12 @@
 //
 // The pack is licensed for use inside your own projects (see assets/heroloom/LICENSE.txt); it is copied to
 // media/heroloom/ by build.mjs and is never exposed as a downloadable asset pack.
+//
+// Outfits (archer only): setOutfit('a'|'b'|'c'|null) swaps the archer to one of the generated
+// full-character sheets from src/heroloom-outfits.js. A sheet is optional art loaded after the pack
+// and NOT run through opts.trackImage (a 404 must not trip the game's asset-failure boot gate); when
+// it is absent or invalid the layered compose above is used unchanged and status().outfit flags it.
+// req.outfit beats look.outfit, which beats setOutfit(); 'off'/'default'/null forces layered.
 
 import {
   HEROLOOM_ACTIONS,
@@ -42,6 +48,23 @@ import {
   heroloomAf,
   heroloomData,
 } from './heroloom.js';
+import {
+  OUTFIT_ACTIONS,
+  OUTFIT_ACTION_NAMES,
+  OUTFIT_HERO_HEIGHT,
+  OUTFIT_IDS,
+  OUTFIT_SHEET,
+  composeOutfitCell,
+  isOutfitOffValue,
+  normalizeOutfitId,
+  outfitBase,
+  outfitFrameIndex,
+  outfitPlayback,
+  outfitSheetFrames,
+  outfitSheetUrl,
+  resolveOutfitUse,
+  validateOutfitSheet,
+} from './heroloom-outfits.js';
 
 const OFF_RE = /^(0|off|no|sheet|none|false)$/i;
 const FALLBACK_TIMEOUT = 8000;
@@ -112,6 +135,16 @@ export function createDollHero(opts = {}) {
   const tintCache = new Map();    // url|ramp|variant -> full tinted image (bakeRecipe only)
   const cropCache = new Map();    // recipeSig|action|frame|mirror -> {cv, footX, footY, parts}
 
+  // Outfit variants (archer only). Optional art: sheets load after the pack, never tracked, and a
+  // missing/invalid sheet simply leaves the layered compose in charge.
+  const outfitDisabled = opts.outfits === false;
+  let outfitDefault = null;            // id set through setOutfit(); req.outfit still wins per call
+  const outfitSheets = new Map();      // id -> {id, url, img, info, playback, usable}
+  const outfitFailures = new Map();    // id -> error message (missing 404 / invalid header)
+  const outfitRequests = new Set();    // ids currently loading
+  const outfitCropCache = new Map();   // outfit|id|action|frame|mirror|sheetAt -> {cv,footX,footY,parts,key}
+  let outfitComposes = 0, outfitHits = 0, outfitMisses = 0, outfitFallbacks = 0;
+
   let hits = 0, misses = 0, bakes = 0, composeCount = 0, composeMs = 0, lastBakeMs = 0, failedCount = 0;
 
   const isOn = () => !!(on && !closed);
@@ -157,6 +190,8 @@ export function createDollHero(opts = {}) {
         loading = false;
         readyAt = Date.now();
         try { opts.onReady?.(); } catch (e) { /* the game's asset event must not break the doll */ }
+        // Optional outfit art, fire-and-forget: the hero is playable with the layered rig already.
+        loadOutfits(timeoutMs);
       })
       .catch((e) => {
         clearTimeout(timer);
@@ -382,6 +417,158 @@ export function createDollHero(opts = {}) {
     return 'idle';
   }
 
+  // --- outfit sheets -------------------------------------------------------------------------
+
+  /** Try every registered outfit sheet once (fire-and-forget; failures are recorded, not thrown). */
+  function loadOutfits(timeoutMs) {
+    if (outfitDisabled || closed) return;
+    for (const id of OUTFIT_IDS) loadOutfit(id, timeoutMs);
+  }
+
+  /**
+   * Load + validate one outfit sheet. `loadImageUrl` is called WITHOUT opts.trackImage: an absent
+   * sheet is normal (art is generated separately) and must never mark the game's assets as failed.
+   */
+  function loadOutfit(id, timeoutMs) {
+    if (outfitDisabled || closed) return;
+    const key = normalizeOutfitId(id);
+    if (!key || outfitSheets.has(key) || outfitRequests.has(key)) return;
+    const url = outfitSheetUrl(key);
+    if (!url) return;
+    outfitRequests.add(key);
+    outfitFailures.delete(key);
+    Promise.resolve()
+      .then(() => loadImageUrl(url, opts.loadImage, timeoutMs || opts.loadTimeoutMs || FALLBACK_TIMEOUT, undefined))
+      .then((img) => {
+        if (closed) return;
+        const width = Number(img.naturalWidth || img.width) || 0;
+        const height = Number(img.naturalHeight || img.height) || 0;
+        const valid = validateOutfitSheet({ width, height });
+        if (!valid.ok) throw new Error('invalid sheet: ' + valid.errors.join('; '));
+        let rows = [];
+        try { rows = scanOutfitSheet(img).rows || []; } catch (e) { /* alpha scan best-effort: tainted canvas / no getImageData */ }
+        // A failed scan (rare) assumes the declared frame table; a transparent frame still makes
+        // composeOutfitCell() return null and the caller falls back to layered for that frame.
+        const scanned = rows.length > 0;
+        const used = {}, usable = {}, playback = {};
+        for (const action of OUTFIT_ACTION_NAMES) {
+          const row = rows.find((r) => r.action === action);
+          const avail = scanned ? (row ? row.used : 0) : OUTFIT_ACTIONS[action].frames;
+          used[action] = avail;
+          usable[action] = avail > 0;
+          playback[action] = outfitPlayback(action, avail);
+        }
+        const info = {
+          id: key, url, ok: true, width, height,
+          errors: [], warnings: valid.warnings.slice(),
+          rows, used, playback, usable,
+          missingRows: OUTFIT_ACTION_NAMES.filter((a) => !usable[a]),
+          at: Date.now(),
+        };
+        outfitSheets.set(key, { id: key, url, img, info, playback, usable });
+        outfitFailures.delete(key);
+      })
+      .catch((e) => {
+        if (!outfitSheets.has(key)) outfitFailures.set(key, String((e && e.message) || e || 'outfit sheet unavailable'));
+      })
+      .finally(() => { outfitRequests.delete(key); });
+  }
+
+  /** Decode the 512×448 sheet once and map its alpha coverage back to per-row frame counts. */
+  function scanOutfitSheet(img) {
+    const cv = makeCanvas(OUTFIT_SHEET.width, OUTFIT_SHEET.height);
+    const ctx = cv.getContext('2d');
+    ctx.drawImage(img, 0, 0, OUTFIT_SHEET.width, OUTFIT_SHEET.height);
+    const d = ctx.getImageData(0, 0, OUTFIT_SHEET.width, OUTFIT_SHEET.height);
+    return outfitSheetFrames(d.data, OUTFIT_SHEET.width, OUTFIT_SHEET.height);
+  }
+
+  /** Choose the outfit used by archers; null/off clears it. Unknown ids keep the current choice. */
+  function setOutfit(id) {
+    if (outfitDisabled) return null;
+    if (id == null || isOutfitOffValue(id)) { outfitDefault = null; return null; }
+    const key = normalizeOutfitId(id);
+    if (!key) return outfitDefault;
+    outfitDefault = key;
+    if (!outfitSheets.has(key)) {
+      outfitFailures.delete(key); // retry: the sheet may have been copied into place since
+      loadOutfit(key);
+    }
+    return key;
+  }
+
+  /** Forget loaded sheets and re-validate them (lab 「重新檢查」; the art may have just arrived). */
+  function reloadOutfits() {
+    if (outfitDisabled || closed) return false;
+    for (const id of OUTFIT_IDS) {
+      outfitFailures.delete(id);
+      outfitSheets.delete(id);
+      loadOutfit(id);
+    }
+    return true;
+  }
+
+  function outfitSnapshot() {
+    const sheets = {};
+    for (const [id, sheet] of outfitSheets) sheets[id] = sheet.info;
+    return {
+      enabled: !outfitDisabled,
+      skipped: outfitDisabled,
+      base: outfitBase(),
+      active: outfitDefault,
+      loaded: [...outfitSheets.keys()],
+      pending: [...outfitRequests].filter((id) => !outfitSheets.has(id) && !outfitFailures.has(id)),
+      missing: [...outfitFailures.keys()],
+      failed: Object.fromEntries(outfitFailures),
+      sheets,
+      cached: outfitCropCache.size,
+      composes: outfitComposes,
+      hits: outfitHits,
+      misses: outfitMisses,
+      fallbacks: outfitFallbacks,
+    };
+  }
+
+  /**
+   * One outfit frame, or null to let compose() fall back to the layered rig (missing sheet,
+   * unusable action row, or a fully transparent frame cell).
+   */
+  function composeOutfitFrame(id, look, action, tick, mirror, dir) {
+    outfitComposes++;
+    const sheet = outfitSheets.get(id);
+    const pb = sheet && sheet.playback[action];
+    if (!sheet || !pb || !sheet.usable[action]) { outfitFallbacks++; return null; }
+    const frame = outfitFrameIndex(pb.af, tick);
+    const ck = id + '|' + action + '|' + frame + '|' + (mirror ? 1 : 0) + '|' + sheet.info.at;
+    let e = outfitCropCache.get(ck);
+    if (e) { outfitHits++; outfitCropCache.delete(ck); outfitCropCache.set(ck, e); }
+    else {
+      outfitMisses++;
+      const composed = composeOutfitCell(sheet.img, action, frame, {
+        makeCanvas, mirror, frames: pb.frames, id, look,
+      });
+      if (!composed) { outfitFallbacks++; return null; }
+      // parts are rebuilt per call (partsFor): the cache key has mirror only, so a cached parts object would carry
+      // the direction of whoever filled the entry first (same rule as the layered path).
+      composed.action = action;
+      composed.slot = frame;
+      e = composed;
+      outfitCropCache.set(ck, e);
+      while (outfitCropCache.size > capFn()) outfitCropCache.delete(outfitCropCache.keys().next().value);
+    }
+    return {
+      cv: e.cv,
+      footX: e.footX,
+      footY: e.footY,
+      heroHeight: OUTFIT_HERO_HEIGHT,
+      parts: Object.assign(partsFor(e, dir, mirror), { outfit: id }),
+      look: Object.assign({}, look, { outfit: id }),
+      key: e.key,
+      shadow: { cv: e.cv, footX: e.footX, footY: e.footY },
+      outfit: id,
+    };
+  }
+
   function compose(h, req = {}) {
     if (!isOn() || !data) return null;
     const t0 = typeof performance !== 'undefined' && performance.now ? performance.now() : 0;
@@ -391,11 +578,28 @@ export function createDollHero(opts = {}) {
     const af = data.actions[actKey] && data.actions[actKey].af;
     const tick = req.tick || 0;
     const action = heroloomActionKey(actKey, look.weaponType);
-    const frame = heroloomFrameIndex(af, tick);
     // The pack only has the side view. Up/down requests (4-quadrant facing, src/dir4.js) are drawn as the side view turned toward
     // req.sideHint (±1 = which way the character leans on screen; pixel-world passes its mirror), so they never face backwards.
     const dir = req.dir === 'left' || req.dir === 'sideLeft' ? 'sideLeft' : (req.dir === 'up' || req.dir === 'down' ? req.dir : 'side');
     const mirror = dir === 'sideLeft' || ((dir === 'up' || dir === 'down') && req.sideHint < 0);
+    // Archer outfit sheets replace the layered cell when a validated sheet is loaded. Every other
+    // class, and every missing/invalid/unusable sheet path, falls through to the layered compose.
+    // (Outfit sheets are side-view only as well, so they take the same dir/mirror as the layered path.)
+    const outfitPick = resolveOutfitUse({
+      classId: look.classId,
+      reqOutfit: Object.prototype.hasOwnProperty.call(req, 'outfit') ? req.outfit : undefined,
+      lookOutfit: look.outfit,
+      defaultOutfit: outfitDefault,
+      loaded: true,
+    });
+    if (outfitPick.id) {
+      const outfitComposed = composeOutfitFrame(outfitPick.id, look, action, tick, mirror, dir);
+      if (outfitComposed) {
+        if (t0) composeMs += performance.now() - t0;
+        return outfitComposed;
+      }
+    }
+    const frame = heroloomFrameIndex(af, tick);
     const recipe = heroloomRecipe(look, { hideWeapon: !!req.hideWeapon });
     const key = heroloomRecipeSig(recipe) + '|' + action + '|' + frame + '|' + (mirror ? 1 : 0);
     const ck = key;
@@ -484,6 +688,7 @@ export function createDollHero(opts = {}) {
       base: base(),
       readyAt,
       source: 'heroloom',
+      outfit: outfitSnapshot(),
     };
   }
 
@@ -495,6 +700,10 @@ export function createDollHero(opts = {}) {
     cellCache.clear();
     tintCache.clear();
     images.clear();
+    outfitCropCache.clear();
+    outfitSheets.clear();
+    outfitFailures.clear();
+    outfitRequests.clear();
   }
 
   return {
@@ -503,6 +712,8 @@ export function createDollHero(opts = {}) {
     covers,
     compose,
     composeRecipe,
+    setOutfit,
+    reloadOutfits,
     weaponTypeOf,
     resolve: (name, weaponType) => heroloomActionKey(resolveKey(name, weaponType), weaponType),
     look: (h) => heroloomLook(h),
@@ -515,10 +726,14 @@ export function createDollHero(opts = {}) {
       const n = meta.loop ? ((i % meta.frames) + meta.frames) % meta.frames : Math.max(0, Math.min(meta.frames - 1, i));
       return { x: n * cw, y: meta.row * ch, w: cw, h: ch, ms: meta.ms, index: n };
     },
-    counters: () => ({ bakes, cacheHits: hits, cacheMisses: misses, composeCount, composeMs, lastBakeMs, ready: !!data, failed }),
+    counters: () => ({
+      bakes, cacheHits: hits, cacheMisses: misses, composeCount, composeMs, lastBakeMs, ready: !!data, failed,
+      outfitComposes, outfitHits, outfitMisses, outfitFallbacks, outfitLoaded: outfitSheets.size,
+    }),
     dispose,
     get on() { return isOn(); },
     get data() { return data; },
+    get outfit() { return outfitDefault; },
   };
 }
 

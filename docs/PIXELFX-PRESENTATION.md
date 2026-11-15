@@ -227,7 +227,9 @@ The rig cannot draw the 22 monster sheets (they are not humanoids), so the art s
   never `--actor`): blade-hit-heavy-iso, blade-hit-iso, hit-spark-iso, great-slash-iso,
   dagger-flurry-iso, whirlwind-iso, warp-iso, divine-shield-iso, heal-aoe-iso,
   magic-circle-cast-iso, smite-iso, ground-slam-iso, frost-nova-iso, soul-rise-iso,
-  coin-drop-iso, portal-iso, cinder-cyclone-iso (re-exported at the current 272x320 / 157 f).
+  coin-drop-iso, portal-iso, cinder-cyclone-iso (re-exported at the current 272x320 / 157 f;
+  2026-11-15 merge: replaced by the HeroLoom-restyled 240x400 / 157 f sheet from experiment/heroloom,
+  see docs/HEROLOOM-PIXELFX.md — the sheet is meta-driven, so no code change).
 - Wiring lives in `src/pixel-world.js` (`ISO_FX` table + `drawIso`, `VFX_SPEED_BY_SHEET` = 1.0 for
   every `*-iso`) and in `src/pixel-game.js` (`isoEffect()` helper + per-moment calls); combat maths
   untouched. 18 moments wired; table, anchors, k values and caveats are in

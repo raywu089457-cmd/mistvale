@@ -4,6 +4,7 @@ import { BUILDINGS, CLASSES, RARITIES, MONSTER_RANGED, MSHOT_IMPACT, SKILLS } fr
 import {dollActionTick,dollDirName,advanceNoSkip,hurtChain,trackAttackStamp,dollAttackVariant,dollVictoryAction,dollLifeAction,getSlot as dollSlot} from './paperdoll-hero.js';   // DV2 的出招對時/逐格播放 helper(動作時間點照舊);英雄美術本體已換成 HeroLoom
 import {createDollHero} from './heroloom-hero.js';   // 預設:HeroLoom 紙娃娃英雄(docs/HEROLOOM.md);?doll=0 回烘好的 sheet
 import {createDollHero as createDv2DollHero} from './paperdoll-hero.js';   // ?doll=dv2[:職業,…]:DV2 包(assets/paperdoll-dv2,docs/DV2-PHASE6.md)
+import {LOOM_MONSTERS,monsterSheetUrl,loomMonsterMeta} from './heroloom-monsters.js';   // HeroLoom 風格魔物實驗包(?lmob=1;docs/HEROLOOM-MONSTERS.md)
 import {rideDepth,mountMotion,dirIndex as dollDirIndex,computeMonsterParts,monsterFrameTick,drawParts as drawDollParts} from './paperdoll.js';   // 騎乘(§20)、單層怪物紙娃娃(§21)   // 紙娃娃英雄(旗標 ?doll=hero,docs/PAPERDOLL.md §12.1)
 import {WORLD,REGIONS,biomeAt,BIOME_PALETTE,inVillage} from './overworld.js';
 import {conceptGroundAt} from './concept-ground.js';
@@ -540,7 +541,19 @@ function ensureMonsterSheet(id){const A=globalThis.PIXEL_ASSETS?.monsterSheets||
 let signImg=null;function regionSignArt(){if(!signImg){const src=globalThis.PIXEL_ASSETS?.ui?.['px-signpost'];if(!src)return null;signImg=trackImage(new Image());signImg.src=src;}return signImg.complete&&signImg.naturalWidth?signImg:null;}
 let mshotImg=null;function mshotSheet(){if(!mshotImg){const src=globalThis.PIXEL_ASSETS?.ui?.['fx-mshots'];if(!src)return null;mshotImg=trackImage(new Image());mshotImg.src=src;}return mshotImg.complete&&mshotImg.naturalWidth?mshotImg:null;}
 function ensureMonsterSheets(){for(const id of monsterReq)ensureMonsterSheet(id);}
-const MON_SHEET=t=>{const id=t==='boss'?'treant':t;monsterReq.size<64&&monsterReq.add(id);ensureMonsterSheet(id);return monsterSheets[id];};
+// HeroLoom 風格魔物實驗包(docs/HEROLOOM-MONSTERS.md;?lmob=1 才開,預設照舊 assets/monsters3):
+// 減少列數的 sheet(5 列 idle/walk/attack/hurt/death,160 px 格)由 src/heroloom-monsters.js 補成
+// 跟 monsters3 一樣的 meta 形狀;dirSuffix/actRow 找不到 <動作>Down/Up 時退回側面列,跟 treant 走同一條路。
+// 包還沒載好時 MON_SHEET 回 undefined → pendingMon 讓這一幀先不畫,載好後 pixel-assets-ready 重畫。
+const loomMonsterOn=(()=>{try{return /^(1|on|yes|true)$/i.test(new URLSearchParams(globalThis.location?.search||'').get('lmob')||'');}catch{return false;}})();
+const loomMonsterSheets={},loomMonsterReq=new Set();
+function ensureLoomMonsterSheet(id){if(!loomMonsterOn||!LOOM_MONSTERS[id]||loomMonsterSheets[id]||loomMonsterReq.has(id))return;loomMonsterReq.add(id);
+  const im=trackImage(new Image());im.onload=()=>{loomMonsterSheets[id]={img:im,meta:loomMonsterMeta(id)};globalThis.dispatchEvent(new CustomEvent('pixel-assets-ready'));};
+  im.onerror=()=>{loomMonsterReq.delete(id);};im.src=monsterSheetUrl(id);}
+globalThis.__mistvaleLoomMonsters=()=>({on:loomMonsterOn,ids:Object.keys(LOOM_MONSTERS),loaded:Object.keys(loomMonsterSheets),pending:[...loomMonsterReq].filter(id=>!loomMonsterSheets[id])});
+const MON_SHEET=t=>{const id=t==='boss'?'treant':t;
+  if(loomMonsterOn&&LOOM_MONSTERS[id]){ensureLoomMonsterSheet(id);return loomMonsterSheets[id];}
+  monsterReq.size<64&&monsterReq.add(id);ensureMonsterSheet(id);return monsterSheets[id];};
 // T110:魔物資訊卡的頭像 —— 取 sheet 的 idle 第 0 格,最近鄰放大到 size×size(沒有 sheet 就回空字串,卡片改畫色塊)。
 export function monsterPortrait(type,size=96){
   const ms=MON_SHEET(type),acts=ms?.meta?.actions||{},a=acts.idle||acts.walk||acts.attack;
@@ -1715,6 +1728,10 @@ let renderDprMax=Math.max(1,dprCap||autoDpr());   // 畫布解析度上限(devic
      catch(e){console.warn('[mistvale] paperdoll hero off:',e&&e.message||e);}}}
   globalThis.__mistvaleDoll=(spec)=>spec===undefined?dollHero.status():dollHero.setSpec(spec);
   globalThis.__mistvaleLoom=dollHero;   // 驗收/實驗面板 hook:covers/compose/look/recipe/bakeRecipe/status
+  // 弓手換裝測試(docs/HEROLOOM-OUTFITS.md;?outfit=a|b|c):整張換裝 sheet 蓋掉分層紙娃娃,
+  // 只對弓手生效;sheet 缺檔/不合規格(尺寸、格數、腳底錨點)就自動退回分層,遊戲照常跑。
+  {const q=globalThis.location?new URLSearchParams(globalThis.location.search).get('outfit'):null;
+   if(q&&typeof dollHero.setOutfit==='function'){try{dollHero.setOutfit(q);}catch(e){console.warn('[mistvale] outfit off:',e&&e.message||e);}}}
   // 單層怪物紙娃娃(DV2 C2,docs/PAPERDOLL.md §21):**只在 ?mdoll=1(或 __mistvaleMonsterDoll(true))才開**,預設魔物照舊畫 assets/monsters3。
   // 開著時 drawMonsterSheet 把要畫的那一格 (列, 格) 換成怪物包的 (SEB_M, 方向, 格),經 computeMonsterParts → drawParts 畫進一張跟 sheet 格同尺寸的
   // 格子圖,其餘(縮放、鏡像、切片位移、閃光、影子)走原本的程式 → 畫面跟 sheet 逐像素相同(test-paperdoll 比對)。包或圖還沒載好的那幾幀照畫 sheet。
