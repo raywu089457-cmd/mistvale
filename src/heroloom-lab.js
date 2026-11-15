@@ -20,6 +20,10 @@ import {
   HEROLOOM_COLUMNS, HEROLOOM_FOOT, HEROLOOM_LAYERS, HEROLOOM_PALETTES, HEROLOOM_SLOTS,
   heroloomActionKey, heroloomAf, heroloomFrameIndex, heroloomLook,
 } from './heroloom.js';
+import {
+  OUTFITS, OUTFIT_ACTIONS, OUTFIT_FPS, OUTFIT_FRAME_MS, OUTFIT_IDS,
+  outfitFrameIndex, outfitPlayback,
+} from './heroloom-outfits.js';
 
 // The 7 playable game classes first, then the pack-only extras (darkknight / warrior). The picker
 // shows every class the pack can actually draw; default selection is a game class (paladin).
@@ -78,6 +82,7 @@ export function mountHeroLoomLab(opts = {}) {
     helm: false, armor: false, cape: false, shield: false, fine: false, hideWeapon: false, gender: 'm',
     slot: '', parts: {}, colors: {},       // inspector overrides: slot → partId / slot → palette variant
     sheet: null, sheetOk: false, sheetErr: '',
+    outfit: null,                          // archer outfit variant id ('a'|'b'|'c') or null for layered
   };
   let spec = staticSpec();
   let specFromFile = false;
@@ -128,6 +133,9 @@ export function mountHeroLoomLab(opts = {}) {
 #heroloom-lab .hl-gear{display:grid;grid-template-columns:repeat(3,1fr);gap:2px 8px;font-size:11px;color:#c9c3d8}
 #heroloom-lab .hl-gear label{display:flex;align-items:center;gap:4px}
 #heroloom-lab .hl-gear input{margin:0}
+#heroloom-lab .hl-outfit{display:flex;flex-wrap:wrap;align-items:center;gap:6px;font-size:11px;color:#c9c3d8}
+#heroloom-lab .hl-outfit label{display:inline-flex;align-items:center;gap:4px}
+#heroloom-lab .hl-outfit .hl-outfitnote{flex:1;min-width:200px;color:#8f89a6;white-space:normal}
 #heroloom-lab .hl-info{white-space:pre-wrap;color:#b8b2cc;font-size:11px;line-height:1.32;overflow:auto;flex:1;min-height:76px}
 #heroloom-lab .hl-thumbs{display:flex;gap:4px}
 #heroloom-lab .hl-thumb{flex:1;background:none;border:1px solid transparent;border-radius:4px;padding:1px 0 0;
@@ -153,6 +161,11 @@ export function mountHeroLoomLab(opts = {}) {
       <button data-x="next" title="next frame">frame ▶</button><button data-x="restart">⟲ 0</button>
     </div>
     <div class="hl-gear" data-x="gear"></div>
+    <div class="hl-outfit" data-x="outfitrow">
+      <label>outfit <select data-x="outfit"></select></label>
+      <button data-x="outfitretry" title="重新載入並驗證 outfit sheets">⟲ 重新檢查</button>
+      <span class="hl-outfitnote" data-x="outfitnote">-</span>
+    </div>
     <div class="hl-info" data-x="info">loading character.json…</div>
   </div>
 </div>
@@ -213,6 +226,68 @@ export function mountHeroLoomLab(opts = {}) {
   }
   const actionMeta = (action) => (spec && spec.actions && spec.actions[action]) || HEROLOOM_ACTIONS[action] || null;
 
+  // ---- outfit variants (archer only; sheets are optional art) --------------
+  function engineOutfit() {
+    const s = engineStatus();
+    return s && s.outfit ? s.outfit : null;
+  }
+  function outfitSheetOf(id) {
+    const o = engineOutfit();
+    return o && o.sheets ? o.sheets[id] || null : null;
+  }
+  /** Selector note: sheet validation + the 8-frame idle/walk readout (8 fps target). */
+  function outfitNoteText() {
+    const o = engineOutfit();
+    if (!o) return 'engine 尚未提供 outfit 狀態';
+    if (o.enabled === false) return 'outfit sheets disabled（opts.outfits=false）';
+    const id = st.outfit;
+    if (!id) return '預設：分層 compose（idle 4f / walk 6f，200/90 ms）';
+    const label = `${id.toUpperCase()} ${OUTFITS[id] ? OUTFITS[id].name : ''}`.trim();
+    const sheet = o.sheets && o.sheets[id];
+    if (sheet) {
+      const perAction = Object.keys(OUTFIT_ACTIONS)
+        .map((a) => `${a} ${sheet.used && sheet.used[a] != null ? sheet.used[a] : '?'}/${OUTFIT_ACTIONS[a].frames}`)
+        .join(' · ');
+      const readout = ['idle', 'walk'].map((a) => {
+        const pb = outfitPlayback(a, sheet.used ? sheet.used[a] : undefined);
+        const f = outfitFrameIndex(pb.af, Math.max(0, st.tick));
+        return `${a} ${f + 1}/${pb.frames} @${pb.ms}ms${pb.short ? ' (short)' : ''}`;
+      }).join(' · ');
+      const missing = sheet.missingRows && sheet.missingRows.length
+        ? ` · 缺 ${sheet.missingRows.join(',')} → 該動作 fallback` : '';
+      return `${label} ✓ ${sheet.width}×${sheet.height} · ${readout} · ${OUTFIT_FPS} fps（${OUTFIT_FRAME_MS} ms/格, 2.5 tick/格 ≈ 100/150 ms 交替）`
+        + ` · 幀數 ${perAction}${missing}`;
+    }
+    if (o.missing && o.missing.includes(id)) {
+      const msg = (o.failed && o.failed[id]) || '';
+      const invalid = /invalid|expected|PNG|bit depth|signature|colour|IEND|IHDR/i.test(msg);
+      return `${label} ${invalid ? `驗證失敗（${msg}）` : '尚未提供'} → 分層 compose fallback`;
+    }
+    if (o.pending && o.pending.includes(id)) return `${label} 載入中…`;
+    return `${label} 狀態未知（${o.base || '?'}）`;
+  }
+  function applyOutfit(id) {
+    st.outfit = id || null;
+    st.tick = 0; acc = 0;
+    try { doll.setOutfit(st.outfit); } catch (e) { console.warn('[heroloom-lab] setOutfit failed', e); }
+    note = st.outfit ? `outfit ${st.outfit.toUpperCase()} active` : '';
+    refreshUi();
+  }
+  function outfitInfoLine() {
+    if (st.cls !== 'archer' || !st.outfit) return '';
+    const o = engineOutfit();
+    if (!o) return '';
+    const sheet = o.sheets && o.sheets[st.outfit];
+    if (sheet) {
+      const meta = OUTFIT_ACTIONS[st.action] || OUTFIT_ACTIONS.idle;
+      const used = sheet.used && sheet.used[st.action] != null ? sheet.used[st.action] : '?';
+      return `outfit ${st.outfit.toUpperCase()} · row ${meta.row} frames ${used}/${meta.frames}`
+        + ` · ${sheet.width}×${sheet.height} · crop cache ${o.cached}`
+        + (o.fallbacks ? ` · fallback ${o.fallbacks}` : '');
+    }
+    return `outfit ${st.outfit.toUpperCase()} ${o.missing && o.missing.includes(st.outfit) ? 'missing → layered fallback' : 'loading…'}`;
+  }
+
   // ---- class picker / thumbs (all 8 classes side by side, idle) ------------
   const thumbs = CLASS_IDS.map((cls) => {
     const b = document.createElement('button');
@@ -264,8 +339,21 @@ export function mountHeroLoomLab(opts = {}) {
     $('gear').appendChild(l);
     gearCbs.push({ key, cb });
   });
-  $('play').addEventListener('click', () => { st.playing = !st.playing; refreshUi(); });
-  $('prev').addEventListener('click', () => stepFrame(-1));
+
+  // Outfit selector: 預設 / A / B / C. Only the archer has outfit art, so the row hides for other
+  // classes; the engine ignores setOutfit() for them anyway.
+  const outfitSel = $('outfit');
+  outfitSel.add(new Option('預設', ''));
+  for (const id of OUTFIT_IDS) outfitSel.add(new Option(`${id.toUpperCase()} ${OUTFITS[id].name}`, id));
+  outfitSel.value = st.outfit || '';
+  outfitSel.addEventListener('change', () => applyOutfit(outfitSel.value || null));
+  $('outfitretry').addEventListener('click', () => {
+    try { doll.reloadOutfits?.(); } catch (e) { console.warn('[heroloom-lab] outfit reload failed', e); }
+    note = 're-checking outfit sheets…';
+    refreshUi();
+  });
+
+  $('play').addEventListener('click', () => { st.playing = !st.playing; refreshUi(); });  $('prev').addEventListener('click', () => stepFrame(-1));
   $('next').addEventListener('click', () => stepFrame(1));
   $('restart').addEventListener('click', () => { st.tick = 0; acc = 0; refreshUi(); });
   $('close').addEventListener('click', () => unmount());
@@ -415,10 +503,11 @@ export function mountHeroLoomLab(opts = {}) {
   function composeFor(cls, action, tick) {
     if (!engineReady()) return null;
     const row = ROWS[action] || ROWS.idle;
+    const req = { action: row.compose, tick, dir: st.dir, hideWeapon: !!st.hideWeapon, globalTick: tick };
+    // Per-call override keeps the thumbnails honest: only the archer variant is affected.
+    if (cls === 'archer' && st.outfit) req.outfit = st.outfit;
     try {
-      return doll.compose(hunterFor(cls), {
-        action: row.compose, tick, dir: st.dir, hideWeapon: !!st.hideWeapon, globalTick: tick,
-      }) || null;
+      return doll.compose(hunterFor(cls), req) || null;
     } catch (e) { return null; }
   }
   function drawBig(c) {
@@ -465,7 +554,7 @@ export function mountHeroLoomLab(opts = {}) {
     try {
       game = `game: strike→${heroloomActionKey('attack', wt)} · skill→${heroloomActionKey('skill', wt)}`;
     } catch (e) { game = ''; }
-    return [
+    const lines = [
       `class ${st.cls} · dir ${st.dir} · ${st.action}`
         + (meta ? ` (row ${meta.row}, ${meta.frames}f @${meta.ms}ms ${meta.loop ? 'loop' : 'once'})` : '')
         + ` · frame ${idx + 1}/${meta ? meta.frames : '?'} · tick ${st.tick} · ${st.playing ? 'playing' : 'paused'}`,
@@ -477,7 +566,10 @@ export function mountHeroLoomLab(opts = {}) {
         : `render: compose (what the game draws)${c && c.key ? ` · key ${String(c.key)}` : ''}`,
       `gear helm=${st.helm ? 1 : 0} armor=${st.armor ? 1 : 0} cape=${st.cape ? 1 : 0} shield=${st.shield ? 1 : 0}`
         + ` fine=${st.fine ? 1 : 0} gender=${st.gender} hideWeapon=${st.hideWeapon ? 1 : 0}`,
-    ].join('\n');
+    ];
+    const outfitLine = outfitInfoLine();
+    if (outfitLine) lines.splice(3, 0, outfitLine);
+    return lines.join('\n');
   }
   function perfText() {
     const n = counters();
@@ -490,6 +582,7 @@ export function mountHeroLoomLab(opts = {}) {
       `misses ${n.cacheMisses ?? 0}`,
       `compose ${n.composeCount ?? 0} (${n.composeMs ?? 0}ms)`,
       `tinted ${stt.tinted ?? '?'} imgs`,
+      `outfit ${n.outfitLoaded ?? 0}/${OUTFIT_IDS.length} sheets·${n.outfitComposes ?? 0} cmp·${n.outfitFallbacks ?? 0} fb`,
       `cell ${CELL[0]}×${CELL[1]}·${COLS}cols`,
       `cell ms ${actionMeta(st.action)?.ms ?? '?'}`,
       stt.failed ? `FAILED ${stt.failed}` : (engineReady() ? 'ready' : 'loading'),
@@ -505,10 +598,19 @@ export function mountHeroLoomLab(opts = {}) {
     dirBtns.forEach((b, i) => b.classList.toggle('on', DIRS[i][0] === st.dir));
     for (const { key, cb } of gearCbs) cb.checked = key === 'gender' ? st.gender === 'f' : !!st[key];
     thumbs.forEach((t) => t.btn.classList.toggle('on', t.cls === st.cls));
+    const archer = st.cls === 'archer';
+    $('outfitrow').style.display = archer ? '' : 'none';
+    if (archer) {
+      if (outfitSel.value !== (st.outfit || '')) outfitSel.value = st.outfit || '';
+      const outfitText = outfitNoteText();
+      const noteEl = $('outfitnote');
+      if (noteEl.textContent !== outfitText) noteEl.textContent = outfitText;
+    }
     $('play').textContent = st.playing ? '⏸ pause' : '▶ play';
     const pathEl = $('path');
-    pathEl.textContent = hasOverride() ? 'bakeRecipe' : 'compose';
-    pathEl.classList.toggle('rec', hasOverride());
+    const outfitActive = archer && !!st.outfit && !!outfitSheetOf(st.outfit);
+    pathEl.textContent = hasOverride() ? 'bakeRecipe' : (outfitActive ? 'compose·outfit' : 'compose');
+    pathEl.classList.toggle('rec', hasOverride() || outfitActive);
     syncInspector();
   }
   function render() {
@@ -588,6 +690,8 @@ export function mountHeroLoomLab(opts = {}) {
     root, state: st, doll, unmount, render, rebake, base,
     actions: ACTION_NAMES.slice(), dirs: DIRS.map((d) => d[0]), classes: CLASS_IDS.slice(),
     rows: Object.fromEntries(Object.entries(ROWS).map(([k, v]) => [k, v.row])),
+    outfitIds: OUTFIT_IDS.slice(),
+    setOutfit: (id) => applyOutfit(id),
     get data() { return engineData(); },
     get spec() { return spec; },
   };

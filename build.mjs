@@ -46,9 +46,15 @@ let assetScript='';
 const put=(key,value)=>assetScript+=`window.PIXEL_ASSETS=window.PIXEL_ASSETS||{};window.PIXEL_ASSETS.${key}=${value};`;
 for(const name of ['title','plaza','road','woodui']){try{put(name,JSON.stringify(await media(path.join(root,`assets/${name}.png`),`ui/${name}.png`)));}catch{}}
 // 建築與廣場雕像:Xilurus 風格(pipeline/scripts/xilurus/assemble.py buildings → assets/xilurus/<id>.png,已去背)。
+// 2026-11-15 HeroLoom 風格重製(docs/HEROLOOM-BUILDINGS.md):assets/heroloom-buildings/<id>.png 存在就用它
+// (prefer-if-present,原圖留著可 A/B);仍然是單張 alpha PNG + PIXEL_ASSETS.alphaAssets.<id>=true,
+// 引擎只依 aspect 縮放,不需要改 pixel-world。
+const existsFile=async(p)=>{try{return (await fs.stat(p)).isFile();}catch{return false;}};
 for(const name of ['hall','inn','trading','restaurant','tavern','forge','clinic','academy','training','sanctuary','house','bounty','enhancement','dungeon','monument']){
-  put(name,JSON.stringify(await media(path.join(root,`assets/xilurus/${name}.png`),`xilurus/${name}.png`)));
-  assetScript+=`window.PIXEL_ASSETS.alphaAssets=window.PIXEL_ASSETS.alphaAssets||{};window.PIXEL_ASSETS.alphaAssets.${name}=true;`;
+  const loom=path.join(root,`assets/heroloom-buildings/${name}.png`),xl=path.join(root,`assets/xilurus/${name}.png`);
+  const src=(await existsFile(loom))?loom:xl;
+  put(name,JSON.stringify(await media(src,`xilurus/${name}.png`)));
+  assetScript+=`window.PIXEL_ASSETS=window.PIXEL_ASSETS||{};window.PIXEL_ASSETS.alphaAssets=window.PIXEL_ASSETS.alphaAssets||{};window.PIXEL_ASSETS.alphaAssets.${name}=true;`;
 }
 // 舊建築圖集(buildings@*)不再嵌入:全部建築改用 Xilurus 單張圖(上面)。
 // 地圖細節圖集:同一個 manifest 契約,只是 key 是裝飾型別。
@@ -68,9 +74,17 @@ for(const prefix of ['props','cold','woods','flora','villagers','icons','vfx','y
   }
 }
 // 概念圖像素合成的地面材質(pipeline/scripts/align/concept_textures.py),村莊高解析地面層用。
-for(const [tag,file] of [['conceptStone','concept-stone.png'],['conceptEarth','concept-earth.png'],['conceptGrass','concept-grass.png']]){
-  try{put(tag,JSON.stringify(await media(path.join(root,`assets/${file}`),`concept/${file}`)));}catch(e){console.warn('missing concept texture',file);}
+// 2026-11-15 HeroLoom 風格重製(docs/HEROLOOM-BUILDINGS.md):assets/heroloom-buildings/terrain/ 存在就用它
+// (prefer-if-present;key 不變,引擎不需要改)。材質必須是 256×256 無縫 tile。
+// 檔名兩種都吃:concept-grass.png(對齊原素材命名)或 grass.png(模組 / checker 文件用的短名)。
+for(const [tag,file,short] of [['conceptStone','concept-stone.png','stone.png'],['conceptEarth','concept-earth.png','earth.png'],['conceptGrass','concept-grass.png','grass.png']]){
+  const dir=path.join(root,'assets/heroloom-buildings/terrain');
+  const loom=(await existsFile(path.join(dir,file)))?path.join(dir,file):(await existsFile(path.join(dir,short)))?path.join(dir,short):null;
+  try{const src=loom||path.join(root,`assets/${file}`);put(tag,JSON.stringify(await media(src,`concept/${file}`)));}catch(e){console.warn('missing concept texture',file);}
 }
+// 道路 tile(l0veyou/Xilurus 的舊檔是 assets/road.png;HeroLoom 版放 assets/heroloom-buildings/terrain/road.png)
+{const loom=path.join(root,'assets/heroloom-buildings/terrain/road.png');
+ if(await existsFile(loom)){try{put('road',JSON.stringify(await media(loom,'ui/road.png')));}catch(e){console.warn('loom road',e.message);}}}
 // 無縫地面材質圖集
 try{put('terrainAtlas',JSON.stringify(await media(path.join(root,'assets/terrain-atlas.png'),'terrain/terrain-atlas.png')));}catch(e){console.warn('missing terrain atlas');}
 try{assetScript+=`window.PIXEL_ASSETS=window.PIXEL_ASSETS||{};window.PIXEL_ASSETS.terrainManifest=${await fs.readFile(path.join(root,'assets/terrain-atlas.manifest.json'),'utf8')};`;}catch{}
@@ -152,6 +166,27 @@ try{assetScript+=`window.PIXEL_ASSETS=window.PIXEL_ASSETS||{};window.PIXEL_ASSET
    await fs.mkdir(path.dirname(dst),{recursive:true});
    await fs.copyFile(src,dst);external++;externalBytes+=(await fs.stat(src)).size;}
   assetScript+=`window.PIXEL_ASSETS=window.PIXEL_ASSETS||{};window.PIXEL_ASSETS.heroloomBase="media/heroloom/";`;}}
+// 2026-11-15 延伸包(docs/HEROLOOM-OUTFITS.md / HEROLOOM-MONSTERS.md):
+// assets/heroloom-outfits/(弓手換裝 sheet)→ media/heroloom-outfits/,PIXEL_ASSETS.heroloomOutfitsBase;
+// assets/heroloom-monsters/<id>/(sheet.png + meta.json)→ media/heroloom-monsters/,meta 內嵌成
+// PIXEL_ASSETS.loomMonsters[id](?lmob=1 時 MON_SHEET 改畫這包;缺檔就不出 key,遊戲照舊畫 monsters3)。
+// 建築/地形是直接換掉 assets/xilurus 與 assets/concept-*.png 的圖(l0veyou/Muse 生的 HeroLoom 風格版本),
+// 走原本 Xilurus 那條載入路徑,不需要新的 build 邏輯。
+{const cpTree=async(dir,mediaSub)=>{const files=[];const walk=async(d,pre='')=>{let es=[];try{es=await fs.readdir(d,{withFileTypes:true});}catch{return;}
+    for(const e of es){const rel=pre?pre+'/'+e.name:e.name;if(e.isDirectory())await walk(path.join(d,e.name),rel);else files.push(rel);}};
+  await walk(dir);if(!files.length)return 0;const dest=path.join(mediaDir,mediaSub);
+  for(const rel of files){const src=path.join(dir,rel),dst=path.join(dest,rel);await fs.mkdir(path.dirname(dst),{recursive:true});
+    await fs.copyFile(src,dst);external++;externalBytes+=(await fs.stat(src)).size;}return files.length;};
+ const outfitFiles=await cpTree(path.join(root,'assets/heroloom-outfits'),'heroloom-outfits');
+ if(outfitFiles){assetScript+=`window.PIXEL_ASSETS=window.PIXEL_ASSETS||{};window.PIXEL_ASSETS.heroloomOutfitsBase="media/heroloom-outfits/";`;}
+ const monFiles=await cpTree(path.join(root,'assets/heroloom-monsters'),'heroloom-monsters');
+ if(monFiles){
+   const monBase=path.join(root,'assets/heroloom-monsters');let metas={};
+   try{const ids=(await fs.readdir(monBase,{withFileTypes:true})).filter(e=>e.isDirectory()).map(e=>e.name);
+     for(const id of ids){try{metas[id]=JSON.parse(await fs.readFile(path.join(monBase,id,'meta.json'),'utf8'));}catch{}}}catch{}
+   assetScript+=`window.PIXEL_ASSETS=window.PIXEL_ASSETS||{};window.PIXEL_ASSETS.heroloomMonstersBase="media/heroloom-monsters/";`
+     +`window.PIXEL_ASSETS.loomMonsters=${JSON.stringify(metas)};`;
+ }}
 html=html.replace('/*__STYLE__*/',()=>css).replace('/*__ASSETS__*/',()=>assetScript).replace('/*__SCRIPT__*/',()=>ui.outputFiles[0].text.replaceAll('</script','<\\/script'));
 for (const block of html.matchAll(/<script>([\s\S]*?)<\/script>/g)) new vm.Script(block[1]);
 const file=path.join(out,'暮影村.html');await fs.writeFile(file,html,'utf8');
