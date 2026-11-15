@@ -83,8 +83,8 @@ for (const name of only) {
       if (A.title !== A.name) fix(`${label} 獵人卡：標題「${A.title}」應為獵人名字「${A.name}」`);
       if (A.stars !== 5 || !/^轉世/.test(A.rb)) fix(`${label} 獵人卡：星級 ${A.stars} 顆、標籤「${A.rb}」(應 5 顆＋「轉世 n」)`);
       if (A.gold !== A.goldWant) fix(`${label} 獵人卡：個人金幣膠囊「${A.gold}」≠ ${A.goldWant}`);
-      if (A.slots !== 5 || A.slotBtns !== 2 || A.ghosts !== 3) fix(`${label} 獵人卡：裝備環 ${A.slots} 格(按鈕 ${A.slotBtns}、暫空 ${A.ghosts})，應 5＝武器＋護甲＋3 暫空位(決定 C1)`);
-      if (!landscape && !shortPortrait && A.ghostVis !== 3) fix(`${label} 獵人卡：暫空位只看到 ${A.ghostVis} 個`);
+      if (A.slots !== 7 || A.slotBtns !== 7 || A.ghosts !== 0) fix(`${label} 獵人卡：裝備環 ${A.slots} 格(按鈕 ${A.slotBtns}、暫空 ${A.ghosts})，應 7＝武器＋六件防具(頭盔／胸甲／腰帶／腿甲／靴子／手套)`);
+      if (!landscape && !shortPortrait && A.ghostVis !== 0) fix(`${label} 獵人卡：暫空位不該再出現(看到 ${A.ghostVis} 個)`);
       if (A.openBorder !== 'rgb(228, 192, 238)') fix(`${label} 獵人卡：還能裝備的武器格邊框 ${A.openBorder}，應為紫框 #e4c0ee`);
       if (!A.fig) fix(`${label} 獵人卡：沒有立繪`);
       if (A.xpAlign !== 'center' || A.xpColor !== 'rgb(255, 255, 255)' || !/經驗值 \d+\/\d+/.test(A.xpText) || A.xpRole !== 'progressbar') fix(`${label} 獵人卡：經驗條「${A.xpText}」對齊 ${A.xpAlign} 色 ${A.xpColor}`);
@@ -113,7 +113,7 @@ for (const name of only) {
       if (!f0 || !f1 || f0.bg !== RGB.olive || f1.bg !== RGB.red || f0.foot !== 'primary') fix(`${label} 獵人卡：底部要 修煉(橄欖綠、data-foot=primary)＋關閉(紅)：${JSON.stringify(A.foot.map(b => [b.a, b.bg]))}`);
       else if (f0.r.r > f1.r.l + 0.5 || Math.abs(f0.r.t - f1.r.t) > 1) fix(`${label} 獵人卡：修煉與關閉沒有並排`);
       if (A.oldClass) fix(`${label} 獵人卡：還在用舊結構(.hunter-actions/.hv-act-main/.detail-avatar)`);
-      if (!A.noCard && !fails.some(f => f.startsWith(label + ' 獵人卡'))) ok(`${label} 獵人卡：標題＝名字、星級＋轉世、金幣膠囊、裝備環 2 格＋3 暫空位、經驗條、${A.tabs.length} 個子頁籤、四色狀態條、橘數值、底部 修煉(綠)＋關閉(紅)、一屏可見、無互蓋${touch ? '、熱區 ≥44' : ''}`);
+      if (!A.noCard && !fails.some(f => f.startsWith(label + ' 獵人卡'))) ok(`${label} 獵人卡：標題＝名字、星級＋轉世、金幣膠囊、裝備環 武器＋六件防具 7 格、經驗條、${A.tabs.length} 個子頁籤、四色狀態條、橘數值、底部 修煉(綠)＋關閉(紅)、一屏可見、無互蓋${touch ? '、熱區 ≥44' : ''}`);
     }
     if (SHOTS) await page.screenshot({ path: `${SHOTS}/${name}-hunter-info.png` });
 
@@ -161,11 +161,11 @@ for (const name of only) {
     if (bf.length) for (const m of bf) fix(`${label} 動作：${m}`); else ok(`${label} 動作：修煉(扣 20、升級、冷卻時灰＋原因)、學習技能(−80)、強化裝備(−60)、轉世(Lv.100 才亮)都生效且留在原子頁籤;條件不足＝灰＋鎖頭、點了不生效`);
 
     // ═══ E. tooltip ═══
-    await page.evaluate(() => { const g = globalThis.__mistvaleGame, h = g.state.hunters[0]; h.equipment.weapon = true; h.weaponLevel = 5; h.equipment.armor = false; });
+    await page.evaluate(() => { const g = globalThis.__mistvaleGame, h = g.state.hunters[0]; h.equipment.weapon = true; h.weaponLevel = 5; h.equipment.helm = false; h.equipment.chest = false; h.equipment.belt = false; h.equipment.legs = false; h.equipment.boots = false; h.equipment.gloves = false; });
     await L.act(page, 'hunter', hid); await settle(page, 300);
     const E = await ev(page, async (P) => {
       const out = {}, tip = () => document.querySelector('#ui-tip'), shown = () => { const t = tip(); return !!t && !t.hidden && P.vis(t); };
-      const w = document.querySelector('.z2-slot.s-w'), a = document.querySelector('.z2-slot.s-a');
+      const w = document.querySelector('.z2-slot.s-w'), a = document.querySelector('.z2-slot.s-g1');
       out.initialHidden = !shown(); w.click(); await P.wait(80);
       out.shown = shown(); const t = tip(); out.name = t.querySelector('.ui-tip-name')?.textContent; out.nameColor = getComputedStyle(t.querySelector('.ui-tip-name')).color; out.hasIcon = !!t.querySelector('.ui-tip-ic .inline-icon'); out.stats = [...t.querySelectorAll('.ui-tip-stats div')].map(d => d.textContent.trim());
       out.lines = [...t.querySelectorAll('.ui-tip-lines li')].map(l => [l.className, getComputedStyle(l).color, l.textContent]); out.rect = P.R(t); out.vw = innerWidth; out.vh = innerHeight; out.anchor = P.R(w); out.describedby = w.getAttribute('aria-describedby');
@@ -195,7 +195,7 @@ for (const name of only) {
     if (ef.length) for (const m of ef) fix(`${label} tooltip：${m}`); else ok(`${label} tooltip：點裝備格出現迷你視窗(品級色名稱、圖示格、數值列、藍/紅/金條列)、在畫面內、點別處與 Esc 關閉(Esc 先關 tooltip)、共用元件可給任何 data-tip 元素`);
     if (SHOTS) { await page.evaluate(() => document.querySelector('.z2-slot.s-w').click()); await settle(page, 150); await page.screenshot({ path: `${SHOTS}/${name}-tooltip.png` }); await page.evaluate(() => document.querySelector('#modal .modal-title').dispatchEvent(new PointerEvent('pointerdown', { bubbles: true, pointerType: 'touch' }))); }
     if (!touch) { // 滑鼠 hover 與鍵盤焦點
-      const box = await page.evaluate(() => { const r = document.querySelector('.z2-slot.s-a').getBoundingClientRect(); return { x: r.left + r.width / 2, y: r.top + r.height / 2 }; });
+      const box = await page.evaluate(() => { const r = document.querySelector('.z2-slot.s-g1').getBoundingClientRect(); return { x: r.left + r.width / 2, y: r.top + r.height / 2 }; });
       await page.mouse.move(5, 5); await page.mouse.move(box.x, box.y); await settle(page, 150);
       const hv = await page.evaluate(() => { const t = document.querySelector('#ui-tip'); return !t.hidden; }); await page.mouse.move(5, 5); await settle(page, 150); const hv2 = await page.evaluate(() => !document.querySelector('#ui-tip').hidden);
       if (!hv || hv2) fix(`${label} tooltip：滑鼠 hover 應顯示、移開應收起(顯示 ${hv}、移開後 ${hv2})`); else ok(`${label} tooltip：滑鼠 hover 顯示、移開收起(同一個元件)`);

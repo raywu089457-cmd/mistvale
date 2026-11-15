@@ -1,6 +1,7 @@
 // z2a-hunter.js — Z2A(圖鑑規格 v2 的 f、g、j 節):獵人卡(C 視窗內容)、名冊卡、新獵人到訪暗帶(D)的 HTML。
 // 只產生字串;狀態(游標位置、哪張子頁籤)放在這裡的 hc／vb,事件接線在 pixel-ui.js 的 doAction。
 import {tipAttr,tipGradeName} from './ui-tip.js';
+import {RECIPES,GEAR_SLOTS} from './pixel-data.js';
 let C=null;   // { esc, fmt, iconHTML, portrait, game:()=>game, RARITIES, CLASSES, TRAITS }
 export const initHunterUI=ctx=>{C=ctx;};
 
@@ -16,16 +17,19 @@ function weaponTip(h){const lv=h.weaponLevel||0,on=!!h.equipment.weapon,g=gradeO
  return on?{name:'精鐵武器',grade:g,icon:'swords',stars:Math.ceil(lv/2),level:'+'+lv,stats:[['品質',tipGradeName(g)],['強化',`+${lv} / 10`],['攻擊','+7']],
    lines:[['pos','攻擊 +7（基礎）'],lv?['pos',`強化 +${lv}：攻擊再 +${lv*7}%`]:null,lv<10?['note','強化精煉所可以繼續強化']:['note','已強化到最高 +10']]}
   :{name:'武器（空）',grade:'normal',icon:'swords',stats:[['狀態','未裝備']],lines:[['neg','少了 攻擊 +7'],['note','在鐵匠鋪製造武器後，獵人回村會用個人金幣購買']]};}
-function armorTip(h){const on=!!h.equipment.armor;
- return on?{name:'皮革護甲',grade:'normal',icon:'def',stats:[['品質','普通'],['生命','+28'],['防禦','+4']],lines:[['pos','生命 +28'],['pos','防禦 +4'],['note','獵人回村時用個人金幣購買']]}
-  :{name:'護甲（空）',grade:'normal',icon:'def',stats:[['狀態','未裝備']],lines:[['neg','少了 生命 +28、防禦 +4'],['note','在鐵匠鋪製造護甲後，獵人回村會用個人金幣購買']]};}
+// 六件防具：裝備環一格一件(tooltip 寫生命／防禦，空的有缺少數值的紅字)
+const GEAR_RECIPES=RECIPES.filter(r=>GEAR_SLOTS.includes(r.type));
+function gearTip(r,h){const on=!!h.equipment?.[r.type];
+ return on?{name:r.name,grade:'normal',icon:'def',stats:[['品質','普通'],['生命','+'+r.hp],['防禦','+'+r.def]],lines:[['pos',`生命 +${r.hp}`],['pos',`防禦 +${r.def}`],['note','獵人回村時用個人金幣購買']]}
+  :{name:`${r.slotName}（空）`,grade:'normal',icon:'def',stats:[['狀態','未裝備']],lines:[['neg',`少了 生命 +${r.hp}、防禦 +${r.def}`],['note',`在鐵匠鋪製造${r.slotName}後，獵人回村會用個人金幣購買`]]};}
 
-function ringHTML(h){const I=C.iconHTML,wOn=!!h.equipment.weapon,aOn=!!h.equipment.armor,wl=h.weaponLevel||0,ws=Math.ceil(wl/2);
+const SLOT_GLYPH={helm:'盔',chest:'甲',belt:'腰',legs:'腿',boots:'靴',gloves:'手'};
+function ringHTML(h){const I=C.iconHTML,wOn=!!h.equipment.weapon,wl=h.weaponLevel||0,ws=Math.ceil(wl/2);
  const stars=n=>n?`<span class="z2-sstars" aria-hidden="true">${'<i></i>'.repeat(Math.min(5,n))}</span>`:'';
  return `<div class="z2-ring"><i class="z2-spot" aria-hidden="true"></i>`
-  +`<span class="z2-slot ghost s-top" aria-hidden="true">${I('hunter',true)}</span><span class="z2-slot ghost s-bl" aria-hidden="true">${I('gems',true)}</span><span class="z2-slot ghost s-br" aria-hidden="true">${I('heal',true)}</span>`
   +`<button type="button" class="z2-slot s-w ${wOn?'eq':'open'}" aria-label="武器：${wOn?'精鐵武器 +'+wl:'未裝備'}"${tipAttr(weaponTip(h))}>${I('swords',true)}${wOn?stars(ws||1):''}</button>`
-  +`<button type="button" class="z2-slot s-a ${aOn?'eq':'open'}" aria-label="護甲：${aOn?'皮革護甲':'未裝備'}"${tipAttr(armorTip(h))}>${I('def',true)}${aOn?stars(1):''}</button>`
+  +GEAR_RECIPES.map((r,i)=>{const on=!!h.equipment?.[r.type];
+    return `<button type="button" class="z2-slot s-g${i+1} ${on?'eq':'open'}" aria-label="${r.slotName}：${on?r.name:'未裝備'}"${tipAttr(gearTip(r,h))}><span class="z2-glyph" aria-hidden="true">${SLOT_GLYPH[r.type]||'甲'}</span></button>`;}).join('')
   +`<img class="z2-fig" src="${C.portrait(h)}" alt="${C.esc(h.name)}"></div>`;}
 
 function barHTML(kind,icon,label,cur,max){const pct=max>0?Math.max(0,Math.min(100,cur/max*100)):0;
@@ -61,7 +65,9 @@ function gearPanel(h){const s=C.game().state,wl=h.weaponLevel||0,cost={gold:60+w
  else if(s.gold<cost.gold||s.ore<cost.ore){ok=false;reason=need('金幣',s.gold,cost.gold)+' '+need('鐵礦',s.ore,cost.ore);}
  return `<div class="z2-list">`
   +rowHTML({icon:'swords',name:h.equipment.weapon?`精鐵武器 +${wl}`:'未裝備武器',tone:h.equipment.weapon?gradeOfLv(wl):'',desc:'攻擊 +7，每級強化再 +7%',cost:h.equipment.weapon&&wl<10?`費用 ${C.iconHTML('gold',true)} ${C.fmt(cost.gold)} · 鐵礦 ${cost.ore}`:'',reason,btn:rowBtn('enhanceHunter',h.id,btn,ok)})
-  +rowHTML({icon:'def',name:h.equipment.armor?'皮革護甲':'未裝備護甲',desc:'生命 +28 · 防禦 +4',reason:h.equipment.armor?'':'<span class="no">鐵匠鋪製造後，獵人回村會自己購買</span>'})+`</div>`;}
+  +GEAR_RECIPES.map(r=>{const on=!!h.equipment?.[r.type];
+    return rowHTML({icon:'def',name:on?r.name:`未裝備${r.slotName}`,desc:`生命 +${r.hp} · 防禦 +${r.def}`,reason:on?'':`<span class="no">鐵匠鋪製造${r.slotName}後，獵人回村會自己購買</span>`});}).join('')
+  +`</div>`;}
 function rebirthPanel(h){const ready=h.level>=100,maxed=h.rebirths>=20;
  return `<div class="z2-list">`+rowHTML({icon:'rebirth',name:`轉世 ${h.rebirths}/20`,desc:'Lv.100 可轉世：等級回到 1，基礎能力永久 +35%、防禦 +2',
   reason:maxed?'<span class="ok">已完成全部 20 次轉世</span>':ready?'<span class="ok">已達 Lv.100，可以轉世</span>':`<span class="no">Lv.100 才能轉世（還差 ${100-h.level} 級）</span>`,

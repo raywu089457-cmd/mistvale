@@ -1793,21 +1793,23 @@ html body #modal[data-type=hunter] .z2-gold{display:flex;align-items:center;gap:
 html body #modal[data-type=hunter] .z2-gold small{font:600 12px/1 var(--font-ui);color:var(--hv-text-dim);text-shadow:none!important}
 html body #modal[data-type=hunter] .z2-gold b{margin-left:auto;font:700 14px/1 var(--font-num);color:#fff}
 html body #modal[data-type=hunter] .z2-gold .inline-icon{width:16px;height:16px}
-/* 立繪＋裝備環：決定 C1 只放 武器、護甲 2 格＋3 個暫空位(空格淡圖示、還能裝備的紫框) */
+/* 立繪＋裝備格：武器 1 格＋六件防具(頭盔／胸甲／腰帶／腿甲／靴子／手套)各 1 格；空格紫框、穿著金框 */
 html body #modal[data-type=hunter] .z2-ring{position:relative;flex:0 0 auto;width:100%;max-width:300px;height:164px;margin:0 auto}
 html body #modal[data-type=hunter] .z2-spot::before{content:"";position:absolute;left:50%;top:50%;width:200px;height:190px;transform:translate(-50%,-50%);pointer-events:none;
   background:radial-gradient(closest-side,color-mix(in srgb,var(--rarity) 38%,transparent) 0,color-mix(in srgb,var(--rarity) 14%,transparent) 55%,transparent 100%)}
 html body #modal[data-type=hunter] .z2-fig{position:absolute;left:50%;top:50%;width:80px;height:92px;transform:translate(-50%,-46%);object-fit:contain;image-rendering:pixelated;z-index:1;filter:drop-shadow(0 2px 0 rgba(0,0,0,.55))}
 html body #modal[data-type=hunter] .z2-slot{position:absolute;box-sizing:border-box;width:48px;height:48px;display:grid;place-items:center;padding:0;background:#35312e;border:1px solid #57514a;border-radius:3px;color:inherit;z-index:2}
 html body #modal[data-type=hunter] .z2-slot .inline-icon{width:28px;height:28px}
-html body #modal[data-type=hunter] .z2-slot.ghost{opacity:.55;pointer-events:none}html body #modal[data-type=hunter] .z2-slot.ghost .inline-icon{opacity:.35;filter:grayscale(1)}
 html body #modal[data-type=hunter] .z2-slot.open{background:#1f1925;border-color:#e4c0ee;cursor:pointer}html body #modal[data-type=hunter] .z2-slot.open .inline-icon{opacity:.5}
 html body #modal[data-type=hunter] .z2-slot.eq{background:#2d2a26;border-color:#8a8372;cursor:pointer}
+/* 六件防具沒有各自的圖示：用單字辨識(盔/甲/腰/腿/靴/手)，空位淡、已穿亮 */
+html body #modal[data-type=hunter] .z2-slot .z2-glyph{font-size:18px;line-height:1;font-weight:700;letter-spacing:0;color:#ece0cc;text-shadow:0 1px 0 rgba(0,0,0,.65)}
+html body #modal[data-type=hunter] .z2-slot.open .z2-glyph{color:#9c8fa8;opacity:.72}
 html body #modal[data-type=hunter] .z2-slot:is(button):hover{border-color:#fff}
 html body #modal[data-type=hunter] .z2-slot.tip-on{outline:2px solid #ffe48f;outline-offset:1px}
-html body #modal[data-type=hunter] .z2-slot.s-top{left:50%;top:0;margin-left:-24px}
-html body #modal[data-type=hunter] .z2-slot.s-w{left:2%;top:58px}html body #modal[data-type=hunter] .z2-slot.s-a{right:2%;top:58px}
-html body #modal[data-type=hunter] .z2-slot.s-bl{left:21%;bottom:0}html body #modal[data-type=hunter] .z2-slot.s-br{right:21%;bottom:0}
+html body #modal[data-type=hunter] .z2-slot.s-w{left:50%;top:0;margin-left:-24px}
+html body #modal[data-type=hunter] .z2-slot.s-g1{left:2%;top:0}html body #modal[data-type=hunter] .z2-slot.s-g2{left:2%;top:54px}html body #modal[data-type=hunter] .z2-slot.s-g3{left:2%;top:108px}
+html body #modal[data-type=hunter] .z2-slot.s-g4{right:2%;top:0}html body #modal[data-type=hunter] .z2-slot.s-g5{right:2%;top:54px}html body #modal[data-type=hunter] .z2-slot.s-g6{right:2%;top:108px}
 html body #modal[data-type=hunter] .z2-sstars{position:absolute;left:0;right:0;bottom:2px;display:flex;justify-content:center;gap:1px;pointer-events:none}
 html body #modal[data-type=hunter] .z2-sstars i{display:block;width:7px;height:7px;background:#f6c844;clip-path:polygon(50% 0,62% 38%,100% 50%,62% 62%,50% 100%,38% 62%,0 50%,38% 38%)}
 /* 經驗條：置中白字、兩端端蓋 */
@@ -1858,12 +1860,15 @@ html body #modal[data-type=hunter] :is(.z2-row-w,.z2-train) .ok{color:#b0c040}ht
 html body #modal[data-type=hunter] .z2-row-w span+span{margin-left:8px}
 html body #modal[data-type=hunter] .z2-rowbtn{min-width:64px!important;min-height:36px!important;height:auto;padding:0 8px!important;font:700 14px/1 var(--font-ui)!important;display:inline-flex;align-items:center;justify-content:center;white-space:nowrap}
 @media(pointer:coarse){html body #modal[data-type=hunter] .z2-rowbtn{min-height:44px!important}}
-/* 窄寬／短高：裝備環縮小、暫空位收起來,一屏看得到主要資訊 */
+/* 窄寬／短高：裝備環縮小，武器在上、六件防具以像素間距排成一列（不用百分比，避免互蓋） */
 @media(max-width:760px) and (max-height:700px){
   html body #modal[data-type=hunter] .z2-ring{height:104px}
-  html body #modal[data-type=hunter] .z2-slot.ghost{display:none}
-  html body #modal[data-type=hunter] .z2-slot.s-w,html body #modal[data-type=hunter] .z2-slot.s-a{top:28px}
-  html body #modal[data-type=hunter] .z2-fig{width:70px;height:80px;transform:translate(-50%,-50%)}
+  html body #modal[data-type=hunter] .z2-slot{width:44px;height:44px}
+  html body #modal[data-type=hunter] .z2-slot .inline-icon{width:24px;height:24px}
+  html body #modal[data-type=hunter] .z2-slot.s-w{left:50%;top:0;margin-left:-22px}
+  html body #modal[data-type=hunter] .z2-slot.s-g1{left:calc(50% - 137px);top:56px}html body #modal[data-type=hunter] .z2-slot.s-g2{left:calc(50% - 91px);top:56px}html body #modal[data-type=hunter] .z2-slot.s-g3{left:calc(50% - 45px);top:56px}
+  html body #modal[data-type=hunter] .z2-slot.s-g4{left:calc(50% + 1px);top:56px}html body #modal[data-type=hunter] .z2-slot.s-g5{left:calc(50% + 47px);top:56px}html body #modal[data-type=hunter] .z2-slot.s-g6{left:calc(50% + 93px);top:56px}
+  html body #modal[data-type=hunter] .z2-fig{width:54px;height:60px;transform:translate(-50%,-58%)}
   html body #modal[data-type=hunter] .z2-spot::before{width:170px;height:150px}
 }
 html body #modal[data-type=hunter] :is(#scroll-hint,#scroll-hint-up){display:none!important}   /* 內容自己在子頁籤裡捲，不用「還有內容」箭頭 */
@@ -1872,8 +1877,9 @@ html body #modal[data-type=hunter] :is(#scroll-hint,#scroll-hint-up){display:non
   html body #modal[data-type=hunter] .z2-ring{height:204px;max-width:340px}
   html body #modal[data-type=hunter] .z2-fig{width:100px;height:116px}
   html body #modal[data-type=hunter] .z2-slot{width:52px;height:52px}
-  html body #modal[data-type=hunter] .z2-slot.s-top{margin-left:-26px}
-  html body #modal[data-type=hunter] .z2-slot.s-w,html body #modal[data-type=hunter] .z2-slot.s-a{top:76px}
+  html body #modal[data-type=hunter] .z2-slot.s-w{margin-left:-26px}
+  html body #modal[data-type=hunter] .z2-slot.s-g1{top:0}html body #modal[data-type=hunter] .z2-slot.s-g2{top:62px}html body #modal[data-type=hunter] .z2-slot.s-g3{top:124px}
+  html body #modal[data-type=hunter] .z2-slot.s-g4{top:0}html body #modal[data-type=hunter] .z2-slot.s-g5{top:62px}html body #modal[data-type=hunter] .z2-slot.s-g6{top:124px}
   html body #modal[data-type=hunter] .z2-spot::before{width:260px;height:240px}
   html body #modal[data-type=hunter] .z2-panel{padding:10px}
 }
@@ -1885,8 +1891,11 @@ html body #modal[data-type=hunter] :is(#scroll-hint,#scroll-hint-up){display:non
   html body #modal[data-type=hunter] .z2-hc{flex-direction:row;gap:12px}
   html body #modal[data-type=hunter] .z2-left{flex:0 0 244px;justify-content:space-between}
   html body #modal[data-type=hunter] .z2-ring{height:150px;max-width:244px}
-  html body #modal[data-type=hunter] .z2-slot.ghost{display:grid}
-  html body #modal[data-type=hunter] .z2-slot.s-w,html body #modal[data-type=hunter] .z2-slot.s-a{top:52px}
+  html body #modal[data-type=hunter] .z2-slot{width:44px;height:44px}
+  html body #modal[data-type=hunter] .z2-slot .inline-icon{width:24px;height:24px}
+  html body #modal[data-type=hunter] .z2-slot.s-w{left:50%;top:0;margin-left:-22px}
+  html body #modal[data-type=hunter] .z2-slot.s-g1{top:0}html body #modal[data-type=hunter] .z2-slot.s-g2{top:52px}html body #modal[data-type=hunter] .z2-slot.s-g3{top:104px}
+  html body #modal[data-type=hunter] .z2-slot.s-g4{top:0}html body #modal[data-type=hunter] .z2-slot.s-g5{top:52px}html body #modal[data-type=hunter] .z2-slot.s-g6{top:104px}
   html body #modal[data-type=hunter] .z2-fig{width:72px;height:84px;transform:translate(-50%,-48%)}
   html body #modal[data-type=hunter] .z2-gold{min-width:0}
   html body #modal[data-type=hunter] .z2-right{flex:1 1 0;min-width:0}
