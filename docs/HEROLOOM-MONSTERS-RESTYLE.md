@@ -139,3 +139,45 @@ node tools/checks/heroloom-monsters3.mjs
 - 證明圖只取 idle 第一格，其餘 frame/row 由 checker 的整張 pixel 驗證背書（不是人眼看過每一格）。
 - 未做人眼美術 review 的全部 22 隻逐格確認；如要更暖/更冷，調 `RAMPS` 與 `classify()` 後重跑即可。
 - 改動只落在 `assets/heroloom-monsters3/`（新目錄），`assets/monsters3/` 原檔不動，隨時可回退。
+
+## 9. PixelLab 全重繪（第二輪，2026-11-15）
+
+使用者要求「用 PixelLab 重做」後，22 隻魔物全部改成 PixelLab `create-character-v3` + `characters/animations`（v3）產出，
+不再沿用舊剪影。本節取代上面 §1–§4 的「只重上色」路線；`restyle-monsters3.mjs` 保留給 treant 的舊備援 /
+其他 pack 的快速換色。
+
+### 帳號與計費
+- 備援帳號 `~/.pixellab-token-2`（同 `~/.pixellab-token2`）：Tier 1 Pixel Apprentice，額度是 **generations**
+  不是 USD（`GET /v2/balance` → `subscription.generations` / `total`）。
+- 本輪花費：**1938 → 1545 generations（共用 393）**，usd 仍 0。
+  - 單隻成本：create 3 + idle 2 + walk 3 + attack 3 + hurt 2 + death 3 ≈ 16–17；treant 的 hurt/attack 較貴（共 ~25）。
+- 規則：先扣 generation 額度，額度用完才扣 usd；不註冊、不切換其他帳號。
+
+### Pipeline
+`pipeline/scripts/heroloom/pixellab-monsters.mjs`
+1. `POST /v2/create-character-v3`：`{description, image_size 128, view:'low top-down',
+   outline:'single color black outline', n_directions:8, seed}`（v3 已移除 `shading` 欄位，帶了會 422）。
+2. `GET /v2/characters/{cid}` 取 `rotation_urls.east`（面右，正是引擎要的方向）。
+3. `POST /v2/characters/animations`：`{mode:'v3', action_description, frame_count, directions:['east'], seed}`；
+   v3 的 `frame_count` 只能 4–16 的偶數，且回傳固定 **requested+1 張**（第 0 張是來源 rotation），
+   所以請求數 = 需要張數，合成時丟掉第一張。
+4. 合成 `sheet.png` 1280×800（8 欄 × 5 列、cell 160、腳底線 y=148、art 高 100，treant 140）：
+   依 idle bbox 縮放、每格 bbox 底部對齊 baseline、置中 x=80、binary alpha，
+   之後 `snapSheetToRamps()` 把顏色吸到 39 色 HeroLoom ramp（PixelLab 原始 shading 約 270 色，checker 上限 40），
+   最後 `addInk()` 加 1px `#150d1b` 墨線。
+5. `pipeline/scripts/heroloom/integrate-monsters-pl.mjs` 把完成的 `<id>/{sheet.png,meta.json}` 複製進
+   `assets/heroloom-monsters3/`，並用 PIL 產生 lossless `.webp` 兄弟檔（`build.mjs` 的 `media()` 優先吃 webp）。
+6. meta 一律 reduced 5-action（idle/walk/attack/hurt/death），heroHeight 72、footFromBottom 12、cell 160；
+   `src/dir4.js` 的 dirSuffix/leftRow fallback 會把缺少的方向列退回側面列，所以 8 方向攻擊姿勢不存在但不崩。
+
+### 驗收
+- `node tools/checks/heroloom-monsters3.mjs` → **22/22 replacement 1280x800 5 actions**（色數 14–34、墨線覆蓋 4–32%）。
+- `node test-heroloom.mjs` 22 passed；`node build.mjs` → dist 2.21 MB，22 張 sheet inline。
+- 遊戲截圖（`output/heroloom-ext/final-pl/`）：18 隻在起始草原自然生成並拍到（mole/boar/snowhare/shroom/
+  floraspirit/sprout/stag/kobold/ram/yeti/icebeetle/boulder/cactus/scorpion/vine/snowman/mummy/wolfman），
+  goat/birchling/moss/treant 只在其他區域或 Boss 房生成，未在起始區出現，改以 `00-monsters-contact.png`
+  （22 隻 idle 總覽）與 checker 背書。
+- 誠實限制：treant 從 224 cell / 11 列縮成 160 cell / 5 列（動作變少但與其他魔物一致）；
+  所有魔物都只剩側面 5 動作，8 方向攻擊姿勢不再存在（引擎 fallback 成側面）；idle 呼吸幅度小、walk 步幅小；
+  PixelLab 造型風格與 HeroLoom 角色（512×448、64×56 cell）不同—魔物是 160 cell 的獨立比例，
+  在遊戲內以 `heroHeight 72` 對齊，畫面協調但細節階調比角色粗。

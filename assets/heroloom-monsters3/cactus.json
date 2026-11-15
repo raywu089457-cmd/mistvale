@@ -1,14 +1,17 @@
 {
  "hero": "cactus",
+ "id": "cactus",
  "heroHeight": 72,
  "footFromBottom": 12,
- "artSize": 100,
+ "artSize": 102,
+ "cell": 160,
  "actions": {
   "idle": {
    "y": 0,
    "cell": 160,
    "frames": 4,
-   "frameTime": 0.25
+   "frameTime": 0.25,
+   "loop": true
   },
   "walk": {
    "y": 160,
