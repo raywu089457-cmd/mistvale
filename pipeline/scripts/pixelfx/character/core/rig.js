@@ -662,6 +662,29 @@ function finish(S, restFrames, material) {
   return out;
 }
 
+// a fall: the whole figure tipped over in the picture's plane about its feet (fall > 0 sends the head to -x, < 0 to
+// +x), after it has been turned to face its way, then lifted so the body rests on the floor instead of going through
+// it. The rig draws every bone where it now is, so a body lying down is drawn lying down, not a turned picture.
+// (restored from upstream pixelfx src/core/rig.js; only runs when pose.fall is set, so no existing pose changes)
+const fallAll = (S, a) => {
+  const R = rotZ(a), P = (v) => mv(R, v);
+  for (const f of Object.values(S.B)) { f.t = P(f.t); f.R = mm(R, f.R); }
+  for (const A of [S.armN, S.armF, S.legN, S.legF]) { A.joint = P(A.joint); A.end = P(A.end); }
+  S.sN = P(S.sN); S.sF = P(S.sF); S.hipN = P(S.hipN); S.hipF = P(S.hipF);
+  S.axis = P(S.axis); S.side = P(S.side);
+  const B = S.B, low = Math.min(
+    B.head.t[1] - 3.3, B.chest.t[1] - 4.4, B.waist.t[1] - 3.3, B.pelvis.t[1] - 3.6, S.sN[1] - 2.5, S.sF[1] - 2.5,
+    S.armN.joint[1] - 1.6, S.armF.joint[1] - 1.6, S.armN.end[1] - 1.9, S.armF.end[1] - 1.9,
+    S.legN.joint[1] - 1.9, S.legF.joint[1] - 1.9, S.legN.end[1] - 1.5, S.legF.end[1] - 1.5,
+  );
+  const up = Math.max(0, -low);
+  if (!up) return;
+  const T = (v) => [v[0], v[1] + up, v[2]];
+  for (const f of Object.values(S.B)) f.t = T(f.t);
+  for (const A of [S.armN, S.armF, S.legN, S.legF]) { A.joint = T(A.joint); A.end = T(A.end); }
+  S.sN = T(S.sN); S.sF = T(S.sF); S.hipN = T(S.hipN); S.hipF = T(S.hipF);
+};
+
 const turnAll = (S, a) => {
   // the whole figure turned about the vertical through the feet
   const R = rotY(-a), P = (v) => mv(R, v);
@@ -679,6 +702,7 @@ export function setGearPass(fn) { GEAR_PASS = fn; }
 function render(pose, material) {
   const S = solve(pose), q = S.q, whole = (q.yaw ?? 0) + (q.face === -1 ? Math.PI : 0);
   if (whole) turnAll(S, whole);
+  if (q.fall) fallAll(S, q.fall);
   S.whole = whole; // T88: materials see the yaw and the head joint (screen-anchored eyes)
   const air = (q.y ?? 0) < -0.5;
   clipBody = !air;

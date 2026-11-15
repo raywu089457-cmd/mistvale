@@ -1,0 +1,501 @@
+{
+ "frames": [
+  {
+   "filename": "dagger-flurry-iso 0",
+   "frame": {
+    "x": 0,
+    "y": 0,
+    "w": 200,
+    "h": 180
+   },
+   "rotated": false,
+   "trimmed": false,
+   "spriteSourceSize": {
+    "x": 0,
+    "y": 0,
+    "w": 200,
+    "h": 180
+   },
+   "sourceSize": {
+    "w": 200,
+    "h": 180
+   },
+   "duration": 33
+  },
+  {
+   "filename": "dagger-flurry-iso 1",
+   "frame": {
+    "x": 200,
+    "y": 0,
+    "w": 200,
+    "h": 180
+   },
+   "rotated": false,
+   "trimmed": false,
+   "spriteSourceSize": {
+    "x": 0,
+    "y": 0,
+    "w": 200,
+    "h": 180
+   },
+   "sourceSize": {
+    "w": 200,
+    "h": 180
+   },
+   "duration": 33
+  },
+  {
+   "filename": "dagger-flurry-iso 2",
+   "frame": {
+    "x": 400,
+    "y": 0,
+    "w": 200,
+    "h": 180
+   },
+   "rotated": false,
+   "trimmed": false,
+   "spriteSourceSize": {
+    "x": 0,
+    "y": 0,
+    "w": 200,
+    "h": 180
+   },
+   "sourceSize": {
+    "w": 200,
+    "h": 180
+   },
+   "duration": 33
+  },
+  {
+   "filename": "dagger-flurry-iso 3",
+   "frame": {
+    "x": 600,
+    "y": 0,
+    "w": 200,
+    "h": 180
+   },
+   "rotated": false,
+   "trimmed": false,
+   "spriteSourceSize": {
+    "x": 0,
+    "y": 0,
+    "w": 200,
+    "h": 180
+   },
+   "sourceSize": {
+    "w": 200,
+    "h": 180
+   },
+   "duration": 33
+  },
+  {
+   "filename": "dagger-flurry-iso 4",
+   "frame": {
+    "x": 800,
+    "y": 0,
+    "w": 200,
+    "h": 180
+   },
+   "rotated": false,
+   "trimmed": false,
+   "spriteSourceSize": {
+    "x": 0,
+    "y": 0,
+    "w": 200,
+    "h": 180
+   },
+   "sourceSize": {
+    "w": 200,
+    "h": 180
+   },
+   "duration": 33
+  },
+  {
+   "filename": "dagger-flurry-iso 5",
+   "frame": {
+    "x": 0,
+    "y": 180,
+    "w": 200,
+    "h": 180
+   },
+   "rotated": false,
+   "trimmed": false,
+   "spriteSourceSize": {
+    "x": 0,
+    "y": 0,
+    "w": 200,
+    "h": 180
+   },
+   "sourceSize": {
+    "w": 200,
+    "h": 180
+   },
+   "duration": 33
+  },
+  {
+   "filename": "dagger-flurry-iso 6",
+   "frame": {
+    "x": 200,
+    "y": 180,
+    "w": 200,
+    "h": 180
+   },
+   "rotated": false,
+   "trimmed": false,
+   "spriteSourceSize": {
+    "x": 0,
+    "y": 0,
+    "w": 200,
+    "h": 180
+   },
+   "sourceSize": {
+    "w": 200,
+    "h": 180
+   },
+   "duration": 33
+  },
+  {
+   "filename": "dagger-flurry-iso 7",
+   "frame": {
+    "x": 400,
+    "y": 180,
+    "w": 200,
+    "h": 180
+   },
+   "rotated": false,
+   "trimmed": false,
+   "spriteSourceSize": {
+    "x": 0,
+    "y": 0,
+    "w": 200,
+    "h": 180
+   },
+   "sourceSize": {
+    "w": 200,
+    "h": 180
+   },
+   "duration": 33
+  },
+  {
+   "filename": "dagger-flurry-iso 8",
+   "frame": {
+    "x": 600,
+    "y": 180,
+    "w": 200,
+    "h": 180
+   },
+   "rotated": false,
+   "trimmed": false,
+   "spriteSourceSize": {
+    "x": 0,
+    "y": 0,
+    "w": 200,
+    "h": 180
+   },
+   "sourceSize": {
+    "w": 200,
+    "h": 180
+   },
+   "duration": 33
+  },
+  {
+   "filename": "dagger-flurry-iso 9",
+   "frame": {
+    "x": 800,
+    "y": 180,
+    "w": 200,
+    "h": 180
+   },
+   "rotated": false,
+   "trimmed": false,
+   "spriteSourceSize": {
+    "x": 0,
+    "y": 0,
+    "w": 200,
+    "h": 180
+   },
+   "sourceSize": {
+    "w": 200,
+    "h": 180
+   },
+   "duration": 33
+  },
+  {
+   "filename": "dagger-flurry-iso 10",
+   "frame": {
+    "x": 0,
+    "y": 360,
+    "w": 200,
+    "h": 180
+   },
+   "rotated": false,
+   "trimmed": false,
+   "spriteSourceSize": {
+    "x": 0,
+    "y": 0,
+    "w": 200,
+    "h": 180
+   },
+   "sourceSize": {
+    "w": 200,
+    "h": 180
+   },
+   "duration": 33
+  },
+  {
+   "filename": "dagger-flurry-iso 11",
+   "frame": {
+    "x": 200,
+    "y": 360,
+    "w": 200,
+    "h": 180
+   },
+   "rotated": false,
+   "trimmed": false,
+   "spriteSourceSize": {
+    "x": 0,
+    "y": 0,
+    "w": 200,
+    "h": 180
+   },
+   "sourceSize": {
+    "w": 200,
+    "h": 180
+   },
+   "duration": 33
+  },
+  {
+   "filename": "dagger-flurry-iso 12",
+   "frame": {
+    "x": 400,
+    "y": 360,
+    "w": 200,
+    "h": 180
+   },
+   "rotated": false,
+   "trimmed": false,
+   "spriteSourceSize": {
+    "x": 0,
+    "y": 0,
+    "w": 200,
+    "h": 180
+   },
+   "sourceSize": {
+    "w": 200,
+    "h": 180
+   },
+   "duration": 33
+  },
+  {
+   "filename": "dagger-flurry-iso 13",
+   "frame": {
+    "x": 600,
+    "y": 360,
+    "w": 200,
+    "h": 180
+   },
+   "rotated": false,
+   "trimmed": false,
+   "spriteSourceSize": {
+    "x": 0,
+    "y": 0,
+    "w": 200,
+    "h": 180
+   },
+   "sourceSize": {
+    "w": 200,
+    "h": 180
+   },
+   "duration": 33
+  },
+  {
+   "filename": "dagger-flurry-iso 14",
+   "frame": {
+    "x": 800,
+    "y": 360,
+    "w": 200,
+    "h": 180
+   },
+   "rotated": false,
+   "trimmed": false,
+   "spriteSourceSize": {
+    "x": 0,
+    "y": 0,
+    "w": 200,
+    "h": 180
+   },
+   "sourceSize": {
+    "w": 200,
+    "h": 180
+   },
+   "duration": 33
+  },
+  {
+   "filename": "dagger-flurry-iso 15",
+   "frame": {
+    "x": 0,
+    "y": 540,
+    "w": 200,
+    "h": 180
+   },
+   "rotated": false,
+   "trimmed": false,
+   "spriteSourceSize": {
+    "x": 0,
+    "y": 0,
+    "w": 200,
+    "h": 180
+   },
+   "sourceSize": {
+    "w": 200,
+    "h": 180
+   },
+   "duration": 33
+  },
+  {
+   "filename": "dagger-flurry-iso 16",
+   "frame": {
+    "x": 200,
+    "y": 540,
+    "w": 200,
+    "h": 180
+   },
+   "rotated": false,
+   "trimmed": false,
+   "spriteSourceSize": {
+    "x": 0,
+    "y": 0,
+    "w": 200,
+    "h": 180
+   },
+   "sourceSize": {
+    "w": 200,
+    "h": 180
+   },
+   "duration": 33
+  },
+  {
+   "filename": "dagger-flurry-iso 17",
+   "frame": {
+    "x": 400,
+    "y": 540,
+    "w": 200,
+    "h": 180
+   },
+   "rotated": false,
+   "trimmed": false,
+   "spriteSourceSize": {
+    "x": 0,
+    "y": 0,
+    "w": 200,
+    "h": 180
+   },
+   "sourceSize": {
+    "w": 200,
+    "h": 180
+   },
+   "duration": 33
+  },
+  {
+   "filename": "dagger-flurry-iso 18",
+   "frame": {
+    "x": 600,
+    "y": 540,
+    "w": 200,
+    "h": 180
+   },
+   "rotated": false,
+   "trimmed": false,
+   "spriteSourceSize": {
+    "x": 0,
+    "y": 0,
+    "w": 200,
+    "h": 180
+   },
+   "sourceSize": {
+    "w": 200,
+    "h": 180
+   },
+   "duration": 33
+  },
+  {
+   "filename": "dagger-flurry-iso 19",
+   "frame": {
+    "x": 800,
+    "y": 540,
+    "w": 200,
+    "h": 180
+   },
+   "rotated": false,
+   "trimmed": false,
+   "spriteSourceSize": {
+    "x": 0,
+    "y": 0,
+    "w": 200,
+    "h": 180
+   },
+   "sourceSize": {
+    "w": 200,
+    "h": 180
+   },
+   "duration": 33
+  },
+  {
+   "filename": "dagger-flurry-iso 20",
+   "frame": {
+    "x": 0,
+    "y": 720,
+    "w": 200,
+    "h": 180
+   },
+   "rotated": false,
+   "trimmed": false,
+   "spriteSourceSize": {
+    "x": 0,
+    "y": 0,
+    "w": 200,
+    "h": 180
+   },
+   "sourceSize": {
+    "w": 200,
+    "h": 180
+   },
+   "duration": 33
+  }
+ ],
+ "meta": {
+  "app": "https://github.com/patch-gg/pixelfx",
+  "version": "1",
+  "image": "dagger-flurry-iso.png",
+  "format": "RGBA8888",
+  "size": {
+   "w": 1000,
+   "h": 900
+  },
+  "scale": "1",
+  "frameTags": [
+   {
+    "name": "dagger-flurry-iso",
+    "from": 0,
+    "to": 20,
+    "direction": "forward"
+   }
+  ],
+  "pixelfx": {
+   "id": "melee/dagger-flurry-iso",
+   "name": "Dagger flurry (iso)",
+   "fps": 30,
+   "loop": false,
+   "frames": 21,
+   "frameSize": [
+    200,
+    180
+   ],
+   "pivot": [
+    100,
+    150
+   ],
+   "columns": 5
+  }
+ }
+}

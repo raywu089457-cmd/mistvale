@@ -1,0 +1,3273 @@
+{
+ "frames": [
+  {
+   "filename": "portal-iso 0",
+   "frame": {
+    "x": 0,
+    "y": 0,
+    "w": 176,
+    "h": 150
+   },
+   "rotated": false,
+   "trimmed": false,
+   "spriteSourceSize": {
+    "x": 0,
+    "y": 0,
+    "w": 176,
+    "h": 150
+   },
+   "sourceSize": {
+    "w": 176,
+    "h": 150
+   },
+   "duration": 33
+  },
+  {
+   "filename": "portal-iso 1",
+   "frame": {
+    "x": 176,
+    "y": 0,
+    "w": 176,
+    "h": 150
+   },
+   "rotated": false,
+   "trimmed": false,
+   "spriteSourceSize": {
+    "x": 0,
+    "y": 0,
+    "w": 176,
+    "h": 150
+   },
+   "sourceSize": {
+    "w": 176,
+    "h": 150
+   },
+   "duration": 33
+  },
+  {
+   "filename": "portal-iso 2",
+   "frame": {
+    "x": 352,
+    "y": 0,
+    "w": 176,
+    "h": 150
+   },
+   "rotated": false,
+   "trimmed": false,
+   "spriteSourceSize": {
+    "x": 0,
+    "y": 0,
+    "w": 176,
+    "h": 150
+   },
+   "sourceSize": {
+    "w": 176,
+    "h": 150
+   },
+   "duration": 33
+  },
+  {
+   "filename": "portal-iso 3",
+   "frame": {
+    "x": 528,
+    "y": 0,
+    "w": 176,
+    "h": 150
+   },
+   "rotated": false,
+   "trimmed": false,
+   "spriteSourceSize": {
+    "x": 0,
+    "y": 0,
+    "w": 176,
+    "h": 150
+   },
+   "sourceSize": {
+    "w": 176,
+    "h": 150
+   },
+   "duration": 33
+  },
+  {
+   "filename": "portal-iso 4",
+   "frame": {
+    "x": 704,
+    "y": 0,
+    "w": 176,
+    "h": 150
+   },
+   "rotated": false,
+   "trimmed": false,
+   "spriteSourceSize": {
+    "x": 0,
+    "y": 0,
+    "w": 176,
+    "h": 150
+   },
+   "sourceSize": {
+    "w": 176,
+    "h": 150
+   },
+   "duration": 33
+  },
+  {
+   "filename": "portal-iso 5",
+   "frame": {
+    "x": 880,
+    "y": 0,
+    "w": 176,
+    "h": 150
+   },
+   "rotated": false,
+   "trimmed": false,
+   "spriteSourceSize": {
+    "x": 0,
+    "y": 0,
+    "w": 176,
+    "h": 150
+   },
+   "sourceSize": {
+    "w": 176,
+    "h": 150
+   },
+   "duration": 33
+  },
+  {
+   "filename": "portal-iso 6",
+   "frame": {
+    "x": 1056,
+    "y": 0,
+    "w": 176,
+    "h": 150
+   },
+   "rotated": false,
+   "trimmed": false,
+   "spriteSourceSize": {
+    "x": 0,
+    "y": 0,
+    "w": 176,
+    "h": 150
+   },
+   "sourceSize": {
+    "w": 176,
+    "h": 150
+   },
+   "duration": 33
+  },
+  {
+   "filename": "portal-iso 7",
+   "frame": {
+    "x": 1232,
+    "y": 0,
+    "w": 176,
+    "h": 150
+   },
+   "rotated": false,
+   "trimmed": false,
+   "spriteSourceSize": {
+    "x": 0,
+    "y": 0,
+    "w": 176,
+    "h": 150
+   },
+   "sourceSize": {
+    "w": 176,
+    "h": 150
+   },
+   "duration": 33
+  },
+  {
+   "filename": "portal-iso 8",
+   "frame": {
+    "x": 1408,
+    "y": 0,
+    "w": 176,
+    "h": 150
+   },
+   "rotated": false,
+   "trimmed": false,
+   "spriteSourceSize": {
+    "x": 0,
+    "y": 0,
+    "w": 176,
+    "h": 150
+   },
+   "sourceSize": {
+    "w": 176,
+    "h": 150
+   },
+   "duration": 33
+  },
+  {
+   "filename": "portal-iso 9",
+   "frame": {
+    "x": 1584,
+    "y": 0,
+    "w": 176,
+    "h": 150
+   },
+   "rotated": false,
+   "trimmed": false,
+   "spriteSourceSize": {
+    "x": 0,
+    "y": 0,
+    "w": 176,
+    "h": 150
+   },
+   "sourceSize": {
+    "w": 176,
+    "h": 150
+   },
+   "duration": 33
+  },
+  {
+   "filename": "portal-iso 10",
+   "frame": {
+    "x": 1760,
+    "y": 0,
+    "w": 176,
+    "h": 150
+   },
+   "rotated": false,
+   "trimmed": false,
+   "spriteSourceSize": {
+    "x": 0,
+    "y": 0,
+    "w": 176,
+    "h": 150
+   },
+   "sourceSize": {
+    "w": 176,
+    "h": 150
+   },
+   "duration": 33
+  },
+  {
+   "filename": "portal-iso 11",
+   "frame": {
+    "x": 1936,
+    "y": 0,
+    "w": 176,
+    "h": 150
+   },
+   "rotated": false,
+   "trimmed": false,
+   "spriteSourceSize": {
+    "x": 0,
+    "y": 0,
+    "w": 176,
+    "h": 150
+   },
+   "sourceSize": {
+    "w": 176,
+    "h": 150
+   },
+   "duration": 33
+  },
+  {
+   "filename": "portal-iso 12",
+   "frame": {
+    "x": 0,
+    "y": 150,
+    "w": 176,
+    "h": 150
+   },
+   "rotated": false,
+   "trimmed": false,
+   "spriteSourceSize": {
+    "x": 0,
+    "y": 0,
+    "w": 176,
+    "h": 150
+   },
+   "sourceSize": {
+    "w": 176,
+    "h": 150
+   },
+   "duration": 33
+  },
+  {
+   "filename": "portal-iso 13",
+   "frame": {
+    "x": 176,
+    "y": 150,
+    "w": 176,
+    "h": 150
+   },
+   "rotated": false,
+   "trimmed": false,
+   "spriteSourceSize": {
+    "x": 0,
+    "y": 0,
+    "w": 176,
+    "h": 150
+   },
+   "sourceSize": {
+    "w": 176,
+    "h": 150
+   },
+   "duration": 33
+  },
+  {
+   "filename": "portal-iso 14",
+   "frame": {
+    "x": 352,
+    "y": 150,
+    "w": 176,
+    "h": 150
+   },
+   "rotated": false,
+   "trimmed": false,
+   "spriteSourceSize": {
+    "x": 0,
+    "y": 0,
+    "w": 176,
+    "h": 150
+   },
+   "sourceSize": {
+    "w": 176,
+    "h": 150
+   },
+   "duration": 33
+  },
+  {
+   "filename": "portal-iso 15",
+   "frame": {
+    "x": 528,
+    "y": 150,
+    "w": 176,
+    "h": 150
+   },
+   "rotated": false,
+   "trimmed": false,
+   "spriteSourceSize": {
+    "x": 0,
+    "y": 0,
+    "w": 176,
+    "h": 150
+   },
+   "sourceSize": {
+    "w": 176,
+    "h": 150
+   },
+   "duration": 33
+  },
+  {
+   "filename": "portal-iso 16",
+   "frame": {
+    "x": 704,
+    "y": 150,
+    "w": 176,
+    "h": 150
+   },
+   "rotated": false,
+   "trimmed": false,
+   "spriteSourceSize": {
+    "x": 0,
+    "y": 0,
+    "w": 176,
+    "h": 150
+   },
+   "sourceSize": {
+    "w": 176,
+    "h": 150
+   },
+   "duration": 33
+  },
+  {
+   "filename": "portal-iso 17",
+   "frame": {
+    "x": 880,
+    "y": 150,
+    "w": 176,
+    "h": 150
+   },
+   "rotated": false,
+   "trimmed": false,
+   "spriteSourceSize": {
+    "x": 0,
+    "y": 0,
+    "w": 176,
+    "h": 150
+   },
+   "sourceSize": {
+    "w": 176,
+    "h": 150
+   },
+   "duration": 33
+  },
+  {
+   "filename": "portal-iso 18",
+   "frame": {
+    "x": 1056,
+    "y": 150,
+    "w": 176,
+    "h": 150
+   },
+   "rotated": false,
+   "trimmed": false,
+   "spriteSourceSize": {
+    "x": 0,
+    "y": 0,
+    "w": 176,
+    "h": 150
+   },
+   "sourceSize": {
+    "w": 176,
+    "h": 150
+   },
+   "duration": 33
+  },
+  {
+   "filename": "portal-iso 19",
+   "frame": {
+    "x": 1232,
+    "y": 150,
+    "w": 176,
+    "h": 150
+   },
+   "rotated": false,
+   "trimmed": false,
+   "spriteSourceSize": {
+    "x": 0,
+    "y": 0,
+    "w": 176,
+    "h": 150
+   },
+   "sourceSize": {
+    "w": 176,
+    "h": 150
+   },
+   "duration": 33
+  },
+  {
+   "filename": "portal-iso 20",
+   "frame": {
+    "x": 1408,
+    "y": 150,
+    "w": 176,
+    "h": 150
+   },
+   "rotated": false,
+   "trimmed": false,
+   "spriteSourceSize": {
+    "x": 0,
+    "y": 0,
+    "w": 176,
+    "h": 150
+   },
+   "sourceSize": {
+    "w": 176,
+    "h": 150
+   },
+   "duration": 33
+  },
+  {
+   "filename": "portal-iso 21",
+   "frame": {
+    "x": 1584,
+    "y": 150,
+    "w": 176,
+    "h": 150
+   },
+   "rotated": false,
+   "trimmed": false,
+   "spriteSourceSize": {
+    "x": 0,
+    "y": 0,
+    "w": 176,
+    "h": 150
+   },
+   "sourceSize": {
+    "w": 176,
+    "h": 150
+   },
+   "duration": 33
+  },
+  {
+   "filename": "portal-iso 22",
+   "frame": {
+    "x": 1760,
+    "y": 150,
+    "w": 176,
+    "h": 150
+   },
+   "rotated": false,
+   "trimmed": false,
+   "spriteSourceSize": {
+    "x": 0,
+    "y": 0,
+    "w": 176,
+    "h": 150
+   },
+   "sourceSize": {
+    "w": 176,
+    "h": 150
+   },
+   "duration": 33
+  },
+  {
+   "filename": "portal-iso 23",
+   "frame": {
+    "x": 1936,
+    "y": 150,
+    "w": 176,
+    "h": 150
+   },
+   "rotated": false,
+   "trimmed": false,
+   "spriteSourceSize": {
+    "x": 0,
+    "y": 0,
+    "w": 176,
+    "h": 150
+   },
+   "sourceSize": {
+    "w": 176,
+    "h": 150
+   },
+   "duration": 33
+  },
+  {
+   "filename": "portal-iso 24",
+   "frame": {
+    "x": 0,
+    "y": 300,
+    "w": 176,
+    "h": 150
+   },
+   "rotated": false,
+   "trimmed": false,
+   "spriteSourceSize": {
+    "x": 0,
+    "y": 0,
+    "w": 176,
+    "h": 150
+   },
+   "sourceSize": {
+    "w": 176,
+    "h": 150
+   },
+   "duration": 33
+  },
+  {
+   "filename": "portal-iso 25",
+   "frame": {
+    "x": 176,
+    "y": 300,
+    "w": 176,
+    "h": 150
+   },
+   "rotated": false,
+   "trimmed": false,
+   "spriteSourceSize": {
+    "x": 0,
+    "y": 0,
+    "w": 176,
+    "h": 150
+   },
+   "sourceSize": {
+    "w": 176,
+    "h": 150
+   },
+   "duration": 33
+  },
+  {
+   "filename": "portal-iso 26",
+   "frame": {
+    "x": 352,
+    "y": 300,
+    "w": 176,
+    "h": 150
+   },
+   "rotated": false,
+   "trimmed": false,
+   "spriteSourceSize": {
+    "x": 0,
+    "y": 0,
+    "w": 176,
+    "h": 150
+   },
+   "sourceSize": {
+    "w": 176,
+    "h": 150
+   },
+   "duration": 33
+  },
+  {
+   "filename": "portal-iso 27",
+   "frame": {
+    "x": 528,
+    "y": 300,
+    "w": 176,
+    "h": 150
+   },
+   "rotated": false,
+   "trimmed": false,
+   "spriteSourceSize": {
+    "x": 0,
+    "y": 0,
+    "w": 176,
+    "h": 150
+   },
+   "sourceSize": {
+    "w": 176,
+    "h": 150
+   },
+   "duration": 33
+  },
+  {
+   "filename": "portal-iso 28",
+   "frame": {
+    "x": 704,
+    "y": 300,
+    "w": 176,
+    "h": 150
+   },
+   "rotated": false,
+   "trimmed": false,
+   "spriteSourceSize": {
+    "x": 0,
+    "y": 0,
+    "w": 176,
+    "h": 150
+   },
+   "sourceSize": {
+    "w": 176,
+    "h": 150
+   },
+   "duration": 33
+  },
+  {
+   "filename": "portal-iso 29",
+   "frame": {
+    "x": 880,
+    "y": 300,
+    "w": 176,
+    "h": 150
+   },
+   "rotated": false,
+   "trimmed": false,
+   "spriteSourceSize": {
+    "x": 0,
+    "y": 0,
+    "w": 176,
+    "h": 150
+   },
+   "sourceSize": {
+    "w": 176,
+    "h": 150
+   },
+   "duration": 33
+  },
+  {
+   "filename": "portal-iso 30",
+   "frame": {
+    "x": 1056,
+    "y": 300,
+    "w": 176,
+    "h": 150
+   },
+   "rotated": false,
+   "trimmed": false,
+   "spriteSourceSize": {
+    "x": 0,
+    "y": 0,
+    "w": 176,
+    "h": 150
+   },
+   "sourceSize": {
+    "w": 176,
+    "h": 150
+   },
+   "duration": 33
+  },
+  {
+   "filename": "portal-iso 31",
+   "frame": {
+    "x": 1232,
+    "y": 300,
+    "w": 176,
+    "h": 150
+   },
+   "rotated": false,
+   "trimmed": false,
+   "spriteSourceSize": {
+    "x": 0,
+    "y": 0,
+    "w": 176,
+    "h": 150
+   },
+   "sourceSize": {
+    "w": 176,
+    "h": 150
+   },
+   "duration": 33
+  },
+  {
+   "filename": "portal-iso 32",
+   "frame": {
+    "x": 1408,
+    "y": 300,
+    "w": 176,
+    "h": 150
+   },
+   "rotated": false,
+   "trimmed": false,
+   "spriteSourceSize": {
+    "x": 0,
+    "y": 0,
+    "w": 176,
+    "h": 150
+   },
+   "sourceSize": {
+    "w": 176,
+    "h": 150
+   },
+   "duration": 33
+  },
+  {
+   "filename": "portal-iso 33",
+   "frame": {
+    "x": 1584,
+    "y": 300,
+    "w": 176,
+    "h": 150
+   },
+   "rotated": false,
+   "trimmed": false,
+   "spriteSourceSize": {
+    "x": 0,
+    "y": 0,
+    "w": 176,
+    "h": 150
+   },
+   "sourceSize": {
+    "w": 176,
+    "h": 150
+   },
+   "duration": 33
+  },
+  {
+   "filename": "portal-iso 34",
+   "frame": {
+    "x": 1760,
+    "y": 300,
+    "w": 176,
+    "h": 150
+   },
+   "rotated": false,
+   "trimmed": false,
+   "spriteSourceSize": {
+    "x": 0,
+    "y": 0,
+    "w": 176,
+    "h": 150
+   },
+   "sourceSize": {
+    "w": 176,
+    "h": 150
+   },
+   "duration": 33
+  },
+  {
+   "filename": "portal-iso 35",
+   "frame": {
+    "x": 1936,
+    "y": 300,
+    "w": 176,
+    "h": 150
+   },
+   "rotated": false,
+   "trimmed": false,
+   "spriteSourceSize": {
+    "x": 0,
+    "y": 0,
+    "w": 176,
+    "h": 150
+   },
+   "sourceSize": {
+    "w": 176,
+    "h": 150
+   },
+   "duration": 33
+  },
+  {
+   "filename": "portal-iso 36",
+   "frame": {
+    "x": 0,
+    "y": 450,
+    "w": 176,
+    "h": 150
+   },
+   "rotated": false,
+   "trimmed": false,
+   "spriteSourceSize": {
+    "x": 0,
+    "y": 0,
+    "w": 176,
+    "h": 150
+   },
+   "sourceSize": {
+    "w": 176,
+    "h": 150
+   },
+   "duration": 33
+  },
+  {
+   "filename": "portal-iso 37",
+   "frame": {
+    "x": 176,
+    "y": 450,
+    "w": 176,
+    "h": 150
+   },
+   "rotated": false,
+   "trimmed": false,
+   "spriteSourceSize": {
+    "x": 0,
+    "y": 0,
+    "w": 176,
+    "h": 150
+   },
+   "sourceSize": {
+    "w": 176,
+    "h": 150
+   },
+   "duration": 33
+  },
+  {
+   "filename": "portal-iso 38",
+   "frame": {
+    "x": 352,
+    "y": 450,
+    "w": 176,
+    "h": 150
+   },
+   "rotated": false,
+   "trimmed": false,
+   "spriteSourceSize": {
+    "x": 0,
+    "y": 0,
+    "w": 176,
+    "h": 150
+   },
+   "sourceSize": {
+    "w": 176,
+    "h": 150
+   },
+   "duration": 33
+  },
+  {
+   "filename": "portal-iso 39",
+   "frame": {
+    "x": 528,
+    "y": 450,
+    "w": 176,
+    "h": 150
+   },
+   "rotated": false,
+   "trimmed": false,
+   "spriteSourceSize": {
+    "x": 0,
+    "y": 0,
+    "w": 176,
+    "h": 150
+   },
+   "sourceSize": {
+    "w": 176,
+    "h": 150
+   },
+   "duration": 33
+  },
+  {
+   "filename": "portal-iso 40",
+   "frame": {
+    "x": 704,
+    "y": 450,
+    "w": 176,
+    "h": 150
+   },
+   "rotated": false,
+   "trimmed": false,
+   "spriteSourceSize": {
+    "x": 0,
+    "y": 0,
+    "w": 176,
+    "h": 150
+   },
+   "sourceSize": {
+    "w": 176,
+    "h": 150
+   },
+   "duration": 33
+  },
+  {
+   "filename": "portal-iso 41",
+   "frame": {
+    "x": 880,
+    "y": 450,
+    "w": 176,
+    "h": 150
+   },
+   "rotated": false,
+   "trimmed": false,
+   "spriteSourceSize": {
+    "x": 0,
+    "y": 0,
+    "w": 176,
+    "h": 150
+   },
+   "sourceSize": {
+    "w": 176,
+    "h": 150
+   },
+   "duration": 33
+  },
+  {
+   "filename": "portal-iso 42",
+   "frame": {
+    "x": 1056,
+    "y": 450,
+    "w": 176,
+    "h": 150
+   },
+   "rotated": false,
+   "trimmed": false,
+   "spriteSourceSize": {
+    "x": 0,
+    "y": 0,
+    "w": 176,
+    "h": 150
+   },
+   "sourceSize": {
+    "w": 176,
+    "h": 150
+   },
+   "duration": 33
+  },
+  {
+   "filename": "portal-iso 43",
+   "frame": {
+    "x": 1232,
+    "y": 450,
+    "w": 176,
+    "h": 150
+   },
+   "rotated": false,
+   "trimmed": false,
+   "spriteSourceSize": {
+    "x": 0,
+    "y": 0,
+    "w": 176,
+    "h": 150
+   },
+   "sourceSize": {
+    "w": 176,
+    "h": 150
+   },
+   "duration": 33
+  },
+  {
+   "filename": "portal-iso 44",
+   "frame": {
+    "x": 1408,
+    "y": 450,
+    "w": 176,
+    "h": 150
+   },
+   "rotated": false,
+   "trimmed": false,
+   "spriteSourceSize": {
+    "x": 0,
+    "y": 0,
+    "w": 176,
+    "h": 150
+   },
+   "sourceSize": {
+    "w": 176,
+    "h": 150
+   },
+   "duration": 33
+  },
+  {
+   "filename": "portal-iso 45",
+   "frame": {
+    "x": 1584,
+    "y": 450,
+    "w": 176,
+    "h": 150
+   },
+   "rotated": false,
+   "trimmed": false,
+   "spriteSourceSize": {
+    "x": 0,
+    "y": 0,
+    "w": 176,
+    "h": 150
+   },
+   "sourceSize": {
+    "w": 176,
+    "h": 150
+   },
+   "duration": 33
+  },
+  {
+   "filename": "portal-iso 46",
+   "frame": {
+    "x": 1760,
+    "y": 450,
+    "w": 176,
+    "h": 150
+   },
+   "rotated": false,
+   "trimmed": false,
+   "spriteSourceSize": {
+    "x": 0,
+    "y": 0,
+    "w": 176,
+    "h": 150
+   },
+   "sourceSize": {
+    "w": 176,
+    "h": 150
+   },
+   "duration": 33
+  },
+  {
+   "filename": "portal-iso 47",
+   "frame": {
+    "x": 1936,
+    "y": 450,
+    "w": 176,
+    "h": 150
+   },
+   "rotated": false,
+   "trimmed": false,
+   "spriteSourceSize": {
+    "x": 0,
+    "y": 0,
+    "w": 176,
+    "h": 150
+   },
+   "sourceSize": {
+    "w": 176,
+    "h": 150
+   },
+   "duration": 33
+  },
+  {
+   "filename": "portal-iso 48",
+   "frame": {
+    "x": 0,
+    "y": 600,
+    "w": 176,
+    "h": 150
+   },
+   "rotated": false,
+   "trimmed": false,
+   "spriteSourceSize": {
+    "x": 0,
+    "y": 0,
+    "w": 176,
+    "h": 150
+   },
+   "sourceSize": {
+    "w": 176,
+    "h": 150
+   },
+   "duration": 33
+  },
+  {
+   "filename": "portal-iso 49",
+   "frame": {
+    "x": 176,
+    "y": 600,
+    "w": 176,
+    "h": 150
+   },
+   "rotated": false,
+   "trimmed": false,
+   "spriteSourceSize": {
+    "x": 0,
+    "y": 0,
+    "w": 176,
+    "h": 150
+   },
+   "sourceSize": {
+    "w": 176,
+    "h": 150
+   },
+   "duration": 33
+  },
+  {
+   "filename": "portal-iso 50",
+   "frame": {
+    "x": 352,
+    "y": 600,
+    "w": 176,
+    "h": 150
+   },
+   "rotated": false,
+   "trimmed": false,
+   "spriteSourceSize": {
+    "x": 0,
+    "y": 0,
+    "w": 176,
+    "h": 150
+   },
+   "sourceSize": {
+    "w": 176,
+    "h": 150
+   },
+   "duration": 33
+  },
+  {
+   "filename": "portal-iso 51",
+   "frame": {
+    "x": 528,
+    "y": 600,
+    "w": 176,
+    "h": 150
+   },
+   "rotated": false,
+   "trimmed": false,
+   "spriteSourceSize": {
+    "x": 0,
+    "y": 0,
+    "w": 176,
+    "h": 150
+   },
+   "sourceSize": {
+    "w": 176,
+    "h": 150
+   },
+   "duration": 33
+  },
+  {
+   "filename": "portal-iso 52",
+   "frame": {
+    "x": 704,
+    "y": 600,
+    "w": 176,
+    "h": 150
+   },
+   "rotated": false,
+   "trimmed": false,
+   "spriteSourceSize": {
+    "x": 0,
+    "y": 0,
+    "w": 176,
+    "h": 150
+   },
+   "sourceSize": {
+    "w": 176,
+    "h": 150
+   },
+   "duration": 33
+  },
+  {
+   "filename": "portal-iso 53",
+   "frame": {
+    "x": 880,
+    "y": 600,
+    "w": 176,
+    "h": 150
+   },
+   "rotated": false,
+   "trimmed": false,
+   "spriteSourceSize": {
+    "x": 0,
+    "y": 0,
+    "w": 176,
+    "h": 150
+   },
+   "sourceSize": {
+    "w": 176,
+    "h": 150
+   },
+   "duration": 33
+  },
+  {
+   "filename": "portal-iso 54",
+   "frame": {
+    "x": 1056,
+    "y": 600,
+    "w": 176,
+    "h": 150
+   },
+   "rotated": false,
+   "trimmed": false,
+   "spriteSourceSize": {
+    "x": 0,
+    "y": 0,
+    "w": 176,
+    "h": 150
+   },
+   "sourceSize": {
+    "w": 176,
+    "h": 150
+   },
+   "duration": 33
+  },
+  {
+   "filename": "portal-iso 55",
+   "frame": {
+    "x": 1232,
+    "y": 600,
+    "w": 176,
+    "h": 150
+   },
+   "rotated": false,
+   "trimmed": false,
+   "spriteSourceSize": {
+    "x": 0,
+    "y": 0,
+    "w": 176,
+    "h": 150
+   },
+   "sourceSize": {
+    "w": 176,
+    "h": 150
+   },
+   "duration": 33
+  },
+  {
+   "filename": "portal-iso 56",
+   "frame": {
+    "x": 1408,
+    "y": 600,
+    "w": 176,
+    "h": 150
+   },
+   "rotated": false,
+   "trimmed": false,
+   "spriteSourceSize": {
+    "x": 0,
+    "y": 0,
+    "w": 176,
+    "h": 150
+   },
+   "sourceSize": {
+    "w": 176,
+    "h": 150
+   },
+   "duration": 33
+  },
+  {
+   "filename": "portal-iso 57",
+   "frame": {
+    "x": 1584,
+    "y": 600,
+    "w": 176,
+    "h": 150
+   },
+   "rotated": false,
+   "trimmed": false,
+   "spriteSourceSize": {
+    "x": 0,
+    "y": 0,
+    "w": 176,
+    "h": 150
+   },
+   "sourceSize": {
+    "w": 176,
+    "h": 150
+   },
+   "duration": 33
+  },
+  {
+   "filename": "portal-iso 58",
+   "frame": {
+    "x": 1760,
+    "y": 600,
+    "w": 176,
+    "h": 150
+   },
+   "rotated": false,
+   "trimmed": false,
+   "spriteSourceSize": {
+    "x": 0,
+    "y": 0,
+    "w": 176,
+    "h": 150
+   },
+   "sourceSize": {
+    "w": 176,
+    "h": 150
+   },
+   "duration": 33
+  },
+  {
+   "filename": "portal-iso 59",
+   "frame": {
+    "x": 1936,
+    "y": 600,
+    "w": 176,
+    "h": 150
+   },
+   "rotated": false,
+   "trimmed": false,
+   "spriteSourceSize": {
+    "x": 0,
+    "y": 0,
+    "w": 176,
+    "h": 150
+   },
+   "sourceSize": {
+    "w": 176,
+    "h": 150
+   },
+   "duration": 33
+  },
+  {
+   "filename": "portal-iso 60",
+   "frame": {
+    "x": 0,
+    "y": 750,
+    "w": 176,
+    "h": 150
+   },
+   "rotated": false,
+   "trimmed": false,
+   "spriteSourceSize": {
+    "x": 0,
+    "y": 0,
+    "w": 176,
+    "h": 150
+   },
+   "sourceSize": {
+    "w": 176,
+    "h": 150
+   },
+   "duration": 33
+  },
+  {
+   "filename": "portal-iso 61",
+   "frame": {
+    "x": 176,
+    "y": 750,
+    "w": 176,
+    "h": 150
+   },
+   "rotated": false,
+   "trimmed": false,
+   "spriteSourceSize": {
+    "x": 0,
+    "y": 0,
+    "w": 176,
+    "h": 150
+   },
+   "sourceSize": {
+    "w": 176,
+    "h": 150
+   },
+   "duration": 33
+  },
+  {
+   "filename": "portal-iso 62",
+   "frame": {
+    "x": 352,
+    "y": 750,
+    "w": 176,
+    "h": 150
+   },
+   "rotated": false,
+   "trimmed": false,
+   "spriteSourceSize": {
+    "x": 0,
+    "y": 0,
+    "w": 176,
+    "h": 150
+   },
+   "sourceSize": {
+    "w": 176,
+    "h": 150
+   },
+   "duration": 33
+  },
+  {
+   "filename": "portal-iso 63",
+   "frame": {
+    "x": 528,
+    "y": 750,
+    "w": 176,
+    "h": 150
+   },
+   "rotated": false,
+   "trimmed": false,
+   "spriteSourceSize": {
+    "x": 0,
+    "y": 0,
+    "w": 176,
+    "h": 150
+   },
+   "sourceSize": {
+    "w": 176,
+    "h": 150
+   },
+   "duration": 33
+  },
+  {
+   "filename": "portal-iso 64",
+   "frame": {
+    "x": 704,
+    "y": 750,
+    "w": 176,
+    "h": 150
+   },
+   "rotated": false,
+   "trimmed": false,
+   "spriteSourceSize": {
+    "x": 0,
+    "y": 0,
+    "w": 176,
+    "h": 150
+   },
+   "sourceSize": {
+    "w": 176,
+    "h": 150
+   },
+   "duration": 33
+  },
+  {
+   "filename": "portal-iso 65",
+   "frame": {
+    "x": 880,
+    "y": 750,
+    "w": 176,
+    "h": 150
+   },
+   "rotated": false,
+   "trimmed": false,
+   "spriteSourceSize": {
+    "x": 0,
+    "y": 0,
+    "w": 176,
+    "h": 150
+   },
+   "sourceSize": {
+    "w": 176,
+    "h": 150
+   },
+   "duration": 33
+  },
+  {
+   "filename": "portal-iso 66",
+   "frame": {
+    "x": 1056,
+    "y": 750,
+    "w": 176,
+    "h": 150
+   },
+   "rotated": false,
+   "trimmed": false,
+   "spriteSourceSize": {
+    "x": 0,
+    "y": 0,
+    "w": 176,
+    "h": 150
+   },
+   "sourceSize": {
+    "w": 176,
+    "h": 150
+   },
+   "duration": 33
+  },
+  {
+   "filename": "portal-iso 67",
+   "frame": {
+    "x": 1232,
+    "y": 750,
+    "w": 176,
+    "h": 150
+   },
+   "rotated": false,
+   "trimmed": false,
+   "spriteSourceSize": {
+    "x": 0,
+    "y": 0,
+    "w": 176,
+    "h": 150
+   },
+   "sourceSize": {
+    "w": 176,
+    "h": 150
+   },
+   "duration": 33
+  },
+  {
+   "filename": "portal-iso 68",
+   "frame": {
+    "x": 1408,
+    "y": 750,
+    "w": 176,
+    "h": 150
+   },
+   "rotated": false,
+   "trimmed": false,
+   "spriteSourceSize": {
+    "x": 0,
+    "y": 0,
+    "w": 176,
+    "h": 150
+   },
+   "sourceSize": {
+    "w": 176,
+    "h": 150
+   },
+   "duration": 33
+  },
+  {
+   "filename": "portal-iso 69",
+   "frame": {
+    "x": 1584,
+    "y": 750,
+    "w": 176,
+    "h": 150
+   },
+   "rotated": false,
+   "trimmed": false,
+   "spriteSourceSize": {
+    "x": 0,
+    "y": 0,
+    "w": 176,
+    "h": 150
+   },
+   "sourceSize": {
+    "w": 176,
+    "h": 150
+   },
+   "duration": 33
+  },
+  {
+   "filename": "portal-iso 70",
+   "frame": {
+    "x": 1760,
+    "y": 750,
+    "w": 176,
+    "h": 150
+   },
+   "rotated": false,
+   "trimmed": false,
+   "spriteSourceSize": {
+    "x": 0,
+    "y": 0,
+    "w": 176,
+    "h": 150
+   },
+   "sourceSize": {
+    "w": 176,
+    "h": 150
+   },
+   "duration": 33
+  },
+  {
+   "filename": "portal-iso 71",
+   "frame": {
+    "x": 1936,
+    "y": 750,
+    "w": 176,
+    "h": 150
+   },
+   "rotated": false,
+   "trimmed": false,
+   "spriteSourceSize": {
+    "x": 0,
+    "y": 0,
+    "w": 176,
+    "h": 150
+   },
+   "sourceSize": {
+    "w": 176,
+    "h": 150
+   },
+   "duration": 33
+  },
+  {
+   "filename": "portal-iso 72",
+   "frame": {
+    "x": 0,
+    "y": 900,
+    "w": 176,
+    "h": 150
+   },
+   "rotated": false,
+   "trimmed": false,
+   "spriteSourceSize": {
+    "x": 0,
+    "y": 0,
+    "w": 176,
+    "h": 150
+   },
+   "sourceSize": {
+    "w": 176,
+    "h": 150
+   },
+   "duration": 33
+  },
+  {
+   "filename": "portal-iso 73",
+   "frame": {
+    "x": 176,
+    "y": 900,
+    "w": 176,
+    "h": 150
+   },
+   "rotated": false,
+   "trimmed": false,
+   "spriteSourceSize": {
+    "x": 0,
+    "y": 0,
+    "w": 176,
+    "h": 150
+   },
+   "sourceSize": {
+    "w": 176,
+    "h": 150
+   },
+   "duration": 33
+  },
+  {
+   "filename": "portal-iso 74",
+   "frame": {
+    "x": 352,
+    "y": 900,
+    "w": 176,
+    "h": 150
+   },
+   "rotated": false,
+   "trimmed": false,
+   "spriteSourceSize": {
+    "x": 0,
+    "y": 0,
+    "w": 176,
+    "h": 150
+   },
+   "sourceSize": {
+    "w": 176,
+    "h": 150
+   },
+   "duration": 33
+  },
+  {
+   "filename": "portal-iso 75",
+   "frame": {
+    "x": 528,
+    "y": 900,
+    "w": 176,
+    "h": 150
+   },
+   "rotated": false,
+   "trimmed": false,
+   "spriteSourceSize": {
+    "x": 0,
+    "y": 0,
+    "w": 176,
+    "h": 150
+   },
+   "sourceSize": {
+    "w": 176,
+    "h": 150
+   },
+   "duration": 33
+  },
+  {
+   "filename": "portal-iso 76",
+   "frame": {
+    "x": 704,
+    "y": 900,
+    "w": 176,
+    "h": 150
+   },
+   "rotated": false,
+   "trimmed": false,
+   "spriteSourceSize": {
+    "x": 0,
+    "y": 0,
+    "w": 176,
+    "h": 150
+   },
+   "sourceSize": {
+    "w": 176,
+    "h": 150
+   },
+   "duration": 33
+  },
+  {
+   "filename": "portal-iso 77",
+   "frame": {
+    "x": 880,
+    "y": 900,
+    "w": 176,
+    "h": 150
+   },
+   "rotated": false,
+   "trimmed": false,
+   "spriteSourceSize": {
+    "x": 0,
+    "y": 0,
+    "w": 176,
+    "h": 150
+   },
+   "sourceSize": {
+    "w": 176,
+    "h": 150
+   },
+   "duration": 33
+  },
+  {
+   "filename": "portal-iso 78",
+   "frame": {
+    "x": 1056,
+    "y": 900,
+    "w": 176,
+    "h": 150
+   },
+   "rotated": false,
+   "trimmed": false,
+   "spriteSourceSize": {
+    "x": 0,
+    "y": 0,
+    "w": 176,
+    "h": 150
+   },
+   "sourceSize": {
+    "w": 176,
+    "h": 150
+   },
+   "duration": 33
+  },
+  {
+   "filename": "portal-iso 79",
+   "frame": {
+    "x": 1232,
+    "y": 900,
+    "w": 176,
+    "h": 150
+   },
+   "rotated": false,
+   "trimmed": false,
+   "spriteSourceSize": {
+    "x": 0,
+    "y": 0,
+    "w": 176,
+    "h": 150
+   },
+   "sourceSize": {
+    "w": 176,
+    "h": 150
+   },
+   "duration": 33
+  },
+  {
+   "filename": "portal-iso 80",
+   "frame": {
+    "x": 1408,
+    "y": 900,
+    "w": 176,
+    "h": 150
+   },
+   "rotated": false,
+   "trimmed": false,
+   "spriteSourceSize": {
+    "x": 0,
+    "y": 0,
+    "w": 176,
+    "h": 150
+   },
+   "sourceSize": {
+    "w": 176,
+    "h": 150
+   },
+   "duration": 33
+  },
+  {
+   "filename": "portal-iso 81",
+   "frame": {
+    "x": 1584,
+    "y": 900,
+    "w": 176,
+    "h": 150
+   },
+   "rotated": false,
+   "trimmed": false,
+   "spriteSourceSize": {
+    "x": 0,
+    "y": 0,
+    "w": 176,
+    "h": 150
+   },
+   "sourceSize": {
+    "w": 176,
+    "h": 150
+   },
+   "duration": 33
+  },
+  {
+   "filename": "portal-iso 82",
+   "frame": {
+    "x": 1760,
+    "y": 900,
+    "w": 176,
+    "h": 150
+   },
+   "rotated": false,
+   "trimmed": false,
+   "spriteSourceSize": {
+    "x": 0,
+    "y": 0,
+    "w": 176,
+    "h": 150
+   },
+   "sourceSize": {
+    "w": 176,
+    "h": 150
+   },
+   "duration": 33
+  },
+  {
+   "filename": "portal-iso 83",
+   "frame": {
+    "x": 1936,
+    "y": 900,
+    "w": 176,
+    "h": 150
+   },
+   "rotated": false,
+   "trimmed": false,
+   "spriteSourceSize": {
+    "x": 0,
+    "y": 0,
+    "w": 176,
+    "h": 150
+   },
+   "sourceSize": {
+    "w": 176,
+    "h": 150
+   },
+   "duration": 33
+  },
+  {
+   "filename": "portal-iso 84",
+   "frame": {
+    "x": 0,
+    "y": 1050,
+    "w": 176,
+    "h": 150
+   },
+   "rotated": false,
+   "trimmed": false,
+   "spriteSourceSize": {
+    "x": 0,
+    "y": 0,
+    "w": 176,
+    "h": 150
+   },
+   "sourceSize": {
+    "w": 176,
+    "h": 150
+   },
+   "duration": 33
+  },
+  {
+   "filename": "portal-iso 85",
+   "frame": {
+    "x": 176,
+    "y": 1050,
+    "w": 176,
+    "h": 150
+   },
+   "rotated": false,
+   "trimmed": false,
+   "spriteSourceSize": {
+    "x": 0,
+    "y": 0,
+    "w": 176,
+    "h": 150
+   },
+   "sourceSize": {
+    "w": 176,
+    "h": 150
+   },
+   "duration": 33
+  },
+  {
+   "filename": "portal-iso 86",
+   "frame": {
+    "x": 352,
+    "y": 1050,
+    "w": 176,
+    "h": 150
+   },
+   "rotated": false,
+   "trimmed": false,
+   "spriteSourceSize": {
+    "x": 0,
+    "y": 0,
+    "w": 176,
+    "h": 150
+   },
+   "sourceSize": {
+    "w": 176,
+    "h": 150
+   },
+   "duration": 33
+  },
+  {
+   "filename": "portal-iso 87",
+   "frame": {
+    "x": 528,
+    "y": 1050,
+    "w": 176,
+    "h": 150
+   },
+   "rotated": false,
+   "trimmed": false,
+   "spriteSourceSize": {
+    "x": 0,
+    "y": 0,
+    "w": 176,
+    "h": 150
+   },
+   "sourceSize": {
+    "w": 176,
+    "h": 150
+   },
+   "duration": 33
+  },
+  {
+   "filename": "portal-iso 88",
+   "frame": {
+    "x": 704,
+    "y": 1050,
+    "w": 176,
+    "h": 150
+   },
+   "rotated": false,
+   "trimmed": false,
+   "spriteSourceSize": {
+    "x": 0,
+    "y": 0,
+    "w": 176,
+    "h": 150
+   },
+   "sourceSize": {
+    "w": 176,
+    "h": 150
+   },
+   "duration": 33
+  },
+  {
+   "filename": "portal-iso 89",
+   "frame": {
+    "x": 880,
+    "y": 1050,
+    "w": 176,
+    "h": 150
+   },
+   "rotated": false,
+   "trimmed": false,
+   "spriteSourceSize": {
+    "x": 0,
+    "y": 0,
+    "w": 176,
+    "h": 150
+   },
+   "sourceSize": {
+    "w": 176,
+    "h": 150
+   },
+   "duration": 33
+  },
+  {
+   "filename": "portal-iso 90",
+   "frame": {
+    "x": 1056,
+    "y": 1050,
+    "w": 176,
+    "h": 150
+   },
+   "rotated": false,
+   "trimmed": false,
+   "spriteSourceSize": {
+    "x": 0,
+    "y": 0,
+    "w": 176,
+    "h": 150
+   },
+   "sourceSize": {
+    "w": 176,
+    "h": 150
+   },
+   "duration": 33
+  },
+  {
+   "filename": "portal-iso 91",
+   "frame": {
+    "x": 1232,
+    "y": 1050,
+    "w": 176,
+    "h": 150
+   },
+   "rotated": false,
+   "trimmed": false,
+   "spriteSourceSize": {
+    "x": 0,
+    "y": 0,
+    "w": 176,
+    "h": 150
+   },
+   "sourceSize": {
+    "w": 176,
+    "h": 150
+   },
+   "duration": 33
+  },
+  {
+   "filename": "portal-iso 92",
+   "frame": {
+    "x": 1408,
+    "y": 1050,
+    "w": 176,
+    "h": 150
+   },
+   "rotated": false,
+   "trimmed": false,
+   "spriteSourceSize": {
+    "x": 0,
+    "y": 0,
+    "w": 176,
+    "h": 150
+   },
+   "sourceSize": {
+    "w": 176,
+    "h": 150
+   },
+   "duration": 33
+  },
+  {
+   "filename": "portal-iso 93",
+   "frame": {
+    "x": 1584,
+    "y": 1050,
+    "w": 176,
+    "h": 150
+   },
+   "rotated": false,
+   "trimmed": false,
+   "spriteSourceSize": {
+    "x": 0,
+    "y": 0,
+    "w": 176,
+    "h": 150
+   },
+   "sourceSize": {
+    "w": 176,
+    "h": 150
+   },
+   "duration": 33
+  },
+  {
+   "filename": "portal-iso 94",
+   "frame": {
+    "x": 1760,
+    "y": 1050,
+    "w": 176,
+    "h": 150
+   },
+   "rotated": false,
+   "trimmed": false,
+   "spriteSourceSize": {
+    "x": 0,
+    "y": 0,
+    "w": 176,
+    "h": 150
+   },
+   "sourceSize": {
+    "w": 176,
+    "h": 150
+   },
+   "duration": 33
+  },
+  {
+   "filename": "portal-iso 95",
+   "frame": {
+    "x": 1936,
+    "y": 1050,
+    "w": 176,
+    "h": 150
+   },
+   "rotated": false,
+   "trimmed": false,
+   "spriteSourceSize": {
+    "x": 0,
+    "y": 0,
+    "w": 176,
+    "h": 150
+   },
+   "sourceSize": {
+    "w": 176,
+    "h": 150
+   },
+   "duration": 33
+  },
+  {
+   "filename": "portal-iso 96",
+   "frame": {
+    "x": 0,
+    "y": 1200,
+    "w": 176,
+    "h": 150
+   },
+   "rotated": false,
+   "trimmed": false,
+   "spriteSourceSize": {
+    "x": 0,
+    "y": 0,
+    "w": 176,
+    "h": 150
+   },
+   "sourceSize": {
+    "w": 176,
+    "h": 150
+   },
+   "duration": 33
+  },
+  {
+   "filename": "portal-iso 97",
+   "frame": {
+    "x": 176,
+    "y": 1200,
+    "w": 176,
+    "h": 150
+   },
+   "rotated": false,
+   "trimmed": false,
+   "spriteSourceSize": {
+    "x": 0,
+    "y": 0,
+    "w": 176,
+    "h": 150
+   },
+   "sourceSize": {
+    "w": 176,
+    "h": 150
+   },
+   "duration": 33
+  },
+  {
+   "filename": "portal-iso 98",
+   "frame": {
+    "x": 352,
+    "y": 1200,
+    "w": 176,
+    "h": 150
+   },
+   "rotated": false,
+   "trimmed": false,
+   "spriteSourceSize": {
+    "x": 0,
+    "y": 0,
+    "w": 176,
+    "h": 150
+   },
+   "sourceSize": {
+    "w": 176,
+    "h": 150
+   },
+   "duration": 33
+  },
+  {
+   "filename": "portal-iso 99",
+   "frame": {
+    "x": 528,
+    "y": 1200,
+    "w": 176,
+    "h": 150
+   },
+   "rotated": false,
+   "trimmed": false,
+   "spriteSourceSize": {
+    "x": 0,
+    "y": 0,
+    "w": 176,
+    "h": 150
+   },
+   "sourceSize": {
+    "w": 176,
+    "h": 150
+   },
+   "duration": 33
+  },
+  {
+   "filename": "portal-iso 100",
+   "frame": {
+    "x": 704,
+    "y": 1200,
+    "w": 176,
+    "h": 150
+   },
+   "rotated": false,
+   "trimmed": false,
+   "spriteSourceSize": {
+    "x": 0,
+    "y": 0,
+    "w": 176,
+    "h": 150
+   },
+   "sourceSize": {
+    "w": 176,
+    "h": 150
+   },
+   "duration": 33
+  },
+  {
+   "filename": "portal-iso 101",
+   "frame": {
+    "x": 880,
+    "y": 1200,
+    "w": 176,
+    "h": 150
+   },
+   "rotated": false,
+   "trimmed": false,
+   "spriteSourceSize": {
+    "x": 0,
+    "y": 0,
+    "w": 176,
+    "h": 150
+   },
+   "sourceSize": {
+    "w": 176,
+    "h": 150
+   },
+   "duration": 33
+  },
+  {
+   "filename": "portal-iso 102",
+   "frame": {
+    "x": 1056,
+    "y": 1200,
+    "w": 176,
+    "h": 150
+   },
+   "rotated": false,
+   "trimmed": false,
+   "spriteSourceSize": {
+    "x": 0,
+    "y": 0,
+    "w": 176,
+    "h": 150
+   },
+   "sourceSize": {
+    "w": 176,
+    "h": 150
+   },
+   "duration": 33
+  },
+  {
+   "filename": "portal-iso 103",
+   "frame": {
+    "x": 1232,
+    "y": 1200,
+    "w": 176,
+    "h": 150
+   },
+   "rotated": false,
+   "trimmed": false,
+   "spriteSourceSize": {
+    "x": 0,
+    "y": 0,
+    "w": 176,
+    "h": 150
+   },
+   "sourceSize": {
+    "w": 176,
+    "h": 150
+   },
+   "duration": 33
+  },
+  {
+   "filename": "portal-iso 104",
+   "frame": {
+    "x": 1408,
+    "y": 1200,
+    "w": 176,
+    "h": 150
+   },
+   "rotated": false,
+   "trimmed": false,
+   "spriteSourceSize": {
+    "x": 0,
+    "y": 0,
+    "w": 176,
+    "h": 150
+   },
+   "sourceSize": {
+    "w": 176,
+    "h": 150
+   },
+   "duration": 33
+  },
+  {
+   "filename": "portal-iso 105",
+   "frame": {
+    "x": 1584,
+    "y": 1200,
+    "w": 176,
+    "h": 150
+   },
+   "rotated": false,
+   "trimmed": false,
+   "spriteSourceSize": {
+    "x": 0,
+    "y": 0,
+    "w": 176,
+    "h": 150
+   },
+   "sourceSize": {
+    "w": 176,
+    "h": 150
+   },
+   "duration": 33
+  },
+  {
+   "filename": "portal-iso 106",
+   "frame": {
+    "x": 1760,
+    "y": 1200,
+    "w": 176,
+    "h": 150
+   },
+   "rotated": false,
+   "trimmed": false,
+   "spriteSourceSize": {
+    "x": 0,
+    "y": 0,
+    "w": 176,
+    "h": 150
+   },
+   "sourceSize": {
+    "w": 176,
+    "h": 150
+   },
+   "duration": 33
+  },
+  {
+   "filename": "portal-iso 107",
+   "frame": {
+    "x": 1936,
+    "y": 1200,
+    "w": 176,
+    "h": 150
+   },
+   "rotated": false,
+   "trimmed": false,
+   "spriteSourceSize": {
+    "x": 0,
+    "y": 0,
+    "w": 176,
+    "h": 150
+   },
+   "sourceSize": {
+    "w": 176,
+    "h": 150
+   },
+   "duration": 33
+  },
+  {
+   "filename": "portal-iso 108",
+   "frame": {
+    "x": 0,
+    "y": 1350,
+    "w": 176,
+    "h": 150
+   },
+   "rotated": false,
+   "trimmed": false,
+   "spriteSourceSize": {
+    "x": 0,
+    "y": 0,
+    "w": 176,
+    "h": 150
+   },
+   "sourceSize": {
+    "w": 176,
+    "h": 150
+   },
+   "duration": 33
+  },
+  {
+   "filename": "portal-iso 109",
+   "frame": {
+    "x": 176,
+    "y": 1350,
+    "w": 176,
+    "h": 150
+   },
+   "rotated": false,
+   "trimmed": false,
+   "spriteSourceSize": {
+    "x": 0,
+    "y": 0,
+    "w": 176,
+    "h": 150
+   },
+   "sourceSize": {
+    "w": 176,
+    "h": 150
+   },
+   "duration": 33
+  },
+  {
+   "filename": "portal-iso 110",
+   "frame": {
+    "x": 352,
+    "y": 1350,
+    "w": 176,
+    "h": 150
+   },
+   "rotated": false,
+   "trimmed": false,
+   "spriteSourceSize": {
+    "x": 0,
+    "y": 0,
+    "w": 176,
+    "h": 150
+   },
+   "sourceSize": {
+    "w": 176,
+    "h": 150
+   },
+   "duration": 33
+  },
+  {
+   "filename": "portal-iso 111",
+   "frame": {
+    "x": 528,
+    "y": 1350,
+    "w": 176,
+    "h": 150
+   },
+   "rotated": false,
+   "trimmed": false,
+   "spriteSourceSize": {
+    "x": 0,
+    "y": 0,
+    "w": 176,
+    "h": 150
+   },
+   "sourceSize": {
+    "w": 176,
+    "h": 150
+   },
+   "duration": 33
+  },
+  {
+   "filename": "portal-iso 112",
+   "frame": {
+    "x": 704,
+    "y": 1350,
+    "w": 176,
+    "h": 150
+   },
+   "rotated": false,
+   "trimmed": false,
+   "spriteSourceSize": {
+    "x": 0,
+    "y": 0,
+    "w": 176,
+    "h": 150
+   },
+   "sourceSize": {
+    "w": 176,
+    "h": 150
+   },
+   "duration": 33
+  },
+  {
+   "filename": "portal-iso 113",
+   "frame": {
+    "x": 880,
+    "y": 1350,
+    "w": 176,
+    "h": 150
+   },
+   "rotated": false,
+   "trimmed": false,
+   "spriteSourceSize": {
+    "x": 0,
+    "y": 0,
+    "w": 176,
+    "h": 150
+   },
+   "sourceSize": {
+    "w": 176,
+    "h": 150
+   },
+   "duration": 33
+  },
+  {
+   "filename": "portal-iso 114",
+   "frame": {
+    "x": 1056,
+    "y": 1350,
+    "w": 176,
+    "h": 150
+   },
+   "rotated": false,
+   "trimmed": false,
+   "spriteSourceSize": {
+    "x": 0,
+    "y": 0,
+    "w": 176,
+    "h": 150
+   },
+   "sourceSize": {
+    "w": 176,
+    "h": 150
+   },
+   "duration": 33
+  },
+  {
+   "filename": "portal-iso 115",
+   "frame": {
+    "x": 1232,
+    "y": 1350,
+    "w": 176,
+    "h": 150
+   },
+   "rotated": false,
+   "trimmed": false,
+   "spriteSourceSize": {
+    "x": 0,
+    "y": 0,
+    "w": 176,
+    "h": 150
+   },
+   "sourceSize": {
+    "w": 176,
+    "h": 150
+   },
+   "duration": 33
+  },
+  {
+   "filename": "portal-iso 116",
+   "frame": {
+    "x": 1408,
+    "y": 1350,
+    "w": 176,
+    "h": 150
+   },
+   "rotated": false,
+   "trimmed": false,
+   "spriteSourceSize": {
+    "x": 0,
+    "y": 0,
+    "w": 176,
+    "h": 150
+   },
+   "sourceSize": {
+    "w": 176,
+    "h": 150
+   },
+   "duration": 33
+  },
+  {
+   "filename": "portal-iso 117",
+   "frame": {
+    "x": 1584,
+    "y": 1350,
+    "w": 176,
+    "h": 150
+   },
+   "rotated": false,
+   "trimmed": false,
+   "spriteSourceSize": {
+    "x": 0,
+    "y": 0,
+    "w": 176,
+    "h": 150
+   },
+   "sourceSize": {
+    "w": 176,
+    "h": 150
+   },
+   "duration": 33
+  },
+  {
+   "filename": "portal-iso 118",
+   "frame": {
+    "x": 1760,
+    "y": 1350,
+    "w": 176,
+    "h": 150
+   },
+   "rotated": false,
+   "trimmed": false,
+   "spriteSourceSize": {
+    "x": 0,
+    "y": 0,
+    "w": 176,
+    "h": 150
+   },
+   "sourceSize": {
+    "w": 176,
+    "h": 150
+   },
+   "duration": 33
+  },
+  {
+   "filename": "portal-iso 119",
+   "frame": {
+    "x": 1936,
+    "y": 1350,
+    "w": 176,
+    "h": 150
+   },
+   "rotated": false,
+   "trimmed": false,
+   "spriteSourceSize": {
+    "x": 0,
+    "y": 0,
+    "w": 176,
+    "h": 150
+   },
+   "sourceSize": {
+    "w": 176,
+    "h": 150
+   },
+   "duration": 33
+  },
+  {
+   "filename": "portal-iso 120",
+   "frame": {
+    "x": 0,
+    "y": 1500,
+    "w": 176,
+    "h": 150
+   },
+   "rotated": false,
+   "trimmed": false,
+   "spriteSourceSize": {
+    "x": 0,
+    "y": 0,
+    "w": 176,
+    "h": 150
+   },
+   "sourceSize": {
+    "w": 176,
+    "h": 150
+   },
+   "duration": 33
+  },
+  {
+   "filename": "portal-iso 121",
+   "frame": {
+    "x": 176,
+    "y": 1500,
+    "w": 176,
+    "h": 150
+   },
+   "rotated": false,
+   "trimmed": false,
+   "spriteSourceSize": {
+    "x": 0,
+    "y": 0,
+    "w": 176,
+    "h": 150
+   },
+   "sourceSize": {
+    "w": 176,
+    "h": 150
+   },
+   "duration": 33
+  },
+  {
+   "filename": "portal-iso 122",
+   "frame": {
+    "x": 352,
+    "y": 1500,
+    "w": 176,
+    "h": 150
+   },
+   "rotated": false,
+   "trimmed": false,
+   "spriteSourceSize": {
+    "x": 0,
+    "y": 0,
+    "w": 176,
+    "h": 150
+   },
+   "sourceSize": {
+    "w": 176,
+    "h": 150
+   },
+   "duration": 33
+  },
+  {
+   "filename": "portal-iso 123",
+   "frame": {
+    "x": 528,
+    "y": 1500,
+    "w": 176,
+    "h": 150
+   },
+   "rotated": false,
+   "trimmed": false,
+   "spriteSourceSize": {
+    "x": 0,
+    "y": 0,
+    "w": 176,
+    "h": 150
+   },
+   "sourceSize": {
+    "w": 176,
+    "h": 150
+   },
+   "duration": 33
+  },
+  {
+   "filename": "portal-iso 124",
+   "frame": {
+    "x": 704,
+    "y": 1500,
+    "w": 176,
+    "h": 150
+   },
+   "rotated": false,
+   "trimmed": false,
+   "spriteSourceSize": {
+    "x": 0,
+    "y": 0,
+    "w": 176,
+    "h": 150
+   },
+   "sourceSize": {
+    "w": 176,
+    "h": 150
+   },
+   "duration": 33
+  },
+  {
+   "filename": "portal-iso 125",
+   "frame": {
+    "x": 880,
+    "y": 1500,
+    "w": 176,
+    "h": 150
+   },
+   "rotated": false,
+   "trimmed": false,
+   "spriteSourceSize": {
+    "x": 0,
+    "y": 0,
+    "w": 176,
+    "h": 150
+   },
+   "sourceSize": {
+    "w": 176,
+    "h": 150
+   },
+   "duration": 33
+  },
+  {
+   "filename": "portal-iso 126",
+   "frame": {
+    "x": 1056,
+    "y": 1500,
+    "w": 176,
+    "h": 150
+   },
+   "rotated": false,
+   "trimmed": false,
+   "spriteSourceSize": {
+    "x": 0,
+    "y": 0,
+    "w": 176,
+    "h": 150
+   },
+   "sourceSize": {
+    "w": 176,
+    "h": 150
+   },
+   "duration": 33
+  },
+  {
+   "filename": "portal-iso 127",
+   "frame": {
+    "x": 1232,
+    "y": 1500,
+    "w": 176,
+    "h": 150
+   },
+   "rotated": false,
+   "trimmed": false,
+   "spriteSourceSize": {
+    "x": 0,
+    "y": 0,
+    "w": 176,
+    "h": 150
+   },
+   "sourceSize": {
+    "w": 176,
+    "h": 150
+   },
+   "duration": 33
+  },
+  {
+   "filename": "portal-iso 128",
+   "frame": {
+    "x": 1408,
+    "y": 1500,
+    "w": 176,
+    "h": 150
+   },
+   "rotated": false,
+   "trimmed": false,
+   "spriteSourceSize": {
+    "x": 0,
+    "y": 0,
+    "w": 176,
+    "h": 150
+   },
+   "sourceSize": {
+    "w": 176,
+    "h": 150
+   },
+   "duration": 33
+  },
+  {
+   "filename": "portal-iso 129",
+   "frame": {
+    "x": 1584,
+    "y": 1500,
+    "w": 176,
+    "h": 150
+   },
+   "rotated": false,
+   "trimmed": false,
+   "spriteSourceSize": {
+    "x": 0,
+    "y": 0,
+    "w": 176,
+    "h": 150
+   },
+   "sourceSize": {
+    "w": 176,
+    "h": 150
+   },
+   "duration": 33
+  },
+  {
+   "filename": "portal-iso 130",
+   "frame": {
+    "x": 1760,
+    "y": 1500,
+    "w": 176,
+    "h": 150
+   },
+   "rotated": false,
+   "trimmed": false,
+   "spriteSourceSize": {
+    "x": 0,
+    "y": 0,
+    "w": 176,
+    "h": 150
+   },
+   "sourceSize": {
+    "w": 176,
+    "h": 150
+   },
+   "duration": 33
+  },
+  {
+   "filename": "portal-iso 131",
+   "frame": {
+    "x": 1936,
+    "y": 1500,
+    "w": 176,
+    "h": 150
+   },
+   "rotated": false,
+   "trimmed": false,
+   "spriteSourceSize": {
+    "x": 0,
+    "y": 0,
+    "w": 176,
+    "h": 150
+   },
+   "sourceSize": {
+    "w": 176,
+    "h": 150
+   },
+   "duration": 33
+  },
+  {
+   "filename": "portal-iso 132",
+   "frame": {
+    "x": 0,
+    "y": 1650,
+    "w": 176,
+    "h": 150
+   },
+   "rotated": false,
+   "trimmed": false,
+   "spriteSourceSize": {
+    "x": 0,
+    "y": 0,
+    "w": 176,
+    "h": 150
+   },
+   "sourceSize": {
+    "w": 176,
+    "h": 150
+   },
+   "duration": 33
+  },
+  {
+   "filename": "portal-iso 133",
+   "frame": {
+    "x": 176,
+    "y": 1650,
+    "w": 176,
+    "h": 150
+   },
+   "rotated": false,
+   "trimmed": false,
+   "spriteSourceSize": {
+    "x": 0,
+    "y": 0,
+    "w": 176,
+    "h": 150
+   },
+   "sourceSize": {
+    "w": 176,
+    "h": 150
+   },
+   "duration": 33
+  },
+  {
+   "filename": "portal-iso 134",
+   "frame": {
+    "x": 352,
+    "y": 1650,
+    "w": 176,
+    "h": 150
+   },
+   "rotated": false,
+   "trimmed": false,
+   "spriteSourceSize": {
+    "x": 0,
+    "y": 0,
+    "w": 176,
+    "h": 150
+   },
+   "sourceSize": {
+    "w": 176,
+    "h": 150
+   },
+   "duration": 33
+  },
+  {
+   "filename": "portal-iso 135",
+   "frame": {
+    "x": 528,
+    "y": 1650,
+    "w": 176,
+    "h": 150
+   },
+   "rotated": false,
+   "trimmed": false,
+   "spriteSourceSize": {
+    "x": 0,
+    "y": 0,
+    "w": 176,
+    "h": 150
+   },
+   "sourceSize": {
+    "w": 176,
+    "h": 150
+   },
+   "duration": 33
+  },
+  {
+   "filename": "portal-iso 136",
+   "frame": {
+    "x": 704,
+    "y": 1650,
+    "w": 176,
+    "h": 150
+   },
+   "rotated": false,
+   "trimmed": false,
+   "spriteSourceSize": {
+    "x": 0,
+    "y": 0,
+    "w": 176,
+    "h": 150
+   },
+   "sourceSize": {
+    "w": 176,
+    "h": 150
+   },
+   "duration": 33
+  },
+  {
+   "filename": "portal-iso 137",
+   "frame": {
+    "x": 880,
+    "y": 1650,
+    "w": 176,
+    "h": 150
+   },
+   "rotated": false,
+   "trimmed": false,
+   "spriteSourceSize": {
+    "x": 0,
+    "y": 0,
+    "w": 176,
+    "h": 150
+   },
+   "sourceSize": {
+    "w": 176,
+    "h": 150
+   },
+   "duration": 33
+  },
+  {
+   "filename": "portal-iso 138",
+   "frame": {
+    "x": 1056,
+    "y": 1650,
+    "w": 176,
+    "h": 150
+   },
+   "rotated": false,
+   "trimmed": false,
+   "spriteSourceSize": {
+    "x": 0,
+    "y": 0,
+    "w": 176,
+    "h": 150
+   },
+   "sourceSize": {
+    "w": 176,
+    "h": 150
+   },
+   "duration": 33
+  },
+  {
+   "filename": "portal-iso 139",
+   "frame": {
+    "x": 1232,
+    "y": 1650,
+    "w": 176,
+    "h": 150
+   },
+   "rotated": false,
+   "trimmed": false,
+   "spriteSourceSize": {
+    "x": 0,
+    "y": 0,
+    "w": 176,
+    "h": 150
+   },
+   "sourceSize": {
+    "w": 176,
+    "h": 150
+   },
+   "duration": 33
+  },
+  {
+   "filename": "portal-iso 140",
+   "frame": {
+    "x": 1408,
+    "y": 1650,
+    "w": 176,
+    "h": 150
+   },
+   "rotated": false,
+   "trimmed": false,
+   "spriteSourceSize": {
+    "x": 0,
+    "y": 0,
+    "w": 176,
+    "h": 150
+   },
+   "sourceSize": {
+    "w": 176,
+    "h": 150
+   },
+   "duration": 33
+  },
+  {
+   "filename": "portal-iso 141",
+   "frame": {
+    "x": 1584,
+    "y": 1650,
+    "w": 176,
+    "h": 150
+   },
+   "rotated": false,
+   "trimmed": false,
+   "spriteSourceSize": {
+    "x": 0,
+    "y": 0,
+    "w": 176,
+    "h": 150
+   },
+   "sourceSize": {
+    "w": 176,
+    "h": 150
+   },
+   "duration": 33
+  },
+  {
+   "filename": "portal-iso 142",
+   "frame": {
+    "x": 1760,
+    "y": 1650,
+    "w": 176,
+    "h": 150
+   },
+   "rotated": false,
+   "trimmed": false,
+   "spriteSourceSize": {
+    "x": 0,
+    "y": 0,
+    "w": 176,
+    "h": 150
+   },
+   "sourceSize": {
+    "w": 176,
+    "h": 150
+   },
+   "duration": 33
+  },
+  {
+   "filename": "portal-iso 143",
+   "frame": {
+    "x": 1936,
+    "y": 1650,
+    "w": 176,
+    "h": 150
+   },
+   "rotated": false,
+   "trimmed": false,
+   "spriteSourceSize": {
+    "x": 0,
+    "y": 0,
+    "w": 176,
+    "h": 150
+   },
+   "sourceSize": {
+    "w": 176,
+    "h": 150
+   },
+   "duration": 33
+  },
+  {
+   "filename": "portal-iso 144",
+   "frame": {
+    "x": 0,
+    "y": 1800,
+    "w": 176,
+    "h": 150
+   },
+   "rotated": false,
+   "trimmed": false,
+   "spriteSourceSize": {
+    "x": 0,
+    "y": 0,
+    "w": 176,
+    "h": 150
+   },
+   "sourceSize": {
+    "w": 176,
+    "h": 150
+   },
+   "duration": 33
+  },
+  {
+   "filename": "portal-iso 145",
+   "frame": {
+    "x": 176,
+    "y": 1800,
+    "w": 176,
+    "h": 150
+   },
+   "rotated": false,
+   "trimmed": false,
+   "spriteSourceSize": {
+    "x": 0,
+    "y": 0,
+    "w": 176,
+    "h": 150
+   },
+   "sourceSize": {
+    "w": 176,
+    "h": 150
+   },
+   "duration": 33
+  },
+  {
+   "filename": "portal-iso 146",
+   "frame": {
+    "x": 352,
+    "y": 1800,
+    "w": 176,
+    "h": 150
+   },
+   "rotated": false,
+   "trimmed": false,
+   "spriteSourceSize": {
+    "x": 0,
+    "y": 0,
+    "w": 176,
+    "h": 150
+   },
+   "sourceSize": {
+    "w": 176,
+    "h": 150
+   },
+   "duration": 33
+  }
+ ],
+ "meta": {
+  "app": "https://github.com/patch-gg/pixelfx",
+  "version": "1",
+  "image": "portal-iso.png",
+  "format": "RGBA8888",
+  "size": {
+   "w": 2112,
+   "h": 1950
+  },
+  "scale": "1",
+  "frameTags": [
+   {
+    "name": "portal-iso",
+    "from": 0,
+    "to": 146,
+    "direction": "forward"
+   }
+  ],
+  "pixelfx": {
+   "id": "arcane/portal-iso",
+   "name": "Portal (iso)",
+   "fps": 30,
+   "loop": false,
+   "frames": 147,
+   "frameSize": [
+    176,
+    150
+   ],
+   "pivot": [
+    88,
+    116
+   ],
+   "columns": 12
+  }
+ }
+}

@@ -3,6 +3,7 @@
 用法:python pipeline/scripts/check/audit_hero_sheet.py [hero | monster:name | villagers ...]   (預設 英雄+魔物+村民 全部;exit 1 = 有不合格)
 """
 import json
+import os
 import sys
 from pathlib import Path
 
@@ -11,8 +12,21 @@ from PIL import Image
 from scipy import ndimage
 
 ROOT = Path(__file__).resolve().parents[3]
-H = ROOT / "assets" / "heroes"
+# HERO_DIR lets a preview batch be audited before it is installed into assets/heroes (the exporter writes
+# candidate sheets to output/ first; only the approved look is copied over).
+H = Path(os.environ.get("HERO_DIR") or (ROOT / "assets" / "heroes"))
 M = ROOT / "assets" / "monsters3"
+# 紙娃娃衍生圖層:武器零件、強化武器、護甲變體 - 它們沿用職業的列與時間軸,但不是獨立職業,
+# 不能拿來跑英雄規則(空格子/剪影相同都是預期結果),也不參與剪影比對。
+WARN_VARIANTS = ("-weapon", "-weapon-fine", "-armor", "-body")
+RIG_SRC = "pixelfx rig pipeline"
+
+
+def try_source(stem):
+    try:
+        return json.loads((H / f"{stem}.json").read_text(encoding="utf-8")).get("source", "")
+    except Exception:
+        return ""
 # 格數、英雄每格秒數:Bible 第 4.2 節(精確值;walk 秒數依移動距離、attack 依蓄力,不檢)
 SPEC = {"idle": (8, 8), "walk": (8, 8), "attack": (8, 10), "skill": (8, 10), "hurt": (4, 4), "death": (8, 8), "victory": (8, 8)}
 HERO_FT = {"idle": .16, "hurt": .1, "death": .12, "victory": .16}
@@ -157,8 +171,13 @@ def audit(hero, d=H):
     for p in H.glob("*.json"):   # 其他英雄(用它們的待機第 1 格)
         k = p.stem
         if k.endswith("-fx") or k == hero: continue
+        if "@" in k: continue                        # @2x 是同一張圖的 LOD,不是另一個職業
         m2 = json.loads(p.read_text(encoding="utf-8"))
+        if m2.get("part") or k.endswith(WARN_VARIANTS): continue   # 武器/裝備圖層與衍生變體不是獨立職業
         if "idle" not in m2.get("actions", {}): continue   # 基底身體等無待機列的素材不參與剪影比對
+        # 同一套 rig 產生的一家人共用骨架,剪影天生相近:這條規則要抓的是「六個幾乎一樣的 AI 角色」,
+        # 不是紙娃娃。所以同來源(rig)的兩張圖不互相比較;跟舊 AI 圖比對照舊有效。
+        if RIG_SRC in str(m2.get("source", "")) and RIG_SRC in str(try_source(hero)): continue
         try: i2 = np.asarray(Image.open(H / f"{k}.png").convert("RGBA"))
         except OSError: continue
         others[k] = sil(frames(i2, m2["actions"]["idle"])[0])
@@ -183,7 +202,11 @@ def audit_villagers():
 
 if __name__ == "__main__":
     def _is_hero(stem):
-        try: return "idle" in json.loads((H / f"{stem}.json").read_text(encoding="utf-8")).get("actions", {})
+        if stem.endswith(WARN_VARIANTS): return False
+        if "@" in stem: return False   # @2x 是同一張表的 LOD 孿生,不是獨立英雄(可明示名稱單獨稽核)
+        try:
+            m2 = json.loads((H / f"{stem}.json").read_text(encoding="utf-8"))
+            return "idle" in m2.get("actions", {}) and not m2.get("part")
         except Exception: return False
     heroes = sys.argv[1:] or [p.stem for p in H.glob("*.json") if not p.stem.endswith("-fx") and _is_hero(p.stem)] + [f"monster:{p.stem}" for p in M.glob("*.json")] + ["villagers"]
     fail = 0

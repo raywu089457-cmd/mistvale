@@ -1,0 +1,496 @@
+{
+ "format": "mistvale-mounts",
+ "version": 1,
+ "generator": "pipeline/scripts/dv2fmt/gen_mounts.py",
+ "note": "Riding (docs/PAPERDOLL.md §20). saddle[up,right,down,left] = the mount's back line at the rider, in assets/monsters3 art px relative to the mount's foot (x right, y down; scaled like the mount). The rider's foot goes hip[seat] RIDER art px below it (scaled like the rider). seat: sit = DV2 乗る_座る (ride_sit/ride_charge_sit), stand = 乗る_立つ. Measured on our art; DV2's rideOffset_ is not recoverable.",
+ "dirs": [
+  "up",
+  "right",
+  "down",
+  "left"
+ ],
+ "hip": {
+  "sit": 5,
+  "stand": 1
+ },
+ "mounts": {
+  "birchling": {
+   "seat": "stand",
+   "saddle": [
+    [
+     0,
+     -91
+    ],
+    [
+     -2,
+     -93
+    ],
+    [
+     0,
+     -93
+    ],
+    [
+     3,
+     -92
+    ]
+   ],
+   "rideable": false
+  },
+  "boar": {
+   "seat": "sit",
+   "saddle": [
+    [
+     0,
+     -84
+    ],
+    [
+     -19,
+     -72
+    ],
+    [
+     0,
+     -82
+    ],
+    [
+     20,
+     -72
+    ]
+   ]
+  },
+  "boulder": {
+   "seat": "stand",
+   "saddle": [
+    [
+     1,
+     -103
+    ],
+    [
+     -4,
+     -106
+    ],
+    [
+     1,
+     -101
+    ],
+    [
+     3,
+     -106
+    ]
+   ],
+   "rideable": false
+  },
+  "cactus": {
+   "seat": "stand",
+   "saddle": [
+    [
+     0,
+     -80
+    ],
+    [
+     -1,
+     -81
+    ],
+    [
+     0,
+     -80
+    ],
+    [
+     2,
+     -81
+    ]
+   ],
+   "rideable": false
+  },
+  "floraspirit": {
+   "seat": "stand",
+   "saddle": [
+    [
+     2,
+     -75
+    ],
+    [
+     -2,
+     -73
+    ],
+    [
+     -2,
+     -75
+    ],
+    [
+     1,
+     -73
+    ]
+   ],
+   "rideable": false
+  },
+  "goat": {
+   "seat": "sit",
+   "saddle": [
+    [
+     1,
+     -86
+    ],
+    [
+     -16,
+     -59
+    ],
+    [
+     -1,
+     -83
+    ],
+    [
+     17,
+     -59
+    ]
+   ]
+  },
+  "icebeetle": {
+   "seat": "stand",
+   "saddle": [
+    [
+     0,
+     -49
+    ],
+    [
+     -2,
+     -52
+    ],
+    [
+     0,
+     -52
+    ],
+    [
+     2,
+     -52
+    ]
+   ],
+   "rideable": false
+  },
+  "kobold": {
+   "seat": "stand",
+   "saddle": [
+    [
+     3,
+     -77
+    ],
+    [
+     1,
+     -76
+    ],
+    [
+     -2,
+     -75
+    ],
+    [
+     0,
+     -76
+    ]
+   ],
+   "rideable": false
+  },
+  "mole": {
+   "seat": "sit",
+   "saddle": [
+    [
+     2,
+     -82
+    ],
+    [
+     -8,
+     -77
+    ],
+    [
+     -1,
+     -73
+    ],
+    [
+     9,
+     -75
+    ]
+   ]
+  },
+  "moss": {
+   "seat": "stand",
+   "saddle": [
+    [
+     2,
+     -105
+    ],
+    [
+     2,
+     -105
+    ],
+    [
+     1,
+     -105
+    ],
+    [
+     -4,
+     -105
+    ]
+   ],
+   "rideable": false
+  },
+  "mummy": {
+   "seat": "stand",
+   "saddle": [
+    [
+     3,
+     -95
+    ],
+    [
+     -3,
+     -95
+    ],
+    [
+     -4,
+     -95
+    ],
+    [
+     2,
+     -95
+    ]
+   ],
+   "rideable": false
+  },
+  "ram": {
+   "seat": "sit",
+   "saddle": [
+    [
+     0,
+     -80
+    ],
+    [
+     -17,
+     -60
+    ],
+    [
+     0,
+     -81
+    ],
+    [
+     18,
+     -58
+    ]
+   ]
+  },
+  "scorpion": {
+   "seat": "sit",
+   "saddle": [
+    [
+     0,
+     -76
+    ],
+    [
+     -20,
+     -80
+    ],
+    [
+     1,
+     -89
+    ],
+    [
+     20,
+     -80
+    ]
+   ]
+  },
+  "shroom": {
+   "seat": "stand",
+   "saddle": [
+    [
+     0,
+     -74
+    ],
+    [
+     -3,
+     -75
+    ],
+    [
+     0,
+     -74
+    ],
+    [
+     1,
+     -74
+    ]
+   ],
+   "rideable": false
+  },
+  "snowhare": {
+   "seat": "stand",
+   "saddle": [
+    [
+     0,
+     -69
+    ],
+    [
+     -6,
+     -75
+    ],
+    [
+     1,
+     -67
+    ],
+    [
+     6,
+     -75
+    ]
+   ],
+   "rideable": false
+  },
+  "snowman": {
+   "seat": "stand",
+   "saddle": [
+    [
+     3,
+     -85
+    ],
+    [
+     -2,
+     -86
+    ],
+    [
+     -4,
+     -85
+    ],
+    [
+     2,
+     -86
+    ]
+   ],
+   "rideable": false
+  },
+  "sprout": {
+   "seat": "stand",
+   "saddle": [
+    [
+     -2,
+     -71
+    ],
+    [
+     -4,
+     -71
+    ],
+    [
+     1,
+     -72
+    ],
+    [
+     3,
+     -71
+    ]
+   ],
+   "rideable": false
+  },
+  "stag": {
+   "seat": "sit",
+   "saddle": [
+    [
+     -1,
+     -74
+    ],
+    [
+     -16,
+     -48
+    ],
+    [
+     0,
+     -71
+    ],
+    [
+     16,
+     -48
+    ]
+   ]
+  },
+  "treant": {
+   "seat": "stand",
+   "saddle": [
+    [
+     0,
+     -153
+    ],
+    [
+     0,
+     -154
+    ],
+    [
+     0,
+     -154
+    ],
+    [
+     -1,
+     -154
+    ]
+   ],
+   "rideable": false
+  },
+  "vine": {
+   "seat": "stand",
+   "saddle": [
+    [
+     7,
+     -86
+    ],
+    [
+     -7,
+     -91
+    ],
+    [
+     -23,
+     -97
+    ],
+    [
+     17,
+     -94
+    ]
+   ],
+   "rideable": false
+  },
+  "wolfman": {
+   "seat": "stand",
+   "saddle": [
+    [
+     6,
+     -94
+    ],
+    [
+     0,
+     -97
+    ],
+    [
+     -6,
+     -95
+    ],
+    [
+     -3,
+     -97
+    ]
+   ],
+   "rideable": false
+  },
+  "yeti": {
+   "seat": "stand",
+   "saddle": [
+    [
+     1,
+     -107
+    ],
+    [
+     -9,
+     -110
+    ],
+    [
+     8,
+     -110
+    ],
+    [
+     -1,
+     -110
+    ]
+   ],
+   "rideable": false
+  }
+ }
+}

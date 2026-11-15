@@ -39,8 +39,8 @@ const PAD = 6;
 const ZOOM = 6;
 
 const BODIES = { barebody: BARE_BODY };
-const GEAR = { archer: archerGear }; // slot name -> gear module (layers + drawGear)
-const MOVES = { walk: walkMove };
+const GEAR = { archer: archerGear }; // slot name -> gear module (layers + drawGear); ./gear/<name>.js is also accepted
+const MOVES = { walk: walkMove }; // ./<name>.js is also accepted, so new moves need no edit here
 
 const argv = process.argv.slice(2);
 const opt = { body: 'barebody', gear: [], move: 'walk', out: null };
@@ -51,11 +51,17 @@ for (let i = 0; i < argv.length; i++) {
   else if (argv[i] === '--out') opt.out = path.resolve(argv[++i]);
   else { console.error(`unknown argument ${argv[i]}`); process.exit(2); }
 }
-const body = BODIES[opt.body], move = MOVES[opt.move];
+const body = BODIES[opt.body];
 if (!body) { console.error(`unknown body ${opt.body} (have: ${Object.keys(BODIES).join(', ')})`); process.exit(2); }
-if (!move) { console.error(`unknown move ${opt.move} (have: ${Object.keys(MOVES).join(', ')})`); process.exit(2); }
-const gearMods = opt.gear.map((g) => GEAR[g]);
-gearMods.forEach((g, i) => { if (!g) { console.error(`unknown gear ${opt.gear[i]} (have: ${Object.keys(GEAR).join(', ')})`); process.exit(2); } });
+// a move/gear that is not in the tables is loaded from its sibling file, so a new class or action is
+// one file drop and no edit here (T160: the six class gear sets and the attack/hurt/death moves).
+async function sibling(file, label) {
+  try { return await import(new URL(file, import.meta.url).href); }
+  catch (e) { console.error(`unknown ${label} ${file.replace(/\.m?js$/, '')}: ${e.message.split('\n')[0]}`); process.exit(2); }
+}
+const move = MOVES[opt.move] ?? await sibling(`./${opt.move}.js`, 'move');
+const gearMods = [];
+for (const g of opt.gear) gearMods.push(GEAR[g] ?? await sibling(`./gear/${g}.js`, 'gear'));
 
 // the gear's material layers stack in front of the bare body, which stays the bottom layer; with
 // gear on, the gear replaces the body's clothes, so the bare body's garment overlay is dropped

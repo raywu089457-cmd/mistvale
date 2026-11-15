@@ -24,6 +24,13 @@
 
 尚未拆出獨立裝備檔:上線角色的盔甲/頭盔/盾都畫在 sheet 裡。真正可替換的裝備需要「同一底身 + 分件生成」(AI 逐格對不齊,必須走關鍵姿勢 + anchor 疊圖)。
 
+2026-11-13 起有分層紙娃娃引擎(第 1 期):`src/paperdoll.js` + `assets/paperdoll/paperdoll.json`,
+圖層 body / hand / armor / helmet / cape / weapon / shield / effect,盔甲與頭盔跟著身體/頭的格走(`follows`)。
+資料格式、圖層對照(Layer 03/04/07/08/09/10)、新增一件裝備的步驟見 [docs/PAPERDOLL.md](../docs/PAPERDOLL.md)。
+目前只有佔位圖與 `?doll=1` 實驗面板,遊戲內英雄仍用上面那套烘好的 sheet;接進遊戲是第 2 期。
+
+**2026-11-13 起英雄美術規格 = [DV2_FORMAT_SPEC.md](DV2_FORMAT_SPEC.md)**（DV2 套件的**格式**、暮影村原創內容：BODY/HAND/ARMOR 30×30 格、HEAD 20×20、HAT、武器 40×40 握把、特效；範本/匯入/打包在 `pipeline/scripts/dv2fmt/`，產出 `assets/paperdoll-dv2/`，遊戲預設用它）。
+
 ## 染色通道 (Dye channels)
 
 一張 sheet + 一條色階 = 很多變種（借 TMW 的作法，見 `docs/TMW-STUDY-SYNTHESIS.md`）。

@@ -106,7 +106,9 @@ for (const name of only) {
     if (!g.shown) { fix(`${label}/B: ${t} 沒有打開`); continue; }
     if (g.mode !== wantMode || g.bmode !== wantMode || g.body !== wantMode) { fix(`${label}/B: ${t} 模式應為 ${wantMode},實際 modal=${g.mode}／backdrop=${g.bmode}／body=${g.body}`); continue; }
     if (wantMode === 'A') {
-      const want = landscape ? null : (portraitPhone ? 0.5 : 0.45) * v.h;
+      let want = landscape ? null : (portraitPhone ? 0.5 : 0.45) * v.h;
+      // Z2C:地下城／競技場抽屜在手機(寬 ≤760、高 >520)至少 372px(資訊卡＋底部固定列吃掉大半,選人列要看得到兩列),上限 100vh−220(ui-hv.css「地下城／競技場抽屜在矮手機」)
+      if (!landscape && v.w <= 760 && (t === 'dungeon' || t === 'arena')) want = Math.min(Math.max(want, 372), v.h - 220);
       if (!landscape) {
         if (Math.abs(g.m.b - g.bar.t) > 1.5) fix(`${label}/C: ${t} 抽屜底 ${g.m.b.toFixed(1)} 應貼頁籤列頂 ${g.bar.t.toFixed(1)}`);
         if (Math.abs(g.m.h - want) > 2.5) fix(`${label}/C: ${t} 抽屜高 ${g.m.h.toFixed(1)} 應約 ${portraitPhone ? '50' : '45'}% = ${want.toFixed(0)}`);
@@ -125,7 +127,7 @@ for (const name of only) {
       const maxH = landscape ? v.h - 24 : Math.min(760, v.h - g.bar.h - 32);
       if (!g.coverBar || g.bdZ <= 32) fix(`${label}/D: ${t} C 遮罩要蓋住頁籤列(elementFromPoint=${g.coverBar},z=${g.bdZ})`);
       if (!/rgba\(0, 0, 0, 0\.55\)/.test(g.bgColor)) fix(`${label}/D: ${t} 遮罩應 rgba(0,0,0,.55),實際 ${g.bgColor}`);
-      const wantW = landscape ? (t === 'worldmap' ? v.w - 24 : t === 'confirm' ? 320 : Math.min(720, v.w * 0.92)) : portraitPhone ? (t === 'worldmap' ? v.w * 0.94 : (t === 'confirm' ? Math.min(320, v.w * 0.85) : v.w * 0.85)) : (t === 'worldmap' ? Math.min(880, v.w * 0.94) : t === 'confirm' ? 320 : Math.min(560, v.w * 0.85));
+      const wantW = t === 'hunter' ? (landscape ? Math.min(720, v.w * 0.94) : Math.min(404, v.w * 0.85)) /* Z2A:獵人卡 C 視窗 = min(85%,404px)、橫向 min(720px,94%),見 ui-hv.css [data-type=hunter] */ : landscape ? (t === 'worldmap' ? v.w - 24 : t === 'confirm' ? 320 : Math.min(720, v.w * 0.92)) : portraitPhone ? (t === 'worldmap' ? v.w * 0.94 : (t === 'confirm' ? Math.min(320, v.w * 0.85) : v.w * 0.85)) : (t === 'worldmap' ? Math.min(880, v.w * 0.94) : t === 'confirm' ? 320 : Math.min(560, v.w * 0.85));
       if (Math.abs(g.m.w - wantW) > 2.5) fix(`${label}/D: ${t} C 視窗寬 ${g.m.w.toFixed(0)} 應 ${wantW.toFixed(0)}`);
       if (g.m.h > maxH + 1.5) fix(`${label}/D: ${t} C 視窗高 ${g.m.h.toFixed(0)} 超過上限 ${maxH.toFixed(0)}`);
       if (Math.abs((g.m.l + g.m.r) / 2 - v.w / 2) > 1.5) fix(`${label}/D: ${t} C 視窗沒有水平置中(中心 ${((g.m.l + g.m.r) / 2).toFixed(1)})`);
@@ -147,7 +149,7 @@ for (const name of only) {
       }
       // 顏色語意
       const bgOf = n => g.kids.find(k => k.t.includes(n))?.bg;
-      if (t === 'confirm') { if (bgOf('確定') !== ROLE.olive) fix(`${label}/F: 確認框「確定」要橄欖綠 #586810,實際 ${bgOf('確定')}`); if (bgOf('取消') !== ROLE.red) fix(`${label}/F: 確認框「取消」要紅 #8d3925,實際 ${bgOf('取消')}`); }
+      if (t === 'confirm') { const yesBg = g.kids.find(k => k.a === 'confirmYes')?.bg;   /* Z2B 起確認鈕文字是「確認」(可由呼叫端改 yesLabel),不再用文字比對 */ if (yesBg !== ROLE.olive) fix(`${label}/F: 確認框「確認」(confirmYes)要橄欖綠 #586810,實際 ${yesBg}`); if (bgOf('取消') !== ROLE.red) fix(`${label}/F: 確認框「取消」要紅 #8d3925,實際 ${bgOf('取消')}`); }
       else if (t === 'offline') { const ok1 = g.kids.find(k => k.a === 'offlineOk'); if (!ok1 || ok1.bg !== ROLE.olive) fix(`${label}/F: 離線戰報「收下」要橄欖綠,實際 ${ok1?.bg}`); }
       else if (t === 'boss') { const sb = g.kids.find(k => k.a === 'startBoss' || k.a === 'bossAsk'); if (sb && sb.bg !== ROLE.olive && sb.bg !== ROLE.gray) fix(`${label}/F: 首領「召喚」要橄欖綠(不能用時灰),實際 ${sb.bg}`); }
       else if (t === 'region') { const tv = g.kids.find(k => k.a === 'regionTravel' || k.a === 'dispatchRegion'); if (tv && tv.bg !== ROLE.olive) fix(`${label}/F: 區域「前往」要橄欖綠,實際 ${tv.bg}`); }
@@ -255,10 +257,10 @@ for (const name of only) {
     if (!a.sticky) fix(`${label}/F: 競技場「開始」要在 .z1-sticky 固定動作列`);
     // 湊滿 3 位獵人 → 啟用時橄欖綠
     await page.evaluate(() => { const g = globalThis.__mistvaleGame; g.state.arena.hunterIds = g.state.hunters.slice(0, 3).map(h => h.id); g.state.arena.cooldown = 0; g.state.dungeon.hunterIds = g.state.arena.hunterIds.slice(); g.state.dungeon.cooldown = 0; });
-    await L.act(page, 'arena'); await settle(page);
+    await L.act(page, 'arena'); await page.mouse.move(1, 1); await settle(page);   // 滑鼠別停在按鈕上::hover 會混白(color-mix),量到的不是狀態色
     const a2 = await ev(page, P => { const b = document.querySelector('#modal-content [data-action=startArena]'); return { bg: P.bg(b), dis: b.disabled }; });
     if (!a2.dis && a2.bg !== ROLE.olive) fix(`${label}/F: 競技場「開始」啟用時要橄欖綠 #586810,實際 ${a2.bg}`);
-    await L.act(page, 'dungeon'); await settle(page);
+    await L.act(page, 'dungeon'); await page.mouse.move(1, 1); await settle(page);
     const d2 = await ev(page, P => { const b = document.querySelector('#modal-content [data-action=startDungeon]'); return { bg: P.bg(b), dis: b.disabled }; });
     if (!d2.dis && d2.bg !== ROLE.olive) fix(`${label}/F: 地下城「出發」啟用時要橄欖綠 #586810,實際 ${d2.bg}`);
     await closeAll(page);

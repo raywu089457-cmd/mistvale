@@ -384,14 +384,16 @@ if (want.includes('G') || want.includes('S')) {
             // 取消:存檔還在、標題還在
             await p2.evaluate(() => { document.querySelector('#modal-backdrop:not(.hidden) [data-action=confirmNo]')?.click(); }); await settle(p2, 400);
             const afterNo = await p2.evaluate(k => ({ title: !!document.querySelector('#title-screen'), gold: JSON.parse(localStorage.getItem(k) || 'null')?.gold, open: !document.querySelector('#modal-backdrop').classList.contains('hidden') }), key);
-            if (!afterNo.title || afterNo.gold !== 77777 || afterNo.open) fix(`${label} S 取消後狀態不對(標題 ${afterNo.title}、存檔金幣 ${afterNo.gold}、視窗 ${afterNo.open})`); else ok(`${label} S 取消不刪存檔`);
+            // 遊戲在標題畫面後面照常跑、會自動存檔:金幣可能多幾枚(2026-11-15 量到 77787 = 一筆 +10 收入)。
+            // 要驗的是「沒被刪」:刪掉的新存檔是開局 1500 枚,所以 ≥ 77777 就是原存檔還在。
+            if (!afterNo.title || !(afterNo.gold >= 77777) || afterNo.open) fix(`${label} S 取消後狀態不對(標題 ${afterNo.title}、存檔金幣 ${afterNo.gold}、視窗 ${afterNo.open})`); else ok(`${label} S 取消不刪存檔`);
             // 確認刪除:存檔被清、重新載入
             await p2.evaluate(() => document.querySelector('[data-ts=fresh]').click()); await settle(p2, 500);
             const nav = p2.waitForNavigation({ waitUntil: 'commit', timeout: 20000 }).catch(() => null);
             await p2.evaluate(() => document.querySelector('#modal-backdrop:not(.hidden) [data-action=confirmYes]')?.click());
             await nav; await p2.waitForFunction(() => globalThis.__mistvaleGame && !document.querySelector('#loading'), null, { timeout: 90000 }).catch(() => { }); await settle(p2, 1500);
             const gold = await p2.evaluate(k => { try { return JSON.parse(localStorage.getItem(k) || 'null')?.gold ?? null; } catch { return -1; } }, key);
-            if (gold === 77777) fix(`${label} S 按「確認刪除」後存檔還在(金幣 ${gold})`); else ok(`${label} S 確認刪除才會清存檔(新存檔金幣 ${gold})`);
+            if (gold >= 77777) fix(`${label} S 按「確認刪除」後存檔還在(金幣 ${gold})`); else ok(`${label} S 確認刪除才會清存檔(新存檔金幣 ${gold})`);
           }
           // 回訪玩家「繼續遊戲」
           const p3 = await ctx.newPage(); await p3.goto(base + '?cont=' + Date.now(), { waitUntil: 'commit' }); await p3.waitForFunction(() => globalThis.__mistvaleGame && !document.querySelector('#loading'), null, { timeout: 90000 }); await p3.waitForSelector('#title-screen', { timeout: 8000 }).catch(() => { });

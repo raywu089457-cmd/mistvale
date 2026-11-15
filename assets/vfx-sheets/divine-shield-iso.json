@@ -1,0 +1,2877 @@
+{
+ "frames": [
+  {
+   "filename": "divine-shield-iso 0",
+   "frame": {
+    "x": 0,
+    "y": 0,
+    "w": 96,
+    "h": 104
+   },
+   "rotated": false,
+   "trimmed": false,
+   "spriteSourceSize": {
+    "x": 0,
+    "y": 0,
+    "w": 96,
+    "h": 104
+   },
+   "sourceSize": {
+    "w": 96,
+    "h": 104
+   },
+   "duration": 33
+  },
+  {
+   "filename": "divine-shield-iso 1",
+   "frame": {
+    "x": 96,
+    "y": 0,
+    "w": 96,
+    "h": 104
+   },
+   "rotated": false,
+   "trimmed": false,
+   "spriteSourceSize": {
+    "x": 0,
+    "y": 0,
+    "w": 96,
+    "h": 104
+   },
+   "sourceSize": {
+    "w": 96,
+    "h": 104
+   },
+   "duration": 33
+  },
+  {
+   "filename": "divine-shield-iso 2",
+   "frame": {
+    "x": 192,
+    "y": 0,
+    "w": 96,
+    "h": 104
+   },
+   "rotated": false,
+   "trimmed": false,
+   "spriteSourceSize": {
+    "x": 0,
+    "y": 0,
+    "w": 96,
+    "h": 104
+   },
+   "sourceSize": {
+    "w": 96,
+    "h": 104
+   },
+   "duration": 33
+  },
+  {
+   "filename": "divine-shield-iso 3",
+   "frame": {
+    "x": 288,
+    "y": 0,
+    "w": 96,
+    "h": 104
+   },
+   "rotated": false,
+   "trimmed": false,
+   "spriteSourceSize": {
+    "x": 0,
+    "y": 0,
+    "w": 96,
+    "h": 104
+   },
+   "sourceSize": {
+    "w": 96,
+    "h": 104
+   },
+   "duration": 33
+  },
+  {
+   "filename": "divine-shield-iso 4",
+   "frame": {
+    "x": 384,
+    "y": 0,
+    "w": 96,
+    "h": 104
+   },
+   "rotated": false,
+   "trimmed": false,
+   "spriteSourceSize": {
+    "x": 0,
+    "y": 0,
+    "w": 96,
+    "h": 104
+   },
+   "sourceSize": {
+    "w": 96,
+    "h": 104
+   },
+   "duration": 33
+  },
+  {
+   "filename": "divine-shield-iso 5",
+   "frame": {
+    "x": 480,
+    "y": 0,
+    "w": 96,
+    "h": 104
+   },
+   "rotated": false,
+   "trimmed": false,
+   "spriteSourceSize": {
+    "x": 0,
+    "y": 0,
+    "w": 96,
+    "h": 104
+   },
+   "sourceSize": {
+    "w": 96,
+    "h": 104
+   },
+   "duration": 33
+  },
+  {
+   "filename": "divine-shield-iso 6",
+   "frame": {
+    "x": 576,
+    "y": 0,
+    "w": 96,
+    "h": 104
+   },
+   "rotated": false,
+   "trimmed": false,
+   "spriteSourceSize": {
+    "x": 0,
+    "y": 0,
+    "w": 96,
+    "h": 104
+   },
+   "sourceSize": {
+    "w": 96,
+    "h": 104
+   },
+   "duration": 33
+  },
+  {
+   "filename": "divine-shield-iso 7",
+   "frame": {
+    "x": 672,
+    "y": 0,
+    "w": 96,
+    "h": 104
+   },
+   "rotated": false,
+   "trimmed": false,
+   "spriteSourceSize": {
+    "x": 0,
+    "y": 0,
+    "w": 96,
+    "h": 104
+   },
+   "sourceSize": {
+    "w": 96,
+    "h": 104
+   },
+   "duration": 33
+  },
+  {
+   "filename": "divine-shield-iso 8",
+   "frame": {
+    "x": 768,
+    "y": 0,
+    "w": 96,
+    "h": 104
+   },
+   "rotated": false,
+   "trimmed": false,
+   "spriteSourceSize": {
+    "x": 0,
+    "y": 0,
+    "w": 96,
+    "h": 104
+   },
+   "sourceSize": {
+    "w": 96,
+    "h": 104
+   },
+   "duration": 33
+  },
+  {
+   "filename": "divine-shield-iso 9",
+   "frame": {
+    "x": 864,
+    "y": 0,
+    "w": 96,
+    "h": 104
+   },
+   "rotated": false,
+   "trimmed": false,
+   "spriteSourceSize": {
+    "x": 0,
+    "y": 0,
+    "w": 96,
+    "h": 104
+   },
+   "sourceSize": {
+    "w": 96,
+    "h": 104
+   },
+   "duration": 33
+  },
+  {
+   "filename": "divine-shield-iso 10",
+   "frame": {
+    "x": 960,
+    "y": 0,
+    "w": 96,
+    "h": 104
+   },
+   "rotated": false,
+   "trimmed": false,
+   "spriteSourceSize": {
+    "x": 0,
+    "y": 0,
+    "w": 96,
+    "h": 104
+   },
+   "sourceSize": {
+    "w": 96,
+    "h": 104
+   },
+   "duration": 33
+  },
+  {
+   "filename": "divine-shield-iso 11",
+   "frame": {
+    "x": 1056,
+    "y": 0,
+    "w": 96,
+    "h": 104
+   },
+   "rotated": false,
+   "trimmed": false,
+   "spriteSourceSize": {
+    "x": 0,
+    "y": 0,
+    "w": 96,
+    "h": 104
+   },
+   "sourceSize": {
+    "w": 96,
+    "h": 104
+   },
+   "duration": 33
+  },
+  {
+   "filename": "divine-shield-iso 12",
+   "frame": {
+    "x": 0,
+    "y": 104,
+    "w": 96,
+    "h": 104
+   },
+   "rotated": false,
+   "trimmed": false,
+   "spriteSourceSize": {
+    "x": 0,
+    "y": 0,
+    "w": 96,
+    "h": 104
+   },
+   "sourceSize": {
+    "w": 96,
+    "h": 104
+   },
+   "duration": 33
+  },
+  {
+   "filename": "divine-shield-iso 13",
+   "frame": {
+    "x": 96,
+    "y": 104,
+    "w": 96,
+    "h": 104
+   },
+   "rotated": false,
+   "trimmed": false,
+   "spriteSourceSize": {
+    "x": 0,
+    "y": 0,
+    "w": 96,
+    "h": 104
+   },
+   "sourceSize": {
+    "w": 96,
+    "h": 104
+   },
+   "duration": 33
+  },
+  {
+   "filename": "divine-shield-iso 14",
+   "frame": {
+    "x": 192,
+    "y": 104,
+    "w": 96,
+    "h": 104
+   },
+   "rotated": false,
+   "trimmed": false,
+   "spriteSourceSize": {
+    "x": 0,
+    "y": 0,
+    "w": 96,
+    "h": 104
+   },
+   "sourceSize": {
+    "w": 96,
+    "h": 104
+   },
+   "duration": 33
+  },
+  {
+   "filename": "divine-shield-iso 15",
+   "frame": {
+    "x": 288,
+    "y": 104,
+    "w": 96,
+    "h": 104
+   },
+   "rotated": false,
+   "trimmed": false,
+   "spriteSourceSize": {
+    "x": 0,
+    "y": 0,
+    "w": 96,
+    "h": 104
+   },
+   "sourceSize": {
+    "w": 96,
+    "h": 104
+   },
+   "duration": 33
+  },
+  {
+   "filename": "divine-shield-iso 16",
+   "frame": {
+    "x": 384,
+    "y": 104,
+    "w": 96,
+    "h": 104
+   },
+   "rotated": false,
+   "trimmed": false,
+   "spriteSourceSize": {
+    "x": 0,
+    "y": 0,
+    "w": 96,
+    "h": 104
+   },
+   "sourceSize": {
+    "w": 96,
+    "h": 104
+   },
+   "duration": 33
+  },
+  {
+   "filename": "divine-shield-iso 17",
+   "frame": {
+    "x": 480,
+    "y": 104,
+    "w": 96,
+    "h": 104
+   },
+   "rotated": false,
+   "trimmed": false,
+   "spriteSourceSize": {
+    "x": 0,
+    "y": 0,
+    "w": 96,
+    "h": 104
+   },
+   "sourceSize": {
+    "w": 96,
+    "h": 104
+   },
+   "duration": 33
+  },
+  {
+   "filename": "divine-shield-iso 18",
+   "frame": {
+    "x": 576,
+    "y": 104,
+    "w": 96,
+    "h": 104
+   },
+   "rotated": false,
+   "trimmed": false,
+   "spriteSourceSize": {
+    "x": 0,
+    "y": 0,
+    "w": 96,
+    "h": 104
+   },
+   "sourceSize": {
+    "w": 96,
+    "h": 104
+   },
+   "duration": 33
+  },
+  {
+   "filename": "divine-shield-iso 19",
+   "frame": {
+    "x": 672,
+    "y": 104,
+    "w": 96,
+    "h": 104
+   },
+   "rotated": false,
+   "trimmed": false,
+   "spriteSourceSize": {
+    "x": 0,
+    "y": 0,
+    "w": 96,
+    "h": 104
+   },
+   "sourceSize": {
+    "w": 96,
+    "h": 104
+   },
+   "duration": 33
+  },
+  {
+   "filename": "divine-shield-iso 20",
+   "frame": {
+    "x": 768,
+    "y": 104,
+    "w": 96,
+    "h": 104
+   },
+   "rotated": false,
+   "trimmed": false,
+   "spriteSourceSize": {
+    "x": 0,
+    "y": 0,
+    "w": 96,
+    "h": 104
+   },
+   "sourceSize": {
+    "w": 96,
+    "h": 104
+   },
+   "duration": 33
+  },
+  {
+   "filename": "divine-shield-iso 21",
+   "frame": {
+    "x": 864,
+    "y": 104,
+    "w": 96,
+    "h": 104
+   },
+   "rotated": false,
+   "trimmed": false,
+   "spriteSourceSize": {
+    "x": 0,
+    "y": 0,
+    "w": 96,
+    "h": 104
+   },
+   "sourceSize": {
+    "w": 96,
+    "h": 104
+   },
+   "duration": 33
+  },
+  {
+   "filename": "divine-shield-iso 22",
+   "frame": {
+    "x": 960,
+    "y": 104,
+    "w": 96,
+    "h": 104
+   },
+   "rotated": false,
+   "trimmed": false,
+   "spriteSourceSize": {
+    "x": 0,
+    "y": 0,
+    "w": 96,
+    "h": 104
+   },
+   "sourceSize": {
+    "w": 96,
+    "h": 104
+   },
+   "duration": 33
+  },
+  {
+   "filename": "divine-shield-iso 23",
+   "frame": {
+    "x": 1056,
+    "y": 104,
+    "w": 96,
+    "h": 104
+   },
+   "rotated": false,
+   "trimmed": false,
+   "spriteSourceSize": {
+    "x": 0,
+    "y": 0,
+    "w": 96,
+    "h": 104
+   },
+   "sourceSize": {
+    "w": 96,
+    "h": 104
+   },
+   "duration": 33
+  },
+  {
+   "filename": "divine-shield-iso 24",
+   "frame": {
+    "x": 0,
+    "y": 208,
+    "w": 96,
+    "h": 104
+   },
+   "rotated": false,
+   "trimmed": false,
+   "spriteSourceSize": {
+    "x": 0,
+    "y": 0,
+    "w": 96,
+    "h": 104
+   },
+   "sourceSize": {
+    "w": 96,
+    "h": 104
+   },
+   "duration": 33
+  },
+  {
+   "filename": "divine-shield-iso 25",
+   "frame": {
+    "x": 96,
+    "y": 208,
+    "w": 96,
+    "h": 104
+   },
+   "rotated": false,
+   "trimmed": false,
+   "spriteSourceSize": {
+    "x": 0,
+    "y": 0,
+    "w": 96,
+    "h": 104
+   },
+   "sourceSize": {
+    "w": 96,
+    "h": 104
+   },
+   "duration": 33
+  },
+  {
+   "filename": "divine-shield-iso 26",
+   "frame": {
+    "x": 192,
+    "y": 208,
+    "w": 96,
+    "h": 104
+   },
+   "rotated": false,
+   "trimmed": false,
+   "spriteSourceSize": {
+    "x": 0,
+    "y": 0,
+    "w": 96,
+    "h": 104
+   },
+   "sourceSize": {
+    "w": 96,
+    "h": 104
+   },
+   "duration": 33
+  },
+  {
+   "filename": "divine-shield-iso 27",
+   "frame": {
+    "x": 288,
+    "y": 208,
+    "w": 96,
+    "h": 104
+   },
+   "rotated": false,
+   "trimmed": false,
+   "spriteSourceSize": {
+    "x": 0,
+    "y": 0,
+    "w": 96,
+    "h": 104
+   },
+   "sourceSize": {
+    "w": 96,
+    "h": 104
+   },
+   "duration": 33
+  },
+  {
+   "filename": "divine-shield-iso 28",
+   "frame": {
+    "x": 384,
+    "y": 208,
+    "w": 96,
+    "h": 104
+   },
+   "rotated": false,
+   "trimmed": false,
+   "spriteSourceSize": {
+    "x": 0,
+    "y": 0,
+    "w": 96,
+    "h": 104
+   },
+   "sourceSize": {
+    "w": 96,
+    "h": 104
+   },
+   "duration": 33
+  },
+  {
+   "filename": "divine-shield-iso 29",
+   "frame": {
+    "x": 480,
+    "y": 208,
+    "w": 96,
+    "h": 104
+   },
+   "rotated": false,
+   "trimmed": false,
+   "spriteSourceSize": {
+    "x": 0,
+    "y": 0,
+    "w": 96,
+    "h": 104
+   },
+   "sourceSize": {
+    "w": 96,
+    "h": 104
+   },
+   "duration": 33
+  },
+  {
+   "filename": "divine-shield-iso 30",
+   "frame": {
+    "x": 576,
+    "y": 208,
+    "w": 96,
+    "h": 104
+   },
+   "rotated": false,
+   "trimmed": false,
+   "spriteSourceSize": {
+    "x": 0,
+    "y": 0,
+    "w": 96,
+    "h": 104
+   },
+   "sourceSize": {
+    "w": 96,
+    "h": 104
+   },
+   "duration": 33
+  },
+  {
+   "filename": "divine-shield-iso 31",
+   "frame": {
+    "x": 672,
+    "y": 208,
+    "w": 96,
+    "h": 104
+   },
+   "rotated": false,
+   "trimmed": false,
+   "spriteSourceSize": {
+    "x": 0,
+    "y": 0,
+    "w": 96,
+    "h": 104
+   },
+   "sourceSize": {
+    "w": 96,
+    "h": 104
+   },
+   "duration": 33
+  },
+  {
+   "filename": "divine-shield-iso 32",
+   "frame": {
+    "x": 768,
+    "y": 208,
+    "w": 96,
+    "h": 104
+   },
+   "rotated": false,
+   "trimmed": false,
+   "spriteSourceSize": {
+    "x": 0,
+    "y": 0,
+    "w": 96,
+    "h": 104
+   },
+   "sourceSize": {
+    "w": 96,
+    "h": 104
+   },
+   "duration": 33
+  },
+  {
+   "filename": "divine-shield-iso 33",
+   "frame": {
+    "x": 864,
+    "y": 208,
+    "w": 96,
+    "h": 104
+   },
+   "rotated": false,
+   "trimmed": false,
+   "spriteSourceSize": {
+    "x": 0,
+    "y": 0,
+    "w": 96,
+    "h": 104
+   },
+   "sourceSize": {
+    "w": 96,
+    "h": 104
+   },
+   "duration": 33
+  },
+  {
+   "filename": "divine-shield-iso 34",
+   "frame": {
+    "x": 960,
+    "y": 208,
+    "w": 96,
+    "h": 104
+   },
+   "rotated": false,
+   "trimmed": false,
+   "spriteSourceSize": {
+    "x": 0,
+    "y": 0,
+    "w": 96,
+    "h": 104
+   },
+   "sourceSize": {
+    "w": 96,
+    "h": 104
+   },
+   "duration": 33
+  },
+  {
+   "filename": "divine-shield-iso 35",
+   "frame": {
+    "x": 1056,
+    "y": 208,
+    "w": 96,
+    "h": 104
+   },
+   "rotated": false,
+   "trimmed": false,
+   "spriteSourceSize": {
+    "x": 0,
+    "y": 0,
+    "w": 96,
+    "h": 104
+   },
+   "sourceSize": {
+    "w": 96,
+    "h": 104
+   },
+   "duration": 33
+  },
+  {
+   "filename": "divine-shield-iso 36",
+   "frame": {
+    "x": 0,
+    "y": 312,
+    "w": 96,
+    "h": 104
+   },
+   "rotated": false,
+   "trimmed": false,
+   "spriteSourceSize": {
+    "x": 0,
+    "y": 0,
+    "w": 96,
+    "h": 104
+   },
+   "sourceSize": {
+    "w": 96,
+    "h": 104
+   },
+   "duration": 33
+  },
+  {
+   "filename": "divine-shield-iso 37",
+   "frame": {
+    "x": 96,
+    "y": 312,
+    "w": 96,
+    "h": 104
+   },
+   "rotated": false,
+   "trimmed": false,
+   "spriteSourceSize": {
+    "x": 0,
+    "y": 0,
+    "w": 96,
+    "h": 104
+   },
+   "sourceSize": {
+    "w": 96,
+    "h": 104
+   },
+   "duration": 33
+  },
+  {
+   "filename": "divine-shield-iso 38",
+   "frame": {
+    "x": 192,
+    "y": 312,
+    "w": 96,
+    "h": 104
+   },
+   "rotated": false,
+   "trimmed": false,
+   "spriteSourceSize": {
+    "x": 0,
+    "y": 0,
+    "w": 96,
+    "h": 104
+   },
+   "sourceSize": {
+    "w": 96,
+    "h": 104
+   },
+   "duration": 33
+  },
+  {
+   "filename": "divine-shield-iso 39",
+   "frame": {
+    "x": 288,
+    "y": 312,
+    "w": 96,
+    "h": 104
+   },
+   "rotated": false,
+   "trimmed": false,
+   "spriteSourceSize": {
+    "x": 0,
+    "y": 0,
+    "w": 96,
+    "h": 104
+   },
+   "sourceSize": {
+    "w": 96,
+    "h": 104
+   },
+   "duration": 33
+  },
+  {
+   "filename": "divine-shield-iso 40",
+   "frame": {
+    "x": 384,
+    "y": 312,
+    "w": 96,
+    "h": 104
+   },
+   "rotated": false,
+   "trimmed": false,
+   "spriteSourceSize": {
+    "x": 0,
+    "y": 0,
+    "w": 96,
+    "h": 104
+   },
+   "sourceSize": {
+    "w": 96,
+    "h": 104
+   },
+   "duration": 33
+  },
+  {
+   "filename": "divine-shield-iso 41",
+   "frame": {
+    "x": 480,
+    "y": 312,
+    "w": 96,
+    "h": 104
+   },
+   "rotated": false,
+   "trimmed": false,
+   "spriteSourceSize": {
+    "x": 0,
+    "y": 0,
+    "w": 96,
+    "h": 104
+   },
+   "sourceSize": {
+    "w": 96,
+    "h": 104
+   },
+   "duration": 33
+  },
+  {
+   "filename": "divine-shield-iso 42",
+   "frame": {
+    "x": 576,
+    "y": 312,
+    "w": 96,
+    "h": 104
+   },
+   "rotated": false,
+   "trimmed": false,
+   "spriteSourceSize": {
+    "x": 0,
+    "y": 0,
+    "w": 96,
+    "h": 104
+   },
+   "sourceSize": {
+    "w": 96,
+    "h": 104
+   },
+   "duration": 33
+  },
+  {
+   "filename": "divine-shield-iso 43",
+   "frame": {
+    "x": 672,
+    "y": 312,
+    "w": 96,
+    "h": 104
+   },
+   "rotated": false,
+   "trimmed": false,
+   "spriteSourceSize": {
+    "x": 0,
+    "y": 0,
+    "w": 96,
+    "h": 104
+   },
+   "sourceSize": {
+    "w": 96,
+    "h": 104
+   },
+   "duration": 33
+  },
+  {
+   "filename": "divine-shield-iso 44",
+   "frame": {
+    "x": 768,
+    "y": 312,
+    "w": 96,
+    "h": 104
+   },
+   "rotated": false,
+   "trimmed": false,
+   "spriteSourceSize": {
+    "x": 0,
+    "y": 0,
+    "w": 96,
+    "h": 104
+   },
+   "sourceSize": {
+    "w": 96,
+    "h": 104
+   },
+   "duration": 33
+  },
+  {
+   "filename": "divine-shield-iso 45",
+   "frame": {
+    "x": 864,
+    "y": 312,
+    "w": 96,
+    "h": 104
+   },
+   "rotated": false,
+   "trimmed": false,
+   "spriteSourceSize": {
+    "x": 0,
+    "y": 0,
+    "w": 96,
+    "h": 104
+   },
+   "sourceSize": {
+    "w": 96,
+    "h": 104
+   },
+   "duration": 33
+  },
+  {
+   "filename": "divine-shield-iso 46",
+   "frame": {
+    "x": 960,
+    "y": 312,
+    "w": 96,
+    "h": 104
+   },
+   "rotated": false,
+   "trimmed": false,
+   "spriteSourceSize": {
+    "x": 0,
+    "y": 0,
+    "w": 96,
+    "h": 104
+   },
+   "sourceSize": {
+    "w": 96,
+    "h": 104
+   },
+   "duration": 33
+  },
+  {
+   "filename": "divine-shield-iso 47",
+   "frame": {
+    "x": 1056,
+    "y": 312,
+    "w": 96,
+    "h": 104
+   },
+   "rotated": false,
+   "trimmed": false,
+   "spriteSourceSize": {
+    "x": 0,
+    "y": 0,
+    "w": 96,
+    "h": 104
+   },
+   "sourceSize": {
+    "w": 96,
+    "h": 104
+   },
+   "duration": 33
+  },
+  {
+   "filename": "divine-shield-iso 48",
+   "frame": {
+    "x": 0,
+    "y": 416,
+    "w": 96,
+    "h": 104
+   },
+   "rotated": false,
+   "trimmed": false,
+   "spriteSourceSize": {
+    "x": 0,
+    "y": 0,
+    "w": 96,
+    "h": 104
+   },
+   "sourceSize": {
+    "w": 96,
+    "h": 104
+   },
+   "duration": 33
+  },
+  {
+   "filename": "divine-shield-iso 49",
+   "frame": {
+    "x": 96,
+    "y": 416,
+    "w": 96,
+    "h": 104
+   },
+   "rotated": false,
+   "trimmed": false,
+   "spriteSourceSize": {
+    "x": 0,
+    "y": 0,
+    "w": 96,
+    "h": 104
+   },
+   "sourceSize": {
+    "w": 96,
+    "h": 104
+   },
+   "duration": 33
+  },
+  {
+   "filename": "divine-shield-iso 50",
+   "frame": {
+    "x": 192,
+    "y": 416,
+    "w": 96,
+    "h": 104
+   },
+   "rotated": false,
+   "trimmed": false,
+   "spriteSourceSize": {
+    "x": 0,
+    "y": 0,
+    "w": 96,
+    "h": 104
+   },
+   "sourceSize": {
+    "w": 96,
+    "h": 104
+   },
+   "duration": 33
+  },
+  {
+   "filename": "divine-shield-iso 51",
+   "frame": {
+    "x": 288,
+    "y": 416,
+    "w": 96,
+    "h": 104
+   },
+   "rotated": false,
+   "trimmed": false,
+   "spriteSourceSize": {
+    "x": 0,
+    "y": 0,
+    "w": 96,
+    "h": 104
+   },
+   "sourceSize": {
+    "w": 96,
+    "h": 104
+   },
+   "duration": 33
+  },
+  {
+   "filename": "divine-shield-iso 52",
+   "frame": {
+    "x": 384,
+    "y": 416,
+    "w": 96,
+    "h": 104
+   },
+   "rotated": false,
+   "trimmed": false,
+   "spriteSourceSize": {
+    "x": 0,
+    "y": 0,
+    "w": 96,
+    "h": 104
+   },
+   "sourceSize": {
+    "w": 96,
+    "h": 104
+   },
+   "duration": 33
+  },
+  {
+   "filename": "divine-shield-iso 53",
+   "frame": {
+    "x": 480,
+    "y": 416,
+    "w": 96,
+    "h": 104
+   },
+   "rotated": false,
+   "trimmed": false,
+   "spriteSourceSize": {
+    "x": 0,
+    "y": 0,
+    "w": 96,
+    "h": 104
+   },
+   "sourceSize": {
+    "w": 96,
+    "h": 104
+   },
+   "duration": 33
+  },
+  {
+   "filename": "divine-shield-iso 54",
+   "frame": {
+    "x": 576,
+    "y": 416,
+    "w": 96,
+    "h": 104
+   },
+   "rotated": false,
+   "trimmed": false,
+   "spriteSourceSize": {
+    "x": 0,
+    "y": 0,
+    "w": 96,
+    "h": 104
+   },
+   "sourceSize": {
+    "w": 96,
+    "h": 104
+   },
+   "duration": 33
+  },
+  {
+   "filename": "divine-shield-iso 55",
+   "frame": {
+    "x": 672,
+    "y": 416,
+    "w": 96,
+    "h": 104
+   },
+   "rotated": false,
+   "trimmed": false,
+   "spriteSourceSize": {
+    "x": 0,
+    "y": 0,
+    "w": 96,
+    "h": 104
+   },
+   "sourceSize": {
+    "w": 96,
+    "h": 104
+   },
+   "duration": 33
+  },
+  {
+   "filename": "divine-shield-iso 56",
+   "frame": {
+    "x": 768,
+    "y": 416,
+    "w": 96,
+    "h": 104
+   },
+   "rotated": false,
+   "trimmed": false,
+   "spriteSourceSize": {
+    "x": 0,
+    "y": 0,
+    "w": 96,
+    "h": 104
+   },
+   "sourceSize": {
+    "w": 96,
+    "h": 104
+   },
+   "duration": 33
+  },
+  {
+   "filename": "divine-shield-iso 57",
+   "frame": {
+    "x": 864,
+    "y": 416,
+    "w": 96,
+    "h": 104
+   },
+   "rotated": false,
+   "trimmed": false,
+   "spriteSourceSize": {
+    "x": 0,
+    "y": 0,
+    "w": 96,
+    "h": 104
+   },
+   "sourceSize": {
+    "w": 96,
+    "h": 104
+   },
+   "duration": 33
+  },
+  {
+   "filename": "divine-shield-iso 58",
+   "frame": {
+    "x": 960,
+    "y": 416,
+    "w": 96,
+    "h": 104
+   },
+   "rotated": false,
+   "trimmed": false,
+   "spriteSourceSize": {
+    "x": 0,
+    "y": 0,
+    "w": 96,
+    "h": 104
+   },
+   "sourceSize": {
+    "w": 96,
+    "h": 104
+   },
+   "duration": 33
+  },
+  {
+   "filename": "divine-shield-iso 59",
+   "frame": {
+    "x": 1056,
+    "y": 416,
+    "w": 96,
+    "h": 104
+   },
+   "rotated": false,
+   "trimmed": false,
+   "spriteSourceSize": {
+    "x": 0,
+    "y": 0,
+    "w": 96,
+    "h": 104
+   },
+   "sourceSize": {
+    "w": 96,
+    "h": 104
+   },
+   "duration": 33
+  },
+  {
+   "filename": "divine-shield-iso 60",
+   "frame": {
+    "x": 0,
+    "y": 520,
+    "w": 96,
+    "h": 104
+   },
+   "rotated": false,
+   "trimmed": false,
+   "spriteSourceSize": {
+    "x": 0,
+    "y": 0,
+    "w": 96,
+    "h": 104
+   },
+   "sourceSize": {
+    "w": 96,
+    "h": 104
+   },
+   "duration": 33
+  },
+  {
+   "filename": "divine-shield-iso 61",
+   "frame": {
+    "x": 96,
+    "y": 520,
+    "w": 96,
+    "h": 104
+   },
+   "rotated": false,
+   "trimmed": false,
+   "spriteSourceSize": {
+    "x": 0,
+    "y": 0,
+    "w": 96,
+    "h": 104
+   },
+   "sourceSize": {
+    "w": 96,
+    "h": 104
+   },
+   "duration": 33
+  },
+  {
+   "filename": "divine-shield-iso 62",
+   "frame": {
+    "x": 192,
+    "y": 520,
+    "w": 96,
+    "h": 104
+   },
+   "rotated": false,
+   "trimmed": false,
+   "spriteSourceSize": {
+    "x": 0,
+    "y": 0,
+    "w": 96,
+    "h": 104
+   },
+   "sourceSize": {
+    "w": 96,
+    "h": 104
+   },
+   "duration": 33
+  },
+  {
+   "filename": "divine-shield-iso 63",
+   "frame": {
+    "x": 288,
+    "y": 520,
+    "w": 96,
+    "h": 104
+   },
+   "rotated": false,
+   "trimmed": false,
+   "spriteSourceSize": {
+    "x": 0,
+    "y": 0,
+    "w": 96,
+    "h": 104
+   },
+   "sourceSize": {
+    "w": 96,
+    "h": 104
+   },
+   "duration": 33
+  },
+  {
+   "filename": "divine-shield-iso 64",
+   "frame": {
+    "x": 384,
+    "y": 520,
+    "w": 96,
+    "h": 104
+   },
+   "rotated": false,
+   "trimmed": false,
+   "spriteSourceSize": {
+    "x": 0,
+    "y": 0,
+    "w": 96,
+    "h": 104
+   },
+   "sourceSize": {
+    "w": 96,
+    "h": 104
+   },
+   "duration": 33
+  },
+  {
+   "filename": "divine-shield-iso 65",
+   "frame": {
+    "x": 480,
+    "y": 520,
+    "w": 96,
+    "h": 104
+   },
+   "rotated": false,
+   "trimmed": false,
+   "spriteSourceSize": {
+    "x": 0,
+    "y": 0,
+    "w": 96,
+    "h": 104
+   },
+   "sourceSize": {
+    "w": 96,
+    "h": 104
+   },
+   "duration": 33
+  },
+  {
+   "filename": "divine-shield-iso 66",
+   "frame": {
+    "x": 576,
+    "y": 520,
+    "w": 96,
+    "h": 104
+   },
+   "rotated": false,
+   "trimmed": false,
+   "spriteSourceSize": {
+    "x": 0,
+    "y": 0,
+    "w": 96,
+    "h": 104
+   },
+   "sourceSize": {
+    "w": 96,
+    "h": 104
+   },
+   "duration": 33
+  },
+  {
+   "filename": "divine-shield-iso 67",
+   "frame": {
+    "x": 672,
+    "y": 520,
+    "w": 96,
+    "h": 104
+   },
+   "rotated": false,
+   "trimmed": false,
+   "spriteSourceSize": {
+    "x": 0,
+    "y": 0,
+    "w": 96,
+    "h": 104
+   },
+   "sourceSize": {
+    "w": 96,
+    "h": 104
+   },
+   "duration": 33
+  },
+  {
+   "filename": "divine-shield-iso 68",
+   "frame": {
+    "x": 768,
+    "y": 520,
+    "w": 96,
+    "h": 104
+   },
+   "rotated": false,
+   "trimmed": false,
+   "spriteSourceSize": {
+    "x": 0,
+    "y": 0,
+    "w": 96,
+    "h": 104
+   },
+   "sourceSize": {
+    "w": 96,
+    "h": 104
+   },
+   "duration": 33
+  },
+  {
+   "filename": "divine-shield-iso 69",
+   "frame": {
+    "x": 864,
+    "y": 520,
+    "w": 96,
+    "h": 104
+   },
+   "rotated": false,
+   "trimmed": false,
+   "spriteSourceSize": {
+    "x": 0,
+    "y": 0,
+    "w": 96,
+    "h": 104
+   },
+   "sourceSize": {
+    "w": 96,
+    "h": 104
+   },
+   "duration": 33
+  },
+  {
+   "filename": "divine-shield-iso 70",
+   "frame": {
+    "x": 960,
+    "y": 520,
+    "w": 96,
+    "h": 104
+   },
+   "rotated": false,
+   "trimmed": false,
+   "spriteSourceSize": {
+    "x": 0,
+    "y": 0,
+    "w": 96,
+    "h": 104
+   },
+   "sourceSize": {
+    "w": 96,
+    "h": 104
+   },
+   "duration": 33
+  },
+  {
+   "filename": "divine-shield-iso 71",
+   "frame": {
+    "x": 1056,
+    "y": 520,
+    "w": 96,
+    "h": 104
+   },
+   "rotated": false,
+   "trimmed": false,
+   "spriteSourceSize": {
+    "x": 0,
+    "y": 0,
+    "w": 96,
+    "h": 104
+   },
+   "sourceSize": {
+    "w": 96,
+    "h": 104
+   },
+   "duration": 33
+  },
+  {
+   "filename": "divine-shield-iso 72",
+   "frame": {
+    "x": 0,
+    "y": 624,
+    "w": 96,
+    "h": 104
+   },
+   "rotated": false,
+   "trimmed": false,
+   "spriteSourceSize": {
+    "x": 0,
+    "y": 0,
+    "w": 96,
+    "h": 104
+   },
+   "sourceSize": {
+    "w": 96,
+    "h": 104
+   },
+   "duration": 33
+  },
+  {
+   "filename": "divine-shield-iso 73",
+   "frame": {
+    "x": 96,
+    "y": 624,
+    "w": 96,
+    "h": 104
+   },
+   "rotated": false,
+   "trimmed": false,
+   "spriteSourceSize": {
+    "x": 0,
+    "y": 0,
+    "w": 96,
+    "h": 104
+   },
+   "sourceSize": {
+    "w": 96,
+    "h": 104
+   },
+   "duration": 33
+  },
+  {
+   "filename": "divine-shield-iso 74",
+   "frame": {
+    "x": 192,
+    "y": 624,
+    "w": 96,
+    "h": 104
+   },
+   "rotated": false,
+   "trimmed": false,
+   "spriteSourceSize": {
+    "x": 0,
+    "y": 0,
+    "w": 96,
+    "h": 104
+   },
+   "sourceSize": {
+    "w": 96,
+    "h": 104
+   },
+   "duration": 33
+  },
+  {
+   "filename": "divine-shield-iso 75",
+   "frame": {
+    "x": 288,
+    "y": 624,
+    "w": 96,
+    "h": 104
+   },
+   "rotated": false,
+   "trimmed": false,
+   "spriteSourceSize": {
+    "x": 0,
+    "y": 0,
+    "w": 96,
+    "h": 104
+   },
+   "sourceSize": {
+    "w": 96,
+    "h": 104
+   },
+   "duration": 33
+  },
+  {
+   "filename": "divine-shield-iso 76",
+   "frame": {
+    "x": 384,
+    "y": 624,
+    "w": 96,
+    "h": 104
+   },
+   "rotated": false,
+   "trimmed": false,
+   "spriteSourceSize": {
+    "x": 0,
+    "y": 0,
+    "w": 96,
+    "h": 104
+   },
+   "sourceSize": {
+    "w": 96,
+    "h": 104
+   },
+   "duration": 33
+  },
+  {
+   "filename": "divine-shield-iso 77",
+   "frame": {
+    "x": 480,
+    "y": 624,
+    "w": 96,
+    "h": 104
+   },
+   "rotated": false,
+   "trimmed": false,
+   "spriteSourceSize": {
+    "x": 0,
+    "y": 0,
+    "w": 96,
+    "h": 104
+   },
+   "sourceSize": {
+    "w": 96,
+    "h": 104
+   },
+   "duration": 33
+  },
+  {
+   "filename": "divine-shield-iso 78",
+   "frame": {
+    "x": 576,
+    "y": 624,
+    "w": 96,
+    "h": 104
+   },
+   "rotated": false,
+   "trimmed": false,
+   "spriteSourceSize": {
+    "x": 0,
+    "y": 0,
+    "w": 96,
+    "h": 104
+   },
+   "sourceSize": {
+    "w": 96,
+    "h": 104
+   },
+   "duration": 33
+  },
+  {
+   "filename": "divine-shield-iso 79",
+   "frame": {
+    "x": 672,
+    "y": 624,
+    "w": 96,
+    "h": 104
+   },
+   "rotated": false,
+   "trimmed": false,
+   "spriteSourceSize": {
+    "x": 0,
+    "y": 0,
+    "w": 96,
+    "h": 104
+   },
+   "sourceSize": {
+    "w": 96,
+    "h": 104
+   },
+   "duration": 33
+  },
+  {
+   "filename": "divine-shield-iso 80",
+   "frame": {
+    "x": 768,
+    "y": 624,
+    "w": 96,
+    "h": 104
+   },
+   "rotated": false,
+   "trimmed": false,
+   "spriteSourceSize": {
+    "x": 0,
+    "y": 0,
+    "w": 96,
+    "h": 104
+   },
+   "sourceSize": {
+    "w": 96,
+    "h": 104
+   },
+   "duration": 33
+  },
+  {
+   "filename": "divine-shield-iso 81",
+   "frame": {
+    "x": 864,
+    "y": 624,
+    "w": 96,
+    "h": 104
+   },
+   "rotated": false,
+   "trimmed": false,
+   "spriteSourceSize": {
+    "x": 0,
+    "y": 0,
+    "w": 96,
+    "h": 104
+   },
+   "sourceSize": {
+    "w": 96,
+    "h": 104
+   },
+   "duration": 33
+  },
+  {
+   "filename": "divine-shield-iso 82",
+   "frame": {
+    "x": 960,
+    "y": 624,
+    "w": 96,
+    "h": 104
+   },
+   "rotated": false,
+   "trimmed": false,
+   "spriteSourceSize": {
+    "x": 0,
+    "y": 0,
+    "w": 96,
+    "h": 104
+   },
+   "sourceSize": {
+    "w": 96,
+    "h": 104
+   },
+   "duration": 33
+  },
+  {
+   "filename": "divine-shield-iso 83",
+   "frame": {
+    "x": 1056,
+    "y": 624,
+    "w": 96,
+    "h": 104
+   },
+   "rotated": false,
+   "trimmed": false,
+   "spriteSourceSize": {
+    "x": 0,
+    "y": 0,
+    "w": 96,
+    "h": 104
+   },
+   "sourceSize": {
+    "w": 96,
+    "h": 104
+   },
+   "duration": 33
+  },
+  {
+   "filename": "divine-shield-iso 84",
+   "frame": {
+    "x": 0,
+    "y": 728,
+    "w": 96,
+    "h": 104
+   },
+   "rotated": false,
+   "trimmed": false,
+   "spriteSourceSize": {
+    "x": 0,
+    "y": 0,
+    "w": 96,
+    "h": 104
+   },
+   "sourceSize": {
+    "w": 96,
+    "h": 104
+   },
+   "duration": 33
+  },
+  {
+   "filename": "divine-shield-iso 85",
+   "frame": {
+    "x": 96,
+    "y": 728,
+    "w": 96,
+    "h": 104
+   },
+   "rotated": false,
+   "trimmed": false,
+   "spriteSourceSize": {
+    "x": 0,
+    "y": 0,
+    "w": 96,
+    "h": 104
+   },
+   "sourceSize": {
+    "w": 96,
+    "h": 104
+   },
+   "duration": 33
+  },
+  {
+   "filename": "divine-shield-iso 86",
+   "frame": {
+    "x": 192,
+    "y": 728,
+    "w": 96,
+    "h": 104
+   },
+   "rotated": false,
+   "trimmed": false,
+   "spriteSourceSize": {
+    "x": 0,
+    "y": 0,
+    "w": 96,
+    "h": 104
+   },
+   "sourceSize": {
+    "w": 96,
+    "h": 104
+   },
+   "duration": 33
+  },
+  {
+   "filename": "divine-shield-iso 87",
+   "frame": {
+    "x": 288,
+    "y": 728,
+    "w": 96,
+    "h": 104
+   },
+   "rotated": false,
+   "trimmed": false,
+   "spriteSourceSize": {
+    "x": 0,
+    "y": 0,
+    "w": 96,
+    "h": 104
+   },
+   "sourceSize": {
+    "w": 96,
+    "h": 104
+   },
+   "duration": 33
+  },
+  {
+   "filename": "divine-shield-iso 88",
+   "frame": {
+    "x": 384,
+    "y": 728,
+    "w": 96,
+    "h": 104
+   },
+   "rotated": false,
+   "trimmed": false,
+   "spriteSourceSize": {
+    "x": 0,
+    "y": 0,
+    "w": 96,
+    "h": 104
+   },
+   "sourceSize": {
+    "w": 96,
+    "h": 104
+   },
+   "duration": 33
+  },
+  {
+   "filename": "divine-shield-iso 89",
+   "frame": {
+    "x": 480,
+    "y": 728,
+    "w": 96,
+    "h": 104
+   },
+   "rotated": false,
+   "trimmed": false,
+   "spriteSourceSize": {
+    "x": 0,
+    "y": 0,
+    "w": 96,
+    "h": 104
+   },
+   "sourceSize": {
+    "w": 96,
+    "h": 104
+   },
+   "duration": 33
+  },
+  {
+   "filename": "divine-shield-iso 90",
+   "frame": {
+    "x": 576,
+    "y": 728,
+    "w": 96,
+    "h": 104
+   },
+   "rotated": false,
+   "trimmed": false,
+   "spriteSourceSize": {
+    "x": 0,
+    "y": 0,
+    "w": 96,
+    "h": 104
+   },
+   "sourceSize": {
+    "w": 96,
+    "h": 104
+   },
+   "duration": 33
+  },
+  {
+   "filename": "divine-shield-iso 91",
+   "frame": {
+    "x": 672,
+    "y": 728,
+    "w": 96,
+    "h": 104
+   },
+   "rotated": false,
+   "trimmed": false,
+   "spriteSourceSize": {
+    "x": 0,
+    "y": 0,
+    "w": 96,
+    "h": 104
+   },
+   "sourceSize": {
+    "w": 96,
+    "h": 104
+   },
+   "duration": 33
+  },
+  {
+   "filename": "divine-shield-iso 92",
+   "frame": {
+    "x": 768,
+    "y": 728,
+    "w": 96,
+    "h": 104
+   },
+   "rotated": false,
+   "trimmed": false,
+   "spriteSourceSize": {
+    "x": 0,
+    "y": 0,
+    "w": 96,
+    "h": 104
+   },
+   "sourceSize": {
+    "w": 96,
+    "h": 104
+   },
+   "duration": 33
+  },
+  {
+   "filename": "divine-shield-iso 93",
+   "frame": {
+    "x": 864,
+    "y": 728,
+    "w": 96,
+    "h": 104
+   },
+   "rotated": false,
+   "trimmed": false,
+   "spriteSourceSize": {
+    "x": 0,
+    "y": 0,
+    "w": 96,
+    "h": 104
+   },
+   "sourceSize": {
+    "w": 96,
+    "h": 104
+   },
+   "duration": 33
+  },
+  {
+   "filename": "divine-shield-iso 94",
+   "frame": {
+    "x": 960,
+    "y": 728,
+    "w": 96,
+    "h": 104
+   },
+   "rotated": false,
+   "trimmed": false,
+   "spriteSourceSize": {
+    "x": 0,
+    "y": 0,
+    "w": 96,
+    "h": 104
+   },
+   "sourceSize": {
+    "w": 96,
+    "h": 104
+   },
+   "duration": 33
+  },
+  {
+   "filename": "divine-shield-iso 95",
+   "frame": {
+    "x": 1056,
+    "y": 728,
+    "w": 96,
+    "h": 104
+   },
+   "rotated": false,
+   "trimmed": false,
+   "spriteSourceSize": {
+    "x": 0,
+    "y": 0,
+    "w": 96,
+    "h": 104
+   },
+   "sourceSize": {
+    "w": 96,
+    "h": 104
+   },
+   "duration": 33
+  },
+  {
+   "filename": "divine-shield-iso 96",
+   "frame": {
+    "x": 0,
+    "y": 832,
+    "w": 96,
+    "h": 104
+   },
+   "rotated": false,
+   "trimmed": false,
+   "spriteSourceSize": {
+    "x": 0,
+    "y": 0,
+    "w": 96,
+    "h": 104
+   },
+   "sourceSize": {
+    "w": 96,
+    "h": 104
+   },
+   "duration": 33
+  },
+  {
+   "filename": "divine-shield-iso 97",
+   "frame": {
+    "x": 96,
+    "y": 832,
+    "w": 96,
+    "h": 104
+   },
+   "rotated": false,
+   "trimmed": false,
+   "spriteSourceSize": {
+    "x": 0,
+    "y": 0,
+    "w": 96,
+    "h": 104
+   },
+   "sourceSize": {
+    "w": 96,
+    "h": 104
+   },
+   "duration": 33
+  },
+  {
+   "filename": "divine-shield-iso 98",
+   "frame": {
+    "x": 192,
+    "y": 832,
+    "w": 96,
+    "h": 104
+   },
+   "rotated": false,
+   "trimmed": false,
+   "spriteSourceSize": {
+    "x": 0,
+    "y": 0,
+    "w": 96,
+    "h": 104
+   },
+   "sourceSize": {
+    "w": 96,
+    "h": 104
+   },
+   "duration": 33
+  },
+  {
+   "filename": "divine-shield-iso 99",
+   "frame": {
+    "x": 288,
+    "y": 832,
+    "w": 96,
+    "h": 104
+   },
+   "rotated": false,
+   "trimmed": false,
+   "spriteSourceSize": {
+    "x": 0,
+    "y": 0,
+    "w": 96,
+    "h": 104
+   },
+   "sourceSize": {
+    "w": 96,
+    "h": 104
+   },
+   "duration": 33
+  },
+  {
+   "filename": "divine-shield-iso 100",
+   "frame": {
+    "x": 384,
+    "y": 832,
+    "w": 96,
+    "h": 104
+   },
+   "rotated": false,
+   "trimmed": false,
+   "spriteSourceSize": {
+    "x": 0,
+    "y": 0,
+    "w": 96,
+    "h": 104
+   },
+   "sourceSize": {
+    "w": 96,
+    "h": 104
+   },
+   "duration": 33
+  },
+  {
+   "filename": "divine-shield-iso 101",
+   "frame": {
+    "x": 480,
+    "y": 832,
+    "w": 96,
+    "h": 104
+   },
+   "rotated": false,
+   "trimmed": false,
+   "spriteSourceSize": {
+    "x": 0,
+    "y": 0,
+    "w": 96,
+    "h": 104
+   },
+   "sourceSize": {
+    "w": 96,
+    "h": 104
+   },
+   "duration": 33
+  },
+  {
+   "filename": "divine-shield-iso 102",
+   "frame": {
+    "x": 576,
+    "y": 832,
+    "w": 96,
+    "h": 104
+   },
+   "rotated": false,
+   "trimmed": false,
+   "spriteSourceSize": {
+    "x": 0,
+    "y": 0,
+    "w": 96,
+    "h": 104
+   },
+   "sourceSize": {
+    "w": 96,
+    "h": 104
+   },
+   "duration": 33
+  },
+  {
+   "filename": "divine-shield-iso 103",
+   "frame": {
+    "x": 672,
+    "y": 832,
+    "w": 96,
+    "h": 104
+   },
+   "rotated": false,
+   "trimmed": false,
+   "spriteSourceSize": {
+    "x": 0,
+    "y": 0,
+    "w": 96,
+    "h": 104
+   },
+   "sourceSize": {
+    "w": 96,
+    "h": 104
+   },
+   "duration": 33
+  },
+  {
+   "filename": "divine-shield-iso 104",
+   "frame": {
+    "x": 768,
+    "y": 832,
+    "w": 96,
+    "h": 104
+   },
+   "rotated": false,
+   "trimmed": false,
+   "spriteSourceSize": {
+    "x": 0,
+    "y": 0,
+    "w": 96,
+    "h": 104
+   },
+   "sourceSize": {
+    "w": 96,
+    "h": 104
+   },
+   "duration": 33
+  },
+  {
+   "filename": "divine-shield-iso 105",
+   "frame": {
+    "x": 864,
+    "y": 832,
+    "w": 96,
+    "h": 104
+   },
+   "rotated": false,
+   "trimmed": false,
+   "spriteSourceSize": {
+    "x": 0,
+    "y": 0,
+    "w": 96,
+    "h": 104
+   },
+   "sourceSize": {
+    "w": 96,
+    "h": 104
+   },
+   "duration": 33
+  },
+  {
+   "filename": "divine-shield-iso 106",
+   "frame": {
+    "x": 960,
+    "y": 832,
+    "w": 96,
+    "h": 104
+   },
+   "rotated": false,
+   "trimmed": false,
+   "spriteSourceSize": {
+    "x": 0,
+    "y": 0,
+    "w": 96,
+    "h": 104
+   },
+   "sourceSize": {
+    "w": 96,
+    "h": 104
+   },
+   "duration": 33
+  },
+  {
+   "filename": "divine-shield-iso 107",
+   "frame": {
+    "x": 1056,
+    "y": 832,
+    "w": 96,
+    "h": 104
+   },
+   "rotated": false,
+   "trimmed": false,
+   "spriteSourceSize": {
+    "x": 0,
+    "y": 0,
+    "w": 96,
+    "h": 104
+   },
+   "sourceSize": {
+    "w": 96,
+    "h": 104
+   },
+   "duration": 33
+  },
+  {
+   "filename": "divine-shield-iso 108",
+   "frame": {
+    "x": 0,
+    "y": 936,
+    "w": 96,
+    "h": 104
+   },
+   "rotated": false,
+   "trimmed": false,
+   "spriteSourceSize": {
+    "x": 0,
+    "y": 0,
+    "w": 96,
+    "h": 104
+   },
+   "sourceSize": {
+    "w": 96,
+    "h": 104
+   },
+   "duration": 33
+  },
+  {
+   "filename": "divine-shield-iso 109",
+   "frame": {
+    "x": 96,
+    "y": 936,
+    "w": 96,
+    "h": 104
+   },
+   "rotated": false,
+   "trimmed": false,
+   "spriteSourceSize": {
+    "x": 0,
+    "y": 0,
+    "w": 96,
+    "h": 104
+   },
+   "sourceSize": {
+    "w": 96,
+    "h": 104
+   },
+   "duration": 33
+  },
+  {
+   "filename": "divine-shield-iso 110",
+   "frame": {
+    "x": 192,
+    "y": 936,
+    "w": 96,
+    "h": 104
+   },
+   "rotated": false,
+   "trimmed": false,
+   "spriteSourceSize": {
+    "x": 0,
+    "y": 0,
+    "w": 96,
+    "h": 104
+   },
+   "sourceSize": {
+    "w": 96,
+    "h": 104
+   },
+   "duration": 33
+  },
+  {
+   "filename": "divine-shield-iso 111",
+   "frame": {
+    "x": 288,
+    "y": 936,
+    "w": 96,
+    "h": 104
+   },
+   "rotated": false,
+   "trimmed": false,
+   "spriteSourceSize": {
+    "x": 0,
+    "y": 0,
+    "w": 96,
+    "h": 104
+   },
+   "sourceSize": {
+    "w": 96,
+    "h": 104
+   },
+   "duration": 33
+  },
+  {
+   "filename": "divine-shield-iso 112",
+   "frame": {
+    "x": 384,
+    "y": 936,
+    "w": 96,
+    "h": 104
+   },
+   "rotated": false,
+   "trimmed": false,
+   "spriteSourceSize": {
+    "x": 0,
+    "y": 0,
+    "w": 96,
+    "h": 104
+   },
+   "sourceSize": {
+    "w": 96,
+    "h": 104
+   },
+   "duration": 33
+  },
+  {
+   "filename": "divine-shield-iso 113",
+   "frame": {
+    "x": 480,
+    "y": 936,
+    "w": 96,
+    "h": 104
+   },
+   "rotated": false,
+   "trimmed": false,
+   "spriteSourceSize": {
+    "x": 0,
+    "y": 0,
+    "w": 96,
+    "h": 104
+   },
+   "sourceSize": {
+    "w": 96,
+    "h": 104
+   },
+   "duration": 33
+  },
+  {
+   "filename": "divine-shield-iso 114",
+   "frame": {
+    "x": 576,
+    "y": 936,
+    "w": 96,
+    "h": 104
+   },
+   "rotated": false,
+   "trimmed": false,
+   "spriteSourceSize": {
+    "x": 0,
+    "y": 0,
+    "w": 96,
+    "h": 104
+   },
+   "sourceSize": {
+    "w": 96,
+    "h": 104
+   },
+   "duration": 33
+  },
+  {
+   "filename": "divine-shield-iso 115",
+   "frame": {
+    "x": 672,
+    "y": 936,
+    "w": 96,
+    "h": 104
+   },
+   "rotated": false,
+   "trimmed": false,
+   "spriteSourceSize": {
+    "x": 0,
+    "y": 0,
+    "w": 96,
+    "h": 104
+   },
+   "sourceSize": {
+    "w": 96,
+    "h": 104
+   },
+   "duration": 33
+  },
+  {
+   "filename": "divine-shield-iso 116",
+   "frame": {
+    "x": 768,
+    "y": 936,
+    "w": 96,
+    "h": 104
+   },
+   "rotated": false,
+   "trimmed": false,
+   "spriteSourceSize": {
+    "x": 0,
+    "y": 0,
+    "w": 96,
+    "h": 104
+   },
+   "sourceSize": {
+    "w": 96,
+    "h": 104
+   },
+   "duration": 33
+  },
+  {
+   "filename": "divine-shield-iso 117",
+   "frame": {
+    "x": 864,
+    "y": 936,
+    "w": 96,
+    "h": 104
+   },
+   "rotated": false,
+   "trimmed": false,
+   "spriteSourceSize": {
+    "x": 0,
+    "y": 0,
+    "w": 96,
+    "h": 104
+   },
+   "sourceSize": {
+    "w": 96,
+    "h": 104
+   },
+   "duration": 33
+  },
+  {
+   "filename": "divine-shield-iso 118",
+   "frame": {
+    "x": 960,
+    "y": 936,
+    "w": 96,
+    "h": 104
+   },
+   "rotated": false,
+   "trimmed": false,
+   "spriteSourceSize": {
+    "x": 0,
+    "y": 0,
+    "w": 96,
+    "h": 104
+   },
+   "sourceSize": {
+    "w": 96,
+    "h": 104
+   },
+   "duration": 33
+  },
+  {
+   "filename": "divine-shield-iso 119",
+   "frame": {
+    "x": 1056,
+    "y": 936,
+    "w": 96,
+    "h": 104
+   },
+   "rotated": false,
+   "trimmed": false,
+   "spriteSourceSize": {
+    "x": 0,
+    "y": 0,
+    "w": 96,
+    "h": 104
+   },
+   "sourceSize": {
+    "w": 96,
+    "h": 104
+   },
+   "duration": 33
+  },
+  {
+   "filename": "divine-shield-iso 120",
+   "frame": {
+    "x": 0,
+    "y": 1040,
+    "w": 96,
+    "h": 104
+   },
+   "rotated": false,
+   "trimmed": false,
+   "spriteSourceSize": {
+    "x": 0,
+    "y": 0,
+    "w": 96,
+    "h": 104
+   },
+   "sourceSize": {
+    "w": 96,
+    "h": 104
+   },
+   "duration": 33
+  },
+  {
+   "filename": "divine-shield-iso 121",
+   "frame": {
+    "x": 96,
+    "y": 1040,
+    "w": 96,
+    "h": 104
+   },
+   "rotated": false,
+   "trimmed": false,
+   "spriteSourceSize": {
+    "x": 0,
+    "y": 0,
+    "w": 96,
+    "h": 104
+   },
+   "sourceSize": {
+    "w": 96,
+    "h": 104
+   },
+   "duration": 33
+  },
+  {
+   "filename": "divine-shield-iso 122",
+   "frame": {
+    "x": 192,
+    "y": 1040,
+    "w": 96,
+    "h": 104
+   },
+   "rotated": false,
+   "trimmed": false,
+   "spriteSourceSize": {
+    "x": 0,
+    "y": 0,
+    "w": 96,
+    "h": 104
+   },
+   "sourceSize": {
+    "w": 96,
+    "h": 104
+   },
+   "duration": 33
+  },
+  {
+   "filename": "divine-shield-iso 123",
+   "frame": {
+    "x": 288,
+    "y": 1040,
+    "w": 96,
+    "h": 104
+   },
+   "rotated": false,
+   "trimmed": false,
+   "spriteSourceSize": {
+    "x": 0,
+    "y": 0,
+    "w": 96,
+    "h": 104
+   },
+   "sourceSize": {
+    "w": 96,
+    "h": 104
+   },
+   "duration": 33
+  },
+  {
+   "filename": "divine-shield-iso 124",
+   "frame": {
+    "x": 384,
+    "y": 1040,
+    "w": 96,
+    "h": 104
+   },
+   "rotated": false,
+   "trimmed": false,
+   "spriteSourceSize": {
+    "x": 0,
+    "y": 0,
+    "w": 96,
+    "h": 104
+   },
+   "sourceSize": {
+    "w": 96,
+    "h": 104
+   },
+   "duration": 33
+  },
+  {
+   "filename": "divine-shield-iso 125",
+   "frame": {
+    "x": 480,
+    "y": 1040,
+    "w": 96,
+    "h": 104
+   },
+   "rotated": false,
+   "trimmed": false,
+   "spriteSourceSize": {
+    "x": 0,
+    "y": 0,
+    "w": 96,
+    "h": 104
+   },
+   "sourceSize": {
+    "w": 96,
+    "h": 104
+   },
+   "duration": 33
+  },
+  {
+   "filename": "divine-shield-iso 126",
+   "frame": {
+    "x": 576,
+    "y": 1040,
+    "w": 96,
+    "h": 104
+   },
+   "rotated": false,
+   "trimmed": false,
+   "spriteSourceSize": {
+    "x": 0,
+    "y": 0,
+    "w": 96,
+    "h": 104
+   },
+   "sourceSize": {
+    "w": 96,
+    "h": 104
+   },
+   "duration": 33
+  },
+  {
+   "filename": "divine-shield-iso 127",
+   "frame": {
+    "x": 672,
+    "y": 1040,
+    "w": 96,
+    "h": 104
+   },
+   "rotated": false,
+   "trimmed": false,
+   "spriteSourceSize": {
+    "x": 0,
+    "y": 0,
+    "w": 96,
+    "h": 104
+   },
+   "sourceSize": {
+    "w": 96,
+    "h": 104
+   },
+   "duration": 33
+  },
+  {
+   "filename": "divine-shield-iso 128",
+   "frame": {
+    "x": 768,
+    "y": 1040,
+    "w": 96,
+    "h": 104
+   },
+   "rotated": false,
+   "trimmed": false,
+   "spriteSourceSize": {
+    "x": 0,
+    "y": 0,
+    "w": 96,
+    "h": 104
+   },
+   "sourceSize": {
+    "w": 96,
+    "h": 104
+   },
+   "duration": 33
+  }
+ ],
+ "meta": {
+  "app": "https://github.com/patch-gg/pixelfx",
+  "version": "1",
+  "image": "divine-shield-iso.png",
+  "format": "RGBA8888",
+  "size": {
+   "w": 1152,
+   "h": 1144
+  },
+  "scale": "1",
+  "frameTags": [
+   {
+    "name": "divine-shield-iso",
+    "from": 0,
+    "to": 128,
+    "direction": "forward"
+   }
+  ],
+  "pixelfx": {
+   "id": "holy/divine-shield-iso",
+   "name": "Divine shield (iso)",
+   "fps": 30,
+   "loop": false,
+   "frames": 129,
+   "frameSize": [
+    96,
+    104
+   ],
+   "pivot": [
+    48,
+    76
+   ],
+   "columns": 12
+  }
+ }
+}

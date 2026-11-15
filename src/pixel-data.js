@@ -36,6 +36,11 @@ export const CLASSES = [
  // 所以改成遠程施法(原本的「紅斗篷短刃近戰」是舊素材的設定);pixel-world.js 早就把 priest 當遠程(後座/蓄力光)。
  // 數值:遠程化後下修生命/攻擊/防禦,定位在弓箭手與法師之間、以自療換輸出。
  {id:'priest',name:'祭司',tag:'遠程 / 恢復',color:'#b3434a',hp:104,attack:17,defense:3,speed:HERO_SPEED,range:RANGED_RANGE,cost:175,desc:'白袍金杖的祭司，從遠處擲出聖光球攻擊魔物，暗癒禱言會自動替射程內生命比例最低的隊友補血（先挑村裡招募的獵人）。'},
+ // 2026-11-14 exp/lpc-hero 實驗:第 7 個職業「旅人」。素材來自 LPC(Universal-LPC-Spritesheet-Character-Generator,
+ // 美術 CC-BY-SA 3.0 + GPL 3.0 雙授權;授權檔在 assets/heroes/traveler-LICENSE/)。
+ // 圖集 assets/heroes/traveler.png + traveler.json 是 LPC 64px 格子轉成的 13 列動作表(idle/walk/attack 各有上/下/側,
+ // 另有 hurt/death/victory/skill);4 向由 dir4 依 action 名取 row,左向自動鏡像,紙娃娃沒有這個職業的身體 → 直接畫圖集。
+ {id:'traveler',name:'旅人',tag:'近戰 / 機動',color:'#9a7b4f',hp:118,attack:20,defense:3,speed:HERO_SPEED,range:1.2,cost:140,desc:'赤手空拳走遍山野的旅人，出拳比刀劍更快；震地掌可同時震開身邊的魔物。'},
 ];
 // 注意:CLASSES 的長度決定訪客與流浪英雄的擲骰映射(newVisitor / newWanderer),增減職業會讓決定性模擬整個重排。
 // 招牌技能(真的遊戲機制):戰鬥中冷卻好就放,放完 lock 秒內不普攻(播完技能動畫)。
@@ -48,13 +53,28 @@ export const SKILLS={
  sorcerer:{name:'火龍捲',kind:'aoe',cd:14,mult:1.55,radius:3,lock:1,release:.55,fx:'cinder'},
  archer:{name:'疾風箭雨',kind:'multi',cd:8,mult:1.3,targets:3,lock:.8,release:.32,fx:'gale'},
  assassin:{name:'暗影衝刺',kind:'single',cd:8,mult:2.4,lock:.6,fx:'slash'},
- priest:{name:'暗癒禱言',kind:'allyHeal',cd:10,heal:.28,lock:.7,fx:'holy',below:.9}   // 2026-10-30 使用者:牧師改成自動替範圍內 HP 最少的隊友補血,優先招募英雄
+ priest:{name:'暗癒禱言',kind:'allyHeal',cd:10,heal:.28,lock:.7,fx:'holy',below:.9},   // 2026-10-30 使用者:牧師改成自動替範圍內 HP 最少的隊友補血,優先招募英雄
+ // 旅人:震地掌,近身 AOE。沒有專屬 -fx 特效表,走 pixel-world 的通用分支(fx:'slash' → 命中當下畫白色衝擊弧)。
+ traveler:{name:'震地掌',kind:'aoe',cd:9,mult:1.45,radius:2.2,lock:.7,fx:'slash'}
 };
 export const RARITIES=[{id:'normal',name:'普通',color:'#d3cab2',mult:1},{id:'rare',name:'稀有',color:'#6fbe8b',mult:1.08},{id:'superior',name:'超級稀有',color:'#6caeee',mult:1.18},{id:'heroic',name:'英雄',color:'#c184e1',mult:1.32},{id:'legendary',name:'傳說',color:'#efb955',mult:1.5}];
 export const TRAITS=[{id:'swift',name:'快手',desc:'攻擊間隔縮短 10%'},{id:'stout',name:'壯碩',desc:'最大生命提高 15%'},{id:'cheerful',name:'樂天',desc:'心情消耗減半'},{id:'frugal',name:'節儉',desc:'生活需求消耗減少 15%'},{id:'brave',name:'勇敢',desc:'攻擊力提高 10%'}];
 export const MATERIALS={wood:{name:'木材',price:2},ore:{name:'鐵礦',price:3},herb:{name:'藥草',price:2},cloth:{name:'亞麻布',price:2},flour:{name:'小麥粉',price:2},leather:{name:'獸皮',price:3}};
 export const PRODUCTS={food:{name:'香烤麵包',building:'restaurant',need:'satiety',restore:75,price:12,cost:{flour:5},amount:10},drink:{name:'莓果飲品',building:'tavern',need:'mood',restore:75,price:10,cost:{herb:5},amount:10},bed:{name:'舒適床鋪',building:'inn',need:'stamina',restore:90,price:14,cost:{leather:3,cloth:2},amount:10},bandage:{name:'亞麻繃帶',building:'clinic',need:'hp',restore:80,price:10,cost:{cloth:5,herb:2},amount:10}};
-export const RECIPES=[{id:'weapon',name:'精鐵武器',type:'weapon',price:85,cost:{ore:12,wood:6},bonus:7},{id:'armor',name:'皮革護甲',type:'armor',price:70,cost:{leather:10,cloth:4},bonus:4}];
+// 2026-11-13 六格裝備(docs/PAPERDOLL-EQUIPMENT-6.md §4):武器 + 頭盔/胸甲/腰帶/腿甲/靴子/手套。
+// type = 裝備格名(state.gearStock / h.equipment 的 key)。舊存檔的 armor 只有一件,載入時視為六件全穿(見 pixel-game restore)。
+// weapon 用 bonus 當攻擊加成;六件防具用 hp/def,全套合計 生命 +50、防禦 +10(舊皮革護甲是 +28/+4)。
+export const GEAR_SLOTS=['helm','chest','belt','legs','boots','gloves'];
+export const EQUIP_SLOTS=['weapon',...GEAR_SLOTS];
+export const RECIPES=[
+  {id:'weapon',name:'精鐵武器',type:'weapon',slotName:'武器',price:85,cost:{ore:12,wood:6},bonus:7},
+  {id:'helm',name:'頭盔',type:'helm',slotName:'頭盔',price:90,cost:{cloth:4,ore:6},bonus:2,hp:6,def:2},
+  {id:'chest',name:'胸甲',type:'chest',slotName:'胸甲',price:140,cost:{ore:10,leather:6},bonus:3,hp:22,def:3},
+  {id:'belt',name:'腰帶',type:'belt',slotName:'腰帶',price:70,cost:{leather:4},bonus:1,hp:4,def:1},
+  {id:'legs',name:'腿甲',type:'legs',slotName:'腿甲',price:110,cost:{ore:6,cloth:4},bonus:2,hp:10,def:2},
+  {id:'boots',name:'靴子',type:'boots',slotName:'靴子',price:70,cost:{leather:4},bonus:1,hp:4,def:1},
+  {id:'gloves',name:'手套',type:'gloves',slotName:'手套',price:60,cost:{cloth:3,leather:2},bonus:1,hp:4,def:1},
+];
 export const DIFFICULTIES=[{id:0,name:'初級',mult:1,rebirths:0},{id:1,name:'普通',mult:1.7,rebirths:1},{id:2,name:'困難',mult:2.8,rebirths:3},{id:3,name:'專家',mult:4.5,rebirths:5},{id:4,name:'噩夢',mult:7,rebirths:10}];
 // 2026-10-30:每個狩獵區中央立牌切換「怪物數量」三級(羅馬數字)。只改同時出現的數量與補怪速度,魔物本身不變強。
 // cap = 目前狩獵區的上限、other = 沒人在打的區的上限、every = 補一隻的間隔(秒)。第 2 級就是原本的 14/6、2.5/8 秒。

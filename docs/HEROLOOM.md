@@ -204,6 +204,8 @@ const sheet = await doll.bake({ parts: { hair: "long", top: "robe", hat: "wizard
   `base` 讀 `PIXEL_ASSETS.heroloomBase`（`media/heroloom/`），資料檔是 `character.json`（不是 `paperdoll.json`）。
 - 逃生口：`?doll=0`（也吃 `off/no/sheet/none`）→ 完全回到原本烘好的 hero sheet；Heroloom 沒載到（404/逾時）也自動 fallback。
   遊戲預設走哪一條由 Lead 決定；實驗期間兩種都要能跑。
+  **2026-11-15 定案**：HeroLoom（experiment/heroloom 分支版本）是唯一英雄系統、遊戲預設；HeroCreator 草稿捨棄。
+  DV2 包只留可選開關 `?doll=dv2[:<職業>]` / `?dv2lab=1`（見 [`docs/DV2-PHASE6.md`](DV2-PHASE6.md) §5）。
 - 實驗面板：`?loom=1` 掛 [`src/heroloom-lab.js`](../src/heroloom-lab.js)（由 `src/pixel-ui.js` 呼叫），
   用 `PIXEL_ASSETS.heroloomBase` 載 spec/圖，可即時換 part/color 看 bake 結果；平常遊戲完全不碰這條路徑。
 - build 接線：`build.mjs` 把 `assets/heroloom/` 原樣複製到 `media/heroloom/`（排除 `maker.html`，理由見 §0），

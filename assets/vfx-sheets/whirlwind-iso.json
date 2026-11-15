@@ -1,0 +1,567 @@
+{
+ "frames": [
+  {
+   "filename": "whirlwind-iso 0",
+   "frame": {
+    "x": 0,
+    "y": 0,
+    "w": 200,
+    "h": 180
+   },
+   "rotated": false,
+   "trimmed": false,
+   "spriteSourceSize": {
+    "x": 0,
+    "y": 0,
+    "w": 200,
+    "h": 180
+   },
+   "sourceSize": {
+    "w": 200,
+    "h": 180
+   },
+   "duration": 33
+  },
+  {
+   "filename": "whirlwind-iso 1",
+   "frame": {
+    "x": 200,
+    "y": 0,
+    "w": 200,
+    "h": 180
+   },
+   "rotated": false,
+   "trimmed": false,
+   "spriteSourceSize": {
+    "x": 0,
+    "y": 0,
+    "w": 200,
+    "h": 180
+   },
+   "sourceSize": {
+    "w": 200,
+    "h": 180
+   },
+   "duration": 33
+  },
+  {
+   "filename": "whirlwind-iso 2",
+   "frame": {
+    "x": 400,
+    "y": 0,
+    "w": 200,
+    "h": 180
+   },
+   "rotated": false,
+   "trimmed": false,
+   "spriteSourceSize": {
+    "x": 0,
+    "y": 0,
+    "w": 200,
+    "h": 180
+   },
+   "sourceSize": {
+    "w": 200,
+    "h": 180
+   },
+   "duration": 33
+  },
+  {
+   "filename": "whirlwind-iso 3",
+   "frame": {
+    "x": 600,
+    "y": 0,
+    "w": 200,
+    "h": 180
+   },
+   "rotated": false,
+   "trimmed": false,
+   "spriteSourceSize": {
+    "x": 0,
+    "y": 0,
+    "w": 200,
+    "h": 180
+   },
+   "sourceSize": {
+    "w": 200,
+    "h": 180
+   },
+   "duration": 33
+  },
+  {
+   "filename": "whirlwind-iso 4",
+   "frame": {
+    "x": 800,
+    "y": 0,
+    "w": 200,
+    "h": 180
+   },
+   "rotated": false,
+   "trimmed": false,
+   "spriteSourceSize": {
+    "x": 0,
+    "y": 0,
+    "w": 200,
+    "h": 180
+   },
+   "sourceSize": {
+    "w": 200,
+    "h": 180
+   },
+   "duration": 33
+  },
+  {
+   "filename": "whirlwind-iso 5",
+   "frame": {
+    "x": 0,
+    "y": 180,
+    "w": 200,
+    "h": 180
+   },
+   "rotated": false,
+   "trimmed": false,
+   "spriteSourceSize": {
+    "x": 0,
+    "y": 0,
+    "w": 200,
+    "h": 180
+   },
+   "sourceSize": {
+    "w": 200,
+    "h": 180
+   },
+   "duration": 33
+  },
+  {
+   "filename": "whirlwind-iso 6",
+   "frame": {
+    "x": 200,
+    "y": 180,
+    "w": 200,
+    "h": 180
+   },
+   "rotated": false,
+   "trimmed": false,
+   "spriteSourceSize": {
+    "x": 0,
+    "y": 0,
+    "w": 200,
+    "h": 180
+   },
+   "sourceSize": {
+    "w": 200,
+    "h": 180
+   },
+   "duration": 33
+  },
+  {
+   "filename": "whirlwind-iso 7",
+   "frame": {
+    "x": 400,
+    "y": 180,
+    "w": 200,
+    "h": 180
+   },
+   "rotated": false,
+   "trimmed": false,
+   "spriteSourceSize": {
+    "x": 0,
+    "y": 0,
+    "w": 200,
+    "h": 180
+   },
+   "sourceSize": {
+    "w": 200,
+    "h": 180
+   },
+   "duration": 33
+  },
+  {
+   "filename": "whirlwind-iso 8",
+   "frame": {
+    "x": 600,
+    "y": 180,
+    "w": 200,
+    "h": 180
+   },
+   "rotated": false,
+   "trimmed": false,
+   "spriteSourceSize": {
+    "x": 0,
+    "y": 0,
+    "w": 200,
+    "h": 180
+   },
+   "sourceSize": {
+    "w": 200,
+    "h": 180
+   },
+   "duration": 33
+  },
+  {
+   "filename": "whirlwind-iso 9",
+   "frame": {
+    "x": 800,
+    "y": 180,
+    "w": 200,
+    "h": 180
+   },
+   "rotated": false,
+   "trimmed": false,
+   "spriteSourceSize": {
+    "x": 0,
+    "y": 0,
+    "w": 200,
+    "h": 180
+   },
+   "sourceSize": {
+    "w": 200,
+    "h": 180
+   },
+   "duration": 33
+  },
+  {
+   "filename": "whirlwind-iso 10",
+   "frame": {
+    "x": 0,
+    "y": 360,
+    "w": 200,
+    "h": 180
+   },
+   "rotated": false,
+   "trimmed": false,
+   "spriteSourceSize": {
+    "x": 0,
+    "y": 0,
+    "w": 200,
+    "h": 180
+   },
+   "sourceSize": {
+    "w": 200,
+    "h": 180
+   },
+   "duration": 33
+  },
+  {
+   "filename": "whirlwind-iso 11",
+   "frame": {
+    "x": 200,
+    "y": 360,
+    "w": 200,
+    "h": 180
+   },
+   "rotated": false,
+   "trimmed": false,
+   "spriteSourceSize": {
+    "x": 0,
+    "y": 0,
+    "w": 200,
+    "h": 180
+   },
+   "sourceSize": {
+    "w": 200,
+    "h": 180
+   },
+   "duration": 33
+  },
+  {
+   "filename": "whirlwind-iso 12",
+   "frame": {
+    "x": 400,
+    "y": 360,
+    "w": 200,
+    "h": 180
+   },
+   "rotated": false,
+   "trimmed": false,
+   "spriteSourceSize": {
+    "x": 0,
+    "y": 0,
+    "w": 200,
+    "h": 180
+   },
+   "sourceSize": {
+    "w": 200,
+    "h": 180
+   },
+   "duration": 33
+  },
+  {
+   "filename": "whirlwind-iso 13",
+   "frame": {
+    "x": 600,
+    "y": 360,
+    "w": 200,
+    "h": 180
+   },
+   "rotated": false,
+   "trimmed": false,
+   "spriteSourceSize": {
+    "x": 0,
+    "y": 0,
+    "w": 200,
+    "h": 180
+   },
+   "sourceSize": {
+    "w": 200,
+    "h": 180
+   },
+   "duration": 33
+  },
+  {
+   "filename": "whirlwind-iso 14",
+   "frame": {
+    "x": 800,
+    "y": 360,
+    "w": 200,
+    "h": 180
+   },
+   "rotated": false,
+   "trimmed": false,
+   "spriteSourceSize": {
+    "x": 0,
+    "y": 0,
+    "w": 200,
+    "h": 180
+   },
+   "sourceSize": {
+    "w": 200,
+    "h": 180
+   },
+   "duration": 33
+  },
+  {
+   "filename": "whirlwind-iso 15",
+   "frame": {
+    "x": 0,
+    "y": 540,
+    "w": 200,
+    "h": 180
+   },
+   "rotated": false,
+   "trimmed": false,
+   "spriteSourceSize": {
+    "x": 0,
+    "y": 0,
+    "w": 200,
+    "h": 180
+   },
+   "sourceSize": {
+    "w": 200,
+    "h": 180
+   },
+   "duration": 33
+  },
+  {
+   "filename": "whirlwind-iso 16",
+   "frame": {
+    "x": 200,
+    "y": 540,
+    "w": 200,
+    "h": 180
+   },
+   "rotated": false,
+   "trimmed": false,
+   "spriteSourceSize": {
+    "x": 0,
+    "y": 0,
+    "w": 200,
+    "h": 180
+   },
+   "sourceSize": {
+    "w": 200,
+    "h": 180
+   },
+   "duration": 33
+  },
+  {
+   "filename": "whirlwind-iso 17",
+   "frame": {
+    "x": 400,
+    "y": 540,
+    "w": 200,
+    "h": 180
+   },
+   "rotated": false,
+   "trimmed": false,
+   "spriteSourceSize": {
+    "x": 0,
+    "y": 0,
+    "w": 200,
+    "h": 180
+   },
+   "sourceSize": {
+    "w": 200,
+    "h": 180
+   },
+   "duration": 33
+  },
+  {
+   "filename": "whirlwind-iso 18",
+   "frame": {
+    "x": 600,
+    "y": 540,
+    "w": 200,
+    "h": 180
+   },
+   "rotated": false,
+   "trimmed": false,
+   "spriteSourceSize": {
+    "x": 0,
+    "y": 0,
+    "w": 200,
+    "h": 180
+   },
+   "sourceSize": {
+    "w": 200,
+    "h": 180
+   },
+   "duration": 33
+  },
+  {
+   "filename": "whirlwind-iso 19",
+   "frame": {
+    "x": 800,
+    "y": 540,
+    "w": 200,
+    "h": 180
+   },
+   "rotated": false,
+   "trimmed": false,
+   "spriteSourceSize": {
+    "x": 0,
+    "y": 0,
+    "w": 200,
+    "h": 180
+   },
+   "sourceSize": {
+    "w": 200,
+    "h": 180
+   },
+   "duration": 33
+  },
+  {
+   "filename": "whirlwind-iso 20",
+   "frame": {
+    "x": 0,
+    "y": 720,
+    "w": 200,
+    "h": 180
+   },
+   "rotated": false,
+   "trimmed": false,
+   "spriteSourceSize": {
+    "x": 0,
+    "y": 0,
+    "w": 200,
+    "h": 180
+   },
+   "sourceSize": {
+    "w": 200,
+    "h": 180
+   },
+   "duration": 33
+  },
+  {
+   "filename": "whirlwind-iso 21",
+   "frame": {
+    "x": 200,
+    "y": 720,
+    "w": 200,
+    "h": 180
+   },
+   "rotated": false,
+   "trimmed": false,
+   "spriteSourceSize": {
+    "x": 0,
+    "y": 0,
+    "w": 200,
+    "h": 180
+   },
+   "sourceSize": {
+    "w": 200,
+    "h": 180
+   },
+   "duration": 33
+  },
+  {
+   "filename": "whirlwind-iso 22",
+   "frame": {
+    "x": 400,
+    "y": 720,
+    "w": 200,
+    "h": 180
+   },
+   "rotated": false,
+   "trimmed": false,
+   "spriteSourceSize": {
+    "x": 0,
+    "y": 0,
+    "w": 200,
+    "h": 180
+   },
+   "sourceSize": {
+    "w": 200,
+    "h": 180
+   },
+   "duration": 33
+  },
+  {
+   "filename": "whirlwind-iso 23",
+   "frame": {
+    "x": 600,
+    "y": 720,
+    "w": 200,
+    "h": 180
+   },
+   "rotated": false,
+   "trimmed": false,
+   "spriteSourceSize": {
+    "x": 0,
+    "y": 0,
+    "w": 200,
+    "h": 180
+   },
+   "sourceSize": {
+    "w": 200,
+    "h": 180
+   },
+   "duration": 33
+  }
+ ],
+ "meta": {
+  "app": "https://github.com/patch-gg/pixelfx",
+  "version": "1",
+  "image": "whirlwind-iso.png",
+  "format": "RGBA8888",
+  "size": {
+   "w": 1000,
+   "h": 900
+  },
+  "scale": "1",
+  "frameTags": [
+   {
+    "name": "whirlwind-iso",
+    "from": 0,
+    "to": 23,
+    "direction": "forward"
+   }
+  ],
+  "pixelfx": {
+   "id": "melee/whirlwind-iso",
+   "name": "Whirlwind (iso)",
+   "fps": 30,
+   "loop": false,
+   "frames": 24,
+   "frameSize": [
+    200,
+    180
+   ],
+   "pivot": [
+    100,
+    150
+   ],
+   "columns": 5
+  }
+ }
+}

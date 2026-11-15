@@ -1,0 +1,347 @@
+{
+ "frames": [
+  {
+   "filename": "hit-spark-iso 0",
+   "frame": {
+    "x": 0,
+    "y": 0,
+    "w": 120,
+    "h": 100
+   },
+   "rotated": false,
+   "trimmed": false,
+   "spriteSourceSize": {
+    "x": 0,
+    "y": 0,
+    "w": 120,
+    "h": 100
+   },
+   "sourceSize": {
+    "w": 120,
+    "h": 100
+   },
+   "duration": 33
+  },
+  {
+   "filename": "hit-spark-iso 1",
+   "frame": {
+    "x": 120,
+    "y": 0,
+    "w": 120,
+    "h": 100
+   },
+   "rotated": false,
+   "trimmed": false,
+   "spriteSourceSize": {
+    "x": 0,
+    "y": 0,
+    "w": 120,
+    "h": 100
+   },
+   "sourceSize": {
+    "w": 120,
+    "h": 100
+   },
+   "duration": 33
+  },
+  {
+   "filename": "hit-spark-iso 2",
+   "frame": {
+    "x": 240,
+    "y": 0,
+    "w": 120,
+    "h": 100
+   },
+   "rotated": false,
+   "trimmed": false,
+   "spriteSourceSize": {
+    "x": 0,
+    "y": 0,
+    "w": 120,
+    "h": 100
+   },
+   "sourceSize": {
+    "w": 120,
+    "h": 100
+   },
+   "duration": 33
+  },
+  {
+   "filename": "hit-spark-iso 3",
+   "frame": {
+    "x": 360,
+    "y": 0,
+    "w": 120,
+    "h": 100
+   },
+   "rotated": false,
+   "trimmed": false,
+   "spriteSourceSize": {
+    "x": 0,
+    "y": 0,
+    "w": 120,
+    "h": 100
+   },
+   "sourceSize": {
+    "w": 120,
+    "h": 100
+   },
+   "duration": 33
+  },
+  {
+   "filename": "hit-spark-iso 4",
+   "frame": {
+    "x": 0,
+    "y": 100,
+    "w": 120,
+    "h": 100
+   },
+   "rotated": false,
+   "trimmed": false,
+   "spriteSourceSize": {
+    "x": 0,
+    "y": 0,
+    "w": 120,
+    "h": 100
+   },
+   "sourceSize": {
+    "w": 120,
+    "h": 100
+   },
+   "duration": 33
+  },
+  {
+   "filename": "hit-spark-iso 5",
+   "frame": {
+    "x": 120,
+    "y": 100,
+    "w": 120,
+    "h": 100
+   },
+   "rotated": false,
+   "trimmed": false,
+   "spriteSourceSize": {
+    "x": 0,
+    "y": 0,
+    "w": 120,
+    "h": 100
+   },
+   "sourceSize": {
+    "w": 120,
+    "h": 100
+   },
+   "duration": 33
+  },
+  {
+   "filename": "hit-spark-iso 6",
+   "frame": {
+    "x": 240,
+    "y": 100,
+    "w": 120,
+    "h": 100
+   },
+   "rotated": false,
+   "trimmed": false,
+   "spriteSourceSize": {
+    "x": 0,
+    "y": 0,
+    "w": 120,
+    "h": 100
+   },
+   "sourceSize": {
+    "w": 120,
+    "h": 100
+   },
+   "duration": 33
+  },
+  {
+   "filename": "hit-spark-iso 7",
+   "frame": {
+    "x": 360,
+    "y": 100,
+    "w": 120,
+    "h": 100
+   },
+   "rotated": false,
+   "trimmed": false,
+   "spriteSourceSize": {
+    "x": 0,
+    "y": 0,
+    "w": 120,
+    "h": 100
+   },
+   "sourceSize": {
+    "w": 120,
+    "h": 100
+   },
+   "duration": 33
+  },
+  {
+   "filename": "hit-spark-iso 8",
+   "frame": {
+    "x": 0,
+    "y": 200,
+    "w": 120,
+    "h": 100
+   },
+   "rotated": false,
+   "trimmed": false,
+   "spriteSourceSize": {
+    "x": 0,
+    "y": 0,
+    "w": 120,
+    "h": 100
+   },
+   "sourceSize": {
+    "w": 120,
+    "h": 100
+   },
+   "duration": 33
+  },
+  {
+   "filename": "hit-spark-iso 9",
+   "frame": {
+    "x": 120,
+    "y": 200,
+    "w": 120,
+    "h": 100
+   },
+   "rotated": false,
+   "trimmed": false,
+   "spriteSourceSize": {
+    "x": 0,
+    "y": 0,
+    "w": 120,
+    "h": 100
+   },
+   "sourceSize": {
+    "w": 120,
+    "h": 100
+   },
+   "duration": 33
+  },
+  {
+   "filename": "hit-spark-iso 10",
+   "frame": {
+    "x": 240,
+    "y": 200,
+    "w": 120,
+    "h": 100
+   },
+   "rotated": false,
+   "trimmed": false,
+   "spriteSourceSize": {
+    "x": 0,
+    "y": 0,
+    "w": 120,
+    "h": 100
+   },
+   "sourceSize": {
+    "w": 120,
+    "h": 100
+   },
+   "duration": 33
+  },
+  {
+   "filename": "hit-spark-iso 11",
+   "frame": {
+    "x": 360,
+    "y": 200,
+    "w": 120,
+    "h": 100
+   },
+   "rotated": false,
+   "trimmed": false,
+   "spriteSourceSize": {
+    "x": 0,
+    "y": 0,
+    "w": 120,
+    "h": 100
+   },
+   "sourceSize": {
+    "w": 120,
+    "h": 100
+   },
+   "duration": 33
+  },
+  {
+   "filename": "hit-spark-iso 12",
+   "frame": {
+    "x": 0,
+    "y": 300,
+    "w": 120,
+    "h": 100
+   },
+   "rotated": false,
+   "trimmed": false,
+   "spriteSourceSize": {
+    "x": 0,
+    "y": 0,
+    "w": 120,
+    "h": 100
+   },
+   "sourceSize": {
+    "w": 120,
+    "h": 100
+   },
+   "duration": 33
+  },
+  {
+   "filename": "hit-spark-iso 13",
+   "frame": {
+    "x": 120,
+    "y": 300,
+    "w": 120,
+    "h": 100
+   },
+   "rotated": false,
+   "trimmed": false,
+   "spriteSourceSize": {
+    "x": 0,
+    "y": 0,
+    "w": 120,
+    "h": 100
+   },
+   "sourceSize": {
+    "w": 120,
+    "h": 100
+   },
+   "duration": 33
+  }
+ ],
+ "meta": {
+  "app": "https://github.com/patch-gg/pixelfx",
+  "version": "1",
+  "image": "hit-spark-iso.png",
+  "format": "RGBA8888",
+  "size": {
+   "w": 480,
+   "h": 400
+  },
+  "scale": "1",
+  "frameTags": [
+   {
+    "name": "hit-spark-iso",
+    "from": 0,
+    "to": 13,
+    "direction": "forward"
+   }
+  ],
+  "pixelfx": {
+   "id": "impacts/hit-spark-iso",
+   "name": "Hit spark (iso)",
+   "fps": 30,
+   "loop": false,
+   "frames": 14,
+   "frameSize": [
+    120,
+    100
+   ],
+   "pivot": [
+    60,
+    72
+   ],
+   "columns": 4
+  }
+ }
+}

@@ -1,7 +1,7 @@
 import http from 'node:http';
 import fs from 'node:fs/promises';
 import path from 'node:path';
-// 2026-11-01: PORT/HOST env so pi-dispatch --worktree can run one server per card
+// 2026-11-01: PORT/HOST env so a branch worktree can run its own preview server
 const PORT=Number(process.env.PORT)||5024,HOST=process.env.HOST||'100.79.149.0';
 const project=path.dirname(new URL(import.meta.url).pathname.replace(/^\/([A-Za-z]:)/,'$1'));
 const root=path.basename(path.dirname(project))==='work'?path.resolve(project,'../../outputs'):path.join(project,'dist');

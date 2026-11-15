@@ -1,0 +1,311 @@
+{
+ "archer_body.png": {
+  "from": "body_x8.png",
+  "placeholder": false
+ },
+ "archer_hand.png": {
+  "from": "hand_archer.png",
+  "placeholder": false
+ },
+ "archer_head.png": {
+  "from": "head_x8.png",
+  "placeholder": false
+ },
+ "armor_leather.png": {
+  "from": "armor_leather.png",
+  "placeholder": false
+ },
+ "armor_leather_archer.png": {
+  "from": "gen_armor.py --class archer",
+  "placeholder": false
+ },
+ "armor_leather_assassin.png": {
+  "from": "gen_armor.py --class assassin",
+  "placeholder": false
+ },
+ "armor_leather_berserker.png": {
+  "from": "gen_armor.py --class berserker",
+  "placeholder": false
+ },
+ "armor_leather_darkknight.png": {
+  "from": "gen_armor.py --class darkknight",
+  "placeholder": false
+ },
+ "armor_leather_paladin.png": {
+  "from": "gen_armor.py --class paladin",
+  "placeholder": false
+ },
+ "armor_leather_priest.png": {
+  "from": "gen_armor.py --class priest",
+  "placeholder": false
+ },
+ "armor_leather_sorcerer.png": {
+  "from": "gen_armor.py --class sorcerer",
+  "placeholder": false
+ },
+ "armor_mantle.png": {
+  "from": "armor_mantle.png",
+  "placeholder": false
+ },
+ "armor_mantle_archer.png": {
+  "from": "gen_armor.py --class archer",
+  "placeholder": false
+ },
+ "armor_mantle_assassin.png": {
+  "from": "gen_armor.py --class assassin",
+  "placeholder": false
+ },
+ "armor_mantle_berserker.png": {
+  "from": "gen_armor.py --class berserker",
+  "placeholder": false
+ },
+ "armor_mantle_darkknight.png": {
+  "from": "gen_armor.py --class darkknight",
+  "placeholder": false
+ },
+ "armor_mantle_paladin.png": {
+  "from": "gen_armor.py --class paladin",
+  "placeholder": false
+ },
+ "armor_mantle_priest.png": {
+  "from": "gen_armor.py --class priest",
+  "placeholder": false
+ },
+ "armor_mantle_sorcerer.png": {
+  "from": "gen_armor.py --class sorcerer",
+  "placeholder": false
+ },
+ "armor_plate.png": {
+  "from": "armor_plate.png",
+  "placeholder": false
+ },
+ "armor_plate_archer.png": {
+  "from": "gen_armor.py --class archer",
+  "placeholder": false
+ },
+ "armor_plate_assassin.png": {
+  "from": "gen_armor.py --class assassin",
+  "placeholder": false
+ },
+ "armor_plate_berserker.png": {
+  "from": "gen_armor.py --class berserker",
+  "placeholder": false
+ },
+ "armor_plate_darkknight.png": {
+  "from": "gen_armor.py --class darkknight",
+  "placeholder": false
+ },
+ "armor_plate_paladin.png": {
+  "from": "gen_armor.py --class paladin",
+  "placeholder": false
+ },
+ "armor_plate_priest.png": {
+  "from": "gen_armor.py --class priest",
+  "placeholder": false
+ },
+ "armor_plate_sorcerer.png": {
+  "from": "gen_armor.py --class sorcerer",
+  "placeholder": false
+ },
+ "assassin_body.png": {
+  "from": "body_x8.png",
+  "placeholder": false
+ },
+ "assassin_hand.png": {
+  "from": "hand_assassin.png",
+  "placeholder": false
+ },
+ "assassin_head.png": {
+  "from": "head_x8.png",
+  "placeholder": false
+ },
+ "berserker_body.png": {
+  "from": "body_x8.png",
+  "placeholder": false
+ },
+ "berserker_hand.png": {
+  "from": "hand_berserker.png",
+  "placeholder": false
+ },
+ "berserker_head.png": {
+  "from": "head_x8.png",
+  "placeholder": false
+ },
+ "cape_cloak.png": {
+  "from": "cape_cloak.png",
+  "placeholder": false
+ },
+ "darkknight_body.png": {
+  "from": "darkknight_body_x8.png",
+  "placeholder": false
+ },
+ "darkknight_hand.png": {
+  "from": "hand_darkknight.png",
+  "placeholder": false
+ },
+ "darkknight_head.png": {
+  "from": "darkknight_head_x8.png",
+  "placeholder": false
+ },
+ "effect_arrow.png": {
+  "from": "effect_arrow_x8.png",
+  "placeholder": false
+ },
+ "effect_burst.png": {
+  "from": "effect_burst_x8.png",
+  "placeholder": false
+ },
+ "effect_hslash.png": {
+  "from": "effect_hslash_x8.png",
+  "placeholder": false
+ },
+ "effect_slash.png": {
+  "from": "effect_slash_x8.png",
+  "placeholder": false
+ },
+ "effect_thrust.png": {
+  "from": "effect_thrust_x8.png",
+  "placeholder": false
+ },
+ "hat_cap.png": {
+  "from": "hat_cap_x8.png",
+  "placeholder": false
+ },
+ "hat_circlet.png": {
+  "from": "hat_circlet_x8.png",
+  "placeholder": false
+ },
+ "hat_helm.png": {
+  "from": "hat_x8.png",
+  "placeholder": false
+ },
+ "hat_horned.png": {
+  "from": "hat_horned_x8.png",
+  "placeholder": false
+ },
+ "paladin_body.png": {
+  "from": "body_x8.png",
+  "placeholder": false
+ },
+ "paladin_hand.png": {
+  "from": "hand_paladin.png",
+  "placeholder": false
+ },
+ "paladin_head.png": {
+  "from": "head_x8.png",
+  "placeholder": false
+ },
+ "priest_body.png": {
+  "from": "body_x8.png",
+  "placeholder": false
+ },
+ "priest_hand.png": {
+  "from": "hand_priest.png",
+  "placeholder": false
+ },
+ "priest_head.png": {
+  "from": "head_x8.png",
+  "placeholder": false
+ },
+ "sorcerer_body.png": {
+  "from": "body_x8.png",
+  "placeholder": false
+ },
+ "sorcerer_hand.png": {
+  "from": "hand_sorcerer.png",
+  "placeholder": false
+ },
+ "sorcerer_head.png": {
+  "from": "head_x8.png",
+  "placeholder": false
+ },
+ "warrior_body.png": {
+  "from": "body_x8.png",
+  "placeholder": false
+ },
+ "warrior_hand.png": {
+  "from": "hand_warrior.png",
+  "placeholder": false
+ },
+ "warrior_head.png": {
+  "from": "head_x8.png",
+  "placeholder": false
+ },
+ "weapon_axe.png": {
+  "from": "weapon_axe_gen4.png",
+  "placeholder": false
+ },
+ "weapon_axe_double.png": {
+  "from": "weapon_axe_double_x8.png",
+  "placeholder": false
+ },
+ "weapon_axe_double_fine.png": {
+  "from": "weapon_axe_double_fine_x8.png",
+  "placeholder": false
+ },
+ "weapon_axe_fine.png": {
+  "from": "weapon_axe_fine.png",
+  "placeholder": false
+ },
+ "weapon_bow.png": {
+  "from": "weapon_bow_4dir.png",
+  "placeholder": false,
+  "releaseCol": true
+ },
+ "weapon_bow_fine.png": {
+  "from": "weapon_bow_fine_4dir.png",
+  "placeholder": false
+ },
+ "weapon_dagger.png": {
+  "from": "weapon_dagger_gen4.png",
+  "placeholder": false
+ },
+ "weapon_dagger_fine.png": {
+  "from": "weapon_dagger_fine.png",
+  "placeholder": false
+ },
+ "weapon_holystaff.png": {
+  "from": "weapon_holystaff_gen4.png",
+  "placeholder": false
+ },
+ "weapon_holystaff_fine.png": {
+  "from": "weapon_holystaff_fine.png",
+  "placeholder": false
+ },
+ "weapon_shield.png": {
+  "from": "weapon_shield_4dir.png",
+  "placeholder": false
+ },
+ "weapon_staff.png": {
+  "from": "weapon_staff_gen4.png",
+  "placeholder": false
+ },
+ "weapon_staff_crystal.png": {
+  "from": "weapon_staff_crystal_4dir.png",
+  "placeholder": false
+ },
+ "weapon_staff_crystal_fine.png": {
+  "from": "weapon_staff_crystal_fine_4dir.png",
+  "placeholder": false
+ },
+ "weapon_staff_fine.png": {
+  "from": "weapon_staff_fine.png",
+  "placeholder": false
+ },
+ "weapon_sword.png": {
+  "from": "weapon_sword_gen4.png",
+  "placeholder": false
+ },
+ "weapon_sword_fine.png": {
+  "from": "weapon_sword_fine.png",
+  "placeholder": false
+ },
+ "weapon_sword_long.png": {
+  "from": "weapon_sword_long_4dir.png",
+  "placeholder": false
+ },
+ "weapon_sword_long_fine.png": {
+  "from": "weapon_sword_long_fine_4dir.png",
+  "placeholder": false
+ }
+}

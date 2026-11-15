@@ -2,7 +2,8 @@ import {getRoads,roadStyle,onRoad,PALISADE,villagePonds as pondsOf,doorFoot} fro
 import {RING_ROAD,onRingRoad} from './overworld.js';
 import { BUILDINGS, CLASSES, RARITIES, MONSTER_RANGED, MSHOT_IMPACT, SKILLS } from './pixel-data.js';
 import {dollActionTick,dollDirName,advanceNoSkip,hurtChain,trackAttackStamp,dollAttackVariant,dollVictoryAction,dollLifeAction,getSlot as dollSlot} from './paperdoll-hero.js';   // DV2 的出招對時/逐格播放 helper(動作時間點照舊);英雄美術本體已換成 HeroLoom
-import {createDollHero} from './heroloom-hero.js';   // HeroLoom 紙娃娃英雄(?doll=0 才回原本的 sheet;docs/HEROLOOM.md)
+import {createDollHero} from './heroloom-hero.js';   // 預設:HeroLoom 紙娃娃英雄(docs/HEROLOOM.md);?doll=0 回烘好的 sheet
+import {createDollHero as createDv2DollHero} from './paperdoll-hero.js';   // ?doll=dv2[:職業,…]:DV2 包(assets/paperdoll-dv2,docs/DV2-PHASE6.md)
 import {rideDepth,mountMotion,dirIndex as dollDirIndex,computeMonsterParts,monsterFrameTick,drawParts as drawDollParts} from './paperdoll.js';   // 騎乘(§20)、單層怪物紙娃娃(§21)   // 紙娃娃英雄(旗標 ?doll=hero,docs/PAPERDOLL.md §12.1)
 import {WORLD,REGIONS,biomeAt,BIOME_PALETTE,inVillage} from './overworld.js';
 import {conceptGroundAt} from './concept-ground.js';
@@ -11,7 +12,7 @@ import {trackImage,markPhase} from './asset-loading.js';
 import {pickHeroLine} from './hero-chatter.js';
 import {createGLRenderer,tagPattern} from './gl-renderer.js';
 import {layoutMapLabels} from './map-labels.js';
-import {vdir4,DIR_ACT,dirSuffix,leftRow} from './dir4.js';   // 4 方向(2026-11-13,docs/DV2-ADOPTION-PLAN.md Phase 2)
+import {vdir4,DIR_ACT,dirSuffix,leftRow,facingOk,VDIR_TO_DIR4} from './dir4.js';   // 4 方向(2026-11-13,docs/DV2-ADOPTION-PLAN.md Phase 2)
 
 // All artwork is rendered to a small integer pixel buffer and enlarged without
 // interpolation. World coordinates are shared with the village simulation.
@@ -150,8 +151,9 @@ let dollPortraitSource=null;   // createWorld 裡的紙娃娃(createDollHero);�
 export function drawPortrait(canvas,hunter={},options={}) {
   const g=canvas.getContext('2d');g.imageSmoothingEnabled=false;g.clearRect(0,0,canvas.width,canvas.height);
   // 紙娃娃立繪:正面待機第 0 格,裁法跟 sheet 立繪一樣(站高 + 6、寬 0.8 倍),所以 UI 版面不用改
-  if(dollPortraitSource?.on&&dollPortraitSource.covers(hunter.classId)){const c=dollPortraitSource.compose(hunter,{action:'idle',tick:0,dir:'down',globalTick:0});
-    if(c){const H=c.heroHeight+6,s=Math.min(canvas.width/(H*.8),canvas.height/H);
+  if(dollPortraitSource?.on&&dollPortraitSource.covers(hunter.classId)){const c=dollPortraitSource.compose(hunter,{action:'idle',tick:0,dir:'down',globalTick:0,portrait:true});
+    // 包有給 portraitHeight 就用它(帽尖不會被切);沒有就照舊 heroHeight+6
+    if(c){const H=c.portraitHeight||c.heroHeight+6,s=Math.min(canvas.width/(H*.8),canvas.height/H);
       g.drawImage(c.cv,c.footX-H*.4,c.footY-H+2,H*.8,H,Math.round((canvas.width-H*.8*s)/2),Math.round(canvas.height-H*s),Math.round(H*.8*s),Math.round(H*s));return;}}
   if(heroSheets[hunter.classId]){const f=sheetFrame(hunter.classId,'idle',0,hunter.id?heroLook(hunter):null),H=f.meta.heroHeight+6,s=Math.min(canvas.width/(H*.8),canvas.height/H);  // 新規格英雄:用自己的換色版待機格
     g.drawImage(f.img,f.sx+f.c/2-H*.4,f.sy+f.foot-H+2,H*.8,H,Math.round((canvas.width-H*.8*s)/2),Math.round(canvas.height-H*s),Math.round(H*.8*s),Math.round(H*s));return;}
@@ -550,13 +552,18 @@ globalThis.__mistvalePreloadMonsters=(ids)=>{for(const id of ids||[]){if(!id)con
 // 新版 sheet 還在解碼:這一幀先不畫(不退回舊程序圖),載好後 pixel-assets-ready 重畫。
 const pendingHero=id=>!heroSheets[id]&&!!globalThis.PIXEL_ASSETS?.heroSheets?.[id];
 const pendingMon=t=>!MON_SHEET(t)&&!!globalThis.PIXEL_ASSETS?.monsterSheets?.[t==='boss'?'treant':t];
-// 4 方向(2026-11-13 起;docs/DV2-ADOPTION-PLAN.md Phase 2):畫面上的移動量(等角 x 9、y 4.5)哪個軸大 → side(右)/ down / sideLeft(左)/ up;
-// 相等時維持上一個方向;沒移動就沿用上一個方向。規則與量化表在 src/dir4.js(模擬端的移動也用同一份)。
+// 動畫方向 = 4 象限(2026-11-15 使用者:「允許斜走，90度分界分四個象限，每個象限一個動畫方向」;規則在 src/dir4.js):
+// 取「畫面上」的向量(等角 x 9、y 4.5,不是世界 dx/dz)的角度,90° 一個象限,象限中心 = 畫面右/下/左/上(邊界在畫面對角線,QUADRANT_OFFSET_DEG)
+// → side(右)/ down / sideLeft(左)/ up。人物可以斜走,只有動畫方向是 4 個。沒移動就沿用上一個方向。
 // 斜向名稱(downRight、upLeft…)不再產生;英雄 sheet 上烘好的斜向列不會被選到;assets/monsters3 的斜向列已修剪(計畫 2.8,選列只看名稱與 a.y)。
+// 一次性的方向(出手、受擊、技能,事件開始時鎖一次):moveDir,邊界 ±3° 內維持上一個方向。
 function moveDir(dx,dz,prev){return vdir4(dx,dz,prev||'side',false);}
-// 畫面用的方向(走路):多一段遲滯 —— 偏離目前軸心不超過 45°+8° 就不換(在兩軸交界附近不會一幀一換)。
-// 攻擊方向不用這個(出手只有一次,直接取當下方位比較準),所以 moveDir 保持原樣。
+// 連續的方向(走路):moveDirStable 多一段遲滯 —— 超過象限邊界 FACING_HYSTERESIS_DEG(10°)才換,幾乎正斜走時不會一幀一換。
 function moveDirStable(dx,dz,prev){return vdir4(dx,dz,prev||'side',true);}
+// 左右鏡像跟著動畫方向:側面(side/sideLeft)時鏡像「就是」方向,一定要一致;上/下時鏡像只是外觀(紙娃娃不看),維持呼叫端原本的值。
+const mirrorOf=(vdir,facing)=>vdir==='side'?1:vdir==='sideLeft'?-1:facing;
+// 魔物走路方向的取樣窗口(秒,遊戲時間);見 drawEnemy。pipeline/scripts/check/check_facing.mjs 的 WIN 要一樣
+const ENEMY_DIR_WIN=.15;
 // DIR_ACT / ATTACK_ACT / dirSuffix / leftRow 在 src/dir4.js(4 方向版:右 = 原列、下 = <動作>Down、上 = <動作>Up、左 = 原列鏡像或烘好的 <動作>Left)
 globalThis.__mistvaleHeroSheets=()=>Object.fromEntries(Object.entries(heroSheets).map(([k,v])=>[k,{w:v.img.width,h:v.img.height,actions:Object.keys(v.meta.actions)}]));
 // 模組化換色(sprites/SPRITE_VISUAL_BIBLE.md §9.3):每職業 meta.groups = outfit(職業代表色布料)/metal(鎧甲、刀刃)。
@@ -1688,16 +1695,24 @@ let renderDprMax=Math.max(1,dprCap||autoDpr());   // 畫布解析度上限(devic
   // 動作/時間點仍由 sheetPose 決定(同一套戰鬥時序),這裡只把那一刻換成紙娃娃的 (動作,tick),合成格子圖後用跟 sheet 相同的方式畫。
   // hideEffects:'arrow' —— 弓的出手格在弓旁畫一支箭,但遊戲在 atkAt 已經射出真的箭(drawProjectile),兩支會重疊約 0.13 秒。
   // 近戰的 slash(英雄身上的揮砍軌跡)與法杖技能的 burst(手上的光)保留:遊戲在施法者身上沒有同位置的特效(命中特效畫在目標)。
-  const dollHero=createDollHero({trackImage,makeCanvas,cap:()=>lowMemDevice?192:512,onEvict:cv=>texRelease?.(cv),
+  // (歷史:2026-11-15 早先預設是 DV2 包,docs/DV2-PHASE6.md §5;HeroLoom 實驗見 commit ac6d722。)
+  // 2026-11-15 使用者:HeroLoom(experiment/heroloom 分支版本)是唯一英雄系統 → 預設 HeroLoom(?doll= 沒給 / hero / loom);
+  // ?doll=dv2[:職業] = DV2 包(只當可選開關)。HeroCreator 草稿已捨棄。
+  const dollQ0=globalThis.location?new URLSearchParams(globalThis.location.search).get('doll'):null;
+  const dollKind=/^(hero)?loom(:|$)/i.test(dollQ0??'')?'loom':/^dv2(:|$)/i.test(dollQ0??'')?'dv2':'loom';
+  const dollDv2=dollKind==='dv2';
+  const dollHero=(dollDv2?createDv2DollHero:createDollHero)({trackImage,makeCanvas,cap:()=>lowMemDevice?192:512,onEvict:cv=>texRelease?.(cv),
+    ...(dollDv2?{hideEffects:['arrow']}:{}),   // DV2 包的弓出手格會畫一支箭;遊戲自己射真的箭,不重複畫
     onReady:()=>globalThis.dispatchEvent?.(new CustomEvent('pixel-assets-ready'))});   // 資料好了:UI 立繪快取清掉重畫(換成紙娃娃立繪)
-  // 2026-11-14:預設就用 HeroLoom 分層紙娃娃呈現英雄(assets/heroloom,docs/HEROLOOM.md)。資料包沒有 death/ride_* 動作,
+  // HeroLoom(?doll=loom,assets/heroloom,docs/HEROLOOM.md)的資料包沒有 death/ride_* 動作,
   // 由 paperdoll-hero.js 的衍生路徑接手(倒地 = hurt 末格 + 旋轉;騎乘 = walk/stand),所以下面的騎乘判斷不看 ride_sit。
-  // ?doll=0 / ?doll=off / ?doll=sheet 回到原本烘好的 sheet;?doll=hero / hero:paladin,archer 仍可指定職業子集。
+  // ?doll=0 / ?doll=off / ?doll=sheet 回到原本烘好的 sheet;?doll=hero:paladin,archer / dv2:… / loom:… 指定該包的職業子集。
   // 沒有 XMLHttpRequest 的環境(檢查腳本在 Node 裡直接 createWorld)就維持 sheet,不要讓它爆掉。
   {const q=globalThis.location?new URLSearchParams(globalThis.location.search).get('doll'):null;
    const off=/^(0|off|no|sheet|none)$/i.test(q??'');
-   if(!off&&typeof XMLHttpRequest!=='undefined'){try{dollHero.setSpec(q&&q.startsWith('hero')?q:'hero');}
-     catch(e){console.warn('[mistvale] heroloom off:',e&&e.message||e);}}}
+   const sub=(q??'').match(/^(?:dv2|hero(?!loom)|(?:hero)?loom)(:.*)?$/i)?.[1]||'';   // 職業子集 ':paladin,archer'
+   if(!off&&typeof XMLHttpRequest!=='undefined'){try{dollHero.setSpec('hero'+sub);}
+     catch(e){console.warn('[mistvale] paperdoll hero off:',e&&e.message||e);}}}
   globalThis.__mistvaleDoll=(spec)=>spec===undefined?dollHero.status():dollHero.setSpec(spec);
   globalThis.__mistvaleLoom=dollHero;   // 驗收/實驗面板 hook:covers/compose/look/recipe/bakeRecipe/status
   // 單層怪物紙娃娃(DV2 C2,docs/PAPERDOLL.md §21):**只在 ?mdoll=1(或 __mistvaleMonsterDoll(true))才開**,預設魔物照舊畫 assets/monsters3。
@@ -1782,7 +1797,8 @@ let renderDprMax=Math.max(1,dprCap||autoDpr());   // 畫布解析度上限(devic
     // 同一段蓄力只往前(遠程拉開時 attackTimer 會來回,不要 0→1→0 閃)。「同一段」= 同一個上一擊(atkAt)而且上一次畫蓄力在 0.25 秒內;
     // 蓄力被打斷(目標死了、換目標)後重新蓄力,中間隔了走路/待機 → 新的一段,從 slot 0 開始,不沿用舊的最大值。
     if(sp.pose==='windup'){const w=dollWind.get(h.id);if(w&&w.stamp===h.atkAt&&w.key===req.action&&t-w.t>=0&&t-w.t<.25)req.tick=Math.max(w.tick,req.tick);dollWind.set(h.id,{stamp:h.atkAt,key:req.action,tick:req.tick,t});}
-    const c=dollHero.compose(h,{action:req.action,tick:req.tick,dir:dollDirName(vdir,facing),hideWeapon:!partsVisible,globalTick:Math.floor(t*(data.tickRate||20))});
+    // sideHint:只給只有側面美術的 HeroLoom(上/下象限畫側面時朝哪邊);DV2 包不看它
+    const c=dollHero.compose(h,{action:req.action,tick:req.tick,dir:dollDirName(vdir,facing),sideHint:facing<0?-1:1,hideWeapon:!partsVisible,globalTick:Math.floor(t*(data.tickRate||20))});
     if(!c)return null;
     heroLodUse['1x']++;   // 紙娃娃沒有 @2x;計數照算,LOD 切換邏輯不受影響
     const W=c.cv.width,H=c.cv.height,k=(HERO_H/c.heroHeight)*scale,dw=Math.round(W*k),dh=Math.round(H*k);
@@ -1908,19 +1924,33 @@ let renderDprMax=Math.max(1,dprCap||autoDpr());   // 畫布解析度上限(devic
       if(ad.mode!=='windup')ad.dir=moveDir(h.atkX-h.x,h.atkZ-h.z,ad.dir);
       ad.mode='strike';
     }
+    const vMove=vdir;   // 移動方向(走路列用)
     if(armed)vdir=ad.dir;
     else if(winding){
-      if(ad.mode!=='windup'){ad.mode='windup';ad.dir=moveDir(target.x-h.x,target.z-h.z,ad.dir);}   // 蓄力:進入時算一次,之後不動
+      // 蓄力:進入時算一次;蓄力中目標走開就跟著換象限(10° 遲滯,不會在邊界上抖)。出手(armed)之後就不再改。
+      if(ad.mode!=='windup'){ad.mode='windup';ad.dir=moveDir(target.x-h.x,target.z-h.z,ad.dir);}
+      else ad.dir=moveDirStable(target.x-h.x,target.z-h.z,ad.dir);
       vdir=ad.dir;
     }else ad.mode='';   // 攻擊結束後「方向不動」:維持出手/走路時鎖定的方向,下一個動作(出手或起步)才重算
     atkDirs.set(h.id,ad);
     const walking=(moving||nowT<walkUntil)&&h.hp>0;   // 有動就播走路(含戰鬥中被推開);停下來 0.18 s 內還算走,免得每幀互換
     {const tg=h.targetId,prev=heroMemo.get(h.id);if(prev&&prev.tg&&prev.tg!==tg&&!(state.enemies||[]).some(e=>e.id===prev.tg&&e.hp>0)&&(state.time||0)-(h.atkAt??-99)<.8)heroMemo.set(h.id,{...prev,tg,cheer:(state.time||0)+.9});else heroMemo.set(h.id,{...prev,tg,cheer:prev?.cheer??-1});}
     const cheering=(state.time||0)<(heroMemo.get(h.id)?.cheer??-1)&&!walking;
-    const sp=noSkip(h,sheetPose(h,pose,walking,cheering,vdir));
+    // 出手方向只給攻擊列:armed(0.46 s)比攻擊列長,攻擊列播完就走路的那幾幀要用移動方向(不然會朝攻擊方向「橫著走」)。
+    let sp0=sheetPose(h,pose,walking,cheering,vdir);
+    if(vdir!==vMove&&/^walk/.test(sp0.act)){vdir=vMove;sp0=sheetPose(h,pose,walking,cheering,vdir);}
+    const sp=noSkip(h,sp0);
+    if(/^attack/.test(sp.act))vdir=ad.dir;   // 攻擊列(含 noSkip 把攻擊列播完的那幾格):方向一律是出手/蓄力時鎖的
+    // 受擊/技能也是 4 象限:受擊朝打來的人、技能朝施放目標;每次事件(hitAt / skillAt)開始時鎖一次,整段不變。
+    // (sheetPose 的受擊/技能列不看 vdir;紙娃娃 dollDirName 看,所以這裡改 vdir 就是改畫出來的方向。)之後的待機沿用這個方向。
+    if(sp.act==='hurt'&&h.hitFromX!=null){const hs=h.hitAt+'|'+h.hitFromX+'|'+h.hitFromZ;   // 同一刻被兩隻打到:跟最後打到的那隻
+      if(ad.hurtStamp!==hs){ad.hurtStamp=hs;ad.hurtDir=moveDir(h.hitFromX-h.x,h.hitFromZ-h.z,vdir);}vdir=ad.hurtDir;}
+    else if(sp.act==='skill'&&h.atkX!=null){if(ad.skillStamp!==h.skillAt){ad.skillStamp=h.skillAt;ad.skillDir=moveDir(h.atkX-h.x,h.atkZ-h.z,vdir);}vdir=ad.skillDir;}
     // 朝向:畫的是戰鬥格(普攻/受擊/技能)才用戰鬥朝向(面向目標/打來的一側);走路/待機一律照移動方向 —— 出手後 0.3–0.36 秒換追下一個目標時,不會倒退走
     if(sp.act.startsWith('attack')||['hurt','skill','death'].includes(sp.act)){if(pose.face)facing=pose.face>0?1:-1;
       {const t=state.time||0,sk=t-(h.skillAt??-99);if(sp.act==='skill'&&sk>=0&&h.atkX!=null){const d=screenDir(h.x,h.z,h.atkX,h.atkZ).x;if(Math.abs(d)>.1)facing=d>0?1:-1;}}}
+    // 側面方向時左右鏡像 = 動畫方向(走路、出手、受擊、技能、待機都一樣),不會出現「方向是右、圖朝左」
+    if(sp.act!=='death')facing=mirrorOf(vdir,facing);
     previousPositions.set(h.id,{x:h.x,z:h.z,facing,vdir,walkUntil,fightUntil});{const row=actOf(heroSheets[h.classId].meta,sp.act)||{frames:1};sp.i=Math.max(0,Math.min(row.frames-1,sp.i));}  // 時間超過最後一格就停在最後一格
     drawnFacing.set(h.id,{f:facing,pose:sp.pose,act:sp.act,i:sp.i,x:h.x,z:h.z,t:state.time,vdir,atkT});
     let rect=null;
@@ -2029,34 +2059,49 @@ let renderDprMax=Math.max(1,dprCap||autoDpr());   // 畫布解析度上限(devic
     const nowT=state.time||0,walkUntil=step>.0006?nowT+.2:(old?.walkUntil||0);
     // 2026-10-31 修正「魔物突然左右抖動」:以前每幀看單幀位移的 (dx-dz) 正負決定鏡像,
     // 魔物朝正上/正下(等角畫面上幾乎沒有左右分量)走、或站在獵人正上下方時,正負會在 0 附近跳 → 每幀閃面。
-    // 現在改用 moveDirStable 的 4 方向(已含遲滯):只有明確的左右才決定鏡像,朝上下時維持原本面向;
-    // 另外同一個面向至少鎖 0.12 秒,避免兩幀互相打臉。
-    // 方向樣本改用「錨點」:累積走滿 0.12 格才更新一次(以前是每幀看單幀位移,慢速或剛起步時位移只有 0.001,
-    // 角度幾乎是雜訊 → vdir 在 walk / walkUpRight 之間每幀互換,看起來就是左右抖動)。
-    let ax=old?.ax??e.x,az=old?.az??e.z,vdir=old?.vdir||'side';
-    // 2026-11-13 4 方向:魔物沿畫面軸走階梯,每一幀的位移本身就是乾淨的單一軸(沒有斜向雜訊),所以有明確位移(> .02 格)就直接用當幀方向
-    // ——轉角那一幀就換面,不會在新的一段裡沿用上一段的朝向(錨點要累積 0.12 格才更新,會落後半拍)。慢速/微動仍走錨點。
-    {const adx=e.x-ax,adz=e.z-az,ad=Math.hypot(adx,adz);
-      if(old&&step>.02){vdir=moveDirStable(e.x-old.x,e.z-old.z,vdir);ax=e.x;az=e.z;}
-      else if(ad>=.12){vdir=moveDirStable(adx,adz,vdir);ax=e.x;az=e.z;}
-      else if(ad<1e-6&&step>1e-6){ax=e.x;az=e.z;}}
-    const RIGHT_DIR=vdir==='side',LEFT_DIR=vdir==='sideLeft';   // 4 方向:上/下維持原本的鏡像
-    let flip=old?.flip??false;
-    if(RIGHT_DIR)flip=false;else if(LEFT_DIR)flip=true;
-    // 停著等空位的魔物(sim 剛更新 facingAt)面向牠盯著的獵人,不會背對戰鬥站著。
-    if(!moving&&!pose.face&&e.facingX!=null&&(state.time||0)-(e.facingAt??-9)<.5){const d=screenDir(e.x,e.z,e.facingX,e.facingZ).x;if(Math.abs(d)>.25)flip=d<0;}
-    if(pose.face)flip=pose.face<0;
-    let flipAt=old?.flipAt??-9;
-    if(old&&flip!==old.flip){if(nowT-flipAt<0.12)flip=old.flip;else flipAt=nowT;}
+    // 現在用 4 象限 + 遲滯(moveDirStable):側面列的鏡像跟方向走,朝上下時維持原本面向;外觀性的鏡像(上/下列、受擊)至少鎖 0.12 秒。
+    // (2026-11-15 起方向樣本改成時間窗口,取代以前「累積 0.12 格」的錨點,見下。)
+    let vdir=old?.vdir||'side';
+    // 方向樣本 = 最近 ENEMY_DIR_WIN 秒(遊戲時間)的位移(盒狀窗口)。魔物 AI 在追擊/閒晃/交戰的邊界上會一個 tick 換一次目的地
+    // (畫面上是鋸齒路徑,約 1.4% 的 tick 方向差 > 40°),拿單幀位移決定方向會一幀一換;窗口位移是眼睛看到的平均走向,
+    // 轉彎最多落後 ENEMY_DIR_WIN 秒(窗口滿了就完全是新方向,不會像指數平滑那樣一直差一點)。check_facing 用同一個窗口量。
+    // 再套象限 + 10° 遲滯(moveDirStable):幾乎正斜走時不會在兩個方向之間跳。
+    let trail=old?.trail||[];
+    if(old&&step>=3)trail=[];   // 瞬移(重生、換區):重新開始
+    if(!trail.length||trail[trail.length-1].t<nowT){trail.push({t:nowT,x:e.x,z:e.z});while(trail.length>2&&trail[1].t<=nowT-ENEMY_DIR_WIN)trail.shift();}
+    // 急轉(約 > 120°)時窗口位移是兩段的平均,可能落在第三個象限(右→左中間閃一格「上」):窗口方向如果跟這一幀、上一幀的位移
+    // 都對不上(差超過 45°+遲滯),就改用這一幀的位移。鋸齒路徑(這幀/上幀各偏一邊)窗口方向至少對得上其中一幀,照用窗口。
+    const mfx=old?e.x-old.x:0,mfz=old?e.z-old.z:0;let lpx=old?.lpx??null,lpz=old?.lpz??null;
+    {const o0=trail[0],wx=e.x-o0.x,wz=e.z-o0.z;if(o0.t<nowT&&Math.hypot(wx,wz)>.02&&(moving||nowT<walkUntil)){
+      let cand=moveDirStable(wx,wz,vdir);const fits=(dx,dz)=>dx!=null&&Math.hypot(dx,dz)>1e-4&&facingOk(dx,dz,VDIR_TO_DIR4[cand]);
+      if(step>1e-4&&step<3&&!fits(mfx,mfz)&&!fits(lpx,lpz))cand=moveDirStable(mfx,mfz,vdir);
+      vdir=cand;}}
+    if(step>1e-4&&step<3){lpx=mfx;lpz=mfz;}
+    // 停著(不在走路)等空位的魔物(sim 剛更新 facingAt)面向牠盯著的獵人(4 象限,含上/下),不會背對戰鬥站著。
+    if(!moving&&nowT>=walkUntil&&!pose.face&&e.facingX!=null&&(state.time||0)-(e.facingAt??-9)<.5)vdir=moveDirStable(e.facingX-e.x,e.facingZ-e.z,vdir);
     // 攻擊列的方向(avdir):蓄力一出現就鎖住、整段攻擊(蓄力→出手→收招)都用同一條方向列 ——
     // 方向每幀重算的話,列會在兩格之間跳,看起來像抽動。取「目標在哪邊」:蓄力看 facingX/Z(模擬每幀更新),出手看 atkX/Z。
     let avdir=old?.avdir||null;
     if(pose.pose==='windup'||pose.pose==='strike'){
       if(!avdir){const tx=pose.pose==='strike'?(e.atkX??e.facingX):(e.facingX??e.atkX),tz=pose.pose==='strike'?(e.atkZ??e.facingZ):(e.facingZ??e.atkZ);
-        // 攻擊方位用 moveDir(不做遲滯):出手只有一次,取當下方位最準(4 方向,主軸優先)。
+        // 攻擊方位用 moveDir(不做遲滯):出手只有一次,取當下方位最準(4 象限)。
         avdir=(tx!=null&&tz!=null)?moveDir(tx-e.x,tz-e.z,'side'):'side';}
+      // 蓄力中目標走開(遠程魔物蓄力長、獵人在走):跟著目標換象限,但有 10° 遲滯(不會在邊界上抖);出手後就不再改。
+      else if(pose.pose==='windup'&&e.facingX!=null)avdir=moveDirStable(e.facingX-e.x,e.facingZ-e.z,avdir);
     } else avdir=null;
-    previousPositions.set('enemy:'+e.id,{x:e.x,z:e.z,flip,vdir,walkUntil,flipAt,ax,az,avdir,rowVdir:vdir,rowAt:vdir!==(old?.rowVdir??'side')?nowT:(old?.rowAt??-9)});
+    // 走路列也上鎖:同一個方向列至少撐 0.25 秒(方向在兩軸之間來回時精靈圖才不會閃)。在算鏡像之前套,鏡像才跟畫出來的列一致。
+    const vdirRaw=vdir;
+    if(MON_SHEET(e.type)&&old&&pose.pose==='idle'&&vdir!==(old.rowVdir??'side')&&nowT-(old.rowAt??-9)<0.25)vdir=old.rowVdir??'side';
+    // 鏡像:側面列時鏡像就是方向(走路看 vdir、出手看 avdir),上/下列維持原本的鏡像;受擊(只有側面列)朝打來的一側。
+    let flip=old?.flip??false;
+    // 交戰中在走(追擊、被推開)= 走路列跟移動方向;交戰中站著 = 側面待機列朝目標那一側(pose.face)。
+    const rowDir=(pose.pose==='windup'||pose.pose==='strike')?avdir:pose.pose==='hurt'?null:(moving||nowT<walkUntil||!pose.face)?vdir:null,hardSide=rowDir==='side'||rowDir==='sideLeft';
+    if(pose.face&&!hardSide)flip=pose.face<0;
+    else flip=mirrorOf(rowDir,flip?-1:1)<0;
+    // 只有「鏡像是外觀」(上/下列、受擊)時才做 0.12 秒防抖;側面列的鏡像就是方向,由象限遲滯管,不能落後。
+    let flipAt=old?.flipAt??-9;
+    if(old&&flip!==old.flip){if(!hardSide&&nowT-flipAt<0.12)flip=old.flip;else flipAt=nowT;}
+    previousPositions.set('enemy:'+e.id,{x:e.x,z:e.z,flip,vdir:vdirRaw,walkUntil,flipAt,trail,lpx,lpz,avdir,rowVdir:vdirRaw,rowAt:vdirRaw!==(old?.rowVdir??'side')?nowT:(old?.rowAt??-9)});
     // 待機呼吸(史萊姆 Q 彈)、移動時跳步;攻擊/受擊的位移疊在上面。
     const breathe=Math.sin(elapsed*(e.type==='slime'?5:3)+seed),amp=e.type==='slime'?.07:.025;pose.sy*=1+amp*breathe;pose.sx*=1-amp*.6*breathe;
     // 走路:狼/魔像/領主一直用側面走路圖(3),配步伐上下起伏;史萊姆是跳躍——著地時用壓扁圖(3),騰空時用圓圖(0)。
@@ -2084,17 +2129,14 @@ let renderDprMax=Math.max(1,dprCap||autoDpr());   // 畫布解析度上限(devic
     }
     drawnFacing.set('enemy:'+e.id,{f:flip?-1:1,frame,x:e.x,z:e.z,t:state.time});
     let rect;
-    if(MON_SHEET(e.type)){   // 出手用「打的方位」那條攻擊列(4 方向);待機/走路照原本的方位列
-      // 走路列也上鎖:同一個方向列至少撐 0.25 秒。方向在兩軸之間來回時(繞著獵物、被推開又走回來),
-      // 精靈圖才不會一格側面一格斜向地閃。真的轉彎超過 0.25 秒就換得過去。
-      if(old&&pose.pose==='idle'&&vdir!==(old.rowVdir??'side')&&nowT-(old.rowAt??-9)<0.25)vdir=old.rowVdir??'side';
+    if(MON_SHEET(e.type)){   // 出手用「打的方位」那條攻擊列(4 方向);待機/走路照原本的方位列(0.25 秒列鎖已在上面套過)
       const [act,i]=monsterSheetPose(e,pose,walking,vdir,avdir);
       // 受擊閃光:普通命中維持純白剪影(原本的樣子);重擊第 2 幀起換成該種魔物的顏色(白 → 種類色 2 幀)。
       let sheetPose=pose;
       if(pose.flash>0){const heavy=monHeavyHit(e),tint=MON_TINT[e.type==='boss'?'treant':e.type]||'#ffffff';
         sheetPose={...pose,flashColor:(heavy&&pose.hit>=.067)?tint:'#ffffff'};}
       const vis=monsterVis(e,pose);
-      drawnFacing.set('enemy:'+e.id,{f:flip?-1:1,frame,act,i,dir:avdir,x:e.x,z:e.z,t:state.time});
+      drawnFacing.set('enemy:'+e.id,{f:flip?-1:1,frame,act,i,dir:avdir,vd:vdir,x:e.x,z:e.z,t:state.time});   // vd = 想要的走路/待機列方向(check_facing 用來分辨「素材沒有這個方向的列」)
       rect=drawMonsterSheet(e.type,p,flip,act,i,1,sheetPose,vis);}   // sheet:位移/壓扁/後退由 vis 套(以前 sheet 只吃 flash)
     else rect=posed(p,pose,q=>drawAtlasMonster(e.type,frame,q,sz,flip));
     if(rect)hits.push({id:'foe:'+e.id,...padHit(rect,14,18)});  // T110:魔物也可以點開資訊卡

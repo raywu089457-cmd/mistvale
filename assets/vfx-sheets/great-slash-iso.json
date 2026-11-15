@@ -1,0 +1,567 @@
+{
+ "frames": [
+  {
+   "filename": "great-slash-iso 0",
+   "frame": {
+    "x": 0,
+    "y": 0,
+    "w": 260,
+    "h": 190
+   },
+   "rotated": false,
+   "trimmed": false,
+   "spriteSourceSize": {
+    "x": 0,
+    "y": 0,
+    "w": 260,
+    "h": 190
+   },
+   "sourceSize": {
+    "w": 260,
+    "h": 190
+   },
+   "duration": 33
+  },
+  {
+   "filename": "great-slash-iso 1",
+   "frame": {
+    "x": 260,
+    "y": 0,
+    "w": 260,
+    "h": 190
+   },
+   "rotated": false,
+   "trimmed": false,
+   "spriteSourceSize": {
+    "x": 0,
+    "y": 0,
+    "w": 260,
+    "h": 190
+   },
+   "sourceSize": {
+    "w": 260,
+    "h": 190
+   },
+   "duration": 33
+  },
+  {
+   "filename": "great-slash-iso 2",
+   "frame": {
+    "x": 520,
+    "y": 0,
+    "w": 260,
+    "h": 190
+   },
+   "rotated": false,
+   "trimmed": false,
+   "spriteSourceSize": {
+    "x": 0,
+    "y": 0,
+    "w": 260,
+    "h": 190
+   },
+   "sourceSize": {
+    "w": 260,
+    "h": 190
+   },
+   "duration": 33
+  },
+  {
+   "filename": "great-slash-iso 3",
+   "frame": {
+    "x": 780,
+    "y": 0,
+    "w": 260,
+    "h": 190
+   },
+   "rotated": false,
+   "trimmed": false,
+   "spriteSourceSize": {
+    "x": 0,
+    "y": 0,
+    "w": 260,
+    "h": 190
+   },
+   "sourceSize": {
+    "w": 260,
+    "h": 190
+   },
+   "duration": 33
+  },
+  {
+   "filename": "great-slash-iso 4",
+   "frame": {
+    "x": 1040,
+    "y": 0,
+    "w": 260,
+    "h": 190
+   },
+   "rotated": false,
+   "trimmed": false,
+   "spriteSourceSize": {
+    "x": 0,
+    "y": 0,
+    "w": 260,
+    "h": 190
+   },
+   "sourceSize": {
+    "w": 260,
+    "h": 190
+   },
+   "duration": 33
+  },
+  {
+   "filename": "great-slash-iso 5",
+   "frame": {
+    "x": 0,
+    "y": 190,
+    "w": 260,
+    "h": 190
+   },
+   "rotated": false,
+   "trimmed": false,
+   "spriteSourceSize": {
+    "x": 0,
+    "y": 0,
+    "w": 260,
+    "h": 190
+   },
+   "sourceSize": {
+    "w": 260,
+    "h": 190
+   },
+   "duration": 33
+  },
+  {
+   "filename": "great-slash-iso 6",
+   "frame": {
+    "x": 260,
+    "y": 190,
+    "w": 260,
+    "h": 190
+   },
+   "rotated": false,
+   "trimmed": false,
+   "spriteSourceSize": {
+    "x": 0,
+    "y": 0,
+    "w": 260,
+    "h": 190
+   },
+   "sourceSize": {
+    "w": 260,
+    "h": 190
+   },
+   "duration": 33
+  },
+  {
+   "filename": "great-slash-iso 7",
+   "frame": {
+    "x": 520,
+    "y": 190,
+    "w": 260,
+    "h": 190
+   },
+   "rotated": false,
+   "trimmed": false,
+   "spriteSourceSize": {
+    "x": 0,
+    "y": 0,
+    "w": 260,
+    "h": 190
+   },
+   "sourceSize": {
+    "w": 260,
+    "h": 190
+   },
+   "duration": 33
+  },
+  {
+   "filename": "great-slash-iso 8",
+   "frame": {
+    "x": 780,
+    "y": 190,
+    "w": 260,
+    "h": 190
+   },
+   "rotated": false,
+   "trimmed": false,
+   "spriteSourceSize": {
+    "x": 0,
+    "y": 0,
+    "w": 260,
+    "h": 190
+   },
+   "sourceSize": {
+    "w": 260,
+    "h": 190
+   },
+   "duration": 33
+  },
+  {
+   "filename": "great-slash-iso 9",
+   "frame": {
+    "x": 1040,
+    "y": 190,
+    "w": 260,
+    "h": 190
+   },
+   "rotated": false,
+   "trimmed": false,
+   "spriteSourceSize": {
+    "x": 0,
+    "y": 0,
+    "w": 260,
+    "h": 190
+   },
+   "sourceSize": {
+    "w": 260,
+    "h": 190
+   },
+   "duration": 33
+  },
+  {
+   "filename": "great-slash-iso 10",
+   "frame": {
+    "x": 0,
+    "y": 380,
+    "w": 260,
+    "h": 190
+   },
+   "rotated": false,
+   "trimmed": false,
+   "spriteSourceSize": {
+    "x": 0,
+    "y": 0,
+    "w": 260,
+    "h": 190
+   },
+   "sourceSize": {
+    "w": 260,
+    "h": 190
+   },
+   "duration": 33
+  },
+  {
+   "filename": "great-slash-iso 11",
+   "frame": {
+    "x": 260,
+    "y": 380,
+    "w": 260,
+    "h": 190
+   },
+   "rotated": false,
+   "trimmed": false,
+   "spriteSourceSize": {
+    "x": 0,
+    "y": 0,
+    "w": 260,
+    "h": 190
+   },
+   "sourceSize": {
+    "w": 260,
+    "h": 190
+   },
+   "duration": 33
+  },
+  {
+   "filename": "great-slash-iso 12",
+   "frame": {
+    "x": 520,
+    "y": 380,
+    "w": 260,
+    "h": 190
+   },
+   "rotated": false,
+   "trimmed": false,
+   "spriteSourceSize": {
+    "x": 0,
+    "y": 0,
+    "w": 260,
+    "h": 190
+   },
+   "sourceSize": {
+    "w": 260,
+    "h": 190
+   },
+   "duration": 33
+  },
+  {
+   "filename": "great-slash-iso 13",
+   "frame": {
+    "x": 780,
+    "y": 380,
+    "w": 260,
+    "h": 190
+   },
+   "rotated": false,
+   "trimmed": false,
+   "spriteSourceSize": {
+    "x": 0,
+    "y": 0,
+    "w": 260,
+    "h": 190
+   },
+   "sourceSize": {
+    "w": 260,
+    "h": 190
+   },
+   "duration": 33
+  },
+  {
+   "filename": "great-slash-iso 14",
+   "frame": {
+    "x": 1040,
+    "y": 380,
+    "w": 260,
+    "h": 190
+   },
+   "rotated": false,
+   "trimmed": false,
+   "spriteSourceSize": {
+    "x": 0,
+    "y": 0,
+    "w": 260,
+    "h": 190
+   },
+   "sourceSize": {
+    "w": 260,
+    "h": 190
+   },
+   "duration": 33
+  },
+  {
+   "filename": "great-slash-iso 15",
+   "frame": {
+    "x": 0,
+    "y": 570,
+    "w": 260,
+    "h": 190
+   },
+   "rotated": false,
+   "trimmed": false,
+   "spriteSourceSize": {
+    "x": 0,
+    "y": 0,
+    "w": 260,
+    "h": 190
+   },
+   "sourceSize": {
+    "w": 260,
+    "h": 190
+   },
+   "duration": 33
+  },
+  {
+   "filename": "great-slash-iso 16",
+   "frame": {
+    "x": 260,
+    "y": 570,
+    "w": 260,
+    "h": 190
+   },
+   "rotated": false,
+   "trimmed": false,
+   "spriteSourceSize": {
+    "x": 0,
+    "y": 0,
+    "w": 260,
+    "h": 190
+   },
+   "sourceSize": {
+    "w": 260,
+    "h": 190
+   },
+   "duration": 33
+  },
+  {
+   "filename": "great-slash-iso 17",
+   "frame": {
+    "x": 520,
+    "y": 570,
+    "w": 260,
+    "h": 190
+   },
+   "rotated": false,
+   "trimmed": false,
+   "spriteSourceSize": {
+    "x": 0,
+    "y": 0,
+    "w": 260,
+    "h": 190
+   },
+   "sourceSize": {
+    "w": 260,
+    "h": 190
+   },
+   "duration": 33
+  },
+  {
+   "filename": "great-slash-iso 18",
+   "frame": {
+    "x": 780,
+    "y": 570,
+    "w": 260,
+    "h": 190
+   },
+   "rotated": false,
+   "trimmed": false,
+   "spriteSourceSize": {
+    "x": 0,
+    "y": 0,
+    "w": 260,
+    "h": 190
+   },
+   "sourceSize": {
+    "w": 260,
+    "h": 190
+   },
+   "duration": 33
+  },
+  {
+   "filename": "great-slash-iso 19",
+   "frame": {
+    "x": 1040,
+    "y": 570,
+    "w": 260,
+    "h": 190
+   },
+   "rotated": false,
+   "trimmed": false,
+   "spriteSourceSize": {
+    "x": 0,
+    "y": 0,
+    "w": 260,
+    "h": 190
+   },
+   "sourceSize": {
+    "w": 260,
+    "h": 190
+   },
+   "duration": 33
+  },
+  {
+   "filename": "great-slash-iso 20",
+   "frame": {
+    "x": 0,
+    "y": 760,
+    "w": 260,
+    "h": 190
+   },
+   "rotated": false,
+   "trimmed": false,
+   "spriteSourceSize": {
+    "x": 0,
+    "y": 0,
+    "w": 260,
+    "h": 190
+   },
+   "sourceSize": {
+    "w": 260,
+    "h": 190
+   },
+   "duration": 33
+  },
+  {
+   "filename": "great-slash-iso 21",
+   "frame": {
+    "x": 260,
+    "y": 760,
+    "w": 260,
+    "h": 190
+   },
+   "rotated": false,
+   "trimmed": false,
+   "spriteSourceSize": {
+    "x": 0,
+    "y": 0,
+    "w": 260,
+    "h": 190
+   },
+   "sourceSize": {
+    "w": 260,
+    "h": 190
+   },
+   "duration": 33
+  },
+  {
+   "filename": "great-slash-iso 22",
+   "frame": {
+    "x": 520,
+    "y": 760,
+    "w": 260,
+    "h": 190
+   },
+   "rotated": false,
+   "trimmed": false,
+   "spriteSourceSize": {
+    "x": 0,
+    "y": 0,
+    "w": 260,
+    "h": 190
+   },
+   "sourceSize": {
+    "w": 260,
+    "h": 190
+   },
+   "duration": 33
+  },
+  {
+   "filename": "great-slash-iso 23",
+   "frame": {
+    "x": 780,
+    "y": 760,
+    "w": 260,
+    "h": 190
+   },
+   "rotated": false,
+   "trimmed": false,
+   "spriteSourceSize": {
+    "x": 0,
+    "y": 0,
+    "w": 260,
+    "h": 190
+   },
+   "sourceSize": {
+    "w": 260,
+    "h": 190
+   },
+   "duration": 33
+  }
+ ],
+ "meta": {
+  "app": "https://github.com/patch-gg/pixelfx",
+  "version": "1",
+  "image": "great-slash-iso.png",
+  "format": "RGBA8888",
+  "size": {
+   "w": 1300,
+   "h": 950
+  },
+  "scale": "1",
+  "frameTags": [
+   {
+    "name": "great-slash-iso",
+    "from": 0,
+    "to": 23,
+    "direction": "forward"
+   }
+  ],
+  "pixelfx": {
+   "id": "melee/great-slash-iso",
+   "name": "Great slash (iso)",
+   "fps": 30,
+   "loop": false,
+   "frames": 24,
+   "frameSize": [
+    260,
+    190
+   ],
+   "pivot": [
+    130,
+    158
+   ],
+   "columns": 5
+  }
+ }
+}

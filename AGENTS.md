@@ -1,32 +1,21 @@
-# Mistvale (暮影村): project rules for pi
+# Mistvale (暮影村): project rules for every coding agent
 
-Claude and pi both maintain this repo, and other agents also edit it. How the work is split is in [docs/WORK-SPLIT.md](docs/WORK-SPLIT.md), which is written in Chinese for the user. The short version is below.
+This repo is maintained by Claude and by other agents (DSH / dsh sessions, subagents). These rules apply to all of them.
 
-**Language.** Agent-to-agent text is English: task cards, result files, logs, commit notes for agents. Reply to the user in plain, colloquial Traditional Chinese.
+**Language.** Agent-to-agent text (task notes, logs, code comments) is English. Reply to the user in plain, colloquial Traditional Chinese.
 
-## What you (pi) do
-- Run task cards `docs/pi-tasks/Txx-*.md`. Claude usually dispatches them with `tools/pi-dispatch.mjs`, in non-interactive mode, so never ask questions. If the card says stop, write the reason into the result file and exit. Cards hold only Goal / Files / Steps (plus `Accept:` and optional `Type: scout`); the shared rules and the result-file format come in the dispatch prompt. Cards name functions and selectors, not line numbers: grep for them.
-- Typical work:
-  - verification runs
-  - l0veyou asset generation
-  - appending text or changing numbers to a given spec
-  - docs
-  - commit and push, only when the user said 推 or 交接
-- A request without a card that is game logic, needs visual judgement, or is a large UI-template rewrite: say "this should go to Claude" and why.
+> 2026-11-12: the old task-card dispatch system (`tools/pi-dispatch.mjs`, `tools/pi-card.mjs`, `docs/pi-tasks/`, `docs/DISPATCH-PLAYBOOK.md`, `docs/WORK-SPLIT.md`, the classifier and the cost tools) was removed at the user's request. There are no task cards and no dispatch commands any more; work is planned and done directly in the session.
 
 ## Hard rules
-1. **Verify**: after any change run `npm run verify:quick`. If UI or buttons changed, run `npm run verify` instead. Put the first line of `output/ui-audit/verify-summary.md` in the result file's first line; do not paste the whole summary.
-2. **Foreground only**: in non-interactive (-p) runs, run every command in the foreground and wait, even `npm run verify` (~12 min); background jobs are lost when your turn ends. Write the result file before optional slow steps (Telegram).
-3. **Stop after two failures** of the same check. No big rewrites; hand back to Claude.
-4. **Never push** unless the user said 推 or 交接, and then follow T04. Pushing main deploys the live site.
-5. **Stage only your own files.** Never `git add -A` or `git add .`; the repo holds many untracked files that belong to other agents.
-6. **Asset spending**: l0veyou first (free, GPT Image 2). PixelLab only when the card states a budget; check the balance first and log what you spend. If l0veyou says the daily quota is used up, stop and report. Never register or switch accounts.
-7. **Secrets**: never print or write the contents of `~/.pixellab-token*` or API keys such as `XAI_API_KEY`.
-8. **Do not touch**:
+1. **Verify**: after any change run `npm run verify:quick`; if UI or buttons changed, run `npm run verify`. Report the result honestly, including failures.
+2. **Never push** unless the user said 推 or 交接. Pushing `main` deploys the live site.
+3. **Stage only your own files.** Never `git add -A` or `git add .`; the repo holds many untracked files that belong to other agents.
+4. **Asset spending**: l0veyou first (free, GPT Image 2). PixelLab only when the budget is explicitly agreed; check the balance first and log what you spend. If l0veyou says the daily quota is used up, stop and report. Never register or switch accounts.
+5. **Secrets**: never print or write the contents of `~/.pixellab-token*` or API keys such as `XAI_API_KEY`.
+6. **Do not touch** without the high-risk path (MODEL-ROUTING tier C, hand it to the Opus-tier reviewer):
    - `src/pixel-game.js`: hunter AI, combat, dungeon, offline, save/load
    - `src/pixel-world.js`: drawing and the animation state machine
-
-   These are Claude's (MODEL-ROUTING tier C).
+7. **Stop after two failures** of the same check instead of rewriting blindly; report what failed.
 
 ## Commands
 | What | Command |
@@ -35,17 +24,17 @@ Claude and pi both maintain this repo, and other agents also edit it. How the wo
 | Tests | `npm test` (11 suites) |
 | Full verify | `npm run verify` (~5–8 min: build + tests + button crawl, desktop and phone) / `npm run verify:quick` (~2 min) |
 | Screenshots | `node pipeline/scripts/ui-audit/shots-all.mjs desktop\|phone` → `output/ui-audit/shots/` |
-| l0veyou image | `node pipeline/scripts/l0veyou/generate.mjs <prompt.txt> <out.png> "" 16:9`; the browser must be open first (see T03) |
+| l0veyou image | `node pipeline/scripts/l0veyou/generate.mjs <prompt.txt> <out.png> "" 16:9`; the browser must be open first |
 
-Restart the game server (PowerShell):
-- Find the old process with `Get-NetTCPConnection -LocalPort 5024` and stop it with `Stop-Process -Id <pid>`.
-- Start it again with `Start-Process node -ArgumentList server.mjs -WorkingDirectory <repo> -WindowStyle Hidden`.
-
-It serves http://100.79.149.0:5024/ and re-reads `outputs/暮影村.html` on every request, so a fresh build is live after a reload.
+## Servers (PowerShell)
+- Main repo: serves `http://100.79.149.0:5024/` and re-reads `outputs/暮影村.html` on every request, so a fresh build is live after a reload.
+- A worktree branch (`PORT=5025`) serves its own `dist/暮影村.html` on `http://100.79.149.0:5025/` (used by `exp/pixel-ui` to preview the canvas UI).
+- Find a running server with `Get-NetTCPConnection -LocalPort 5024` and stop it with `Stop-Process -Id <pid>`; start it with `Start-Process node -ArgumentList server.mjs -WorkingDirectory <repo> -WindowStyle Hidden`.
 
 ## Models
 
-pi runs on the **OpenCode Go subscription** only: default `opencode-go/deepseek-v4.1-flash`. The work classifier (`tools/classify.mjs`) is two-stage: Jev (`typesafe/jev-1.13` over OpenRouter) answers the whole batch first, and only items below `CLASSIFY_JEV_MIN` (default 0.85) go to `opencode-go/deepseek-v4.1-flash` for the final tier and the reason. Do not point the agent or its subagents at Cline Pass; do not switch provider or register accounts.
+Model tiers and the high-risk list live in [docs/MODEL-ROUTING.md](docs/MODEL-ROUTING.md). High-risk logic goes to the Opus-tier reviewer (`game-logic-opus`), never to the default fast path. Do not switch provider or register accounts.
 
-## Dispatch playbook
-How cards, status, verification and cost tools work: [docs/DISPATCH-PLAYBOOK.md](docs/DISPATCH-PLAYBOOK.md). File map: [docs/ARCHITECTURE.md](docs/ARCHITECTURE.md). Export reference: [docs/API-pi.md](docs/API-pi.md). Do not edit the `Status:` line of a card; the dispatcher owns it.
+## Documentation map
+
+File map: [docs/ARCHITECTURE.md](docs/ARCHITECTURE.md). Export reference: [docs/API-pi.md](docs/API-pi.md). Pixel UI design spec (branch `exp/pixel-ui`): [docs/pixel-ui/eht-style-spec.md](docs/pixel-ui/eht-style-spec.md), applied-state report: [docs/pixel-ui/EHT-APPLIED.md](docs/pixel-ui/EHT-APPLIED.md).

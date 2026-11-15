@@ -1,19 +1,30 @@
-// vfx-slower.mjs — T65/T66: every pixelfx sprite-sheet effect (everything drawn through
-// drawVfxSheet in src/pixel-world.js) must play at 0.6x while the hit frame stays put.
-// T66: cinder-cyclone-iso is the one per-sheet exception and keeps its original 1.0x speed,
-// hit frame and its 6.0 s lifetime (T94: iso rewrite, 157 frames @30fps).
+// vfx-slower.mjs — T65/T66: the pixelfx SIDE-VIEW sprite-sheet effects still played from
+// drawVfxSheet (arrow, fireball, gale-arrow, leaf-storm, priest-heal, pilot test sheets) must
+// play at 0.6x while their hit frame stays put.
+//
+// 2026-11 iso rewrite (task-3): every `*-iso` sheet is authored 1 effect px = 1 hero px and
+// must play at 1.0x (VFX_SPEED_BY_SHEET / the `/-iso$/` rule in vfxSpeed), start and stop at
+// the ISO_FX window instead of the 0.6x fade, and the melee/ranged/hit moments that used the
+// side-view originals (dark-cleave, double-slash, parry, berserk-hit, hit-spark, crit-hit,
+// holy-hit, spell-charge) now draw an iso rewrite. Those originals therefore stay on disk as
+// fallbacks only: this checker no longer requires them to be drawn, and it gains an iso block
+// that measures the 1.0x rate and the from/to window of every wired sheet.
 //
 // Headless: stubs the small slice of DOM/Canvas the world renderer needs, imports the real
 // src/pixel-world.js, and records every drawImage that comes from assets/vfx-sheets/*. The
 // recorded source cell is turned into a sheet frame index, so the checker measures the real
 // runtime animation instead of trusting the source text.
 //
-// For each sheet effect it computes:
+// For each SIDE-VIEW sheet effect it computes:
 //   * anchor — the sheet frame at the hit moment must equal the old frame within 1 frame;
 //   * rate   — 0.5 s of sheet advance must be <speed> x the old advance within 1 frame;
 //   * end    — the age at which the effect fades to 0 / is removed must be at least the
 //              stretched old cut-off (or the slowed sheet duration for effects that run out);
 //   * lifetime — src/pixel-game.js must keep the effect alive to that age (createGame().tick()).
+// For each ISO sheet it computes:
+//   * rate   — 0.4 s of age must advance 0.4 x fps frames (1.0x, not 0.6x);
+//   * window — invisible before ISO_FX.from, invisible after ISO_FX.to, drawn in between;
+//   * lifetime — an effect spawned with `life` is removed within 0.15 s of that life (+delay).
 // Exit: 0 = all hold, 1 = FIX lines printed.
 import fs from 'node:fs';
 import path from 'node:path';
@@ -345,32 +356,10 @@ function addCase (name, id, opts) {
   CASES.push({ name, id, setup, anchorAt, anchorOld, rate, rateMul, rateSpeed, fadeTarget, removalTarget, removalCfg, removalExact, skipRate, skipAnchor, skipFade, skipRemoval });
 }
 
-const holySetup = a => { state.effects.push({ id: 'e', type: 'holy', x: 30, z: 30, sourceX: 26, sourceZ: 30, age: 0.16 + a, delay: 0.16 }); };
-addCase('holy-hit', 'holy-hit', {
-  setup: holySetup, anchorOld: 0.54,
-  fadeTarget: 0.76 / SPEED, removalTarget: Math.max(0.76 / SPEED, sheets['holy-hit'].dur / SPEED),
-  removalCfg: { type: 'holy' },
-});
-
-const melee = (cls, sheet, t0) => {
-  const setup = a => { state.effects.push({ id: 'e', type: 'slash', cls, x: 30, z: 30, sourceX: 26, sourceZ: 30, age: 0.12 + a, delay: 0.12 }); };
-  const cut = { darkknight: [0.5, 0.25], assassin: [0.45, 0.15], paladin: [0.6, 0.35] }[cls];
-  const end = cut[0] + cut[1];
-  addCase(sheet, sheet, {
-    setup, anchorOld: t0, fadeTarget: end / SPEED, removalTarget: end / SPEED,
-    removalCfg: { type: 'slash', extra: { cls } },
-  });
-};
-melee('darkknight', 'dark-cleave', 0.36);
-melee('assassin', 'double-slash', 0.2);
-melee('paladin', 'parry', 0.0);
-
-const berserkSetup = a => { state.effects.push({ id: 'e', type: 'slash', cls: 'berserker', x: 30, z: 30, sourceX: 26, sourceZ: 30, age: 0.12 + a, delay: 0.12 }); };
-addCase('berserk-hit', 'berserk-hit', {
-  setup: berserkSetup, anchorOld: 0,
-  fadeTarget: 1.05 / SPEED, removalTarget: 1.05 / SPEED,
-  removalCfg: { type: 'slash', extra: { cls: 'berserker' } },
-});
+// NOTE (2026-11 iso rewrite): the melee / holy / arrow-impact / windup moments that used to
+// draw holy-hit, dark-cleave, double-slash, parry, berserk-hit, hit-spark, crit-hit and
+// spell-charge now draw an iso rewrite (see the ISO block below); those side-view sheets stay
+// on disk as fallbacks only, so requiring them here would assert the old look back into place.
 
 const FIRE_DELAY = 0.55;
 const blastSetup = a => { state.effects.push({ id: 'e', type: 'spell', x: 30, z: 30, sourceX: 20, sourceZ: 30, age: FIRE_DELAY + a, delay: FIRE_DELAY }); };
@@ -378,18 +367,6 @@ addCase('fireball-blast', 'fireball-blast', {
   setup: blastSetup, anchorOld: 0,
   fadeTarget: 1.15 / SPEED, removalTarget: 1.15 / SPEED,
   removalCfg: { type: 'spell' },
-});
-
-const ARROW_DELAY = 0.55;
-const sparkSetup = a => { state.effects.push({ id: 'e', type: 'arrow', x: 30, z: 30, sourceX: 20, sourceZ: 30, age: ARROW_DELAY + a, delay: ARROW_DELAY }); };
-addCase('hit-spark', 'hit-spark', {
-  setup: sparkSetup, anchorOld: 0, skipFade: true,
-  removalTarget: sheets['hit-spark'].dur / SPEED, removalCfg: { type: 'arrow' },
-});
-const critSetup = a => { state.effects.push({ id: 'e', type: 'arrow', crit: true, x: 30, z: 30, sourceX: 20, sourceZ: 30, age: ARROW_DELAY + a, delay: ARROW_DELAY }); };
-addCase('crit-hit', 'crit-hit', {
-  setup: critSetup, anchorOld: 0, skipFade: true,
-  removalTarget: sheets['crit-hit'].dur / SPEED, removalCfg: { type: 'arrow' },
 });
 
 const HEAL_DELAY = 0.4;
@@ -434,21 +411,6 @@ addCase('leaf-storm', 'leaf-storm', {
   removalCfg: { type: 'skillSelf', extra: { cls: 'archer', fx: 'gale' } },
 });
 
-// spell-charge: sorcerer wind-up, drawn at rate 2.4 by the hunter code
-const attackRow = readJSON('assets/heroes/sorcerer.json').actions.attack;
-const WINDUP_LEN = attackRow.windupFrameTime ? (attackRow.release ?? 1) * attackRow.windupFrameTime : 0.3;
-const chargeSetup = a => {
-  state.time = 10;
-  state.enemies.push({ id: 'm1', type: 'boar', x: 31, z: 30, hp: 10, maxHp: 10 });
-  state.hunters.push({
-    id: 'h1', classId: 'sorcerer', name: 'S1', x: 30, z: 30, status: '戰鬥中', targetId: 'm1',
-    attackTimer: WINDUP_LEN - a, atkAt: -99, hitAt: -99, hp: 10, maxHp: 10,
-  });
-};
-addCase('spell-charge', 'spell-charge', {
-  setup: chargeSetup, skipAnchor: true, rate: [0.02, WINDUP_LEN - 0.02], rateMul: 2.4, skipFade: true, skipRemoval: true,
-});
-
 // pilot / test-effect sheets: they go through the vfxsheet effect path
 for (const id of ['root-snare', 'thorn-row', 'bird', 'haste', 'feather-burst', 'flare']) {
   const setup = a => { state.effects.push({ id: 'e', type: 'vfxsheet', sheet: id, x: 30, z: 30, age: a, dur: 100, k: 0.1 }); };
@@ -467,9 +429,11 @@ addCase('vfxsheet:dur2', 'flare', {
   removalCfg: { type: 'vfxsheet', extra: { dur: 2 } },
 });
 
-// ── per-sheet playback rate (the drawVfxSheet choke point) ────────────────
+// ── per-sheet playback rate for the SIDE-VIEW sheets (0.6x choke point) ────
+// iso sheets are checked by the ISO block below instead: they intentionally run at 1.0x.
 const rateOnly = [];
 for (const id of sheetIds) {
+  if (/-iso$/.test(id)) continue;
   const setup = a => { state.effects.push({ id: 'e', type: 'vfxsheet', sheet: id, x: 30, z: 30, age: a, dur: 100, k: 0.1 }); };
   rateOnly.push({ id, setup });
 }
@@ -482,15 +446,59 @@ for (const c of CASES) {
   if (!c.skipRemoval && c.removalTarget != null) checkRemoval(c.name, c.removalCfg || { type: c.id }, c.removalTarget, c.removalExact);
 }
 
-// every sheet goes through drawVfxSheet at 0.6x, except cinder-cyclone-iso which keeps its
-// original 1.0x (T66). Both are measured explicitly so adding/removing an override cannot
-// silently move another sheet off 0.6x.
+// every SIDE-VIEW sheet still goes through drawVfxSheet at 0.6x. Measured explicitly so
+// adding/removing an override cannot silently move another sheet off 0.6x.
 for (const r of rateOnly) {
   if (r.id === 'cinder-cyclone-iso') continue;
   const s = sheets[r.id];
   checkRate(`sheet:${r.id}`, r.setup, r.id, 0.1, 0.6, 1, SPEED);
 }
-checkRate('sheet:cinder-cyclone-iso', rateOnly.find(r => r.id === 'cinder-cyclone-iso').setup, 'cinder-cyclone-iso', 0.1, 0.6, 1, CINDER_SPEED);
+// cinder-cyclone-iso keeps its 1.0x override (T66) — and, like every iso rewrite, it is drawn
+// through drawIso (ISO_FX), so it is probed through the vfxsheet path with its own tune.
+const cinderRateSetup = a => { state.effects.push({ id: 'e', type: 'vfxsheet', sheet: 'cinder-cyclone-iso', x: 30, z: 30, age: a, life: 9 }); };
+checkRate('sheet:cinder-cyclone-iso', cinderRateSetup, 'cinder-cyclone-iso', 0.1, 0.6, 1, CINDER_SPEED);
+
+// ── iso sheets (2026-11 rewrite): 1.0x, explicit from/to window, 1:1 scale ───────────────
+// The iso rewrites are authored at 1 effect px = 1 hero px and must play at real speed, so
+// this block measures the three things that used to be the 0.6x contract instead:
+//   * speed  — 0.3 s of age advances 0.3 x fps frames (1.0x, not the side-view 0.6x);
+//   * window — nothing is drawn before ISO_FX.from (the moment has not happened yet) and
+//              nothing survives ISO_FX.to (the tail is cut);
+//   * scale  — ISO_PX is 21/67 world units per art px, i.e. 1 hero art px.
+const isoTable = globalThis.__mistvaleIsoTable?.();
+if (!isoTable || !isoTable.sheets) {
+  fix('iso', 'hook', '__mistvaleIsoTable() missing in src/pixel-world.js');
+} else {
+  const isoIds = Object.keys(isoTable.sheets).filter(id => sheets[id]);
+  if (!isoIds.length) fix('iso', 'coverage', 'no iso sheet in ISO_FX matches a file in assets/vfx-sheets');
+  for (const id of isoIds) {
+    const w = isoTable.sheets[id], s = sheets[id], span = w.to - w.from;   // span = 這張表從事件那刻起會播幾秒
+    const setup = a => { state.effects.push({ id: 'e', type: 'vfxsheet', sheet: id, x: 30, z: 30, age: a, life: 9 }); };
+    const a1 = 0.05, a2 = Math.min(a1 + 0.3, span - 0.02);
+    const g1 = sample(`iso:${id}`, setup, id, a1), g2 = a2 > a1 ? sample(`iso:${id}`, setup, id, a2) : null;
+    if (!g1) { fix(`iso:${id}`, 'coverage', `sheet ${id} was not drawn at age ${a1.toFixed(2)}s (ISO_FX window ${w.from}–${w.to} = ${span.toFixed(2)}s of effect age)`); continue; }
+    const wantFrame = Math.floor(Math.min(w.from + a1, s.dur) * s.fps);
+    if (Math.abs(g1.frame - wantFrame) > 1) fix(`iso:${id}`, 'rate', `frame ${g1.frame} at age ${a1.toFixed(2)}s, want ${wantFrame} (1.0x from sheet time ${(w.from + a1).toFixed(2)}s)`);
+    if (g2) {
+      const delta = g2.frame - g1.frame, expected = (a2 - a1) * s.fps;
+      if (Math.abs(delta - expected) > 1) fix(`iso:${id}`, 'speed', `advanced ${delta} frames over ${(a2 - a1).toFixed(2)}s, want ${expected.toFixed(1)} (1.0x, not 0.6x)`);
+    }
+    if (sample(`iso:${id}`, setup, id, -0.05, false)) fix(`iso:${id}`, 'window', 'drawn before the event (negative age)');
+    if (sample(`iso:${id}`, setup, id, span + 0.15, false)) fix(`iso:${id}`, 'window', `still drawn ${(span + 0.15).toFixed(2)}s after the event, want the tail cut at ${span.toFixed(2)}s`);
+  }
+  // 1:1 scale: 1 effect px = 1 hero px = 21 world units / 67 px hero art
+  if (Math.abs(isoTable.px - 21 / 67) > 1e-6) fix('iso', 'scale', `ISO_PX ${isoTable.px}, want 21/67 (1 effect px = 1 hero px)`);
+  console.log(`   iso: ${isoIds.length} rewrites at 1.0x, window + 1:1 scale checked`);
+}
+
+// ── iso lifetime: an iso effect carries its own `life` (seconds) and must be removed then ──
+// (src/pixel-game.js culls `type==='vfxsheet'` at e.life, plus e.delay, instead of the old
+// ((dur||2)+.3)/.6 side-view stretch).
+for (const [id, life, delay] of [['soul-rise-iso', 3.6, 0.1], ['magic-circle-cast-iso', 1.3, 0], ['portal-iso', 4.7, 0], ['hit-spark-iso', 0.5, 0.07]]) {
+  const got = removalAge({ type: 'vfxsheet', extra: { sheet: id, life, delay } });
+  const want = life + delay;
+  if (!(Math.abs(got - want) <= 0.15)) fix(`iso-lifetime:${id}`, 'lifetime', `removed at ${got}s, want ${want.toFixed(2)}s (life ${life} + delay ${delay})`);
+}
 
 // cinder-cyclone-iso ending: at 1.0x the 157-frame sheet is clamped to its last frame from
 // 5.23 s on, and the effect must keep playing it (alpha 1, no fade) until the 6.0 s
@@ -520,5 +528,5 @@ if (failures) {
   console.log(`\n${failures} vfx-slower rule(s) failed`);
   process.exit(1);
 }
-console.log(`OK  ${sheetIds.length - 1} sheets at ${SPEED}x, cinder-cyclone-iso at ${CINDER_SPEED}x, ${CASES.length} effect cases keep their hit frame and ending`);
+console.log(`OK  ${rateOnly.length} side-view sheets at ${SPEED}x, cinder-cyclone-iso at ${CINDER_SPEED}x, ${sheetIds.filter(id => /-iso$/.test(id)).length} iso rewrites at 1.0x, ${CASES.length} effect cases keep their hit frame and ending`);
 console.log('vfx-slower: PASS');

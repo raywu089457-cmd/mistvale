@@ -76,6 +76,11 @@ Slash trail / Impact flash / Dust 放 Layer 10 VFX,不得蓋住角色本體(VFX 
 一律引用這張表,不再各自抄數字(TMW 的 `model/neutral.xml` 也是同一個做法:方向 → 動作 → 格號寫死一次,別處只引用)。
 
 下表是**實際出貨的 meta**,不是設計稿(逐一讀 `assets/heroes/*.json` 得來的,不是照抄設計稿)。
+
+> **2026-11-13 起遊戲是 4 方向**(docs/DV2-ADOPTION-PLAN.md Phase 2):英雄與魔物只朝上/右/下/左,移動也只沿畫面 4 軸。
+> 遊戲只會選 `<動作>`(右)、`<動作>Down`、`<動作>Up`、左 = `<動作>` 鏡像或烘好的 `<動作>Left`(規則在 `src/dir4.js` `dirSuffix`/`leftRow`)。
+> 下表標「斜向」的列(`*DownRight`、`*UpRight`、`*DownLeft`、`*UpLeft`)仍在 sheet 裡,但**不會再被畫到**(未使用資產;要修剪見計畫 2.8)。
+> 魔物 `assets/monsters3`:斜向的 4 組列(`*DownRight/*DownLeft/*UpLeft/*UpRight`)已在計畫 2.8 修剪掉,sheet 只剩 原列/Down/Up/Left + hurt/death。新畫的英雄/魔物不需要畫斜向列。
 「格數」與「節奏」是 7 個英雄的實測範圍,最後兩欄是拿聖騎士當具體範例。
 
 | 動作 (action) | 用途 | 格數 `frames` | 格號 (0 起算) | `frameTime` | 節奏欄位 | 例:paladin 的 `y` / `cell` |
@@ -84,17 +89,17 @@ Slash trail / Impact flash / Dust 放 Layer 10 VFX,不得蓋住角色本體(VFX 
 | `idleDown` / `idleUp` | 正面 / 背面待機 | 1 | 0 | 0.16 | — | y 100、200 / cell 100 |
 | `walk` | 側面走路 | 8 | 0–7 | 0.125(牧師、黑騎士 0.1) | — | y 300 / cell 100 |
 | `walkDown` / `walkUp` | 正面 / 背面走路 | 8 | 0–7 | 0.125 | — | y 400、500 / cell 100 |
-| `walkDownRight` / `walkUpRight` | 斜向走路 | 8 | 0–7 | 0.125 | — | y 600、700 / cell 100 |
+| `walkDownRight` / `walkUpRight` | 斜向走路(4 方向後未使用) | 8 | 0–7 | 0.125 | — | y 600、700 / cell 100 |
 | `hurt` | 受擊 | 4 | 0–3 | 0.1 | — | y 800 / cell 100 |
 | `victory` | 歡呼 | 5(黑騎士 8、牧師 1) | 0–4 | 0.1 | — | y 900 / cell 100 |
 | `death` | 倒地 | 8 | 0–7 | 0.1 | — | y 1000 / cell 100 |
 | `skill` | 技能 | 8–9 | 0–7 / 0–8 | 0.075 | release 4 | y 1200 / cell 100 |
 | `attack` | 側面攻擊(預設) | 8–9 | 0–8 | 0.075 | release 4–7 · impact 5–8 · 只有聖騎士有 `strikeDur`(5 段) | y 1300 / cell 160 |
-| `attackDownRight` / `attackDown` / `attackUpRight` / `attackUp` | 八向攻擊 | 8–9 | 0–8 | 0.075 | 同該職業 `attack` | y 1460、1620、1780、1940 / cell 160 |
-| `attackLeft` / `attackDownLeft` / `attackUpLeft` | 左向(烘好的鏡像列) | 8–9 | 0–8 | 0.075 | 同該職業 `attack` | y 2100、2260、2420 / cell 160 |
+| `attackDown` / `attackUp`(`attackDownRight` / `attackUpRight` 4 方向後未使用) | 上下攻擊 | 8–9 | 0–8 | 0.075 | 同該職業 `attack` | y 1460、1620、1780、1940 / cell 160 |
+| `attackLeft`(`attackDownLeft` / `attackUpLeft` 未使用) | 左向(烘好的鏡像列) | 8–9 | 0–8 | 0.075 | 同該職業 `attack` | y 2100、2260、2420 / cell 160 |
 | `idleLeft` / `walkLeft` | 左向待機 / 走路 | 1 / 8 | 0 / 0–7 | 0.16 / 0.125 | — | y 2580、2680 / cell 100 |
-| `idleDownRight` / `idleUpRight` / `idleDownLeft` / `idleUpLeft` | 斜向待機 | 1 | 0 | 0.16 | — | y 2780、2880、2980、3080 / cell 100 |
-| `walkDownLeft` / `walkUpLeft` | 斜向走路 | 8 | 0–7 | 0.125 | — | y 3180、3280 / cell 100 |
+| `idleDownRight` / `idleUpRight` / `idleDownLeft` / `idleUpLeft` | 斜向待機(未使用) | 1 | 0 | 0.16 | — | y 2780、2880、2980、3080 / cell 100 |
+| `walkDownLeft` / `walkUpLeft` | 斜向走路(未使用) | 8 | 0–7 | 0.125 | — | y 3180、3280 / cell 100 |
 
 - 格號是**列上的欄位序號,0 起算**:像素位置 `x = 格號 × cell`、`y = 該列在該職業 atlas 上的起點`。
   只有 meta 帶 `cols` 的列才折行(`x = (格號 % cols) × cell`、`y = 列起點 + floor(格號 / cols) × cell`);例如刺客的 `attackDown` 就帶 `cols`。

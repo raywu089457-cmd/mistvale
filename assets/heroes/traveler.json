@@ -1,0 +1,143 @@
+{
+ "hero": "traveler",
+ "heroHeight": 50,
+ "footFromBottom": 1,
+ "cell": 64,
+ "cols": 9,
+ "palette": [
+  "#0e0c14",
+  "#75502d",
+  "#1d0f0e",
+  "#050100",
+  "#f9d5ba",
+  "#421603",
+  "#1d131e",
+  "#704325",
+  "#290e02",
+  "#5f1f04",
+  "#4b2b13",
+  "#271920",
+  "#311210",
+  "#62351c",
+  "#160701",
+  "#9a6f37"
+ ],
+ "groups": {
+  "outfit": [
+   1,
+   7,
+   9,
+   10,
+   13,
+   15
+  ],
+  "metal": []
+ },
+ "actions": {
+  "idleUp": {
+   "y": 0,
+   "cell": 64,
+   "cols": 9,
+   "frames": 1,
+   "frameTime": 0.16,
+   "bakedMotion": true
+  },
+  "idleDown": {
+   "y": 64,
+   "cell": 64,
+   "cols": 9,
+   "frames": 1,
+   "frameTime": 0.16,
+   "bakedMotion": true
+  },
+  "idle": {
+   "y": 128,
+   "cell": 64,
+   "cols": 9,
+   "frames": 1,
+   "frameTime": 0.16,
+   "bakedMotion": true
+  },
+  "walkUp": {
+   "y": 192,
+   "cell": 64,
+   "cols": 9,
+   "frames": 9,
+   "frameTime": 0.125,
+   "bakedMotion": true
+  },
+  "walkDown": {
+   "y": 256,
+   "cell": 64,
+   "cols": 9,
+   "frames": 9,
+   "frameTime": 0.125,
+   "bakedMotion": true
+  },
+  "walk": {
+   "y": 320,
+   "cell": 64,
+   "cols": 9,
+   "frames": 9,
+   "frameTime": 0.125,
+   "bakedMotion": true
+  },
+  "attackUp": {
+   "y": 384,
+   "cell": 64,
+   "cols": 9,
+   "frames": 8,
+   "frameTime": 0.075,
+   "bakedMotion": true
+  },
+  "attackDown": {
+   "y": 448,
+   "cell": 64,
+   "cols": 9,
+   "frames": 8,
+   "frameTime": 0.075,
+   "bakedMotion": true
+  },
+  "attack": {
+   "y": 512,
+   "cell": 64,
+   "cols": 9,
+   "frames": 8,
+   "frameTime": 0.075,
+   "bakedMotion": true
+  },
+  "skill": {
+   "y": 576,
+   "cell": 64,
+   "cols": 9,
+   "frames": 6,
+   "frameTime": 0.075,
+   "bakedMotion": true
+  },
+  "hurt": {
+   "y": 640,
+   "cell": 64,
+   "cols": 9,
+   "frames": 6,
+   "frameTime": 0.1,
+   "bakedMotion": true
+  },
+  "death": {
+   "y": 704,
+   "cell": 64,
+   "cols": 9,
+   "frames": 3,
+   "frameTime": 0.12,
+   "bakedMotion": true
+  },
+  "victory": {
+   "y": 768,
+   "cell": 64,
+   "cols": 9,
+   "frames": 7,
+   "frameTime": 0.16,
+   "bakedMotion": true
+  }
+ },
+ "source": "liberated-pixel-cup / Universal-LPC-Spritesheet-Character-Generator (CC-BY-SA 3.0 + GPL 3.0), composed layers: body/bodies/male/light + torso/clothes/longsleeve/longsleeve/male/leather + torso/armour/leather/male/leather + legs/pants/male/leather + feet/boots/male/brown + head/heads/human/male + hair/plain/male/dark_brown"
+}

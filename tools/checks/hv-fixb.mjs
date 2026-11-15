@@ -118,6 +118,10 @@ if (sceneNeeded) for (const v of VIEWS) {
     });
     chk(r.open, T('舊左面板') + ': 打得開', T('舊左面板') + ': 按村務鈕沒打開');
     chk(r.bi === 'none' && r.border === 0 && r.inner === 0, T('舊左面板') + ': 沒有 border-image／棕框', T('舊左面板') + `: 還有 border-image（aside ${r.bi.slice(0, 12)}、邊 ${r.border}px、內部 ${r.inner} 個）`);
+    if (landscapeDrawer) {   // Z2D R10(ui-hv.css「橫向左側委託面板」):橫向面板自己就是委託面板,#hv-quest 刻意藏起來(visibility:hidden)避免與面板重複;改驗面板裡的委託區塊看得到
+      const qp = await page.evaluate(() => { const e = document.querySelector('#left-panel .quest-panel'), q = document.querySelector('#hv-quest'); if (!e) return null; const r = e.getBoundingClientRect(), hit = document.elementFromPoint(r.left + r.width / 2, r.top + Math.min(20, r.height / 2)); return { vis: r.width > 0 && r.height > 0, hit: !!hit && e.contains(hit), trackerHidden: getComputedStyle(q).visibility === 'hidden' }; });
+      chk(qp && qp.vis && qp.hit && qp.trackerHidden, T('舊左面板') + ': 橫向面板內的委託區塊看得到、點得到,任務追蹤讓位(Z2D R10)', T('舊左面板') + `: 橫向委託區塊不可用(${JSON.stringify(qp)})`);
+    } else
     chk(r.qVisible && r.qHit && !r.overlap, T('舊左面板') + ': 打開時任務追蹤仍看得到、點得到、不互蓋', T('舊左面板') + `: 任務追蹤被藏起來或被蓋住（visible=${r.qVisible}, hit=${r.qHit}, overlap=${r.overlap}）`);
     await shot(page, 'leftpanel-' + v.w + 'x' + v.h);
   }
@@ -183,6 +187,11 @@ if (sceneNeeded) for (const v of VIEWS) {
       await reset(page); await act(page, scene); await page.waitForTimeout(500);
       const cs = await cardsOf(sel);
       if (scene === 'craft') { chk(cs.length > 0 && cs.every(c => c.big === 0 && c.small >= 1 && c.minS >= lim), T(label) + `: ${cs.length} 列清單,每列右側金棕動作鈕＋小鈕(≥${lim}px)`, T(label) + `: 清單列按鈕結構不對(滿寬 ${[...new Set(cs.map(c => c.big))].join('/')}、小鈕 ${[...new Set(cs.map(c => c.small))].join('/')}、最小 ${Math.min(...cs.map(c => c.minS))})`); if (v.w === 1440 || v.w === 390) await shot(page, `${scene}-${v.w}x${v.h}`); continue; }
+      if (scene === 'worldmap') {   // Z2C:區域卡改成清單列(.z2c-row):收合時只有「整列主鈕(展開詳情)＋前往/回村」兩顆看得到,「詳情」鈕收在展開區(寬 0),沒有滿寬鈕
+        const rr = await page.evaluate(sel => [...document.querySelectorAll('#modal-content ' + sel)].map(c => { const bs = [...c.querySelectorAll('button')].map(b => { const r = b.getBoundingClientRect(); return { a: b.dataset.action, w: r.width, h: r.height }; }).filter(b => b.w > 0 && b.h > 0); return { acts: bs.map(b => b.a).sort().join(), min: bs.length ? Math.min(...bs.map(b => Math.min(b.w, b.h))) : 0 }; }), sel);
+        chk(rr.length > 0 && rr.every(r => /^(regionRow,regionTravel|regionRow,regionView)$/.test(r.acts) && r.min >= lim), T(label) + `: ${rr.length} 列清單,每列 整列主鈕＋前往/回村 兩顆(≥${lim}px),詳情收在展開區`, T(label) + `: 區域清單列按鈕結構不對(${[...new Set(rr.map(r => r.acts))].join(' | ')}、最小 ${Math.min(...rr.map(r => r.min))})`);
+        if (v.w === 1440 || v.w === 390) await shot(page, `${scene}-${v.w}x${v.h}`); continue;
+      }
       chk(cs.length > 0 && cs.every(c => c.big === 1), T(label) + `: ${cs.length} 張卡每張一顆滿寬主按鈕`, T(label) + `: 每張卡的滿寬按鈕數 ${[...new Set(cs.map(c => c.big))].join('/')}（應 1），小按鈕數 ${[...new Set(cs.map(c => c.small))].join('/')}`);
       chk(cs.every(c => c.minS >= lim && (scene === 'trade' || c.maxS <= 48.5)), T(label) + `: 其餘動作是 ${v.phone ? 44 : 32}px 小圖示鈕`, T(label) + `: 小鈕尺寸不對（最小 ${Math.min(...cs.map(c => c.minS))}、最大 ${Math.max(...cs.map(c => c.maxS))}）`);
       if (v.w === 1440 || v.w === 390) await shot(page, `${scene}-${v.w}x${v.h}`);

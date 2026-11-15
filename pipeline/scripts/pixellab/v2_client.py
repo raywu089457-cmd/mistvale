@@ -255,7 +255,10 @@ def edit_image(image: Path, description: str, out_dir: Path | None = None, seed:
         print(json.dumps(data, ensure_ascii=False)[:400])
         raise SystemExit("沒有 job id")
     result = poll(job, label="edit-image")
-    images = (result.get("last_response") or {}).get("images") or result.get("images") or []
+    last = result.get("last_response") or {}
+    images = last.get("images") or result.get("images") or []
+    if not images and last.get("image"):  # /edit-image-pixen 回單張 image，不是 images 陣列
+        images = [last["image"]]
     if out_dir and images:
         import base64 as _b64
         out_dir = Path(out_dir)

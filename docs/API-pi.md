@@ -104,13 +104,44 @@ The public game API used by `pixel-ui.js` and the tests. Most mutators return `{
 
 Pixel-art renderer: atlas sprites, portraits, building images, the isometric village map and its camera.
 
-- `spriteDataURL(classId, rarity)` (line 139): returns an 84×90 data URL portrait of that class sprite.
-- `drawPortrait(canvas, hunter, options)` (line 144): draws a hunter's idle portrait into a canvas.
-- `buildingDataURL(id)` (line 231): returns a data URL of that building's sprite, cached in memory.
-- `MAP_PALETTE` (line 303): map of biome → base ground colour string.
-- `MAP_ACCENT` (line 304): accent colours per surface type {grass,snow,desert,mountain,road,sea}.
-- `createWorld(canvas, {onSelect,onPlace,getState})` (line 648): builds the renderer; returns update/resize/project/dispose plus camera, fog, sign and villager helpers.
-- `createPixelWorld` (line 2183): alias of `createWorld`, the name the UI imports.
+- `spriteDataURL(classId, rarity)` (line 141): returns an 84×90 data URL portrait of that class sprite.
+- `drawPortrait(canvas, hunter, options)` (line 147): draws a hunter's idle portrait into a canvas (paperdoll front idle frame when the paperdoll renderer is on, else the hero sheet).
+- `buildingDataURL(id)` (line 238): returns a data URL of that building's sprite, cached in memory.
+- `MAP_PALETTE` (line 310): map of biome → base ground colour string.
+- `MAP_ACCENT` (line 311): accent colours per surface type {grass,snow,desert,mountain,road,sea}.
+- `createWorld(canvas, {onSelect,onPlace,getState})` (line 694): builds the renderer; returns update/resize/project/dispose plus camera, fog, sign and villager helpers.
+- `createPixelWorld` (line 2846): alias of `createWorld`, the name the UI imports.
+
+## src/paperdoll.js
+
+Layered character + equipment animation engine (DV2 system port, docs/PAPERDOLL.md). Pure logic except `drawParts`.
+
+- `DIR` (line 18): direction indices 0 up, 1 right, 2 down, 3 left, 4 upRight, 5 downRight, 6 downLeft, 7 upLeft.
+- `MIRROR` (line 25): head/helmet direction remap for `headMirror` actions (DV2 SPPROCTYPE), extended to diagonals.
+- `getSlot(af, tick)` (line 43): cumulative end-time table → slot index; wraps, handles negative ticks.
+- `dir8to4(d, facing)` (line 74): 8-direction name/index → 0..3 (diagonals → up/down).
+- `dirIndex(d, facing)` (line 89): any direction input → 0..7.
+- `pickRow(rows, d)` (line 101): row for direction d, else diagonal → up/down → side fallback; returns {row, dir}.
+- `resolveAction(data, name, weaponType)` (line 123): game action name (with direction suffix) → data action key.
+- `actionTiming(data, name, weaponType)` (line 146): ticks/seconds, release and impact slot/tick/seconds of an action.
+- `lookFromHunter(h, data)` (line 208): hunter (classId, equipment, weaponLevel) → paperdoll look.
+- `computeParts(data, state)` (line 290): ordered draw records for one frame (no canvas).
+- `drawParts(ctx, parts, images, origin, scale)` (line 445): draws computeParts output on a canvas.
+
+## src/paperdoll-hero.js
+
+In-game hookup behind the `?doll=hero` flag: maps sheetPose timing to paperdoll ticks and composes cached frames.
+
+- `parseDollSpec(v)` (line 13): `'hero'` / `'hero:paladin,archer'` → flag spec, anything else → null.
+- `dollDirName(vdir, facing)` (line 28): sheet vdir + facing → paperdoll 8-direction name.
+- `dollActionTick(o)` (line 58): game moment (pose, atkAt, hitAt delay, HIT_STOP, …) → {action, tick, phase}.
+- `advanceNoSkip(prev, cur, stamp, t, af)` (line 141): at most one slot per drawn frame within an attack/skill.
+- `hurtChain(prev, hitAt, t, hurtLen)` (line 156): re-hits during a playing hurt continue it instead of restarting.
+- `createDollHero(opts)` (line 165): loads data/images, `covers(classId)`, `compose(h, req)` with an LRU frame cache.
+
+## src/paperdoll-lab.js
+
+- `mountPaperdollLab(opts)` (line 20): `?doll=1` floating lab panel (class/action/8 directions/gear/tick/debug).
 
 ## src/pixel-ui.js
 

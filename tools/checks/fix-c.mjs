@@ -152,12 +152,16 @@ for (const view of ['desktop', 'tablet', 'phone', 'land']) {
   const hand = (css.match(/--hv-left-top:calc\(env\(safe-area-inset-top,0px\) \+ (116|92)px/g) || []).length;
   const copies = css.split(/\r?\n/).filter(l => /(#hv-left|#left-panel|--hv-lp-top)/.test(l) && /(116|92)px/.test(l)).length;
   if (hand !== 2 || copies) fix(`D: 116px/92px 應只在 --hv-left-top 的兩個定義各出現一次(定義 ${hand} 處、別處手抄 ${copies} 行)`);
-  const before = JSON.parse(fs.readFileSync(new URL('../../output/ui-audit/fix-c/align-before.json', import.meta.url), 'utf8'));
+  // 「修前」量測值不再靠手動產生的 output/ui-audit/fix-c/align-before.json(output/ 不進 git,乾淨 checkout 沒有它 → ENOENT):
+  // 修前的值 = 共用變數本身的解析值,所以現場解析 --hv-left-top(探針元素)當基準:#hv-left top 必須等於它、#left-panel top 必須等於它 + 56(任務追蹤高 44 + 間距 12,見 ui-hv.css --hv-lp-top)。
+  // 若有人手上還留著 align-before.json,額外跟它比一次。
+  let before = null; try { before = JSON.parse(fs.readFileSync(new URL('../../output/ui-audit/fix-c/align-before.json', import.meta.url), 'utf8')); } catch { }
   for (const view of ['desktop', 'tablet', 'phone', 'land']) {
     const ctx = await L.newCtx(browser, L.VIEWS[view]); const page = await ctx.newPage(); await L.boot(page, url);
-    const r = await page.evaluate(() => { if (document.querySelector('#left-panel').classList.contains('hidden')) document.querySelector('#reopen-left')?.click(); return new Promise(res => setTimeout(() => res({ hvLeftTop: document.querySelector('#hv-left').getBoundingClientRect().top, lpTop: document.querySelector('#left-panel').getBoundingClientRect().top }), 400)); });
-    if (Math.abs(r.hvLeftTop - before[view].hvLeftTop) > 0.5 || Math.abs(r.lpTop - before[view].lpTop) > 0.5) fix(`D ${view}: #hv-left top ${r.hvLeftTop}/#left-panel top ${r.lpTop},修前 ${before[view].hvLeftTop}/${before[view].lpTop}`);
-    else ok(`D ${view}: #hv-left ${r.hvLeftTop} / #left-panel ${r.lpTop}(同修前)`);
+    const r = await page.evaluate(() => { if (document.querySelector('#left-panel').classList.contains('hidden')) document.querySelector('#reopen-left')?.click(); return new Promise(res => setTimeout(() => { const p = document.createElement('div'); p.style.cssText = 'position:fixed;left:0;width:1px;height:1px;visibility:hidden;top:var(--hv-left-top)'; document.body.appendChild(p); const base = p.getBoundingClientRect().top; p.remove(); res({ base, hvLeftTop: document.querySelector('#hv-left').getBoundingClientRect().top, lpTop: document.querySelector('#left-panel').getBoundingClientRect().top }); }, 400)); });
+    const exp = before && before[view] ? before[view] : { hvLeftTop: r.base, lpTop: r.base + 56 };
+    if (Math.abs(r.hvLeftTop - exp.hvLeftTop) > 0.5 || Math.abs(r.lpTop - exp.lpTop) > 0.5) fix(`D ${view}: #hv-left top ${r.hvLeftTop}/#left-panel top ${r.lpTop},預期 ${exp.hvLeftTop}/${exp.lpTop}`);
+    else ok(`D ${view}: #hv-left ${r.hvLeftTop} / #left-panel ${r.lpTop}(同${before && before[view] ? '修前紀錄' : '共用變數 --hv-left-top(+56)'})`);
     await ctx.close();
   }
 }

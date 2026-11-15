@@ -1,8 +1,10 @@
+import { vdir4, dirSuffix, leftRow, rows4, fromScreen, toScreen, quantize4, quantize4Stable, facingOk, screenAngle, DIR4_CENTER_DEG, QUADRANT_OFFSET_DEG, FACING_HYSTERESIS_DEG } from './src/dir4.js';
+import fs from 'node:fs';
 import assert from 'node:assert/strict';
-import { createGame, OFFLINE, ENEMIES } from './src/pixel-game.js';
+import { createGame, OFFLINE, ENEMIES, MOUNT_SPEED_MULT, isRideable, hunterGender, GENDERS, nameGender, NAME_GENDER } from './src/pixel-game.js';
 import { doorStand, buildingSolid } from './src/landscape-layout.js';
 import { blockCenter } from './src/village-grid.js';
-import { BUILDINGS, CLASSES, MATERIALS, PRODUCTS, PILOT_ATTACK, AI_ATTACK_LOCK, KITE } from './src/pixel-data.js';
+import { BUILDINGS, CLASSES, MATERIALS, PRODUCTS, RECIPES, PILOT_ATTACK, AI_ATTACK_LOCK, KITE } from './src/pixel-data.js';
 import { regionCenter, regionContains, walkable, RING_ROAD, onRingRoad } from './src/overworld.js';
 import { MONSTER_RANGED, MONSTER_SPEED_MULT, MONSTER_ATTACK_RATE, REGION_DENSITY } from './src/pixel-data.js';
 import { pickHeroLine, CHATTER_LINES } from './src/hero-chatter.js';
@@ -33,8 +35,8 @@ function assertFiniteEconomy(s) {
 }
 
 const g = createGame();
-assert.equal(g.state.version, 2); assert.equal(g.state.hunters.length, CLASSES.length); assert.equal(new Set(g.state.hunters.map(h => h.classId)).size, CLASSES.length);   // 2026-10-28 使用者:開局預設各職業一隻
-assert.equal(g.state.gold, 1500); assert.equal(g.state.capacity, 8); assert.equal(g.state.visitors.length, 3);
+assert.equal(g.state.version, 3); assert.equal(g.state.hunters.length, CLASSES.length); assert.equal(new Set(g.state.hunters.map(h => h.classId)).size, CLASSES.length);   // 2026-10-28 使用者:開局預設各職業一隻
+assert.equal(g.state.gold, 1500); assert.equal(g.state.capacity, Math.max(8, CLASSES.length + 2)); assert.equal(g.state.visitors.length, 3);
 assert.ok(g.state.hunters.every(h => h.gold === 100 && h.level >= 3 && h.level <= 5));
 assert.equal(g.recruit('__proto__').ok, false); assert.equal(g.recruit('missing').ok, false);
 const visitor = { ...g.state.visitors[0] }, goldBeforeRecruit = g.state.gold;
@@ -114,11 +116,23 @@ assert.equal(trading.state.gold, 1470); assert.equal(merchant.gold, 130); assert
 const poorTown = createGame(), seller = isolate(poorTown); poorTown.state.time = 100; poorTown.state.gold = 4; Object.assign(seller,marketDoor); seller.inventory.ore = 20;
 run(poorTown, 4, true); assert.equal(poorTown.state.gold, 1); assert.equal(seller.inventory.ore, 19); assert.equal(seller.gold, 103);
 
-const gear = createGame(), buyer = isolate(gear),forge=BUILDINGS.find(b=>b.id==='forge'); gear.state.time = 100; Object.assign(buyer, doorStand(forge,forge)); buyer.gold = 300;
-assert.equal(gear.craftEquipment('weapon').ok, true); assert.equal(gear.craftEquipment('armor').ok, true);
+const gear = createGame(), buyer = isolate(gear),forge=BUILDINGS.find(b=>b.id==='forge'); gear.state.time = 100; Object.assign(buyer, doorStand(forge,forge)); buyer.gold = 1000;
+const gearIds = RECIPES.map(r => r.id);
+for (const id of gearIds) assert.equal(gear.craftEquipment(id).ok, true, `craft ${id}`);
 const gearMoney = totalMoney(gear), attackBefore = buyer.attack, hpBefore = buyer.maxHp; run(gear, 5, true);
-assert.ok(buyer.equipment.weapon && buyer.equipment.armor); assert.equal(gear.state.gearStock.weapon, 0); assert.equal(gear.state.gearStock.armor, 0);
-assert.equal(gear.state.counts.gearSold, 2); assert.equal(totalMoney(gear), gearMoney); assert.ok(buyer.attack > attackBefore && buyer.maxHp > hpBefore);
+assert.ok(gearIds.every(id => buyer.equipment[id] === true), 'auto-buy buys every missing slot'); assert.ok(gearIds.every(id => gear.state.gearStock[id] === 0));
+assert.equal(gear.state.counts.gearSold, gearIds.length); assert.equal(totalMoney(gear), gearMoney); assert.ok(buyer.attack > attackBefore && buyer.maxHp > hpBefore);
+{ // 舊存檔(v2)只有 {weapon,armor}:armor 視為六件全穿(舊玩家不掉戰力),沒賣掉的 armor 庫存併到胸甲
+  const old = createGame().serialize(); old.version = 2;
+  Object.assign(old.hunters[0], { equipment: { weapon: true, armor: true }, weaponLevel: 3 });
+  const re = createGame(old), rh = re.state.hunters[0];
+  assert.deepEqual(rh.equipment, { weapon: true, helm: true, chest: true, belt: true, legs: true, boots: true, gloves: true });
+  assert.equal(rh.weaponLevel, 3); assert.ok(re.state.hunters.slice(1).every(h => Object.values(h.equipment).every(v => v === false)));
+  const bare = createGame().serialize(); bare.version = 2; bare.hunters[0].equipment = { weapon: false, armor: false };
+  assert.ok(Object.values(createGame(bare).state.hunters[0].equipment).every(v => v === false));
+  const stock = createGame().serialize(); stock.version = 2; stock.gearStock = { weapon: 0, armor: 2 };
+  const restocked = createGame(stock); assert.equal(restocked.state.gearStock.chest, 2); assert.equal(restocked.state.gearStock.weapon, 0); assert.equal(restocked.state.gearStock.armor, undefined);
+}
 assert.equal(gear.enhance(buyer.id).ok, false); assert.equal(gear.construct('enhancement').ok, true); assert.equal(gear.enhance(buyer.id).ok, true); assert.equal(buyer.weaponLevel, 1);
 assert.equal(gear.learnSkill(buyer.id).ok, false); gear.state.ore += 100; assert.equal(gear.construct('academy').ok, true); assert.equal(gear.learnSkill(buyer.id).ok, true);
 assert.equal(gear.train(buyer.id).ok, false); gear.state.gold += 1000; assert.equal(gear.construct('training').ok, true);
@@ -130,7 +144,7 @@ assert.equal(gear.setDifficulty(1).ok, true); assert.equal(gear.setDifficulty(4)
 const buildings = createGame(); buildings.state.gold = buildings.state.wood = buildings.state.ore = 100000;
 assert.equal(buildings.upgrade('forge').ok, true); assert.deepEqual(buildings.getUpgradeCost('forge'), { gold: 352, wood: 40, ore: 48 });
 assert.equal(buildings.upgrade('forge').ok, false, 'Hall gates higher building levels'); assert.equal(buildings.upgrade('hall').ok, true); assert.equal(buildings.upgrade('forge').ok, true);
-assert.equal(buildings.upgrade('house').ok, true); assert.equal(buildings.state.capacity, 10); assert.equal(buildings.upgrade('academy').ok, false);
+assert.equal(buildings.upgrade('house').ok, true); assert.equal(buildings.state.capacity, Math.max(8, CLASSES.length + 2) + 2); assert.equal(buildings.upgrade('academy').ok, false);
 assert.equal(buildings.construct('academy').ok, true); assert.equal(buildings.construct('academy').ok, false);
 const marketBlock = blockCenter(-2, 0), plazaBlock = blockCenter(0, 0);
 assert.equal(buildings.moveBuilding('bounty', marketBlock.x + 1, marketBlock.z - 1).ok, true); assert.equal(buildings.moveBuilding('hall', plazaBlock.x, plazaBlock.z).ok, false, 'plaza stays open'); assert.equal(buildings.moveBuilding('hall', -100, 0).ok, false); assert.equal(buildings.moveBuilding('dungeon', 0, 0).ok, false);
@@ -455,6 +469,7 @@ const holdX = mh.x, holdZ = mh.z; manual.pilotInput(0, 0); run(manual, 3);
 assert.ok(Math.hypot(mh.x - holdX, mh.z - holdZ) < 0.001, 'pilot hunter is not moved by the AI while under manual control');
 assert.equal(mh.status, '手動操控'); manual.pilotStop();
 // 面向只在「真的走動」時更新:站著推搖桿不會轉、空揮維持攻擊前的面向、僵直結束走起來才轉
+// 2026-11-15 起可以斜走:搖桿方向就是移動方向(不量化成畫面軸);動畫方向的 4 象限在畫面端(src/dir4.js)。
 const turn = createGame(); const th = isolate(turn); assert.equal(turn.pilotStart(th.id).ok, true);
 th.x = 6; th.z = 30; turn.pilotInput(1, 0); for (let i = 0; i < 6; i++) turn.tick(0.1); turn.pilotInput(0, 0); turn.tick(0.1);
 assert.ok(turn.pilotState().faceX > 0.9, 'walking east sets the facing east');
@@ -472,7 +487,37 @@ turn.tick(0.6);                            // 僵直結束、真的走起來 →
 assert.ok(turn.pilotState().faceX < -0.5, 'walking west after the recovery turns the character');
 assert.ok(turn.pilotState().x < eastX, 'and it actually walks west');
 turn.pilotStop();
-// 手動操控法師:魔法球真的會飛(PILOT_ORB)——空打朝目前面向的角度(不吸附 8 方向)、路徑上碰到的魔物都打(穿透)、飛完射程就消失
+// ── 斜走(2026-11-15 使用者:「允許斜走」):斜向輸入就斜著走,方向 = 輸入方向(不量化成畫面軸) ──
+{
+  const g4 = createGame(); const q = isolate(g4); assert.equal(g4.pilotStart(q.id).ok, true); q.x = 6; q.z = 30;
+  const scr = (sx, sy) => fromScreen(sx, sy);
+  const angleOf = (dx, dz) => { const s = toScreen(dx, dz); return Math.atan2(s.sy, s.sx) * 180 / Math.PI; };
+  const go = (sx, sy, n = 3) => { q.x = 6; q.z = 30; const v = scr(sx, sy); g4.pilotInput(v.x, v.z); const out = []; for (let i = 0; i < n; i++) { const x0 = q.x, z0 = q.z; g4.tick(0.1); out.push(angleOf(q.x - x0, q.z - z0)); } return out; };
+  for (const [sx, sy] of [[1, 0], [1, 1], [-1, 1], [-1, -1], [1, -1], [0.3, 0.9], [-2, 0.7], [5, -4.9]]) {
+    const want = Math.atan2(sy, sx) * 180 / Math.PI;
+    for (const a of go(sx, sy, 2)) assert.ok(Math.abs(((a - want + 540) % 360) - 180) < 1e-6, `input (${sx},${sy}) walks straight along the input (${a.toFixed(2)}° vs ${want.toFixed(2)}°)`);
+  }
+  g4.pilotStop();
+}
+// ── 斜走:AI 獵人、流浪英雄、魔物都走直線(斜的路線段就斜著走,不再走階梯) ──
+{
+  const g = createGame(); let n = 0, axisSteps = 0, diag = 0;
+  const prev = new Map();
+  for (let i = 0; i < 600; i++) {
+    g.tick(0.1);
+    for (const u of [...g.state.hunters, ...(g.state.wanderers || []), ...g.state.enemies]) {
+      const o = prev.get(u); prev.set(u, { x: u.x, z: u.z }); if (!o || u.hp <= 0) continue;
+      const dx = u.x - o.x, dz = u.z - o.z, l = Math.hypot(dx, dz); if (l < 1e-6 || l > 3) continue;   // 沒動 / 瞬移(進出地下城、復活回營地)不算
+      n++;
+      const s = toScreen(dx, dz), ax = Math.abs(s.sx), ay = Math.abs(s.sy);
+      if (Math.min(ax, ay) < 1e-6 * Math.max(ax, ay)) axisSteps++;                  // 純畫面軸
+      else if (Math.min(ax, ay) > 0.2 * Math.max(ax, ay)) diag++;                   // 明顯斜向(離畫面軸 > 11°)
+    }
+  }
+  assert.ok(n > 2000, `units moved (${n} samples)`);
+  assert.ok(diag / n > 0.3, `units walk diagonally again, not only along screen axes (${diag}/${n} diagonal, ${axisSteps} pure-axis)`);
+}
+// 手動操控法師:魔法球真的會飛(PILOT_ORB)——空打朝目前面向的角度(投射物直飛,不吸附方向)、路徑上碰到的魔物都打(穿透)、飛完射程就消失
 {
   const orb = createGame(); const oh = isolate(orb); oh.classId = 'sorcerer'; oh.x = 6; oh.z = 30;
   oh.huntRegion = null; orb.state.spawnTimer = 0; run(orb, 0);
@@ -498,11 +543,12 @@ turn.pilotStop();
   { const atk = orb.state.hunters[0].attack, drop = hp0.onPath - foes.onPath.hp;
     assert.ok(drop === atk || drop === Math.round(atk * 1.5), `each monster is hit once per orb (drop ${drop} vs atk ${atk})`); }
   assert.equal(orb.state.shots.length, 0, 'orb disappears after its range');
-  // 3.2 格內有魔物:照舊自動瞄準牠(方向朝魔物,不是面向)
-  orb.tick(0.6); const near = { ...proto, id: 'orbtestNear', x: oh.x, z: oh.z - 2, hp: 200, attackTimer: 9, rewarded: false };
+  // 3.2 格內有魔物:照舊自動瞄準牠(方向朝魔物,不是面向;直飛不量化)
+  orb.tick(0.6); const nx0 = oh.x + 0.8, nz0 = oh.z - 1.8, near = { ...proto, id: 'orbtestNear', x: nx0, z: nz0, hp: 200, attackTimer: 9, rewarded: false };
   orb.state.enemies = [near]; orb.pilotAttack(); orb.tick(0.02);
-  assert.ok(orb.state.shots.length === 1 && orb.state.shots[0].dz < -0.99, 'orb aims at the monster in range');
-  for (let i = 0; i < 6; i++) { near.x = oh.x; near.z = oh.z - 2; near.attackTimer = 9; orb.tick(0.05); }
+  { const l = Math.hypot(nx0 - oh.x, nz0 - oh.z), s = orb.state.shots[0];
+    assert.ok(orb.state.shots.length === 1 && Math.abs(s.dx - (nx0 - oh.x) / l) < 1e-6 && Math.abs(s.dz - (nz0 - oh.z) / l) < 1e-6, 'orb flies straight at the monster in range'); }
+  for (let i = 0; i < 6; i++) { near.x = nx0; near.z = nz0; near.attackTimer = 9; orb.tick(0.05); }
   assert.ok(near.hp < 200, 'aimed orb hits the monster');
   orb.pilotStop();
 }
@@ -855,6 +901,154 @@ run(manual, 30, false, assertFiniteEconomy);
   for (const [rid, list] of Object.entries(REGION_MONSTERS)) { assert.equal(list.length, 3, `${rid} lists 3 monsters`); for (const m of list) assert.ok(MONSTER_NAME[m], `${m} has a name`); }
   const all = Object.values(REGION_MONSTERS).flat();
   for (const [m, line] of Object.entries(MONSTER_LORE)) { assert.ok(all.includes(m), `lore for a real monster (${m})`); assert.ok(typeof line === 'string' && line.length >= 6 && line.length <= 26, `lore line length 6-26 (${m}: ${line.length})`); }
+}
+// ── 動畫方向 = 4 象限(2026-11-15 使用者:「90度分界分四個象限，每個象限一個動畫方向」;src/dir4.js) ──
+{
+  assert.equal(QUADRANT_OFFSET_DEG, 0, 'quadrants centred on screen right/down/left/up, boundaries on the screen diagonals');
+  assert.deepEqual(DIR4_CENTER_DEG, { right: 0, down: 90, left: 180, up: 270 });
+  const at = deg => fromScreen(Math.cos(deg * Math.PI / 180), Math.sin(deg * Math.PI / 180));
+  // 每個象限內(離邊界 > 3.1°)一律是那個方向,跟上一個方向無關
+  for (let a = 0; a < 360; a += 0.5) {
+    const off = ((a + 45) % 90) - 45; if (Math.abs(Math.abs(off) - 45) <= 3.1) continue;
+    const want = ['right', 'down', 'left', 'up'][Math.round(a / 90) % 4], v = at(a);
+    for (const prev of [null, 'right', 'down', 'left', 'up']) assert.equal(quantize4(v.x, v.z, prev), want, `${a}° (prev ${prev}) -> ${want}`);
+    assert.ok(Math.abs(screenAngle(v.x, v.z) - a) < 1e-6 || Math.abs(Math.abs(screenAngle(v.x, v.z) - a) - 360) < 1e-6, 'screenAngle is the screen angle, not the world angle');
+  }
+  // 走路的遲滯:正斜走(45°)時維持上一個方向;超過邊界 FACING_HYSTERESIS_DEG 才換
+  const H = FACING_HYSTERESIS_DEG; assert.ok(H >= 8 && H <= 12, `hysteresis ≈10° (${H})`);
+  for (const [a, prev, want] of [[45, 'right', 'right'], [45, 'down', 'down'], [45 + H - 0.5, 'right', 'right'], [45 + H + 0.5, 'right', 'down'], [135, 'down', 'down'], [135, 'left', 'left'],
+    [225, 'left', 'left'], [225, 'up', 'up'], [315, 'up', 'up'], [315, 'right', 'right'], [315 - H - 0.5, 'right', 'up'], [10, 'up', 'right']]) {
+    const v = at(a); assert.equal(quantize4Stable(v.x, v.z, prev), want, `stable ${a}° prev ${prev} -> ${want}`);
+  }
+  // 正斜走一整段(角度在邊界兩側 ±(H-1)° 來回抖):方向一次都不換
+  { let d = 'right', changes = 0; for (let i = 0; i < 200; i++) { const v = at(45 + Math.sin(i * 1.7) * (H - 1)); const n = quantize4Stable(v.x, v.z, d); if (n !== d) changes++; d = n; } assert.equal(changes, 0, 'walking almost exactly diagonally never flickers'); }
+  // facingOk = check_facing 的判準:象限本身 OK、鄰近象限只在遲滯帶內 OK、對面/遠離的一律不 OK
+  { const v = at(30); assert.ok(facingOk(v.x, v.z, 'right') && !facingOk(v.x, v.z, 'down') && !facingOk(v.x, v.z, 'left') && !facingOk(v.x, v.z, 'up')); }
+  { const v = at(50); assert.ok(facingOk(v.x, v.z, 'right') && facingOk(v.x, v.z, 'down') && !facingOk(v.x, v.z, 'up')); }
+  // 等角投影:世界 (+1,0)(往東)在畫面上是右下 26.6° → 右;世界 (0,+1) 在畫面上是左下 153.4° → 左;世界 (1,1) = 畫面正下
+  assert.equal(quantize4(1, 0), 'right'); assert.equal(quantize4(0, 1), 'left'); assert.equal(quantize4(1, 1), 'down'); assert.equal(quantize4(-1, -1), 'up');
+  // 舊存檔/舊名稱:4 個 vdir 名稱照舊有效(存的 facing 值不用遷移)
+  assert.deepEqual(['side', 'down', 'sideLeft', 'up'].map(n => vdir4(0, 0, n)), ['side', 'down', 'sideLeft', 'up']);
+}
+// ── 魔物 4 方向(docs/DV2-ADOPTION-PLAN.md Phase 2.4):assets/monsters3 的 8 方向 sheet 只用 4 組列(原列 / Down / Up / Left),斜向列一律不會被選到 ──
+{
+  const dir = new URL('./assets/monsters3/', import.meta.url);
+  const files = fs.readdirSync(dir).filter(f => f.endsWith('.json'));
+  assert.ok(files.length >= 20, `monster sheets found (${files.length})`);
+  const DIAG = /(UpRight|DownRight|UpLeft|DownLeft)$/;
+  // 畫面上一整圈的移動方向 → 只會量化成 4 個 vdir
+  const vdirs = new Set();
+  for (let a = 0; a < 360; a += 1) { const v = fromScreen(Math.cos(a * Math.PI / 180), Math.sin(a * Math.PI / 180)); vdirs.add(vdir4(v.x, v.z, 'side')); vdirs.add(vdir4(v.x, v.z, 'up', true)); }
+  assert.deepEqual([...vdirs].sort(), ['down', 'side', 'sideLeft', 'up'], 'facing quantizes to 4 directions only');
+  let checked = 0;
+  for (const f of files) {
+    const m = JSON.parse(fs.readFileSync(new URL(f, dir), 'utf8')).actions;
+    for (const kind of ['idle', 'walk', 'attack']) {
+      const rows = rows4(m, kind);
+      for (const r of rows) { assert.ok(!DIAG.test(r), `${f} ${kind}: diagonal row ${r} is never picked`); assert.ok(m[r], `${f} ${kind}: row ${r} exists`); }
+      assert.ok(rows.size <= 4, `${f} ${kind}: at most 4 rows (${[...rows].join(',')})`);
+      for (const vdir of vdirs) {
+        const act = kind + dirSuffix(m, kind, vdir), [row] = leftRow({ actions: m }, act, vdir === 'sideLeft' ? -1 : 1);
+        if (vdir === 'down' && m[kind + 'Down']) assert.equal(act, kind + 'Down', `${f} ${kind} down → ${kind}Down`);
+        if (vdir === 'up' && m[kind + 'Up']) assert.equal(act, kind + 'Up', `${f} ${kind} up → ${kind}Up`);
+        if (vdir === 'sideLeft' && m[kind + 'Left'] && kind === 'attack') assert.equal(row, 'attackLeft', `${f} attack left uses the baked left row`);
+        assert.ok(!DIAG.test(row), `${f} ${kind} ${vdir} → ${row}`); checked++;
+      }
+    }
+  }
+  assert.ok(checked > 200, `checked ${checked} monster row picks`);
+}
+// ── 騎乘(docs/PAPERDOLL.md §20,DV2 C1):h.mount 欄位、存檔遷移、setMount、騎乘走速、倒地自動下坐騎 ──
+{
+  // 新獵人沒有坐騎;存檔照帶;舊存檔(沒有 mount 欄位)→ null;不認得的值/boss/倒地 → null;存檔版本不變
+  const g = createGame(), h = g.state.hunters[0];
+  assert.ok(g.state.hunters.every(x => x.mount === null), 'new hunters start unmounted');
+  assert.equal(g.setMount('h-nope', 'boar').ok, false, 'unknown hunter');
+  for (const bad of ['boss', 'dragon', 42, {}]) assert.equal(g.setMount(h.id, bad).ok, false, `not rideable: ${bad}`);
+  assert.equal(h.mount, null, 'refused setMount leaves the hunter unmounted');
+  const r = g.setMount(h.id, 'boar'); assert.ok(r.ok && r.mount === 'boar' && h.mount === 'boar', r.message);
+  const save = g.serialize(); assert.equal(save.version, 3, 'save version unchanged (additive field)');
+  assert.equal(save.hunters.find(x => x.id === h.id).mount, 'boar', 'mount is saved');
+  assert.equal(createGame(save).state.hunters.find(x => x.id === h.id).mount, 'boar', 'mount survives a reload');
+  const old = JSON.parse(JSON.stringify(save)); for (const x of old.hunters) delete x.mount;
+  assert.ok(createGame(old).state.hunters.every(x => x.mount === null), 'old save without mount → null');
+  const v2 = JSON.parse(JSON.stringify(old)); v2.version = 2; for (const x of v2.hunters) { delete x.equipment.chest; x.equipment.armor = true; }
+  assert.ok(createGame(v2).state.hunters.every(x => x.mount === null), 'v2 save → null');
+  for (const bad of ['boss', 'dragon', 7, null, '']) { const b = JSON.parse(JSON.stringify(save)); b.hunters[0].mount = bad; assert.equal(createGame(b).state.hunters[0].mount, null, `bad saved mount ${JSON.stringify(bad)} → null`); }
+  const ko = JSON.parse(JSON.stringify(save)), kh = ko.hunters.find(x => x.id === h.id); kh.hp = 0; kh.mount = 'boar';
+  assert.equal(createGame(ko).state.hunters.find(x => x.id === h.id).mount, null, 'a knocked-out hunter loads unmounted');
+  assert.ok(g.setMount(h.id, null).ok && h.mount === null, 'setMount(null) dismounts');
+  // 倒地中不能騎;倒地(野外)一律下坐騎
+  g.setMount(h.id, 'goat'); h.hp = 0; g.tick(0.1);
+  assert.equal(h.mount, null, 'KO in the field dismounts'); assert.equal(g.setMount(h.id, 'goat').ok, false, 'cannot mount while down');
+  // 地下城/競技場裡倒地也下坐騎
+  const g2 = createGame(), d = g2.state.hunters[1]; g2.setMount(d.id, 'ram'); d.task = 'dungeon'; d.hp = 0; g2.tick(0.1);
+  assert.equal(d.mount, null, 'KO in the dungeon dismounts');
+}
+// ── 性別(docs/DV2-PHASE6.md G6;2026-11-15 跟名字走):h.gender 欄位、存檔遷移(加法欄位,版本不變,同 h.mount);
+//    名字在 NAME_GENDER 裡 → 名字決定(新獵人、流浪英雄、讀檔都一樣,名字優先);自訂名 → 新的用 id 雜湊、讀檔用存檔值。不擲骰。
+{
+  const all = Object.keys(NAME_GENDER);
+  assert.equal(all.length, 32, 'every name in NAMES has a gender');
+  assert.equal(all.filter(n => NAME_GENDER[n] === 'm').length, 16); assert.equal(all.filter(n => NAME_GENDER[n] === 'f').length, 16);
+  for (const [n, g] of [['艾登', 'm'], ['莉雅', 'f'], ['伊諾', 'm'], ['阿斯特', 'm'], ['菲歐', 'f'], ['芙蕾雅', 'f'], ['亞倫', 'm'], ['索菲', 'f']]) assert.equal(nameGender(n), g, n);
+  assert.equal(nameGender('某人'), null); assert.equal(nameGender(undefined), null); assert.equal(nameGender('toString'), null);
+  const g = createGame();
+  assert.ok(g.state.hunters.every(x => GENDERS.includes(x.gender)), 'new hunters have m/f');
+  assert.ok(g.state.hunters.every(x => x.gender === nameGender(x.name)), 'new hunter gender follows the name');
+  assert.ok(g.state.wanderers.length && g.state.wanderers.every(w => w.gender === (nameGender(w.name) ?? hunterGender(w.id))), 'wanderers too');
+  assert.equal(hunterGender('h7'), hunterGender('h7')); assert.ok(GENDERS.includes(hunterGender(undefined)));
+  const ids = Array.from({ length: 64 }, (_, i) => 'h' + i), fem = ids.filter(i => hunterGender(i) === 'f').length;
+  assert.ok(fem > 16 && fem < 48, `id hash (custom names) is roughly half female (${fem}/64)`);
+  // the RNG stream is untouched: two fresh games with the same seed stay identical after a run (gender adds no random() call)
+  const a = createGame(), b = createGame(); for (let i = 0; i < 60; i++) { a.tick(0.25); b.tick(0.25); }
+  assert.deepEqual(a.serialize().hunters.map(x => [x.x, x.z, x.hp]), b.serialize().hunters.map(x => [x.x, x.z, x.hp]));
+  // custom name: the saved value survives
+  const h = g.state.hunters[0]; h.name = '測試者'; h.gender = 'f';
+  const save = g.serialize(); assert.equal(save.version, 3, 'save version unchanged (additive field)');
+  assert.equal(save.hunters[0].gender, 'f', 'gender is saved');
+  assert.equal(createGame(save).state.hunters[0].gender, 'f', 'custom-name gender survives a reload');
+  // known name: the name wins over a wrong saved value (old id-hash genders are corrected on load)
+  const wrong = JSON.parse(JSON.stringify(save)); wrong.hunters[1].gender = NAME_GENDER[wrong.hunters[1].name] === 'f' ? 'm' : 'f';
+  assert.equal(createGame(wrong).state.hunters[1].gender, nameGender(wrong.hunters[1].name), 'name wins on load');
+  const old = JSON.parse(JSON.stringify(save)); for (const x of old.hunters) delete x.gender;
+  const oldBack = createGame(old).state.hunters;
+  assert.equal(oldBack[0].gender, 'm', 'old save, custom name, no gender → m');
+  assert.ok(oldBack.slice(1).every(x => x.gender === nameGender(x.name)), 'old save without gender → gender from the name');
+  const v2 = JSON.parse(JSON.stringify(old)); v2.version = 2; for (const x of v2.hunters) { delete x.equipment.chest; x.equipment.armor = true; }
+  assert.ok(createGame(v2).state.hunters.every(x => x.gender === (nameGender(x.name) ?? 'm')), 'v2 save → name / m');
+  for (const bad of ['F', 'x', 1, null, {}, '']) { const b2 = JSON.parse(JSON.stringify(save)); b2.hunters[0].gender = bad; assert.equal(createGame(b2).state.hunters[0].gender, 'm', `bad saved gender ${JSON.stringify(bad)} → m`); }
+  // wanderers: saved without gender → name; custom name keeps its saved value
+  const ws = g.serialize(); for (const w of ws.wanderers) delete w.gender; ws.wanderers[0].name = '旅途客'; ws.wanderers[0].gender = 'f';
+  const wb = createGame(ws).state.wanderers;
+  assert.equal(wb[0].gender, 'f', 'wanderer custom name keeps saved gender');
+  assert.ok(wb.slice(1).every(w => w.gender === (nameGender(w.name) ?? hunterGender(w.id))), 'wanderer gender from name on load');
+}
+// 2026-11-14 修:trainCooldown / lastTownVisit 曾被寫進 h.mount 那行的註解裡,讀檔時沒還原(Phase 5.1 引入)。現在照存檔值還原(有夾範圍)。
+{
+  const g = createGame(); g.state.time = 500; const h = g.state.hunters[0]; h.trainCooldown = 7.5; h.lastTownVisit = 321;
+  const back = createGame(g.serialize()).state.hunters[0];
+  assert.equal(back.trainCooldown, 7.5, 'trainCooldown restored from the save'); assert.equal(back.lastTownVisit, 321, 'lastTownVisit restored from the save');
+  const bad = g.serialize(); bad.hunters[0].trainCooldown = 99; bad.hunters[0].lastTownVisit = -5;
+  const bb = createGame(bad).state.hunters[0]; assert.equal(bb.trainCooldown, 10, 'clamped'); assert.equal(bb.lastTownVisit, 0, 'clamped');
+}
+{
+  // 騎乘走速 = 職業走速 × MOUNT_SPEED_MULT(手動操控:同一個種子、同一段輸入,騎著的走得遠 1.3 倍)
+  const dist = mount => {
+    const g = createGame(), h = isolate(g); if (mount) assert.ok(g.setMount(h.id, mount).ok);
+    g.pilotStart(h.id); g.state.pilot.readyAt = 0; g.state.pilot.lockUntil = 0;
+    const x0 = h.x, z0 = h.z; let best = 0;
+    for (const [dx, dz] of [[1, 0], [-1, 0], [0, 1], [0, -1]]) {   // 挑一個不撞牆的方向:第一個 0.3 秒內有前進的
+      h.x = x0; h.z = z0; g.pilotInput(dx, dz); for (let i = 0; i < 3; i++) g.tick(0.1);
+      const m = Math.hypot(h.x - x0, h.z - z0); if (m > best) best = m;
+    }
+    return best;
+  };
+  const base = dist(null), rode = dist('boar');
+  assert.ok(base > 0.2, `pilot moves (${base.toFixed(3)})`);
+  assert.ok(Math.abs(rode / base - MOUNT_SPEED_MULT) < 0.02, `mounted pilot speed ×${MOUNT_SPEED_MULT} (${(rode / base).toFixed(3)})`);
+  assert.equal(MOUNT_SPEED_MULT, 1.3, 'documented constant (docs/PAPERDOLL.md §20)');
+  assert.ok(isRideable('boar') && !isRideable('boss') && !isRideable('wolfman') && Object.keys(ENEMIES).filter(isRideable).length === 6);
 }
 console.log(`PASS: ${CLASSES.length} hunters / ${CLASSES.length} classes, seeded visitors, conservation of personal and village gold, paid and emergency services, bounded trading, crafting and gear purchases, upgrades, training, skills, rebirth, difficulty gates, hunting, field boss, death/revival, dungeon combat and save continuation, NPC arena, navigation, malformed saves, pause, deterministic simulation, all 8 quests. Natural 60s: ${combat.state.totalKills} total kills; ${combat.state.counts.services} services.`);
 

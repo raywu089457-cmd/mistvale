@@ -15,10 +15,21 @@ const page = await ctx.newPage(); const errs = []; page.on('pageerror', e => err
 page.on('dialog', d => d.dismiss().catch(() => {}));
 await page.goto(URL, { waitUntil: 'commit', timeout: 120000 });
 await page.waitForFunction(() => globalThis.__mistvaleGame && !document.querySelector('#game-ui')?.classList.contains('hidden') && !document.querySelector('#loading'), null, { timeout: 120000 });
+// 2026-11-13:標題畫面(#title-screen)現在會等「開始遊戲」才消失,而且它是 fixed 全螢幕、會擋住巡檢的每一顆鈕
+// (整輪 411 次點擊裡 299 個 click-failed 都是它或它的遮罩)。巡檢不需要標題畫面,直接移除;再關掉新存檔的歡迎對話框。
+await page.waitForSelector('#title-screen', { timeout: 4000 }).catch(() => {});
+await page.evaluate(() => { document.querySelector('#title-screen')?.remove(); });
+await page.waitForFunction(() => document.querySelector('#modal')?.dataset.type === 'welcome' && !document.querySelector('#modal-backdrop')?.classList.contains('hidden'), null, { timeout: 4000 }).catch(() => {});
+await page.evaluate(() => { document.querySelector('#modal-backdrop:not(.hidden) [data-action=close],#modal-backdrop:not(.hidden) [data-action=welcomeStart]')?.click(); });
+await page.waitForTimeout(300);
 await page.evaluate(() => { const g = globalThis.__mistvaleGame; Object.assign(g.state, { gold: 99999, wood: 9999, ore: 9999, herb: 9999, cloth: 9999, flour: 9999, leather: 9999, gems: 999 });
   for (const id of Object.keys(g.state.buildings)) g.state.buildings[id] = Math.max(1, g.state.buildings[id]); });
 const act = (a, id) => page.evaluate(([a, id]) => { const el = document.createElement('button'); el.dataset.action = a; if (id != null) el.dataset.id = id; el.style.display = 'none'; document.body.append(el); el.click(); el.remove(); }, [a, id]);
-const closeAll = () => page.evaluate(() => { try { globalThis.__mistvaleGame.pilotStop?.(); } catch {} for (const k of ['leave', 'stop', 'exit', 'close']) document.querySelectorAll(`#pilotlab [data-pilot=${k}]`).forEach(b => b.offsetParent && b.click()); document.querySelector('#modal-backdrop:not(.hidden) [data-action=close]')?.click(); document.querySelector('[data-action=closeInspector]')?.offsetParent && document.querySelector('[data-action=closeInspector]').click(); try { globalThis.__mistvaleSelect?.(null); } catch {} document.querySelector('#unit-card [data-action=unitCardClose]')?.click(); });
+const closeAll = () => page.evaluate(() => { try { globalThis.__mistvaleGame.pilotStop?.(); } catch {} for (const k of ['leave', 'stop', 'exit', 'close']) document.querySelectorAll(`#pilotlab [data-pilot=${k}]`).forEach(b => b.offsetParent && b.click()); document.querySelector('#modal-backdrop:not(.hidden) [data-action=close]')?.click(); try { globalThis.__mistvaleSelect?.(null); } catch {}
+  // 2026-11-13:建築詳情/#inspector 是 position:fixed,C 視窗的關閉鈕也可能在 fixed 容器裡,offsetParent 會是 null,
+  // 舊寫法因此永遠不點「關閉」→ 遮罩留著把後面每一顆鈕都擋掉(按鈕巡檢 299 個 click-failed)。改用 getClientRects() 判斷有沒有畫出來。
+  for (const b of document.querySelectorAll('[data-action=closeInspector]')) if (b.getClientRects().length) b.click();
+  document.querySelector('#unit-card [data-action=unitCardClose]')?.click(); });
 const hid = () => page.evaluate(() => globalThis.__mistvaleGame.state.hunters[0].id);
 const SCREENS = [
   ['hud', async () => { await closeAll(); }],

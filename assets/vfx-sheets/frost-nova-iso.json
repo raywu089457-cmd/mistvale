@@ -1,0 +1,2305 @@
+{
+ "frames": [
+  {
+   "filename": "frost-nova-iso 0",
+   "frame": {
+    "x": 0,
+    "y": 0,
+    "w": 276,
+    "h": 194
+   },
+   "rotated": false,
+   "trimmed": false,
+   "spriteSourceSize": {
+    "x": 0,
+    "y": 0,
+    "w": 276,
+    "h": 194
+   },
+   "sourceSize": {
+    "w": 276,
+    "h": 194
+   },
+   "duration": 33
+  },
+  {
+   "filename": "frost-nova-iso 1",
+   "frame": {
+    "x": 276,
+    "y": 0,
+    "w": 276,
+    "h": 194
+   },
+   "rotated": false,
+   "trimmed": false,
+   "spriteSourceSize": {
+    "x": 0,
+    "y": 0,
+    "w": 276,
+    "h": 194
+   },
+   "sourceSize": {
+    "w": 276,
+    "h": 194
+   },
+   "duration": 33
+  },
+  {
+   "filename": "frost-nova-iso 2",
+   "frame": {
+    "x": 552,
+    "y": 0,
+    "w": 276,
+    "h": 194
+   },
+   "rotated": false,
+   "trimmed": false,
+   "spriteSourceSize": {
+    "x": 0,
+    "y": 0,
+    "w": 276,
+    "h": 194
+   },
+   "sourceSize": {
+    "w": 276,
+    "h": 194
+   },
+   "duration": 33
+  },
+  {
+   "filename": "frost-nova-iso 3",
+   "frame": {
+    "x": 828,
+    "y": 0,
+    "w": 276,
+    "h": 194
+   },
+   "rotated": false,
+   "trimmed": false,
+   "spriteSourceSize": {
+    "x": 0,
+    "y": 0,
+    "w": 276,
+    "h": 194
+   },
+   "sourceSize": {
+    "w": 276,
+    "h": 194
+   },
+   "duration": 33
+  },
+  {
+   "filename": "frost-nova-iso 4",
+   "frame": {
+    "x": 1104,
+    "y": 0,
+    "w": 276,
+    "h": 194
+   },
+   "rotated": false,
+   "trimmed": false,
+   "spriteSourceSize": {
+    "x": 0,
+    "y": 0,
+    "w": 276,
+    "h": 194
+   },
+   "sourceSize": {
+    "w": 276,
+    "h": 194
+   },
+   "duration": 33
+  },
+  {
+   "filename": "frost-nova-iso 5",
+   "frame": {
+    "x": 1380,
+    "y": 0,
+    "w": 276,
+    "h": 194
+   },
+   "rotated": false,
+   "trimmed": false,
+   "spriteSourceSize": {
+    "x": 0,
+    "y": 0,
+    "w": 276,
+    "h": 194
+   },
+   "sourceSize": {
+    "w": 276,
+    "h": 194
+   },
+   "duration": 33
+  },
+  {
+   "filename": "frost-nova-iso 6",
+   "frame": {
+    "x": 1656,
+    "y": 0,
+    "w": 276,
+    "h": 194
+   },
+   "rotated": false,
+   "trimmed": false,
+   "spriteSourceSize": {
+    "x": 0,
+    "y": 0,
+    "w": 276,
+    "h": 194
+   },
+   "sourceSize": {
+    "w": 276,
+    "h": 194
+   },
+   "duration": 33
+  },
+  {
+   "filename": "frost-nova-iso 7",
+   "frame": {
+    "x": 1932,
+    "y": 0,
+    "w": 276,
+    "h": 194
+   },
+   "rotated": false,
+   "trimmed": false,
+   "spriteSourceSize": {
+    "x": 0,
+    "y": 0,
+    "w": 276,
+    "h": 194
+   },
+   "sourceSize": {
+    "w": 276,
+    "h": 194
+   },
+   "duration": 33
+  },
+  {
+   "filename": "frost-nova-iso 8",
+   "frame": {
+    "x": 2208,
+    "y": 0,
+    "w": 276,
+    "h": 194
+   },
+   "rotated": false,
+   "trimmed": false,
+   "spriteSourceSize": {
+    "x": 0,
+    "y": 0,
+    "w": 276,
+    "h": 194
+   },
+   "sourceSize": {
+    "w": 276,
+    "h": 194
+   },
+   "duration": 33
+  },
+  {
+   "filename": "frost-nova-iso 9",
+   "frame": {
+    "x": 0,
+    "y": 194,
+    "w": 276,
+    "h": 194
+   },
+   "rotated": false,
+   "trimmed": false,
+   "spriteSourceSize": {
+    "x": 0,
+    "y": 0,
+    "w": 276,
+    "h": 194
+   },
+   "sourceSize": {
+    "w": 276,
+    "h": 194
+   },
+   "duration": 33
+  },
+  {
+   "filename": "frost-nova-iso 10",
+   "frame": {
+    "x": 276,
+    "y": 194,
+    "w": 276,
+    "h": 194
+   },
+   "rotated": false,
+   "trimmed": false,
+   "spriteSourceSize": {
+    "x": 0,
+    "y": 0,
+    "w": 276,
+    "h": 194
+   },
+   "sourceSize": {
+    "w": 276,
+    "h": 194
+   },
+   "duration": 33
+  },
+  {
+   "filename": "frost-nova-iso 11",
+   "frame": {
+    "x": 552,
+    "y": 194,
+    "w": 276,
+    "h": 194
+   },
+   "rotated": false,
+   "trimmed": false,
+   "spriteSourceSize": {
+    "x": 0,
+    "y": 0,
+    "w": 276,
+    "h": 194
+   },
+   "sourceSize": {
+    "w": 276,
+    "h": 194
+   },
+   "duration": 33
+  },
+  {
+   "filename": "frost-nova-iso 12",
+   "frame": {
+    "x": 828,
+    "y": 194,
+    "w": 276,
+    "h": 194
+   },
+   "rotated": false,
+   "trimmed": false,
+   "spriteSourceSize": {
+    "x": 0,
+    "y": 0,
+    "w": 276,
+    "h": 194
+   },
+   "sourceSize": {
+    "w": 276,
+    "h": 194
+   },
+   "duration": 33
+  },
+  {
+   "filename": "frost-nova-iso 13",
+   "frame": {
+    "x": 1104,
+    "y": 194,
+    "w": 276,
+    "h": 194
+   },
+   "rotated": false,
+   "trimmed": false,
+   "spriteSourceSize": {
+    "x": 0,
+    "y": 0,
+    "w": 276,
+    "h": 194
+   },
+   "sourceSize": {
+    "w": 276,
+    "h": 194
+   },
+   "duration": 33
+  },
+  {
+   "filename": "frost-nova-iso 14",
+   "frame": {
+    "x": 1380,
+    "y": 194,
+    "w": 276,
+    "h": 194
+   },
+   "rotated": false,
+   "trimmed": false,
+   "spriteSourceSize": {
+    "x": 0,
+    "y": 0,
+    "w": 276,
+    "h": 194
+   },
+   "sourceSize": {
+    "w": 276,
+    "h": 194
+   },
+   "duration": 33
+  },
+  {
+   "filename": "frost-nova-iso 15",
+   "frame": {
+    "x": 1656,
+    "y": 194,
+    "w": 276,
+    "h": 194
+   },
+   "rotated": false,
+   "trimmed": false,
+   "spriteSourceSize": {
+    "x": 0,
+    "y": 0,
+    "w": 276,
+    "h": 194
+   },
+   "sourceSize": {
+    "w": 276,
+    "h": 194
+   },
+   "duration": 33
+  },
+  {
+   "filename": "frost-nova-iso 16",
+   "frame": {
+    "x": 1932,
+    "y": 194,
+    "w": 276,
+    "h": 194
+   },
+   "rotated": false,
+   "trimmed": false,
+   "spriteSourceSize": {
+    "x": 0,
+    "y": 0,
+    "w": 276,
+    "h": 194
+   },
+   "sourceSize": {
+    "w": 276,
+    "h": 194
+   },
+   "duration": 33
+  },
+  {
+   "filename": "frost-nova-iso 17",
+   "frame": {
+    "x": 2208,
+    "y": 194,
+    "w": 276,
+    "h": 194
+   },
+   "rotated": false,
+   "trimmed": false,
+   "spriteSourceSize": {
+    "x": 0,
+    "y": 0,
+    "w": 276,
+    "h": 194
+   },
+   "sourceSize": {
+    "w": 276,
+    "h": 194
+   },
+   "duration": 33
+  },
+  {
+   "filename": "frost-nova-iso 18",
+   "frame": {
+    "x": 0,
+    "y": 388,
+    "w": 276,
+    "h": 194
+   },
+   "rotated": false,
+   "trimmed": false,
+   "spriteSourceSize": {
+    "x": 0,
+    "y": 0,
+    "w": 276,
+    "h": 194
+   },
+   "sourceSize": {
+    "w": 276,
+    "h": 194
+   },
+   "duration": 33
+  },
+  {
+   "filename": "frost-nova-iso 19",
+   "frame": {
+    "x": 276,
+    "y": 388,
+    "w": 276,
+    "h": 194
+   },
+   "rotated": false,
+   "trimmed": false,
+   "spriteSourceSize": {
+    "x": 0,
+    "y": 0,
+    "w": 276,
+    "h": 194
+   },
+   "sourceSize": {
+    "w": 276,
+    "h": 194
+   },
+   "duration": 33
+  },
+  {
+   "filename": "frost-nova-iso 20",
+   "frame": {
+    "x": 552,
+    "y": 388,
+    "w": 276,
+    "h": 194
+   },
+   "rotated": false,
+   "trimmed": false,
+   "spriteSourceSize": {
+    "x": 0,
+    "y": 0,
+    "w": 276,
+    "h": 194
+   },
+   "sourceSize": {
+    "w": 276,
+    "h": 194
+   },
+   "duration": 33
+  },
+  {
+   "filename": "frost-nova-iso 21",
+   "frame": {
+    "x": 828,
+    "y": 388,
+    "w": 276,
+    "h": 194
+   },
+   "rotated": false,
+   "trimmed": false,
+   "spriteSourceSize": {
+    "x": 0,
+    "y": 0,
+    "w": 276,
+    "h": 194
+   },
+   "sourceSize": {
+    "w": 276,
+    "h": 194
+   },
+   "duration": 33
+  },
+  {
+   "filename": "frost-nova-iso 22",
+   "frame": {
+    "x": 1104,
+    "y": 388,
+    "w": 276,
+    "h": 194
+   },
+   "rotated": false,
+   "trimmed": false,
+   "spriteSourceSize": {
+    "x": 0,
+    "y": 0,
+    "w": 276,
+    "h": 194
+   },
+   "sourceSize": {
+    "w": 276,
+    "h": 194
+   },
+   "duration": 33
+  },
+  {
+   "filename": "frost-nova-iso 23",
+   "frame": {
+    "x": 1380,
+    "y": 388,
+    "w": 276,
+    "h": 194
+   },
+   "rotated": false,
+   "trimmed": false,
+   "spriteSourceSize": {
+    "x": 0,
+    "y": 0,
+    "w": 276,
+    "h": 194
+   },
+   "sourceSize": {
+    "w": 276,
+    "h": 194
+   },
+   "duration": 33
+  },
+  {
+   "filename": "frost-nova-iso 24",
+   "frame": {
+    "x": 1656,
+    "y": 388,
+    "w": 276,
+    "h": 194
+   },
+   "rotated": false,
+   "trimmed": false,
+   "spriteSourceSize": {
+    "x": 0,
+    "y": 0,
+    "w": 276,
+    "h": 194
+   },
+   "sourceSize": {
+    "w": 276,
+    "h": 194
+   },
+   "duration": 33
+  },
+  {
+   "filename": "frost-nova-iso 25",
+   "frame": {
+    "x": 1932,
+    "y": 388,
+    "w": 276,
+    "h": 194
+   },
+   "rotated": false,
+   "trimmed": false,
+   "spriteSourceSize": {
+    "x": 0,
+    "y": 0,
+    "w": 276,
+    "h": 194
+   },
+   "sourceSize": {
+    "w": 276,
+    "h": 194
+   },
+   "duration": 33
+  },
+  {
+   "filename": "frost-nova-iso 26",
+   "frame": {
+    "x": 2208,
+    "y": 388,
+    "w": 276,
+    "h": 194
+   },
+   "rotated": false,
+   "trimmed": false,
+   "spriteSourceSize": {
+    "x": 0,
+    "y": 0,
+    "w": 276,
+    "h": 194
+   },
+   "sourceSize": {
+    "w": 276,
+    "h": 194
+   },
+   "duration": 33
+  },
+  {
+   "filename": "frost-nova-iso 27",
+   "frame": {
+    "x": 0,
+    "y": 582,
+    "w": 276,
+    "h": 194
+   },
+   "rotated": false,
+   "trimmed": false,
+   "spriteSourceSize": {
+    "x": 0,
+    "y": 0,
+    "w": 276,
+    "h": 194
+   },
+   "sourceSize": {
+    "w": 276,
+    "h": 194
+   },
+   "duration": 33
+  },
+  {
+   "filename": "frost-nova-iso 28",
+   "frame": {
+    "x": 276,
+    "y": 582,
+    "w": 276,
+    "h": 194
+   },
+   "rotated": false,
+   "trimmed": false,
+   "spriteSourceSize": {
+    "x": 0,
+    "y": 0,
+    "w": 276,
+    "h": 194
+   },
+   "sourceSize": {
+    "w": 276,
+    "h": 194
+   },
+   "duration": 33
+  },
+  {
+   "filename": "frost-nova-iso 29",
+   "frame": {
+    "x": 552,
+    "y": 582,
+    "w": 276,
+    "h": 194
+   },
+   "rotated": false,
+   "trimmed": false,
+   "spriteSourceSize": {
+    "x": 0,
+    "y": 0,
+    "w": 276,
+    "h": 194
+   },
+   "sourceSize": {
+    "w": 276,
+    "h": 194
+   },
+   "duration": 33
+  },
+  {
+   "filename": "frost-nova-iso 30",
+   "frame": {
+    "x": 828,
+    "y": 582,
+    "w": 276,
+    "h": 194
+   },
+   "rotated": false,
+   "trimmed": false,
+   "spriteSourceSize": {
+    "x": 0,
+    "y": 0,
+    "w": 276,
+    "h": 194
+   },
+   "sourceSize": {
+    "w": 276,
+    "h": 194
+   },
+   "duration": 33
+  },
+  {
+   "filename": "frost-nova-iso 31",
+   "frame": {
+    "x": 1104,
+    "y": 582,
+    "w": 276,
+    "h": 194
+   },
+   "rotated": false,
+   "trimmed": false,
+   "spriteSourceSize": {
+    "x": 0,
+    "y": 0,
+    "w": 276,
+    "h": 194
+   },
+   "sourceSize": {
+    "w": 276,
+    "h": 194
+   },
+   "duration": 33
+  },
+  {
+   "filename": "frost-nova-iso 32",
+   "frame": {
+    "x": 1380,
+    "y": 582,
+    "w": 276,
+    "h": 194
+   },
+   "rotated": false,
+   "trimmed": false,
+   "spriteSourceSize": {
+    "x": 0,
+    "y": 0,
+    "w": 276,
+    "h": 194
+   },
+   "sourceSize": {
+    "w": 276,
+    "h": 194
+   },
+   "duration": 33
+  },
+  {
+   "filename": "frost-nova-iso 33",
+   "frame": {
+    "x": 1656,
+    "y": 582,
+    "w": 276,
+    "h": 194
+   },
+   "rotated": false,
+   "trimmed": false,
+   "spriteSourceSize": {
+    "x": 0,
+    "y": 0,
+    "w": 276,
+    "h": 194
+   },
+   "sourceSize": {
+    "w": 276,
+    "h": 194
+   },
+   "duration": 33
+  },
+  {
+   "filename": "frost-nova-iso 34",
+   "frame": {
+    "x": 1932,
+    "y": 582,
+    "w": 276,
+    "h": 194
+   },
+   "rotated": false,
+   "trimmed": false,
+   "spriteSourceSize": {
+    "x": 0,
+    "y": 0,
+    "w": 276,
+    "h": 194
+   },
+   "sourceSize": {
+    "w": 276,
+    "h": 194
+   },
+   "duration": 33
+  },
+  {
+   "filename": "frost-nova-iso 35",
+   "frame": {
+    "x": 2208,
+    "y": 582,
+    "w": 276,
+    "h": 194
+   },
+   "rotated": false,
+   "trimmed": false,
+   "spriteSourceSize": {
+    "x": 0,
+    "y": 0,
+    "w": 276,
+    "h": 194
+   },
+   "sourceSize": {
+    "w": 276,
+    "h": 194
+   },
+   "duration": 33
+  },
+  {
+   "filename": "frost-nova-iso 36",
+   "frame": {
+    "x": 0,
+    "y": 776,
+    "w": 276,
+    "h": 194
+   },
+   "rotated": false,
+   "trimmed": false,
+   "spriteSourceSize": {
+    "x": 0,
+    "y": 0,
+    "w": 276,
+    "h": 194
+   },
+   "sourceSize": {
+    "w": 276,
+    "h": 194
+   },
+   "duration": 33
+  },
+  {
+   "filename": "frost-nova-iso 37",
+   "frame": {
+    "x": 276,
+    "y": 776,
+    "w": 276,
+    "h": 194
+   },
+   "rotated": false,
+   "trimmed": false,
+   "spriteSourceSize": {
+    "x": 0,
+    "y": 0,
+    "w": 276,
+    "h": 194
+   },
+   "sourceSize": {
+    "w": 276,
+    "h": 194
+   },
+   "duration": 33
+  },
+  {
+   "filename": "frost-nova-iso 38",
+   "frame": {
+    "x": 552,
+    "y": 776,
+    "w": 276,
+    "h": 194
+   },
+   "rotated": false,
+   "trimmed": false,
+   "spriteSourceSize": {
+    "x": 0,
+    "y": 0,
+    "w": 276,
+    "h": 194
+   },
+   "sourceSize": {
+    "w": 276,
+    "h": 194
+   },
+   "duration": 33
+  },
+  {
+   "filename": "frost-nova-iso 39",
+   "frame": {
+    "x": 828,
+    "y": 776,
+    "w": 276,
+    "h": 194
+   },
+   "rotated": false,
+   "trimmed": false,
+   "spriteSourceSize": {
+    "x": 0,
+    "y": 0,
+    "w": 276,
+    "h": 194
+   },
+   "sourceSize": {
+    "w": 276,
+    "h": 194
+   },
+   "duration": 33
+  },
+  {
+   "filename": "frost-nova-iso 40",
+   "frame": {
+    "x": 1104,
+    "y": 776,
+    "w": 276,
+    "h": 194
+   },
+   "rotated": false,
+   "trimmed": false,
+   "spriteSourceSize": {
+    "x": 0,
+    "y": 0,
+    "w": 276,
+    "h": 194
+   },
+   "sourceSize": {
+    "w": 276,
+    "h": 194
+   },
+   "duration": 33
+  },
+  {
+   "filename": "frost-nova-iso 41",
+   "frame": {
+    "x": 1380,
+    "y": 776,
+    "w": 276,
+    "h": 194
+   },
+   "rotated": false,
+   "trimmed": false,
+   "spriteSourceSize": {
+    "x": 0,
+    "y": 0,
+    "w": 276,
+    "h": 194
+   },
+   "sourceSize": {
+    "w": 276,
+    "h": 194
+   },
+   "duration": 33
+  },
+  {
+   "filename": "frost-nova-iso 42",
+   "frame": {
+    "x": 1656,
+    "y": 776,
+    "w": 276,
+    "h": 194
+   },
+   "rotated": false,
+   "trimmed": false,
+   "spriteSourceSize": {
+    "x": 0,
+    "y": 0,
+    "w": 276,
+    "h": 194
+   },
+   "sourceSize": {
+    "w": 276,
+    "h": 194
+   },
+   "duration": 33
+  },
+  {
+   "filename": "frost-nova-iso 43",
+   "frame": {
+    "x": 1932,
+    "y": 776,
+    "w": 276,
+    "h": 194
+   },
+   "rotated": false,
+   "trimmed": false,
+   "spriteSourceSize": {
+    "x": 0,
+    "y": 0,
+    "w": 276,
+    "h": 194
+   },
+   "sourceSize": {
+    "w": 276,
+    "h": 194
+   },
+   "duration": 33
+  },
+  {
+   "filename": "frost-nova-iso 44",
+   "frame": {
+    "x": 2208,
+    "y": 776,
+    "w": 276,
+    "h": 194
+   },
+   "rotated": false,
+   "trimmed": false,
+   "spriteSourceSize": {
+    "x": 0,
+    "y": 0,
+    "w": 276,
+    "h": 194
+   },
+   "sourceSize": {
+    "w": 276,
+    "h": 194
+   },
+   "duration": 33
+  },
+  {
+   "filename": "frost-nova-iso 45",
+   "frame": {
+    "x": 0,
+    "y": 970,
+    "w": 276,
+    "h": 194
+   },
+   "rotated": false,
+   "trimmed": false,
+   "spriteSourceSize": {
+    "x": 0,
+    "y": 0,
+    "w": 276,
+    "h": 194
+   },
+   "sourceSize": {
+    "w": 276,
+    "h": 194
+   },
+   "duration": 33
+  },
+  {
+   "filename": "frost-nova-iso 46",
+   "frame": {
+    "x": 276,
+    "y": 970,
+    "w": 276,
+    "h": 194
+   },
+   "rotated": false,
+   "trimmed": false,
+   "spriteSourceSize": {
+    "x": 0,
+    "y": 0,
+    "w": 276,
+    "h": 194
+   },
+   "sourceSize": {
+    "w": 276,
+    "h": 194
+   },
+   "duration": 33
+  },
+  {
+   "filename": "frost-nova-iso 47",
+   "frame": {
+    "x": 552,
+    "y": 970,
+    "w": 276,
+    "h": 194
+   },
+   "rotated": false,
+   "trimmed": false,
+   "spriteSourceSize": {
+    "x": 0,
+    "y": 0,
+    "w": 276,
+    "h": 194
+   },
+   "sourceSize": {
+    "w": 276,
+    "h": 194
+   },
+   "duration": 33
+  },
+  {
+   "filename": "frost-nova-iso 48",
+   "frame": {
+    "x": 828,
+    "y": 970,
+    "w": 276,
+    "h": 194
+   },
+   "rotated": false,
+   "trimmed": false,
+   "spriteSourceSize": {
+    "x": 0,
+    "y": 0,
+    "w": 276,
+    "h": 194
+   },
+   "sourceSize": {
+    "w": 276,
+    "h": 194
+   },
+   "duration": 33
+  },
+  {
+   "filename": "frost-nova-iso 49",
+   "frame": {
+    "x": 1104,
+    "y": 970,
+    "w": 276,
+    "h": 194
+   },
+   "rotated": false,
+   "trimmed": false,
+   "spriteSourceSize": {
+    "x": 0,
+    "y": 0,
+    "w": 276,
+    "h": 194
+   },
+   "sourceSize": {
+    "w": 276,
+    "h": 194
+   },
+   "duration": 33
+  },
+  {
+   "filename": "frost-nova-iso 50",
+   "frame": {
+    "x": 1380,
+    "y": 970,
+    "w": 276,
+    "h": 194
+   },
+   "rotated": false,
+   "trimmed": false,
+   "spriteSourceSize": {
+    "x": 0,
+    "y": 0,
+    "w": 276,
+    "h": 194
+   },
+   "sourceSize": {
+    "w": 276,
+    "h": 194
+   },
+   "duration": 33
+  },
+  {
+   "filename": "frost-nova-iso 51",
+   "frame": {
+    "x": 1656,
+    "y": 970,
+    "w": 276,
+    "h": 194
+   },
+   "rotated": false,
+   "trimmed": false,
+   "spriteSourceSize": {
+    "x": 0,
+    "y": 0,
+    "w": 276,
+    "h": 194
+   },
+   "sourceSize": {
+    "w": 276,
+    "h": 194
+   },
+   "duration": 33
+  },
+  {
+   "filename": "frost-nova-iso 52",
+   "frame": {
+    "x": 1932,
+    "y": 970,
+    "w": 276,
+    "h": 194
+   },
+   "rotated": false,
+   "trimmed": false,
+   "spriteSourceSize": {
+    "x": 0,
+    "y": 0,
+    "w": 276,
+    "h": 194
+   },
+   "sourceSize": {
+    "w": 276,
+    "h": 194
+   },
+   "duration": 33
+  },
+  {
+   "filename": "frost-nova-iso 53",
+   "frame": {
+    "x": 2208,
+    "y": 970,
+    "w": 276,
+    "h": 194
+   },
+   "rotated": false,
+   "trimmed": false,
+   "spriteSourceSize": {
+    "x": 0,
+    "y": 0,
+    "w": 276,
+    "h": 194
+   },
+   "sourceSize": {
+    "w": 276,
+    "h": 194
+   },
+   "duration": 33
+  },
+  {
+   "filename": "frost-nova-iso 54",
+   "frame": {
+    "x": 0,
+    "y": 1164,
+    "w": 276,
+    "h": 194
+   },
+   "rotated": false,
+   "trimmed": false,
+   "spriteSourceSize": {
+    "x": 0,
+    "y": 0,
+    "w": 276,
+    "h": 194
+   },
+   "sourceSize": {
+    "w": 276,
+    "h": 194
+   },
+   "duration": 33
+  },
+  {
+   "filename": "frost-nova-iso 55",
+   "frame": {
+    "x": 276,
+    "y": 1164,
+    "w": 276,
+    "h": 194
+   },
+   "rotated": false,
+   "trimmed": false,
+   "spriteSourceSize": {
+    "x": 0,
+    "y": 0,
+    "w": 276,
+    "h": 194
+   },
+   "sourceSize": {
+    "w": 276,
+    "h": 194
+   },
+   "duration": 33
+  },
+  {
+   "filename": "frost-nova-iso 56",
+   "frame": {
+    "x": 552,
+    "y": 1164,
+    "w": 276,
+    "h": 194
+   },
+   "rotated": false,
+   "trimmed": false,
+   "spriteSourceSize": {
+    "x": 0,
+    "y": 0,
+    "w": 276,
+    "h": 194
+   },
+   "sourceSize": {
+    "w": 276,
+    "h": 194
+   },
+   "duration": 33
+  },
+  {
+   "filename": "frost-nova-iso 57",
+   "frame": {
+    "x": 828,
+    "y": 1164,
+    "w": 276,
+    "h": 194
+   },
+   "rotated": false,
+   "trimmed": false,
+   "spriteSourceSize": {
+    "x": 0,
+    "y": 0,
+    "w": 276,
+    "h": 194
+   },
+   "sourceSize": {
+    "w": 276,
+    "h": 194
+   },
+   "duration": 33
+  },
+  {
+   "filename": "frost-nova-iso 58",
+   "frame": {
+    "x": 1104,
+    "y": 1164,
+    "w": 276,
+    "h": 194
+   },
+   "rotated": false,
+   "trimmed": false,
+   "spriteSourceSize": {
+    "x": 0,
+    "y": 0,
+    "w": 276,
+    "h": 194
+   },
+   "sourceSize": {
+    "w": 276,
+    "h": 194
+   },
+   "duration": 33
+  },
+  {
+   "filename": "frost-nova-iso 59",
+   "frame": {
+    "x": 1380,
+    "y": 1164,
+    "w": 276,
+    "h": 194
+   },
+   "rotated": false,
+   "trimmed": false,
+   "spriteSourceSize": {
+    "x": 0,
+    "y": 0,
+    "w": 276,
+    "h": 194
+   },
+   "sourceSize": {
+    "w": 276,
+    "h": 194
+   },
+   "duration": 33
+  },
+  {
+   "filename": "frost-nova-iso 60",
+   "frame": {
+    "x": 1656,
+    "y": 1164,
+    "w": 276,
+    "h": 194
+   },
+   "rotated": false,
+   "trimmed": false,
+   "spriteSourceSize": {
+    "x": 0,
+    "y": 0,
+    "w": 276,
+    "h": 194
+   },
+   "sourceSize": {
+    "w": 276,
+    "h": 194
+   },
+   "duration": 33
+  },
+  {
+   "filename": "frost-nova-iso 61",
+   "frame": {
+    "x": 1932,
+    "y": 1164,
+    "w": 276,
+    "h": 194
+   },
+   "rotated": false,
+   "trimmed": false,
+   "spriteSourceSize": {
+    "x": 0,
+    "y": 0,
+    "w": 276,
+    "h": 194
+   },
+   "sourceSize": {
+    "w": 276,
+    "h": 194
+   },
+   "duration": 33
+  },
+  {
+   "filename": "frost-nova-iso 62",
+   "frame": {
+    "x": 2208,
+    "y": 1164,
+    "w": 276,
+    "h": 194
+   },
+   "rotated": false,
+   "trimmed": false,
+   "spriteSourceSize": {
+    "x": 0,
+    "y": 0,
+    "w": 276,
+    "h": 194
+   },
+   "sourceSize": {
+    "w": 276,
+    "h": 194
+   },
+   "duration": 33
+  },
+  {
+   "filename": "frost-nova-iso 63",
+   "frame": {
+    "x": 0,
+    "y": 1358,
+    "w": 276,
+    "h": 194
+   },
+   "rotated": false,
+   "trimmed": false,
+   "spriteSourceSize": {
+    "x": 0,
+    "y": 0,
+    "w": 276,
+    "h": 194
+   },
+   "sourceSize": {
+    "w": 276,
+    "h": 194
+   },
+   "duration": 33
+  },
+  {
+   "filename": "frost-nova-iso 64",
+   "frame": {
+    "x": 276,
+    "y": 1358,
+    "w": 276,
+    "h": 194
+   },
+   "rotated": false,
+   "trimmed": false,
+   "spriteSourceSize": {
+    "x": 0,
+    "y": 0,
+    "w": 276,
+    "h": 194
+   },
+   "sourceSize": {
+    "w": 276,
+    "h": 194
+   },
+   "duration": 33
+  },
+  {
+   "filename": "frost-nova-iso 65",
+   "frame": {
+    "x": 552,
+    "y": 1358,
+    "w": 276,
+    "h": 194
+   },
+   "rotated": false,
+   "trimmed": false,
+   "spriteSourceSize": {
+    "x": 0,
+    "y": 0,
+    "w": 276,
+    "h": 194
+   },
+   "sourceSize": {
+    "w": 276,
+    "h": 194
+   },
+   "duration": 33
+  },
+  {
+   "filename": "frost-nova-iso 66",
+   "frame": {
+    "x": 828,
+    "y": 1358,
+    "w": 276,
+    "h": 194
+   },
+   "rotated": false,
+   "trimmed": false,
+   "spriteSourceSize": {
+    "x": 0,
+    "y": 0,
+    "w": 276,
+    "h": 194
+   },
+   "sourceSize": {
+    "w": 276,
+    "h": 194
+   },
+   "duration": 33
+  },
+  {
+   "filename": "frost-nova-iso 67",
+   "frame": {
+    "x": 1104,
+    "y": 1358,
+    "w": 276,
+    "h": 194
+   },
+   "rotated": false,
+   "trimmed": false,
+   "spriteSourceSize": {
+    "x": 0,
+    "y": 0,
+    "w": 276,
+    "h": 194
+   },
+   "sourceSize": {
+    "w": 276,
+    "h": 194
+   },
+   "duration": 33
+  },
+  {
+   "filename": "frost-nova-iso 68",
+   "frame": {
+    "x": 1380,
+    "y": 1358,
+    "w": 276,
+    "h": 194
+   },
+   "rotated": false,
+   "trimmed": false,
+   "spriteSourceSize": {
+    "x": 0,
+    "y": 0,
+    "w": 276,
+    "h": 194
+   },
+   "sourceSize": {
+    "w": 276,
+    "h": 194
+   },
+   "duration": 33
+  },
+  {
+   "filename": "frost-nova-iso 69",
+   "frame": {
+    "x": 1656,
+    "y": 1358,
+    "w": 276,
+    "h": 194
+   },
+   "rotated": false,
+   "trimmed": false,
+   "spriteSourceSize": {
+    "x": 0,
+    "y": 0,
+    "w": 276,
+    "h": 194
+   },
+   "sourceSize": {
+    "w": 276,
+    "h": 194
+   },
+   "duration": 33
+  },
+  {
+   "filename": "frost-nova-iso 70",
+   "frame": {
+    "x": 1932,
+    "y": 1358,
+    "w": 276,
+    "h": 194
+   },
+   "rotated": false,
+   "trimmed": false,
+   "spriteSourceSize": {
+    "x": 0,
+    "y": 0,
+    "w": 276,
+    "h": 194
+   },
+   "sourceSize": {
+    "w": 276,
+    "h": 194
+   },
+   "duration": 33
+  },
+  {
+   "filename": "frost-nova-iso 71",
+   "frame": {
+    "x": 2208,
+    "y": 1358,
+    "w": 276,
+    "h": 194
+   },
+   "rotated": false,
+   "trimmed": false,
+   "spriteSourceSize": {
+    "x": 0,
+    "y": 0,
+    "w": 276,
+    "h": 194
+   },
+   "sourceSize": {
+    "w": 276,
+    "h": 194
+   },
+   "duration": 33
+  },
+  {
+   "filename": "frost-nova-iso 72",
+   "frame": {
+    "x": 0,
+    "y": 1552,
+    "w": 276,
+    "h": 194
+   },
+   "rotated": false,
+   "trimmed": false,
+   "spriteSourceSize": {
+    "x": 0,
+    "y": 0,
+    "w": 276,
+    "h": 194
+   },
+   "sourceSize": {
+    "w": 276,
+    "h": 194
+   },
+   "duration": 33
+  },
+  {
+   "filename": "frost-nova-iso 73",
+   "frame": {
+    "x": 276,
+    "y": 1552,
+    "w": 276,
+    "h": 194
+   },
+   "rotated": false,
+   "trimmed": false,
+   "spriteSourceSize": {
+    "x": 0,
+    "y": 0,
+    "w": 276,
+    "h": 194
+   },
+   "sourceSize": {
+    "w": 276,
+    "h": 194
+   },
+   "duration": 33
+  },
+  {
+   "filename": "frost-nova-iso 74",
+   "frame": {
+    "x": 552,
+    "y": 1552,
+    "w": 276,
+    "h": 194
+   },
+   "rotated": false,
+   "trimmed": false,
+   "spriteSourceSize": {
+    "x": 0,
+    "y": 0,
+    "w": 276,
+    "h": 194
+   },
+   "sourceSize": {
+    "w": 276,
+    "h": 194
+   },
+   "duration": 33
+  },
+  {
+   "filename": "frost-nova-iso 75",
+   "frame": {
+    "x": 828,
+    "y": 1552,
+    "w": 276,
+    "h": 194
+   },
+   "rotated": false,
+   "trimmed": false,
+   "spriteSourceSize": {
+    "x": 0,
+    "y": 0,
+    "w": 276,
+    "h": 194
+   },
+   "sourceSize": {
+    "w": 276,
+    "h": 194
+   },
+   "duration": 33
+  },
+  {
+   "filename": "frost-nova-iso 76",
+   "frame": {
+    "x": 1104,
+    "y": 1552,
+    "w": 276,
+    "h": 194
+   },
+   "rotated": false,
+   "trimmed": false,
+   "spriteSourceSize": {
+    "x": 0,
+    "y": 0,
+    "w": 276,
+    "h": 194
+   },
+   "sourceSize": {
+    "w": 276,
+    "h": 194
+   },
+   "duration": 33
+  },
+  {
+   "filename": "frost-nova-iso 77",
+   "frame": {
+    "x": 1380,
+    "y": 1552,
+    "w": 276,
+    "h": 194
+   },
+   "rotated": false,
+   "trimmed": false,
+   "spriteSourceSize": {
+    "x": 0,
+    "y": 0,
+    "w": 276,
+    "h": 194
+   },
+   "sourceSize": {
+    "w": 276,
+    "h": 194
+   },
+   "duration": 33
+  },
+  {
+   "filename": "frost-nova-iso 78",
+   "frame": {
+    "x": 1656,
+    "y": 1552,
+    "w": 276,
+    "h": 194
+   },
+   "rotated": false,
+   "trimmed": false,
+   "spriteSourceSize": {
+    "x": 0,
+    "y": 0,
+    "w": 276,
+    "h": 194
+   },
+   "sourceSize": {
+    "w": 276,
+    "h": 194
+   },
+   "duration": 33
+  },
+  {
+   "filename": "frost-nova-iso 79",
+   "frame": {
+    "x": 1932,
+    "y": 1552,
+    "w": 276,
+    "h": 194
+   },
+   "rotated": false,
+   "trimmed": false,
+   "spriteSourceSize": {
+    "x": 0,
+    "y": 0,
+    "w": 276,
+    "h": 194
+   },
+   "sourceSize": {
+    "w": 276,
+    "h": 194
+   },
+   "duration": 33
+  },
+  {
+   "filename": "frost-nova-iso 80",
+   "frame": {
+    "x": 2208,
+    "y": 1552,
+    "w": 276,
+    "h": 194
+   },
+   "rotated": false,
+   "trimmed": false,
+   "spriteSourceSize": {
+    "x": 0,
+    "y": 0,
+    "w": 276,
+    "h": 194
+   },
+   "sourceSize": {
+    "w": 276,
+    "h": 194
+   },
+   "duration": 33
+  },
+  {
+   "filename": "frost-nova-iso 81",
+   "frame": {
+    "x": 0,
+    "y": 1746,
+    "w": 276,
+    "h": 194
+   },
+   "rotated": false,
+   "trimmed": false,
+   "spriteSourceSize": {
+    "x": 0,
+    "y": 0,
+    "w": 276,
+    "h": 194
+   },
+   "sourceSize": {
+    "w": 276,
+    "h": 194
+   },
+   "duration": 33
+  },
+  {
+   "filename": "frost-nova-iso 82",
+   "frame": {
+    "x": 276,
+    "y": 1746,
+    "w": 276,
+    "h": 194
+   },
+   "rotated": false,
+   "trimmed": false,
+   "spriteSourceSize": {
+    "x": 0,
+    "y": 0,
+    "w": 276,
+    "h": 194
+   },
+   "sourceSize": {
+    "w": 276,
+    "h": 194
+   },
+   "duration": 33
+  },
+  {
+   "filename": "frost-nova-iso 83",
+   "frame": {
+    "x": 552,
+    "y": 1746,
+    "w": 276,
+    "h": 194
+   },
+   "rotated": false,
+   "trimmed": false,
+   "spriteSourceSize": {
+    "x": 0,
+    "y": 0,
+    "w": 276,
+    "h": 194
+   },
+   "sourceSize": {
+    "w": 276,
+    "h": 194
+   },
+   "duration": 33
+  },
+  {
+   "filename": "frost-nova-iso 84",
+   "frame": {
+    "x": 828,
+    "y": 1746,
+    "w": 276,
+    "h": 194
+   },
+   "rotated": false,
+   "trimmed": false,
+   "spriteSourceSize": {
+    "x": 0,
+    "y": 0,
+    "w": 276,
+    "h": 194
+   },
+   "sourceSize": {
+    "w": 276,
+    "h": 194
+   },
+   "duration": 33
+  },
+  {
+   "filename": "frost-nova-iso 85",
+   "frame": {
+    "x": 1104,
+    "y": 1746,
+    "w": 276,
+    "h": 194
+   },
+   "rotated": false,
+   "trimmed": false,
+   "spriteSourceSize": {
+    "x": 0,
+    "y": 0,
+    "w": 276,
+    "h": 194
+   },
+   "sourceSize": {
+    "w": 276,
+    "h": 194
+   },
+   "duration": 33
+  },
+  {
+   "filename": "frost-nova-iso 86",
+   "frame": {
+    "x": 1380,
+    "y": 1746,
+    "w": 276,
+    "h": 194
+   },
+   "rotated": false,
+   "trimmed": false,
+   "spriteSourceSize": {
+    "x": 0,
+    "y": 0,
+    "w": 276,
+    "h": 194
+   },
+   "sourceSize": {
+    "w": 276,
+    "h": 194
+   },
+   "duration": 33
+  },
+  {
+   "filename": "frost-nova-iso 87",
+   "frame": {
+    "x": 1656,
+    "y": 1746,
+    "w": 276,
+    "h": 194
+   },
+   "rotated": false,
+   "trimmed": false,
+   "spriteSourceSize": {
+    "x": 0,
+    "y": 0,
+    "w": 276,
+    "h": 194
+   },
+   "sourceSize": {
+    "w": 276,
+    "h": 194
+   },
+   "duration": 33
+  },
+  {
+   "filename": "frost-nova-iso 88",
+   "frame": {
+    "x": 1932,
+    "y": 1746,
+    "w": 276,
+    "h": 194
+   },
+   "rotated": false,
+   "trimmed": false,
+   "spriteSourceSize": {
+    "x": 0,
+    "y": 0,
+    "w": 276,
+    "h": 194
+   },
+   "sourceSize": {
+    "w": 276,
+    "h": 194
+   },
+   "duration": 33
+  },
+  {
+   "filename": "frost-nova-iso 89",
+   "frame": {
+    "x": 2208,
+    "y": 1746,
+    "w": 276,
+    "h": 194
+   },
+   "rotated": false,
+   "trimmed": false,
+   "spriteSourceSize": {
+    "x": 0,
+    "y": 0,
+    "w": 276,
+    "h": 194
+   },
+   "sourceSize": {
+    "w": 276,
+    "h": 194
+   },
+   "duration": 33
+  },
+  {
+   "filename": "frost-nova-iso 90",
+   "frame": {
+    "x": 0,
+    "y": 1940,
+    "w": 276,
+    "h": 194
+   },
+   "rotated": false,
+   "trimmed": false,
+   "spriteSourceSize": {
+    "x": 0,
+    "y": 0,
+    "w": 276,
+    "h": 194
+   },
+   "sourceSize": {
+    "w": 276,
+    "h": 194
+   },
+   "duration": 33
+  },
+  {
+   "filename": "frost-nova-iso 91",
+   "frame": {
+    "x": 276,
+    "y": 1940,
+    "w": 276,
+    "h": 194
+   },
+   "rotated": false,
+   "trimmed": false,
+   "spriteSourceSize": {
+    "x": 0,
+    "y": 0,
+    "w": 276,
+    "h": 194
+   },
+   "sourceSize": {
+    "w": 276,
+    "h": 194
+   },
+   "duration": 33
+  },
+  {
+   "filename": "frost-nova-iso 92",
+   "frame": {
+    "x": 552,
+    "y": 1940,
+    "w": 276,
+    "h": 194
+   },
+   "rotated": false,
+   "trimmed": false,
+   "spriteSourceSize": {
+    "x": 0,
+    "y": 0,
+    "w": 276,
+    "h": 194
+   },
+   "sourceSize": {
+    "w": 276,
+    "h": 194
+   },
+   "duration": 33
+  },
+  {
+   "filename": "frost-nova-iso 93",
+   "frame": {
+    "x": 828,
+    "y": 1940,
+    "w": 276,
+    "h": 194
+   },
+   "rotated": false,
+   "trimmed": false,
+   "spriteSourceSize": {
+    "x": 0,
+    "y": 0,
+    "w": 276,
+    "h": 194
+   },
+   "sourceSize": {
+    "w": 276,
+    "h": 194
+   },
+   "duration": 33
+  },
+  {
+   "filename": "frost-nova-iso 94",
+   "frame": {
+    "x": 1104,
+    "y": 1940,
+    "w": 276,
+    "h": 194
+   },
+   "rotated": false,
+   "trimmed": false,
+   "spriteSourceSize": {
+    "x": 0,
+    "y": 0,
+    "w": 276,
+    "h": 194
+   },
+   "sourceSize": {
+    "w": 276,
+    "h": 194
+   },
+   "duration": 33
+  },
+  {
+   "filename": "frost-nova-iso 95",
+   "frame": {
+    "x": 1380,
+    "y": 1940,
+    "w": 276,
+    "h": 194
+   },
+   "rotated": false,
+   "trimmed": false,
+   "spriteSourceSize": {
+    "x": 0,
+    "y": 0,
+    "w": 276,
+    "h": 194
+   },
+   "sourceSize": {
+    "w": 276,
+    "h": 194
+   },
+   "duration": 33
+  },
+  {
+   "filename": "frost-nova-iso 96",
+   "frame": {
+    "x": 1656,
+    "y": 1940,
+    "w": 276,
+    "h": 194
+   },
+   "rotated": false,
+   "trimmed": false,
+   "spriteSourceSize": {
+    "x": 0,
+    "y": 0,
+    "w": 276,
+    "h": 194
+   },
+   "sourceSize": {
+    "w": 276,
+    "h": 194
+   },
+   "duration": 33
+  },
+  {
+   "filename": "frost-nova-iso 97",
+   "frame": {
+    "x": 1932,
+    "y": 1940,
+    "w": 276,
+    "h": 194
+   },
+   "rotated": false,
+   "trimmed": false,
+   "spriteSourceSize": {
+    "x": 0,
+    "y": 0,
+    "w": 276,
+    "h": 194
+   },
+   "sourceSize": {
+    "w": 276,
+    "h": 194
+   },
+   "duration": 33
+  },
+  {
+   "filename": "frost-nova-iso 98",
+   "frame": {
+    "x": 2208,
+    "y": 1940,
+    "w": 276,
+    "h": 194
+   },
+   "rotated": false,
+   "trimmed": false,
+   "spriteSourceSize": {
+    "x": 0,
+    "y": 0,
+    "w": 276,
+    "h": 194
+   },
+   "sourceSize": {
+    "w": 276,
+    "h": 194
+   },
+   "duration": 33
+  },
+  {
+   "filename": "frost-nova-iso 99",
+   "frame": {
+    "x": 0,
+    "y": 2134,
+    "w": 276,
+    "h": 194
+   },
+   "rotated": false,
+   "trimmed": false,
+   "spriteSourceSize": {
+    "x": 0,
+    "y": 0,
+    "w": 276,
+    "h": 194
+   },
+   "sourceSize": {
+    "w": 276,
+    "h": 194
+   },
+   "duration": 33
+  },
+  {
+   "filename": "frost-nova-iso 100",
+   "frame": {
+    "x": 276,
+    "y": 2134,
+    "w": 276,
+    "h": 194
+   },
+   "rotated": false,
+   "trimmed": false,
+   "spriteSourceSize": {
+    "x": 0,
+    "y": 0,
+    "w": 276,
+    "h": 194
+   },
+   "sourceSize": {
+    "w": 276,
+    "h": 194
+   },
+   "duration": 33
+  },
+  {
+   "filename": "frost-nova-iso 101",
+   "frame": {
+    "x": 552,
+    "y": 2134,
+    "w": 276,
+    "h": 194
+   },
+   "rotated": false,
+   "trimmed": false,
+   "spriteSourceSize": {
+    "x": 0,
+    "y": 0,
+    "w": 276,
+    "h": 194
+   },
+   "sourceSize": {
+    "w": 276,
+    "h": 194
+   },
+   "duration": 33
+  },
+  {
+   "filename": "frost-nova-iso 102",
+   "frame": {
+    "x": 828,
+    "y": 2134,
+    "w": 276,
+    "h": 194
+   },
+   "rotated": false,
+   "trimmed": false,
+   "spriteSourceSize": {
+    "x": 0,
+    "y": 0,
+    "w": 276,
+    "h": 194
+   },
+   "sourceSize": {
+    "w": 276,
+    "h": 194
+   },
+   "duration": 33
+  }
+ ],
+ "meta": {
+  "app": "https://github.com/patch-gg/pixelfx",
+  "version": "1",
+  "image": "frost-nova-iso.png",
+  "format": "RGBA8888",
+  "size": {
+   "w": 2484,
+   "h": 2328
+  },
+  "scale": "1",
+  "frameTags": [
+   {
+    "name": "frost-nova-iso",
+    "from": 0,
+    "to": 102,
+    "direction": "forward"
+   }
+  ],
+  "pixelfx": {
+   "id": "ice/frost-nova-iso",
+   "name": "Frost nova (iso)",
+   "fps": 30,
+   "loop": false,
+   "frames": 103,
+   "frameSize": [
+    276,
+    194
+   ],
+   "pivot": [
+    138,
+    118
+   ],
+   "columns": 9
+  }
+ }
+}

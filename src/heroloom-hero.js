@@ -83,6 +83,12 @@ const HEX = (h) => [parseInt(h.slice(1, 3), 16), parseInt(h.slice(3, 5), 16), pa
 /** Game direction index (0 up, 1 side-right, 2 down, 3 side-left) — pixel-world uses it for mounts / DOLL_HOR. */
 const DIR_INDEX = { up: 0, side: 1, sideRight: 1, down: 2, left: 3, sideLeft: 3 };
 const dirIndexOf = (dir) => (DIR_INDEX[dir] != null ? DIR_INDEX[dir] : 1);
+/**
+ * parts for one compose call: dir = what is actually drawn (the pack only has the side view: 1 right, 3 mirrored left),
+ * wantDir = the requested 4-quadrant direction (0 up, 1 right, 2 down, 3 left). Built per call because the crop cache is keyed by
+ * mirror only and is shared by every direction (a cached parts object would carry the direction of whoever filled the entry first).
+ */
+const partsFor = (e, want, mirror) => Object.assign([], { action: e.action, slot: e.slot, dir: mirror ? 3 : 1, dirName: mirror ? 'sideLeft' : 'side', wantDir: dirIndexOf(want) });
 
 export function createDollHero(opts = {}) {
   const makeCanvas = typeof opts.makeCanvas === 'function' ? opts.makeCanvas : defaultCanvas;
@@ -332,7 +338,8 @@ export function createDollHero(opts = {}) {
     const meta = HEROLOOM_ACTIONS[action];
     if (!meta) return null;
     const frame = o.frame != null ? o.frame : heroloomFrameIndex(heroloomAf(action), o.tick || 0);
-    const mirror = o.mirror != null ? !!o.mirror : (o.dir === 'left' || o.dir === 'sideLeft');
+    const dir = o.dir === 'left' || o.dir === 'sideLeft' ? 'sideLeft' : (o.dir === 'up' || o.dir === 'down' ? o.dir : 'side');
+    const mirror = o.mirror != null ? !!o.mirror : (dir === 'sideLeft' || ((dir === 'up' || dir === 'down') && o.sideHint < 0));
     const sig = heroloomRecipeSig(recipe);
     const ck = sig + '|' + action + '|' + frame + '|' + (mirror ? 1 : 0);
     let e = cropCache.get(ck);
@@ -343,8 +350,7 @@ export function createDollHero(opts = {}) {
       if (!cell) return null;
       const crop = cropCell(cell, mirror);
       if (!crop) return null;
-      const dir = mirror ? 'sideLeft' : (o.dir === 'up' || o.dir === 'down' ? o.dir : 'side');
-      e = Object.assign(crop, { parts: Object.assign([], { action, dir: dirIndexOf(dir), dirName: dir, wantDir: dirIndexOf(dir), slot: frame }) });
+      e = Object.assign(crop, { action, slot: frame });
       cropCache.set(ck, e);
       while (cropCache.size > capFn()) cropCache.delete(cropCache.keys().next().value);
     }
@@ -353,7 +359,7 @@ export function createDollHero(opts = {}) {
       footX: e.footX,
       footY: e.footY,
       heroHeight: HEROLOOM_HERO_HEIGHT,
-      parts: e.parts,
+      parts: partsFor(e, o.mirror != null && dir !== 'up' && dir !== 'down' ? (mirror ? 'sideLeft' : 'side') : dir, mirror),
       look: recipe.look || null,
       key: sig + '|' + action + '|' + frame,
       shadow: { cv: e.cv, footX: e.footX, footY: e.footY },
@@ -386,8 +392,10 @@ export function createDollHero(opts = {}) {
     const tick = req.tick || 0;
     const action = heroloomActionKey(actKey, look.weaponType);
     const frame = heroloomFrameIndex(af, tick);
-    const mirror = req.dir === 'left' || req.dir === 'sideLeft';
-    const dir = mirror ? 'sideLeft' : (req.dir === 'up' || req.dir === 'down' ? req.dir : 'side');
+    // The pack only has the side view. Up/down requests (4-quadrant facing, src/dir4.js) are drawn as the side view turned toward
+    // req.sideHint (±1 = which way the character leans on screen; pixel-world passes its mirror), so they never face backwards.
+    const dir = req.dir === 'left' || req.dir === 'sideLeft' ? 'sideLeft' : (req.dir === 'up' || req.dir === 'down' ? req.dir : 'side');
+    const mirror = dir === 'sideLeft' || ((dir === 'up' || dir === 'down') && req.sideHint < 0);
     const recipe = heroloomRecipe(look, { hideWeapon: !!req.hideWeapon });
     const key = heroloomRecipeSig(recipe) + '|' + action + '|' + frame + '|' + (mirror ? 1 : 0);
     const ck = key;
@@ -399,7 +407,7 @@ export function createDollHero(opts = {}) {
       if (!cell) return null;
       const crop = cropCell(cell, mirror);
       if (!crop) return null;
-      e = Object.assign(crop, { parts: Object.assign([], { action, dir: dirIndexOf(dir), dirName: dir, wantDir: dirIndexOf(dir), slot: frame }) });
+      e = Object.assign(crop, { action, slot: frame });
       cropCache.set(ck, e);
       while (cropCache.size > capFn()) cropCache.delete(cropCache.keys().next().value);
     }
@@ -409,7 +417,7 @@ export function createDollHero(opts = {}) {
       footX: e.footX,
       footY: e.footY,
       heroHeight: HEROLOOM_HERO_HEIGHT,
-      parts: e.parts,
+      parts: partsFor(e, dir, mirror),
       look,
       key,
       shadow: { cv: e.cv, footX: e.footX, footY: e.footY },

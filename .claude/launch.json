@@ -7,6 +7,27 @@
       "runtimeArgs": ["server.mjs"],
       "port": 5024,
       "url": "http://100.79.149.0:5024"
+    },
+    {
+      "name": "mistvale-pixel-ui",
+      "runtimeExecutable": "node",
+      "runtimeArgs": ["C:\\Users\\ray\\AppData\\Local\\Temp\\claude\\6cd1f80249bc5a45\\424fa29d-c724-4cc4-aec5-9cc20ecde346\\scratchpad\\pixelui-view\\server.mjs"],
+      "port": 5025,
+      "url": "http://100.79.149.0:5025"
+    },
+    {
+      "name": "pixelfx-gallery",
+      "runtimeExecutable": "python",
+      "runtimeArgs": ["-m", "http.server", "8080", "--bind", "100.79.149.0", "--directory", "C:\\Users\\ray\\Desktop\\Claude code\\pixelfx"],
+      "port": 8080,
+      "url": "http://100.79.149.0:8080"
+    },
+    {
+      "name": "pixelfx-character",
+      "runtimeExecutable": "python",
+      "runtimeArgs": ["-m", "http.server", "8082", "--bind", "100.79.149.0", "--directory", "C:\\Users\\ray\\Documents\\Codex\\2026-09-29\\new-chat\\work\\mistvale\\output\\pixelfx-character"],
+      "port": 8082,
+      "url": "http://100.79.149.0:8082"
     }
   ]
 }
