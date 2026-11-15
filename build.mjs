@@ -116,9 +116,14 @@ try{assetScript+=`window.PIXEL_ASSETS=window.PIXEL_ASSETS||{};window.PIXEL_ASSET
  // 2026-10-31:英雄不再戴配件 → 配件圖集(5 KB)不再打包,檔案留在 assets/heroes/ 當歷史
  // try{put('heroAccessories',...)}
  // 新規格魔物(assets/monsters3/<魔物>.png/.json)——執行時用到哪一種才載(見 pixel-world.js ensureMonsterSheet)
- {const md=path.join(root,'assets/monsters3');let mf=[];try{mf=await fs.readdir(md);}catch{}const ms={};
+ // 2026-11-15:HeroLoom 風格重繪版放 assets/heroloom-monsters3/<魔物>.png+json,同 id 優先(有就用,沒有就用原本),
+ // 只換圖/像素資料,meta 幾何(heroHeight/footFromBottom/artSize/cell/frames/frameTime/head)必須保持相容。
+ {const md=path.join(root,'assets/monsters3'),hd=path.join(root,'assets/heroloom-monsters3');let mf=[];try{mf=await fs.readdir(md);}catch{}const ms={};
   for(const f of mf.filter(f=>f.endsWith('.json'))){const id=f.slice(0,-5);
-    ms[id]={img:await media(path.join(md,id+'.png'),`monsters3/${id}.png`),meta:JSON.parse(await fs.readFile(path.join(md,f),'utf8'))};}
+    const hpng=path.join(hd,id+'.png'),hjson=path.join(hd,id+'.json');
+    const useLoom=(await existsFile(hpng))&&(await existsFile(hjson));
+    const src=useLoom?hd:md,dest=useLoom?`heroloom-monsters3/${id}.png`:`monsters3/${id}.png`;
+    ms[id]={img:await media(path.join(src,id+'.png'),dest),meta:JSON.parse(await fs.readFile(path.join(src,id+'.json'),'utf8'))};}
   assetScript+=`window.PIXEL_ASSETS.monsterSheets=${JSON.stringify(ms)};`;}}
 
 // 2026-10-28:PixelLab 生的 UI 零件（assets/ui/,每個 0.3–0.8 KB → 直接內嵌成 data URI）
