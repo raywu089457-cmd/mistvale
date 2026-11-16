@@ -1,15 +1,47 @@
 import {getRoads,onPaved,doorStand,PALISADE,villagePonds,inPond,buildingSolid,statueSolid} from './landscape-layout.js';
 import {createVillageNav} from './village-nav.js';
-import {WORLD,REGIONS,walkable,inVillage,regionAt,regionContains,regionEdge,regionCenter,randomRegionPoint,wildAt,nearestRingRoad,ringRoadPath,ringPointAt,onRingRoad,ringRoadDistance,RING_ROAD_HALF} from './overworld.js';
+import {WORLD,REGIONS,walkable,inVillage,regionAt,regionContains,regionEdge,regionCenter,randomRegionPoint,wildAt,nearestRingRoad,ringRoadPath,ringPointAt,onRingRoad,ringRoadDistance,RING_ROAD_HALF,RING_ROAD} from './overworld.js';
 import {VILLAGE_BOUNDS,EXITS,blockAt,BUILDING_NUDGE,BUILDING_SLOTS,blockCenter} from './village-grid.js';
 import {sfx} from './sfx.js';
-import { SKILLS, BUILDINGS, CLASSES, RARITIES, TRAITS, MATERIALS, PRODUCTS, RECIPES, GEAR_SLOTS, EQUIP_SLOTS, DIFFICULTIES, CAMP, HUNT_ZONE, PILOT_ATTACK, PILOT_ORB, AI_ATTACK_LOCK, KITE, PROVOKE, MONSTER_RANGED, LEGACY_LAYOUT_V14, LEGACY_LAYOUT_V15, LEGACY_LAYOUT_V16, ART_LAYOUT_HISTORY, REGION_DENSITY, DEFAULT_REGION_DENSITY, MONSTER_SPEED_MULT, MONSTER_ATTACK_RATE } from './pixel-data.js';
+import { SKILLS, BUILDINGS, CLASSES, RARITIES, TRAITS, MATERIALS, PRODUCTS, RECIPES, GEAR_SLOTS, EQUIP_SLOTS, GEAR_TIERS, GEAR_TIER_MAX, gearAt, DIFFICULTIES, CAMP, HUNT_ZONE, PILOT_ATTACK, PILOT_ORB, MERCHANT, AI_ATTACK_LOCK, KITE, PROVOKE, MONSTER_RANGED, LEGACY_LAYOUT_V14, LEGACY_LAYOUT_V15, LEGACY_LAYOUT_V16, ART_LAYOUT_HISTORY, REGION_DENSITY, DEFAULT_REGION_DENSITY, MONSTER_SPEED_MULT, MONSTER_ATTACK_RATE } from './pixel-data.js';
 
 const mapById = list => Object.assign(Object.create(null), Object.fromEntries(list.map(item => [item.id, item])));
 const CLASS = mapById(CLASSES), BUILDING = mapById(BUILDINGS), RARITY = mapById(RARITIES), RECIPE = mapById(RECIPES);
 // 六格裝備的空白狀態:新獵人/流浪英雄/訪客預覽都用同一份 key 集合(weapon + 六件防具)。
 const emptyEquipment = () => Object.fromEntries(EQUIP_SLOTS.map(slot => [slot, false]));
-const emptyGearStock = () => Object.fromEntries(EQUIP_SLOTS.map(slot => [slot, 0]));
+// 2026-11-16 裝備階級:鍛造庫存是「每格 × 每階」→ gearStock[slot] = { 1: n, 2: n, ..., 5: n }(舊存檔的數字 = 第 1 階的件數,見 restore)。
+const emptyTierStock = () => Object.fromEntries(GEAR_TIERS.map(t => [t.tier, 0]));
+const emptyGearStock = () => Object.fromEntries(EQUIP_SLOTS.map(slot => [slot, emptyTierStock()]));
+// 獵人身上每格的階級:h.equipment[slot] 仍是布林(擁有與否;紙娃娃/HeroLoom/世界繪製都用 === true 判斷,不能改成數字),
+// 階級另存在 h.gearTier[slot](1..5)。真正的階級一律經過 gearTierOf:沒擁有 → 0;擁有但沒有階級欄位(舊存檔、直接設 true 的實驗頁)→ 1。
+const emptyGearTier = () => Object.fromEntries(EQUIP_SLOTS.map(slot => [slot, 0]));
+const clampTier = v => Math.min(GEAR_TIER_MAX, Math.max(1, Math.floor(Number(v)) || 1));
+const gearTierOf = (h, slot) => h?.equipment?.[slot] ? clampTier(h.gearTier?.[slot] || 1) : 0;
+function setGearTier(h, slot, tier) { h.equipment[slot] = tier > 0; if (!h.gearTier || typeof h.gearTier !== 'object') h.gearTier = emptyGearTier(); h.gearTier[slot] = tier > 0 ? clampTier(tier) : 0; }
+// 存檔裡的裝備 → { equipment: 布林, gearTier: 數字 }。值可以是 true/false(v2/v3)、或數字階級(防呆:別的分支若直接存數字也收)。
+// legacyArmor = v2 只有一件 armor:六件防具全穿第 1 階。
+function normalizeGear(rawEquipment, rawTier) {
+  const e = rawEquipment && typeof rawEquipment === 'object' ? rawEquipment : {}, legacyArmor = e.armor === true;
+  const equipment = emptyEquipment(), gearTier = emptyGearTier();
+  for (const slot of EQUIP_SLOTS) {
+    const v = e[slot], owned = v === true || (typeof v === 'number' && v >= 1) || (slot !== 'weapon' && legacyArmor);
+    if (!owned) continue;
+    equipment[slot] = true; gearTier[slot] = clampTier(typeof v === 'number' ? v : rawTier?.[slot] || 1);
+  }
+  return { equipment, gearTier };
+}
+// 庫存:數字(舊格式)= 第 1 階;物件 = 各階件數
+function normalizeTierStock(raw) {
+  const out = emptyTierStock();
+  if (typeof raw === 'number') out[1] = Number.isFinite(raw) ? Math.min(1e4, Math.max(0, Math.floor(raw))) : 0;
+  else if (raw && typeof raw === 'object') for (const t of GEAR_TIERS) { const n = Number(raw[t.tier]); out[t.tier] = Number.isFinite(n) ? Math.min(1e4, Math.max(0, Math.floor(n))) : 0; }
+  return out;
+}
+const tierStockTotal = st => GEAR_TIERS.reduce((n, t) => n + (st?.[t.tier] || 0), 0);
+// 換更高階時至少留這麼多錢付吃住(第一次買某格不留,維持舊行為)
+const GEAR_RESERVE = 40;
+// 離線外推時整段不乘倍率的統計(裝備買賣只發生在取樣期,離線庫存不會補)
+const GEAR_ONE_OFF = new Set(['gearSold', 'gearUpgrades', 'gearIncome']);
 // 操控模式的「測試特效」表:pixelfx 表名 → 世界單位/秒數/放在目標還是自己身上
 const PILOT_FX = {
   'root-snare': { k: .52, dur: 2.7, at: 'line', dy: 0 },
@@ -20,6 +52,8 @@ const PILOT_FX = {
   flare: { k: .36, dur: 5.0, at: 'target', dy: 0 },
 };
 const RESOURCE_KEYS = ['gold', 'wood', 'ore', 'herb', 'cloth', 'flour', 'leather', 'gems'];
+// 建築升級成本每級的倍率。2026-11-16:1.6 → 1.75(progression-sim 14 天:加了行商與服務漲價後,1.6 會在第 14 天就把全村升滿 70/70)。
+const UPGRADE_GROWTH = 2.1;   // 2026-11-16 第二輪:裝備階級讓獵人的錢全部流回村莊後,1.75 在 5 個 seed 裡有 3 個第 15 天就全滿
 const MATERIAL_KEYS = Object.keys(MATERIALS), PRODUCT_KEYS = Object.keys(PRODUCTS);
 const UNBUILT = new Set(['academy', 'training', 'enhancement', 'dungeon']);
 const GATE = { ...EXITS[0].out };  // 東門外
@@ -44,39 +78,78 @@ const AGGRO = { boss: 15,
 export const ENEMIES = {
   // 2026-10-26:舊的 slime / wolf / golem / ogre 從出怪表移除,野外只留 8 方向新魔物(王還是 treant)。
   // 21 隻用 PixelLab 8 方向素材做的(每區 3 隻;數值從小型到大型排) ----
-  sprout: { hp: 60, attack: 9, speed: 0.9, gold: 16, xp: 20, drops: { flour: 3, herb: 2 } },
+  // 2026-11-16 平衡(tools/progression-sim.mjs 14 天):獵人大多在草原/山地/雪原自主狩獵,木材只有森林魔物掉 →
+  //   木材整局卡在 0–30、鐵礦堆到 1500,建築升級被木材卡死。木材分散到各區的常見魔物(花芽妖、蕈菇怪、雪人、地精、仙人掌),
+  //   順手把同區多出來的鐵礦/麵粉讓一點出來;森林領主(樹人)本來就該掉一大堆木頭 10 → 20。
+  sprout: { hp: 60, attack: 9, speed: 0.9, gold: 16, xp: 20, drops: { flour: 3, herb: 2, wood: 1 } },
   ram: { hp: 88, attack: 13, speed: 1.25, gold: 22, xp: 27, drops: { flour: 2, leather: 2 } },
   mole: { hp: 75, attack: 11, speed: 0.8, gold: 20, xp: 24, drops: { flour: 2, ore: 1 } },
-  shroom: { hp: 70, attack: 12, speed: 0.7, gold: 20, xp: 25, drops: { herb: 3, flour: 1 } },
+  shroom: { hp: 70, attack: 12, speed: 0.7, gold: 20, xp: 25, drops: { herb: 3, wood: 1 } },
   boar: { hp: 105, attack: 16, speed: 1.5, gold: 26, xp: 31, drops: { leather: 3, wood: 1 } },
   vine: { hp: 95, attack: 14, speed: 0.62, gold: 24, xp: 29, drops: { wood: 3, herb: 2 } },
   wolfman: { hp: 120, attack: 17, speed: 1.55, gold: 30, xp: 36, drops: { leather: 3, cloth: 1 } },
   moss: { hp: 150, attack: 18, speed: 0.7, gold: 34, xp: 40, drops: { wood: 3, herb: 2, ore: 1 } },
   snowhare: { hp: 85, attack: 13, speed: 1.8, gold: 24, xp: 28, drops: { leather: 2, cloth: 2 } },
   yeti: { hp: 200, attack: 22, speed: 0.65, gold: 44, xp: 52, drops: { ore: 3, leather: 3, wood: 2 } },
-  snowman: { hp: 140, attack: 15, speed: 0.75, gold: 32, xp: 37, drops: { ore: 2, cloth: 2 } },
+  snowman: { hp: 140, attack: 15, speed: 0.75, gold: 32, xp: 37, drops: { wood: 2, cloth: 2 } },   // 樹枝手臂
   icebeetle: { hp: 160, attack: 16, speed: 0.6, gold: 34, xp: 39, drops: { ore: 3, herb: 1 } },
-  kobold: { hp: 100, attack: 15, speed: 1.1, gold: 26, xp: 30, drops: { ore: 3, wood: 1 } },
-  boulder: { hp: 210, attack: 23, speed: 0.5, gold: 46, xp: 54, drops: { ore: 5, wood: 1 } },
-  goat: { hp: 130, attack: 18, speed: 1.4, gold: 30, xp: 35, drops: { leather: 2, ore: 2 } },
+  kobold: { hp: 100, attack: 15, speed: 1.1, gold: 26, xp: 30, drops: { ore: 2, wood: 2 } },   // 礦坑支架木
+  boulder: { hp: 210, attack: 23, speed: 0.5, gold: 46, xp: 54, drops: { ore: 4, wood: 2 } },   // 2026-11-16:5 seed 裡第 15 天鐵礦 400–800、木材常 0 → 山區讓一點鐵礦給木材
+  goat: { hp: 130, attack: 18, speed: 1.4, gold: 30, xp: 35, drops: { leather: 2, ore: 1, wood: 1 } },
   mummy: { hp: 130, attack: 17, speed: 0.9, gold: 32, xp: 36, drops: { cloth: 3, herb: 1 } },
-  cactus: { hp: 150, attack: 16, speed: 0.5, gold: 32, xp: 37, drops: { herb: 4, flour: 1 } },
+  cactus: { hp: 150, attack: 16, speed: 0.5, gold: 32, xp: 37, drops: { herb: 3, wood: 1 } },
   scorpion: { hp: 145, attack: 19, speed: 1.05, gold: 34, xp: 39, drops: { herb: 2, leather: 2 } },
   floraspirit: { hp: 70, attack: 11, speed: 1.3, gold: 22, xp: 26, drops: { herb: 4 } },
   birchling: { hp: 110, attack: 14, speed: 0.85, gold: 26, xp: 31, drops: { wood: 3, herb: 2 } },
   stag: { hp: 125, attack: 16, speed: 1.5, gold: 30, xp: 34, drops: { leather: 3, herb: 1 } },
-  boss: { hp: 1150, attack: 28, speed: 0.85, gold: 260, xp: 180, drops: { ore: 15, wood: 10, herb: 8, leather: 10, cloth: 8, flour: 10 } },
+  boss: { hp: 1150, attack: 28, speed: 0.85, gold: 260, xp: 180, drops: { ore: 12, wood: 20, herb: 8, leather: 10, cloth: 8, flour: 10 } },
 };
 const QUESTS = [
-  { title: '迎接第六位獵人', description: '讓村莊中至少有 6 位獵人', target: 6, reward: { gold: 150, flour: 30 }, metric: s => s.hunters.length },
+  // 第 1 章原本是「村莊有 6 位獵人」,但開局就有 CLASSES.length(7)位 → 一開局就完成。改成「招募 1 位旅人」(state.recruited,開局 0)。
+  { title: '迎接新的獵人', description: '打開招募，邀請 1 位前來投靠的旅人加入村莊', target: 1, reward: { gold: 150, flour: 30 }, metric: s => s.recruited },
   { title: '餐廳的第一爐麵包', description: '在餐廳累計製作 20 份餐點', target: 20, reward: { gold: 200, herb: 30, cloth: 30 }, metric: s => s.counts.foodCrafted },
   { title: '建立戰利品循環', description: '透過交易所向獵人收購 10 份材料', target: 10, reward: { gold: 250, ore: 25 }, metric: s => s.counts.traded },
   { title: '鐵匠爐火', description: '把鐵匠鋪升至 2 級', target: 2, reward: { gold: 300, ore: 40 }, metric: s => s.buildings.forge },
   { title: '獵人的新武器', description: '製造 1 件精鐵武器，等待獵人返村選購', target: 1, reward: { gold: 150, gems: 3 }, metric: s => s.counts.weaponsCrafted },
   { title: '討伐森林領主', description: '召集獵人，擊敗 1 位森林領主', target: 1, reward: { gold: 500, gems: 10 }, metric: s => s.bossKills },
   { title: '地下城的門後', description: '建造地下城入口，完成 1 層三人探險', target: 1, reward: { gold: 500, leather: 40, flour: 100 }, metric: s => s.counts.dungeonWins },
-  { title: '下一段獵魔人生', description: '讓 1 位 Lv.100 獵人在復活聖所轉世', target: 1, reward: { gold: 800, gems: 20 }, metric: s => s.counts.rebirths },
+  // ── 中期委託(2026-11-16,QUEST_REVISION 2):第 7 章打完到 Lv.100 轉世之間原本空好幾天,
+  // 補 10 章「每 1–2 個遊戲日一個」的小目標(用 tools/progression-sim.mjs 對過節奏)。
+  // 指標都直接讀現有狀態;不要用 counts.skills(那是戰鬥中放技能的次數,不是學會的技能)。木材是中期最缺的材料,獎勵多給木材。
+  { title: '熱鬧的獵人小屋', description: '升級獵人小屋增加名額，讓村莊中有 12 位獵人', target: 12, reward: { gold: 500, wood: 40, flour: 60 }, metric: s => s.hunters.length },
+  { title: '獨當一面的老手', description: '多派獵人去狩獵、打地下城，讓 1 位獵人升到 Lv.25', target: 25, reward: { gold: 550, wood: 50, leather: 40 }, metric: s => maxHunterLevel(s) },
+  { title: '城鎮的藍圖', description: '把城鎮大廳升至 3 級，其他建築才能再往上蓋', target: 3, reward: { gold: 600, wood: 60, herb: 50 }, metric: s => s.buildings.hall },
+  { title: '更深的地底', description: '開啟自動續戰，把地下城最佳紀錄推進到第 13 層', target: 13, reward: { gold: 650, wood: 60, cloth: 40 }, metric: s => s.dungeon.bestFloor },
+  { title: '學院的傳承', description: '在學院教獵人戰鬥技能，全村技能等級合計 15', target: 15, reward: { gold: 700, herb: 60, gems: 8 }, metric: s => s.hunters.reduce((n, h) => n + h.skillLevel, 0) },
+  { title: '磨利每一把刀', description: '在強化精煉所強化獵人的武器，全村武器強化合計 +15', target: 15, reward: { gold: 750, leather: 60, gems: 8 }, metric: s => s.hunters.reduce((n, h) => n + h.weaponLevel, 0) },
+  { title: '中堅的實力', description: '讓 1 位獵人升到 Lv.45', target: 45, reward: { gold: 850, wood: 80, flour: 100 }, metric: s => maxHunterLevel(s) },
+  { title: '地城的深淵', description: '把地下城最佳紀錄推進到第 22 層', target: 22, reward: { gold: 950, wood: 100, cloth: 60, gems: 10 }, metric: s => s.dungeon.bestFloor },
+  { title: '領主剋星', description: '出征冷卻一好就召集獵人，累計擊敗 30 位森林領主', target: 30, reward: { gold: 1050, wood: 110, gems: 12 }, metric: s => s.bossKills },
+  { title: '傳奇的前夜', description: '讓 1 位獵人升到 Lv.65，轉世就在前方', target: 65, reward: { gold: 1200, wood: 120, gems: 15 }, metric: s => maxHunterLevel(s) },
+  // 最終章固定是轉世(QUESTS 最後一個);獎勵跟著中期委託往上調。
+  { title: '下一段獵魔人生', description: '讓 1 位 Lv.100 獵人在復活聖所轉世', target: 1, reward: { gold: 1500, wood: 150, gems: 30 }, metric: s => s.counts.rebirths },
 ];
+function maxHunterLevel(s) { let n = 0; for (const h of s.hunters) if (h.level > n) n = h.level; return n; }
+// 委託章節表的版本(存在 state.questRevision,serialize() 會整個 state 存下來)。
+// 存檔的 state.quest 只有 { index, claimed },沒有章節 id;章節表一改,舊 index 指的就是別章。所以讀檔時用這個欄位判斷
+// 存檔是哪一版的章節表 —— 欄位不存在(或不等於目前版本)= 舊的 8 章版(index 0–7,7 = 轉世)。
+// 2 = 2026-11-16 在第 7 章與轉世之間插入 10 章中期委託。之後再改章節表:版本 +1,並在 migrateQuest() 補一段對照。
+const QUEST_REVISION = 2;
+const LEGACY_QUEST_LAST = 7;   // 版本 1(8 章)的最後一章 index = 轉世
+// 舊存檔 → 目前章節表。回傳 { index, claimed, finalPaid }。
+// - 版本 1 的 index 0–6:這 7 章順序沒變 → 原 index。
+// - 版本 1 的 index 7(轉世章,還沒領):新表 index 7 剛好是第一個中期委託 → 從那裡接著玩,轉世留到最後一章。
+// - 版本 1 已領完最終章(index 7 + claimed):同樣接到 index 7、claimed=false(中期委託都還沒領過,不會卡在「全部完成」);
+//   轉世獎勵已經發過,記 finalPaid=true,走到新的最終章時只標記完成、不重複發獎。
+function migrateQuest(source) {
+  const raw = source?.quest, revision = source?.questRevision;
+  if (revision === QUEST_REVISION) {
+    const index = integer(raw?.index, 0, 0, QUESTS.length - 1);
+    return { index, claimed: raw?.claimed === true && raw?.index === QUESTS.length - 1, finalPaid: source.questFinalPaid === true };
+  }
+  const index = integer(raw?.index, 0, 0, LEGACY_QUEST_LAST);
+  return { index, claimed: false, finalPaid: index === LEGACY_QUEST_LAST && raw?.claimed === true };
+}
 const clamp = (n, min, max) => Math.max(min, Math.min(max, n));
 const number = (n, fallback, min = 0, max = 1e9) => typeof n === 'number' && Number.isFinite(n) ? clamp(n, min, max) : fallback;
 const integer = (n, fallback, min = 0, max = 1e9) => Math.floor(number(n, fallback, min, max));
@@ -375,8 +448,20 @@ export function createGame(saved = null) {
     if (!target) return [];
     const a = nearestRingRoad(from.x, from.z), b = nearestRingRoad(target.x, target.z);
     const ring = ringRoadPath(a.index, b.index);
-    if (ring.length > 12) ring.length = 12;                 // 太遠就取樣,不要塞幾十個點
-    return [ringPointAt(a.index), ...ring.filter((_, i) => i % 2 === 0), { x: target.x, z: target.z }];
+    // 隔一個點取一個,最後一個環上點一定要留(2026-11-17 修正:以前是 ring.length = 12「截斷」而不是取樣,
+    // 遠一點的目的地會在半路離開環路、直線切過別的狩獵區 —— Lv.1 新人要去草原卻穿過鐵脊山麓被岩塊怪打死)。
+    const pts = ring.filter((_, i) => i % 2 === 0 || i === ring.length - 1);
+    return [ringPointAt(a.index), ...pts, { x: target.x, z: target.z }];
+  }
+  // 返村路線(2026-11-17):先走到最近的環村道路,沿環走到「沿環最近」的出村口,再進村走到門口。
+  // 以前直接從野外直線走向門口,會穿過別的狩獵區(受傷的獵人在半路被別區的魔物打死)。走不通就退回直線。
+  function homeRoute(h, buildingId) {
+    const near = nearestRingRoad(h.x, h.z), n = RING_ROAD.length;
+    let gate = null, best = Infinity;
+    for (const g of GATES) { const k = Math.abs(nearestRingRoad(g.out.x, g.out.z).index - near.index) % n, steps = Math.min(k, n - k); if (steps < best) { best = steps; gate = g; } }
+    // 已經在環路內側、出村口比環路還近(例如剛出門):直接進村,不要先繞去環路再回頭
+    if (gate && distance(h, gate.out) > near.distance && route(h, [...ringWaypoints(h, gate.out), door(buildingId, gate.out)])) return;
+    route(h, [door(buildingId, h)]);
   }
   function route(h, points) {
     h.route = []; let from = { x: h.x, z: h.z };
@@ -394,9 +479,10 @@ export function createGame(saved = null) {
     // 六件防具的 hp/def 直接加在職業基礎值上再一起乘等級/稀有度(舊皮革護甲 +28/+4 → 全套 +50/+10);
     // 武器維持 +7 攻擊,強化倍率走 weaponLevel。沒有裝備欄位的暫時物件(訪客預覽)視為空裝。
     let gearHp = 0, gearDef = 0;
-    for (const r of GEAR_SLOTS) if (h.equipment?.[r]) { const s = RECIPE[r]; gearHp += s.hp || 0; gearDef += s.def || 0; }
+    for (const r of GEAR_SLOTS) { const t = gearTierOf(h, r); if (t) { const s = gearAt(RECIPE[r], t); gearHp += s.hp || 0; gearDef += s.def || 0; } }
+    const wt = gearTierOf(h, 'weapon'), weaponBonus = wt ? gearAt(RECIPE.weapon, wt).bonus : 0;   // 第 1 階 = +7(舊值)
     h.maxHp = Math.round((c.hp + gearHp) * (1 + (h.level - 1) * 0.075) * rarity * rebirth * (h.trait === 'stout' ? 1.15 : 1));
-    h.attack = Math.round((c.attack + (h.equipment?.weapon ? 7 : 0)) * (1 + (h.level - 1) * 0.065) * rarity * rebirth * (1 + h.skillLevel * 0.1) * (1 + h.weaponLevel * 0.07) * (h.trait === 'brave' ? 1.1 : 1));
+    h.attack = Math.round((c.attack + weaponBonus) * (1 + (h.level - 1) * 0.065) * rarity * rebirth * (1 + h.skillLevel * 0.1) * (1 + h.weaponLevel * 0.07) * (h.trait === 'brave' ? 1.1 : 1));
     h.defense = c.defense + gearDef + Math.floor(h.level / 8) + h.rebirths * 2;
     h.range = Math.max(c.range, 1.75); h.speed = c.speed;  // 近戰距離配合角色圖寬(21/28–33 世界像素),不然兩邊疊成一團
     h.hp = preserveRatio ? Math.round(h.maxHp * ratio) : clamp(h.hp ?? h.maxHp, 0, h.maxHp);
@@ -431,6 +517,30 @@ export function createGame(saved = null) {
     const comfort = units.reduce((n, h) => n + h.defense * 2 + h.level * 0.5 + h.attack * 0.15 + 8, 0) / units.length;
     const threat = Math.max(0, ...[...new Set(mixOf(r.id))].map(t => ENEMIES[t]?.attack || 0)) * r.risk * mult;
     return { comfort, threat, verdict: comfort >= threat * 1.15 ? 'easy' : comfort >= threat ? 'ok' : 'hard' };
+  }
+  // ── 看情勢撤退(2026-11-17) ──
+  // 以前只看固定血量(玩家派的 28%、自主的 40%):被一群魔物(或討伐中的首領)圍住時每秒掉 40–60 血,
+  // 到門檻才轉身,往往只剩 10–15% 血、還在包圍圈裡,一兩秒內就倒下(14 天模擬的野外死亡幾乎都是這樣:「返村中」陣亡)。
+  // 現在:估計「身邊打得到我的魔物」每秒傷害(近戰最多算 2 隻,跟近身名額一樣;首領與遠程魔物全算),
+  // 剩餘血量 < 每秒傷害 × window 秒就回村療傷。只在血量已低於 cap(= 村裡會去療傷的門檻)時才判斷,
+  // 否則回到村裡不會治療、馬上又出門。強的獵人(血多、防禦高)照舊留下來打;沒有魔物在身邊就不會觸發。
+  // 純函式:不擲骰、不寫任何欄位(隨機數序列不受這條規則本身影響)。
+  const RETREAT = { window: 4, cap: 0.78, melee: 4 };
+  function incomingDps(h) {
+    let melee1 = 0, melee2 = 0, other = 0;
+    for (const e of state.enemies) {
+      if (!(e.hp > 0)) continue;
+      const rng = MONSTER_RANGED[e.type], boss = e.type === 'boss', reach = boss ? 4.5 : rng ? rng.range + 0.5 : RETREAT.melee, d = distance(h, e);
+      if (d > reach) continue;
+      const dps = Math.max(2, Math.round(e.attack - h.defense * 0.7)) / ((rng ? rng.every : boss ? 1.5 : 1.8) / MONSTER_ATTACK_RATE);
+      if (boss || rng) other += dps;
+      else if (dps > melee1) { melee2 = melee1; melee1 = dps; } else if (dps > melee2) melee2 = dps;
+    }
+    return melee1 + melee2 + other;
+  }
+  function shouldRetreat(h) {
+    if (h.hp >= h.maxHp * RETREAT.cap || inVillage(h.x, h.z)) return false;
+    return h.hp < incomingDps(h) * RETREAT.window;
   }
   // 自己挑狩獵區:只考慮「輕鬆」的區,挑其中最難的(經驗與戰利品較多),同難度挑離村近的、目前主狩獵區(魔物最多)小加分。
   // 沒有輕鬆的區就退一步挑「可行」裡最簡單的;連可行都沒有 → null(留在村裡,不去送死)。
@@ -498,7 +608,7 @@ export function createGame(saved = null) {
   function newHunter(classId, position = CAMP, initialIndex = -1) {
     const roll = random(), rarity = initialIndex >= 0 ? ['normal', 'rare', 'normal', 'superior', 'rare'][initialIndex % 5] : roll < 0.55 ? 'normal' : roll < 0.82 ? 'rare' : roll < 0.94 ? 'superior' : roll < 0.99 ? 'heroic' : 'legendary';
     const p = onRoadPoint(safePoint(position));
-    const h = { id: id('h'), name: freeName(state.hunters.length), classId, rarity, trait: TRAITS[Math.floor(random() * TRAITS.length)].id, level: initialIndex >= 0 ? 3 + initialIndex % 3 : 1, xp: 0, rebirths: 0, skillLevel: 0, weaponLevel: 0, equipment: emptyEquipment(), gold: 100, inventory: Object.fromEntries(MATERIAL_KEYS.map(key => [key, 0])), satiety: initialIndex >= 0 ? 70 + initialIndex * 4 : 90, mood: initialIndex >= 0 ? 88 - initialIndex * 4 : 90, stamina: initialIndex >= 0 ? 78 + initialIndex * 2 : 90, x: p.x, z: p.z, hp: CLASS[classId].hp, maxHp: CLASS[classId].hp, status: '待機', targetId: null, attackTimer: random() * 0.5, route: [], task: null, serviceProduct: null, actionTimer: 0, trainCooldown: 0, reviveTimer: 0, lastTownVisit: state.time, tradedVisit: false, shoppedVisit: false, servedVisit: [], inTown: true, huntRegion: null, mount: null };
+    const h = { id: id('h'), name: freeName(state.hunters.length), classId, rarity, trait: TRAITS[Math.floor(random() * TRAITS.length)].id, level: initialIndex >= 0 ? 3 + initialIndex % 3 : 1, xp: 0, rebirths: 0, skillLevel: 0, weaponLevel: 0, equipment: emptyEquipment(), gearTier: emptyGearTier(), gold: 100, inventory: Object.fromEntries(MATERIAL_KEYS.map(key => [key, 0])), satiety: initialIndex >= 0 ? 70 + initialIndex * 4 : 90, mood: initialIndex >= 0 ? 88 - initialIndex * 4 : 90, stamina: initialIndex >= 0 ? 78 + initialIndex * 2 : 90, x: p.x, z: p.z, hp: CLASS[classId].hp, maxHp: CLASS[classId].hp, status: '待機', targetId: null, attackTimer: random() * 0.5, route: [], task: null, serviceProduct: null, actionTimer: 0, trainCooldown: 0, reviveTimer: 0, lastTownVisit: state.time, tradedVisit: false, shoppedVisit: false, servedVisit: [], inTown: true, huntRegion: null, mount: null };
     h.gender = nameGender(h.name) ?? hunterGender(h.id);   // 性別跟名字走(NAME_GENDER);自訂名才用 id 雜湊。不擲骰,隨機數序列不變
     updateStats(h); h.hp = h.maxHp; state.hunters.push(h); idleInTown(h); return h;
   }
@@ -570,7 +680,7 @@ export function createGame(saved = null) {
     const region = REGIONS[1 + Math.floor(random() * Math.max(1, REGIONS.length - 1))] || REGIONS[1];
     const p = safePoint({ x: region.x - 4 + random() * 8, z: region.z - 4 + random() * 8 });
     const w = { id: id('w'), name: freeName(Math.floor(random() * NAMES.length)), classId: c.id, rarity, trait: 'brave', level: 3 + Math.floor(random() * 6), xp: 0,
-      rebirths: 0, skillLevel: 0, weaponLevel: 0, equipment: emptyEquipment(), inventory: Object.fromEntries(MATERIAL_KEYS.map(key => [key, 0])),
+      rebirths: 0, skillLevel: 0, weaponLevel: 0, equipment: emptyEquipment(), gearTier: emptyGearTier(), inventory: Object.fromEntries(MATERIAL_KEYS.map(key => [key, 0])),
       gold: WANDER_START_GOLD, satiety: 100, stamina: 100, mood: 100,
       regionId: region.id, x: p.x, z: p.z, hp: c.hp, maxHp: c.hp, attack: c.attack, defense: c.defense, range: Math.max(c.range, 1.75),
       status: '遊蕩中', targetId: null, attackTimer: random() * 0.6, route: [], reviveTimer: 0, facingX: 0, facingZ: 0, facingAt: 0,
@@ -591,11 +701,18 @@ export function createGame(saved = null) {
     return null;
   }
   function tradeAvailable(h) { return state.buildings.trading > 0 && MATERIAL_KEYS.some(key => h.inventory[key] > 0 && state.tradeRequests[key] > 0 && state.gold >= MATERIALS[key].price); }
-  function gearAvailable(h) { return state.buildings.forge > 0 && RECIPES.some(r => !h.equipment[r.type] && state.gearStock[r.type] > 0 && h.gold >= r.price); }
+  // 這一格現在能買到的最好裝備:庫存裡比身上高階、買得起的最高階(換新時要留 GEAR_RESERVE 付吃住);沒有 → null
+  function gearOffer(h, recipe) {
+    const own = gearTierOf(h, recipe.type), stock = state.gearStock[recipe.type];
+    for (let t = GEAR_TIER_MAX; t > own; t--) { if (!(stock?.[t] > 0)) continue; const g = gearAt(recipe, t); if (h.gold >= g.price + (own ? GEAR_RESERVE : 0)) return g; }
+    return null;
+  }
+  function gearAvailable(h) { return state.buildings.forge > 0 && RECIPES.some(r => gearOffer(h, r)); }
+  const forgeTier = () => Math.min(GEAR_TIER_MAX, state.buildings.forge || 0);
 
   function goToBuilding(h, buildingId, task) {
     h.task = task; h.destination = buildingId; h.actionTimer = 0; h.targetId = null; h.status = '返村中'; h.rallying = false;
-    route(h,[door(buildingId,h)]);
+    if (inVillage(h.x, h.z)) route(h, [door(buildingId, h)]); else homeRoute(h, buildingId);
   }
 
   function nextTownTask(h) {
@@ -659,18 +776,28 @@ export function createGame(saved = null) {
   // 付給村莊的錢記到誰的帳上(離線戰報分開列「你的獵人」與「流浪英雄」帶給村莊的收入)
   function payLedger(a, gold) { const k = wandererOf(a) ? 'wanderPay' : 'hunterPay'; state.counts[k] = (state.counts[k] || 0) + gold; }
   function shop(h) {
-    for (const recipe of RECIPES) if (!h.equipment[recipe.type] && state.gearStock[recipe.type] > 0 && h.gold >= recipe.price) {
-      h.gold -= recipe.price; state.gold += recipe.price; payLedger(h, recipe.price); state.gearStock[recipe.type]--; h.equipment[recipe.type] = true; state.counts.gearSold++; updateStats(h, true);
-      log(`${h.name} 花費 ${recipe.price} 金幣購買${recipe.name}。`, 'success'); effect('upgrade', h);
+    for (const recipe of RECIPES) {
+      const g = gearOffer(h, recipe); if (!g) continue;
+      const upgrade = gearTierOf(h, recipe.type) > 0;
+      h.gold -= g.price; state.gold += g.price; payLedger(h, g.price); state.gearStock[recipe.type][g.tier]--; setGearTier(h, recipe.type, g.tier);
+      state.counts.gearSold++; state.counts.gearIncome += g.price; if (upgrade) state.counts.gearUpgrades++; updateStats(h, true);
+      // 離線外推:裝備是一次性的(庫存離線不會補),取樣期買的不能乘上倍率重複算(見 offlineFinish)
+      if (dgLedger) { const w = !!wandererOf(h); dgLedger.gearPay[w ? 'wanderPay' : 'hunterPay'] += g.price; if (w) dgLedger.gearWander += g.price; else dgLedger.gear[h.id] = (dgLedger.gear[h.id] || 0) + g.price; }
+      log(`${h.name} 花費 ${g.price} 金幣${upgrade ? '換上' : '購買'}${g.name}。`, 'success'); effect('upgrade', h);
+      effect('loot', buildingPoint('forge'), { text: `+${g.price}`, color: '#efcd82', delay: 0.2 });   // 2026-11-16 UX:獵魔村式「店家收錢」金幣跳字,讓玩家看到升級設施 → 收入
     }
     h.shoppedVisit = true;
   }
 
+  // 2026-11-16 平衡:設施越高級,餐點/飲品/床鋪/繃帶賣得越貴(每級 +25%,Lv.5 = 2 倍)。
+  //   14 天模擬裡每位獵人身上閒置 2000+ 金(裝備每格只買一次、服務 10–14 金固定價),村莊卻缺錢;
+  //   讓「升級設施 → 收入變多」成為升級的理由(經營模擬的基本循環)。付不起的獵人照舊走免費的基本服務。
+  function servicePrice(productId) { const p = PRODUCTS[productId]; return p ? Math.round(p.price * (1 + 0.25 * Math.max(0, (state.buildings[p.building] || 1) - 1))) : 0; }
   function beginService(h) {
-    const p = PRODUCTS[h.serviceProduct], paid = state.stocks[h.serviceProduct] > 0 && h.gold >= p.price;
+    const p = PRODUCTS[h.serviceProduct], price = servicePrice(h.serviceProduct), paid = state.stocks[h.serviceProduct] > 0 && h.gold >= price;
     h.serviceStarted = true; h.actionTimer = paid ? 3.2 : 5.2; h.serviceDuration = h.actionTimer;
     h.status = ({ food: '用餐中', drink: '飲用中', bed: '休息中', bandage: '休養中' })[h.serviceProduct];
-    if (paid) { h.gold -= p.price; state.gold += p.price; payLedger(h, p.price); state.stocks[h.serviceProduct]--; state.counts.services++; state.counts.serviceIncome += p.price; }
+    if (paid) { effect('loot', buildingPoint(p.building), { text: `+${price}`, color: '#efcd82' }); h.gold -= price; state.gold += price; payLedger(h, price); state.stocks[h.serviceProduct]--; state.counts.services++; state.counts.serviceIncome += price; }
     else state.counts.basicServices++;
     const current = p.need === 'hp' ? h.hp / h.maxHp * 100 : h[p.need];
     const restore = paid ? p.restore * (1 + (state.buildings[p.building] - 1) * 0.05) : 65;
@@ -929,9 +1056,11 @@ export function createGame(saved = null) {
     }
   }
 
+  // 舊版存檔已領過轉世獎勵(state.questFinalPaid,見 migrateQuest)→ 新最終章顯示與發放的獎勵都是空的,不重複發。
+  const questReward = i => (i === QUESTS.length - 1 && state.questFinalPaid ? {} : { ...QUESTS[i].reward });
   function refreshQuest() {
     const q = QUESTS[state.quest.index];
-    Object.assign(state.quest, { title: q.title, description: q.description, target: q.target, reward: { ...q.reward }, progress: Math.min(q.target, q.metric(state)) });
+    Object.assign(state.quest, { title: q.title, description: q.description, target: q.target, reward: questReward(state.quest.index), progress: Math.min(q.target, q.metric(state)) });
     state.quest.complete = state.quest.progress >= state.quest.target;
   }
 
@@ -941,25 +1070,69 @@ export function createGame(saved = null) {
   // 每層 3 波,每波 1–3 隻真的魔物(總血量 = 舊版那一波的血量,難度不變),素材用野外同一套魔物表:每 3 層換一區(由易到難)。
   // 英雄近戰站前排、遠程站後排;魔物先打前排,前排都倒了才打後排。每隻魔物照「舊版一波 1.4 秒一擊 × 魔物數」出手(滿編時傷害節奏跟舊版一樣)。
   // 獵人照自己的攻擊間隔打最前面的魔物;招牌技能照冷卻放(群體 = 整波、連射 = 前幾隻、單體 = 最前面、補血 = 生命比例最低的)。
-  // d.auto = 自動續戰:打完一層、三人都還站著 → 休整 3 秒(回 20% 生命)直接打下一層;關掉就打完這層回村。
+  // d.auto = 自動續戰:打完一層、三人都還站著、而且估得過下一層(dgForecast,見下)→ 休整 3 秒(回 20% 生命)直接打下一層;
+  //          估不過就帶著這層的戰利品回村(算勝利,不再殘血硬闖到團滅);關掉就打完這層回村。
+  // 波與波之間若估計有人撐不到這層打完 → 先撤退(跟 retreatDungeon 一樣沒有本層獎勵),不管自動續戰開不開。
+  // 波中魔物這一擊會打倒被挑中的隊員 → 緊急撤退(同上,見 stepDungeon);出發時有人生命不到 DG_FIT_MIN_HP → 不出發(見 startDungeon)。
   // d.startFloor = 下次出發從第幾層開始(0 = 最新一層 = 最高紀錄 +1)。d.events = 給畫面播動畫/數字的最近事件(不存檔)。
   const DG_TIERS = ['meadow', 'birch', 'forest', 'taiga', 'desert', 'snow', 'mountain'];
+  const DG_HIT_EVERY = 1.4, DG_TIME_LIMIT = 180, DG_REST_HEAL = 0.2;
+  // 自動續戰門檻(dgForecast):休整後每人至少 DG_FIT_MIN_HP 生命、預估承傷 ≤ DG_FIT_RISK × 現有生命、預估時間 ≤ DG_FIT_TIME × 時限;
+  // 波間撤退:預估承傷 > DG_RETREAT_RISK × 現有生命(估計有人撐不到這層打完;補血已打折、亂數目標已抓倒楣份,所以門檻就用 1)。數值用 tools/dungeon-balance.mjs 與 tools/progression-sim.mjs 調過。
+  const DG_FIT_MIN_HP = 0.35, DG_FIT_RISK = 0.6, DG_FIT_TIME = 1.2, DG_RETREAT_RISK = 1, DG_HEAL_EFF = 0.6, DG_UNLUCKY = 1.5;
+  function dgFoeAttack(floor, wave) { return 13 + floor * 4 + wave * 2; }
   // 地下城帳本:離線取樣那段時間裡地下城發了多少獎勵 → offlineFinish 算「野外速率」時扣掉,地下城自己另外照實模擬(不會重複算)
   let dgLedger = null;
-  function dgWave(floor, wave) {
+  // gear/gearWander/gearPay:取樣期裡獵人(依 id)/流浪英雄買裝備花的錢 → 外推時不重複算(裝備庫存離線不會補貨)
+  const newLedger = () => ({ wins: 0, res: {}, gold: {}, xp: {}, gear: {}, gearWander: 0, gearPay: { hunterPay: 0, wanderPay: 0 } });
+  function dgWaveTypes(floor, wave) {
     const mix = REGION_MIX[DG_TIERS[Math.floor((floor - 1) / 3) % DG_TIERS.length]], small = mix[0], mid = mix[3], big = mix[6];
-    const types = wave === 1 ? [small, small] : wave === 2 ? (floor >= 5 ? [mid, small, small] : [mid, small]) : (floor >= 10 ? [big, mid] : [big]);
+    return wave === 1 ? [small, small] : wave === 2 ? (floor >= 5 ? [mid, small, small] : [mid, small]) : (floor >= 10 ? [big, mid] : [big]);
+  }
+  function dgWave(floor, wave) {
+    const types = dgWaveTypes(floor, wave);
     const total = dungeonEnemyHp(floor, wave), sum = types.reduce((n, t) => n + ENEMIES[t].hp, 0);
     return types.map((type, i) => { const hp = Math.max(1, Math.round(total * ENEMIES[type].hp / sum));
-      return { id: id('dg'), type, hp, maxHp: hp, attack: 13 + floor * 4 + wave * 2, timer: 1.5 + i * 0.6, every: 1.4 * types.length, ranged: !!MONSTER_RANGED[type], big: wave === 3 && i === 0 }; });
+      return { id: id('dg'), type, hp, maxHp: hp, attack: dgFoeAttack(floor, wave), timer: 1.5 + i * 0.6, every: DG_HIT_EVERY * types.length, ranged: !!MONSTER_RANGED[type], big: wave === 3 && i === 0 }; });
   }
+  // ── 地下城體檢(2026-11-16) ── 自動續戰原本只看「三人都還活著」,殘血 5–15% 也照樣進下一層 → 地下城團滅成了家常便飯。
+  // 估算用跟 dgWave/stepDungeon 同一套數字(純計算:不擲骰、不動 random、不發 id):
+  //   打多久 = 剩下各波總血量 ÷ 小隊輸出(普攻 + 攻擊技能當單體算;祭司算補血不算輸出;飢餓/疲勞 ×0.6);
+  //   挨多少 = 魔物群滿編時每 DG_HIT_EVERY 秒一擊(第一擊要等 1.5 秒;n 隻一隻隻倒下 → 平均出手率 (n+1)/2n),
+  //            落在前排(沒有前排就全隊);目標是亂數挑的,最倒楣那位抓 1.5 倍平均份(DG_UNLUCKY),每擊 = 魔物攻擊 − 防禦 × 0.6;
+  //   回多少 = 祭司普攻補 BASIC_HEAL、技能 heal/cd 平均分給挨打的人;聖騎士自補 heal/cd 只算自己;
+  //            補血會溢補、施法也佔出手時間 → 只算 DG_HEAL_EFF 成(實測沒打折時,祭司隊的前排常被估成「補得回來」卻倒下)。
+  // risk = 最危險那位的「預估淨承傷 ÷ 現有生命」(> 1 = 估計撐不到這層打完);secs = 預估要打幾秒(超過 DG_TIME_LIMIT 就算失敗)。
+  // hpOf 讓 floorCleared 用「休整回血之後」的生命來估,不必先改到真的 h.hp。
+  function dgForecast(party, floor, fromWave = 1, hpOf = h => h.hp) {
+    const up = party.filter(h => hpOf(h) > 0), healers = up.filter(h => SKILLS[h.classId]?.kind === 'allyHeal');
+    const dps = up.filter(h => !healers.includes(h)).reduce((n, h) => { const sk = SKILLS[h.classId], hit = h.attack * (h.satiety < 15 || h.stamina < 15 ? 0.6 : 1);
+      return n + hit / attackInterval(h) + (sk?.mult ? h.attack * sk.mult / sk.cd : 0); }, 0);
+    if (!up.length || dps <= 0) return { risk: Infinity, secs: Infinity };
+    const front = up.filter(h => !isRanged(h)), pool = front.length ? front : up;
+    const healRate = healers.reduce((n, h) => { const sk = SKILLS[h.classId]; return n + BASIC_HEAL / attackInterval(h) + sk.heal / sk.cd; }, 0) / pool.length;
+    let secs = 0; const taken = pool.map(() => 0);
+    for (let w = fromWave; w <= 3; w++) {
+      const n = dgWaveTypes(floor, w).length, t = dungeonEnemyHp(floor, w) / dps, hits = Math.max(0, t - 1.5) / DG_HIT_EVERY * (n + 1) / (2 * n);
+      secs += t;
+      pool.forEach((h, i) => { taken[i] += hits * Math.min(1, DG_UNLUCKY / pool.length) * Math.max(2, dgFoeAttack(floor, w) - h.defense * 0.6); });
+    }
+    const risk = Math.max(...pool.map((h, i) => { const self = SKILLS[h.classId]?.kind === 'heal' ? SKILLS[h.classId].heal / SKILLS[h.classId].cd : 0;
+      return (taken[i] - (healRate + self) * DG_HEAL_EFF * secs * h.maxHp) / hpOf(h); }));
+    return { risk, secs };
+  }
+  // 出發體檢(2026-11-17):以前只有「續戰下一層」跟「波間」會估,剛出發那層完全不估 → 冷卻一好就從最高紀錄 +1 層重新出發,
+  // 自動挑的小隊(先挑血量比例最高的)常是等級低的旅人,估計承傷是生命的 3–15 倍也照進,同一層一天連倒好幾次(progression-sim seed 3/5)。
+  // 現在出發時從想去的那層往下找,找到「估得過」(跟自動續戰同一套 DG_FIT_RISK / DG_FIT_TIME)的最深一層才出發;第 1 層是底線。
+  function dgFitStart(party, floor) { const f = dgForecast(party, floor); return f.risk <= DG_FIT_RISK && f.secs <= DG_TIME_LIMIT * DG_FIT_TIME; }
+  function dgSafeStart(party, want) { let f = want; while (f > 1 && !dgFitStart(party, f)) f--; return f; }
   function dgEvent(k, a, b, v, shot = null) { const d = state.dungeon; (d.events ||= []).push({ t: state.time, k, a, b, v, shot }); if (d.events.length > 32) d.events.splice(0, d.events.length - 32); }
   function dgSync() { const d = state.dungeon, f = d.foes || []; d.enemyHp = f.reduce((n, x) => n + Math.max(0, x.hp), 0); d.enemyMaxHp = f.reduce((n, x) => n + x.maxHp, 0); }
-  function endDungeon(won, retreat = false) {
+  function endDungeon(won, retreat = false, note = null) {
     const d = state.dungeon, floor = d.floor;
     d.active = false; d.phase = won ? '勝利' : '撤退'; d.cooldown = won ? 15 : retreat ? 10 : 20; d.foes = []; dgSync();
     if (won) d.floor = Math.min(100, d.bestFloor + 1);
-    else if (retreat) { d.reward = {}; log(`小隊從地下城第 ${floor} 層撤退，正返回村莊。`, 'info'); }
+    else if (retreat) { d.reward = {}; log(note || `小隊從地下城第 ${floor} 層撤退，正返回村莊。`, 'info'); }
     else { d.reward = {}; log(`地下城第 ${floor} 層探險失敗。獵人正撤回村莊休養。`, 'warning'); }
     for (const h of state.hunters.filter(h => d.hunterIds.includes(h.id))) {
       h.task = null;
@@ -967,20 +1140,37 @@ export function createGame(saved = null) {
       else returnToTown(h);
     }
   }
+  // 樓層獎勵(2026-11-17):出發體檢(dgSafeStart)讓弱隊從淺層出發、自動續戰一路爬,每趟都把 1..N 層全額再領一次 → 14 天模擬 3/5 個種子建築全滿、獵人 Lv.100。
+  // 改成開羅式:第一次通過(floor > 原本的最高紀錄)全額;已打過的樓層只給一部分(村莊金幣/鐵礦 DG_REPEAT.res、晶石 DG_REPEAT.gems、
+  // 每位獵人金幣 DG_REPEAT.gold、經驗 DG_REPEAT.xp ── 經驗留多一點,弱隊靠刷淺層還追得上)。UI 預估(pixel-ui z2cDungeonHTML)也走這支。
+  const DG_REPEAT = { res: 0.3, gems: 0, gold: 0.5, xp: 0.5 };
+  function dgFloorReward(floor, first) {
+    const k = first ? { res: 1, gems: 1, gold: 1, xp: 1 } : DG_REPEAT;
+    return { first, village: { gold: Math.round((120 + floor * 40) * k.res), ore: Math.round((10 + floor * 5) * k.res), gems: Math.round((2 + Math.floor(floor / 2)) * k.gems) },
+      gold: Math.round((35 + floor * 10) * k.gold), xp: Math.round((140 + floor * 35) * k.xp) };
+  }
   function floorCleared() {
     const d = state.dungeon, floor = d.floor, party = state.hunters.filter(h => d.hunterIds.includes(h.id));
+    const rw = dgFloorReward(floor, floor > d.bestFloor);   // 先判斷是不是新紀錄,再更新最高紀錄
     d.bestFloor = Math.max(d.bestFloor, floor); state.counts.dungeonWins++;
-    d.reward = { gold: 120 + floor * 40, ore: 10 + floor * 5, gems: 2 + Math.floor(floor / 2) };
+    d.reward = { ...rw.village };
     for (const [key, amount] of Object.entries(d.reward)) state[key] += amount;
-    for (const h of party) if (h.hp > 0) { h.gold += 35 + floor * 10; gainXp(h, 140 + floor * 35); }
+    for (const h of party) if (h.hp > 0) { h.gold += rw.gold; gainXp(h, rw.xp); }
     if (dgLedger) { dgLedger.wins++; for (const [key, amount] of Object.entries(d.reward)) dgLedger.res[key] = (dgLedger.res[key] || 0) + amount;
-      for (const h of party) if (h.hp > 0) { dgLedger.gold[h.id] = (dgLedger.gold[h.id] || 0) + 35 + floor * 10; dgLedger.xp[h.id] = (dgLedger.xp[h.id] || 0) + 140 + floor * 35; } }
-    log(`地下城第 ${floor} 層突破！村莊獲得 ${d.reward.gold} 金幣、${d.reward.ore} 鐵礦與 ${d.reward.gems} 晶石。`, 'success'); effect('victory', door('dungeon'));
+      for (const h of party) if (h.hp > 0) { dgLedger.gold[h.id] = (dgLedger.gold[h.id] || 0) + rw.gold; dgLedger.xp[h.id] = (dgLedger.xp[h.id] || 0) + rw.xp; } }
+    const got = [[d.reward.gold, '金幣'], [d.reward.ore, '鐵礦'], [d.reward.gems, '晶石']].filter(([n]) => n > 0).map(([n, name]) => `${n} ${name}`);
+    const gotText = got.length > 1 ? `${got.slice(0, -1).join('、')}與 ${got[got.length - 1]}` : got.join('');
+    log(rw.first ? `地下城第 ${floor} 層突破！村莊獲得 ${gotText}。` : `地下城第 ${floor} 層再次通過，村莊獲得 ${gotText}（已打過的樓層，獎勵減少）。`, 'success'); effect('victory', door('dungeon'));
     dgEvent('clear', null, null, floor);
     if (d.auto && floor < 100 && party.every(h => h.hp > 0)) {
-      d.floor = floor + 1; d.wave = 1; d.foes = []; d.time = 0; d.phase = '休整中'; d.rest = 3;
-      for (const h of party) h.hp = Math.min(h.maxHp, h.hp + Math.round(h.maxHp * 0.2));
-      log(`小隊稍作休整，自動續戰第 ${d.floor} 層。`, 'info'); return;
+      const rested = h => Math.min(h.maxHp, h.hp + Math.round(h.maxHp * DG_REST_HEAL)), next = dgForecast(party, floor + 1, 1, rested);
+      const fit = party.every(h => rested(h) >= h.maxHp * DG_FIT_MIN_HP) && next.risk <= DG_FIT_RISK;
+      if (fit && next.secs <= DG_TIME_LIMIT * DG_FIT_TIME) {
+        d.floor = floor + 1; d.wave = 1; d.foes = []; d.time = 0; d.phase = '休整中'; d.rest = 3;
+        for (const h of party) h.hp = rested(h);
+        log(`小隊稍作休整，自動續戰第 ${d.floor} 層。`, 'info'); return;
+      }
+      log(fit ? `第 ${floor + 1} 層的魔物太耐打，小隊帶著戰利品返村休整。` : '小隊體力不足，帶著戰利品返村休整。', 'info');
     }
     endDungeon(true);
   }
@@ -1033,6 +1223,7 @@ export function createGame(saved = null) {
     if (!live().length) {
       dgSync();
       if (d.wave >= 3) floorCleared();
+      else if (dgForecast(alive, d.floor, d.wave + 1).risk > DG_RETREAT_RISK) endDungeon(false, true, `小隊體力不支，從地下城第 ${d.floor} 層半途撤退（本層沒有獎勵）。`);
       else { d.wave++; d.foes = []; d.phase = '前進中'; d.rest = 1.6; }
       return;
     }
@@ -1040,20 +1231,27 @@ export function createGame(saved = null) {
       f.timer = Math.max(0, f.timer - dt); if (f.timer > 0) continue; f.timer = f.every;
       const up = party.filter(h => h.hp > 0), front = up.filter(h => !isRanged(h)), pool = front.length ? front : up;
       const tg = pool[Math.floor(random() * pool.length)]; if (!tg) break;
-      const dmg = Math.max(2, Math.round(f.attack - tg.defense * 0.6)); tg.hp = Math.max(0, tg.hp - dmg);
+      const dmg = Math.max(2, Math.round(f.attack - tg.defense * 0.6));
+      // 緊急撤退(2026-11-17):這一擊會打倒人 → 小隊在挨打前撤退(同 retreatDungeon:本層沒有獎勵、冷卻 10 秒、帳本不記)。
+      // 預估(dgForecast)把傷害當連續的、一波只有 1–2 擊時會少算一擊,補血也攤在整層;與其把預估調得更保守(實測樓層掉),不如在真的要倒的那一擊收手。
+      // 目標照舊先擲骰(random 次數不變),只有被挑中的那位撐不住才撤;14 天模擬 10 個種子只觸發 2 次,剛好是原本的 2 次地下城死亡。
+      if (dmg >= tg.hp) { endDungeon(false, true, `${tg.name}快撐不住了，小隊從地下城第 ${d.floor} 層緊急撤退（本層沒有獎勵）。`); return; }
+      tg.hp -= dmg;
       dgEvent('hurt', f.id, tg.id, dmg, f.ranged ? f.type : null);
-      if (tg.hp === 0) died(tg);
     }
     dgSync();
   }
 
+  // 2026-11-16 平衡:競技場原本 10 勝後對手不再變強、獎勵最多 240 金 → 中期以後等於沒用。
+  //   改成天梯:對手一路變強到第 ARENA_CAP 勝,獎勵跟著勝場成長,每 5 勝另給晶石;參賽獵人的經驗也跟著變多。
+  const ARENA_CAP = 40;
   function endArena(won) {
-    const a = state.arena; a.active = false; a.cooldown = 25; a.phase = won ? '勝利' : '落敗'; a.reward = won ? 90 + Math.min(10, a.wins) * 15 : 0;
-    if (won) { a.wins++; state.gold += a.reward; } else a.losses++;
+    const a = state.arena; a.active = false; a.cooldown = 25; a.phase = won ? '勝利' : '落敗'; a.reward = won ? 90 + Math.min(ARENA_CAP, a.wins) * 25 : 0; const gems = won && (a.wins + 1) % 5 === 0 ? 2 + Math.floor(Math.min(ARENA_CAP, a.wins) / 10) : 0;
+    if (won) { a.wins++; state.gold += a.reward; state.gems += gems; } else a.losses++;
     for (const h of state.hunters.filter(h => a.hunterIds.includes(h.id))) {
-      h.task = null; h.hp = Math.max(h.hp, h.maxHp * 0.35); if (won) { h.gold += 25; gainXp(h, 80); } returnToTown(h);
+      h.task = null; h.hp = Math.max(h.hp, h.maxHp * 0.35); if (won) { h.gold += 25; gainXp(h, 80 + Math.min(ARENA_CAP, a.wins) * 15); } returnToTown(h);
     }
-    log(`競技場模擬對戰${won ? `獲勝，村莊獲得 ${a.reward} 金幣` : '落敗，隊伍已安全撤回'}。`, won ? 'success' : 'warning');
+    log(`競技場模擬對戰${won ? `獲勝（第 ${a.wins} 勝），村莊獲得 ${a.reward} 金幣${gems ? `與 ${gems} 晶石` : ''}` : '落敗，隊伍已安全撤回'}。`, won ? 'success' : 'warning');
   }
 
   function stepArena(dt) {
@@ -1066,7 +1264,7 @@ export function createGame(saved = null) {
     a.attackTimer = Math.max(0, a.attackTimer - dt);
     if (a.attackTimer === 0) {
       a.attackTimer = 1.1; const target = alive[Math.floor(random() * alive.length)];
-      const damage = Math.max(3, 21 + Math.min(10, a.wins) * 3 - target.defense); target.hp = Math.max(0, target.hp - damage); effect('hit', target, { value: damage });
+      const damage = Math.max(3, 21 + Math.min(ARENA_CAP, a.wins) * 3 - target.defense); target.hp = Math.max(0, target.hp - damage); effect('hit', target, { value: damage });
       if (target.hp === 0) { target.status = '模擬對戰倒下'; target.route = []; }
     }
   }
@@ -1234,6 +1432,8 @@ export function createGame(saved = null) {
       if (needProduct(h) || (bagSize >= 14 && tradeAvailable(h) && state.time - h.lastTownVisit > 12) || (state.time - h.lastTownVisit > 60 && gearAvailable(h))) { returnToTown(h); continue; }
       // 自己出來打獵的比較謹慎:血掉到 AUTO_HUNT.retreatHp 就回村療傷(玩家派出去的照原本 28% 才回)。
       if (h.autoHunt && h.hp < h.maxHp * AUTO_HUNT.retreatHp) { returnToTown(h); continue; }
+      // 看情勢撤退(玩家派的、自主的都適用):身邊魔物 RETREAT.window 秒內打得出的傷害 ≥ 剩餘血量就先回村。
+      if (shouldRetreat(h)) { returnToTown(h); continue; }
       // 沒有狩獵區:在村裡待一下,時間到就自己挑區出門(autoHuntStep);還沒到就待機(只自衛打眼前的魔物)。
       if (!h.huntRegion && !h.targetId && autoHuntStep(h)) continue;
       if (!h.huntRegion && !h.targetId) {
@@ -1268,12 +1468,15 @@ export function createGame(saved = null) {
         target = null;   // = available.find(e => e.type === 'boss')(首領不佔近身名額,所以探險時直接打王)
         if (expActive) for (const e of state.enemies) if (e.hp > 0 && e.type === 'boss') { target = e; break; }
         if (!target) {   // = available.filter(inHuntRegion ? 同區 : distance <= SIGHT).sort(距離)[0]
+          // 2026-11-17:還在「別的狩獵區」裡趕路(沿環路經過)時,不要遠遠看到自己區的魔物就離開環路直線衝過去 ——
+          // 那條直線會穿過路過的那一區(Lv.1 去草原的新人在鐵脊山麓被岩塊怪圍死)。先照路線走進自己的區,近身(<4)才還手。
+          const passing = !inHuntRegion && !!h.huntRegion && !inVillage(h.x, h.z);
           let bestD = Infinity;
           for (const e of state.enemies) {
             if (!(e.hp > 0)) continue;
             const same = e.regionId === h.huntRegion;
             let d;
-            if (!same && e.type !== 'boss') { d = distance(h, e); if (!(d < 4) || onRoad) continue; }
+            if ((!same || passing) && e.type !== 'boss') { d = distance(h, e); if (!(d < 4) || onRoad) continue; }
             if (inHuntRegion) { if (!same) continue; if (d === undefined) d = distance(h, e); }
             else { if (d === undefined) d = distance(h, e); if (!(d <= SIGHT)) continue; }
             if (d < bestD) { bestD = d; target = e; }
@@ -1492,7 +1695,7 @@ export function createGame(saved = null) {
   function fresh() {
 
     for (const key of Object.keys(state)) delete state[key];
-    Object.assign(state, { version: 3, layoutRevision: 3, worldRevision: 4, region: 'meadow', visitedRegions:['village','meadow'], gold: 1500, wood: 160, ore: 120, herb: 60, cloth: 60, flour: 80, leather: 50, gems: 20, day: 1, time: 0, paused: false, speed: 1, difficulty: 0, kills: 0, totalKills: 0, bossKills: 0, codex: {}, recruited: 0, hunters: [], enemies: [], buildings: Object.fromEntries(BUILDINGS.map(b => [b.id, UNBUILT.has(b.id) ? 0 : 1])), layout: Object.fromEntries(BUILDINGS.map(b => [b.id, { x: b.x, z: b.z }])), stocks: { food: 30, drink: 30, bed: 30, bandage: 30 }, gearStock: emptyGearStock(), tradeRequests: { wood: 30, ore: 40, herb: 30, cloth: 30, flour: 40, leather: 30 }, counts: { crafted: 0, foodCrafted: 0, traded: 0, gearCrafted: 0, weaponsCrafted: 0, gearSold: 0, services: 0, basicServices: 0, serviceIncome: 0, dungeonWins: 0, rebirths: 0, deaths: 0, trained: 0, hunterGold: 0, hunterPay: 0, wanderGold: 0, wanderPay: 0 }, effects: [], log: [], quest: { index: 0, claimed: false }, expedition: { active: false, bossHp: 0, bossMaxHp: 1150, cooldown: 0, elapsed: 0 }, dungeon: { active: false, floor: 1, bestFloor: 0, wave: 0, enemyHp: 0, enemyMaxHp: 0, time: 0, hunterIds: [], reward: {}, cooldown: 0, phase: '待命', attackTimer: 1, foes: [], events: [], auto: false, startFloor: 0, rest: 0 }, healCooldown: 0, capacity: Math.max(8, CLASSES.length + 2), spawnTimer: 0, seed: 918273, nextId: 0, rally: null, dispatchTeams: defaultDispatchTeams(), regionDensity: normalizeRegionDensity(null), settings: { ...DEFAULT_SETTINGS } });
+    Object.assign(state, { version: 3, layoutRevision: 3, worldRevision: 4, region: 'meadow', visitedRegions:['village','meadow'], gold: 1500, wood: 160, ore: 120, herb: 60, cloth: 60, flour: 80, leather: 50, gems: 20, day: 1, time: 0, paused: false, speed: 1, difficulty: 0, kills: 0, totalKills: 0, bossKills: 0, codex: {}, recruited: 0, hunters: [], enemies: [], buildings: Object.fromEntries(BUILDINGS.map(b => [b.id, UNBUILT.has(b.id) ? 0 : 1])), layout: Object.fromEntries(BUILDINGS.map(b => [b.id, { x: b.x, z: b.z }])), stocks: { food: 30, drink: 30, bed: 30, bandage: 30 }, gearStock: emptyGearStock(), tradeRequests: { wood: 30, ore: 40, herb: 30, cloth: 30, flour: 40, leather: 30 }, counts: { crafted: 0, foodCrafted: 0, traded: 0, gearCrafted: 0, weaponsCrafted: 0, gearSold: 0, gearUpgrades: 0, gearIncome: 0, services: 0, basicServices: 0, serviceIncome: 0, dungeonWins: 0, rebirths: 0, deaths: 0, trained: 0, hunterGold: 0, hunterPay: 0, wanderGold: 0, wanderPay: 0 }, effects: [], log: [], quest: { index: 0, claimed: false }, questRevision: QUEST_REVISION, questFinalPaid: false, expedition: { active: false, bossHp: 0, bossMaxHp: 1150, cooldown: 0, elapsed: 0 }, dungeon: { active: false, floor: 1, bestFloor: 0, wave: 0, enemyHp: 0, enemyMaxHp: 0, time: 0, hunterIds: [], reward: {}, cooldown: 0, phase: '待命', attackTimer: 1, foes: [], events: [], auto: false, startFloor: 0, rest: 0 }, healCooldown: 0, capacity: Math.max(8, CLASSES.length + 2), spawnTimer: 0, seed: 918273, nextId: 0, rally: null, dispatchTeams: defaultDispatchTeams(), regionDensity: normalizeRegionDensity(null), settings: { ...DEFAULT_SETTINGS } });
     rebuildNavigation();
     state.visitors = [];
     state.arena = { active: false, wins: 0, losses: 0, enemyHp: 0, enemyMaxHp: 0, time: 0, hunterIds: [], cooldown: 0, phase: '待命', attackTimer: 1, opponent: '暮林訓練隊', reward: 0 };
@@ -1558,9 +1761,10 @@ export function createGame(saved = null) {
     state.layout = layout;
     rebuildNavigation();
     for (const key of PRODUCT_KEYS) state.stocks[key] = integer(source.stocks?.[key], 30, 0, 1e5);
-    for (const key of EQUIP_SLOTS) state.gearStock[key] = integer(source.gearStock?.[key], 0, 0, 1e4);
-    // v2 的 armor 庫存:那時 armor 就是胸甲,把數量併到 chest(不憑空多送五件,也不讓已造好的裝備消失)。
-    state.gearStock.chest = Math.min(1e4, state.gearStock.chest + integer(source.gearStock?.armor, 0, 0, 1e4));
+    // 2026-11-16 起每格分階:舊存檔(v2/v3 到 2026-11-16 為止)每格是一個數字 = 第 1 階的件數;新格式是 {1..5: 件數}。
+    for (const key of EQUIP_SLOTS) state.gearStock[key] = normalizeTierStock(source.gearStock?.[key]);
+    // v2 的 armor 庫存:那時 armor 就是胸甲,把數量併到 chest 第 1 階(不憑空多送五件,也不讓已造好的裝備消失)。
+    state.gearStock.chest[1] = Math.min(1e4, state.gearStock.chest[1] + integer(source.gearStock?.armor, 0, 0, 1e4));
     for (const key of MATERIAL_KEYS) state.tradeRequests[key] = integer(source.tradeRequests?.[key], state.tradeRequests[key], 0, 999);
     for (const key of Object.keys(state.counts)) state.counts[key] = integer(source.counts?.[key], 0, 0, 1e7);
     state.healCooldown = number(source.healCooldown, 0, 0, 40); state.spawnTimer = number(source.spawnTimer, 0, 0, 4.5);
@@ -1576,8 +1780,8 @@ export function createGame(saved = null) {
         h.level = integer(raw.level, 1, 1, 100); h.xp = h.level === 100 ? 0 : number(raw.xp, 0, 0, xpNeeded(h.level) - 0.001); h.rebirths = integer(raw.rebirths, 0, 0, 20); h.skillLevel = integer(raw.skillLevel, 0, 0, 5);
         // v2 存檔只有 weapon/armor:armor=true 代表「穿著護甲」→ 六件防具全穿(舊玩家不能因為改版變弱)。
         // v3 之後每格看自己的 key;防具格不因為 armor 舊值而互相污染。
-        const legacyArmor = raw.equipment?.armor === true;
-        h.equipment = Object.fromEntries(EQUIP_SLOTS.map(slot => [slot, slot === 'weapon' ? raw.equipment?.weapon === true : (raw.equipment?.[slot] === true || legacyArmor)]));
+        // 2026-11-16 階級:h.gearTier 是加法欄位;舊存檔沒有 → 擁有的每格都是第 1 階(戰力不變)。
+        Object.assign(h, normalizeGear(raw.equipment, raw.gearTier));
         h.weaponLevel = h.equipment.weapon ? integer(raw.weaponLevel, 0, 0, 10) : 0;
         h.gold = integer(raw.gold, 100, 0, 1e7); for (const key of MATERIAL_KEYS) h.inventory[key] = integer(raw.inventory?.[key], 0, 0, 1e5);
         for (const key of ['satiety', 'mood', 'stamina']) h[key] = number(raw[key], 80, 0, 100);
@@ -1615,10 +1819,12 @@ export function createGame(saved = null) {
       if (oldMap) { const f = newWanderer(); Object.assign(base, { x: f.x, z: f.z, regionId: f.regionId, huntRegion: f.huntRegion, targetId: null, task: null, destination: null, inTown: false, serviceProduct: null, status: '遊蕩中' }); }
       // 性別:名字認得就用名字;否則存檔值;舊存檔沒有 → id 雜湊(不用上面 newWanderer() 隨機取名的性別)
       base.gender = nameGender(base.name) ?? (w.gender === 'f' || w.gender === 'm' ? w.gender : hunterGender(base.id));
+      Object.assign(base, normalizeGear(w.equipment, w.gearTier));   // 裝備階級同獵人(舊存檔 → 第 1 階)
       return base;
     }) : [];
     while (state.wanderers.length < 4) state.wanderers.push(newWanderer());
-    state.quest = { index: integer(source.quest?.index, 0, 0, QUESTS.length - 1), claimed: source.quest?.claimed === true && source.quest?.index === QUESTS.length - 1 };
+    // 委託:章節表改過版,舊存檔的 index 要對照到新表(規則見 migrateQuest)。
+    { const q = migrateQuest(source); state.quest = { index: q.index, claimed: q.claimed }; state.questRevision = QUEST_REVISION; state.questFinalPaid = q.finalPaid; }
     state.enemies = [];
     if (!oldMap && Array.isArray(source.enemies)) for (const raw of source.enemies.filter(e => e && own(ENEMIES, e.type) && e.type !== 'boss').slice(0, 40)) {
       const e = spawn(raw.type, { x: number(raw.x,16,WORLD.minX+1,WORLD.maxX-1), z: number(raw.z,-2,WORLD.minZ+1,WORLD.maxZ-1) }); e.hp = number(raw.hp, e.maxHp, 1, e.maxHp); e.attackTimer = number(raw.attackTimer, 1, 0, 2); e.age = number(raw.age, 0, 0, 1e7);
@@ -1643,15 +1849,18 @@ export function createGame(saved = null) {
     a.wins = integer(rawArena?.wins, 0, 0, 1e6); a.losses = integer(rawArena?.losses, 0, 0, 1e6); a.cooldown = number(rawArena?.cooldown, 0, 0, 25);
     const arenaIds = Array.isArray(rawArena?.hunterIds) ? [...new Set(rawArena.hunterIds)].filter(hid => state.hunters.some(h => h.id === hid && h.task !== 'dungeon')).slice(0, 3) : [];
     if (rawArena?.active === true && state.buildings.training > 0 && arenaIds.length === 3) {
-      Object.assign(a, { active: true, phase: '集結中', hunterIds: arenaIds, time: number(rawArena.time, 0, 0, 120), enemyMaxHp: 720 + Math.min(10, a.wins) * 130, attackTimer: number(rawArena.attackTimer, 1, 0, 2) }); a.enemyHp = number(rawArena.enemyHp, a.enemyMaxHp, 1, a.enemyMaxHp);
+      Object.assign(a, { active: true, phase: '集結中', hunterIds: arenaIds, time: number(rawArena.time, 0, 0, 120), enemyMaxHp: 720 + Math.min(ARENA_CAP, a.wins) * 130, attackTimer: number(rawArena.attackTimer, 1, 0, 2) }); a.enemyHp = number(rawArena.enemyHp, a.enemyMaxHp, 1, a.enemyMaxHp);
       for (const h of state.hunters.filter(h => arenaIds.includes(h.id))) { h.task = 'arena'; h.status = '競技場模擬集結'; h.destination = 'training'; route(h, [door('training', h)]); }
     }
     state.effects = []; state.shots = []; state.log = []; log('存檔已載入。獵人重新整隊，村莊繼續運作。', 'success'); refreshQuest();
   }
 
+  // 學院教學／武器強化的成本(2026-11-16 抽成單一來源:遊戲、獵人詳情、行商補料都讀這兩個)
+  function skillCostOf(h) { const lv = h?.skillLevel || 0; return { gold: 80 + lv * 50, ore: 8 + lv * 4 }; }
+  function enhanceCostOf(h) { const lv = h?.weaponLevel || 0; return { gold: 60 + lv * 30, ore: 6 + lv * 3 }; }
   function getUpgradeCost(buildingId) {
     const b = BUILDING[buildingId];
-    return b ? Object.fromEntries(Object.entries(b.cost).map(([key, amount]) => [key, Math.round(amount * 1.6 ** Math.max(0, state.buildings[buildingId] - 1))])) : null;
+    return b ? Object.fromEntries(Object.entries(b.cost).map(([key, amount]) => [key, Math.round(amount * UPGRADE_GROWTH ** Math.max(0, state.buildings[buildingId] - 1))])) : null;
   }
 
   function rerouteHunters() {
@@ -1685,11 +1894,13 @@ export function createGame(saved = null) {
     // T127：招募卡要預覽「請進來會是什麼體質」。重用 updateStats，不另外複製一份公式；
     // 等級 1、無裝備、無轉世，跟 newHunter() 剛建立的狀態一致。
     visitorPreview(v) {
-      const t = { classId: v.classId, rarity: v.rarity, trait: v.trait, level: 1, rebirths: 0, skillLevel: 0, weaponLevel: 0, equipment: emptyEquipment(), hp: 1, maxHp: 1 };
+      const t = { classId: v.classId, rarity: v.rarity, trait: v.trait, level: 1, rebirths: 0, skillLevel: 0, weaponLevel: 0, equipment: emptyEquipment(), gearTier: emptyGearTier(), hp: 1, maxHp: 1 };
       updateStats(t);
       return { attack: t.attack, defense: t.defense, maxHp: t.maxHp, range: t.range };
     },
     getUpgradeCost,
+    skillCost(hunterId) { const h = state.hunters.find(x => x.id === hunterId); return h ? skillCostOf(h) : null; },
+    enhanceCost(hunterId) { const h = state.hunters.find(x => x.id === hunterId); return h ? enhanceCostOf(h) : null; },
     construct(buildingId) {
       const b = BUILDING[buildingId]; if (!b) return result(false, '找不到這棟建築。');
       if (state.buildings[buildingId]) return result(false, '這棟建築已經建好。');
@@ -1704,7 +1915,7 @@ export function createGame(saved = null) {
       if (buildingId !== 'hall' && state.buildings[buildingId] + 1 > state.buildings.hall + 1) return result(false, `請先升級城鎮大廳。目前其他建築最高可達 Lv.${state.buildings.hall + 1}。`);
       const cost = getUpgradeCost(buildingId); if (!canPay(cost)) return result(false, '升級資源不足，請收購更多材料或提供獵人服務。');
       pay(cost); state.buildings[buildingId]++; state.capacity = Math.max(8, CLASSES.length + 2) + (state.buildings.house - 1) * 2;
-      effect('upgrade', buildingPoint(buildingId)); log(`${b.name} 升至 Lv.${state.buildings[buildingId]}。`, 'success'); refreshQuest(); return result(true, `${b.name}升級完成。${b.effect}`);
+      effect('upgrade', buildingPoint(buildingId)); log(`${b.name} 升至 Lv.${state.buildings[buildingId]}。`, 'success'); refreshQuest(); return result(true, `${b.name}升級到 Lv.${state.buildings[buildingId]}！`);
     },
     // 2026-10-15 使用者指定:「把建築放進各個街區,讓整個村莊看起來整齊」。
     // 這是**玩家按一下才做**的整理(存檔格式保證自訂位置會被保留,所以不能載入時自動改):
@@ -1756,19 +1967,27 @@ export function createGame(saved = null) {
       pay(cost); const amount = product.amount * batches; state.stocks[productId] += amount; state.counts.crafted += amount; if (productId === 'food') state.counts.foodCrafted += amount;
       effect('harvest', buildingPoint(product.building)); log(`${product.name} ${amount} 份已準備好。`, 'success'); refreshQuest(); return result(true, `已製作 ${amount} 份${product.name}。`);
     },
-    craftEquipment(recipeId) {
-      const recipe = RECIPE[recipeId]; if (!recipe) return result(false, '找不到這份裝備配方。');
+    // tier 省略 = 鐵匠鋪目前能鍛造的最高階(鐵匠鋪 Lv.N → 第 N 階,最高 GEAR_TIER_MAX)
+    craftEquipment(recipeId, tier = null) {
+      const base = RECIPE[recipeId]; if (!base) return result(false, '找不到這份裝備配方。');
       if (!state.buildings.forge) return result(false, '請先建造鐵匠鋪。');
+      const max = forgeTier(), t = tier == null ? max : tier;
+      if (!Number.isInteger(t) || t < 1 || t > GEAR_TIER_MAX) return result(false, `裝備階級必須是 1 至 ${GEAR_TIER_MAX}。`);
+      if (t > max) return result(false, `鐵匠鋪升到 Lv.${t} 才能鍛造第 ${GEAR_TIERS[t - 1].numeral} 階裝備。`);
+      const recipe = gearAt(base, t);
       if (!canPay(recipe.cost)) return result(false, '裝備材料不足，請先收購所需戰利品。');
-      pay(recipe.cost); state.gearStock[recipe.type]++; state.counts.gearCrafted++; if (recipe.type === 'weapon') state.counts.weaponsCrafted++;
-      effect('upgrade', buildingPoint('forge')); log(`${recipe.name}已上架；獵人返村後會用個人金幣購買。`, 'success'); refreshQuest(); return result(true, `${recipe.name}已製作，售價 ${recipe.price} 金幣。`);
+      pay(recipe.cost); state.gearStock[recipe.type][t]++; state.counts.gearCrafted++; if (recipe.type === 'weapon') state.counts.weaponsCrafted++;
+      effect('upgrade', buildingPoint('forge')); log(`${recipe.name}已上架；獵人返村後會用個人金幣購買或換新。`, 'success'); refreshQuest(); return result(true, `${recipe.name}已製作，售價 ${recipe.price} 金幣。`);
     },
+    forgeTier,            // 鐵匠鋪目前能鍛造的最高裝備階級(0 = 還沒蓋)
+    gearTierOf,           // 獵人某一格的裝備階級(0 = 沒有)
+    gearStockOf: (slot, tier = null) => tier == null ? tierStockTotal(state.gearStock[slot]) : (state.gearStock[slot]?.[tier] || 0),   // UI:某格某階(或全部)的庫存
     enhance(hunterId) {
       const h = state.hunters.find(h => h.id === hunterId); if (!h) return result(false, '找不到這位獵人。');
       if (!state.buildings.enhancement) return result(false, '請先建造強化精煉所。');
       if (!h.equipment.weapon) return result(false, '這位獵人還沒有購買武器。請先在鐵匠鋪製造武器。');
       if (h.weaponLevel >= 10) return result(false, '武器已達最高強化 +10。');
-      const cost = { gold: 60 + h.weaponLevel * 30, ore: 6 + h.weaponLevel * 3 }; if (!canPay(cost)) return result(false, `強化需要 ${cost.gold} 村莊金幣與 ${cost.ore} 鐵礦。`);
+      const cost = enhanceCostOf(h); if (!canPay(cost)) return result(false, `強化需要 ${cost.gold} 村莊金幣與 ${cost.ore} 鐵礦。`);
       pay(cost); h.weaponLevel++; updateStats(h, true); effect('upgrade', h); return result(true, `${h.name}的武器強化為 +${h.weaponLevel}。`);
     },
     train(hunterId) {
@@ -1786,7 +2005,7 @@ export function createGame(saved = null) {
       const h = state.hunters.find(h => h.id === hunterId); if (!h) return result(false, '找不到這位獵人。');
       if (!state.buildings.academy) return result(false, '請先建造學院。');
       if (h.skillLevel >= 5) return result(false, '戰鬥技能已達 Lv.5。');
-      const cost = { gold: 80 + h.skillLevel * 50, ore: 8 + h.skillLevel * 4 }; if (!canPay(cost)) return result(false, `教學需要 ${cost.gold} 村莊金幣與 ${cost.ore} 鐵礦。`);
+      const cost = skillCostOf(h); if (!canPay(cost)) return result(false, `教學需要 ${cost.gold} 村莊金幣與 ${cost.ore} 鐵礦。`);
       pay(cost); h.skillLevel++; updateStats(h, true); effect('level', h); return result(true, `${h.name}的戰鬥技能提升至 Lv.${h.skillLevel}。`);
     },
     reincarnate(hunterId) {
@@ -1809,6 +2028,34 @@ export function createGame(saved = null) {
       if (!Number.isInteger(amount) || amount < 0 || amount > 999) return result(false, '收購數量必須是 0 至 999 的整數。');
       state.tradeRequests[materialId] = amount; return result(true, amount ? `已委託收購 ${amount} 份${MATERIALS[materialId].name}，單價 ${MATERIALS[materialId].price} 金幣。` : `已停止收購${MATERIALS[materialId].name}。`);
     },
+    // 2026-11-16 交易所行商直購(pixel-data MERCHANT):補足某份成本(建築/升級/製作)缺的材料。
+    // merchantQuote(cost) → { ok, short:{材料:缺幾份}, gold:補料要花的金幣, total:補料＋成本本身的金幣, unit:{材料:單價}, reason }
+    //   ok=false 時 reason 說明為什麼不能補(沒有交易所、缺的是金幣/星晶這類不能買的東西、金幣不夠)。
+    servicePrice,   // 設施服務的目前售價(隨設施等級上升;UI 顯示用)
+    merchantRate() { const lv = state.buildings.trading || 0; return lv ? Math.max(MERCHANT.floor, MERCHANT.markup - MERCHANT.step * (lv - 1)) : 0; },
+    merchantQuote(cost = {}) {
+      const rate = this.merchantRate(), short = {}, unit = {}; let gold = 0;
+      for (const [k, need] of Object.entries(cost || {})) {
+        const lack = Math.max(0, Math.ceil(need - (state[k] || 0))); if (!lack) continue;
+        if (!own(MATERIALS, k)) return { ok: false, short, gold: 0, total: 0, unit, reason: k === 'gold' ? '金幣不足' : k === 'gems' ? '星晶不足（只能從地下城與首領取得）' : '資源不足' };
+        unit[k] = Math.ceil(MATERIALS[k].price * rate); short[k] = lack; gold += lack * unit[k];
+      }
+      const total = gold + (cost?.gold || 0);
+      if (!rate && gold) return { ok: false, short, gold, total, unit, reason: '需要先建造交易所才能向行商購買材料' };
+      if (state.gold < total) return { ok: false, short, gold, total, unit, reason: `金幣不足：補料需要 ${gold} 金${cost?.gold ? `，加上本身 ${cost.gold} 金` : ''}` };
+      return { ok: true, short, gold, total, unit, reason: '' };
+    },
+    // 只買缺的那部分材料(不付成本本身);成功後呼叫端再照常 construct/upgrade/craft。
+    buyMaterials(cost = {}) {
+      const q = this.merchantQuote(cost);
+      if (!Object.keys(q.short).length) return { ...result(false, '材料已經足夠，不需要購買。'), spent: 0 };
+      if (!q.ok) return { ...result(false, q.reason), spent: 0 };
+      state.gold -= q.gold; for (const [k, n] of Object.entries(q.short)) state[k] += n;
+      state.counts.merchantBuys = (state.counts.merchantBuys || 0) + 1;
+      const what = Object.entries(q.short).map(([k, n]) => `${MATERIALS[k].name} ${n}`).join('、');
+      log(`向交易所行商購買 ${what}，花費 ${q.gold} 金幣。`, 'loot'); effect('loot', buildingPoint('trading'), { text: `-${q.gold}`, color: '#e4c97b' });
+      return { ...result(true, `已向行商購買 ${what}（${q.gold} 金幣）。`), spent: q.gold };
+    },
     heal() {
       if (state.healCooldown > 0) return result(false, `治癒祝福還需 ${Math.ceil(state.healCooldown)} 秒。`);
       for (const h of state.hunters) if (h.hp > 0) { h.hp = Math.min(h.maxHp, h.hp + h.maxHp * 0.45); effect('heal', h); }
@@ -1823,6 +2070,14 @@ export function createGame(saved = null) {
       const leader = state.hunters.find(h => h.hp > 0 && h.targetId === boss.id) || state.hunters.find(h => h.hp > 0);
       log('森林領主現身！村外獵人開始集結討伐。', 'warning'); effect('boss', boss); isoEffect('portal-iso', leader || boss, 4.7); return result(true, '森林領主已出現，獵人正前往討伐！');   // iso:出征的獵人腳下開一道傳送門(出發),不畫在怪物身上
     },
+    // 2026-11-16 UI 用(唯讀、不呼叫 random):這三位從第 want 層出發時,實際會從第幾層開始(startDungeon 的 dgSafeStart 同一條規則)
+    dungeonStartFloor(hunterIds, want) {
+      const d = state.dungeon, party = (hunterIds || []).map(hid => state.hunters.find(h => h.id === hid)).filter(h => h && h.hp > 0);
+      const w = clamp(Math.floor(number(want, d.startFloor || d.bestFloor + 1, 1, 100)), 1, d.bestFloor + 1);
+      return party.length === 3 ? dgSafeStart(party, w) : w;
+    },
+    // 2026-11-17 UI 用(唯讀):通過第 floor 層會拿到的獎勵 → { first, village:{gold,ore,gems}, gold, xp }(gold/xp 是每位獵人);floorCleared 同一支公式
+    dungeonReward(floor) { const f = clamp(Math.floor(number(floor, 1, 1, 100)), 1, 100); return dgFloorReward(f, f > state.dungeon.bestFloor); },
     retreatDungeon() { if (!state.dungeon.active) return result(false, '地下城小隊不在探險中。'); endDungeon(false, true); return result(true, '小隊撤退，正返回村莊。'); },
     setDungeonAuto(on) { state.dungeon.auto = !!on; return result(true, on ? '自動續戰：打完一層會直接挑戰下一層。' : '自動續戰已關閉：打完這一層就回村。'); },
     setDungeonStart(floor) { const d = state.dungeon, f = clamp(Math.floor(number(floor, d.bestFloor + 1, 1, 100)), 1, d.bestFloor + 1); d.startFloor = f >= d.bestFloor + 1 ? 0 : f; return result(true, `下次從第 ${f} 層出發。`); },
@@ -1837,12 +2092,19 @@ export function createGame(saved = null) {
         selected = hunterIds.map(hid => state.hunters.find(h => h.id === hid)).filter(Boolean);
       }
       if (selected.length !== 3 || selected.some(h => h.hp <= 0 || h.task === 'revive' || h.task === 'arena')) return result(false, '地下城探險需要 3 位未參與競技場的存活獵人。');
-      const floor = clamp(Math.floor(number(startFloor, d.startFloor || d.bestFloor + 1, 1, 100)), 1, d.bestFloor + 1);   // 從第幾層開始:1 ~ 最高紀錄 +1
-      Object.assign(d, { active: true, floor, wave: 1, time: 0, hunterIds: selected.map(h => h.id), reward: {}, phase: '集結中', attackTimer: 1.5, foes: dgWave(floor, 1), events: [], rest: 0 }); dgSync();
-      for (const h of selected) { h.task = 'dungeon'; h.destination = 'dungeon'; h.status = '地下城集結'; h.targetId = null; h.serviceProduct = null; h.serviceStarted = false; route(h, [door('dungeon', h)]); }
+      // 出發血量門檻(2026-11-17):dgFitStart 會把祭司的補血攤在整層,殘血隊員也估得過 → 出發時每人至少 DG_FIT_MIN_HP 生命(跟自動續戰同一條線)。
+      // 自動挑隊本來就先挑血量比例最高的,挑出來還有人不夠 → 大家都殘血,等回血再出發。
+      const weak = selected.find(h => h.hp < h.maxHp * DG_FIT_MIN_HP);
+      if (weak) return result(false, `${weak.name}的生命不到 ${Math.round(DG_FIT_MIN_HP * 100)}%，先休養再進地下城。`);
+      const want = clamp(Math.floor(number(startFloor, d.startFloor || d.bestFloor + 1, 1, 100)), 1, d.bestFloor + 1);   // 從第幾層開始:1 ~ 最高紀錄 +1
+      const floor = dgSafeStart(selected, want);   // 估不過想去的那層 → 改從估得過的最深一層出發(見 dgFitStart)
+      if (floor < want) log(`估計這支小隊打不過第 ${want} 層，改從第 ${floor} 層出發。`, 'info');
+      Object.assign(d, { active: true, floor, wave: 1, time: 0, hunterIds: selected.map(h => h.id), reward: {}, phase: '集結中', attackTimer: 1.5, foes: dgWave(floor, 1), events: [], rest: 0 }); dgSync();      for (const h of selected) { h.task = 'dungeon'; h.destination = 'dungeon'; h.status = '地下城集結'; h.targetId = null; h.serviceProduct = null; h.serviceStarted = false; route(h, [door('dungeon', h)]); }
       isoEffect('portal-iso', door('dungeon', selected[0]), 4.7);   // iso:地下城入口開一道傳送門,提示小隊要進去了
       log(`${selected.map(h => h.name).join('、')}前往地下城第 ${d.floor} 層${d.auto ? '（自動續戰）' : ''}。`, 'info'); return result(true, '三位獵人已組成小隊，正在前往地下城入口。');
     },
+    // 競技場下一場打贏的獎勵(UI 預覽用,跟 endArena 同一條公式)
+    arenaReward() { const w = Math.min(ARENA_CAP, state.arena.wins); return { gold: 90 + w * 25, gems: (state.arena.wins + 1) % 5 === 0 ? 2 + Math.floor(w / 10) : 0, xp: 80 + w * 15 }; },
     startArena(hunterIds = null) {
       if (!state.buildings.training) return result(false, '請先建造修煉地，開放競技場模擬對戰。');
       const a = state.arena; if (a.active) return result(false, '模擬對戰正在進行。');
@@ -1851,7 +2113,7 @@ export function createGame(saved = null) {
       if (hunterIds === null) selected = state.hunters.filter(h => h.hp > 0 && h.task !== 'dungeon' && h.task !== 'revive').sort((a, b) => b.hp / b.maxHp - a.hp / a.maxHp || b.attack - a.attack).slice(0, 3);
       else { if (!Array.isArray(hunterIds) || hunterIds.length !== 3 || new Set(hunterIds).size !== 3) return result(false, '請選擇 3 位不同的存活獵人。'); selected = hunterIds.map(hid => state.hunters.find(h => h.id === hid)).filter(Boolean); }
       if (selected.length !== 3 || selected.some(h => h.hp <= 0 || h.task === 'dungeon' || h.task === 'revive')) return result(false, '請準備 3 位未參與地下城的存活獵人。');
-      Object.assign(a, { active: true, phase: '集結中', time: 0, hunterIds: selected.map(h => h.id), enemyMaxHp: 720 + Math.min(10, a.wins) * 130, attackTimer: 1.5, reward: 0 }); a.enemyHp = a.enemyMaxHp;
+      Object.assign(a, { active: true, phase: '集結中', time: 0, hunterIds: selected.map(h => h.id), enemyMaxHp: 720 + Math.min(ARENA_CAP, a.wins) * 130, attackTimer: 1.5, reward: 0 }); a.enemyHp = a.enemyMaxHp;
       for (const h of selected) { h.task = 'arena'; h.destination = 'training'; h.status = '競技場模擬集結'; h.targetId = null; h.serviceProduct = null; h.serviceStarted = false; route(h, [door('training', h)]); }
       log('三人小隊開始與暮林訓練隊進行離線模擬對戰。', 'info'); return result(true, '競技場模擬對戰已開始，對手為 NPC 訓練隊。');
     },
@@ -1860,29 +2122,29 @@ export function createGame(saved = null) {
     // 其餘時間照這段的「每秒淨變化」外推:村莊資源、商品庫存、擊倒數、各項統計(只外推增加的)、每位獵人的經驗(會升級)與個人金幣;
     // 遊戲時間、天數、冷卻照實際經過。用完的東西(淨變化是負的)外推到 0 為止。地下城最高樓層不外推(只算真的模擬到的)。
     offlineSnapshot() {
-      dgLedger = { wins: 0, res: {}, gold: {}, xp: {} };
+      dgLedger = newLedger();
       return { res: Object.fromEntries(RESOURCE_KEYS.map(k => [k, state[k]])), stocks: { ...state.stocks }, kills: state.totalKills, wanderKills: state.wanderKills || 0, bestFloor: state.dungeon.bestFloor, counts: { ...state.counts },
         hunters: Object.fromEntries(state.hunters.map(h => [h.id, { xp: lifetimeXp(h), gold: h.gold, level: h.level, rebirths: h.rebirths }])), time: state.time };
     },
     simulate(seconds) { let left = number(seconds, 0, 0, OFFLINE.max); while (left > 1e-7) { const d = Math.min(0.1, left); step(d); left -= d; } },
     offlineFinish(snap, totalSeconds) {
       const total = number(totalSeconds, 0, 0, OFFLINE.max), sampled = Math.max(0, state.time - snap.time), rest = Math.max(0, total - sampled), f = sampled >= 1 ? rest / sampled : 0;
-      const L = dgLedger || { wins: 0, res: {}, gold: {}, xp: {} }; dgLedger = null;
+      const L = dgLedger || newLedger(); dgLedger = null;
       const field = k => (state[k] - snap.res[k]) - (L.res[k] || 0);   // 野外(非地下城)的淨變化
       if (f > 0) {
         for (const k of RESOURCE_KEYS) if (k !== 'gold') state[k] = Math.max(0, Math.round(state[k] + field(k) * f));
         for (const k of Object.keys(state.stocks)) state.stocks[k] = Math.max(0, Math.round(state.stocks[k] + (state.stocks[k] - (snap.stocks[k] ?? 0)) * f));
         state.totalKills += Math.round(Math.max(0, state.totalKills - snap.kills) * f); state.kills = state.totalKills;
         state.wanderKills = (state.wanderKills || 0) + Math.round(Math.max(0, (state.wanderKills || 0) - snap.wanderKills) * f);
-        for (const [k, v] of Object.entries(state.counts)) { const dv = typeof v === 'number' && typeof snap.counts[k] === 'number' ? v - snap.counts[k] - (k === 'dungeonWins' ? L.wins : 0) : 0; if (dv > 0) state.counts[k] = Math.round(v + dv * f); }
+        for (const [k, v] of Object.entries(state.counts)) { const dv = typeof v === 'number' && typeof snap.counts[k] === 'number' ? v - snap.counts[k] - (k === 'dungeonWins' ? L.wins : 0) - (GEAR_ONE_OFF.has(k) ? v - snap.counts[k] : L.gearPay[k] || 0) : 0; if (dv > 0) state.counts[k] = Math.round(v + dv * f); }
         // 金幣要守恆:獵人花在村裡的錢 = 村莊收入,錢包花光就沒了 → 「村莊＋獵人」一起外推,每位獵人的錢包到 0 為止,剩下的算村莊的
         const both = state.hunters.filter(h => snap.hunters[h.id]), w0 = both.reduce((n, h) => n + snap.hunters[h.id].gold, 0), w1 = both.reduce((n, h) => n + h.gold, 0);
-        const dgW = both.reduce((n, h) => n + (L.gold[h.id] || 0), 0), pooled = state.gold + w1 + (field('gold') + (w1 - w0 - dgW)) * f;
+        const dgW = both.reduce((n, h) => n + (L.gold[h.id] || 0), 0), pooled = state.gold + w1 + (field('gold') - L.gearWander + (w1 - w0 - dgW)) * f;
         let wallets = 0;
         for (const h of state.hunters) {
           const s0 = snap.hunters[h.id]; if (!s0) { wallets += h.gold; continue; }
           const xp = lifetimeXp(h) - s0.xp - (L.xp[h.id] || 0); if (xp > 0 && h.rebirths === s0.rebirths) gainXp(h, Math.round(xp * f));
-          h.gold = Math.max(0, Math.round(h.gold + (h.gold - s0.gold - (L.gold[h.id] || 0)) * f)); if (both.includes(h)) wallets += h.gold;
+          h.gold = Math.max(0, Math.round(h.gold + (h.gold - s0.gold - (L.gold[h.id] || 0) + (L.gear[h.id] || 0)) * f)); if (both.includes(h)) wallets += h.gold;
         }
         state.gold = Math.max(0, Math.round(pooled - wallets));
         // 地下城(自動續戰)照實打完剩下的時間:只跑地下城那一塊(沒有尋路,8 小時也很快);獎勵直接進帳,上面已經把取樣期的地下城收入排除
@@ -1908,11 +2170,11 @@ export function createGame(saved = null) {
       log(`離線 ${hh ? hh + ' 小時 ' : ''}${mm} 分鐘：你的獵人擊倒 ${sum.kills} 隻魔物、流浪英雄擊倒 ${sum.wanderKills} 隻，村莊金幣 ${sum.res.gold >= 0 ? '+' : ''}${sum.res.gold}。`, 'success');
       return sum;
     },
-    questList() { return QUESTS.map(q => ({ title: q.title, description: q.description, target: q.target, reward: { ...q.reward } })); },   // 委託章節鏈畫面用(唯讀)
+    questList() { return QUESTS.map((q, i) => ({ title: q.title, description: q.description, target: q.target, reward: questReward(i) })); },   // 委託章節鏈畫面用(唯讀)
     claimQuest() {
       refreshQuest(); if (!state.quest.complete) return result(false, '委託尚未完成。'); if (state.quest.claimed) return result(false, '全部章節委託已完成。');
       for (const [key, amount] of Object.entries(state.quest.reward)) state[key] += amount;
-      log(`委託「${state.quest.title}」完成，獎勵已入庫。`, 'success'); if (state.quest.index < QUESTS.length - 1) state.quest = { index: state.quest.index + 1, claimed: false }; else state.quest.claimed = true;
+      log(`委託「${state.quest.title}」完成，${Object.keys(state.quest.reward).length ? '獎勵已入庫' : '獎勵先前已領取'}。`, 'success'); if (state.quest.index < QUESTS.length - 1) state.quest = { index: state.quest.index + 1, claimed: false }; else state.quest.claimed = true;
       refreshQuest(); return result(true, '委託獎勵已領取。');
     },
     setRally(x, z) {

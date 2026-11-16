@@ -1,0 +1,8 @@
+{"settle":3500,"steps":[
+["eval","__mistvaleGame.state.paused=true"],
+["shot","labels-0-default"],
+["drag",200,560,330,560,900],["shot","labels-1-pan-right"],
+["drag",330,560,40,560,900],["shot","labels-2-pan-left"],
+["drag",200,420,200,620,900],["shot","labels-3-pan-down"],
+["drag",200,620,200,300,900],["shot","labels-4-pan-up"]
+]}

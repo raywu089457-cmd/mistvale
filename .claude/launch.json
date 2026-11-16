@@ -9,6 +9,13 @@
       "url": "http://100.79.149.0:5024"
     },
     {
+      "name": "mistvale-local",
+      "runtimeExecutable": "powershell",
+      "runtimeArgs": ["-NoProfile", "-Command", "$env:HOST='127.0.0.1'; $env:PORT='5030'; node server.mjs"],
+      "port": 5030,
+      "url": "http://127.0.0.1:5030"
+    },
+    {
       "name": "mistvale-pixel-ui",
       "runtimeExecutable": "node",
       "runtimeArgs": ["C:\\Users\\ray\\AppData\\Local\\Temp\\claude\\6cd1f80249bc5a45\\424fa29d-c724-4cc4-aec5-9cc20ecde346\\scratchpad\\pixelui-view\\server.mjs"],

@@ -52,8 +52,10 @@ async function runView(name, v) {
     }
     await L.act(page, 'close'); await page.waitForTimeout(200);
   }
-  // 顧問與開場導覽:先蓋地下城入口(新存檔、資源夠)
-  const adv = await page.evaluate(() => { const g = globalThis.__mistvaleGame; g.state.paused = true; g.state.modal = null; const el = document.querySelector('#next-step'); return el ? el.textContent : ''; });
+  // 顧問與開場導覽(2026-11-16):新存檔第 1 章是「邀請 1 位旅人」→ 顧問先講招募;第 2–6 章顧問跟著委託走(questGuide),第 7 章才叫玩家蓋地下城入口
+  const adv0 = await page.evaluate(() => { const g = globalThis.__mistvaleGame; g.state.paused = true; return document.querySelector('#next-step')?.textContent || ''; });
+  if (!/旅人/.test(adv0) && v.w >= 360) { await page.waitForTimeout(600); const a0 = await page.evaluate(() => document.querySelector('#next-step')?.textContent || ''); if (!/旅人/.test(a0)) fix(`${tag}: 新存檔第 1 章顧問沒先叫玩家邀請旅人(${a0 || '沒有提示'})`); }
+  const adv = await page.evaluate(() => { const g = globalThis.__mistvaleGame; g.state.paused = true; g.state.modal = null; g.state.quest = { ...g.state.quest, index: 6, complete: false, claimed: false }; const el = document.querySelector('#next-step'); return el ? el.textContent : ''; });
   if (!/地下城入口/.test(adv) && v.w >= 360) { await page.waitForTimeout(600); const a2 = await page.evaluate(() => document.querySelector('#next-step')?.textContent || ''); if (!/地下城入口/.test(a2)) fix(`${tag}: 新存檔顧問提示沒叫玩家先蓋地下城入口(${a2 || '沒有提示'})`); }
   await page.evaluate(() => { globalThis.__mistvaleGame.state.paused = false; });
 

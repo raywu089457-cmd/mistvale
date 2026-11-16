@@ -678,12 +678,19 @@ function ensureAtlas() {
   for(const b of [...BUILDINGS,{id:'monument'}]){const src=assets[b.id];if(!src||loadedAssetKeys.has(b.id))continue;loadedAssetKeys.add(b.id);
     const im=trackImage(new Image());im.onload=()=>{const cell=makeCanvas(im.width,im.height),c=cell.getContext('2d');c.drawImage(im,0,0);const pixels=c.getImageData(0,0,im.width,im.height),d=pixels.data;let x0=im.width,y0=im.height,x1=0,y1=0;
       const alphaAsset=globalThis.PIXEL_ASSETS?.alphaAssets?.[b.id];
-      for(let y=0;y<im.height;y++)for(let x=0;x<im.width;x++){const j=(y*im.width+x)*4;if(!alphaAsset&&d[j]>160&&d[j+2]>130&&d[j+1]<130&&d[j]>d[j+1]*1.5&&d[j+2]>d[j+1]*1.5)d[j+3]=0;if(!alphaAsset&&b.id==='inn'&&y<im.height*.25&&d[j+1]>100&&d[j+2]>d[j+1]*1.10)d[j+3]=0;if(d[j+3]>32){x0=Math.min(x0,x);x1=Math.max(x1,x);y0=Math.min(y0,y);y1=Math.max(y1,y);}}
+      // L3(載入加速,2026-11-16):同一個判準,但每個像素只讀一次 32 位元(整數)並直接跳過全透明像素,
+      // 比逐通道讀 d[j]/d[j+1]/d[j+2]/d[j+3] 快約 2 倍;輸出位元相同(有 node 隨機像素比對測試)。
+      const W=im.width,H=im.height,u=new Uint32Array(d.buffer),innTrim=!alphaAsset&&b.id==='inn';
+      for(let y=0;y<H;y++){const row=y*W,roof=innTrim&&y<H*.25;
+        for(let x=0;x<W;x++){const i=row+x,w=u[i],a=w>>>24;if(a===0)continue;
+          const r=w&255,g=(w>>>8)&255,bl=(w>>>16)&255;
+          if(!alphaAsset&&r>160&&bl>130&&g<130&&r>g*1.5&&bl>g*1.5){u[i]=w&0x00ffffff;continue;}
+          if(roof&&g>100&&bl>g*1.10){u[i]=w&0x00ffffff;continue;}
+          if(a>32){if(x<x0)x0=x;if(x>x1)x1=x;if(y<y0)y0=y;if(y>y1)y1=y;}}}
       c.putImageData(pixels,0,0);if(x1>x0&&y1>y0){const sourceWidth=x1-x0+1,sourceHeight=y1-y0+1,out=makeCanvas(alphaAsset?sourceWidth:384,alphaAsset?sourceHeight:Math.round(384*sourceHeight/sourceWidth)),g=out.getContext('2d');g.imageSmoothingEnabled=false;g.drawImage(cell,x0,y0,sourceWidth,sourceHeight,0,0,out.width,out.height);sharedAtlas||=new Map();sharedAtlas.set(b.id,out);globalThis.dispatchEvent(new CustomEvent('pixel-assets-ready'));}
     };im.onerror=()=>loadedAssetKeys.delete(b.id);im.src=src;
   }
 }
-
 // FIX-A B2:觸控裝置沒有 Esc,放置提示改成指向畫面上的「取消」鈕
 const PLACE_HINT_COARSE=typeof matchMedia==='function'&&matchMedia('(pointer:coarse)').matches;
 export function createWorld(canvas,{onSelect=()=>{},onPlace=()=>{},getState=()=>null}={}) {
@@ -1174,8 +1181,23 @@ let renderDprMax=Math.max(1,dprCap||autoDpr());   // 畫布解析度上限(devic
   }
   globalThis.__mistvaleMapLabels=()=>({width,height,scale:+scale.toFixed(3),labels:mapLabelRects.map(r=>({id:r.id,text:r.text,built:r.built,x:+r.x.toFixed(2),y:+r.y.toFixed(2),w:+r.w.toFixed(2),h:r.h}))});
   function textLabel(text,x,y,opts={}){if(document.body.dataset.artReview==='1')return;screenTexts.push({text,x,y,alpha:g.globalAlpha,...opts});}
-  function drawScreenText(t,k){if(t.bubble){drawBubble(t,k);return;}const {text,x:x0,y:y0,color='#fff7d9',size=7,back=true,alpha=1}=t,x=Math.round(x0*k),y=Math.round(y0*k);screen.globalAlpha=alpha;
+  // 2026-11-16:地名牌要避開的 HUD 矩形(換成畫布像素)。量 DOM 會觸發版面計算 → 最多每 500ms 量一次
+  let hudAvoid=[],hudAvoidAt=-1e9,placedLabels=[];
+  function hudAvoidRects(){const now=performance.now();if(now-hudAvoidAt<500)return hudAvoid;hudAvoidAt=now;
+    const cr=canvas.getBoundingClientRect();if(!cr.width){hudAvoid=[];return hudAvoid;}const sx=screen.canvas.width/cr.width,sy=screen.canvas.height/cr.height;
+    hudAvoid=[...document.querySelectorAll('.hv-actions,.view-tools,#hv-quest,#next-step')].map(e=>e.getBoundingClientRect()).filter(r=>r.width>0&&r.height>0)
+      .map(r=>({x0:(r.left-cr.left)*sx,x1:(r.right-cr.left)*sx,y0:(r.top-cr.top)*sy,y1:(r.bottom-cr.top)*sy}));return hudAvoid;}
+  function drawScreenText(t,k){if(t.bubble){drawBubble(t,k);return;}const {text,x:x0,y:y0,color='#fff7d9',size=7,back=true,alpha=1}=t;let x=Math.round(x0*k),y=Math.round(y0*k);screen.globalAlpha=alpha;
     screen.font=textFont(size*2*k);const tw=Math.ceil(screen.measureText(text).width);
+    // 2026-11-16 UX:地名牌(clamp)在畫面邊緣只露半截(「地」「向陽草」)→ 只要名牌還有一部分在畫面內,就整塊推回畫面內;完全在外面的照舊不畫進來
+    if(t.clamp){const W=screen.canvas.width,H=screen.canvas.height,hw=tw/2+5*k,m=4*k;
+      if(x+hw>0&&x-hw<W)x=Math.min(W-m-hw,Math.max(m+hw,x));
+      if(y+11*k>0&&y-10*k<H)y=Math.min(H-m-11*k,Math.max(m+10*k,y));
+      // 右側 HUD 直排鈕(行動徽章、縮放/回村)蓋在地名牌上 → 名牌往左讓開到按鈕左邊
+      for(const r of hudAvoidRects())if(y+11*k>r.y0&&y-10*k<r.y1&&x+hw>r.x0&&x-hw<r.x1){if((r.x0+r.x1)/2>W/2)x=Math.max(m+hw,r.x0-m-hw);else y=r.y1+10*k+m;}   // 右側直排鈕 → 往左讓;左上委託追蹤/顧問 → 往下讓
+      // 被推開的地名牌可能疊到另一塊地名牌 → 往下挪到不重疊為止(最多 4 次);這一幀放過的名牌記在 placedLabels
+      for(let n=0;n<4;n++){const o=placedLabels.find(b=>x+hw>b.x0&&x-hw<b.x1&&y+11*k>b.y0&&y-10*k<b.y1);if(!o)break;y=o.y1+10*k+2*k;}
+      placedLabels.push({x0:x-hw,x1:x+hw,y0:y-10*k,y1:y+11*k});}
     if(back){screen.fillStyle='#14110fd9';screen.fillRect(x-tw/2-5*k,y-10*k,tw+10*k,21*k);}   // 2026-11-11:地區名牌同建築名牌,炭黑半透明、無木框金線
     else{screen.lineWidth=Math.max(2,2.6*k);screen.strokeStyle='#1c0e06';screen.lineJoin='round';screen.strokeText(text,x,y);}
     screen.fillStyle=color;screen.fillText(text,x,y);screen.globalAlpha=1;}
@@ -2892,9 +2914,9 @@ let renderDprMax=Math.max(1,dprCap||autoDpr());   // 畫布解析度上限(devic
     // Placement preview projects to the same coordinate system as simulation.
     if(placing&&hover){const blk=blockAt(hover.x,hover.z),snap=blk&&blk.use!=='plaza'?blk:hover,p=screenPoint(snap.x,snap.z),sp=atlasCell(placing)||buildingSprite(placing),w=conceptBuildingWidth(placing);ring(p,30,'#d8ebac');drawSprite(sp,p,w,w*sp.height/sp.width,9,.55);textLabel(PLACE_HINT_COARSE?'點擊放置 · 點取消鈕結束':'點擊放置 · ESC 取消',p.x,p.y+22,{color:'#e6edbf'});}
     // 地名:拉遠才顯示,畫在戰鬥空地外緣(北邊)而不是空地中央。
-    if(scale<1.2){for(const r of REGIONS){const p=screenPoint(r.x,r.z);textLabel(r.name,p.x,p.y-6,{color:'#ffe6a6',size:8});}}
+    if(scale<1.2){for(const r of REGIONS){const p=screenPoint(r.x,r.z);textLabel(r.name,p.x,p.y-6,{color:'#ffe6a6',size:8,clamp:true});}}
     screen.setTransform(1,0,0,1,0,0);if(glr)screen.clearRect(0,0,canvas.width,canvas.height);const k=canvas.width/width;screen.save();screen.textAlign='center';screen.textBaseline='middle';
-    for(const t of screenTexts)drawScreenText(t,k);
+    placedLabels=[];for(const t of screenTexts)drawScreenText(t,k);
     drawMapLabels(k);screen.restore();
     if(glr)glr.present();
   }
@@ -2936,7 +2958,7 @@ let renderDprMax=Math.max(1,dprCap||autoDpr());   // 畫布解析度上限(devic
     if(typeof createImageBitmap!=='function')return true;
     const list=[...Object.values(heroSheets).map(s=>s&&s.img),...Object.values(monsterSheets).map(s=>s&&s.img)].filter(im=>im&&im.complete&&im.naturalWidth&&!warmDone.has(im));
     if(!list.length)return true;
-    for(const im of list.slice(0,2)){warmDone.add(im);createImageBitmap(im).then(b=>b.close()).catch(()=>{});}
+    for(const im of list.slice(0,8)){warmDone.add(im);createImageBitmap(im).then(b=>b.close()).catch(()=>{});}   // L2(載入加速):一次 8 張(解碼在工作執行緒,主執行緒只發請求),讀取畫面不必等好幾十幀
     return false;
   }
   function dispose(){disposed=true;for(const[type,fn]of[['pointerdown',down],['pointermove',move],['pointerup',up],['pointercancel',up],['wheel',wheel],['pointerdown',stopHomeFraming]])canvas.removeEventListener(type,fn);spriteCache.clear();glCanvas?.remove();if(texRelease&&glKeep)texRelease=null;}

@@ -59,6 +59,10 @@ export const SKILLS={
 };
 export const RARITIES=[{id:'normal',name:'普通',color:'#d3cab2',mult:1},{id:'rare',name:'稀有',color:'#6fbe8b',mult:1.08},{id:'superior',name:'超級稀有',color:'#6caeee',mult:1.18},{id:'heroic',name:'英雄',color:'#c184e1',mult:1.32},{id:'legendary',name:'傳說',color:'#efb955',mult:1.5}];
 export const TRAITS=[{id:'swift',name:'快手',desc:'攻擊間隔縮短 10%'},{id:'stout',name:'壯碩',desc:'最大生命提高 15%'},{id:'cheerful',name:'樂天',desc:'心情消耗減半'},{id:'frugal',name:'節儉',desc:'生活需求消耗減少 15%'},{id:'brave',name:'勇敢',desc:'攻擊力提高 10%'}];
+// 2026-11-16 交易所商人直購:村莊金幣後期大量閒置(14 天模擬 5000~8000 金沒地方花),材料卻卡住升級。
+// 交易所可以直接向行商買材料,單價 = 收購價 × markup;交易所每升一級便宜 step,最低 floor 倍(Lv.1 6 倍、Lv.5 4 倍)。
+// 比向獵人收購貴很多,所以只是「卡關時補差額」的金幣出口,不會取代收購循環。
+export const MERCHANT={markup:6,step:.5,floor:4};
 export const MATERIALS={wood:{name:'木材',price:2},ore:{name:'鐵礦',price:3},herb:{name:'藥草',price:2},cloth:{name:'亞麻布',price:2},flour:{name:'小麥粉',price:2},leather:{name:'獸皮',price:3}};
 export const PRODUCTS={food:{name:'香烤麵包',building:'restaurant',need:'satiety',restore:75,price:12,cost:{flour:5},amount:10},drink:{name:'莓果飲品',building:'tavern',need:'mood',restore:75,price:10,cost:{herb:5},amount:10},bed:{name:'舒適床鋪',building:'inn',need:'stamina',restore:90,price:14,cost:{leather:3,cloth:2},amount:10},bandage:{name:'亞麻繃帶',building:'clinic',need:'hp',restore:80,price:10,cost:{cloth:5,herb:2},amount:10}};
 // 2026-11-13 六格裝備(docs/PAPERDOLL-EQUIPMENT-6.md §4):武器 + 頭盔/胸甲/腰帶/腿甲/靴子/手套。
@@ -75,6 +79,28 @@ export const RECIPES=[
   {id:'boots',name:'靴子',type:'boots',slotName:'靴子',price:70,cost:{leather:4},bonus:1,hp:4,def:1},
   {id:'gloves',name:'手套',type:'gloves',slotName:'手套',price:60,cost:{cloth:3,leather:2},bonus:1,hp:4,def:1},
 ];
+// 2026-11-16 裝備階級(Ⅰ–Ⅴ):鐵匠鋪 Lv.N 才能鍛造第 N 階(最高 5)。獵人回村時,庫存裡有比自己身上更高階、又買得起的,就換新的
+// (舊的不退錢)——Kairosoft 村莊經營的主要收入循環:設施升級 → 店裡賣更好的裝備 → 冒險者把賺來的錢花回村裡。
+// 以前每格只能買一次,14 天模擬每位獵人身上閒置 2000 金。
+// price/cost/stat/def 是對第 1 階(上面 RECIPES 的數值)的倍率;材料無條件進位,攻擊/生命/防禦四捨五入。
+export const GEAR_TIER_MAX=5;
+// 2026-11-16 平衡(progression-sim 5 個 seed):原本售價 ×12、材料只 ×3,鍛造幾乎純賺 → 第 15 天就把全村升滿、金庫堆到上萬。
+// 材料倍率拉高到 ×6(高階要靠行商補料,金幣才有地方花)、售價降到 ×9.5(獵人仍有東西可買)。
+export const GEAR_TIERS=[
+  {tier:1,numeral:'Ⅰ',price:1,cost:1,stat:1,def:1},
+  {tier:2,numeral:'Ⅱ',price:2.2,cost:2,stat:1.6,def:1.5},
+  {tier:3,numeral:'Ⅲ',price:4,cost:3,stat:2.3,def:2},
+  {tier:4,numeral:'Ⅳ',price:6.5,cost:4.5,stat:3.1,def:2.5},
+  {tier:5,numeral:'Ⅴ',price:9.5,cost:6,stat:4,def:3},
+];
+// 某一格某一階的完整配方(名稱帶羅馬數字、售價、材料、數值)。recipe 可以是 RECIPES 的物件或 id;tier 會夾在 1..GEAR_TIER_MAX。
+export function gearAt(recipe,tier=1){
+  const r=typeof recipe==='string'?RECIPES.find(x=>x.id===recipe):recipe;if(!r)return null;
+  const t=GEAR_TIERS[Math.min(GEAR_TIER_MAX,Math.max(1,Math.floor(Number(tier))||1))-1];
+  return{...r,baseName:r.name,tier:t.tier,numeral:t.numeral,name:`${r.name} ${t.numeral}`,price:Math.round(r.price*t.price),
+    cost:Object.fromEntries(Object.entries(r.cost).map(([k,v])=>[k,Math.ceil(v*t.cost)])),
+    bonus:Math.round(r.bonus*t.stat),...(r.hp?{hp:Math.round(r.hp*t.stat),def:Math.round(r.def*t.def)}:{})};
+}
 export const DIFFICULTIES=[{id:0,name:'初級',mult:1,rebirths:0},{id:1,name:'普通',mult:1.7,rebirths:1},{id:2,name:'困難',mult:2.8,rebirths:3},{id:3,name:'專家',mult:4.5,rebirths:5},{id:4,name:'噩夢',mult:7,rebirths:10}];
 // 2026-10-30:每個狩獵區中央立牌切換「怪物數量」三級(羅馬數字)。只改同時出現的數量與補怪速度,魔物本身不變強。
 // cap = 目前狩獵區的上限、other = 沒人在打的區的上限、every = 補一隻的間隔(秒)。第 2 級就是原本的 14/6、2.5/8 秒。

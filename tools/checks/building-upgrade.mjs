@@ -34,7 +34,7 @@ async function setup(page, { hall, levels = {}, res = {} }) {
     if (hall != null) g.state.buildings.hall = hall;
     for (const [k, v] of Object.entries(levels)) g.state.buildings[k] = v;
     for (const [k, v] of Object.entries(res)) g.state[k] = v;
-    g.state.capacity = 8 + (g.state.buildings.house - 1) * 2;
+    g.state.capacity = 9 + (g.state.buildings.house - 1) * 2;
   }, { hall, levels, res });
   await page.waitForTimeout(150);
 }
@@ -123,7 +123,8 @@ const upCost = (page, id, lv) => page.evaluate(({ id, lv }) => {
     ok(`desktop 小屋 Lv.2 → 下一級：${c.next}`);
     if (!c.level.includes('Lv.2')) fix(`desktop 等級行不對：${c.level}`);
     if (!c.next.includes('Lv.3')) fix(`desktop 下一級不是 Lv.3：${c.next}`);
-    if (!c.delta.includes('12') || !c.delta.includes('10')) fix(`desktop 小屋沒有寫出名額 10 → 12：${c.delta || '(空)'}`);
+    // 2026-11-16:名額公式跟遊戲一致(基礎 = max(8, 職業數+2) = 9)→ Lv.2→3 是 11 → 13
+    if (!c.delta.includes('13') || !c.delta.includes('11')) fix(`desktop 小屋沒有寫出名額 11 → 13：${c.delta || '(空)'}`);
     if (!c.btn || c.btn.disabled) fix(`desktop 資源充足時升級鈕應該可按：${JSON.stringify(c.btn)}`);
     if (c.btn && !c.btn.label.includes('Lv.3')) fix(`desktop 升級鈕文字應寫 升級 Lv.3：${c.btn.label}`);
     for (const [k, v] of Object.entries(cost)) {

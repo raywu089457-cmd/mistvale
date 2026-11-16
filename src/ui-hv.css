@@ -65,6 +65,12 @@ html body :is(#modal,#inspector,#left-panel,#unit-card,#placement,#cmdk,#run-hud
   box-shadow:inset 0 0 0 1px rgba(255,255,255,.05)!important;cursor:not-allowed;opacity:1!important;filter:none!important}
 html body :is(#modal,#inspector,#left-panel,#unit-card,#placement,#cmdk) .pixel-button.quiet:not(:disabled),html body .hv-btn.cancel{background:#4a4540!important;color:var(--hv-text)!important}
 html body :is(#modal,#inspector,#left-panel,#unit-card,#placement,#cmdk) .pixel-button.quiet:hover:not(:disabled),html body .hv-btn.cancel:hover{background:#5a544d!important}
+/* 2026-11-16 交易所行商「補料升級」：跟一般升級同位置，但用青綠色跟「要多花錢」區分，金額直接寫在按鈕上 */
+html body .hv-btn.primary.merchant-btn{background:#2f7a6e!important}
+html body .hv-btn.primary.merchant-btn:hover:not(:disabled){background:#3a9184!important}
+html body .hv-btn.merchant-btn small{display:inline-flex;align-items:center;gap:2px;margin-left:4px;font-size:11px;opacity:.95}
+html body .hv-btn.merchant-btn small .icon,html body .hv-btn.merchant-btn small canvas,html body .hv-btn.merchant-btn small img{width:12px;height:12px}
+html body .trade-merchant{margin-top:6px;font-size:12px;opacity:.85}
 html body :is(#modal,#inspector,#left-panel,#unit-card) :is(.pixel-button.danger,.pixel-button[data-danger="true"]):not(:disabled){background:transparent!important;border-color:var(--hv-warn)!important;color:var(--hv-warn)!important;box-shadow:none!important;text-shadow:none!important}
 /* 切換鈕（篩選、排序、分段）：未選＝凹槽色，選中＝頁籤亮色 */
 html body :is(#modal,#inspector,#left-panel,#unit-card) .pixel-button[aria-pressed]{background:var(--hv-panel-2)!important;color:var(--hv-text-dim)!important;border-color:var(--hv-line)!important;box-shadow:none!important;text-shadow:none!important}
@@ -145,6 +151,12 @@ html body #topbar .play-controls{display:flex!important;flex-direction:row!impor
   margin:0!important;padding:0!important;background:none!important;border:0!important;box-shadow:none!important;width:auto!important;height:auto!important;visibility:visible!important}
 html body #topbar .play-controls>button{width:32px!important;height:32px!important;min-width:32px!important;display:grid!important;place-items:center;
   font:700 14px/1 var(--font-num)!important}
+/* 2026-11-16 UX:暫停／速度原本是浮在地圖上的裸字(Ⅱ、1×),看起來不像能按 → 加深色底＋黃銅細框的小方塊,跟右側圖示鈕同一個語彙 */
+html body #topbar .play-controls>button{background:rgba(24,18,12,.72)!important;border:1px solid rgba(196,160,92,.55)!important;border-radius:6px!important;
+  box-shadow:inset 0 1px 0 rgba(255,255,255,.08),0 2px 0 rgba(0,0,0,.55)!important;color:#f3e6c4!important;text-shadow:0 1px 0 #000!important}
+html body #topbar .play-controls>button:active{transform:translateY(1px)!important;box-shadow:inset 0 1px 0 rgba(0,0,0,.3)!important}
+html body #topbar #pause[aria-pressed="true"]{background:rgba(160,60,40,.88)!important;border-color:#e0a060!important}
+html body #topbar #speed[aria-pressed="true"]{background:rgba(150,110,30,.88)!important;border-color:#f0c860!important;color:#fff!important}
 html body #topbar #save-label{width:auto!important;flex:0 0 auto!important;order:-1;display:block;font:600 12px/1 var(--font-ui)!important;color:var(--hv-text-dim)!important;text-shadow:var(--hv-outline)!important;margin:0 6px 0 4px!important;white-space:nowrap;position:static!important;background:none!important;border:0!important}
 html body #topbar #save-label.warn{color:var(--hv-warn)!important}
 html body #topbar .population{display:flex!important;align-items:center!important;gap:4px!important;height:32px!important;padding:0 4px!important;width:auto!important;min-width:32px!important}
@@ -718,6 +730,11 @@ html body #modal-content .hv-hcard .hc-sub{font:600 12px/1.25 var(--font-ui);col
 html body #modal-content .hv-hcard .hc-art{--st-a:#3a3430;--st-b:#1a1714;display:grid;place-items:end center;height:100px;margin:2px -2px 0;overflow:hidden;
   background:linear-gradient(180deg,var(--st-a) 0%,var(--st-b) 100%)!important;border:1px solid #000;border-radius:1px;box-shadow:inset 0 1px 0 rgba(255,255,255,.08)}
 html body #modal-content .hv-hcard .hc-art img{display:block;width:84px;height:96px;image-rendering:pixelated;margin:0;filter:drop-shadow(0 1px 0 rgba(0,0,0,.6))}
+html body #modal-content .hv-hcard .hc-art{position:relative}
+html body #modal-content .hv-hcard .hc-needs{position:absolute;left:3px;bottom:3px;display:flex;gap:2px;padding:2px 3px;background:rgba(236,224,204,.92);z-index:3;border:1px solid #b5533c;border-radius:3px;animation:hc-need-pulse 1.6s ease-in-out infinite}
+html body #modal-content .hv-hcard .hc-needs :is(.inline-icon,canvas,img){width:16px!important;height:16px!important}
+@keyframes hc-need-pulse{50%{border-color:#f0a070}}
+@media (prefers-reduced-motion:reduce){html body #modal-content .hv-hcard .hc-needs{animation:none}}
 html body #modal-content .hv-hcard[data-state=hunt] .hc-art{--st-a:#7a2a20;--st-b:#2a1210}
 html body #modal-content .hv-hcard[data-state=rest] .hc-art{--st-a:#4a5a6a;--st-b:#1c232b}
 html body #modal-content .hv-hcard[data-state=eat] .hc-art{--st-a:#8a5a24;--st-b:#2e1d0e}
@@ -1606,6 +1623,12 @@ html body :is(#modal,#inspector,#left-panel,#placement,#unit-card,#run-hud) butt
   box-shadow:inset 0 1px 0 var(--h)!important;text-shadow:0 1px 0 rgba(0,0,0,.7)!important;clip-path:var(--zb-step);font-weight:700!important;filter:none!important}
 html body :is(#modal,#inspector,#left-panel,#placement,#unit-card,#run-hud) button.zb[data-zbr=red]:not(#z1){--c:var(--zb-red);--h:var(--zb-red-hi);--l:var(--zb-red-lip)}
 html body :is(#modal,#inspector,#left-panel,#placement,#unit-card,#run-hud) button.zb[data-zbr=olive]:not(#z1){--c:var(--zb-olive);--h:var(--zb-olive-hi);--l:var(--zb-olive-lip)}
+/* 2026-11-16 青綠＝「多花金幣補料再做」(交易所行商):跟一般升級分開,玩家一眼看出這顆會額外花錢 */
+html body :is(#modal,#inspector,#left-panel,#placement,#unit-card,#run-hud) button.zb[data-zbr=teal]:not(#z1){--c:#2f7a6e;--h:#4fa395;--l:#1d4f47}
+html body :is(#modal,#inspector) button.merchant-btn small{color:#fff!important;opacity:1!important}
+html body #modal .z2b-act .merchant-btn + .pixel-button[disabled]{display:none!important}   /* 有「補料」鈕時不再並排灰色的「材料不足」 */
+html body #modal .z2b-act .merchant-btn small{display:inline-flex;align-items:center;gap:2px;margin-left:4px;font-size:11px}
+html body #modal .z2-train-btn .z2-train-why{display:block;font:600 11px/1.2 var(--font-ui)!important;opacity:.85;margin-top:2px;letter-spacing:0}
 html body :is(#modal,#inspector,#left-panel,#placement,#unit-card,#run-hud) button.zb[data-zbr=ghost]:not(#z1){--c:var(--zb-ghost);--h:var(--zb-ghost-hi);--l:var(--zb-ghost-lip);color:var(--hv-text)!important}
 html body :is(#modal,#inspector,#left-panel,#placement,#unit-card,#run-hud) button.zb[data-zbr]:not(#z1):hover:not(:disabled){background:color-mix(in srgb,var(--c) 84%,#fff)!important}
 html body :is(#modal,#inspector,#left-panel,#placement,#unit-card,#run-hud) button.zb[data-zbr]:not(#z1):active:not(:disabled){transform:translateY(1px)!important;border-bottom-width:2px!important;background:color-mix(in srgb,var(--c) 90%,#000)!important}
@@ -1813,6 +1836,8 @@ html body #modal[data-type=hunter] .z2-slot.open{background:#1f1925;border-color
 html body #modal[data-type=hunter] .z2-slot.eq{background:#2d2a26;border-color:#8a8372;cursor:pointer}
 /* 六件防具沒有各自的圖示：用單字辨識(盔/甲/腰/腿/靴/手)，空位淡、已穿亮 */
 html body #modal[data-type=hunter] .z2-slot .z2-glyph{font-size:18px;line-height:1;font-weight:700;letter-spacing:0;color:#ece0cc;text-shadow:0 1px 0 rgba(0,0,0,.65)}
+html body #modal[data-type=hunter] .z2-slot .z2-tier{position:absolute;right:2px;bottom:1px;font:700 11px/1 var(--font-num);color:#fcde8a;text-shadow:0 1px 0 #000,1px 0 0 #000,-1px 0 0 #000}
+html body #modal[data-type=hunter] .z2-slot .z2-tier[data-tier="4"],html body #modal[data-type=hunter] .z2-slot .z2-tier[data-tier="5"]{color:#ffb35c}
 html body #modal[data-type=hunter] .z2-slot.open .z2-glyph{color:#9c8fa8;opacity:.72}
 html body #modal[data-type=hunter] .z2-slot:is(button):hover{border-color:#fff}
 html body #modal[data-type=hunter] .z2-slot.tip-on{outline:2px solid #ffe48f;outline-offset:1px}
@@ -2195,6 +2220,7 @@ html body #modal-content .z2c-info .encounter-facts{margin:0!important;padding:0
 html body #modal-content .z2c-rec{display:flex;flex-wrap:wrap;align-items:center;gap:2px 12px;font:600 12px/1.5 var(--font-ui);color:var(--hv-text-dim)}
 html body #modal-content .z2c-rw{display:inline-flex;align-items:center;gap:4px}
 html body #modal-content .z2c-rw b{font:700 13px/1 var(--font-num);color:#fcde8a}
+html body #modal-content .z2c-lower{flex-basis:100%;display:block;margin-top:4px;font:600 12px/1.3 var(--font-ui);color:#f0b070}
 html body #modal-content .z2c-rw .inline-icon{width:16px;height:16px}
 html body #modal-content .z2c-lock{display:flex;flex-wrap:wrap;align-items:center;gap:8px 12px;margin:0 0 8px!important;padding:8px 12px!important}
 html body #modal-content .z2c-lock p{margin:0;flex:1 1 170px;font:600 13px/1.55 var(--font-ui)}
@@ -2400,6 +2426,11 @@ html body #toasts .toast .toast-n{background:rgba(0,0,0,.6);color:#f2c96a}
 html body[data-z2d-a]:not(.piloting) #toasts{position:fixed!important;top:auto!important;bottom:calc(var(--z2d-dtop,0px) + 8px)!important;left:50%!important;right:auto!important;transform:translateX(-50%)!important;align-items:center!important;
   max-width:calc(100vw - 24px)!important;z-index:45!important}
 html body[data-z2d-a]:not(.piloting) #toasts .toast:nth-last-child(n+3){display:none!important}
+/* 2026-11-16:直向手機抽屜上緣這一帶右側是行動徽章欄(.hv-actions,約 64px 寬＋8px 邊距),toast 置中會蓋住「進入競技場」等字
+   → 改在「徽章欄左邊的空間」置中,寬度也扣掉徽章欄 */
+@media (max-width:760px) and (orientation:portrait){
+  html body[data-z2d-a]:not(.piloting) #toasts{left:calc((100vw - 76px) / 2)!important;max-width:calc(100vw - 96px)!important}
+}
 /* 失敗訊息由按鈕觸發：該按鈕上方(放不下就下方)一行小提示，按鈕短暫紅框(UX #9) */
 html body .z2d-tip{position:fixed;z-index:80;box-sizing:border-box;max-width:min(320px,calc(100vw - 16px));padding:5px 10px;background:rgba(14,11,9,.94);border:1px solid #b24a36;border-radius:0;color:#ff8a78;font:700 13px/1.35 var(--font-ui);text-shadow:0 1px 0 #000;pointer-events:none;box-shadow:0 2px 0 #000;animation:z2dTipIn .14s ease-out}
 html body .z2d-tip .z2d-tip-tx{display:-webkit-box;-webkit-box-orient:vertical;-webkit-line-clamp:2;line-clamp:2;overflow:hidden;overflow-wrap:anywhere}

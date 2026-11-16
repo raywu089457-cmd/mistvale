@@ -15,6 +15,8 @@ const fails = [], oks = [];
 const fix = m => { fails.push(m); console.log('FIX  ' + m); };
 const ok = m => { oks.push(m); console.log('  ok ' + m); };
 const near = (a, b, eps = 1e-9) => Math.abs(a - b) <= eps;
+// 2026-11-16 裝備階級:gearStock[格] = {階: 件數};這裡只看各階合計(舊格式的數字也照收)
+const tot = st => typeof st === 'number' ? st : Object.values(st || {}).reduce((a, b) => a + b, 0);
 
 // ═══ A. 純資料 ═══
 const byId = Object.fromEntries(RECIPES.map(r => [r.id, r]));
@@ -52,7 +54,7 @@ if (fresh.state.version !== 3) fix(`B1 新存檔 version ${fresh.state.version} 
 {
   const h = fresh.state.hunters[0], eq = h.equipment;
   if (!eq || Object.keys(eq).length !== 7 || EQUIP_SLOTS.some(s => eq[s] !== false)) fix(`B2 新獵人 equipment 應七格全 false: ${JSON.stringify(eq)}`);
-  if (!fresh.state.gearStock || EQUIP_SLOTS.some(s => fresh.state.gearStock[s] !== 0)) fix(`B2 新存檔 gearStock 應七格歸零: ${JSON.stringify(fresh.state.gearStock)}`);
+  if (!fresh.state.gearStock || EQUIP_SLOTS.some(s => tot(fresh.state.gearStock[s]) !== 0)) fix(`B2 新存檔 gearStock 應七格歸零: ${JSON.stringify(fresh.state.gearStock)}`);
 }
 { // 舊 v2 存檔:{weapon:true,armor:true} → 六格全穿,強化等級保留
   const old = createGame().serialize(); old.version = 2;
@@ -65,7 +67,7 @@ if (fresh.state.version !== 3) fix(`B1 新存檔 version ${fresh.state.version} 
   if (EQUIP_SLOTS.some(s => createGame(bare).state.hunters[0].equipment[s])) fix('B3 舊存檔 armor:false 不該穿上任何防具');
   const stock = createGame().serialize(); stock.version = 2; stock.gearStock = { weapon: 0, armor: 2 };
   const rs = createGame(stock);
-  if (rs.state.gearStock.chest !== 2 || rs.state.gearStock.weapon !== 0 || 'armor' in rs.state.gearStock) fix(`B3 舊 gearStock.armor 應併到胸甲: ${JSON.stringify(rs.state.gearStock)}`);
+  if (rs.state.gearStock.chest?.[1] !== 2 || tot(rs.state.gearStock.weapon) !== 0 || 'armor' in rs.state.gearStock) fix(`B3 舊 gearStock.armor 應併到胸甲: ${JSON.stringify(rs.state.gearStock)}`);
 }
 { // 六件裝備的數值真的加進 updateStats:同一份存檔,全穿 vs 全空
   const gain = createGame(); const h = gain.state.hunters[0];
@@ -98,7 +100,7 @@ try {
     return { results: out, stock: { ...g.state.gearStock }, counts: { ...g.state.counts } };
   }, RECIPES.map(r => r.id));
   for (const r of RECIPES) if (!crafted.results[r.id]?.ok) fix(`C1 鍛造 ${r.name} 失敗: ${crafted.results[r.id]?.message}`);
-  for (const s of EQUIP_SLOTS) if (crafted.stock[s] !== 1) fix(`C1 鍛造後 gearStock.${s} 應 1，實際 ${crafted.stock[s]}`);
+  for (const s of EQUIP_SLOTS) if (tot(crafted.stock[s]) !== 1) fix(`C1 鍛造後 gearStock.${s} 應 1，實際 ${JSON.stringify(crafted.stock[s])}`);
   if (crafted.counts.gearCrafted !== 7) fix(`C1 counts.gearCrafted 應 7，實際 ${crafted.counts.gearCrafted}`);
 
   // 只留第一位獵人有錢買(其他人把金幣歸零並標記逛過，避免搶庫存)
@@ -119,7 +121,7 @@ try {
   const missed = EQUIP_SLOTS.filter(s => after.eq[s] !== true);
   if (missed.length) fix(`C2 獵人回村自動購買沒買齊，缺 ${missed.join('、')}(equipment=${JSON.stringify(after.eq)})`);
   if (after.sold !== before.sold + 7) fix(`C2 counts.gearSold 應 +7(${before.sold}→${after.sold})`);
-  if (EQUIP_SLOTS.some(s => after.stock[s] !== 0)) fix(`C2 買完 gearStock 應歸零: ${JSON.stringify(after.stock)}`);
+  if (EQUIP_SLOTS.some(s => tot(after.stock[s]) !== 0)) fix(`C2 買完 gearStock 應歸零: ${JSON.stringify(after.stock)}`);
   if (!(after.hp > before.hp && after.def > before.def && after.atk > before.atk)) fix(`C2 買完數值應上升(生命 ${before.hp}→${after.hp}・防禦 ${before.def}→${after.def}・攻擊 ${before.atk}→${after.atk})`);
   else ok(`C. 現場：鍛造七件入庫 → 獵人回村自動買齊七格(生命 ${before.hp}→${after.hp}・防禦 ${before.def}→${after.def}・攻擊 ${before.atk}→${after.atk})、gearStock 歸零、gearSold +${after.sold - before.sold}、金幣 ${before.gold}→${after.gold}`);
 

@@ -4,8 +4,8 @@ import assert from 'node:assert/strict';
 import { createGame, OFFLINE, ENEMIES, MOUNT_SPEED_MULT, isRideable, hunterGender, GENDERS, nameGender, NAME_GENDER } from './src/pixel-game.js';
 import { doorStand, buildingSolid } from './src/landscape-layout.js';
 import { blockCenter } from './src/village-grid.js';
-import { BUILDINGS, CLASSES, MATERIALS, PRODUCTS, RECIPES, PILOT_ATTACK, AI_ATTACK_LOCK, KITE } from './src/pixel-data.js';
-import { regionCenter, regionContains, walkable, RING_ROAD, onRingRoad } from './src/overworld.js';
+import { BUILDINGS, CLASSES, MATERIALS, PRODUCTS, RECIPES, RARITIES, PILOT_ATTACK, AI_ATTACK_LOCK, KITE, GEAR_TIER_MAX, gearAt } from './src/pixel-data.js';
+import { regionCenter, regionContains, walkable, RING_ROAD, onRingRoad, inVillage, randomRegionPoint } from './src/overworld.js';
 import { MONSTER_RANGED, MONSTER_SPEED_MULT, MONSTER_ATTACK_RATE, REGION_DENSITY } from './src/pixel-data.js';
 import { pickHeroLine, CHATTER_LINES } from './src/hero-chatter.js';
 import { REGION_MONSTERS, MONSTER_NAME, MONSTER_LORE } from './src/lore.js';
@@ -120,7 +120,8 @@ const gear = createGame(), buyer = isolate(gear),forge=BUILDINGS.find(b=>b.id===
 const gearIds = RECIPES.map(r => r.id);
 for (const id of gearIds) assert.equal(gear.craftEquipment(id).ok, true, `craft ${id}`);
 const gearMoney = totalMoney(gear), attackBefore = buyer.attack, hpBefore = buyer.maxHp; run(gear, 5, true);
-assert.ok(gearIds.every(id => buyer.equipment[id] === true), 'auto-buy buys every missing slot'); assert.ok(gearIds.every(id => gear.state.gearStock[id] === 0));
+assert.ok(gearIds.every(id => buyer.equipment[id] === true), 'auto-buy buys every missing slot'); assert.ok(gearIds.every(id => gear.state.gearStock[id][1] === 0));
+assert.ok(gearIds.every(id => gear.gearTierOf(buyer, id) === 1), 'forge Lv.1 gear is tier Ⅰ');
 assert.equal(gear.state.counts.gearSold, gearIds.length); assert.equal(totalMoney(gear), gearMoney); assert.ok(buyer.attack > attackBefore && buyer.maxHp > hpBefore);
 { // 舊存檔(v2)只有 {weapon,armor}:armor 視為六件全穿(舊玩家不掉戰力),沒賣掉的 armor 庫存併到胸甲
   const old = createGame().serialize(); old.version = 2;
@@ -131,7 +132,80 @@ assert.equal(gear.state.counts.gearSold, gearIds.length); assert.equal(totalMone
   const bare = createGame().serialize(); bare.version = 2; bare.hunters[0].equipment = { weapon: false, armor: false };
   assert.ok(Object.values(createGame(bare).state.hunters[0].equipment).every(v => v === false));
   const stock = createGame().serialize(); stock.version = 2; stock.gearStock = { weapon: 0, armor: 2 };
-  const restocked = createGame(stock); assert.equal(restocked.state.gearStock.chest, 2); assert.equal(restocked.state.gearStock.weapon, 0); assert.equal(restocked.state.gearStock.armor, undefined);
+  const restocked = createGame(stock); assert.equal(restocked.state.gearStock.chest[1], 2); assert.equal(restocked.state.gearStock.weapon[1], 0); assert.equal(restocked.state.gearStock.armor, undefined);
+  assert.ok(restocked.state.gearStock.chest[2] === 0 && restocked.gearStockOf('chest') === 2);
+  assert.ok(Object.values(re.state.hunters[0].gearTier).every(t => t === 1), 'v2 armor:true → all six armour slots + weapon at tier Ⅰ');
+}
+{ // 2026-11-16 裝備階級:舊 v3 存檔(布林裝備、數字庫存、沒有 gearTier)載入不掉裝備也不變強;新格式來回存讀不變
+  const g0 = createGame(), h0 = g0.state.hunters[0];
+  for (const s of ['weapon', 'chest', 'boots']) h0.equipment[s] = true;
+  const old = g0.serialize(); for (const x of [...old.hunters, ...old.wanderers]) delete x.gearTier;
+  old.gearStock = { weapon: 3, helm: 0, chest: 1, belt: 0, legs: 0, boots: 0, gloves: 2 };
+  // 「改版前」的數值:同一位獵人,裝備只有布林、舊公式(武器 +7、防具 RECIPES 第 1 階)
+  const c = CLASSES.find(k => k.id === h0.classId), legacyHp = c.hp + RECIPES.find(r => r.id === 'chest').hp + RECIPES.find(r => r.id === 'boots').hp;
+  const re = createGame(old), rh = re.state.hunters[0];
+  assert.deepEqual(rh.equipment, { weapon: true, helm: false, chest: true, belt: false, legs: false, boots: true, gloves: false }, 'boolean equipment survives');
+  assert.deepEqual(rh.gearTier, { weapon: 1, helm: 0, chest: 1, belt: 0, legs: 0, boots: 1, gloves: 0 }, 'owned slots load as tier Ⅰ, empty as 0');
+  assert.equal(re.gearTierOf(rh, 'chest'), 1); assert.equal(re.gearTierOf(rh, 'helm'), 0);
+  assert.equal(re.state.gearStock.weapon[1], 3); assert.equal(re.state.gearStock.gloves[1], 2); assert.equal(re.state.gearStock.chest[1], 1);
+  assert.ok(Object.values(re.state.gearStock).every(st => [2, 3, 4, 5].every(t => st[t] === 0)), 'legacy numeric stock is tier Ⅰ only');
+  const rar = RARITIES.find(x => x.id === rh.rarity).mult; assert.equal(rh.rebirths + rh.skillLevel + rh.weaponLevel, 0);
+  assert.equal(rh.attack, Math.round((c.attack + 7) * (1 + (rh.level - 1) * 0.065) * rar * (rh.trait === 'brave' ? 1.1 : 1)), 'tier Ⅰ weapon = the old +7');
+  assert.equal(rh.maxHp, Math.round(legacyHp * (1 + (rh.level - 1) * 0.075) * rar * (rh.trait === 'stout' ? 1.15 : 1)), 'tier Ⅰ armour = old hp formula');
+  // 數字階級的防呆(若別的分支把 equipment 存成數字):3 → 擁有、第 3 階,而 equipment 仍是布林
+  const num = JSON.parse(JSON.stringify(old)); num.hunters[0].equipment = { weapon: 3, chest: 0, helm: true };
+  const rn = createGame(num).state.hunters[0]; assert.equal(rn.equipment.weapon, true); assert.equal(rn.gearTier.weapon, 3); assert.equal(rn.equipment.chest, false); assert.equal(rn.gearTier.helm, 1);
+  // 新格式來回:階級、各階庫存都保留
+  rh.gearTier.chest = 4; re.state.gearStock.legs[3] = 2; const round = createGame(re.serialize());
+  assert.equal(round.gearTierOf(round.state.hunters[0], 'chest'), 4); assert.equal(round.state.gearStock.legs[3], 2);
+  assert.ok(round.state.hunters[0].maxHp > rh.maxHp, 'tier Ⅳ chest reloads with its bonus');
+  // 壞資料:階級超界夾到 1..5、庫存負數/非數字歸零
+  const bad = JSON.parse(JSON.stringify(old)); bad.hunters[0].gearTier = { weapon: 99, chest: -4 }; bad.gearStock = { weapon: { 1: -3, 2: 'x', 5: 7 }, chest: 'zz' };
+  const rb = createGame(bad); assert.equal(rb.state.hunters[0].gearTier.weapon, GEAR_TIER_MAX); assert.equal(rb.state.hunters[0].gearTier.chest, 1);
+  assert.deepEqual(rb.state.gearStock.weapon, { 1: 0, 2: 0, 3: 0, 4: 0, 5: 7 }); assert.equal(rb.gearStockOf('chest'), 0);
+}
+{ // 鍛造階級跟著鐵匠鋪等級:Lv.N 最多第 N 階;不給 tier = 最高階;材料照階級倍率
+  const g = createGame(); Object.assign(g.state, { ore: 9999, wood: 9999, leather: 9999, cloth: 9999 });
+  assert.equal(g.forgeTier(), 1); assert.equal(g.craftEquipment('chest', 2).ok, false, 'forge Lv.1 cannot make tier Ⅱ');
+  assert.equal(g.craftEquipment('chest', 0).ok, false); assert.equal(g.craftEquipment('chest', 1.5).ok, false);
+  g.state.buildings.forge = 3; assert.equal(g.forgeTier(), 3);
+  const ore0 = g.state.ore; assert.equal(g.craftEquipment('chest').ok, true); assert.equal(g.state.gearStock.chest[3], 1, 'default craft = best tier');
+  assert.equal(ore0 - g.state.ore, gearAt('chest', 3).cost.ore); assert.ok(gearAt('chest', 3).cost.ore > RECIPES.find(r => r.id === 'chest').cost.ore);
+  assert.equal(g.craftEquipment('chest', 4).ok, false, 'forge Lv.3 cannot make tier Ⅳ'); assert.equal(g.craftEquipment('helm', 1).ok, true); assert.equal(g.state.gearStock.helm[1], 1);
+  g.state.buildings.forge = 5; assert.equal(g.forgeTier(), GEAR_TIER_MAX); assert.equal(g.craftEquipment('weapon', 6).ok, false);
+  for (let t = 2; t <= GEAR_TIER_MAX; t++) { const a = gearAt('chest', t - 1), b = gearAt('chest', t); assert.ok(b.price > a.price && b.hp > a.hp && b.def >= a.def, `tier ${t} beats tier ${t - 1}`); }
+  assert.equal(gearAt('weapon', 1).bonus, 7); assert.equal(gearAt('chest', 1).price, 140); assert.equal(gearAt('chest', 2).name, '胸甲 Ⅱ');
+}
+{ // 換更高階:獵人付錢給村莊(總金幣守恆)、身上換成高階、低階不重買;留 40 金付吃住;沒有更高階就不買
+  const g = createGame(), h = isolate(g), forge = BUILDINGS.find(b => b.id === 'forge'); g.state.time = 100; g.state.buildings.forge = 3;
+  Object.assign(g.state, { ore: 9999, wood: 9999, leather: 9999, cloth: 9999 });
+  h.equipment.chest = true; h.gearTier.chest = 1; h.equipment.weapon = true; h.gearTier.weapon = 3;
+  assert.equal(g.craftEquipment('chest', 1).ok, true); assert.equal(g.craftEquipment('chest', 3).ok, true); assert.equal(g.craftEquipment('weapon', 2).ok, true);
+  const price = gearAt('chest', 3).price; h.gold = price + 40 + 5; Object.assign(h, doorStand(forge, forge));
+  const money = totalMoney(g), village = g.state.gold, hp0 = h.maxHp, def0 = h.defense, sold0 = g.state.counts.gearSold;
+  run(g, 5, true);
+  assert.equal(g.gearTierOf(h, 'chest'), 3, 'hunter upgrades chest Ⅰ → Ⅲ'); assert.equal(h.gold, 45); assert.equal(g.state.gold, village + price, 'village receives the upgrade price');
+  assert.equal(totalMoney(g), money); assert.equal(g.state.counts.gearUpgrades, 1); assert.equal(g.state.counts.gearIncome, price); assert.equal(g.state.counts.gearSold, sold0 + 1);
+  assert.ok(h.maxHp > hp0 && h.defense > def0, 'stats rise with the tier');
+  assert.equal(g.state.gearStock.chest[3], 0); assert.equal(g.state.gearStock.chest[1], 1, 'lower tier is not bought when already owned');
+  assert.equal(g.state.gearStock.weapon[2], 1, 'tier Ⅱ weapon is not a downgrade for a tier Ⅲ owner'); assert.equal(g.gearTierOf(h, 'weapon'), 3);
+  // 留錢:剛好付得起但會吃光生活費 → 不換
+  const g2 = createGame(), h2 = isolate(g2); g2.state.time = 100; g2.state.buildings.forge = 2; Object.assign(g2.state, { ore: 999, leather: 999 });
+  h2.equipment.chest = true; h2.gearTier.chest = 1; assert.equal(g2.craftEquipment('chest').ok, true);
+  h2.gold = gearAt('chest', 2).price + 39; Object.assign(h2, doorStand(forge, forge)); const v2 = g2.state.gold; run(g2, 5, true);
+  assert.equal(g2.gearTierOf(h2, 'chest'), 1, 'upgrade keeps a 40-gold reserve'); assert.equal(g2.state.gold, v2);
+}
+{ // 離線外推:取樣期買的裝備是一次性的(庫存離線不補),不乘倍率;村莊＋獵人金幣仍守恆
+  const g = createGame(), h = isolate(g), forge = BUILDINGS.find(b => b.id === 'forge'); g.state.time = 100; g.state.buildings.forge = 2;
+  Object.assign(g.state, { ore: 999, leather: 999 }); h.equipment.chest = true; h.gearTier.chest = 1; assert.equal(g.craftEquipment('chest').ok, true);
+  h.gold = 2000; h.inventory.ore = 200; g.state.tradeRequests.ore = 200; Object.assign(h, doorStand(forge, forge)); g.state.wanderers = [];   // 賣礦 → 取樣期非裝備的錢包流量為正(不然外推夾到 0,測不出差別)
+  const snap = g.offlineSnapshot(), v0 = g.state.gold; g.simulate(OFFLINE.sample);
+  assert.equal(g.gearTierOf(h, 'chest'), 2, 'bought the upgrade during the sample'); const price = gearAt('chest', 2).price;
+  const flowHunter = h.gold - 2000 + price; assert.ok(flowHunter > 0);   // 錢包在取樣期「除了裝備以外」的變化
+  g.offlineFinish(snap, 3 * 3600); const k = 3 * 3600 / OFFLINE.sample - 1;
+  assert.ok(Math.abs(h.gold - Math.max(0, Math.round(2000 - price + flowHunter + flowHunter * k))) <= 1, `gear purchase is not extrapolated (wallet ${h.gold})`);
+  assert.equal(g.state.counts.gearSold, snap.counts.gearSold + 1); assert.equal(g.state.counts.gearIncome, snap.counts.gearIncome + price);
+  assert.ok(g.state.gold >= 0 && Number.isFinite(g.state.gold)); assert.ok(g.state.gold < v0 + price * (k + 1), 'village does not collect the gear price for every extrapolated slice');
 }
 assert.equal(gear.enhance(buyer.id).ok, false); assert.equal(gear.construct('enhancement').ok, true); assert.equal(gear.enhance(buyer.id).ok, true); assert.equal(buyer.weaponLevel, 1);
 assert.equal(gear.learnSkill(buyer.id).ok, false); gear.state.ore += 100; assert.equal(gear.construct('academy').ok, true); assert.equal(gear.learnSkill(buyer.id).ok, true);
@@ -142,7 +216,7 @@ assert.equal(gear.reincarnate(buyer.id).ok, false); buyer.level = 100; const ori
 assert.equal(gear.setDifficulty(1).ok, true); assert.equal(gear.setDifficulty(4).ok, false); assert.equal(gear.setDifficulty('1').ok, false);
 
 const buildings = createGame(); buildings.state.gold = buildings.state.wood = buildings.state.ore = 100000;
-assert.equal(buildings.upgrade('forge').ok, true); assert.deepEqual(buildings.getUpgradeCost('forge'), { gold: 352, wood: 40, ore: 48 });
+assert.equal(buildings.upgrade('forge').ok, true); assert.deepEqual(buildings.getUpgradeCost('forge'), { gold: 462, wood: 53, ore: 63 });
 assert.equal(buildings.upgrade('forge').ok, false, 'Hall gates higher building levels'); assert.equal(buildings.upgrade('hall').ok, true); assert.equal(buildings.upgrade('forge').ok, true);
 assert.equal(buildings.upgrade('house').ok, true); assert.equal(buildings.state.capacity, Math.max(8, CLASSES.length + 2) + 2); assert.equal(buildings.upgrade('academy').ok, false);
 assert.equal(buildings.construct('academy').ok, true); assert.equal(buildings.construct('academy').ok, false);
@@ -175,6 +249,55 @@ assert.ok(idle.state.counts.services > 0, 'Hunters visibly use town services wit
   const out = createGame(); run(out, 30); assert.ok(out.state.hunters.some(h => h.autoHunt && !h.inTown));
   const mid = createGame(out.serialize()); run(mid, 60, false, assertFiniteEconomy);
   assert.ok(mid.state.hunters.some(h => h.autoHunt), 'a save taken mid-hunt resumes hunting after load');
+}
+{ // 2026-11-17 野外存活:看情勢撤退、返村走環路、趕路時不離開環路去追自己區的魔物
+  const foe = (type, x, z, attack, regionId) => ({ id: 'e-t-' + type + x.toFixed(2), type, x, z, hp: 999, maxHp: 999, attack, attackTimer: 9, age: 0, regionId, homeX: x, homeZ: z });
+  const field = (hpFrac, foes) => {
+    const g = createGame(), h = isolate(g), c = regionCenter('meadow');
+    g.state.spawnTimer = 0; g.state.regionSpawn = {};
+    Object.assign(h, { x: c.x, z: c.z, inTown: false, huntRegion: 'meadow', autoHunt: false, status: '出征中', targetId: null, lastTownVisit: 0 });
+    h.hp = Math.round(h.maxHp * hpFrac); g.state.enemies = foes(c); g.tick(0.1); return { g, h };
+  };
+  const pack = c => [foe('boulder', c.x + 1.2, c.z, 80, 'meadow'), foe('goat', c.x - 1.2, c.z, 80, 'meadow')];
+  { const { h } = field(0.6, pack); assert.equal(h.task, 'service', 'a hurt hunter (60%, above the old 28% line) surrounded by a deadly pack heads home'); assert.equal(h.status, '返村中'); }
+  { const { h } = field(0.9, pack); assert.equal(h.task, null, 'a healthy hunter (above the town-heal line) stays to fight'); }
+  { const { h } = field(0.6, c => [foe('mole', c.x + 1.2, c.z, 3, 'meadow')]); assert.equal(h.task, null, 'a weak monster does not scare a 60% hunter home'); }
+  { const { h } = field(0.6, () => []); assert.equal(h.task, null, 'no monsters around → keeps hunting'); }
+  // 返村路線:從各區隨機位置回村,離開出發區之後走環村道路(或村裡/村口那一小段),不直線穿過別的狩獵區。
+  // 舊版(直線走向門口)在草原/霜杉/雪原邊上會切過隔壁區 10+ 格(平均 2.2 格/趟,最多 14.5 格)。
+  let seed = 7, offSum = 0, offMax = 0, trips = 0; const rnd = () => (seed = (seed * 1103515245 + 12345) >>> 0) / 4294967296;
+  for (const rid of ['meadow', 'forest', 'taiga', 'snow', 'mountain', 'desert', 'birch']) for (let k = 0; k < 12; k++) {
+    const g = createGame(), h = isolate(g), c = randomRegionPoint(rid, rnd);
+    Object.assign(h, { x: c.x, z: c.z, inTown: false, huntRegion: rid, status: '出征中' }); h.hp = Math.round(h.maxHp * 0.2); g.state.enemies = [];
+    g.tick(0.1); assert.equal(h.status, '返村中', `${rid}: badly hurt hunter returns`); assert.ok(h.route.length > 0, `${rid}: has a route home`);
+    let off = 0, prev = { x: h.x, z: h.z };
+    for (const p of h.route) { const n = Math.ceil(Math.hypot(p.x - prev.x, p.z - prev.z) / 0.25); for (let i = 1; i <= n; i++) { const x = prev.x + (p.x - prev.x) * i / n, z = prev.z + (p.z - prev.z) * i / n; if (!inVillage(x, z) && !regionContains(rid, x, z) && !onRingRoad(x, z, 0.5)) off += Math.hypot(p.x - prev.x, p.z - prev.z) / n; } prev = p; }
+    offSum += off; offMax = Math.max(offMax, off); trips++;
+  }
+  // 出征路線(ringWaypoints):以前把環路「截斷」在 12 點,往草原/白樺花原會在半路離開環路、直線切過鐵脊山麓等別區 27–29 格
+  for (const rid of ['meadow', 'forest', 'taiga', 'snow', 'mountain', 'desert', 'birch']) {
+    const g = createGame(), h = g.state.hunters[0]; assert.equal(g.dispatchHunters(rid, [h.id]).ok, true);
+    let off = 0, prev = { x: h.x, z: h.z };
+    for (const p of h.route) { const n = Math.ceil(Math.hypot(p.x - prev.x, p.z - prev.z) / 0.25); for (let i = 1; i <= n; i++) { const x = prev.x + (p.x - prev.x) * i / n, z = prev.z + (p.z - prev.z) * i / n; if (!inVillage(x, z) && !regionContains(rid, x, z) && !onRingRoad(x, z, 0.5)) off += Math.hypot(p.x - prev.x, p.z - prev.z) / n; } prev = p; }
+    assert.ok(off < 4, `departing to ${rid} follows the ring road instead of cutting across other regions (${off.toFixed(1)} tiles off-road)`);
+  }
+  assert.ok(offSum / trips < 1.5 && offMax < 8,`the way home stays on the ring road outside the start region (avg ${(offSum / trips).toFixed(2)}, max ${offMax.toFixed(1)} tiles off-road)`);
+  // 趕路經過別區(站在環路上)時,不離開環路去追 SIGHT 內自己區的魔物;進了自己的區才開打
+  let spot = null;
+  for (const p of RING_ROAD) {
+    if (!regionContains('mountain', p.x, p.z)) continue;
+    for (let a = 0; a < 24 && !spot; a++) for (const r of [6, 8, 10]) { const q = { x: p.x + Math.cos(a * Math.PI / 12) * r, z: p.z + Math.sin(a * Math.PI / 12) * r }; if (regionContains('meadow', q.x, q.z) && !onRingRoad(q.x, q.z, 1) && walkable(q.x, q.z)) { spot = { p, q }; break; } }
+    if (spot) break;
+  }
+  assert.ok(spot, 'found a ring-road spot in the mountain sector with meadow ground in sight');
+  { const g = createGame(), h = isolate(g); g.state.spawnTimer = 0; g.state.regionSpawn = {};
+    Object.assign(h, { x: spot.p.x, z: spot.p.z, inTown: false, huntRegion: 'meadow', status: '前往向陽草原', targetId: null });
+    g.state.enemies = [foe('mole', spot.q.x, spot.q.z, 3, 'meadow')]; g.tick(0.1);
+    assert.equal(h.targetId, null, 'a hunter passing another region on the ring road does not cut across it to chase a meadow monster'); }
+  { const g = createGame(), h = isolate(g), c = regionCenter('meadow'); g.state.spawnTimer = 0; g.state.regionSpawn = {};
+    Object.assign(h, { x: c.x, z: c.z, inTown: false, huntRegion: 'meadow', status: '搜尋中', targetId: null });
+    g.state.enemies = [foe('mole', c.x + 7, c.z, 3, 'meadow')]; g.tick(0.1);
+    assert.equal(h.targetId, g.state.enemies[0]?.id ?? 'gone', 'inside its own region the hunter still goes after monsters it sees'); }
 }
 assert.ok(Array.isArray(idle.state.wanderers) && idle.state.wanderers.length >= 1, 'Wandering heroes roam the field');
 assert.ok(idle.state.wanderKills > 0, 'Wandering heroes hunt monsters on their own');
@@ -389,7 +512,8 @@ assert.equal(dungeon.startDungeon().ok, true); assert.equal(dungeon.startDungeon
 assert.equal(dungeon.startArena(partyIds).ok, false); run(dungeon, 60, false, assertFiniteEconomy);
 assert.equal(dungeon.state.dungeon.active, false); assert.equal(dungeon.state.dungeon.bestFloor, 1); assert.equal(dungeon.state.dungeon.floor, 2); assert.equal(dungeon.state.counts.dungeonWins, 1);
 assert.ok(dungeon.state.dungeon.reward.gold > 0); assert.ok(partyIds.every(hid => dungeon.state.hunters.find(h => h.id === hid).task !== 'dungeon'));
-const dungeonSave = createGame(); dungeonSave.construct('dungeon'); dungeonSave.startDungeon(); run(dungeonSave, 8);
+// 存讀檔測的是「打到一半存檔、讀回來接著打完」:小隊加厚血量,免得開局 Lv.1 前排挨到致命一擊 → 緊急撤退(2026-11-17)把這層打掉
+const dungeonSave = createGame(); dungeonSave.construct('dungeon'); dungeonSave.startDungeon(); for (const h of dungeonSave.state.hunters.filter(h => dungeonSave.state.dungeon.hunterIds.includes(h.id))) { h.maxHp = h.hp = 2000; } run(dungeonSave, 8);
 const resumedDungeon = createGame(dungeonSave.serialize()); assert.equal(resumedDungeon.state.dungeon.active, true); run(resumedDungeon, 65); assert.equal(resumedDungeon.state.dungeon.bestFloor, 1);
 const losingDungeon = createGame(); losingDungeon.construct('dungeon'); losingDungeon.startDungeon();
 for (const h of losingDungeon.state.hunters.filter(h => losingDungeon.state.dungeon.hunterIds.includes(h.id))) h.hp = 0;
@@ -422,8 +546,60 @@ const sameObject = loaded.state; loaded.reset(); assert.equal(loaded.state, same
 
 const quests = createGame(); quests.recruit(CLASSES[0].id); assert.equal(quests.claimQuest().ok, true); quests.craft('food', 2); assert.equal(quests.claimQuest().ok, true);
 quests.state.counts.traded = 10; assert.equal(quests.claimQuest().ok, true); quests.upgrade('forge'); assert.equal(quests.claimQuest().ok, true); quests.craftEquipment('weapon'); assert.equal(quests.claimQuest().ok, true);
-quests.state.bossKills = 1; assert.equal(quests.claimQuest().ok, true); quests.state.counts.dungeonWins = 1; assert.equal(quests.claimQuest().ok, true); quests.state.counts.rebirths = 1; assert.equal(quests.claimQuest().ok, true);
+quests.state.bossKills = 1; assert.equal(quests.claimQuest().ok, true); quests.state.counts.dungeonWins = 1; assert.equal(quests.claimQuest().ok, true);
+// ── 中期委託(2026-11-16):第 7 章之後插入 10 章,最後一章仍是轉世 ──
+const questChain = quests.questList(), LAST_Q = questChain.length - 1;
+assert.equal(questChain.length, 18); assert.equal(LAST_Q, 17);
+assert.equal(createGame().state.quest.complete, false);   // 第 1 章(招募 1 位旅人)開局不會直接完成
+assert.deepEqual(questChain.slice(0, 7).map(q => q.title), ['迎接新的獵人', '餐廳的第一爐麵包', '建立戰利品循環', '鐵匠爐火', '獵人的新武器', '討伐森林領主', '地下城的門後']);
+assert.equal(questChain[LAST_Q].title, '下一段獵魔人生'); assert.match(questChain[LAST_Q].description, /Lv\.100/);
+assert.equal(new Set(questChain.map(q => q.title)).size, questChain.length);   // 章名不重複
+assert.ok(questChain.slice(7, LAST_Q).filter(q => q.reward.wood > 0).length >= 5);   // 中期獎勵多給木材
+for (let i = 8; i < LAST_Q; i++) assert.ok(questChain[i].reward.gold >= questChain[i - 1].reward.gold);   // 金幣獎勵逐章遞增
+assert.ok(questChain[LAST_Q].reward.gold >= questChain[LAST_Q - 1].reward.gold);
+// (c) 第一個中期委託(村莊有 12 位獵人:要先升級獵人小屋)真的會完成、領取時照表發獎
+assert.equal(quests.state.quest.index, 7); assert.equal(quests.state.quest.title, questChain[7].title);
+assert.equal(quests.claimQuest().ok, false); assert.equal(quests.state.quest.complete, false);
+assert.equal(questChain[7].target, 12); quests.state.gold += 1e4;
+while (quests.recruit(CLASSES[0].id).ok);   // 小屋 Lv.1 名額滿了還不夠 12 位
+assert.ok(quests.state.hunters.length < 12); assert.equal(quests.claimQuest().ok, false);
+quests.state.wood += 1e3; quests.state.ore += 1e3; quests.state.herb += 1e3; quests.state.cloth += 1e3; quests.state.leather += 1e3; quests.state.flour += 1e3;
+while (quests.state.capacity < 12) { if (quests.state.buildings.house > quests.state.buildings.hall) assert.equal(quests.upgrade('hall').ok, true); assert.equal(quests.upgrade('house').ok, true); }   // 小屋 Lv.3 要先把大廳升到 2
+while (quests.state.hunters.length < 12) assert.equal(quests.recruit(CLASSES[0].id).ok, true);
+const midBefore = { gold: quests.state.gold, wood: quests.state.wood, flour: quests.state.flour };
+assert.equal(quests.claimQuest().ok, true); assert.equal(quests.state.quest.index, 8);
+for (const key of Object.keys(midBefore)) assert.equal(quests.state[key], midBefore[key] + (questChain[7].reward[key] || 0), `quest 8 reward ${key}`);
+assert.ok(questChain[7].reward.wood > 0);
+// 其餘中期指標一次推滿(不寫死門檻,改數值也不用改測試),逐章領到轉世章為止
+function maxOutQuestMetrics(game) {
+  const s = game.state; s.buildings.house = 5; s.buildings.hall = 5; s.capacity = Math.max(8, CLASSES.length + 2) + 8; s.gold += 1e5;
+  while (s.hunters.length < s.capacity) assert.equal(game.recruit(CLASSES[0].id).ok, true);
+  s.bossKills = Math.max(s.bossKills, 999); s.dungeon.bestFloor = 99; s.counts.dungeonWins = Math.max(1, s.counts.dungeonWins);
+  for (const h of s.hunters) { h.skillLevel = 5; h.weaponLevel = 10; } s.hunters[0].level = 99;
+}
+maxOutQuestMetrics(quests);
+for (let i = 8; i < LAST_Q; i++) { assert.equal(quests.state.quest.index, i); assert.equal(quests.claimQuest().ok, true, `claim chapter ${i + 1}`); }
+assert.equal(quests.state.quest.index, LAST_Q); assert.equal(quests.claimQuest().ok, false);   // 轉世還沒達成 → 停在最終章
+quests.state.counts.rebirths = 1; const finalGold = quests.state.gold; assert.equal(quests.claimQuest().ok, true); assert.equal(quests.state.gold, finalGold + questChain[LAST_Q].reward.gold);
 const questGold = quests.state.gold; assert.equal(quests.claimQuest().ok, false); assert.equal(quests.state.gold, questGold); assert.equal(createGame(quests.serialize()).claimQuest().ok, false);
+assert.equal(quests.serialize().questRevision, 2);
+// (b) 舊存檔遷移:沒有 questRevision = 舊的 8 章版(index 7 = 轉世)
+const legacyQuestSave = (index, claimed, patch = {}) => { const save = createGame().serialize(); delete save.questRevision; delete save.questFinalPaid; save.quest = { index, claimed }; return Object.assign(save, patch); };
+for (let i = 0; i < 7; i++) { const g = createGame(legacyQuestSave(i, false)); assert.equal(g.state.quest.index, i); assert.equal(g.state.quest.title, questChain[i].title); }   // 0–6 不變
+const oldAt7 = createGame(legacyQuestSave(7, false));   // 舊轉世章、還沒領 → 第一個中期委託
+assert.equal(oldAt7.state.quest.index, 7); assert.equal(oldAt7.state.quest.claimed, false); assert.equal(oldAt7.state.quest.title, questChain[7].title); assert.equal(oldAt7.state.questFinalPaid, false);
+assert.equal(oldAt7.state.questRevision, 2); assert.equal(createGame(oldAt7.serialize()).state.quest.index, 7);
+const oldDone = createGame(legacyQuestSave(7, true, { counts: { ...createGame().serialize().counts, rebirths: 1 } }));   // 舊版已領完最終章
+assert.equal(oldDone.state.quest.index, 7); assert.equal(oldDone.state.quest.claimed, false); assert.equal(oldDone.state.questFinalPaid, true);
+assert.notEqual(oldDone.claimQuest().message, '全部章節委託已完成。');   // 不會卡在「全部完成」
+assert.equal(createGame(legacyQuestSave(99, true)).state.quest.index, 7);   // 越界的舊 index 夾回舊版範圍,不會跳過中期委託
+const oldDoneReload = createGame(oldDone.serialize()); assert.equal(oldDoneReload.state.quest.index, 7); assert.equal(oldDoneReload.state.questFinalPaid, true);   // 遷移後再存讀不會再遷移一次
+maxOutQuestMetrics(oldDoneReload); oldDoneReload.state.counts.rebirths = 1; while (oldDoneReload.state.quest.index < LAST_Q) assert.equal(oldDoneReload.claimQuest().ok, true);
+assert.deepEqual(oldDoneReload.state.quest.reward, {}); assert.deepEqual(oldDoneReload.questList()[LAST_Q].reward, {});   // 轉世獎勵舊版已領過 → 最終章不重複發
+const legacyFinalGold = oldDoneReload.state.gold, legacyFinalGems = oldDoneReload.state.gems; assert.equal(oldDoneReload.claimQuest().ok, true);
+assert.equal(oldDoneReload.state.gold, legacyFinalGold); assert.equal(oldDoneReload.state.gems, legacyFinalGems); assert.equal(oldDoneReload.state.quest.claimed, true);
+// 新版存檔(有 questRevision)照原 index 讀回,包含中期章節與已完成的最終章
+const midSave = createGame(); midSave.state.quest = { index: 12, claimed: false }; assert.equal(createGame(midSave.serialize()).state.quest.index, 12);
 
 // ── 手動操控(搖桿/動作鈕走的是同一條 API):輸入會推動角色、出手會打到最近的魔物、離開後回到 AI ──
 const manual = createGame(); const mh = isolate(manual);
@@ -855,6 +1031,147 @@ run(manual, 30, false, assertFiniteEconomy);
   assert.ok(best >= 2);
 }
 {
+  // 地下城體檢(2026-11-16):打完一層殘血 → 帶戰利品回村(算勝利),不硬闖下一層;健康的小隊照常續戰;
+  // 波與波之間估計前排撐不到這層打完 → 半途撤退,沒有本層獎勵
+  const setup = (classes, prep) => {
+    const g = createGame(); g.construct('dungeon'); g.setDungeonAuto(true);
+    const party = classes.map(c => g.state.hunters.find(h => h.classId === c)); prep?.(party);
+    assert.equal(g.startDungeon(party.map(h => h.id)).ok, true);
+    for (const h of party) h.route = [];
+    g.tick(0.1); assert.equal(g.state.dungeon.phase, '戰鬥中');
+    return { g, party, d: g.state.dungeon };
+  };
+  const clearWave = (g, d, wave) => { d.wave = wave; for (const f of d.foes) f.hp = 0; g.tick(0.1); };
+  // 殘血:每人 5% → 休整後也才 25%,回村
+  { const { g, party, d } = setup(['paladin', 'archer', 'priest']);
+    for (const h of party) h.hp = Math.max(1, Math.round(h.maxHp * 0.05));
+    clearWave(g, d, 3);
+    assert.equal(d.active, false, 'a worn-out party does not auto-continue'); assert.equal(d.phase, '勝利', 'coming home is a win');
+    assert.equal(d.bestFloor, 1); assert.ok(d.reward.gold > 0, 'the floor reward is kept'); assert.equal(d.floor, 2, 'next run starts at the next floor');
+    assert.ok(party.every(h => h.hp > 0 && h.task !== 'dungeon' && h.task !== 'revive'), 'nobody dies, everyone walks home');
+    assert.ok(g.state.log.some(l => l.text.includes('小隊體力不足，帶著戰利品返村休整')), 'the log explains why the party came home'); }
+  // 健康又夠強:續戰下一層
+  { const { g, party, d } = setup(['paladin', 'archer', 'priest'], p => { for (const h of p) { h.attack = 400; h.maxHp = h.hp = 5000; } });
+    clearWave(g, d, 3);
+    assert.equal(d.active, true, 'a healthy party keeps going'); assert.equal(d.floor, 2); assert.equal(d.phase, '休整中');
+    assert.ok(party.every(h => h.hp === h.maxHp)); }
+  // 波間撤退:沒有祭司、前排只剩 1 點血 → 第 1 波打完就撤,沒有本層獎勵
+  { const { g, party, d } = setup(['paladin', 'archer', 'sorcerer']);
+    const gold0 = g.state.gold; party[0].hp = 1;
+    clearWave(g, d, 1);
+    assert.equal(d.active, false, 'a party about to lose its front line retreats between waves'); assert.equal(d.phase, '撤退');
+    assert.equal(d.bestFloor, 0); assert.deepEqual(d.reward, {}, 'a mid-floor retreat gives no floor reward'); assert.ok(g.state.gold - gold0 < 100);
+    assert.ok(party.every(h => h.hp > 0 && h.task !== 'revive'), 'nobody dies'); assert.equal(d.cooldown, 10, 'same cooldown as a manual retreat'); }
+  // 離線:自動續戰的小隊中途自己回村 → 離線迴圈照常結束、時間照實經過、帳不爆
+  { const { g, d } = setup(['paladin', 'archer', 'priest']);
+    const snap = g.offlineSnapshot(), wins0 = g.state.counts.dungeonWins; g.simulate(OFFLINE.sample);
+    const sum = g.offlineFinish(snap, 3 * 3600);
+    assert.equal(d.active, false, 'an ordinary party comes home on its own during 3 offline hours');
+    assert.ok(Math.abs(g.state.time - snap.time - 3 * 3600) < 1, 'offline time still passes in full after the run ends');
+    assert.ok(g.state.counts.dungeonWins - wins0 <= d.bestFloor + 1, 'dungeon wins are not extrapolated on top of the real run');
+    assert.ok(sum.seconds === 3 * 3600); assertFiniteEconomy(g.state); }
+}
+{
+  // 樓層獎勵(2026-11-17):第一次通過全額;已打過的樓層(≤ 原本最高紀錄)獎勵減少;d.reward / 日誌 / UI 預估 / 離線帳本都照實際發的
+  const life = h => { let n = h.xp || 0; for (let l = 1; l < h.level; l++) n += 30 + l * 8; return n; };
+  const g = createGame(); g.construct('dungeon'); g.setDungeonAuto(false); const d = g.state.dungeon;
+  const party = ['paladin', 'archer', 'priest'].map(c => g.state.hunters.find(h => h.classId === c));
+  for (const h of party) { h.attack = 400; h.maxHp = h.hp = 5000; }
+  const clearFloor = floor => {
+    for (const h of party) { h.task = null; h.route = []; h.hp = h.maxHp; } d.cooldown = 0;
+    const want = g.dungeonReward(floor), snap = g.offlineSnapshot();
+    const before = party.map(h => ({ gold: h.gold, xp: life(h) })), res0 = { gold: g.state.gold, ore: g.state.ore, gems: g.state.gems };
+    assert.equal(g.startDungeon(party.map(h => h.id), floor).ok, true); assert.equal(d.floor, floor);
+    for (const h of party) h.route = [];
+    g.tick(0.1); d.wave = 3; for (const f of d.foes) f.hp = 0; g.tick(0.1);
+    assert.equal(d.active, false); assert.equal(d.phase, '勝利');
+    assert.deepEqual(d.reward, want.village, 'd.reward is what dungeonReward (UI preview) promised');
+    party.forEach((h, i) => { assert.equal(h.gold - before[i].gold, want.gold, 'each hunter gets the promised gold'); assert.equal(life(h) - before[i].xp, want.xp, 'each hunter gets the promised xp'); });
+    assert.equal(g.state.gems - res0.gems, want.village.gems, 'village gems match the reward');
+    // 帳本 = 實際發的:取樣期只有這一趟地下城 → 外推 3 倍時,地下城那份不會被當成「野外收入」再算一次
+    const after = party.map(h => ({ gold: h.gold, xp: life(h), level: h.level })), gems1 = g.state.gems;
+    g.state.time += 2;   // 取樣期要 ≥ 1 秒才會外推(offlineFinish 的 f);多出的 2 秒沒有任何進帳
+    g.offlineFinish(snap, (g.state.time - snap.time) * 4);
+    party.forEach((h, i) => { assert.equal(h.gold, after[i].gold, 'ledger cancels dungeon gold'); assert.equal(life(h), after[i].xp, 'ledger cancels dungeon xp'); });
+    assert.equal(g.state.gems, gems1, 'ledger cancels dungeon gems');
+    return want;
+  };
+  assert.equal(g.dungeonReward(1).first, true);
+  const first = clearFloor(1);
+  assert.equal(first.first, true); assert.deepEqual(first.village, { gold: 160, ore: 15, gems: 2 }); assert.equal(first.gold, 45); assert.equal(first.xp, 175);
+  assert.equal(d.bestFloor, 1); assert.ok(g.state.log.some(l => l.text.includes('地下城第 1 層突破！村莊獲得 160 金幣、15 鐵礦與 2 晶石')));
+  assert.equal(g.dungeonReward(1).first, false, 'floor 1 is now a repeat'); assert.equal(g.dungeonReward(2).first, true, 'the next floor is still a first clear');
+  const again = clearFloor(1);
+  assert.equal(again.first, false); assert.equal(d.bestFloor, 1);
+  assert.ok(again.village.gold < first.village.gold * 0.5 && again.village.gold > 0, 'repeat village gold is reduced');
+  assert.ok(again.village.ore < first.village.ore && again.village.gems < first.village.gems, 'repeat ore/gems are reduced');
+  assert.ok(again.xp < first.xp && again.xp >= first.xp * 0.4, 'repeat xp is reduced but weak hunters can still farm');
+  assert.ok(again.gold < first.gold && again.gold > 0);
+  assert.ok(g.state.log.some(l => l.text.includes('地下城第 1 層再次通過') && l.text.includes('（已打過的樓層，獎勵減少）')), 'the log says the repeat reward is reduced');
+  assert.equal(clearFloor(2).first, true, 'a new record floor pays in full again'); assert.equal(d.bestFloor, 2);
+}
+{
+  // 出發體檢(2026-11-17):剛出發那層也要估 → 估不過最高紀錄 +1 層就往下找估得過的最深一層;強隊照常挑戰新層;第 1 層是底線
+  const fresh = (prep, classes = ['paladin', 'archer', 'priest']) => { const g = createGame(); g.construct('dungeon');
+    const party = classes.map(c => g.state.hunters.find(h => h.classId === c)); prep?.(party, g.state.dungeon); return { g, party, d: g.state.dungeon }; };
+  // 剛起步的小隊、紀錄卻在第 30 層(例如強隊在復活中,只剩弱隊能派)→ 不去第 31 層送死
+  { const { g, party, d } = fresh((p, d) => { d.bestFloor = 30; });
+    assert.equal(g.startDungeon(party.map(h => h.id)).ok, true);
+    assert.ok(d.floor >= 1 && d.floor < 31, `a weak party is not sent to floor 31 (went to ${d.floor})`);
+    assert.ok(g.state.log.some(l => l.text.includes(`打不過第 31 層，改從第 ${d.floor} 層出發`)), 'the log says why the party starts lower');
+    const deaths0 = g.state.counts.deaths; for (const h of party) h.route = [];
+    run(g, 150, true); assert.equal(d.active, false);
+    assert.equal(g.state.counts.deaths, deaths0, 'the stepped-down run costs no lives'); assert.equal(d.bestFloor, 30, 'clearing a lower floor does not move the record'); }
+  // 指定起始層也一樣保護(UI 的起始層 −/+ 選到太深的層)
+  { const { g, party, d } = fresh((p, d) => { d.bestFloor = 30; });
+    assert.equal(g.startDungeon(party.map(h => h.id), 25).ok, true); assert.ok(d.floor < 25, 'an explicit start floor the party cannot survive is stepped down too'); }
+  // 強隊:照常從最高紀錄 +1 出發,也不多一行訊息
+  { const { g, party, d } = fresh((p, d) => { d.bestFloor = 5; for (const h of p) { h.attack = 400; h.maxHp = h.hp = 5000; } });
+    assert.equal(g.startDungeon(party.map(h => h.id)).ok, true); assert.equal(d.floor, 6, 'a strong party still pushes the newest floor');
+    assert.ok(!g.state.log.some(l => l.text.includes('改從第')), 'no step-down message when the floor is fine'); }
+  // 估什麼都估不過(沒有補師、攻擊力 1 → 打不完)→ 還是第 1 層,不會變成第 0 層或出不了發
+  { const { g, party, d } = fresh((p, d) => { d.bestFloor = 8; for (const h of p) h.attack = 1; }, ['paladin', 'archer', 'sorcerer']);
+    assert.equal(g.startDungeon(party.map(h => h.id)).ok, true); assert.equal(d.floor, 1, 'floor 1 is the lowest start'); }
+}
+{
+  // 地下城保命(2026-11-17):出發時每人至少 35% 生命;波中魔物這一擊會打倒人 → 緊急撤退(沒有本層獎勵、沒有人倒下、帳本不記)
+  const fresh = (classes = ['paladin', 'archer', 'sorcerer']) => { const g = createGame(); g.construct('dungeon'); g.setDungeonAuto(true);
+    const party = classes.map(c => g.state.hunters.find(h => h.classId === c)); return { g, party, d: g.state.dungeon }; };
+  // 出發血量門檻:有祭司也一樣(祭司的補血在預估裡攤在整層,殘血的人會被估成撐得過)
+  { const { g, party, d } = fresh(['paladin', 'archer', 'priest']); party[0].hp = Math.round(party[0].maxHp * 0.2);
+    const r = g.startDungeon(party.map(h => h.id));
+    assert.equal(r.ok, false, 'a hunter below 35% HP cannot enter the dungeon'); assert.ok(r.message.includes(party[0].name) && r.message.includes('35%'), r.message);
+    assert.equal(d.active, false); assert.ok(party.every(h => h.task !== 'dungeon'));
+    party[0].hp = Math.ceil(party[0].maxHp * 0.35); assert.equal(g.startDungeon(party.map(h => h.id)).ok, true, 'at 35% the party may go'); }
+  // 自動挑隊:挑血量最高的;所有人都殘血 → 不出發
+  { const { g, d } = fresh(); for (const h of g.state.hunters) h.hp = Math.max(1, Math.round(h.maxHp * 0.1));
+    assert.equal(g.startDungeon().ok, false, 'nobody healthy enough → no auto run'); assert.equal(d.active, false);
+    const ok3 = g.state.hunters.slice(0, 3); for (const h of ok3) h.hp = h.maxHp;
+    assert.equal(g.startDungeon().ok, true); assert.deepEqual([...d.hunterIds].sort(), ok3.map(h => h.id).sort(), 'auto-select takes the healthy hunters'); }
+  const fight = () => { const s = fresh(); assert.equal(s.g.startDungeon(s.party.map(h => h.id)).ok, true);
+    for (const h of s.party) h.route = [];
+    s.g.tick(0.1); assert.equal(s.d.phase, '戰鬥中');
+    for (const h of s.party) { h.skillCd = 99; h.attackTimer = 99; }   // 這一跳不出手、不自補,只看魔物那一擊
+    for (const f of s.d.foes) { f.hp = f.maxHp = 1e6; f.timer = 99; } s.d.foes[0].timer = 0.05;
+    return s; };
+  // 前排只剩一擊的血 → 魔物出手前撤退
+  { const { g, party, d } = fight(), deaths0 = g.state.counts.deaths, wins0 = g.state.counts.dungeonWins;
+    party[0].hp = 1; const snap = g.offlineSnapshot(), gold0 = g.state.gold;
+    g.tick(0.1);
+    assert.equal(d.active, false, 'the party pulls out before the killing blow'); assert.equal(d.phase, '撤退'); assert.deepEqual(d.reward, {}, 'no floor reward');
+    assert.equal(d.cooldown, 10, 'same cooldown as a manual retreat'); assert.equal(d.bestFloor, 0);
+    assert.equal(party[0].hp, 1, 'the killing blow never lands'); assert.equal(g.state.counts.deaths, deaths0);
+    assert.ok(party.every(h => h.hp > 0 && h.task !== 'dungeon' && h.task !== 'revive'), 'everyone walks home');
+    assert.equal(g.state.counts.dungeonWins, wins0, 'a retreat is not a win');
+    assert.ok(g.state.log.some(l => l.text.includes(`${party[0].name}快撐不住了`) && l.text.includes('緊急撤退')), 'the log says why');
+    g.state.time += 2; g.offlineFinish(snap, (g.state.time - snap.time) * 4); assert.equal(g.state.gold, gold0, 'nothing for the ledger to cancel or extrapolate'); assertFiniteEconomy(g.state); }
+  // 撐得住的一擊照打、不撤
+  { const { g, party, d } = fight(), hp0 = party[0].hp;
+    g.tick(0.1);
+    assert.equal(d.active, true, 'a survivable hit does not end the run'); assert.ok(party[0].hp < hp0, 'the front line takes the hit');
+    assert.ok(d.events.some(e => e.k === 'hurt' && e.b === party[0].id)); }
+}
+{
   // 英雄對話框:每句都短;需求優先;倒下說倒下的話
   const all = Object.values(CHATTER_LINES).flatMap(v => Array.isArray(v) ? v : Object.values(v).flat());
   assert.ok(all.every(l => l.replace('{region}', '向陽草原').length <= 12), 'every chatter line is short (≤ 12 characters)');
@@ -1050,5 +1367,5 @@ run(manual, 30, false, assertFiniteEconomy);
   assert.equal(MOUNT_SPEED_MULT, 1.3, 'documented constant (docs/PAPERDOLL.md §20)');
   assert.ok(isRideable('boar') && !isRideable('boss') && !isRideable('wolfman') && Object.keys(ENEMIES).filter(isRideable).length === 6);
 }
-console.log(`PASS: ${CLASSES.length} hunters / ${CLASSES.length} classes, seeded visitors, conservation of personal and village gold, paid and emergency services, bounded trading, crafting and gear purchases, upgrades, training, skills, rebirth, difficulty gates, hunting, field boss, death/revival, dungeon combat and save continuation, NPC arena, navigation, malformed saves, pause, deterministic simulation, all 8 quests. Natural 60s: ${combat.state.totalKills} total kills; ${combat.state.counts.services} services.`);
+console.log(`PASS: ${CLASSES.length} hunters / ${CLASSES.length} classes, seeded visitors, conservation of personal and village gold, paid and emergency services, bounded trading, crafting and gear purchases, upgrades, training, skills, rebirth, difficulty gates, hunting, field boss, death/revival, dungeon combat and save continuation, NPC arena, navigation, malformed saves, pause, deterministic simulation, all 18 quests and legacy quest-save migration. Natural 60s: ${combat.state.totalKills} total kills; ${combat.state.counts.services} services.`);
 
