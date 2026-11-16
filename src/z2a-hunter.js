@@ -1,7 +1,7 @@
 // z2a-hunter.js — Z2A(圖鑑規格 v2 的 f、g、j 節):獵人卡(C 視窗內容)、名冊卡、新獵人到訪暗帶(D)的 HTML。
 // 只產生字串;狀態(游標位置、哪張子頁籤)放在這裡的 hc／vb,事件接線在 pixel-ui.js 的 doAction。
 import {tipAttr,tipGradeName} from './ui-tip.js';
-import {GEAR_SLOTS,EQUIPMENT,EQUIP_SLOTS} from './pixel-data.js';
+import {GEAR_SLOTS,EQUIPMENT,EQUIP_SLOTS,MATERIALS} from './pixel-data.js';
 let C=null;   // { esc, fmt, iconHTML, portrait, game:()=>game, RARITIES, CLASSES, TRAITS }
 export const initHunterUI=ctx=>{C=ctx;};
 
@@ -16,9 +16,16 @@ const STARS=5,STEP=4;   // 轉世 4 次點亮 1 顆星,20 次滿 5 星
 // 2026-11-15 裝備物品化:每個格子顯示穿在身上的真實物品(沒有 h.gear 的舊物件才退回 equipment 布林值)
 const SLOT_LABEL={weapon:'武器',helm:'頭盔',chest:'胸甲',belt:'腰帶',legs:'腿甲',boots:'靴子',gloves:'手套'};
 const itemIn=(h,slot)=>h&&h.gear&&h.gear[slot]?EQUIPMENT[h.gear[slot].itemId]||null:null;
+// 2026-11-16 裝備縮圖(使用者 m03470):build.mjs 把 assets/gear-icons/<itemId>.png 內嵌成
+// window.PIXEL_ASSETS.gearIcons;沒有 key 時回傳空字串,呼叫端退回文字/圖示(不顯示破圖)。
+export const gearIconSrc=id=>{const m=globalThis.PIXEL_ASSETS&&globalThis.PIXEL_ASSETS.gearIcons;return m&&id&&m[id]?m[id]:'';};
+export function gearIconHTML(it,size=28,extra=''){const src=it&&gearIconSrc(it.id);return src?`<img class="gico${extra?' '+extra:''}" src="${src}" alt="" width="${size}" height="${size}" loading="lazy" decoding="async">`:'';}
 const statLine=it=>{const s=(it&&it.stats)||{},parts=[];if(s.atk)parts.push(`攻擊 +${s.atk}`);if(s.hp)parts.push(`生命 +${s.hp}`);if(s.def)parts.push(`防禦 +${s.def}`);return parts.length?parts.join(' · '):'沒有數值加成';};
+// 2026-11-16 裝備經濟:滑過裝備格就看得到「賣價與分解產出」
+const salvageLine=it=>Object.entries(it.salvage||{}).map(([k,n])=>`${(MATERIALS[k]||{}).name||k}×${n}`).join('、')||'—';
+const gearValueLine=it=>`售 ${it.sell} 金 · 分解 ${salvageLine(it)}`;
 function gearSlotTip(h,slot){const it=itemIn(h,slot);
- return it?{name:it.name,grade:it.tier==='craft'?'superior':'normal',icon:slot==='weapon'?'swords':'def',stats:[['位置',SLOT_LABEL[slot]],['攻擊','+'+(it.stats.atk||0)],['生命','+'+(it.stats.hp||0)],['防禦','+'+(it.stats.def||0)]],lines:[['pos',statLine(it)]]}
+ return it?{name:it.name,grade:it.tier==='craft'?'superior':'normal',icon:slot==='weapon'?'swords':'def',stats:[['位置',SLOT_LABEL[slot]],['攻擊','+'+(it.stats.atk||0)],['生命','+'+(it.stats.hp||0)],['防禦','+'+(it.stats.def||0)]],lines:[['pos',statLine(it)],['note',gearValueLine(it)]]}
   :{name:`${SLOT_LABEL[slot]}（空）`,grade:'normal',icon:slot==='weapon'?'swords':'def',stats:[['狀態','未穿戴']],lines:[['neg','這個位置沒有數值加成'],['note',`倉庫裡有${SLOT_LABEL[slot]}時可以在裝備頁穿上`]]};}
 function weaponTip(h){const lv=h.weaponLevel||0,it=itemIn(h,'weapon'),on=!!(it||h.equipment?.weapon),fine=!!h.equipment?.weapon,g=gradeOfLv(fine?lv:0),atk=it?(it.stats&&it.stats.atk)||0:7;
  return on&&!fine?{name:it.name,grade:'normal',icon:'swords',stats:[['位置','武器'],['攻擊','+'+atk]],lines:[['note','初始武器：只有外觀，沒有數值加成'],['note','鐵匠鋪製造精鐵武器後，獵人回村會用個人金幣購買（之後才能強化）']]}
@@ -30,9 +37,9 @@ const SLOT_GLYPH={helm:'盔',chest:'甲',belt:'腰',legs:'腿',boots:'靴',glove
 function ringHTML(h){const I=C.iconHTML,wl=h.weaponLevel||0,ws=Math.ceil(wl/2),wIt=itemIn(h,'weapon'),wOn=!!(wIt||h.equipment?.weapon);
  const stars=n=>n?`<span class="z2-sstars" aria-hidden="true">${'<i></i>'.repeat(Math.min(5,n))}</span>`:'';
  return `<div class="z2-ring"><i class="z2-spot" aria-hidden="true"></i>`
-  +`<button type="button" class="z2-slot s-w ${wOn?'eq':'open'}" aria-label="武器：${wIt?wIt.name+(wl?' +'+wl:''):wOn?'已裝備':'未穿戴'}"${tipAttr(weaponTip(h))}>${I('swords',true)}${wOn?stars(ws||1):''}</button>`
+  +`<button type="button" class="z2-slot s-w ${wOn?'eq':'open'}" aria-label="武器：${wIt?wIt.name+(wl?' +'+wl:''):wOn?'已裝備':'未穿戴'}"${tipAttr(weaponTip(h))}>${(wIt&&gearIconHTML(wIt,34))||I('swords',true)}${wOn?stars(ws||1):''}</button>`
   +GEAR_SLOTS.map((slot,i)=>{const it=itemIn(h,slot),on=!!it||!!h.equipment?.[slot];
-    return `<button type="button" class="z2-slot s-g${i+1} ${on?'eq':'open'}" aria-label="${SLOT_LABEL[slot]}：${it?it.name:'未穿戴'}"${tipAttr(gearSlotTip(h,slot))}><span class="z2-glyph" aria-hidden="true">${SLOT_GLYPH[slot]||'甲'}</span></button>`;}).join('')
+    return `<button type="button" class="z2-slot s-g${i+1} ${on?'eq':'open'}" aria-label="${SLOT_LABEL[slot]}：${it?it.name:'未穿戴'}"${tipAttr(gearSlotTip(h,slot))}>${(it&&gearIconHTML(it,32))||`<span class="z2-glyph" aria-hidden="true">${SLOT_GLYPH[slot]||'甲'}</span>`}</button>`;}).join('')
   +`<img class="z2-fig" src="${C.portrait(h)}" alt="${C.esc(h.name)}"></div>`;}
 
 function barHTML(kind,icon,label,cur,max){const pct=max>0?Math.max(0,Math.min(100,cur/max*100)):0;
@@ -65,7 +72,7 @@ function gearBtn(action,id,slot,label,tone){return `<button type="button" class=
 // 一格一列真實物品：有穿→名稱/數值/卸下·存倉·出售·分解;沒穿→倉庫同位置候選直接穿上
 function gearRow(h,slot){const it=itemIn(h,slot),s=C.game().state,I=C.iconHTML;
  if(it){const stats=statLine(it),desc=it.name.includes(SLOT_LABEL[slot])?stats:`${SLOT_LABEL[slot]} · ${stats}`;
-  return `<div class="z2-row gear-slot" data-slot="${slot}"><i class="z2-row-ic" aria-hidden="true">${I(slot==='weapon'?'swords':'def',true)}</i>`
+  return `<div class="z2-row gear-slot" data-slot="${slot}"><i class="z2-row-ic gico-box" aria-hidden="true">${gearIconHTML(it,32)||I(slot==='weapon'?'swords':'def',true)}</i>`
    +`<div class="z2-row-b"><b class="z2-row-n"${it.tier==='craft'?' data-grade="superior"':''}>${C.esc(it.name)}</b><small class="z2-row-d">${desc}</small><div class="gear-btns">`
    +gearBtn('gearUnequip',h.id,slot,'卸下','gold')+gearBtn('gearStore',h.id,slot,'存倉')+gearBtn('gearSell',h.id,slot,'出售','red')+gearBtn('gearSalvage',h.id,slot,'分解')
    +`</div></div></div>`;}

@@ -8,10 +8,11 @@ import {REGION_MONSTERS,MONSTER_NAME,MONSTER_LORE} from './lore.js';
 import {createPixelWorld,drawPortrait,buildingDataURL,MAP_PALETTE,MAP_ACCENT,monsterPortrait} from './pixel-world.js';
 import {mountTmwPuppet} from './tmw-puppet.js';
 import {mountHeroLoomLab} from './heroloom-lab.js';  // ?loom=1 HeroLoom 紙娃娃實驗面板(docs/HEROLOOM.md)
-import {mountPaperdollLab} from './paperdoll-lab.js';  // ?dv2lab=1 DV2 紙娃娃實驗面板(32 組動作、性別、石化、帽子、新武器;docs/DV2-PHASE6.md)
-import {BUILDINGS,CLASSES,RARITIES,TRAITS,MATERIALS,PRODUCTS,RECIPES,DIFFICULTIES,PILOT_ATTACK,SKILLS,SAVE_KEY,EQUIPMENT} from './pixel-data.js';
+import {mountPaperdollLab} from './paperdoll-lab.js';  // ?dv2lab=1 DV2 紙娃娃詳細面板(32 組動作姿勢、性別、石化、帽子、新武器;docs/DV2-PHASE6.md)
+import {BUILDINGS,CLASSES,RARITIES,TRAITS,MATERIALS,PRODUCTS,RECIPES,DIFFICULTIES,PILOT_ATTACK,SKILLS,SAVE_KEY,EQUIPMENT,EQUIP_SLOTS} from './pixel-data.js';
+
 import {tipAttr,initTips} from './ui-tip.js';   // Z2A:迷你視窗 tooltip(給任何面板用:元素加 ${tipAttr({name,grade,icon,stars,level,stats,lines})},說明見 ui-tip.js 開頭)
-import {hc,HC_TABS,initHunterUI,hunterDetailHTML,vb,visitorBandHTML,visitorArrival} from './z2a-hunter.js';   // Z2A:獵人卡、新獵人暗帶
+import {hc,HC_TABS,initHunterUI,hunterDetailHTML,vb,visitorBandHTML,visitorArrival,gearIconHTML} from './z2a-hunter.js';   // Z2A:獵人卡、新獵人暗帶
 
 // ===== T157：把 PixelLab 的 UI 素材接上 CSS 變數 =====
 // CSS 早就寫好 var(--ui-px-banner-dungeon) 這種用法，但專案裡沒有任何地方定義 --ui-px-*，
@@ -117,6 +118,18 @@ window.addEventListener('pixel-assets-ready',()=>{buildingImages.clear();if(sele
 
 function setIcons(root=document){root.querySelectorAll('[data-icon]').forEach(e=>{const n=e.dataset.icon;if(e.firstElementChild?.dataset?.type===n)return;e.innerHTML='';if(UI_ICONS[n]){const im=document.createElement('img');im.src=UI_ICONS[n];im.alt='';im.className='ui-ico';im.dataset.type=n;im.draggable=false;e.append(im);}else{const c=icon(n);c.dataset.type=n;e.append(c);}});}
 function iconHTML(n,hidden=false){return `<span class="inline-icon"${hidden?' aria-hidden="true"':''} data-icon="${n}"></span>`;}
+// 2026-11-16 裝備縮圖(使用者 m03470):倉庫的每一件真裝備都有自己的 32×32 縮圖,外加「已穿全套」小圖條。
+// 縮圖來源由 build.mjs 內嵌成 window.PIXEL_ASSETS.gearIcons[itemId];缺 key 時退回文字單字,不顯示破圖。
+const GEAR_NAME={weapon:'武器',helm:'頭盔',chest:'胸甲',belt:'腰帶',legs:'腿甲',boots:'靴子',gloves:'手套'};
+const GEAR_TEXT={weapon:'武',helm:'盔',chest:'甲',belt:'腰',legs:'腿',boots:'靴',gloves:'手'};
+const gearSetSlots=()=>Array.isArray(EQUIP_SLOTS)?EQUIP_SLOTS:['weapon','helm','chest','belt','legs','boots','gloves'];
+function gearSetStripHTML(h){
+  return gearSetSlots().map(slot=>{const g=h&&h.gear&&h.gear[slot],it=g&&EQUIPMENT[g.itemId],ico=it&&gearIconHTML(it,32);
+    return `<span class="gear-set-slot${it?'':' empty'}" data-slot="${slot}" title="${esc(it?it.name:GEAR_NAME[slot]+'（空）')}">${ico||`<b class="gear-set-gl" aria-hidden="true">${GEAR_TEXT[slot]}</b>`}</span>`;}).join('');
+}
+function gearSetHTML(h){const n=(h&&h.gear)?gearSetSlots().filter(sl=>h.gear[sl]).length:0;
+  return `<div class="gear-set" data-gear-set><div class="gear-set-h">${h?`<select class="gear-set-who" data-gear-set-who aria-label="選擇要檢視全套裝備的獵人">${alertHunters().map(x=>`<option value="${x.id}"${x.id===h.id?' selected':''}>${esc(x.name)}</option>`).join('')}</select>`:'<span>全套裝備</span>'}<small data-gear-set-n>已穿 ${n}／7</small></div><div class="gear-set-strip" data-gear-set-strip>${gearSetStripHTML(h)}</div></div>`;}
+const alertHunters=()=>((game&&game.state&&game.state.hunters)||[]).filter(h=>h&&h.hp>0);
 // T100:隊員卡(派遣/地下城/競技場共用)——頭像 + 名字/等級職業/攻防射程/生命條,一眼看得出該派誰
 // T102:遠征準備面板——選不到的理由、小隊總覽、出發條件的按鈕文字
 function partyBlock(h,kind){if(h.hp<=0||h.task==='revive')return '待復活';if(kind==='dungeon'&&h.task==='arena')return '競技場中';if(kind==='arena'&&h.task==='dungeon')return '地下城出征中';return '';}
@@ -660,11 +673,16 @@ function modalHTML(type){const s=game.state;
     // 2026-11-15 裝備物品化:倉庫裡的「真裝備」(state.gearStorage)→ 可穿在指定獵人身上／出售／分解
     const GEAR_LABEL={weapon:'武器',helm:'頭盔',chest:'胸甲',belt:'腰帶',legs:'腿甲',boots:'靴子',gloves:'手套'};
     const gearStats=it=>{const st=it.stats||{},p=[];if(st.atk)p.push('攻擊 +'+st.atk);if(st.hp)p.push('生命 +'+st.hp);if(st.def)p.push('防禦 +'+st.def);return p.join(' · ')||'沒有數值加成';};
+    // 2026-11-16 裝備經濟:讓玩家在倉庫就看到「賣掉多少錢、分解拿到什麼」(docs/EQUIPMENT-ECONOMY.md)
+    const salvageText=it=>Object.entries(it.salvage||{}).map(([k,n])=>`${(MATERIALS[k]||{}).name||k}×${n}`).join('、')||'—';
+    const gearValue=it=>`售 ${it.sell} 金 · 分解 ${salvageText(it)}`;
     const storedGear=Array.isArray(s.gearStorage)?s.gearStorage:[];
     const aliveHunters=(s.hunters||[]).filter(Boolean);
     const storeRows=storedGear.map(g=>{const it=EQUIPMENT[g.itemId];if(!it)return '';
-      return `<li class="z2b-row gear-store-row" data-uid="${g.uid}"><i class="z2b-ic">${iconHTML(it.slot==='weapon'?'swords':'def')}</i><div class="z2b-rb"><b class="z2b-nm">${esc(it.name)}</b><small class="z2b-ds">${GEAR_LABEL[it.slot]||it.slot} · ${gearStats(it)}</small></div><div class="z2b-act">${aliveHunters.length?`<select data-store-who="${g.uid}" aria-label="要讓哪一位獵人穿上${esc(it.name)}">${aliveHunters.map(h=>`<option value="${h.id}">${esc(h.name)}</option>`).join('')}</select><button type="button" class="pixel-button" data-action="gearStoreEquip" data-uid="${g.uid}" data-zb="olive">穿上</button>`:'<small>沒有可裝備的獵人</small>'}<button type="button" class="pixel-button" data-action="gearStoreSell" data-uid="${g.uid}" data-zb="red">出售</button><button type="button" class="pixel-button" data-action="gearStoreSalvage" data-uid="${g.uid}">分解</button></div></li>`;}).join('');
-    const storeSection=`<section class="stock-sec gear-store" data-sec="裝備倉庫"><h4 class="stock-sec-h"><span>裝備倉庫</span><small>${storedGear.length} 件</small></h4>${storedGear.length?`<ul class="z2b-rows">${storeRows}</ul>`:`<p class="gear-store-empty">倉庫裡沒有裝備。在獵人「裝備」頁把身上的裝備「存倉」就會出現在這裡。</p>`}</section>`;
+      return `<li class="z2b-row gear-store-row" data-uid="${g.uid}"><i class="z2b-ic">${gearIconHTML(it,32)||iconHTML(it.slot==='weapon'?'swords':'def')}</i><div class="z2b-rb"><b class="z2b-nm">${esc(it.name)}</b><small class="z2b-ds">${GEAR_LABEL[it.slot]||it.slot} · ${gearStats(it)} · ${gearValue(it)}</small></div><div class="z2b-act">${aliveHunters.length?`<select data-store-who="${g.uid}" aria-label="要讓哪一位獵人穿上${esc(it.name)}">${aliveHunters.map(h=>`<option value="${h.id}">${esc(h.name)}</option>`).join('')}</select><button type="button" class="pixel-button" data-action="gearStoreEquip" data-uid="${g.uid}" data-zb="olive">穿上</button>`:'<small>沒有可裝備的獵人</small>'}<button type="button" class="pixel-button" data-action="gearStoreSell" data-uid="${g.uid}" data-zb="red">出售</button><button type="button" class="pixel-button" data-action="gearStoreSalvage" data-uid="${g.uid}">分解</button></div></li>`;}).join('');
+    // 「已穿全套」小圖條:預設看第一位獵人,用下拉換人即可對照七格縮圖
+    const gearSetWho=aliveHunters[0]||null;
+    const storeSection=`<section class="stock-sec gear-store" data-sec="裝備倉庫"><h4 class="stock-sec-h"><span>裝備倉庫</span><small>${storedGear.length} 件</small></h4>${gearSetHTML(gearSetWho)}${storedGear.length?`<ul class="z2b-rows">${storeRows}</ul>`:`<p class="gear-store-empty">倉庫裡沒有裝備。在獵人「裝備」頁把身上的裝備「存倉」就會出現在這裡。</p>`}</section>`;
    return `<div class="stock-summary hv-sumline" role="status"><span>持有 <b>${totalKinds}</b>／${Object.keys(ALL).length} 種</span><span>共 <b>${totalPieces}</b> 件</span><small>數量 0 的淡化顯示</small></div>${detail}
    ${groups.map(([title,ids,fb])=>`<section class="stock-sec" data-sec="${title}"><h4 class="stock-sec-h"><span>${title}</span><small>${ids.filter(held).length}／${ids.length} 種</small></h4><ul class="stock-list hv-sq-grid">${ids.map(x=>itemRow(x,fb)).join('')}</ul></section>`).join('')}${storeSection}`;
  }
@@ -1193,6 +1211,8 @@ function unitCardPaint(force){
     hpEl.classList.toggle("low",ratio>0&&ratio<.35);hpEl.classList.toggle("down",ratio<=0);}
 }
 document.addEventListener('click',e=>{const el=e.target.closest('[data-action]');if(el&&!el.disabled){z2dActEl=el;z2dActRect=el.getBoundingClientRect();z2dActAt=performance.now();sfx('ui');doAction(el);}});
+// 2026-11-16 裝備縮圖:倉庫「已穿全套」小圖條換獵人時即時重畫(不重開面板、不丟捲動位置)
+document.addEventListener('change',e=>{const sel=e.target.closest('[data-gear-set-who]');if(!sel)return;const h=game&&game.state.hunters.find(v=>v.id===sel.value),set=sel.closest('[data-gear-set]');if(!set)return;const strip=set.querySelector('[data-gear-set-strip]');if(strip)strip.innerHTML=gearSetStripHTML(h);const n=set.querySelector('[data-gear-set-n]');if(n){const c=h&&h.gear?gearSetSlots().filter(sl=>h.gear[sl]).length:0;n.textContent=`已穿 ${c}／7`;}});
 // Z2D:左上資源疊的「＋」框(金幣→交易所、星晶→地下城,星晶是通關層數與首領的掉落)。整個資源疊還是同一顆 44px 以上的鈕,只有點在 ＋ 上才改道,點別處照常開倉庫。
 document.querySelector('#topbar .treasury')?.addEventListener('click',e=>{const p=e.target.closest('.res-plus');if(!p)return;e.stopPropagation();sfx('ui');openModal(p.dataset.plus==='gems'?'dungeon':'trade');});
 document.addEventListener('keydown',e=>{if(e.target.matches('input,textarea,select'))return;if(e.key==='Escape'&&unitCardEl&&!modal){hideUnitCard();return;}if(e.key==='Escape'&&!modal&&selected&&!$('#inspector').classList.contains('hidden')&&!selTarget){closeInspector();return;}if(selTarget&&!modal){if(e.key==='Escape'){selCancel();return;}if(e.key==='Enter'&&!e.target.closest?.('button,a,[tabindex]:not(#modal)')){e.preventDefault();selInfo();return;}}if(e.key.toLowerCase()==='m'&&started){openModal('worldmap');return;}if(e.code==='Space'&&!modal&&started){e.preventDefault();if(game.state.pilot){game.pilotAttack();return;}game.state.paused=!game.state.paused;paint();}const map={'1':'build','2':'dungeon','3':'hunters','4':'inventory','5':'trade','6':'arena','7':'quests','8':'craft'};if(!modal&&map[e.key])openModal(map[e.key]);});

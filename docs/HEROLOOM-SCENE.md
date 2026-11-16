@@ -232,3 +232,20 @@ node tools/checks/heroloom-terrain-fence.mjs   # 136/136 PASS, exit 0
 - **建築院子外的低矮繩狀圍欄不在這輪範圍**：那些是烘在建築 sprite 裡（`assets/details@*.manifest.json` 只有 `fenceRail` 一個 cell），不是 fenceRail，需另開建築重繪任務。
 - **離線 composite 模擬器用 ascending 繪製順序**，和引擎實際 decoration 順序不同；判斷以遊戲內截圖為準，模擬圖只做初篩。
 - 沒有改 `src/`、`build.mjs`、任何 manifest；沒有 commit / push。build 接線不需要改：details atlas 已經走 Lead 的 `sceneOrOrig()` prefer-if-present 路徑。
+
+---
+
+# 第四輪（2026-11-16）：PixelLab 參考的粗木圍欄
+
+背景：使用者「欄杆整個重作 直接丟村莊截圖給 pixelab 讓他作為依據」。流程與結果：
+
+1. 由村莊截圖做參考圖（`output/heroloom-ext/fence-pl/ref/village-fence-256.png`，256×256）丟給 PixelLab `POST /v2/create-1-direction-object`（`view:'sidescroller'`、HeroLoom 木色 `target_palette`、單張 style reference）→ 70 秒生成 256×256 圍欄物件（object `060a9a8b-d843-4cdf-a933-08ec19346e4b`，存檔 `output/heroloom-ext/fence-pl/candidate-1.png`）：3 根方柱＋柱帽、2 條厚橫桿、暖蜂蜜木色、黑色描邊、透明背景，視覺上正是要的風格。
+2. 但生成圖**不能直接當引擎 cell**：它是 3/4 視角的單段圍欄、橫桿水平，而引擎是 112×104 的 cell 重複排列＋每段 0.125 中心剪切＋2:1 iso 位移，接縫會斷。因此以 PixelLab 的配色／柱帽造型／木紋比例**重畫成可 tiling 的 cell**（`pipeline/scripts/heroloom/redraw-fence-pl.mjs`，純 Node、固定繪製、無影像套件）：橫桿烘 0.35 斜率（引擎再 shear 0.125 → 2:1 線），左緣桿底在 `GROUND-48` / `GROUND-22`，柱子垂直、底部對齊，兩根柱／cell，柱面三階木色＋柱帽亮面＋木紋短線＋柱腳 AO，1px `#150d1b` 墨線，alpha 只有 0/255。
+3. 只覆寫 details atlas 的 fenceRail 矩形（1x `[154,1094,112,104]`、2x `[306,2180,224,208]`），矩形外逐 byte 不變；report `redraw-fence-report.json`（含每檔色盤，供場景 checker 的「顏色已記錄」閘門）。
+
+驗證：`node tools/checks/heroloom-terrain-fence.mjs` 136/136 PASS、`node tools/checks/heroloom-scene-assets.mjs` 209/209 PASS；`node build.mjs` → 2.23 MB；遊戲內 `output/heroloom-ext/scene4/`（desktop 1440×900、phone 402×712：village / fence-north / fence-close / fence-mid / fence-south），0 console error。
+
+已知限制（誠實說明）：
+- 最終 cell 是「依 PixelLab 風格重畫」而不是把生成圖直接貼上（生成圖無法 tiling；直接貼會出現段與段斷裂、柱子透視不一致）。PixelLab 原圖保留在 `output/heroloom-ext/fence-pl/candidate-1.png` 供比對。
+- 柱與橫桿的接法仍是 2D iso 近似，不是真 3D 斜撐；近看每 bay 兩根柱會有輕微重疊感。
+- 這輪沒有改 `src/`、`build.mjs`、manifest；沒有 push。

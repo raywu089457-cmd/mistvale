@@ -84,69 +84,71 @@ export const RECIPES=[
 // 出售價 sell、分解 salvage 都是物品自帶;倉庫(state.gearStorage)只放物品實例 {uid,itemId}。
 export const EQUIPMENT={
   // 弓箭手(森林遊俠):短髮、綠布上衣、棕皮褲靴、綠披風、獵弓
+
   archer_bow:{id:'archer_bow',name:'獵弓',slot:'weapon',classId:'archer',tier:'starter',price:40,sell:16,salvage:{wood:3,leather:1},stats:{atk:0,hp:0,def:0},look:{weapon:'bow'}},
-  archer_hood:{id:'archer_hood',name:'遊俠兜帽',slot:'helm',classId:'archer',tier:'starter',price:22,sell:8,salvage:{cloth:2},stats:{atk:0,hp:0,def:0},look:{}},
-  archer_vest:{id:'archer_vest',name:'遊俠皮甲',slot:'chest',classId:'archer',tier:'starter',price:34,sell:13,salvage:{leather:2,cloth:1},stats:{atk:0,hp:0,def:0},look:{top:'tunic',cape:'cape'}},
+  archer_hood:{id:'archer_hood',name:'遊俠兜帽',slot:'helm',classId:'archer',tier:'starter',price:22,sell:9,salvage:{cloth:2},stats:{atk:0,hp:0,def:0},look:{}},
+  archer_vest:{id:'archer_vest',name:'遊俠皮甲',slot:'chest',classId:'archer',tier:'starter',price:34,sell:14,salvage:{leather:2,cloth:1},stats:{atk:0,hp:0,def:0},look:{top:'tunic',cape:'cape'}},
   archer_belt:{id:'archer_belt',name:'箭袋腰帶',slot:'belt',classId:'archer',tier:'starter',price:16,sell:6,salvage:{leather:1},stats:{atk:0,hp:0,def:0},look:{}},
-  archer_legs:{id:'archer_legs',name:'遊俠綁腿',slot:'legs',classId:'archer',tier:'starter',price:24,sell:9,salvage:{cloth:2},stats:{atk:0,hp:0,def:0},look:{bottom:'pants'}},
-  archer_boots:{id:'archer_boots',name:'遊俠長靴',slot:'boots',classId:'archer',tier:'starter',price:20,sell:7,salvage:{leather:2},stats:{atk:0,hp:0,def:0},look:{shoes:'boots'}},
-  archer_gloves:{id:'archer_gloves',name:'遊俠手套',slot:'gloves',classId:'archer',tier:'starter',price:18,sell:6,salvage:{cloth:1,leather:1},stats:{atk:0,hp:0,def:0},look:{}},
+  archer_legs:{id:'archer_legs',name:'遊俠綁腿',slot:'legs',classId:'archer',tier:'starter',price:24,sell:10,salvage:{cloth:2},stats:{atk:0,hp:0,def:0},look:{bottom:'pants'}},
+  archer_boots:{id:'archer_boots',name:'遊俠長靴',slot:'boots',classId:'archer',tier:'starter',price:20,sell:8,salvage:{leather:2},stats:{atk:0,hp:0,def:0},look:{shoes:'boots'}},
+  archer_gloves:{id:'archer_gloves',name:'遊俠手套',slot:'gloves',classId:'archer',tier:'starter',price:18,sell:7,salvage:{cloth:1,leather:1},stats:{atk:0,hp:0,def:0},look:{}},
   // 魔法師:銀長髮、紫尖帽長袍、法杖
   sorc_staff:{id:'sorc_staff',name:'紫杉法杖',slot:'weapon',classId:'sorcerer',tier:'starter',price:45,sell:18,salvage:{wood:4,ore:1},stats:{atk:0,hp:0,def:0},look:{weapon:'staff'}},
   sorc_hat:{id:'sorc_hat',name:'尖頂法師帽',slot:'helm',classId:'sorcerer',tier:'starter',price:26,sell:10,salvage:{cloth:3},stats:{atk:0,hp:0,def:0},look:{hat:'wizard'}},
-  sorc_robe:{id:'sorc_robe',name:'秘法長袍',slot:'chest',classId:'sorcerer',tier:'starter',price:40,sell:15,salvage:{cloth:3,leather:1},stats:{atk:0,hp:0,def:0},look:{top:'robe',cape:'cape'}},
+  sorc_robe:{id:'sorc_robe',name:'秘法長袍',slot:'chest',classId:'sorcerer',tier:'starter',price:40,sell:16,salvage:{cloth:3,leather:1},stats:{atk:0,hp:0,def:0},look:{top:'robe',cape:'cape'}},
   sorc_cord:{id:'sorc_cord',name:'秘法腰繩',slot:'belt',classId:'sorcerer',tier:'starter',price:16,sell:6,salvage:{cloth:1},stats:{atk:0,hp:0,def:0},look:{}},
-  sorc_wraps:{id:'sorc_wraps',name:'法師護腿',slot:'legs',classId:'sorcerer',tier:'starter',price:24,sell:9,salvage:{cloth:2},stats:{atk:0,hp:0,def:0},look:{}},
-  sorc_boots:{id:'sorc_boots',name:'旅法靴',slot:'boots',classId:'sorcerer',tier:'starter',price:20,sell:7,salvage:{leather:2},stats:{atk:0,hp:0,def:0},look:{shoes:'boots'}},
-  sorc_gloves:{id:'sorc_gloves',name:'秘法手套',slot:'gloves',classId:'sorcerer',tier:'starter',price:18,sell:6,salvage:{cloth:2},stats:{atk:0,hp:0,def:0},look:{}},
+  sorc_wraps:{id:'sorc_wraps',name:'法師護腿',slot:'legs',classId:'sorcerer',tier:'starter',price:24,sell:10,salvage:{cloth:2},stats:{atk:0,hp:0,def:0},look:{}},
+  sorc_boots:{id:'sorc_boots',name:'旅法靴',slot:'boots',classId:'sorcerer',tier:'starter',price:20,sell:8,salvage:{leather:2},stats:{atk:0,hp:0,def:0},look:{shoes:'boots'}},
+  sorc_gloves:{id:'sorc_gloves',name:'秘法手套',slot:'gloves',classId:'sorcerer',tier:'starter',price:18,sell:7,salvage:{cloth:2},stats:{atk:0,hp:0,def:0},look:{}},
   // 祭司:金長髮、白袍、聖光杖
   priest_staff:{id:'priest_staff',name:'聖光杖',slot:'weapon',classId:'priest',tier:'starter',price:45,sell:18,salvage:{wood:3,ore:2},stats:{atk:0,hp:0,def:0},look:{weapon:'staff'}},
-  priest_band:{id:'priest_band',name:'祭司髮帶',slot:'helm',classId:'priest',tier:'starter',price:22,sell:8,salvage:{cloth:2},stats:{atk:0,hp:0,def:0},look:{hat:'band'}},
-  priest_robe:{id:'priest_robe',name:'白袍',slot:'chest',classId:'priest',tier:'starter',price:40,sell:15,salvage:{cloth:3},stats:{atk:0,hp:0,def:0},look:{top:'robe',cape:'cape'}},
+  priest_band:{id:'priest_band',name:'祭司髮帶',slot:'helm',classId:'priest',tier:'starter',price:22,sell:9,salvage:{cloth:2},stats:{atk:0,hp:0,def:0},look:{hat:'band'}},
+  priest_robe:{id:'priest_robe',name:'白袍',slot:'chest',classId:'priest',tier:'starter',price:40,sell:16,salvage:{cloth:3},stats:{atk:0,hp:0,def:0},look:{top:'robe',cape:'cape'}},
   priest_sash:{id:'priest_sash',name:'祈禱腰帶',slot:'belt',classId:'priest',tier:'starter',price:16,sell:6,salvage:{cloth:1},stats:{atk:0,hp:0,def:0},look:{}},
-  priest_legs:{id:'priest_legs',name:'素布護腿',slot:'legs',classId:'priest',tier:'starter',price:24,sell:9,salvage:{cloth:2},stats:{atk:0,hp:0,def:0},look:{}},
-  priest_sandals:{id:'priest_sandals',name:'布靴',slot:'boots',classId:'priest',tier:'starter',price:18,sell:6,salvage:{cloth:2},stats:{atk:0,hp:0,def:0},look:{shoes:'boots'}},
-  priest_gloves:{id:'priest_gloves',name:'祝禱手套',slot:'gloves',classId:'priest',tier:'starter',price:18,sell:6,salvage:{cloth:2},stats:{atk:0,hp:0,def:0},look:{}},
+  priest_legs:{id:'priest_legs',name:'素布護腿',slot:'legs',classId:'priest',tier:'starter',price:24,sell:10,salvage:{cloth:2},stats:{atk:0,hp:0,def:0},look:{}},
+  priest_sandals:{id:'priest_sandals',name:'布靴',slot:'boots',classId:'priest',tier:'starter',price:18,sell:7,salvage:{cloth:2},stats:{atk:0,hp:0,def:0},look:{shoes:'boots'}},
+  priest_gloves:{id:'priest_gloves',name:'祝禱手套',slot:'gloves',classId:'priest',tier:'starter',price:18,sell:7,salvage:{cloth:2},stats:{atk:0,hp:0,def:0},look:{}},
   // 聖騎士:藍布白甲、頭盔、圓盾、紅披風、劍
-  paladin_sword:{id:'paladin_sword',name:'聖騎士劍',slot:'weapon',classId:'paladin',tier:'starter',price:55,sell:20,salvage:{ore:3,wood:2},stats:{atk:0,hp:0,def:0},look:{weapon:'sword'}},
+  paladin_sword:{id:'paladin_sword',name:'聖騎士劍',slot:'weapon',classId:'paladin',tier:'starter',price:55,sell:22,salvage:{ore:3,wood:2},stats:{atk:0,hp:0,def:0},look:{weapon:'sword'}},
   paladin_helm:{id:'paladin_helm',name:'騎士頭盔',slot:'helm',classId:'paladin',tier:'starter',price:30,sell:12,salvage:{ore:2,cloth:1},stats:{atk:0,hp:0,def:0},look:{hat:'helmet'}},
-  paladin_plate:{id:'paladin_plate',name:'聖騎士胸甲',slot:'chest',classId:'paladin',tier:'starter',price:48,sell:18,salvage:{ore:3,cloth:2},stats:{atk:0,hp:0,def:0},look:{top:'armor',shield:'buckler',cape:'cape'}},
+  paladin_plate:{id:'paladin_plate',name:'聖騎士胸甲',slot:'chest',classId:'paladin',tier:'starter',price:48,sell:19,salvage:{ore:3,cloth:2},stats:{atk:0,hp:0,def:0},look:{top:'armor',shield:'buckler',cape:'cape'}},
   paladin_belt:{id:'paladin_belt',name:'騎士腰帶',slot:'belt',classId:'paladin',tier:'starter',price:18,sell:7,salvage:{leather:1},stats:{atk:0,hp:0,def:0},look:{}},
   paladin_legs:{id:'paladin_legs',name:'騎士腿甲',slot:'legs',classId:'paladin',tier:'starter',price:30,sell:12,salvage:{ore:1,cloth:2},stats:{atk:0,hp:0,def:0},look:{bottom:'pants'}},
-  paladin_boots:{id:'paladin_boots',name:'騎士戰靴',slot:'boots',classId:'paladin',tier:'starter',price:24,sell:9,salvage:{leather:2},stats:{atk:0,hp:0,def:0},look:{shoes:'boots'}},
-  paladin_gloves:{id:'paladin_gloves',name:'騎士手甲',slot:'gloves',classId:'paladin',tier:'starter',price:22,sell:8,salvage:{cloth:1,leather:1},stats:{atk:0,hp:0,def:0},look:{}},
+  paladin_boots:{id:'paladin_boots',name:'騎士戰靴',slot:'boots',classId:'paladin',tier:'starter',price:24,sell:10,salvage:{leather:2},stats:{atk:0,hp:0,def:0},look:{shoes:'boots'}},
+  paladin_gloves:{id:'paladin_gloves',name:'騎士手甲',slot:'gloves',classId:'paladin',tier:'starter',price:22,sell:9,salvage:{cloth:1,leather:1},stats:{atk:0,hp:0,def:0},look:{}},
   // 狂戰士:紅髮獸皮、無頭盔、斧(外觀用劍部件)
   berserk_axe:{id:'berserk_axe',name:'狂戰士斧',slot:'weapon',classId:'berserker',tier:'starter',price:50,sell:20,salvage:{ore:3,wood:2},stats:{atk:0,hp:0,def:0},look:{weapon:'sword'}},
-  berserk_helm:{id:'berserk_helm',name:'狼皮頭飾',slot:'helm',classId:'berserker',tier:'starter',price:24,sell:9,salvage:{leather:2},stats:{atk:0,hp:0,def:0},look:{}},
+  berserk_helm:{id:'berserk_helm',name:'狼皮頭飾',slot:'helm',classId:'berserker',tier:'starter',price:24,sell:10,salvage:{leather:2},stats:{atk:0,hp:0,def:0},look:{}},
   berserk_vest:{id:'berserk_vest',name:'獸皮背心',slot:'chest',classId:'berserker',tier:'starter',price:36,sell:14,salvage:{leather:3},stats:{atk:0,hp:0,def:0},look:{top:'tunic'}},
   berserk_belt:{id:'berserk_belt',name:'粗皮腰帶',slot:'belt',classId:'berserker',tier:'starter',price:16,sell:6,salvage:{leather:1},stats:{atk:0,hp:0,def:0},look:{}},
   berserk_legs:{id:'berserk_legs',name:'獸皮護腿',slot:'legs',classId:'berserker',tier:'starter',price:26,sell:10,salvage:{leather:2},stats:{atk:0,hp:0,def:0},look:{bottom:'pants'}},
   berserk_boots:{id:'berserk_boots',name:'戰士皮靴',slot:'boots',classId:'berserker',tier:'starter',price:20,sell:8,salvage:{leather:2},stats:{atk:0,hp:0,def:0},look:{shoes:'boots'}},
   berserk_gloves:{id:'berserk_gloves',name:'狼皮手套',slot:'gloves',classId:'berserker',tier:'starter',price:18,sell:7,salvage:{leather:1,cloth:1},stats:{atk:0,hp:0,def:0},look:{}},
   // 刺客:馬尾黑布、涼鞋、匕首
-  assn_dagger:{id:'assn_dagger',name:'暗影匕首',slot:'weapon',classId:'assassin',tier:'starter',price:48,sell:18,salvage:{ore:2,leather:1},stats:{atk:0,hp:0,def:0},look:{weapon:'dagger'}},
-  assn_band:{id:'assn_band',name:'黑頭巾',slot:'helm',classId:'assassin',tier:'starter',price:22,sell:8,salvage:{cloth:2},stats:{atk:0,hp:0,def:0},look:{hat:'band'}},
-  assn_vest:{id:'assn_vest',name:'潛行皮甲',slot:'chest',classId:'assassin',tier:'starter',price:34,sell:13,salvage:{leather:2,cloth:1},stats:{atk:0,hp:0,def:0},look:{top:'tunic',cape:'cape'}},
+  assn_dagger:{id:'assn_dagger',name:'暗影匕首',slot:'weapon',classId:'assassin',tier:'starter',price:48,sell:19,salvage:{ore:2,leather:1},stats:{atk:0,hp:0,def:0},look:{weapon:'dagger'}},
+  assn_band:{id:'assn_band',name:'黑頭巾',slot:'helm',classId:'assassin',tier:'starter',price:22,sell:9,salvage:{cloth:2},stats:{atk:0,hp:0,def:0},look:{hat:'band'}},
+  assn_vest:{id:'assn_vest',name:'潛行皮甲',slot:'chest',classId:'assassin',tier:'starter',price:34,sell:14,salvage:{leather:2,cloth:1},stats:{atk:0,hp:0,def:0},look:{top:'tunic',cape:'cape'}},
   assn_belt:{id:'assn_belt',name:'暗袋腰帶',slot:'belt',classId:'assassin',tier:'starter',price:16,sell:6,salvage:{leather:1},stats:{atk:0,hp:0,def:0},look:{}},
-  assn_legs:{id:'assn_legs',name:'貼身長褲',slot:'legs',classId:'assassin',tier:'starter',price:24,sell:9,salvage:{cloth:2},stats:{atk:0,hp:0,def:0},look:{bottom:'pants'}},
-  assn_sandals:{id:'assn_sandals',name:'無聲涼鞋',slot:'boots',classId:'assassin',tier:'starter',price:18,sell:6,salvage:{leather:2},stats:{atk:0,hp:0,def:0},look:{shoes:'sandals'}},
-  assn_gloves:{id:'assn_gloves',name:'暗影手套',slot:'gloves',classId:'assassin',tier:'starter',price:18,sell:6,salvage:{cloth:1,leather:1},stats:{atk:0,hp:0,def:0},look:{}},
+  assn_legs:{id:'assn_legs',name:'貼身長褲',slot:'legs',classId:'assassin',tier:'starter',price:24,sell:10,salvage:{cloth:2},stats:{atk:0,hp:0,def:0},look:{bottom:'pants'}},
+  assn_sandals:{id:'assn_sandals',name:'無聲涼鞋',slot:'boots',classId:'assassin',tier:'starter',price:18,sell:7,salvage:{leather:2},stats:{atk:0,hp:0,def:0},look:{shoes:'sandals'}},
+  assn_gloves:{id:'assn_gloves',name:'暗影手套',slot:'gloves',classId:'assassin',tier:'starter',price:18,sell:7,salvage:{cloth:1,leather:1},stats:{atk:0,hp:0,def:0},look:{}},
   // 旅人:黃布上衣、空手(沒有武器外觀)
   trav_wraps:{id:'trav_wraps',name:'旅人纏手',slot:'weapon',classId:'traveler',tier:'starter',price:8,sell:3,salvage:{cloth:1},stats:{atk:0,hp:0,def:0},look:{weapon:'none'}},
-  trav_hood:{id:'trav_hood',name:'旅行兜帽',slot:'helm',classId:'traveler',tier:'starter',price:20,sell:7,salvage:{cloth:2},stats:{atk:0,hp:0,def:0},look:{}},
-  trav_vest:{id:'trav_vest',name:'旅人上衣',slot:'chest',classId:'traveler',tier:'starter',price:30,sell:11,salvage:{cloth:2,leather:1},stats:{atk:0,hp:0,def:0},look:{top:'tunic'}},
-  trav_belt:{id:'trav_belt',name:'旅行腰帶',slot:'belt',classId:'traveler',tier:'starter',price:14,sell:5,salvage:{leather:1},stats:{atk:0,hp:0,def:0},look:{}},
-  trav_legs:{id:'trav_legs',name:'耐磨長褲',slot:'legs',classId:'traveler',tier:'starter',price:22,sell:8,salvage:{cloth:2},stats:{atk:0,hp:0,def:0},look:{bottom:'pants'}},
-  trav_boots:{id:'trav_boots',name:'旅行長靴',slot:'boots',classId:'traveler',tier:'starter',price:18,sell:6,salvage:{leather:2},stats:{atk:0,hp:0,def:0},look:{shoes:'boots'}},
-  trav_gloves:{id:'trav_gloves',name:'旅行手套',slot:'gloves',classId:'traveler',tier:'starter',price:16,sell:5,salvage:{cloth:1},stats:{atk:0,hp:0,def:0},look:{}},
+  trav_hood:{id:'trav_hood',name:'旅行兜帽',slot:'helm',classId:'traveler',tier:'starter',price:20,sell:8,salvage:{cloth:2},stats:{atk:0,hp:0,def:0},look:{}},
+  trav_vest:{id:'trav_vest',name:'旅人上衣',slot:'chest',classId:'traveler',tier:'starter',price:30,sell:12,salvage:{cloth:2,leather:1},stats:{atk:0,hp:0,def:0},look:{top:'tunic'}},
+  trav_belt:{id:'trav_belt',name:'旅行腰帶',slot:'belt',classId:'traveler',tier:'starter',price:14,sell:6,salvage:{leather:1},stats:{atk:0,hp:0,def:0},look:{}},
+  trav_legs:{id:'trav_legs',name:'耐磨長褲',slot:'legs',classId:'traveler',tier:'starter',price:22,sell:9,salvage:{cloth:2},stats:{atk:0,hp:0,def:0},look:{bottom:'pants'}},
+  trav_boots:{id:'trav_boots',name:'旅行長靴',slot:'boots',classId:'traveler',tier:'starter',price:18,sell:7,salvage:{leather:2},stats:{atk:0,hp:0,def:0},look:{shoes:'boots'}},
+  trav_gloves:{id:'trav_gloves',name:'旅行手套',slot:'gloves',classId:'traveler',tier:'starter',price:16,sell:6,salvage:{cloth:1},stats:{atk:0,hp:0,def:0},look:{}},
+
   // 鐵匠鋪升級件(tier craft):數值沿用 RECIPES,外觀用通用鐵甲部件
-  craft_weapon:{id:'craft_weapon',name:'精鐵武器',slot:'weapon',classId:null,tier:'craft',price:85,sell:34,salvage:{ore:6,wood:3},stats:{atk:7,hp:0,def:0},look:{}},
-  craft_helm:{id:'craft_helm',name:'精鐵頭盔',slot:'helm',classId:null,tier:'craft',price:90,sell:36,salvage:{cloth:2,ore:3},stats:{atk:0,hp:6,def:2},look:{hat:'helmet'}},
-  craft_chest:{id:'craft_chest',name:'精鐵胸甲',slot:'chest',classId:null,tier:'craft',price:140,sell:56,salvage:{ore:5,leather:3},stats:{atk:0,hp:22,def:3},look:{top:'armor'}},
-  craft_belt:{id:'craft_belt',name:'精鐵腰帶',slot:'belt',classId:null,tier:'craft',price:70,sell:28,salvage:{leather:2},stats:{atk:0,hp:4,def:1},look:{}},
-  craft_legs:{id:'craft_legs',name:'精鐵腿甲',slot:'legs',classId:null,tier:'craft',price:110,sell:44,salvage:{ore:3,cloth:2},stats:{atk:0,hp:10,def:2},look:{bottom:'pants'}},
-  craft_boots:{id:'craft_boots',name:'精鐵戰靴',slot:'boots',classId:null,tier:'craft',price:70,sell:28,salvage:{leather:2},stats:{atk:0,hp:4,def:1},look:{shoes:'boots'}},
-  craft_gloves:{id:'craft_gloves',name:'精鐵手套',slot:'gloves',classId:null,tier:'craft',price:60,sell:24,salvage:{cloth:1,leather:2},stats:{atk:0,hp:4,def:1},look:{}},
+  craft_weapon:{id:'craft_weapon',name:'精鐵武器',slot:'weapon',classId:null,tier:'craft',price:85,sell:38,salvage:{ore:6,wood:3},stats:{atk:7,hp:0,def:0},look:{}},
+  craft_helm:{id:'craft_helm',name:'精鐵頭盔',slot:'helm',classId:null,tier:'craft',price:90,sell:21,salvage:{cloth:2,ore:3},stats:{atk:0,hp:6,def:2},look:{hat:'helmet'}},
+  craft_chest:{id:'craft_chest',name:'精鐵胸甲',slot:'chest',classId:null,tier:'craft',price:140,sell:38,salvage:{ore:5,leather:3},stats:{atk:0,hp:22,def:3},look:{top:'armor'}},
+  craft_belt:{id:'craft_belt',name:'精鐵腰帶',slot:'belt',classId:null,tier:'craft',price:70,sell:10,salvage:{leather:2},stats:{atk:0,hp:4,def:1},look:{}},
+  craft_legs:{id:'craft_legs',name:'精鐵腿甲',slot:'legs',classId:null,tier:'craft',price:110,sell:21,salvage:{ore:3,cloth:2},stats:{atk:0,hp:10,def:2},look:{bottom:'pants'}},
+  craft_boots:{id:'craft_boots',name:'精鐵戰靴',slot:'boots',classId:null,tier:'craft',price:70,sell:10,salvage:{leather:2},stats:{atk:0,hp:4,def:1},look:{shoes:'boots'}},
+  craft_gloves:{id:'craft_gloves',name:'精鐵手套',slot:'gloves',classId:null,tier:'craft',price:60,sell:10,salvage:{cloth:2,leather:1},stats:{atk:0,hp:4,def:1},look:{}},
 };
 // 新招募獵人的初始七件套(武器 + 六格防具)。物品一建立就穿在身上,不是背包道具。
 export const CLASS_STARTER={
@@ -159,6 +161,23 @@ export const CLASS_STARTER={
   traveler:{weapon:'trav_wraps',helm:'trav_hood',chest:'trav_vest',belt:'trav_belt',legs:'trav_legs',boots:'trav_boots',gloves:'trav_gloves'},
 };
 export const DIFFICULTIES=[{id:0,name:'初級',mult:1,rebirths:0},{id:1,name:'普通',mult:1.7,rebirths:1},{id:2,name:'困難',mult:2.8,rebirths:3},{id:3,name:'專家',mult:4.5,rebirths:5},{id:4,name:'噩夢',mult:7,rebirths:10}];
+
+// ── 2026-11-16 裝備經濟(docs/EQUIPMENT-ECONOMY.md)──
+// 售價: 一律 標價 × 40%(四捨五入) → 賣掉永遠比標價便宜,不會變成刷錢機器。
+// 分解: starter = 依部位給 1–3 個基礎素材;craft = 製作成本的一半(向上取整),所以分解不會比重新打造更賺。
+// 取得管道: starter = 新獵人初始套裝(招募即穿);craft = 鐵匠鋪製作 / 獵人與流浪英雄到鐵匠鋪購買 /
+//          首領討伐(45%) / 地下城每 2 層 / 章節委託(指定件)。
+export const GEAR_SELL_RATE=0.4;
+export const GEAR_CRAFT_POOL=['craft_weapon','craft_helm','craft_chest','craft_belt','craft_legs','craft_boots','craft_gloves'];
+export const GEAR_STARTER_POOL=Object.values(EQUIPMENT).filter(item=>item.tier==='starter').map(item=>item.id);
+// chance = 每次觸發機率;every = 地下城每幾層給一件;quest = 章節索引 → 指定裝備。
+export const GEAR_DROP={
+  monster:{chance:0.025,pool:GEAR_STARTER_POOL},
+  boss:{chance:0.45,pool:GEAR_CRAFT_POOL},
+  dungeon:{every:2,pool:GEAR_CRAFT_POOL},
+  quest:{3:'craft_helm',4:'craft_weapon',6:'craft_chest'},
+};
+
 // 2026-10-30:每個狩獵區中央立牌切換「怪物數量」三級(羅馬數字)。只改同時出現的數量與補怪速度,魔物本身不變強。
 // cap = 目前狩獵區的上限、other = 沒人在打的區的上限、every = 補一隻的間隔(秒)。第 2 級就是原本的 14/6、2.5/8 秒。
 export const REGION_DENSITY=[

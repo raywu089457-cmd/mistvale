@@ -1,7 +1,7 @@
 // 2026-11-15 裝備物品化測試:目錄完整性、初始套裝、卸下/出售/分解/倉庫、外觀連動、存檔遷移。
 import assert from 'node:assert/strict';
 import { createGame } from './src/pixel-game.js';
-import { EQUIPMENT, CLASS_STARTER, EQUIP_SLOTS, GEAR_SLOTS, CLASSES, MATERIALS } from './src/pixel-data.js';
+import { EQUIPMENT, CLASS_STARTER, EQUIP_SLOTS, GEAR_SLOTS, CLASSES, MATERIALS, RECIPES, GEAR_DROP, GEAR_SELL_RATE, GEAR_CRAFT_POOL, GEAR_STARTER_POOL } from './src/pixel-data.js';
 import { heroloomLook, CLASS_LOOK } from './src/heroloom.js';
 
 let passed = 0;
@@ -158,5 +158,75 @@ ok(g4.equipFromStorage(paladin.id, 'gtest1').ok, 'crafted chest equips from the 
 eq(paladin.gear.chest.itemId, 'craft_chest', 'crafted chest occupies the chest slot');
 ok(paladin.maxHp > beforeHp, 'crafted chest raises maxHp above the starter chest');
 eq(g4.state.gearStorage.at(-1).itemId, 'paladin_plate', 'the replaced starter chest goes back to the warehouse');
+
+// ── 9. 裝備縮圖(使用者 m03470):每個裝備都要有一張 32×32 PNG,而且 build.mjs 要把圖表塞進 PIXEL_ASSETS.gearIcons ──
+{
+  const fs = await import('node:fs');
+  const path = await import('node:path');
+  const iconDir = path.join(process.cwd(), 'assets/gear-icons');
+  ok(fs.existsSync(iconDir), 'assets/gear-icons/ exists');
+  const pngIds = new Set(fs.readdirSync(iconDir).filter(f => f.endsWith('.png')).map(f => f.replace(/\.png$/, '')));
+  for (const id of Object.keys(EQUIPMENT)) {
+    ok(pngIds.has(id), `${id} has a gear icon png`);
+    const buf = fs.readFileSync(path.join(iconDir, `${id}.png`));
+    ok(buf.length > 80 && buf[0] === 0x89 && buf[1] === 0x50, `${id} icon is a real png`);
+    eq(buf.readUInt32BE(16), 32, `${id} icon width 32`);
+    eq(buf.readUInt32BE(20), 32, `${id} icon height 32`);
+  }
+  eq(pngIds.size, Object.keys(EQUIPMENT).length, 'gear-icons dir has no stray/extra item pngs');
+  const buildSrc = fs.readFileSync(path.join(process.cwd(), 'build.mjs'), 'utf8');
+  ok(buildSrc.includes('assets/gear-icons') && buildSrc.includes('PIXEL_ASSETS.gearIcons'), 'build.mjs wires assets/gear-icons into PIXEL_ASSETS.gearIcons');
+  const uiSrc = fs.readFileSync(path.join(process.cwd(), 'src/z2a-hunter.js'), 'utf8');
+  const ui2 = fs.readFileSync(path.join(process.cwd(), 'src/pixel-ui.js'), 'utf8');
+  ok(uiSrc.includes('gearIcons') && ui2.includes('gearIcons'), 'gear tab and warehouse read PIXEL_ASSETS.gearIcons');
+}
+
+// ── 10. 裝備經濟(使用者 m03713):售價/分解/數值公式,取得管道,掉落表 ──
+{
+  const materialValue = cost => Object.entries(cost).reduce((n, [k, q]) => n + q * MATERIALS[k].price, 0);
+  const recipes = Object.fromEntries(RECIPES.map(r => [r.id, r]));
+  eq(GEAR_SELL_RATE, 0.4, 'sell rate is 40%');
+  for (const it of Object.values(EQUIPMENT)) {
+    ok(it.sell > 0 && it.sell < it.price, `${it.id} sell is between 0 and price`);
+    if (it.tier === 'starter') {
+      eq(it.sell, Math.round(it.price * GEAR_SELL_RATE), `${it.id} starter sell = round(price*0.4)`);
+    } else {
+      const value = materialValue(recipes[it.slot].cost);
+      eq(it.sell, Math.round(value * 0.8), `${it.id} craft sell = round(materialValue*0.8)`);
+      const want = {};
+      for (const [k, q] of Object.entries(recipes[it.slot].cost)) want[k] = Math.ceil(q / 2);
+      eq(it.salvage, want, `${it.id} craft salvage = ceil(cost/2)`);
+      ok(it.sell > materialValue(it.salvage) * 0.75, `${it.id} selling beats salvaging for crafted gear`);
+    }
+    ok(Object.values(it.salvage).every(n => Number.isInteger(n) && n > 0), `${it.id} salvage yields whole positive quantities`);
+  }
+  // 每個部位的 craft 件都要比 starter 強(武器看攻擊,防具看 hp+def)
+  const strength = st => st.atk * 2 + st.hp + st.def * 4;
+  for (const cls of Object.keys(CLASS_STARTER)) {
+    for (const slot of EQUIP_SLOTS) {
+      const starter = EQUIPMENT[CLASS_STARTER[cls][slot]], craft = EQUIPMENT['craft_' + slot];
+      ok(strength(craft.stats) > strength(starter.stats), `${slot}: craft gear beats ${cls} starter`);
+    }
+  }
+  // 取得管道:pools 的 id 都存在、分級正確;任務指定件存在;掉落機率合理
+  eq(GEAR_CRAFT_POOL.length, 7, 'seven crafted pieces in the craft pool');
+  ok(GEAR_CRAFT_POOL.every(id => EQUIPMENT[id] && EQUIPMENT[id].tier === 'craft'), 'craft pool only holds crafted items');
+  eq(GEAR_STARTER_POOL.length, 49, 'starter pool has every starter piece');
+  ok(GEAR_STARTER_POOL.every(id => EQUIPMENT[id] && EQUIPMENT[id].tier === 'starter'), 'starter pool only holds starter items');
+  for (const [kind, rule] of Object.entries(GEAR_DROP)) {
+    if (rule.pool) ok(rule.pool.every(id => EQUIPMENT[id]), `${kind} drop pool ids all exist`);
+    if (rule.chance != null) ok(rule.chance > 0 && rule.chance < 1, `${kind} drop chance is a real probability`);
+  }
+  eq(GEAR_DROP.dungeon.every, 2, 'dungeon chest every 2 floors');
+  for (const [idx, id] of Object.entries(GEAR_DROP.quest)) {
+    ok(EQUIPMENT[id] && EQUIPMENT[id].tier === 'craft', `quest #${idx} rewards an existing crafted item`);
+  }
+  // 遊戲端確實在對應時機發裝備(原始碼檢查):掉落→倉庫、首領/地下城/委託三個鉤子
+  const fs = await import('node:fs');
+  const src = fs.readFileSync(new URL('./src/pixel-game.js', import.meta.url), 'utf8');
+  ok(src.includes('function grantGear(') && src.includes('state.gearStorage.push(inst)'), 'grantGear puts drops into the village gear warehouse');
+  ok(src.includes("rollGearDrop('boss')") && src.includes("rollGearDrop('monster')") && src.includes("rollGearDrop('dungeon')"), 'boss/monster/dungeon drop hooks exist');
+  ok(src.includes('GEAR_DROP.quest[state.quest.index]'), 'chapter quests grant their assigned gear');
+}
 
 console.log(`test-gear: ${passed} passed`);
