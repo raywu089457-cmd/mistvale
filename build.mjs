@@ -3,7 +3,10 @@ import fs from 'node:fs/promises';
 import path from 'node:path';
 import vm from 'node:vm';
 const root=path.dirname(new URL(import.meta.url).pathname.replace(/^\/([A-Za-z]:)/,'$1'));
-const out=path.basename(path.dirname(root))==='work'?path.resolve(root,'../../outputs'):path.join(root,'dist');
+// 2026-11-16 perf-net (S4):可把建置輸出導到別處,效能實驗才不會蓋掉上線用的 ../../outputs/暮影村.html。
+//   node build.mjs --out <dir>   或   MISTVALE_OUT=<dir> node build.mjs
+const outArg=(()=>{const i=process.argv.indexOf('--out');return i>0&&process.argv[i+1]?process.argv[i+1]:null;})();
+const out=path.resolve(root,outArg||process.env.MISTVALE_OUT||(path.basename(path.dirname(root))==='work'?path.resolve(root,'../../outputs'):path.join(root,'dist')));
 await fs.mkdir(out,{recursive:true});
 // 2026-10-27:大張圖不再全部塞進 HTML(base64 讓首頁 27 MB)。小於 INLINE_LIMIT 的圖仍內嵌(省一個請求),
 // 其餘寫成 media/<類別>/<檔名>,執行時用相對路徑載入(Pages 子路徑、本機 http、offline SW 都快取得到)。
@@ -18,6 +21,8 @@ for(const f of ['ark-pixel-12-zh_tw.woff2','ark-pixel-12-mono-zh_tw.woff2']){
   try{await fs.copyFile(path.join(root,'assets/fonts',f),path.join(fontDir,f));}catch(e){console.warn('[fonts] 缺少字型檔',f,e.message);}
 }
 let inlined=0,external=0,externalBytes=0;
+// 2026-11-16 perf-net (S4): 記下所有寫成外部檔的素材(路徑+bytes),build 最後用來產生 <link rel=preload>。
+const externals=[],externalSet=new Set();
 // 出貨優先用無損 WebP（同資料夾同名 .webp，pipeline/scripts/build/to_webp.py 產生）
 async function media(absPath,name){
   const webp=absPath.replace(/\.png$/i,'.webp');
@@ -29,7 +34,9 @@ async function media(absPath,name){
   await fs.mkdir(path.dirname(dest),{recursive:true});
   await fs.writeFile(dest,buf);
   external++;externalBytes+=buf.length;
-  return 'media/'+finalName.split(path.sep).join('/');
+  const rel='media/'+finalName.split(path.sep).join('/');
+  if(!externalSet.has(rel)){externalSet.add(rel);externals.push({path:rel,bytes:buf.length});}
+  return rel;
 }
 const ui=await build({entryPoints:[path.join(root,'src/pixel-ui.js')],bundle:true,minify:true,write:false,format:'iife',target:'es2020',legalComments:'eof'});
 let html=await fs.readFile(path.join(root,'src/pixel-index.html'),'utf8');
@@ -192,6 +199,30 @@ try{assetScript+=`window.PIXEL_ASSETS=window.PIXEL_ASSETS||{};window.PIXEL_ASSET
      +`window.PIXEL_ASSETS.loomMonsters=${JSON.stringify(metas)};`;
  }}
 html=html.replace('/*__STYLE__*/',()=>css).replace('/*__ASSETS__*/',()=>assetScript).replace('/*__SCRIPT__*/',()=>ui.outputFiles[0].text.replaceAll('</script','<\\/script'));
+// 2026-11-16 perf-net (S4):兩段 <head> 注入,全部是建置產物(src/ 不動)。
+// 1) <meta name="mistvale-build"> = 每次建置都不同的 nonce。server.mjs 會送 X-Mistvale-Build,
+//    但靜態主機(GitHub Pages)沒有自訂標頭;sw.js 在標頭/ETag 都拿不到時改讀這個 meta 當 build id。
+//    有 build id 才可能在換版後清掉舊素材快取 → 使用者換版後的「下一次重新整理」拿到新圖。
+// 2) <link rel="preload" as="image">:載入器真正要的圖是在 bundle 解析完(~1.6 s)才開始抓;preload 讓
+//    瀏覽器在解析那份 900 KB 內嵌 script 時就先下載,圖片傳輸跟 CPU 工作重疊,而不是排在後面。
+//    只列「開場同步一定會載」的圖(PRELOAD_RULES);@2x 英雄表是放大才載、建築圖正在改延遲載入,都不列。
+const buildNonce=Date.now().toString(36)+'-'+Math.random().toString(36).slice(2,6);
+const PRELOAD_CAP=2*1024*1024;   // 別讓 <head> 把所有連線名額塞滿(首頁是 HTTP/1.1,6 條連線)
+const PRELOAD_RULES=[
+  [/^media\/(?:terrain|details|concept|atlas)\//,0],   // 地形/細節/概念圖/圖集:ensure*Atlas() 開場就載
+  [/^media\/heroes\/[^/]+\.(?:png|webp)$/,1],          // 英雄 1x 表 + fx:ensureHeroSheets() 開場全載
+];
+const cand=externals.filter(e=>!e.path.includes('@2x')).map(e=>{
+  const hit=PRELOAD_RULES.find(([re])=>re.test(e.path));
+  return hit?{...e,rank:hit[1]}:null;
+}).filter(Boolean).sort((a,b)=>a.rank-b.rank||b.bytes-a.bytes);
+const picked=[];let preloadBytes=0;
+for(const e of cand){if(preloadBytes+e.bytes>PRELOAD_CAP)continue;picked.push(e);preloadBytes+=e.bytes;}
+const headInject=`<meta name="mistvale-build" content="${buildNonce}">`
+  +picked.map(e=>`<link rel="preload" as="image" href="${e.path}">`).join('');
+const headOpen=/<head[^>]*>/i.exec(html);
+if(headOpen){const at=headOpen.index+headOpen[0].length;html=html.slice(0,at)+headInject+html.slice(at);}
+else console.warn('[preload] template has no <head>, skipping preload/meta injection');
 for (const block of html.matchAll(/<script>([\s\S]*?)<\/script>/g)) new vm.Script(block[1]);
 const file=path.join(out,'暮影村.html');await fs.writeFile(file,html,'utf8');
 const externDir=await fs.readdir(mediaDir,{recursive:true});
