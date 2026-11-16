@@ -45,7 +45,7 @@ for (const name of only) {
     await page.evaluate(() => { const g = globalThis.__mistvaleGame; for (const k of ['resources', 'buildings', 'heal']) g.cheat(k); g.state.paused = true; });
 
     // ═══ A. 獵人卡 ═══
-    await page.evaluate(() => { const g = globalThis.__mistvaleGame, h = g.state.hunters[0]; h.gold = 500; h.trainCooldown = 0; h.skillLevel = 0; h.weaponLevel = 0; h.equipment.weapon = false; h.level = 3; h.xp = 10; });
+    await page.evaluate(() => { const g = globalThis.__mistvaleGame, h = g.state.hunters[0]; h.gold = 500; h.trainCooldown = 0; h.skillLevel = 0; h.weaponLevel = 0; h.equipment.weapon = false; if (h.gear) for (const s of Object.keys(h.gear)) h.gear[s] = null; /* 2026-11-16 裝備物品化:新獵人穿著初始七件套;這段量的是「空格」外觀,先全脫(= 併入前的新獵人) */ h.level = 3; h.xp = 10; });
     const hid = await page.evaluate(() => globalThis.__mistvaleGame.state.hunters[0].id);
     await L.act(page, 'hunter', hid); await settle(page);
     const A = await ev(page, (P) => {

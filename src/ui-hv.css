@@ -2551,4 +2551,48 @@ html body #modal[data-kind=dialog] #modal-content .z2d-bubble .hv-dlg-acts .hv-b
   html body #modal[data-type=difficulty] .difficulty-card>small{grid-column:1/-1;margin:0!important}
   html body #modal[data-type=difficulty] .difficulty-card>.pixel-button{grid-column:1/-1;min-height:40px!important}
 }
+/* ===== 裝備物品化(gear items) 2026-11-15: 裝備頁七列、倉庫裝備列表 ===== */
+html body #modal[data-type=hunter] .z2-row.gear-slot{grid-template-columns:40px minmax(0,1fr)!important;align-items:start;row-gap:4px}
+html body #modal[data-type=hunter] .z2-row.gear-slot .gear-btns{display:flex;flex-wrap:wrap;gap:6px;margin-top:4px}
+html body #modal[data-type=hunter] .z2-row.gear-slot .gear-btns .z2-rowbtn{min-height:32px!important;min-width:0!important;padding:0 10px!important;font:700 13px/1 var(--font-ui)!important}
+html body #modal[data-type=hunter] .z2-row.gear-slot .gear-cand{flex:1 1 auto;min-width:132px;max-width:100%;justify-content:flex-start;text-align:left}
+html body #modal[data-type=hunter] .z2-row.gear-slot .gear-cand span{overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+html body #modal[data-type=hunter] .gear-hint{margin:2px 2px 4px;font:600 12px/1.45 var(--font-ui);color:var(--hv-text-dim);opacity:.9}
+html body #modal-content .gear-store-row{z-index:0}
+html body #modal-content .gear-store-row .z2b-act{flex-direction:row!important;flex-wrap:wrap;align-items:center}
+html body #modal-content .gear-store-row .z2b-act .pixel-button{min-height:36px!important;min-width:0!important;padding:0 10px!important;font:700 13px/1 var(--font-ui)!important}
+html body #modal-content .gear-store-who{display:flex;align-items:center;gap:6px;flex-wrap:wrap}
+html body #modal-content .gear-store-who select{min-height:36px;max-width:100%;background:#1e1b17;color:var(--hv-text);border:1px solid #4a4540;font:700 13px/1 var(--font-ui);padding:0 6px}
+html body #modal-content .gear-store-empty{opacity:.85}
+/* 2026-11-16 裝備經濟:手機上倉庫列的說明(售價/分解)不要被壓成一行一個字 → 說明獨占一列,按鈕換到下一列 */
+@media(max-width:560px){
+  html body #modal-content .gear-store-row{flex-wrap:wrap}
+  html body #modal-content .gear-store-row .z2b-rb{flex:1 1 100%;order:2}
+  html body #modal-content .gear-store-row .z2b-ic{order:1}
+  html body #modal-content .gear-store-row .z2b-act{order:3;flex:1 1 100%}
+  html body #modal-content .gear-store-row .z2b-ds{overflow-wrap:normal;word-break:keep-all}
+}
+@media(pointer:coarse){html body #modal-content .gear-store-row .z2b-act .pixel-button{min-height:44px!important}}
 /* ===== Z2D end ===== */
+
+/* ===== 2026-11-16 裝備縮圖(gear icons,m03470) =====
+   來源:build.mjs 內嵌 assets/gear-icons/<itemId>.png 32×32 → window.PIXEL_ASSETS.gearIcons。
+   固定尺寸 + pixelated,缺 key 時 JS 退回文字單字/平面圖示,版面不跳動。 */
+.gico{display:block;flex:none;width:32px;height:32px;object-fit:contain;image-rendering:pixelated;image-rendering:crisp-edges;pointer-events:none;filter:drop-shadow(0 0 1px rgba(226,216,196,.75)) drop-shadow(0 1px 0 rgba(0,0,0,.8))}
+html body #modal[data-type=hunter] .z2-row-ic.gico-box{display:grid;place-items:center;padding:0}
+html body #modal[data-type=hunter] .z2-row-ic.gico-box .gico{width:32px;height:32px}
+html body #modal[data-type=hunter] .z2-slot .gico{width:34px;height:34px}
+html body #modal[data-type=hunter] .z2-slot.open .gico{opacity:.82}
+html body :is(#inspect-content,#modal-content) .z2b-ic>img.gico{width:32px!important;height:32px!important;margin:0!important}
+html body #modal-content .gear-store-row .z2b-ic{flex-basis:44px}
+/* 倉庫「已穿全套」小圖條:七格各顯示該獵人身上那件裝備的縮圖,空位是淡字 */
+html body #modal-content .gear-set{margin:2px 0 10px;padding:8px;background:#17141a;border:1px solid #2e2926;border-radius:4px}
+html body #modal-content .gear-set-h{display:flex;align-items:center;justify-content:space-between;gap:8px;margin-bottom:6px;min-height:36px}
+html body #modal-content .gear-set-h small{opacity:.85;white-space:nowrap}
+html body #modal-content .gear-set-who{min-height:36px;max-width:60%;background:#1e1b17;color:var(--hv-text);border:1px solid #4a4540;font:700 13px/1 var(--font-ui);padding:0 6px}
+html body #modal-content .gear-set-strip{display:flex;gap:6px;flex-wrap:wrap}
+html body #modal-content .gear-set-slot{display:grid;place-items:center;width:40px;height:40px;background:#1c1916;border:1px solid #3a342e;border-radius:4px}
+html body #modal-content .gear-set-slot.empty{background:#141117;border-style:dashed;border-color:#2c2723;opacity:.6}
+html body #modal-content .gear-set-gl{font:700 14px/1 var(--font-ui);color:#cbbfa8;text-shadow:0 1px 0 rgba(0,0,0,.6)}
+html body #modal-content .gear-set-slot .gico{width:32px;height:32px}
+@media(pointer:coarse){html body #modal-content .gear-set-who{min-height:44px;font-size:14px}}

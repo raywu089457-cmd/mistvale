@@ -3,34 +3,17 @@ import {createVillageNav} from './village-nav.js';
 import {WORLD,REGIONS,walkable,inVillage,regionAt,regionContains,regionEdge,regionCenter,randomRegionPoint,wildAt,nearestRingRoad,ringRoadPath,ringPointAt,onRingRoad,ringRoadDistance,RING_ROAD_HALF,RING_ROAD} from './overworld.js';
 import {VILLAGE_BOUNDS,EXITS,blockAt,BUILDING_NUDGE,BUILDING_SLOTS,blockCenter} from './village-grid.js';
 import {sfx} from './sfx.js';
-import { SKILLS, BUILDINGS, CLASSES, RARITIES, TRAITS, MATERIALS, PRODUCTS, RECIPES, GEAR_SLOTS, EQUIP_SLOTS, GEAR_TIERS, GEAR_TIER_MAX, gearAt, DIFFICULTIES, CAMP, HUNT_ZONE, PILOT_ATTACK, PILOT_ORB, MERCHANT, AI_ATTACK_LOCK, KITE, PROVOKE, MONSTER_RANGED, LEGACY_LAYOUT_V14, LEGACY_LAYOUT_V15, LEGACY_LAYOUT_V16, ART_LAYOUT_HISTORY, REGION_DENSITY, DEFAULT_REGION_DENSITY, MONSTER_SPEED_MULT, MONSTER_ATTACK_RATE } from './pixel-data.js';
+import { SKILLS, BUILDINGS, CLASSES, RARITIES, TRAITS, MATERIALS, PRODUCTS, RECIPES, GEAR_SLOTS, EQUIP_SLOTS, GEAR_TIERS, GEAR_TIER_MAX, gearAt, DIFFICULTIES, CAMP, HUNT_ZONE, PILOT_ATTACK, PILOT_ORB, MERCHANT, AI_ATTACK_LOCK, KITE, PROVOKE, MONSTER_RANGED, LEGACY_LAYOUT_V14, LEGACY_LAYOUT_V15, LEGACY_LAYOUT_V16, ART_LAYOUT_HISTORY, REGION_DENSITY, DEFAULT_REGION_DENSITY, MONSTER_SPEED_MULT, MONSTER_ATTACK_RATE, EQUIPMENT, CLASS_STARTER, GEAR_DROP, gearItemView, dungeonGearGrade } from './pixel-data.js';
 
 const mapById = list => Object.assign(Object.create(null), Object.fromEntries(list.map(item => [item.id, item])));
 const CLASS = mapById(CLASSES), BUILDING = mapById(BUILDINGS), RARITY = mapById(RARITIES), RECIPE = mapById(RECIPES);
-// 六格裝備的空白狀態:新獵人/流浪英雄/訪客預覽都用同一份 key 集合(weapon + 六件防具)。
+// 六格裝備的空白狀態(weapon + 六件防具)。h.equipment 是由 h.gear 推回來的布林值:true = 這格穿著鐵匠鋪升級件(有數值)。
 const emptyEquipment = () => Object.fromEntries(EQUIP_SLOTS.map(slot => [slot, false]));
 // 2026-11-16 裝備階級:鍛造庫存是「每格 × 每階」→ gearStock[slot] = { 1: n, 2: n, ..., 5: n }(舊存檔的數字 = 第 1 階的件數,見 restore)。
 const emptyTierStock = () => Object.fromEntries(GEAR_TIERS.map(t => [t.tier, 0]));
 const emptyGearStock = () => Object.fromEntries(EQUIP_SLOTS.map(slot => [slot, emptyTierStock()]));
-// 獵人身上每格的階級:h.equipment[slot] 仍是布林(擁有與否;紙娃娃/HeroLoom/世界繪製都用 === true 判斷,不能改成數字),
-// 階級另存在 h.gearTier[slot](1..5)。真正的階級一律經過 gearTierOf:沒擁有 → 0;擁有但沒有階級欄位(舊存檔、直接設 true 的實驗頁)→ 1。
-const emptyGearTier = () => Object.fromEntries(EQUIP_SLOTS.map(slot => [slot, 0]));
 const clampTier = v => Math.min(GEAR_TIER_MAX, Math.max(1, Math.floor(Number(v)) || 1));
-const gearTierOf = (h, slot) => h?.equipment?.[slot] ? clampTier(h.gearTier?.[slot] || 1) : 0;
-function setGearTier(h, slot, tier) { h.equipment[slot] = tier > 0; if (!h.gearTier || typeof h.gearTier !== 'object') h.gearTier = emptyGearTier(); h.gearTier[slot] = tier > 0 ? clampTier(tier) : 0; }
-// 存檔裡的裝備 → { equipment: 布林, gearTier: 數字 }。值可以是 true/false(v2/v3)、或數字階級(防呆:別的分支若直接存數字也收)。
-// legacyArmor = v2 只有一件 armor:六件防具全穿第 1 階。
-function normalizeGear(rawEquipment, rawTier) {
-  const e = rawEquipment && typeof rawEquipment === 'object' ? rawEquipment : {}, legacyArmor = e.armor === true;
-  const equipment = emptyEquipment(), gearTier = emptyGearTier();
-  for (const slot of EQUIP_SLOTS) {
-    const v = e[slot], owned = v === true || (typeof v === 'number' && v >= 1) || (slot !== 'weapon' && legacyArmor);
-    if (!owned) continue;
-    equipment[slot] = true; gearTier[slot] = clampTier(typeof v === 'number' ? v : rawTier?.[slot] || 1);
-  }
-  return { equipment, gearTier };
-}
-// 庫存:數字(舊格式)= 第 1 階;物件 = 各階件數
+// 庫存:數字(v2/v3/v4 舊格式)= 第 1 階;物件 = 各階件數
 function normalizeTierStock(raw) {
   const out = emptyTierStock();
   if (typeof raw === 'number') out[1] = Number.isFinite(raw) ? Math.min(1e4, Math.max(0, Math.floor(raw))) : 0;
@@ -38,10 +21,37 @@ function normalizeTierStock(raw) {
   return out;
 }
 const tierStockTotal = st => GEAR_TIERS.reduce((n, t) => n + (st?.[t.tier] || 0), 0);
-// 換更高階時至少留這麼多錢付吃住(第一次買某格不留,維持舊行為)
+// 換更高階時至少留這麼多錢付吃住(第一次把初始件換成升級件不留,維持舊行為)
 const GEAR_RESERVE = 40;
+// 村莊裝備倉庫讀檔上限(v4 原本 400;裝備階級上線後換下來的舊件也進倉庫,放寬)
+const GEAR_STORAGE_MAX = 2000;
 // 離線外推時整段不乘倍率的統計(裝備買賣只發生在取樣期,離線庫存不會補)
 const GEAR_ONE_OFF = new Set(['gearSold', 'gearUpgrades', 'gearIncome']);
+// 2026-11-15 裝備物品化(experiment/heroloom 併入 5024,存檔 v4):實例 = {uid,itemId[,grade]};物品表在 pixel-data.EQUIPMENT。
+// 2026-11-17 併入裝備階級:鐵匠鋪升級件的實例多一個 grade(1..5,沒有 = 1);實際數值/名稱/售價/分解一律經過 gearItemView。
+// 唯一的數值來源是身上的物品;沒有 h.gear 的暫時物件(訪客預覽、實驗面板假獵人)才退回 v3 布林值算法(第 1 階)。
+// weapon = 是否穿著鐵匠鋪武器:只有這時武器強化(weaponLevel)才生效,跟 v3「沒買武器就不能強化」相同。
+const EQUIP = mapById(Object.values(EQUIPMENT));
+const gearItemOf = inst => (inst && EQUIP[inst.itemId] ? gearItemView(inst) : null);
+// 獵人某一格的鐵匠鋪升級件階級:0 = 沒有升級件(空格或初始件);沒有 h.gear 的暫時物件看 equipment 布林值(= 第 1 階)。
+function gearTierOf(h, slot) {
+  if (!h) return 0;
+  if (h.gear) { const it = gearItemOf(h.gear[slot]); return it && it.tier === 'craft' ? it.grade || 1 : 0; }
+  return h.equipment?.[slot] === true ? 1 : 0;
+}
+function gearBonus(h) {
+  let atk = 0, hp = 0, def = 0, weapon = false;
+  const g = h && h.gear;
+  if (g) {
+    for (const slot of EQUIP_SLOTS) { const it = gearItemOf(g[slot]); if (it) { atk += it.stats.atk || 0; hp += it.stats.hp || 0; def += it.stats.def || 0; } }
+    weapon = gearItemOf(g.weapon)?.tier === 'craft';
+  } else {
+    const eq = (h && h.equipment) || {}, legacyArmor = eq.armor === true;
+    if (eq.weapon === true) { atk += RECIPE.weapon.bonus; weapon = true; }
+    for (const slot of GEAR_SLOTS) if (eq[slot] === true || legacyArmor) { hp += RECIPE[slot].hp || 0; def += RECIPE[slot].def || 0; }
+  }
+  return { atk, hp, def, weapon };
+}
 // 操控模式的「測試特效」表:pixelfx 表名 → 世界單位/秒數/放在目標還是自己身上
 const PILOT_FX = {
   'root-snare': { k: .52, dur: 2.7, at: 'line', dy: 0 },
@@ -476,16 +486,76 @@ export function createGame(saved = null) {
   function updateStats(h, preserveRatio = false) {
     const ratio = h.maxHp > 0 ? clamp(h.hp / h.maxHp, 0, 1) : 1;
     const c = CLASS[h.classId], rarity = RARITY[h.rarity].mult, rebirth = 1 + h.rebirths * 0.35;
-    // 六件防具的 hp/def 直接加在職業基礎值上再一起乘等級/稀有度(舊皮革護甲 +28/+4 → 全套 +50/+10);
-    // 武器維持 +7 攻擊,強化倍率走 weaponLevel。沒有裝備欄位的暫時物件(訪客預覽)視為空裝。
-    let gearHp = 0, gearDef = 0;
-    for (const r of GEAR_SLOTS) { const t = gearTierOf(h, r); if (t) { const s = gearAt(RECIPE[r], t); gearHp += s.hp || 0; gearDef += s.def || 0; } }
-    const wt = gearTierOf(h, 'weapon'), weaponBonus = wt ? gearAt(RECIPE.weapon, wt).bonus : 0;   // 第 1 階 = +7(舊值)
-    h.maxHp = Math.round((c.hp + gearHp) * (1 + (h.level - 1) * 0.075) * rarity * rebirth * (h.trait === 'stout' ? 1.15 : 1));
-    h.attack = Math.round((c.attack + weaponBonus) * (1 + (h.level - 1) * 0.065) * rarity * rebirth * (1 + h.skillLevel * 0.1) * (1 + h.weaponLevel * 0.07) * (h.trait === 'brave' ? 1.1 : 1));
-    h.defense = c.defense + gearDef + Math.floor(h.level / 8) + h.rebirths * 2;
+    // 裝備數值由穿在身上的物品加總(gearBonus):初始套裝 0 數值,鐵匠鋪升級件 = RECIPES 數值(全套 生命 +50、防禦 +10、攻擊 +7)。
+    // 武器強化倍率只在穿著鐵匠鋪武器時生效(v3 也是「沒武器就是 +0」)。
+    const bonus = gearBonus(h), weaponLevel = bonus.weapon ? h.weaponLevel || 0 : 0;
+    h.maxHp = Math.round((c.hp + bonus.hp) * (1 + (h.level - 1) * 0.075) * rarity * rebirth * (h.trait === 'stout' ? 1.15 : 1));
+    h.attack = Math.round((c.attack + bonus.atk) * (1 + (h.level - 1) * 0.065) * rarity * rebirth * (1 + h.skillLevel * 0.1) * (1 + weaponLevel * 0.07) * (h.trait === 'brave' ? 1.1 : 1));
+    h.defense = c.defense + bonus.def + Math.floor(h.level / 8) + h.rebirths * 2;
     h.range = Math.max(c.range, 1.75); h.speed = c.speed;  // 近戰距離配合角色圖寬(21/28–33 世界像素),不然兩邊疊成一團
     h.hp = preserveRatio ? Math.round(h.maxHp * ratio) : clamp(h.hp ?? h.maxHp, 0, h.maxHp);
+  }
+
+  // ── 2026-11-15 裝備物品化:物品實例 {uid,itemId[,grade]}、同步 h.equipment 布林值與數值、初始套裝 ──
+  // grade 只出現在鐵匠鋪升級件(tier='craft')上,而且只在第 2 階以上才寫 → 第 1 階/初始件的實例跟 v4 原格式一模一樣。
+  function newGearItem(itemId, grade) {
+    const inst = { uid: 'g' + (state.gearSeq = (state.gearSeq || 0) + 1), itemId };
+    if (EQUIP[itemId]?.tier === 'craft' && grade != null) { const g = clampTier(grade); if (g > 1) inst.grade = g; }
+    return inst;
+  }
+  function syncGear(h) {
+    const g = h.gear || (h.gear = {});
+    // h.equipment = 「這格穿著鐵匠鋪升級件(有數值)」。DV2/舊精靈表外觀、武器強化門檻、立繪快取鍵都讀這組布林值,語意跟 v3 相同;
+    // 初始套裝(0 數值)只出現在 h.gear 與 HeroLoom 紙娃娃上。
+    h.equipment = Object.fromEntries(EQUIP_SLOTS.map(slot => [slot, gearItemOf(g[slot])?.tier === 'craft']));
+    updateStats(h, true);
+  }
+  function giveStarterGear(h) {
+    const set = CLASS_STARTER[h.classId] || CLASS_STARTER.traveler;
+    h.gear = {};
+    for (const slot of EQUIP_SLOTS) h.gear[slot] = null;
+    for (const [slot, itemId] of Object.entries(set)) if (EQUIP[itemId]) h.gear[slot] = newGearItem(itemId);
+    syncGear(h);
+  }
+
+  // 存檔 → 身上七格(存檔 v4)。v4 有 gear:逐格驗證物品,uid 重新配號避免撞號,空格保持空;升級件保留 grade(裝備階級)。
+  // v2/v3 只有布林值:有的格子換成鐵匠鋪同格升級件(數值 = 舊配方,不變弱也不變強),沒有的格子穿職業初始件(0 數值);
+  // v2 的 armor=true 代表穿著護甲 → 六件防具全穿(跟 v2→v3 遷移規則相同)。獵人與流浪英雄共用。
+  // 2026-11-16 裝備階級版的 v3 存檔:h.gearTier[slot] = 1..5(equipment 仍是布林)→ 升級件照那一階發;equipment 值若是數字也當階級收。
+  function restoreGear(h, raw) {
+    if (raw && raw.gear && typeof raw.gear === 'object' && !Array.isArray(raw.gear)) {
+      h.gear = {};
+      for (const slot of EQUIP_SLOTS) {
+        const inst = raw.gear[slot], item = inst && typeof inst.itemId === 'string' ? EQUIP[inst.itemId] : null;
+        h.gear[slot] = item && item.slot === slot ? newGearItem(item.id, inst.grade) : null;
+      }
+      syncGear(h); return;
+    }
+    const eq = (raw && raw.equipment) || {}, legacyArmor = eq.armor === true, tiers = raw && raw.gearTier && typeof raw.gearTier === 'object' ? raw.gearTier : {};
+    giveStarterGear(h);
+    let upgraded = false;
+    for (const slot of EQUIP_SLOTS) {
+      const v = eq[slot], owned = v === true || (typeof v === 'number' && v >= 1) || (slot !== 'weapon' && legacyArmor);
+      if (!owned) continue;
+      h.gear[slot] = newGearItem('craft_' + slot, typeof v === 'number' ? v : tiers[slot] || 1); upgraded = true;
+    }
+    if (upgraded) syncGear(h);
+  }
+
+
+  // ── 2026-11-16 裝備經濟(docs/EQUIPMENT-ECONOMY.md):掉落/獎勵直接進村莊裝備倉庫,玩家再決定要穿/賣/分解 ──
+  function grantGear(itemId, sourceLabel = '戰利品', grade) {
+    if (!EQUIP[itemId]) return null;
+    const inst = newGearItem(itemId, grade), item = gearItemOf(inst);
+    state.gearStorage.push(inst);
+    log(`${sourceLabel}：獲得${item.name}（已放入裝備倉庫）。`, 'loot');
+    return inst;
+  }
+  function rollGearDrop(kind) {
+    const rule = GEAR_DROP[kind];
+    if (!rule || !rule.pool || !rule.pool.length) return null;
+    if (rule.chance != null && random() >= rule.chance) return null;
+    return rule.pool[Math.floor(random() * rule.pool.length)];
   }
 
   function gainXp(h, amount) {
@@ -608,9 +678,10 @@ export function createGame(saved = null) {
   function newHunter(classId, position = CAMP, initialIndex = -1) {
     const roll = random(), rarity = initialIndex >= 0 ? ['normal', 'rare', 'normal', 'superior', 'rare'][initialIndex % 5] : roll < 0.55 ? 'normal' : roll < 0.82 ? 'rare' : roll < 0.94 ? 'superior' : roll < 0.99 ? 'heroic' : 'legendary';
     const p = onRoadPoint(safePoint(position));
-    const h = { id: id('h'), name: freeName(state.hunters.length), classId, rarity, trait: TRAITS[Math.floor(random() * TRAITS.length)].id, level: initialIndex >= 0 ? 3 + initialIndex % 3 : 1, xp: 0, rebirths: 0, skillLevel: 0, weaponLevel: 0, equipment: emptyEquipment(), gearTier: emptyGearTier(), gold: 100, inventory: Object.fromEntries(MATERIAL_KEYS.map(key => [key, 0])), satiety: initialIndex >= 0 ? 70 + initialIndex * 4 : 90, mood: initialIndex >= 0 ? 88 - initialIndex * 4 : 90, stamina: initialIndex >= 0 ? 78 + initialIndex * 2 : 90, x: p.x, z: p.z, hp: CLASS[classId].hp, maxHp: CLASS[classId].hp, status: '待機', targetId: null, attackTimer: random() * 0.5, route: [], task: null, serviceProduct: null, actionTimer: 0, trainCooldown: 0, reviveTimer: 0, lastTownVisit: state.time, tradedVisit: false, shoppedVisit: false, servedVisit: [], inTown: true, huntRegion: null, mount: null };
+    const h = { id: id('h'), name: freeName(state.hunters.length), classId, rarity, trait: TRAITS[Math.floor(random() * TRAITS.length)].id, level: initialIndex >= 0 ? 3 + initialIndex % 3 : 1, xp: 0, rebirths: 0, skillLevel: 0, weaponLevel: 0, equipment: emptyEquipment(), gear: null, gold: 100, inventory: Object.fromEntries(MATERIAL_KEYS.map(key => [key, 0])), satiety: initialIndex >= 0 ? 70 + initialIndex * 4 : 90, mood: initialIndex >= 0 ? 88 - initialIndex * 4 : 90, stamina: initialIndex >= 0 ? 78 + initialIndex * 2 : 90, x: p.x, z: p.z, hp: CLASS[classId].hp, maxHp: CLASS[classId].hp, status: '待機', targetId: null, attackTimer: random() * 0.5, route: [], task: null, serviceProduct: null, actionTimer: 0, trainCooldown: 0, reviveTimer: 0, lastTownVisit: state.time, tradedVisit: false, shoppedVisit: false, servedVisit: [], inTown: true, huntRegion: null, mount: null };
     h.gender = nameGender(h.name) ?? hunterGender(h.id);   // 性別跟名字走(NAME_GENDER);自訂名才用 id 雜湊。不擲骰,隨機數序列不變
-    updateStats(h); h.hp = h.maxHp; state.hunters.push(h); idleInTown(h); return h;
+    giveStarterGear(h);  // 新獵人直接穿上該職業的初始七件套(0 數值,只有外觀;開局數值跟沒裝備時一樣)
+    h.hp = h.maxHp; state.hunters.push(h); idleInTown(h); return h;
   }
 
   // 新職業上架:名單裡還沒有這個職業的獵人(也沒有這個職業的訪客),就把招募欄第一位換成它(稀有;新舊存檔都適用)。
@@ -680,7 +751,7 @@ export function createGame(saved = null) {
     const region = REGIONS[1 + Math.floor(random() * Math.max(1, REGIONS.length - 1))] || REGIONS[1];
     const p = safePoint({ x: region.x - 4 + random() * 8, z: region.z - 4 + random() * 8 });
     const w = { id: id('w'), name: freeName(Math.floor(random() * NAMES.length)), classId: c.id, rarity, trait: 'brave', level: 3 + Math.floor(random() * 6), xp: 0,
-      rebirths: 0, skillLevel: 0, weaponLevel: 0, equipment: emptyEquipment(), gearTier: emptyGearTier(), inventory: Object.fromEntries(MATERIAL_KEYS.map(key => [key, 0])),
+      rebirths: 0, skillLevel: 0, weaponLevel: 0, equipment: emptyEquipment(), gear: null, inventory: Object.fromEntries(MATERIAL_KEYS.map(key => [key, 0])),
       gold: WANDER_START_GOLD, satiety: 100, stamina: 100, mood: 100,
       regionId: region.id, x: p.x, z: p.z, hp: c.hp, maxHp: c.hp, attack: c.attack, defense: c.defense, range: Math.max(c.range, 1.75),
       status: '遊蕩中', targetId: null, attackTimer: random() * 0.6, route: [], reviveTimer: 0, facingX: 0, facingZ: 0, facingAt: 0,
@@ -688,6 +759,7 @@ export function createGame(saved = null) {
       tradedVisit: false, shoppedVisit: false, servedVisit: [] };
     w.huntRegion = bestRegionFor(w).id;
     w.gender = nameGender(w.name) ?? hunterGender(w.id);   // 流浪英雄也跟名字走(外觀用);不擲骰
+    giveStarterGear(w);                  // 流浪英雄也是「新角色」,同樣穿著該職業初始裝備
     updateStats(w); w.hp = w.maxHp;      // 攻擊/防禦/速度跟招募進來的獵人同一套公式（速度也就一樣了）
     return w;
   }
@@ -701,7 +773,8 @@ export function createGame(saved = null) {
     return null;
   }
   function tradeAvailable(h) { return state.buildings.trading > 0 && MATERIAL_KEYS.some(key => h.inventory[key] > 0 && state.tradeRequests[key] > 0 && state.gold >= MATERIALS[key].price); }
-  // 這一格現在能買到的最好裝備:庫存裡比身上高階、買得起的最高階(換新時要留 GEAR_RESERVE 付吃住);沒有 → null
+  // 這一格現在能買到的最好裝備:庫存裡比身上高階、買得起的最高階(身上已有升級件時要留 GEAR_RESERVE 付吃住);沒有 → null
+  // 身上是初始件(0 數值)或空格 = 第 0 階,任何一階都算升級。
   function gearOffer(h, recipe) {
     const own = gearTierOf(h, recipe.type), stock = state.gearStock[recipe.type];
     for (let t = GEAR_TIER_MAX; t > own; t--) { if (!(stock?.[t] > 0)) continue; const g = gearAt(recipe, t); if (h.gold >= g.price + (own ? GEAR_RESERVE : 0)) return g; }
@@ -776,14 +849,18 @@ export function createGame(saved = null) {
   // 付給村莊的錢記到誰的帳上(離線戰報分開列「你的獵人」與「流浪英雄」帶給村莊的收入)
   function payLedger(a, gold) { const k = wandererOf(a) ? 'wanderPay' : 'hunterPay'; state.counts[k] = (state.counts[k] || 0) + gold; }
   function shop(h) {
+    if (!h.gear) giveStarterGear(h);   // 保險:沒有裝備資料的物件(舊測試/外部呼叫)先補上初始套裝
     for (const recipe of RECIPES) {
       const g = gearOffer(h, recipe); if (!g) continue;
-      const upgrade = gearTierOf(h, recipe.type) > 0;
-      h.gold -= g.price; state.gold += g.price; payLedger(h, g.price); state.gearStock[recipe.type][g.tier]--; setGearTier(h, recipe.type, g.tier);
-      state.counts.gearSold++; state.counts.gearIncome += g.price; if (upgrade) state.counts.gearUpgrades++; updateStats(h, true);
+      const slot = recipe.type, previous = h.gear[slot], upgrade = gearTierOf(h, slot) > 0;
+      h.gold -= g.price; state.gold += g.price; payLedger(h, g.price); state.gearStock[slot][g.tier]--;
+      // 換下來的舊件(初始件或低階升級件)進村莊倉庫,不是消失:玩家可以拿去賣、拆,或給別的獵人穿
+      if (previous) state.gearStorage.push(previous);
+      h.gear[slot] = newGearItem('craft_' + slot, g.tier);
+      syncGear(h); state.counts.gearSold++; state.counts.gearIncome += g.price; if (upgrade) state.counts.gearUpgrades++;
       // 離線外推:裝備是一次性的(庫存離線不會補),取樣期買的不能乘上倍率重複算(見 offlineFinish)
       if (dgLedger) { const w = !!wandererOf(h); dgLedger.gearPay[w ? 'wanderPay' : 'hunterPay'] += g.price; if (w) dgLedger.gearWander += g.price; else dgLedger.gear[h.id] = (dgLedger.gear[h.id] || 0) + g.price; }
-      log(`${h.name} 花費 ${g.price} 金幣${upgrade ? '換上' : '購買'}${g.name}。`, 'success'); effect('upgrade', h);
+      log(`${h.name} 花費 ${g.price} 金幣${upgrade ? '換上' : '購買'}${gearItemOf(h.gear[slot])?.name || g.name}。`, 'success'); effect('upgrade', h);
       effect('loot', buildingPoint('forge'), { text: `+${g.price}`, color: '#efcd82', delay: 0.2 });   // 2026-11-16 UX:獵魔村式「店家收錢」金幣跳字,讓玩家看到升級設施 → 收入
     }
     h.shoppedVisit = true;
@@ -1052,7 +1129,10 @@ export function createGame(saved = null) {
     for (const h of state.hunters) if (h.hp > 0 && h.task !== 'dungeon' && h.task !== 'arena' && (distance(h, enemy) < 12 || h === hunter)) gainXp(h, Math.round(data.xp * Math.sqrt(multiplier)));
     if (enemy.type === 'boss') {
       state.bossKills++; state.gems += 5; Object.assign(state.expedition, { active: false, bossHp: 0, cooldown: 55, elapsed: 0 });
+      const bossGear = rollGearDrop('boss'); if (bossGear) grantGear(bossGear, '森林領主的寶箱');
       log('森林領主已被擊敗！村莊獲得 5 顆晶石，獵人帶回稀有戰利品。', 'success'); effect('victory', enemy);
+    } else {
+      const wildGear = rollGearDrop('monster'); if (wildGear) grantGear(wildGear, '野外戰利品');
     }
   }
 
@@ -1161,6 +1241,9 @@ export function createGame(saved = null) {
     const got = [[d.reward.gold, '金幣'], [d.reward.ore, '鐵礦'], [d.reward.gems, '晶石']].filter(([n]) => n > 0).map(([n, name]) => `${n} ${name}`);
     const gotText = got.length > 1 ? `${got.slice(0, -1).join('、')}與 ${got[got.length - 1]}` : got.join('');
     log(rw.first ? `地下城第 ${floor} 層突破！村莊獲得 ${gotText}。` : `地下城第 ${floor} 層再次通過，村莊獲得 ${gotText}（已打過的樓層，獎勵減少）。`, 'success'); effect('victory', door('dungeon'));
+    // 2026-11-16 裝備經濟:每 N 層開一次寶箱(掉進村莊裝備倉庫,不佔樓層獎勵帳本)。
+    // 2026-11-17 併入 DG_REPEAT:只有第一次打過的樓層開寶箱(已打過的樓層反覆刷不會灌爆倉庫);階級跟著樓層(dungeonGearGrade)。
+    if (rw.first && floor % GEAR_DROP.dungeon.every === 0) { const dgGear = rollGearDrop('dungeon'); if (dgGear) grantGear(dgGear, `地下城第 ${floor} 層寶箱`, dungeonGearGrade(floor)); }
     dgEvent('clear', null, null, floor);
     if (d.auto && floor < 100 && party.every(h => h.hp > 0)) {
       const rested = h => Math.min(h.maxHp, h.hp + Math.round(h.maxHp * DG_REST_HEAL)), next = dgForecast(party, floor + 1, 1, rested);
@@ -1695,7 +1778,7 @@ export function createGame(saved = null) {
   function fresh() {
 
     for (const key of Object.keys(state)) delete state[key];
-    Object.assign(state, { version: 3, layoutRevision: 3, worldRevision: 4, region: 'meadow', visitedRegions:['village','meadow'], gold: 1500, wood: 160, ore: 120, herb: 60, cloth: 60, flour: 80, leather: 50, gems: 20, day: 1, time: 0, paused: false, speed: 1, difficulty: 0, kills: 0, totalKills: 0, bossKills: 0, codex: {}, recruited: 0, hunters: [], enemies: [], buildings: Object.fromEntries(BUILDINGS.map(b => [b.id, UNBUILT.has(b.id) ? 0 : 1])), layout: Object.fromEntries(BUILDINGS.map(b => [b.id, { x: b.x, z: b.z }])), stocks: { food: 30, drink: 30, bed: 30, bandage: 30 }, gearStock: emptyGearStock(), tradeRequests: { wood: 30, ore: 40, herb: 30, cloth: 30, flour: 40, leather: 30 }, counts: { crafted: 0, foodCrafted: 0, traded: 0, gearCrafted: 0, weaponsCrafted: 0, gearSold: 0, gearUpgrades: 0, gearIncome: 0, services: 0, basicServices: 0, serviceIncome: 0, dungeonWins: 0, rebirths: 0, deaths: 0, trained: 0, hunterGold: 0, hunterPay: 0, wanderGold: 0, wanderPay: 0 }, effects: [], log: [], quest: { index: 0, claimed: false }, questRevision: QUEST_REVISION, questFinalPaid: false, expedition: { active: false, bossHp: 0, bossMaxHp: 1150, cooldown: 0, elapsed: 0 }, dungeon: { active: false, floor: 1, bestFloor: 0, wave: 0, enemyHp: 0, enemyMaxHp: 0, time: 0, hunterIds: [], reward: {}, cooldown: 0, phase: '待命', attackTimer: 1, foes: [], events: [], auto: false, startFloor: 0, rest: 0 }, healCooldown: 0, capacity: Math.max(8, CLASSES.length + 2), spawnTimer: 0, seed: 918273, nextId: 0, rally: null, dispatchTeams: defaultDispatchTeams(), regionDensity: normalizeRegionDensity(null), settings: { ...DEFAULT_SETTINGS } });
+    Object.assign(state, { version: 4, layoutRevision: 3, worldRevision: 4, region: 'meadow', visitedRegions:['village','meadow'], gold: 1500, wood: 160, ore: 120, herb: 60, cloth: 60, flour: 80, leather: 50, gems: 20, day: 1, time: 0, paused: false, speed: 1, difficulty: 0, kills: 0, totalKills: 0, bossKills: 0, codex: {}, recruited: 0, hunters: [], enemies: [], buildings: Object.fromEntries(BUILDINGS.map(b => [b.id, UNBUILT.has(b.id) ? 0 : 1])), layout: Object.fromEntries(BUILDINGS.map(b => [b.id, { x: b.x, z: b.z }])), stocks: { food: 30, drink: 30, bed: 30, bandage: 30 }, gearStock: emptyGearStock(), gearStorage: [], gearSeq: 1, tradeRequests: { wood: 30, ore: 40, herb: 30, cloth: 30, flour: 40, leather: 30 }, counts: { crafted: 0, foodCrafted: 0, traded: 0, gearCrafted: 0, weaponsCrafted: 0, gearSold: 0, gearUpgrades: 0, gearIncome: 0, services: 0, basicServices: 0, serviceIncome: 0, dungeonWins: 0, rebirths: 0, deaths: 0, trained: 0, hunterGold: 0, hunterPay: 0, wanderGold: 0, wanderPay: 0 }, effects: [], log: [], quest: { index: 0, claimed: false }, questRevision: QUEST_REVISION, questFinalPaid: false, expedition: { active: false, bossHp: 0, bossMaxHp: 1150, cooldown: 0, elapsed: 0 }, dungeon: { active: false, floor: 1, bestFloor: 0, wave: 0, enemyHp: 0, enemyMaxHp: 0, time: 0, hunterIds: [], reward: {}, cooldown: 0, phase: '待命', attackTimer: 1, foes: [], events: [], auto: false, startFloor: 0, rest: 0 }, healCooldown: 0, capacity: Math.max(8, CLASSES.length + 2), spawnTimer: 0, seed: 918273, nextId: 0, rally: null, dispatchTeams: defaultDispatchTeams(), regionDensity: normalizeRegionDensity(null), settings: { ...DEFAULT_SETTINGS } });
     rebuildNavigation();
     state.visitors = [];
     state.arena = { active: false, wins: 0, losses: 0, enemyHp: 0, enemyMaxHp: 0, time: 0, hunterIds: [], cooldown: 0, phase: '待命', attackTimer: 1, opponent: '暮林訓練隊', reward: 0 };
@@ -1731,7 +1814,7 @@ export function createGame(saved = null) {
     if (typeof source === 'string') { try { source = JSON.parse(source); } catch { return; } }
     // 存檔版本:2 = 舊的 weapon+armor;3 = 六格裝備(2026-11-13)。v2 照樣載入,下面的 migration 會升級,
     // 下一次 save() 就寫成 v3。v1 與未知版本仍然拒絕(格式差太多)。
-    if (!source || typeof source !== 'object' || Array.isArray(source) || (source.version !== 2 && source.version !== 3)) return;
+    if (!source || typeof source !== 'object' || Array.isArray(source) || (source.version !== 2 && source.version !== 3 && source.version !== 4)) return;
     // 2026-10-19 起地圖縮小、村莊重排(worldRevision 4):舊存檔裡的座標(英雄、流浪英雄、魔物、集結點)和自訂建築位置在新地圖上沒有意義,
     // 所以建築回到新預設、英雄回營地、魔物與流浪英雄的位置重新來;進度、資源、等級都保留。
     const oldMap = source.worldRevision !== 4;
@@ -1761,10 +1844,16 @@ export function createGame(saved = null) {
     state.layout = layout;
     rebuildNavigation();
     for (const key of PRODUCT_KEYS) state.stocks[key] = integer(source.stocks?.[key], 30, 0, 1e5);
-    // 2026-11-16 起每格分階:舊存檔(v2/v3 到 2026-11-16 為止)每格是一個數字 = 第 1 階的件數;新格式是 {1..5: 件數}。
+    // 2026-11-16 起每格分階:舊存檔(v2/v3/v4 到 2026-11-16 為止)每格是一個數字 = 第 1 階的件數;新格式是 {1..5: 件數}。
     for (const key of EQUIP_SLOTS) state.gearStock[key] = normalizeTierStock(source.gearStock?.[key]);
     // v2 的 armor 庫存:那時 armor 就是胸甲,把數量併到 chest 第 1 階(不憑空多送五件,也不讓已造好的裝備消失)。
     state.gearStock.chest[1] = Math.min(1e4, state.gearStock.chest[1] + integer(source.gearStock?.armor, 0, 0, 1e4));
+    // 村莊倉庫裡的裝備物品(v4;v2/v3 沒有這個欄位 → 空倉庫)。uid 一律重新配號;計數器不低於開局已用掉的號碼。
+    // 升級件的階級(grade)跟著物品走。上限 2000 件(裝備階級上線後,換下來的舊件也進倉庫)。
+    state.gearSeq = Math.max(state.gearSeq || 1, integer(source.gearSeq, 1, 1, 1e9));
+    state.gearStorage = Array.isArray(source.gearStorage)
+      ? source.gearStorage.filter(g => g && typeof g.itemId === 'string' && EQUIP[g.itemId]).slice(0, GEAR_STORAGE_MAX).map(g => newGearItem(g.itemId, g.grade))
+      : [];
     for (const key of MATERIAL_KEYS) state.tradeRequests[key] = integer(source.tradeRequests?.[key], state.tradeRequests[key], 0, 999);
     for (const key of Object.keys(state.counts)) state.counts[key] = integer(source.counts?.[key], 0, 0, 1e7);
     state.healCooldown = number(source.healCooldown, 0, 0, 40); state.spawnTimer = number(source.spawnTimer, 0, 0, 4.5);
@@ -1778,11 +1867,10 @@ export function createGame(saved = null) {
         h.name = typeof raw.name === 'string' ? raw.name.replace(/[<>&"'`\x00-\x1f]/g, '').slice(0, 16) || h.name : h.name;
         h.rarity = own(RARITY, raw.rarity) ? raw.rarity : 'normal'; h.trait = TRAITS.some(t => t.id === raw.trait) ? raw.trait : h.trait;
         h.level = integer(raw.level, 1, 1, 100); h.xp = h.level === 100 ? 0 : number(raw.xp, 0, 0, xpNeeded(h.level) - 0.001); h.rebirths = integer(raw.rebirths, 0, 0, 20); h.skillLevel = integer(raw.skillLevel, 0, 0, 5);
-        // v2 存檔只有 weapon/armor:armor=true 代表「穿著護甲」→ 六件防具全穿(舊玩家不能因為改版變弱)。
-        // v3 之後每格看自己的 key;防具格不因為 armor 舊值而互相污染。
-        // 2026-11-16 階級:h.gearTier 是加法欄位;舊存檔沒有 → 擁有的每格都是第 1 階(戰力不變)。
-        Object.assign(h, normalizeGear(raw.equipment, raw.gearTier));
-        h.weaponLevel = h.equipment.weapon ? integer(raw.weaponLevel, 0, 0, 10) : 0;
+        // v4:逐格還原物品(含升級件階級 grade);v2/v3:布林值 → 鐵匠鋪同格升級件(v2 armor=true → 六件防具全穿),其餘格穿職業初始件;
+        // 2026-11-16 的 v3 存檔另有 h.gearTier(每格階級)→ 升級件照那個階級發。見 restoreGear。
+        restoreGear(h, raw);
+        h.weaponLevel = (raw.gear || h.equipment.weapon) ? integer(raw.weaponLevel, 0, 0, 10) : 0;
         h.gold = integer(raw.gold, 100, 0, 1e7); for (const key of MATERIAL_KEYS) h.inventory[key] = integer(raw.inventory?.[key], 0, 0, 1e5);
         for (const key of ['satiety', 'mood', 'stamina']) h[key] = number(raw[key], 80, 0, 100);
         updateStats(h); h.hp = number(raw.hp, h.maxHp, 0, h.maxHp); h.attackTimer = number(raw.attackTimer, 0, 0, 2);
@@ -1819,7 +1907,7 @@ export function createGame(saved = null) {
       if (oldMap) { const f = newWanderer(); Object.assign(base, { x: f.x, z: f.z, regionId: f.regionId, huntRegion: f.huntRegion, targetId: null, task: null, destination: null, inTown: false, serviceProduct: null, status: '遊蕩中' }); }
       // 性別:名字認得就用名字;否則存檔值;舊存檔沒有 → id 雜湊(不用上面 newWanderer() 隨機取名的性別)
       base.gender = nameGender(base.name) ?? (w.gender === 'f' || w.gender === 'm' ? w.gender : hunterGender(base.id));
-      Object.assign(base, normalizeGear(w.equipment, w.gearTier));   // 裝備階級同獵人(舊存檔 → 第 1 階)
+      restoreGear(base, w);   // 裝備物品化(v4):流浪英雄跟獵人同一套遷移;newWanderer() 是隨機職業,初始件要照存檔的職業重發
       return base;
     }) : [];
     while (state.wanderers.length < 4) state.wanderers.push(newWanderer());
@@ -1894,7 +1982,7 @@ export function createGame(saved = null) {
     // T127：招募卡要預覽「請進來會是什麼體質」。重用 updateStats，不另外複製一份公式；
     // 等級 1、無裝備、無轉世，跟 newHunter() 剛建立的狀態一致。
     visitorPreview(v) {
-      const t = { classId: v.classId, rarity: v.rarity, trait: v.trait, level: 1, rebirths: 0, skillLevel: 0, weaponLevel: 0, equipment: emptyEquipment(), gearTier: emptyGearTier(), hp: 1, maxHp: 1 };
+      const t = { classId: v.classId, rarity: v.rarity, trait: v.trait, level: 1, rebirths: 0, skillLevel: 0, weaponLevel: 0, equipment: emptyEquipment(), hp: 1, maxHp: 1 };
       updateStats(t);
       return { attack: t.attack, defense: t.defense, maxHp: t.maxHp, range: t.range };
     },
@@ -1985,10 +2073,68 @@ export function createGame(saved = null) {
     enhance(hunterId) {
       const h = state.hunters.find(h => h.id === hunterId); if (!h) return result(false, '找不到這位獵人。');
       if (!state.buildings.enhancement) return result(false, '請先建造強化精煉所。');
-      if (!h.equipment.weapon) return result(false, '這位獵人還沒有購買武器。請先在鐵匠鋪製造武器。');
+      if (!h.equipment.weapon) return result(false, '這位獵人沒有穿鐵匠鋪武器(初始武器不能強化)。請先在鐵匠鋪製造武器。');
       if (h.weaponLevel >= 10) return result(false, '武器已達最高強化 +10。');
       const cost = enhanceCostOf(h); if (!canPay(cost)) return result(false, `強化需要 ${cost.gold} 村莊金幣與 ${cost.ore} 鐵礦。`);
       pay(cost); h.weaponLevel++; updateStats(h, true); effect('upgrade', h); return result(true, `${h.name}的武器強化為 +${h.weaponLevel}。`);
+    },
+    // ── 2026-11-15 裝備物品操作(卸下/出售/分解/倉庫;UI 從 game.state.gearStorage 讀倉庫) ──
+    unequipGear(hunterId, slot) {
+      const h = state.hunters.find(x => x.id === hunterId); if (!h) return result(false, '找不到這位獵人。');
+      if (!EQUIP_SLOTS.includes(slot)) return result(false, '沒有這個裝備格。');
+      const inst = h.gear && h.gear[slot], item = gearItemOf(inst);
+      if (!item) return result(false, '這個位置沒有穿裝備。');
+      h.gear[slot] = null; syncGear(h); state.gearStorage.push(inst);
+      log(`${h.name} 卸下${item.name},收進倉庫。`, 'info'); return result(true, `已卸下${item.name},放進倉庫。`);
+    },
+    storeGear(hunterId, slot) {
+      const h = state.hunters.find(x => x.id === hunterId); if (!h) return result(false, '找不到這位獵人。');
+      if (!EQUIP_SLOTS.includes(slot)) return result(false, '沒有這個裝備格。');
+      const inst = h.gear && h.gear[slot], item = gearItemOf(inst);
+      if (!item) return result(false, '這個位置沒有穿裝備。');
+      h.gear[slot] = null; syncGear(h); state.gearStorage.push(inst);
+      return result(true, `${item.name} 已存放進倉庫。`);
+    },
+    sellGear(hunterId, slot) {
+      const h = state.hunters.find(x => x.id === hunterId); if (!h) return result(false, '找不到這位獵人。');
+      const inst = h.gear && h.gear[slot], item = gearItemOf(inst);
+      if (!item) return result(false, '這個位置沒有穿裝備。');
+      h.gear[slot] = null; syncGear(h); h.gold += item.sell;
+      log(`${h.name} 賣出${item.name},得到 ${item.sell} 金幣。`, 'loot'); return result(true, `賣出${item.name},${h.name} 得到 ${item.sell} 金幣。`);
+    },
+    salvageGear(hunterId, slot) {
+      const h = state.hunters.find(x => x.id === hunterId); if (!h) return result(false, '找不到這位獵人。');
+      const inst = h.gear && h.gear[slot], item = gearItemOf(inst);
+      if (!item) return result(false, '這個位置沒有穿裝備。');
+      h.gear[slot] = null; syncGear(h);
+      const gains = Object.entries(item.salvage || {}); for (const [key, qty] of gains) h.inventory[key] = (h.inventory[key] || 0) + qty;
+      const text = gains.map(([key, qty]) => `${MATERIALS[key]?.name || key}×${qty}`).join('、') || '沒有可用材料';
+      log(`${h.name} 分解${item.name},回收 ${text}。`, 'info'); return result(true, `分解${item.name},回收 ${text}。`);
+    },
+    equipFromStorage(hunterId, uid) {
+      const h = state.hunters.find(x => x.id === hunterId); if (!h) return result(false, '找不到這位獵人。');
+      const index = state.gearStorage.findIndex(g => g.uid === uid); if (index < 0) return result(false, '倉庫裡找不到這件裝備。');
+      const inst = state.gearStorage[index], item = gearItemOf(inst);
+      if (!item) return result(false, '這件裝備的資料有問題。');
+      const previous = h.gear[item.slot];
+      h.gear[item.slot] = inst; state.gearStorage.splice(index, 1);
+      if (previous) state.gearStorage.push(previous);
+      syncGear(h); log(`${h.name} 換上${item.name}。`, 'success');
+      return result(true, `${h.name} 換上${item.name}${previous ? `,原本的${gearItemOf(previous)?.name || '裝備'}已放回倉庫` : ''}。`);
+    },
+    sellStoredGear(uid) {
+      const index = state.gearStorage.findIndex(g => g.uid === uid); if (index < 0) return result(false, '倉庫裡找不到這件裝備。');
+      const item = gearItemOf(state.gearStorage[index]); if (!item) return result(false, '這件裝備的資料有問題。');
+      state.gearStorage.splice(index, 1); state.gold += item.sell;
+      log(`賣出倉庫中的${item.name},村莊得到 ${item.sell} 金幣。`, 'loot'); return result(true, `賣出${item.name},村莊得到 ${item.sell} 金幣。`);
+    },
+    salvageStoredGear(uid) {
+      const index = state.gearStorage.findIndex(g => g.uid === uid); if (index < 0) return result(false, '倉庫裡找不到這件裝備。');
+      const item = gearItemOf(state.gearStorage[index]); if (!item) return result(false, '這件裝備的資料有問題。');
+      state.gearStorage.splice(index, 1);
+      const gains = Object.entries(item.salvage || {}); for (const [key, qty] of gains) state[key] = (state[key] || 0) + qty;
+      const text = gains.map(([key, qty]) => `${MATERIALS[key]?.name || key}×${qty}`).join('、') || '沒有可用材料';
+      log(`分解倉庫中的${item.name},回收 ${text}。`, 'info'); return result(true, `分解${item.name},回收 ${text}。`);
     },
     train(hunterId) {
       const h = state.hunters.find(h => h.id === hunterId); if (!h) return result(false, '找不到這位獵人。');
@@ -2174,7 +2320,10 @@ export function createGame(saved = null) {
     claimQuest() {
       refreshQuest(); if (!state.quest.complete) return result(false, '委託尚未完成。'); if (state.quest.claimed) return result(false, '全部章節委託已完成。');
       for (const [key, amount] of Object.entries(state.quest.reward)) state[key] += amount;
-      log(`委託「${state.quest.title}」完成，${Object.keys(state.quest.reward).length ? '獎勵已入庫' : '獎勵先前已領取'}。`, 'success'); if (state.quest.index < QUESTS.length - 1) state.quest = { index: state.quest.index + 1, claimed: false }; else state.quest.claimed = true;
+      // 2026-11-16 裝備經濟:部分章節委託額外送指定裝備(GEAR_DROP.quest)。舊版存檔先前已領過的章節(獎勵是空的)不重複送。
+      const paid = Object.keys(state.quest.reward).length > 0;
+      const questGear = paid ? GEAR_DROP.quest[state.quest.index] : null; if (questGear) grantGear(questGear, '委託獎勵');
+      log(`委託「${state.quest.title}」完成，${paid ? '獎勵已入庫' : '獎勵先前已領取'}。`, 'success'); if (state.quest.index < QUESTS.length - 1) state.quest = { index: state.quest.index + 1, claimed: false }; else state.quest.claimed = true;
       refreshQuest(); return result(true, '委託獎勵已領取。');
     },
     setRally(x, z) {

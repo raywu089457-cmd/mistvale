@@ -551,6 +551,9 @@ function ensureLoomMonsterSheet(id){if(!loomMonsterOn||!LOOM_MONSTERS[id]||loomM
   const im=trackImage(new Image());im.onload=()=>{loomMonsterSheets[id]={img:im,meta:loomMonsterMeta(id)};globalThis.dispatchEvent(new CustomEvent('pixel-assets-ready'));};
   im.onerror=()=>{loomMonsterReq.delete(id);};im.src=monsterSheetUrl(id);}
 globalThis.__mistvaleLoomMonsters=()=>({on:loomMonsterOn,ids:Object.keys(LOOM_MONSTERS),loaded:Object.keys(loomMonsterSheets),pending:[...loomMonsterReq].filter(id=>!loomMonsterSheets[id])});
+// 2026-11-16:魔物圖只有側面列(沒有 *Up/*Down 列,HeroLoom PixelLab 重畫那批)= true;圖還沒載入時回 false、不記住。
+const monSideOnlyMemo=new Map();
+function monSideOnly(t){if(monSideOnlyMemo.has(t))return monSideOnlyMemo.get(t);const ms=MON_SHEET(t);if(!ms||!ms.meta)return false;const v=!Object.keys(ms.meta.actions||{}).some(k=>/(Up|Down)$/.test(k));monSideOnlyMemo.set(t,v);return v;}
 const MON_SHEET=t=>{const id=t==='boss'?'treant':t;
   if(loomMonsterOn&&LOOM_MONSTERS[id]){ensureLoomMonsterSheet(id);return loomMonsterSheets[id];}
   monsterReq.size<64&&monsterReq.add(id);ensureMonsterSheet(id);return monsterSheets[id];};
@@ -2144,9 +2147,17 @@ let renderDprMax=Math.max(1,dprCap||autoDpr());   // 畫布解析度上限(devic
     const rowDir=(pose.pose==='windup'||pose.pose==='strike')?avdir:pose.pose==='hurt'?null:(moving||nowT<walkUntil||!pose.face)?vdir:null,hardSide=rowDir==='side'||rowDir==='sideLeft';
     if(pose.face&&!hardSide)flip=pose.face<0;
     else flip=mirrorOf(rowDir,flip?-1:1)<0;
+    // 2026-11-16:HeroLoom 魔物(heroloom-monsters3,PixelLab 重畫)只有側面列,上/下畫的是側面圖:鏡像朝螢幕左右的移動或出手目標
+    // (同 HeroLoom 英雄的 sideHint),不沿用舊鏡像。這時鏡像就是方向,不做防抖。
+    let sideOnlyFlip=false;
+    if((rowDir==='up'||rowDir==='down')&&monSideOnly(e.type)){
+      const tx=pose.pose==='strike'?e.atkX:pose.pose==='windup'?e.facingX:null,tz=pose.pose==='strike'?e.atkZ:pose.pose==='windup'?e.facingZ:null;
+      const ds=tx!=null&&tz!=null?(tx-e.x)-(tz-e.z):old?(e.x-old.x)-(e.z-old.z):0;
+      if(Math.abs(ds)>1e-4){flip=ds<0;sideOnlyFlip=true;}
+    }
     // 只有「鏡像是外觀」(上/下列、受擊)時才做 0.12 秒防抖;側面列的鏡像就是方向,由象限遲滯管,不能落後。
     let flipAt=old?.flipAt??-9;
-    if(old&&flip!==old.flip){if(!hardSide&&nowT-flipAt<0.12)flip=old.flip;else flipAt=nowT;}
+    if(old&&flip!==old.flip){if(!hardSide&&!sideOnlyFlip&&nowT-flipAt<0.12)flip=old.flip;else flipAt=nowT;}
     previousPositions.set('enemy:'+e.id,{x:e.x,z:e.z,flip,vdir:vdirRaw,walkUntil,flipAt,trail,lpx,lpz,avdir,rowVdir:vdirRaw,rowAt:vdirRaw!==(old?.rowVdir??'side')?nowT:(old?.rowAt??-9)});
     // 待機呼吸(史萊姆 Q 彈)、移動時跳步;攻擊/受擊的位移疊在上面。
     const breathe=Math.sin(elapsed*(e.type==='slime'?5:3)+seed),amp=e.type==='slime'?.07:.025;pose.sy*=1+amp*breathe;pose.sx*=1-amp*.6*breathe;

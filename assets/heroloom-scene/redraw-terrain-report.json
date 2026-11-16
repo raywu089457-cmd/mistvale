@@ -1,0 +1,492 @@
+{
+  "generator": "pipeline/scripts/heroloom/redraw-terrain.mjs",
+  "generatedAt": "2026-11-15T09:34:22.540Z",
+  "cells": [
+    {
+      "name": "village",
+      "x": 0,
+      "y": 0,
+      "w": 256,
+      "h": 256,
+      "colors": 12,
+      "colours": 12,
+      "hue": 128.5,
+      "refHue": 128.4,
+      "palette": [
+        "#45611a",
+        "#46621b",
+        "#47631c",
+        "#425e17",
+        "#48641d",
+        "#4e6a23",
+        "#446019",
+        "#4b6720",
+        "#4d6922",
+        "#405c15",
+        "#435f18",
+        "#49651e"
+      ]
+    },
+    {
+      "name": "meadow",
+      "x": 256,
+      "y": 0,
+      "w": 256,
+      "h": 256,
+      "colors": 12,
+      "colours": 12,
+      "hue": 115,
+      "refHue": 115,
+      "palette": [
+        "#b0bd3e",
+        "#b1be3f",
+        "#b2bf40",
+        "#afbc3d",
+        "#b3c041",
+        "#abb839",
+        "#b9c647",
+        "#b4c142",
+        "#adba3b",
+        "#b6c344",
+        "#b8c546",
+        "#aebb3c"
+      ]
+    },
+    {
+      "name": "birch",
+      "x": 512,
+      "y": 0,
+      "w": 256,
+      "h": 256,
+      "colors": 10,
+      "colours": 10,
+      "hue": 112.3,
+      "refHue": 112.5,
+      "palette": [
+        "#c0c73a",
+        "#bfc639",
+        "#bec538",
+        "#c1c83b",
+        "#bdc437",
+        "#bcc336",
+        "#b8bf32",
+        "#c4cb3e",
+        "#b7be31",
+        "#bbc235"
+      ]
+    },
+    {
+      "name": "forest",
+      "x": 768,
+      "y": 0,
+      "w": 256,
+      "h": 256,
+      "colors": 10,
+      "colours": 10,
+      "hue": 78.4,
+      "refHue": 78,
+      "palette": [
+        "#392c17",
+        "#3a2d18",
+        "#382b16",
+        "#372a15",
+        "#362914",
+        "#352813",
+        "#342712",
+        "#3d301b",
+        "#31240f",
+        "#30230e"
+      ]
+    },
+    {
+      "name": "taiga",
+      "x": 0,
+      "y": 256,
+      "w": 256,
+      "h": 256,
+      "colors": 12,
+      "colours": 12,
+      "hue": 148.7,
+      "refHue": 149.6,
+      "palette": [
+        "#37513b",
+        "#38523c",
+        "#324c36",
+        "#36503a",
+        "#3d5741",
+        "#39533d",
+        "#405a44",
+        "#3a543e",
+        "#3f5943",
+        "#344e38",
+        "#3b553f",
+        "#354f39"
+      ]
+    },
+    {
+      "name": "snow",
+      "x": 256,
+      "y": 256,
+      "w": 256,
+      "h": 256,
+      "colors": 8,
+      "colours": 8,
+      "hue": -101.6,
+      "refHue": -102.3,
+      "palette": [
+        "#d4e0f2",
+        "#d3dff1",
+        "#d2def0",
+        "#cedaec",
+        "#d5e1f3",
+        "#d8e4f6",
+        "#cdd9eb",
+        "#d1ddef"
+      ]
+    },
+    {
+      "name": "mountain",
+      "x": 512,
+      "y": 256,
+      "w": 256,
+      "h": 256,
+      "colors": 12,
+      "colours": 12,
+      "hue": null,
+      "refHue": 54.3,
+      "palette": [
+        "#6b605d",
+        "#6a5f5c",
+        "#6c615e",
+        "#6d625f",
+        "#695e5b",
+        "#685d5a",
+        "#6f6461",
+        "#625754",
+        "#645956",
+        "#665b58",
+        "#675c59",
+        "#6e6360"
+      ]
+    },
+    {
+      "name": "desert",
+      "x": 768,
+      "y": 256,
+      "w": 256,
+      "h": 256,
+      "colors": 10,
+      "colours": 10,
+      "hue": 77.3,
+      "refHue": 77.1,
+      "palette": [
+        "#f1b44e",
+        "#f0b34d",
+        "#f3b650",
+        "#efb24c",
+        "#eeb14b",
+        "#edb04a",
+        "#f2b54f",
+        "#f4b751",
+        "#ebae48",
+        "#ecaf49"
+      ]
+    },
+    {
+      "name": "river",
+      "x": 0,
+      "y": 512,
+      "w": 256,
+      "h": 256,
+      "colors": 11,
+      "colours": 11,
+      "hue": -146,
+      "refHue": -145.8,
+      "palette": [
+        "#2397ad",
+        "#2498ae",
+        "#2599af",
+        "#2296ac",
+        "#269ab0",
+        "#279bb1",
+        "#2ca0b6",
+        "#289cb2",
+        "#1e92a8",
+        "#2ea2b8",
+        "#2195ab"
+      ]
+    },
+    {
+      "name": "ocean",
+      "x": 256,
+      "y": 512,
+      "w": 256,
+      "h": 256,
+      "colors": 11,
+      "colours": 11,
+      "hue": -146,
+      "refHue": -145.8,
+      "palette": [
+        "#2498ae",
+        "#2599af",
+        "#1e92a8",
+        "#2397ad",
+        "#2ca0b6",
+        "#2296ac",
+        "#269ab0",
+        "#289cb2",
+        "#2ea2b8",
+        "#2195ab",
+        "#279bb1"
+      ]
+    },
+    {
+      "name": "ice",
+      "x": 512,
+      "y": 512,
+      "w": 256,
+      "h": 256,
+      "colors": 9,
+      "colours": 9,
+      "hue": -116,
+      "refHue": -115.4,
+      "palette": [
+        "#9fcaee",
+        "#9ec9ed",
+        "#9dc8ec",
+        "#9cc7eb",
+        "#97c2e6",
+        "#a0cbef",
+        "#a2cdf1",
+        "#9bc6ea",
+        "#a1ccf0"
+      ]
+    },
+    {
+      "name": "bridge",
+      "x": 768,
+      "y": 512,
+      "w": 256,
+      "h": 256,
+      "colors": 9,
+      "colours": 9,
+      "hue": 63.8,
+      "refHue": 64.1,
+      "palette": [
+        "#bc8147",
+        "#bd8248",
+        "#b77c42",
+        "#be8349",
+        "#bf844a",
+        "#c0854b",
+        "#c1864c",
+        "#bb8046",
+        "#b67b41"
+      ]
+    }
+  ],
+  "textures": [
+    {
+      "name": "xilurus/tex-desert.png",
+      "colours": 8,
+      "bytes": 14801,
+      "palette": [
+        "#ffe388",
+        "#ffe089",
+        "#ffdb8a",
+        "#ffd087",
+        "#ffc385",
+        "#f78969",
+        "#ff9c79",
+        "#ffb281"
+      ]
+    },
+    {
+      "name": "xilurus/tex-dirt.png",
+      "colours": 8,
+      "bytes": 5447,
+      "palette": [
+        "#d4965a",
+        "#e5a86a",
+        "#f8b979",
+        "#c0864e",
+        "#af7540",
+        "#976136",
+        "#654a37",
+        "#ffcb8a"
+      ]
+    },
+    {
+      "name": "xilurus/tex-forest.png",
+      "colours": 9,
+      "bytes": 8487,
+      "palette": [
+        "#16140c",
+        "#271e16",
+        "#312d1f",
+        "#554736",
+        "#976e4f",
+        "#766644",
+        "#6a543f",
+        "#413a2a",
+        "#080805"
+      ]
+    },
+    {
+      "name": "xilurus/tex-grass.png",
+      "colours": 9,
+      "bytes": 8144,
+      "palette": [
+        "#5a763b",
+        "#4f6530",
+        "#698748",
+        "#3d5623",
+        "#7b9756",
+        "#8ea765",
+        "#a0b96f",
+        "#304617",
+        "#b0cc6c"
+      ]
+    },
+    {
+      "name": "xilurus/tex-ice.png",
+      "colours": 7,
+      "bytes": 5030,
+      "palette": [
+        "#bbaee6",
+        "#ccc0fa",
+        "#e4faff",
+        "#dafaff",
+        "#d5fbff",
+        "#eefbff",
+        "#d3eaff"
+      ]
+    },
+    {
+      "name": "xilurus/tex-meadow.png",
+      "colours": 9,
+      "bytes": 8235,
+      "palette": [
+        "#a8b442",
+        "#8da630",
+        "#bec549",
+        "#fffc7c",
+        "#e1e880",
+        "#fffc78",
+        "#d0d658",
+        "#fdf87a",
+        "#6f8a2e"
+      ]
+    },
+    {
+      "name": "xilurus/tex-mountain.png",
+      "colours": 8,
+      "bytes": 10246,
+      "palette": [
+        "#b1a299",
+        "#9f918c",
+        "#c1b3ac",
+        "#3c3538",
+        "#5c5251",
+        "#8b817e",
+        "#7d706d",
+        "#6a625d"
+      ]
+    },
+    {
+      "name": "xilurus/tex-snow.png",
+      "colours": 7,
+      "bytes": 23927,
+      "palette": [
+        "#f8f8fc",
+        "#f6f8ff",
+        "#b3c1d5",
+        "#edf6ff",
+        "#f0f9ff",
+        "#c9d3e1",
+        "#f5f8ff"
+      ]
+    },
+    {
+      "name": "xilurus/tex-soil.png",
+      "colours": 8,
+      "bytes": 5445,
+      "palette": [
+        "#684c39",
+        "#775c48",
+        "#8d6952",
+        "#573e2d",
+        "#453122",
+        "#362317",
+        "#26170d",
+        "#a1785b"
+      ]
+    },
+    {
+      "name": "xilurus/tex-stone.png",
+      "colours": 7,
+      "bytes": 7438,
+      "palette": [
+        "#d8dae2",
+        "#858992",
+        "#b3b7bf",
+        "#c5c9d0",
+        "#e9ecf3",
+        "#f5f8ff",
+        "#4a4b53"
+      ]
+    },
+    {
+      "name": "xilurus/tex-taiga.png",
+      "colours": 9,
+      "bytes": 7466,
+      "palette": [
+        "#425641",
+        "#344637",
+        "#5a6446",
+        "#28372e",
+        "#637655",
+        "#949158",
+        "#1c2826",
+        "#7c8354",
+        "#a9a06b"
+      ]
+    },
+    {
+      "name": "xilurus/tex-water.png",
+      "colours": 9,
+      "bytes": 13970,
+      "palette": [
+        "#46b0c5",
+        "#5dc1d3",
+        "#309eb6",
+        "#218ca4",
+        "#007b97",
+        "#95fbf8",
+        "#83e7ee",
+        "#c1fffa",
+        "#70d4e1"
+      ]
+    }
+  ],
+  "plaza": {
+    "file": "assets/heroloom-scene/plaza.png",
+    "w": 256,
+    "h": 256,
+    "colours": 11,
+    "bytes": 2460,
+    "palette": [
+      "#3e3e46",
+      "#989ba4",
+      "#cccfd6",
+      "#2e2d34",
+      "#b0b4bd",
+      "#83868f",
+      "#6e7079",
+      "#4a4b54",
+      "#5b5d66",
+      "#b2a48d",
+      "#a09480"
+    ]
+  }
+}

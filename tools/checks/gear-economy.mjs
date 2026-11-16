@@ -50,22 +50,24 @@ for (const [slot, want] of Object.entries(DOC)) {
 
 // ═══ B. 存檔與純邏輯 ═══
 const fresh = createGame();
-if (fresh.state.version !== 3) fix(`B1 新存檔 version ${fresh.state.version} 應 3`);
+if (fresh.state.version !== 4) fix(`B1 新存檔 version ${fresh.state.version} 應 4`);
+// v4 存檔帶物品欄位(h.gear / gearStorage);模擬 v2/v3 舊檔時要拿掉,不然讀檔會走 v4 物品路徑
+const asOld = (s, v) => { s.version = v; for (const x of [...s.hunters, ...(s.wanderers || [])]) delete x.gear; delete s.gearStorage; delete s.gearSeq; return s; };
 {
   const h = fresh.state.hunters[0], eq = h.equipment;
   if (!eq || Object.keys(eq).length !== 7 || EQUIP_SLOTS.some(s => eq[s] !== false)) fix(`B2 新獵人 equipment 應七格全 false: ${JSON.stringify(eq)}`);
   if (!fresh.state.gearStock || EQUIP_SLOTS.some(s => tot(fresh.state.gearStock[s]) !== 0)) fix(`B2 新存檔 gearStock 應七格歸零: ${JSON.stringify(fresh.state.gearStock)}`);
 }
 { // 舊 v2 存檔:{weapon:true,armor:true} → 六格全穿,強化等級保留
-  const old = createGame().serialize(); old.version = 2;
+  const old = asOld(createGame().serialize(), 2);
   Object.assign(old.hunters[0], { equipment: { weapon: true, armor: true }, weaponLevel: 4 });
   const re = createGame(old), h = re.state.hunters[0];
   if (!EQUIP_SLOTS.every(s => h.equipment[s] === true)) fix(`B3 舊存檔 armor:true 應讀成六件全穿，實際 ${JSON.stringify(h.equipment)}`);
   if (h.weaponLevel !== 4) fix(`B3 舊存檔 weaponLevel 應保留 4，實際 ${h.weaponLevel}`);
   if (!re.state.hunters.slice(1).every(x => EQUIP_SLOTS.every(s => x.equipment[s] === false))) fix('B3 其他獵人沒有 armor 不該被穿上六件');
-  const bare = createGame().serialize(); bare.version = 2; bare.hunters[0].equipment = { weapon: false, armor: false };
+  const bare = asOld(createGame().serialize(), 2); bare.hunters[0].equipment = { weapon: false, armor: false };
   if (EQUIP_SLOTS.some(s => createGame(bare).state.hunters[0].equipment[s])) fix('B3 舊存檔 armor:false 不該穿上任何防具');
-  const stock = createGame().serialize(); stock.version = 2; stock.gearStock = { weapon: 0, armor: 2 };
+  const stock = asOld(createGame().serialize(), 2); stock.gearStock = { weapon: 0, armor: 2 };
   const rs = createGame(stock);
   if (rs.state.gearStock.chest?.[1] !== 2 || tot(rs.state.gearStock.weapon) !== 0 || 'armor' in rs.state.gearStock) fix(`B3 舊 gearStock.armor 應併到胸甲: ${JSON.stringify(rs.state.gearStock)}`);
 }
@@ -73,11 +75,11 @@ if (fresh.state.version !== 3) fix(`B1 新存檔 version ${fresh.state.version} 
   const gain = createGame(); const h = gain.state.hunters[0];
   const base = { maxHp: h.maxHp, defense: h.defense, attack: h.attack };
   for (const s of EQUIP_SLOTS) h.equipment[s] = true;
-  const save = gain.serialize(); const armed = createGame(save).state.hunters[0];
+  const save = asOld(gain.serialize(), 3); const armed = createGame(save).state.hunters[0];
   if (!(armed.maxHp > base.maxHp)) fix(`B4 全穿生命 ${armed.maxHp} 應 > 空裝 ${base.maxHp}`);
   if (!(armed.defense >= base.defense + 10)) fix(`B4 全穿防禦 ${armed.defense} 應 ≥ 空裝 ${base.defense}+10`);
   if (!(armed.attack > base.attack)) fix(`B4 拿武器攻擊 ${armed.attack} 應 > 空手 ${base.attack}`);
-  if (fails.length === 0) ok(`B. 存檔：新檔 v3 七格歸零、舊 v2 {weapon,armor} 讀成六件全穿(強化等級保留、沒賣掉的 armor 併到胸甲)、六件數值進 updateStats(生命 +${armed.maxHp - base.maxHp}・防禦 +${armed.defense - base.defense}・攻擊 +${armed.attack - base.attack})`);
+  if (fails.length === 0) ok(`B. 存檔：新檔 v4 七格歸零、舊 v2 {weapon,armor} 讀成六件全穿(強化等級保留、沒賣掉的 armor 併到胸甲)、六件數值進 updateStats(生命 +${armed.maxHp - base.maxHp}・防禦 +${armed.defense - base.defense}・攻擊 +${armed.attack - base.attack})`);
 }
 if (createGame({ version: 1 }).state.gold === 1500) ok('B. 存檔：version 1 舊存檔仍被拒絕(不會把壞資料讀進來)');
 else fix('B5 version 1 存檔不該被接受');

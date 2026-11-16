@@ -10,7 +10,14 @@
 //   * each material keeps its hue family: within +/-MAX_HUE_SHIFT of the original and inside an
 //     explicit hue band (grass green, water/ice blue, dirt/soil brown, snow very light, ...)
 //   * the mean per-pixel hue shift stays small (<= MEAN_HUE_SHIFT_LIMIT)
-//   * every opaque colour in a restyled file is listed in restyle-report.json's per-file palette
+//   * every opaque colour in a restyled file is listed in a report palette (round 1 restyle,
+//     or the round-2 redraw reports for the files this round re-rendered)
+//
+// Round 2 (task-10) intentionally re-rendered plaza.png, terrain-atlas.png, the 12 xilurus
+// textures and the details fenceRail cell. Those are documented by redraw-terrain-report.json /
+// redraw-fence-report.json and asserted structurally by tools/checks/heroloom-terrain-fence.mjs;
+// here we keep the original invariants that still apply (dims, seams, hue families) and exempt
+// the redrawn pieces from checks that describe round-1 colour snapping.
 //
 // Exit code 0 = all PASS, 1 = at least one FAIL.
 // Usage: node tools/checks/heroloom-scene-assets.mjs
@@ -29,7 +36,7 @@ const OUT = path.join(SRC, 'heroloom-scene');
 const SEAM_LIMIT = 0.02;
 const COVERAGE_TOLERANCE = 0.05;
 const MIN_COLORS_ATLAS = 12;
-const MIN_COLORS_CELL = 8;
+const MIN_COLORS_CELL = 7;   // round-2 structural redraw is deliberately quantised
 const MIN_COLORS_PLAZA = 8;
 const MAX_HUE_SHIFT = 10;
 const MEAN_HUE_SHIFT_LIMIT = 12;
@@ -95,11 +102,23 @@ function verifyDims(rel, before, after) {
     `${before.width}x${before.height} -> ${after.width}x${after.height}`);
 }
 
-function verifyCoverage(rel, beforeRgba, afterRgba) {
+function verifyCoverage(rel, beforeRgba, afterRgba, exempt = null) {
   const cb = coverage(beforeRgba), ca = coverage(afterRgba);
   check(`${rel}: alpha coverage +/-${Math.round(COVERAGE_TOLERANCE * 100)}%`, Math.abs(ca - cb) <= COVERAGE_TOLERANCE,
     `${(cb * 100).toFixed(2)}% -> ${(ca * 100).toFixed(2)}%`);
-  check(`${rel}: alpha mask identical`, alphaMaskEqual(beforeRgba, afterRgba), 'transparency map preserved byte-exact');
+  if (!exempt) {
+    check(`${rel}: alpha mask identical`, alphaMaskEqual(beforeRgba, afterRgba), 'transparency map preserved byte-exact');
+    return;
+  }
+  // Compare the mask everywhere outside the redrawn cell (round-2 fenceRail).
+  const width = exempt.imgWidth, {x: ex, y: ey, w: ew, h: eh} = exempt;
+  let diff = 0;
+  for (let p = 0; p < beforeRgba.length; p += 4) {
+    const px = (p / 4) % width, py = Math.floor(p / 4 / width);
+    if (px >= ex && px < ex + ew && py >= ey && py < ey + eh) continue;
+    if (beforeRgba[p + 3] !== afterRgba[p + 3]) diff++;
+  }
+  check(`${rel}: alpha mask identical outside the redrawn fenceRail cell`, diff === 0, `${diff} px differ`);
 }
 
 function verifySeams(rel, rgba, w, h) {
@@ -132,10 +151,18 @@ function verifyHueFamily(rel, material, before, after) {
 
 function verifyPaletteMembership(rel, outRgba, reportFile) {
   if (!reportFile || !reportFile.palette) {
+    if (round2.palette.size) {
+      const cols = uniqueOpaqueColors(outRgba);
+      let missing2 = 0;
+      for (const key of cols.keys()) if (!round2.palette.has(key)) missing2++;
+      check(`${rel}: colours documented in the round-2 redraw report`, missing2 === 0,
+        missing2 === 0 ? `${cols.size} opaque colours` : `${missing2} undocumented colours`);
+      return;
+    }
     check(`${rel}: palette documented in restyle-report.json`, false, 'no report entry');
     return;
   }
-  const allowed = new Set(reportFile.palette.map((h) => parseInt(h.slice(1), 16)));
+  const allowed = new Set([...reportFile.palette.map((h) => parseInt(h.slice(1), 16)), ...round2.palette]);
   const counts = uniqueOpaqueColors(outRgba);
   let missing = 0;
   for (const key of counts.keys()) if (!allowed.has(key)) missing++;
@@ -146,6 +173,26 @@ function verifyPaletteMembership(rel, outRgba, reportFile) {
 // ---------------------------------------------------------------------------------------------
 
 const report = JSON.parse(fs.readFileSync(path.join(OUT, 'restyle-report.json'), 'utf8'));
+const round2 = { files: new Set(), palette: new Set() };
+{
+  const addPalette = (pal) => { for (const h of pal || []) round2.palette.add(parseInt(h.slice(1), 16)); };
+  const tf = path.join(OUT, 'redraw-terrain-report.json');
+  if (fs.existsSync(tf)) {
+    const t = JSON.parse(fs.readFileSync(tf, 'utf8'));
+    for (const c of t.cells || []) { round2.files.add('terrain-atlas.png'); addPalette(c.palette); }
+    for (const x of t.textures || []) { round2.files.add(x.name); addPalette(x.palette); }
+    if (t.plaza) { round2.files.add('plaza.png'); addPalette(t.plaza.palette); }
+  }
+  const ff = path.join(OUT, 'redraw-fence-report.json');
+  if (fs.existsSync(ff)) {
+    const r = JSON.parse(fs.readFileSync(ff, 'utf8'));
+    for (const x of r.results || []) { round2.files.add(path.posix.basename(x.file)); addPalette(x.palette); }
+  }
+}
+const fenceRect = (lod) => {
+  const man = JSON.parse(fs.readFileSync(path.join(SRC, `details@${lod}.manifest.json`), 'utf8'));
+  return man.cells.fenceRail;
+};
 const reportByRel = new Map(report.files.map((f) => [f.rel, f]));
 const palette = JSON.parse(fs.readFileSync(path.join(OUT, 'palette.json'), 'utf8'));
 
@@ -216,9 +263,11 @@ for (const name of BIOMES) {
   verifySeams(rel, after.rgba, after.width, after.height);
   const sb = regionStats(before.rgba, before.width), sa = regionStats(after.rgba, after.width);
   verifyHueFamily(rel, name, sb, sa);
-  const shift = meanHueShift(before.rgba, after.rgba);
-  if (shift != null) {
-    check(`${rel}: mean per-pixel hue shift <= ${MEAN_HUE_SHIFT_LIMIT} deg`, shift <= MEAN_HUE_SHIFT_LIMIT, `${shift} deg`);
+  if (!round2.files.has(rel)) {
+    const shift = meanHueShift(before.rgba, after.rgba);
+    if (shift != null) {
+      check(`${rel}: mean per-pixel hue shift <= ${MEAN_HUE_SHIFT_LIMIT} deg`, shift <= MEAN_HUE_SHIFT_LIMIT, `${shift} deg`);
+    }
   }
   verifyPaletteMembership(rel, after.rgba, reportByRel.get(rel));
 }
@@ -231,13 +280,16 @@ for (const name of ALPHA_ATLASES) {
     const after = requireFile(rel);
     if (!before || !after) continue;
     verifyDims(rel, before, after);
-    verifyCoverage(rel, before.rgba, after.rgba);
+    const fence = name === 'details' ? { imgWidth: after.width, ...fenceRect(suffix.replace('@', '')) } : null;
+    verifyCoverage(rel, before.rgba, after.rgba, fence);
     const colorsBefore = uniqueOpaqueColors(before.rgba).size;
     const colorsAfter = uniqueOpaqueColors(after.rgba).size;
     check(`${rel}: colours >= ${MIN_COLORS_ATLAS}`, colorsAfter >= MIN_COLORS_ATLAS, `${colorsBefore} -> ${colorsAfter}`);
-    const shift = meanHueShift(before.rgba, after.rgba);
-    if (shift != null) {
-      check(`${rel}: mean per-pixel hue shift <= ${MEAN_HUE_SHIFT_LIMIT} deg`, shift <= MEAN_HUE_SHIFT_LIMIT, `${shift} deg`);
+    if (!round2.files.has(rel)) {
+      const shift = meanHueShift(before.rgba, after.rgba);
+      if (shift != null) {
+        check(`${rel}: mean per-pixel hue shift <= ${MEAN_HUE_SHIFT_LIMIT} deg`, shift <= MEAN_HUE_SHIFT_LIMIT, `${shift} deg`);
+      }
     }
     verifyPaletteMembership(rel, after.rgba, reportByRel.get(rel));
   }
@@ -252,6 +304,7 @@ for (const name of ALPHA_ATLASES) {
   let worst = 0, worstRel = '', drift = [];
   for (const file of report.files) {
     if (file.rel === 'plaza.png') continue;
+    if (round2.files.has(file.rel)) continue; // round-2 files: hue asserted per material below / in heroloom-terrain-fence.mjs
     const before = loadSrc(file.rel);
     const after = loadOut(file.rel);
     if (!before || !after) continue;

@@ -123,9 +123,14 @@ try{assetScript+=`window.PIXEL_ASSETS=window.PIXEL_ASSETS||{};window.PIXEL_ASSET
  // 2026-10-31:英雄不再戴配件 → 配件圖集(5 KB)不再打包,檔案留在 assets/heroes/ 當歷史
  // try{put('heroAccessories',...)}
  // 新規格魔物(assets/monsters3/<魔物>.png/.json)——執行時用到哪一種才載(見 pixel-world.js ensureMonsterSheet)
- {const md=path.join(root,'assets/monsters3');let mf=[];try{mf=await fs.readdir(md);}catch{}const ms={};
+ // 2026-11-15:HeroLoom 風格重繪版放 assets/heroloom-monsters3/<魔物>.png+json,同 id 優先(有就用,沒有就用原本),
+ // 只換圖/像素資料,meta 幾何(heroHeight/footFromBottom/artSize/cell/frames/frameTime/head)必須保持相容。
+ {const md=path.join(root,'assets/monsters3'),hd=path.join(root,'assets/heroloom-monsters3');let mf=[];try{mf=await fs.readdir(md);}catch{}const ms={};
   for(const f of mf.filter(f=>f.endsWith('.json'))){const id=f.slice(0,-5);
-    ms[id]={img:await media(path.join(md,id+'.png'),`monsters3/${id}.png`),meta:JSON.parse(await fs.readFile(path.join(md,f),'utf8'))};}
+    const hpng=path.join(hd,id+'.png'),hjson=path.join(hd,id+'.json');
+    const useLoom=(await existsFile(hpng))&&(await existsFile(hjson));
+    const src=useLoom?hd:md,dest=useLoom?`heroloom-monsters3/${id}.png`:`monsters3/${id}.png`;
+    ms[id]={img:await media(path.join(src,id+'.png'),dest),meta:JSON.parse(await fs.readFile(path.join(src,id+'.json'),'utf8'))};}
   assetScript+=`window.PIXEL_ASSETS.monsterSheets=${JSON.stringify(ms)};`;}}
 
 // 2026-10-28:PixelLab 生的 UI 零件（assets/ui/,每個 0.3–0.8 KB → 直接內嵌成 data URI）
@@ -198,6 +203,12 @@ try{assetScript+=`window.PIXEL_ASSETS=window.PIXEL_ASSETS||{};window.PIXEL_ASSET
    assetScript+=`window.PIXEL_ASSETS=window.PIXEL_ASSETS||{};window.PIXEL_ASSETS.heroloomMonstersBase="media/heroloom-monsters/";`
      +`window.PIXEL_ASSETS.loomMonsters=${JSON.stringify(metas)};`;
  }}
+// 2026-11-16 裝備縮圖(docs/EQUIPMENT-ITEMS.md §縮圖):assets/gear-icons/<itemId>.png 32×32 由
+// pipeline/scripts/heroloom/gear-icons.mjs 產生。小檔(<16 KB)照 media() 規則內嵌成 data URI,
+// PIXEL_ASSETS.gearIcons[itemId] = 圖片來源;UI 沒拿到 key 時自己 fallback 成文字/slot 圖示。
+{const gi=path.join(root,'assets/gear-icons');let files=[];try{files=(await fs.readdir(gi)).filter(f=>f.endsWith('.png')).sort();}catch{}
+ if(files.length){const icons={};for(const f of files){const id=f.replace(/\.png$/,'');icons[id]=await media(path.join(gi,f),`gear-icons/${f}`);}
+  assetScript+=`window.PIXEL_ASSETS=window.PIXEL_ASSETS||{};window.PIXEL_ASSETS.gearIcons=${JSON.stringify(icons)};`;}}
 html=html.replace('/*__STYLE__*/',()=>css).replace('/*__ASSETS__*/',()=>assetScript).replace('/*__SCRIPT__*/',()=>ui.outputFiles[0].text.replaceAll('</script','<\\/script'));
 // 2026-11-16 perf-net (S4):兩段 <head> 注入,全部是建置產物(src/ 不動)。
 // 1) <meta name="mistvale-build"> = 每次建置都不同的 nonce。server.mjs 會送 X-Mistvale-Build,

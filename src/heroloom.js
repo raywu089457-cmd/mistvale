@@ -13,6 +13,7 @@
 //   * heroloom action names, frame math, and the engine constants
 //
 // The browser half (bake/tint/compose) lives in src/heroloom-hero.js and imports from here.
+import { EQUIPMENT, EQUIP_SLOTS } from './pixel-data.js';
 
 /** Heelroom sheet geometry (verbatim from character.json). */
 export const HEROLOOM_CELL = Object.freeze([64, 56]);
@@ -193,8 +194,8 @@ export function heroloomClass(h, fallback) {
 
 /**
  * hunter → heroloom look: {classId, gender, weaponType, parts:{slot:id}, colors:{ramp:variant}}.
- * Gear booleans follow the DV2 convention (src/paperdoll.js lookFromHunter): equipment.helm, equipment.weapon,
- * and equipment.armor||chest||belt||legs||gloves||boots for "armoured". Never throws on a partial hunter.
+ * 2026-11-15 裝備物品化:h.gear 存在時,帽子/上衣/褲子/鞋/披風/盾/武器全部由穿在身上的物品 look 決定
+ * (脫下上衣就真的看不到上衣)。沒有 h.gear 的物件(舊資料、lab 的假 hunter)仍走舊的 equipment 布林值規則。
  */
 export function heroloomLook(h) {
   const classId = heroloomClass(h, 'warrior');
@@ -206,19 +207,43 @@ export function heroloomLook(h) {
   const parts = { ...preset.parts };
   const colors = { ...preset.colors };
   const weaponPart = (kind && kind.part) || (weaponType && WEAPON_PART_FOR[weaponType]) || null;
-  if (weaponPart) parts.weapon = weaponPart;
-  else delete parts.weapon;
-  // A fine weapon (DV2 equipment.weapon === true) keeps the heroloom weapon but adds its class cape, a cheap visual cue.
-  if (eq.weapon === true && !parts.cape && preset.parts.cape) parts.cape = preset.parts.cape;
-  if (eq.helm) parts.hat = 'helmet';
-  if (eq.shield) parts.shield = 'buckler';
-  const armoured = !!(eq.armor || eq.chest || eq.belt || eq.legs || eq.gloves || eq.boots);
-  if (armoured) {
-    parts.top = 'armor';
-    parts.bottom = 'pants';
-    parts.shoes = 'boots';
+  const gear = h && h.gear;
+  if (gear) {
+    // 裝備外觀:頭髮/膚色/眼睛保留職業基底;身上穿什麼就畫什麼。
+    const layered = { hat: null, top: null, bottom: null, shoes: null, cape: null, shield: null };
+    let weaponLook = null;
+    for (const slot of EQUIP_SLOTS) {
+      const inst = gear[slot], item = inst && EQUIPMENT[inst.itemId];
+      if (!item || !item.look) continue;
+      const look = item.look;
+      if (look.hat) layered.hat = look.hat;
+      if (look.top) layered.top = look.top;
+      if (look.bottom) layered.bottom = look.bottom;
+      if (look.shoes) layered.shoes = look.shoes;
+      if (look.cape) layered.cape = look.cape;
+      if (look.shield) layered.shield = look.shield;
+      if (slot === 'weapon') weaponLook = look.weapon;
+    }
+    for (const key of ['hat', 'top', 'bottom', 'shoes', 'cape', 'shield']) { if (layered[key]) parts[key] = layered[key]; else delete parts[key]; }
+    if (weaponLook === 'none' || (!weaponLook && !weaponPart)) delete parts.weapon;
+    else if (weaponLook) parts.weapon = weaponLook;
+    else parts.weapon = weaponPart;
+  } else {
+    // 舊版規則(沒有物品資料時):職業預設 + equipment 布林值。
+    if (weaponPart) parts.weapon = weaponPart;
+    else delete parts.weapon;
+    // A fine weapon (DV2 equipment.weapon === true) keeps the heroloom weapon but adds its class cape, a cheap visual cue.
+    if (eq.weapon === true && !parts.cape && preset.parts.cape) parts.cape = preset.parts.cape;
+    if (eq.helm) parts.hat = 'helmet';
+    if (eq.shield) parts.shield = 'buckler';
+    const armoured = !!(eq.armor || eq.chest || eq.belt || eq.legs || eq.gloves || eq.boots);
+    if (armoured) {
+      parts.top = 'armor';
+      parts.bottom = 'pants';
+      parts.shoes = 'boots';
+    }
+    if (eq.cape) parts.cape = 'cape';
   }
-  if (eq.cape) parts.cape = 'cape';
   // Gender: the pack's long/ponytail hair reads as the female silhouette (head art is shared, like DV2 G6).
   if (h && h.gender === 'f') {
     if (parts.hair === 'short' || parts.hair === 'spiky') parts.hair = 'long';

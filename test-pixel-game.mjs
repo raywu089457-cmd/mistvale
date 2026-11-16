@@ -4,7 +4,7 @@ import assert from 'node:assert/strict';
 import { createGame, OFFLINE, ENEMIES, MOUNT_SPEED_MULT, isRideable, hunterGender, GENDERS, nameGender, NAME_GENDER } from './src/pixel-game.js';
 import { doorStand, buildingSolid } from './src/landscape-layout.js';
 import { blockCenter } from './src/village-grid.js';
-import { BUILDINGS, CLASSES, MATERIALS, PRODUCTS, RECIPES, RARITIES, PILOT_ATTACK, AI_ATTACK_LOCK, KITE, GEAR_TIER_MAX, gearAt } from './src/pixel-data.js';
+import { BUILDINGS, CLASSES, MATERIALS, PRODUCTS, RECIPES, RARITIES, PILOT_ATTACK, AI_ATTACK_LOCK, KITE, GEAR_TIER_MAX, gearAt, EQUIPMENT, CLASS_STARTER, EQUIP_SLOTS, GEAR_SLOTS, gearItemView, dungeonGearGrade, GEAR_DROP } from './src/pixel-data.js';
 import { regionCenter, regionContains, walkable, RING_ROAD, onRingRoad, inVillage, randomRegionPoint } from './src/overworld.js';
 import { MONSTER_RANGED, MONSTER_SPEED_MULT, MONSTER_ATTACK_RATE, REGION_DENSITY } from './src/pixel-data.js';
 import { pickHeroLine, CHATTER_LINES } from './src/hero-chatter.js';
@@ -35,7 +35,7 @@ function assertFiniteEconomy(s) {
 }
 
 const g = createGame();
-assert.equal(g.state.version, 3); assert.equal(g.state.hunters.length, CLASSES.length); assert.equal(new Set(g.state.hunters.map(h => h.classId)).size, CLASSES.length);   // 2026-10-28 使用者:開局預設各職業一隻
+assert.equal(g.state.version, 4); assert.equal(g.state.hunters.length, CLASSES.length); assert.equal(new Set(g.state.hunters.map(h => h.classId)).size, CLASSES.length);   // 2026-10-28 使用者:開局預設各職業一隻
 assert.equal(g.state.gold, 1500); assert.equal(g.state.capacity, Math.max(8, CLASSES.length + 2)); assert.equal(g.state.visitors.length, 3);
 assert.ok(g.state.hunters.every(h => h.gold === 100 && h.level >= 3 && h.level <= 5));
 assert.equal(g.recruit('__proto__').ok, false); assert.equal(g.recruit('missing').ok, false);
@@ -124,45 +124,80 @@ assert.ok(gearIds.every(id => buyer.equipment[id] === true), 'auto-buy buys ever
 assert.ok(gearIds.every(id => gear.gearTierOf(buyer, id) === 1), 'forge Lv.1 gear is tier Ⅰ');
 assert.equal(gear.state.counts.gearSold, gearIds.length); assert.equal(totalMoney(gear), gearMoney); assert.ok(buyer.attack > attackBefore && buyer.maxHp > hpBefore);
 { // 舊存檔(v2)只有 {weapon,armor}:armor 視為六件全穿(舊玩家不掉戰力),沒賣掉的 armor 庫存併到胸甲
-  const old = createGame().serialize(); old.version = 2;
+  // 真正的 v2/v3 存檔沒有物品欄位(h.gear / gearStorage / gearSeq):從 v4 存檔模擬舊檔時要拿掉
+  const asOld = (s, v) => { s.version = v; for (const x of [...s.hunters, ...(s.wanderers || [])]) delete x.gear; delete s.gearStorage; delete s.gearSeq; return s; };
+  const old = asOld(createGame().serialize(), 2);
   Object.assign(old.hunters[0], { equipment: { weapon: true, armor: true }, weaponLevel: 3 });
   const re = createGame(old), rh = re.state.hunters[0];
   assert.deepEqual(rh.equipment, { weapon: true, helm: true, chest: true, belt: true, legs: true, boots: true, gloves: true });
   assert.equal(rh.weaponLevel, 3); assert.ok(re.state.hunters.slice(1).every(h => Object.values(h.equipment).every(v => v === false)));
-  const bare = createGame().serialize(); bare.version = 2; bare.hunters[0].equipment = { weapon: false, armor: false };
+  const bare = asOld(createGame().serialize(), 2); bare.hunters[0].equipment = { weapon: false, armor: false };
   assert.ok(Object.values(createGame(bare).state.hunters[0].equipment).every(v => v === false));
-  const stock = createGame().serialize(); stock.version = 2; stock.gearStock = { weapon: 0, armor: 2 };
+  const stock = asOld(createGame().serialize(), 2); stock.gearStock = { weapon: 0, armor: 2 };
   const restocked = createGame(stock); assert.equal(restocked.state.gearStock.chest[1], 2); assert.equal(restocked.state.gearStock.weapon[1], 0); assert.equal(restocked.state.gearStock.armor, undefined);
   assert.ok(restocked.state.gearStock.chest[2] === 0 && restocked.gearStockOf('chest') === 2);
-  assert.ok(Object.values(re.state.hunters[0].gearTier).every(t => t === 1), 'v2 armor:true → all six armour slots + weapon at tier Ⅰ');
+  assert.ok(EQUIP_SLOTS.every(s => re.gearTierOf(rh, s) === 1), 'v2 armor:true → all six armour slots + weapon at tier Ⅰ');
+}
+// 測試用:把一件鐵匠鋪升級件(指定階級)放進倉庫再穿上(走正式的 equipFromStorage,身上原本那件會進倉庫)
+let wearSeq = 0;
+function wear(g, h, slot, grade = 1) {
+  const uid = 'gt' + (++wearSeq); g.state.gearStorage.push({ uid, itemId: 'craft_' + slot, ...(grade > 1 ? { grade } : {}) });
+  assert.equal(g.equipFromStorage(h.id, uid).ok, true, `wear craft_${slot} ${grade}`);
 }
 { // 2026-11-16 裝備階級:舊 v3 存檔(布林裝備、數字庫存、沒有 gearTier)載入不掉裝備也不變強;新格式來回存讀不變
-  const g0 = createGame(), h0 = g0.state.hunters[0];
-  for (const s of ['weapon', 'chest', 'boots']) h0.equipment[s] = true;
-  const old = g0.serialize(); for (const x of [...old.hunters, ...old.wanderers]) delete x.gearTier;
+  const asOld = (s, v) => { s.version = v; for (const x of [...s.hunters, ...(s.wanderers || [])]) delete x.gear; delete s.gearStorage; delete s.gearSeq; return s; };
+  const old = asOld(createGame().serialize(), 3), none = Object.fromEntries(EQUIP_SLOTS.map(s => [s, false]));
+  old.hunters[0].equipment = { ...none, weapon: true, chest: true, boots: true };
   old.gearStock = { weapon: 3, helm: 0, chest: 1, belt: 0, legs: 0, boots: 0, gloves: 2 };
   // 「改版前」的數值:同一位獵人,裝備只有布林、舊公式(武器 +7、防具 RECIPES 第 1 階)
-  const c = CLASSES.find(k => k.id === h0.classId), legacyHp = c.hp + RECIPES.find(r => r.id === 'chest').hp + RECIPES.find(r => r.id === 'boots').hp;
-  const re = createGame(old), rh = re.state.hunters[0];
+  const re = createGame(old), rh = re.state.hunters[0], c = CLASSES.find(k => k.id === rh.classId);
+  const legacyHp = c.hp + RECIPES.find(r => r.id === 'chest').hp + RECIPES.find(r => r.id === 'boots').hp;
   assert.deepEqual(rh.equipment, { weapon: true, helm: false, chest: true, belt: false, legs: false, boots: true, gloves: false }, 'boolean equipment survives');
-  assert.deepEqual(rh.gearTier, { weapon: 1, helm: 0, chest: 1, belt: 0, legs: 0, boots: 1, gloves: 0 }, 'owned slots load as tier Ⅰ, empty as 0');
-  assert.equal(re.gearTierOf(rh, 'chest'), 1); assert.equal(re.gearTierOf(rh, 'helm'), 0);
+  assert.deepEqual(EQUIP_SLOTS.map(s => re.gearTierOf(rh, s)), [1, 0, 1, 0, 0, 1, 0], 'owned slots load as tier Ⅰ, empty (starter) as 0');
+  assert.ok(EQUIP_SLOTS.every(s => !('grade' in rh.gear[s])), 'tier Ⅰ / starter instances keep the plain v4 shape {uid,itemId}');
   assert.equal(re.state.gearStock.weapon[1], 3); assert.equal(re.state.gearStock.gloves[1], 2); assert.equal(re.state.gearStock.chest[1], 1);
   assert.ok(Object.values(re.state.gearStock).every(st => [2, 3, 4, 5].every(t => st[t] === 0)), 'legacy numeric stock is tier Ⅰ only');
   const rar = RARITIES.find(x => x.id === rh.rarity).mult; assert.equal(rh.rebirths + rh.skillLevel + rh.weaponLevel, 0);
   assert.equal(rh.attack, Math.round((c.attack + 7) * (1 + (rh.level - 1) * 0.065) * rar * (rh.trait === 'brave' ? 1.1 : 1)), 'tier Ⅰ weapon = the old +7');
   assert.equal(rh.maxHp, Math.round(legacyHp * (1 + (rh.level - 1) * 0.075) * rar * (rh.trait === 'stout' ? 1.15 : 1)), 'tier Ⅰ armour = old hp formula');
+  // 2026-11-16 階級版 v3 存檔(equipment 布林 + h.gearTier):升級件照存的階級發
+  const tiered = JSON.parse(JSON.stringify(old)); tiered.hunters[0].gearTier = { weapon: 3, helm: 0, chest: 2, belt: 0, legs: 0, boots: 5, gloves: 0 };
+  const gt = createGame(tiered), th = gt.state.hunters[0];
+  assert.deepEqual(EQUIP_SLOTS.map(s => gt.gearTierOf(th, s)), [3, 0, 2, 0, 0, 5, 0], 'v3 gearTier → craft item grades');
+  assert.equal(th.gear.chest.grade, 2); assert.ok(th.maxHp > rh.maxHp && th.attack > rh.attack);
   // 數字階級的防呆(若別的分支把 equipment 存成數字):3 → 擁有、第 3 階,而 equipment 仍是布林
   const num = JSON.parse(JSON.stringify(old)); num.hunters[0].equipment = { weapon: 3, chest: 0, helm: true };
-  const rn = createGame(num).state.hunters[0]; assert.equal(rn.equipment.weapon, true); assert.equal(rn.gearTier.weapon, 3); assert.equal(rn.equipment.chest, false); assert.equal(rn.gearTier.helm, 1);
-  // 新格式來回:階級、各階庫存都保留
-  rh.gearTier.chest = 4; re.state.gearStock.legs[3] = 2; const round = createGame(re.serialize());
-  assert.equal(round.gearTierOf(round.state.hunters[0], 'chest'), 4); assert.equal(round.state.gearStock.legs[3], 2);
-  assert.ok(round.state.hunters[0].maxHp > rh.maxHp, 'tier Ⅳ chest reloads with its bonus');
+  const gn = createGame(num), rn = gn.state.hunters[0]; assert.equal(rn.equipment.weapon, true); assert.equal(gn.gearTierOf(rn, 'weapon'), 3); assert.equal(rn.equipment.chest, false); assert.equal(gn.gearTierOf(rn, 'helm'), 1);
+  // 新格式來回:階級、各階庫存、倉庫裡升級件的階級都保留
+  rh.gear.chest.grade = 4; re.state.gearStock.legs[3] = 2; re.state.gearStorage.push({ uid: 'gx9', itemId: 'craft_helm', grade: 5 }, { uid: 'gx10', itemId: 'archer_bow', grade: 3 });
+  const round = createGame(re.serialize()), rr = round.state.hunters[0];
+  assert.equal(round.gearTierOf(rr, 'chest'), 4); assert.equal(round.state.gearStock.legs[3], 2);
+  assert.ok(rr.maxHp > rh.maxHp, 'tier Ⅳ chest reloads with its bonus');
+  assert.equal(round.state.gearStorage.find(x => x.itemId === 'craft_helm').grade, 5, 'stored craft grade survives reload');
+  assert.ok(!('grade' in round.state.gearStorage.find(x => x.itemId === 'archer_bow')), 'starter items never carry a grade');
   // 壞資料:階級超界夾到 1..5、庫存負數/非數字歸零
   const bad = JSON.parse(JSON.stringify(old)); bad.hunters[0].gearTier = { weapon: 99, chest: -4 }; bad.gearStock = { weapon: { 1: -3, 2: 'x', 5: 7 }, chest: 'zz' };
-  const rb = createGame(bad); assert.equal(rb.state.hunters[0].gearTier.weapon, GEAR_TIER_MAX); assert.equal(rb.state.hunters[0].gearTier.chest, 1);
+  const rb = createGame(bad), bh = rb.state.hunters[0]; assert.equal(rb.gearTierOf(bh, 'weapon'), GEAR_TIER_MAX); assert.equal(rb.gearTierOf(bh, 'chest'), 1);
   assert.deepEqual(rb.state.gearStock.weapon, { 1: 0, 2: 0, 3: 0, 4: 0, 5: 7 }); assert.equal(rb.gearStockOf('chest'), 0);
+  const badV4 = re.serialize(); badV4.hunters[0].gear.chest.grade = 99; badV4.hunters[0].gear.helm = { uid: 'g1', itemId: 'craft_helm', grade: 'x' };
+  const rv = createGame(badV4), vh = rv.state.hunters[0]; assert.equal(rv.gearTierOf(vh, 'chest'), GEAR_TIER_MAX); assert.equal(rv.gearTierOf(vh, 'helm'), 1);
+}
+{ // 階級物品資料(gearItemView):第 1 階 = EQUIPMENT 原值;高階照 gearAt;售價/分解照 craft 公式(材料價值 × 0.8、材料一半進位)
+  for (const r of RECIPES) {
+    const base = EQUIPMENT['craft_' + r.id], v1 = gearItemView({ itemId: base.id });
+    assert.deepEqual([v1.stats, v1.sell, v1.salvage, v1.name, v1.grade], [base.stats, base.sell, base.salvage, base.name, 1], `${base.id} tier Ⅰ unchanged`);
+    for (let t = 2; t <= GEAR_TIER_MAX; t++) {
+      const v = gearItemView({ itemId: base.id, grade: t }), a = gearAt(r.id, t), value = Object.entries(a.cost).reduce((n, [k, q]) => n + q * MATERIALS[k].price, 0);
+      assert.deepEqual(v.stats, r.type === 'weapon' ? { atk: a.bonus, hp: 0, def: 0 } : { atk: 0, hp: a.hp, def: a.def }, `${base.id} tier ${t} stats`);
+      assert.equal(v.sell, Math.round(value * 0.8)); assert.deepEqual(v.salvage, Object.fromEntries(Object.entries(a.cost).map(([k, q]) => [k, Math.ceil(q / 2)])));
+      assert.ok(v.sell < a.price, 'selling never beats the forge price'); assert.equal(v.name, `${base.name} ${a.numeral}`);
+    }
+  }
+  assert.equal(gearItemView({ itemId: 'archer_bow', grade: 4 }), EQUIPMENT.archer_bow, 'starter items ignore grade');
+  assert.deepEqual([1, 10, 11, 20, 21, 41, 99].map(dungeonGearGrade), [1, 1, 2, 2, 3, 5, 5]);
+  // 倉庫裡的高階件出售 = 該階售價
+  const g = createGame(); g.state.gearStorage.push({ uid: 'gs1', itemId: 'craft_chest', grade: 3 }); const v0 = g.state.gold;
+  assert.equal(g.sellStoredGear('gs1').ok, true); assert.equal(g.state.gold - v0, gearItemView({ itemId: 'craft_chest', grade: 3 }).sell);
 }
 { // 鍛造階級跟著鐵匠鋪等級:Lv.N 最多第 N 階;不給 tier = 最高階;材料照階級倍率
   const g = createGame(); Object.assign(g.state, { ore: 9999, wood: 9999, leather: 9999, cloth: 9999 });
@@ -176,10 +211,10 @@ assert.equal(gear.state.counts.gearSold, gearIds.length); assert.equal(totalMone
   for (let t = 2; t <= GEAR_TIER_MAX; t++) { const a = gearAt('chest', t - 1), b = gearAt('chest', t); assert.ok(b.price > a.price && b.hp > a.hp && b.def >= a.def, `tier ${t} beats tier ${t - 1}`); }
   assert.equal(gearAt('weapon', 1).bonus, 7); assert.equal(gearAt('chest', 1).price, 140); assert.equal(gearAt('chest', 2).name, '胸甲 Ⅱ');
 }
-{ // 換更高階:獵人付錢給村莊(總金幣守恆)、身上換成高階、低階不重買;留 40 金付吃住;沒有更高階就不買
+{ // 換更高階:獵人付錢給村莊(總金幣守恆)、身上換成高階(舊件進倉庫)、低階不重買;留 40 金付吃住;沒有更高階就不買
   const g = createGame(), h = isolate(g), forge = BUILDINGS.find(b => b.id === 'forge'); g.state.time = 100; g.state.buildings.forge = 3;
   Object.assign(g.state, { ore: 9999, wood: 9999, leather: 9999, cloth: 9999 });
-  h.equipment.chest = true; h.gearTier.chest = 1; h.equipment.weapon = true; h.gearTier.weapon = 3;
+  wear(g, h, 'chest', 1); wear(g, h, 'weapon', 3); const oldChest = h.gear.chest.uid;
   assert.equal(g.craftEquipment('chest', 1).ok, true); assert.equal(g.craftEquipment('chest', 3).ok, true); assert.equal(g.craftEquipment('weapon', 2).ok, true);
   const price = gearAt('chest', 3).price; h.gold = price + 40 + 5; Object.assign(h, doorStand(forge, forge));
   const money = totalMoney(g), village = g.state.gold, hp0 = h.maxHp, def0 = h.defense, sold0 = g.state.counts.gearSold;
@@ -187,17 +222,18 @@ assert.equal(gear.state.counts.gearSold, gearIds.length); assert.equal(totalMone
   assert.equal(g.gearTierOf(h, 'chest'), 3, 'hunter upgrades chest Ⅰ → Ⅲ'); assert.equal(h.gold, 45); assert.equal(g.state.gold, village + price, 'village receives the upgrade price');
   assert.equal(totalMoney(g), money); assert.equal(g.state.counts.gearUpgrades, 1); assert.equal(g.state.counts.gearIncome, price); assert.equal(g.state.counts.gearSold, sold0 + 1);
   assert.ok(h.maxHp > hp0 && h.defense > def0, 'stats rise with the tier');
+  assert.ok(g.state.gearStorage.some(x => x.uid === oldChest), 'the replaced tier Ⅰ chest goes to the warehouse');
   assert.equal(g.state.gearStock.chest[3], 0); assert.equal(g.state.gearStock.chest[1], 1, 'lower tier is not bought when already owned');
   assert.equal(g.state.gearStock.weapon[2], 1, 'tier Ⅱ weapon is not a downgrade for a tier Ⅲ owner'); assert.equal(g.gearTierOf(h, 'weapon'), 3);
   // 留錢:剛好付得起但會吃光生活費 → 不換
   const g2 = createGame(), h2 = isolate(g2); g2.state.time = 100; g2.state.buildings.forge = 2; Object.assign(g2.state, { ore: 999, leather: 999 });
-  h2.equipment.chest = true; h2.gearTier.chest = 1; assert.equal(g2.craftEquipment('chest').ok, true);
+  wear(g2, h2, 'chest', 1); assert.equal(g2.craftEquipment('chest').ok, true);
   h2.gold = gearAt('chest', 2).price + 39; Object.assign(h2, doorStand(forge, forge)); const v2 = g2.state.gold; run(g2, 5, true);
   assert.equal(g2.gearTierOf(h2, 'chest'), 1, 'upgrade keeps a 40-gold reserve'); assert.equal(g2.state.gold, v2);
 }
 { // 離線外推:取樣期買的裝備是一次性的(庫存離線不補),不乘倍率;村莊＋獵人金幣仍守恆
   const g = createGame(), h = isolate(g), forge = BUILDINGS.find(b => b.id === 'forge'); g.state.time = 100; g.state.buildings.forge = 2;
-  Object.assign(g.state, { ore: 999, leather: 999 }); h.equipment.chest = true; h.gearTier.chest = 1; assert.equal(g.craftEquipment('chest').ok, true);
+  Object.assign(g.state, { ore: 999, leather: 999 }); wear(g, h, 'chest', 1); assert.equal(g.craftEquipment('chest').ok, true);
   h.gold = 2000; h.inventory.ore = 200; g.state.tradeRequests.ore = 200; Object.assign(h, doorStand(forge, forge)); g.state.wanderers = [];   // 賣礦 → 取樣期非裝備的錢包流量為正(不然外推夾到 0,測不出差別)
   const snap = g.offlineSnapshot(), v0 = g.state.gold; g.simulate(OFFLINE.sample);
   assert.equal(g.gearTierOf(h, 'chest'), 2, 'bought the upgrade during the sample'); const price = gearAt('chest', 2).price;
@@ -1284,7 +1320,7 @@ run(manual, 30, false, assertFiniteEconomy);
   for (const bad of ['boss', 'dragon', 42, {}]) assert.equal(g.setMount(h.id, bad).ok, false, `not rideable: ${bad}`);
   assert.equal(h.mount, null, 'refused setMount leaves the hunter unmounted');
   const r = g.setMount(h.id, 'boar'); assert.ok(r.ok && r.mount === 'boar' && h.mount === 'boar', r.message);
-  const save = g.serialize(); assert.equal(save.version, 3, 'save version unchanged (additive field)');
+  const save = g.serialize(); assert.equal(save.version, 4, 'save version is v4 (item gear); mount/gender stay additive');
   assert.equal(save.hunters.find(x => x.id === h.id).mount, 'boar', 'mount is saved');
   assert.equal(createGame(save).state.hunters.find(x => x.id === h.id).mount, 'boar', 'mount survives a reload');
   const old = JSON.parse(JSON.stringify(save)); for (const x of old.hunters) delete x.mount;
@@ -1322,7 +1358,7 @@ run(manual, 30, false, assertFiniteEconomy);
   assert.deepEqual(a.serialize().hunters.map(x => [x.x, x.z, x.hp]), b.serialize().hunters.map(x => [x.x, x.z, x.hp]));
   // custom name: the saved value survives
   const h = g.state.hunters[0]; h.name = '測試者'; h.gender = 'f';
-  const save = g.serialize(); assert.equal(save.version, 3, 'save version unchanged (additive field)');
+  const save = g.serialize(); assert.equal(save.version, 4, 'save version is v4 (item gear); mount/gender stay additive');
   assert.equal(save.hunters[0].gender, 'f', 'gender is saved');
   assert.equal(createGame(save).state.hunters[0].gender, 'f', 'custom-name gender survives a reload');
   // known name: the name wins over a wrong saved value (old id-hash genders are corrected on load)
@@ -1366,6 +1402,85 @@ run(manual, 30, false, assertFiniteEconomy);
   assert.ok(Math.abs(rode / base - MOUNT_SPEED_MULT) < 0.02, `mounted pilot speed ×${MOUNT_SPEED_MULT} (${(rode / base).toFixed(3)})`);
   assert.equal(MOUNT_SPEED_MULT, 1.3, 'documented constant (docs/PAPERDOLL.md §20)');
   assert.ok(isRideable('boar') && !isRideable('boss') && !isRideable('wolfman') && Object.keys(ENEMIES).filter(isRideable).length === 6);
+}
+// ── 裝備物品化併入 5024(2026-11-16,存檔 v4):鐵匠鋪七格 → 物品實例、v2/v3 遷移數值不變、初始套裝不灌水、存讀檔往返 ──
+{
+  // v3 公式(a8919b0 的 updateStats):六格布林值查 RECIPES、武器 +7,強化只在有武器時生效
+  const R = Object.fromEntries(RECIPES.map(r => [r.id, r])), RAR = Object.fromEntries(RARITIES.map(r => [r.id, r.mult]));
+  const v3Stats = (h, eqb) => {
+    const c = CLASSES.find(x => x.id === h.classId), rar = RAR[h.rarity], reb = 1 + h.rebirths * 0.35;
+    let hp = 0, def = 0; for (const s of GEAR_SLOTS) if (eqb[s]) { hp += R[s].hp; def += R[s].def; }
+    const wl = eqb.weapon ? h.weaponLevel : 0;
+    return { maxHp: Math.round((c.hp + hp) * (1 + (h.level - 1) * 0.075) * rar * reb * (h.trait === 'stout' ? 1.15 : 1)),
+      attack: Math.round((c.attack + (eqb.weapon ? 7 : 0)) * (1 + (h.level - 1) * 0.065) * rar * reb * (1 + h.skillLevel * 0.1) * (1 + wl * 0.07) * (h.trait === 'brave' ? 1.1 : 1)),
+      defense: c.defense + def + Math.floor(h.level / 8) + h.rebirths * 2 };
+  };
+  const pick = h => ({ maxHp: h.maxHp, attack: h.attack, defense: h.defense });
+  const none = Object.fromEntries(EQUIP_SLOTS.map(s => [s, false]));
+  // 鐵匠鋪升級件數值 = RECIPES(單一來源)
+  for (const r of RECIPES) { const it = EQUIPMENT['craft_' + r.id]; assert.ok(it && it.slot === r.type && it.tier === 'craft', `craft_${r.id} exists`);
+    assert.deepEqual(it.stats, r.type === 'weapon' ? { atk: r.bonus, hp: 0, def: 0 } : { atk: 0, hp: r.hp, def: r.def }, `craft_${r.id} stats = recipe`); }
+  // 開局:每位獵人穿職業初始七件套,數值 = v3 沒裝備
+  const g = createGame();
+  for (const h of g.state.hunters) {
+    assert.ok(EQUIP_SLOTS.every(s => h.gear[s] && h.gear[s].itemId === CLASS_STARTER[h.classId][s]), `${h.classId} wears its starter set`);
+    assert.deepEqual(pick(h), v3Stats(h, none), `${h.classId} opening stats equal v3 no-gear stats`);
+  }
+  for (const w of g.state.wanderers) assert.deepEqual(pick(w), v3Stats(w, none), `wanderer ${w.classId} opening stats unchanged`);
+  // 七份配方全做 → 獵人回村逐格買下 → 身上七件 craft_*,初始件進倉庫,庫存歸零,uid 不重複
+  const f = createGame(), buyer = isolate(f), forge = BUILDINGS.find(b => b.id === 'forge'); f.state.time = 100; Object.assign(buyer, doorStand(forge, forge)); buyer.gold = 2000;
+  for (const r of RECIPES) assert.equal(f.craftEquipment(r.id).ok, true, `craft ${r.id}`);
+  assert.ok(EQUIP_SLOTS.every(s => f.state.gearStock[s][1] === 1));
+  run(f, 5, true);
+  for (const s of EQUIP_SLOTS) { assert.equal(buyer.gear[s].itemId, 'craft_' + s, `bought craft ${s}`); assert.equal(buyer.equipment[s], true); assert.equal(f.state.gearStock[s][1], 0); }
+  assert.deepEqual(f.state.gearStorage.map(x => x.itemId).sort(), Object.values(CLASS_STARTER[buyer.classId]).sort(), 'replaced starter pieces go to the warehouse');
+  assert.deepEqual(pick(buyer), v3Stats(buyer, Object.fromEntries(EQUIP_SLOTS.map(s => [s, true]))), 'full craft set = v3 full-gear stats');
+  run(f, 5, true); assert.equal(f.state.counts.gearSold, EQUIP_SLOTS.length, 'no double purchase once every slot is craft');
+  // 存讀檔往返:物品、倉庫、數值不變,沒有 NaN,uid 唯一
+  buyer.weaponLevel = 4; f.unequipGear(buyer.id, 'gloves');
+  const save1 = JSON.parse(JSON.stringify(f.serialize())); assert.equal(save1.version, 4);
+  const f2 = createGame(save1), b2 = f2.state.hunters.find(h => h.id === buyer.id);
+  assert.deepEqual(EQUIP_SLOTS.map(s => b2.gear[s]?.itemId ?? null), EQUIP_SLOTS.map(s => buyer.gear[s]?.itemId ?? null), 'gear survives reload');
+  assert.deepEqual(f2.state.gearStorage.map(x => x.itemId), f.state.gearStorage.map(x => x.itemId), 'warehouse survives reload');
+  assert.deepEqual(pick(b2), pick(buyer), 'stats survive reload'); assert.equal(b2.weaponLevel, 4);
+  const save2 = f2.serialize();
+  for (const a of [...save2.hunters, ...save2.wanderers]) for (const k of ['hp', 'maxHp', 'attack', 'defense', 'x', 'z', 'gold', 'weaponLevel']) assert.ok(Number.isFinite(a[k]), `${a.id}.${k} finite after round trip`);
+  const uids = [...f2.state.hunters, ...f2.state.wanderers].flatMap(a => EQUIP_SLOTS.map(s => a.gear[s]?.uid).filter(Boolean)).concat(f2.state.gearStorage.map(x => x.uid));
+  assert.equal(new Set(uids).size, uids.length, 'gear uids unique across hunters, wanderers and warehouse');
+  assert.ok(f2.state.gearSeq >= uids.length);
+  // 強化:初始武器不能強化;脫下精鐵武器後強化倍率不生效,穿回來恢復
+  f2.state.buildings.enhancement = 1; f2.state.gold = 1e5; f2.state.ore = 1e4;
+  g.state.buildings.enhancement = 1; g.state.gold = 1e5; g.state.ore = 1e4; assert.equal(g.enhance(g.state.hunters[0].id).ok, false, 'starter weapon cannot be enhanced');
+  const atk4 = b2.attack; f2.unequipGear(b2.id, 'weapon'); assert.ok(b2.attack < atk4 && b2.weaponLevel === 4);
+  assert.ok(f2.equipFromStorage(b2.id, f2.state.gearStorage.at(-1).uid).ok); assert.equal(b2.attack, atk4, 'enhancement returns with the craft weapon');
+  // v2 存檔(weapon/armor 布林):armor → 六件防具 craft,weapon → craft_weapon;數值 = v3 遷移後的數值
+  const asOld = (s, v) => { s.version = v; for (const x of [...s.hunters, ...(s.wanderers || [])]) delete x.gear; delete s.gearStorage; delete s.gearSeq; return s; };
+  const v2 = asOld(createGame().serialize(), 2);
+  v2.hunters.forEach((h, i) => { h.equipment = i === 0 ? { weapon: true, armor: true } : i === 1 ? { weapon: false, armor: true } : i === 2 ? { weapon: true, armor: false } : { weapon: false, armor: false }; h.weaponLevel = i === 0 ? 3 : 0; });
+  v2.wanderers[0].equipment = { weapon: true, armor: true }; v2.gearStock = { weapon: 2, armor: 3 };
+  const l2 = createGame(v2);
+  l2.state.hunters.forEach((h, i) => {
+    const eqb = Object.fromEntries(EQUIP_SLOTS.map(s => [s, s === 'weapon' ? i === 0 || i === 2 : i <= 1]));
+    for (const s of EQUIP_SLOTS) assert.equal(h.gear[s].itemId, eqb[s] ? 'craft_' + s : CLASS_STARTER[h.classId][s], `v2 hunter ${i} ${s}`);
+    assert.deepEqual(pick(h), v3Stats(h, eqb), `v2 hunter ${i} stats equal the v3 migration`);
+  });
+  assert.equal(l2.state.hunters[0].weaponLevel, 3);
+  const w0 = l2.state.wanderers[0]; assert.ok(EQUIP_SLOTS.every(s => w0.gear[s].itemId === 'craft_' + s), 'v2 wanderer armor/weapon → craft items');
+  assert.deepEqual(Object.fromEntries(EQUIP_SLOTS.map(s => [s, l2.state.gearStock[s][1]])), { weapon: 2, helm: 0, chest: 3, belt: 0, legs: 0, boots: 0, gloves: 0 }, 'v2 stock: armor → chest (tier Ⅰ)');
+  assert.deepEqual(l2.state.gearStorage, [], 'v2 save starts with an empty warehouse');
+  // v3 存檔(六格布林 + 每格庫存)
+  const v3 = asOld(createGame().serialize(), 3);
+  const mix = { weapon: true, helm: true, chest: false, belt: true, legs: false, boots: false, gloves: true };
+  v3.hunters[0].equipment = { ...mix }; v3.hunters[0].weaponLevel = 2; v3.hunters[1].equipment = { ...none }; v3.hunters[1].weaponLevel = 5;
+  v3.wanderers[1].equipment = { ...none, chest: true }; v3.gearStock = { weapon: 1, helm: 2, chest: 3, belt: 4, legs: 5, boots: 6, gloves: 7 };
+  const l3 = createGame(v3), h30 = l3.state.hunters[0], h31 = l3.state.hunters[1];
+  for (const s of EQUIP_SLOTS) assert.equal(h30.gear[s].itemId, mix[s] ? 'craft_' + s : CLASS_STARTER[h30.classId][s], `v3 ${s}`);
+  assert.deepEqual(h30.equipment, mix); assert.deepEqual(pick(h30), v3Stats(h30, mix), 'v3 mixed slots: stats unchanged');
+  assert.equal(h31.weaponLevel, 0, 'v3: no weapon → weaponLevel 0 (as before)'); assert.deepEqual(pick(h31), v3Stats(h31, none));
+  assert.equal(l3.state.wanderers[1].gear.chest.itemId, 'craft_chest', 'v3 wanderer chest → craft_chest');
+  assert.deepEqual(Object.fromEntries(EQUIP_SLOTS.map(s => [s, l3.state.gearStock[s][1]])), v3.gearStock, 'v3 per-slot stock kept (tier Ⅰ)');
+  // v1 / 未知版本照舊拒絕
+  for (const v of [1, 5, '4', undefined]) { const bad = createGame().serialize(); bad.version = v; bad.gold = 7; assert.equal(createGame(bad).state.gold, 1500, `version ${String(v)} rejected`); }
 }
 console.log(`PASS: ${CLASSES.length} hunters / ${CLASSES.length} classes, seeded visitors, conservation of personal and village gold, paid and emergency services, bounded trading, crafting and gear purchases, upgrades, training, skills, rebirth, difficulty gates, hunting, field boss, death/revival, dungeon combat and save continuation, NPC arena, navigation, malformed saves, pause, deterministic simulation, all 18 quests and legacy quest-save migration. Natural 60s: ${combat.state.totalKills} total kills; ${combat.state.counts.services} services.`);
 
