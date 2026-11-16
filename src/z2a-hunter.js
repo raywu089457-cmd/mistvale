@@ -1,7 +1,7 @@
 // z2a-hunter.js — Z2A(圖鑑規格 v2 的 f、g、j 節):獵人卡(C 視窗內容)、名冊卡、新獵人到訪暗帶(D)的 HTML。
 // 只產生字串;狀態(游標位置、哪張子頁籤)放在這裡的 hc／vb,事件接線在 pixel-ui.js 的 doAction。
 import {tipAttr,tipGradeName} from './ui-tip.js';
-import {GEAR_SLOTS,EQUIPMENT,EQUIP_SLOTS} from './pixel-data.js';
+import {GEAR_SLOTS,EQUIPMENT,EQUIP_SLOTS,MATERIALS} from './pixel-data.js';
 let C=null;   // { esc, fmt, iconHTML, portrait, game:()=>game, RARITIES, CLASSES, TRAITS }
 export const initHunterUI=ctx=>{C=ctx;};
 
@@ -21,8 +21,11 @@ const itemIn=(h,slot)=>h&&h.gear&&h.gear[slot]?EQUIPMENT[h.gear[slot].itemId]||n
 export const gearIconSrc=id=>{const m=globalThis.PIXEL_ASSETS&&globalThis.PIXEL_ASSETS.gearIcons;return m&&id&&m[id]?m[id]:'';};
 export function gearIconHTML(it,size=28,extra=''){const src=it&&gearIconSrc(it.id);return src?`<img class="gico${extra?' '+extra:''}" src="${src}" alt="" width="${size}" height="${size}" loading="lazy" decoding="async">`:'';}
 const statLine=it=>{const s=(it&&it.stats)||{},parts=[];if(s.atk)parts.push(`攻擊 +${s.atk}`);if(s.hp)parts.push(`生命 +${s.hp}`);if(s.def)parts.push(`防禦 +${s.def}`);return parts.length?parts.join(' · '):'沒有數值加成';};
+// 2026-11-16 裝備經濟:滑過裝備格就看得到「賣價與分解產出」
+const salvageLine=it=>Object.entries(it.salvage||{}).map(([k,n])=>`${(MATERIALS[k]||{}).name||k}×${n}`).join('、')||'—';
+const gearValueLine=it=>`售 ${it.sell} 金 · 分解 ${salvageLine(it)}`;
 function gearSlotTip(h,slot){const it=itemIn(h,slot);
- return it?{name:it.name,grade:it.tier==='craft'?'superior':'normal',icon:slot==='weapon'?'swords':'def',stats:[['位置',SLOT_LABEL[slot]],['攻擊','+'+(it.stats.atk||0)],['生命','+'+(it.stats.hp||0)],['防禦','+'+(it.stats.def||0)]],lines:[['pos',statLine(it)]]}
+ return it?{name:it.name,grade:it.tier==='craft'?'superior':'normal',icon:slot==='weapon'?'swords':'def',stats:[['位置',SLOT_LABEL[slot]],['攻擊','+'+(it.stats.atk||0)],['生命','+'+(it.stats.hp||0)],['防禦','+'+(it.stats.def||0)]],lines:[['pos',statLine(it)],['note',gearValueLine(it)]]}
   :{name:`${SLOT_LABEL[slot]}（空）`,grade:'normal',icon:slot==='weapon'?'swords':'def',stats:[['狀態','未穿戴']],lines:[['neg','這個位置沒有數值加成'],['note',`倉庫裡有${SLOT_LABEL[slot]}時可以在裝備頁穿上`]]};}
 function weaponTip(h){const lv=h.weaponLevel||0,it=itemIn(h,'weapon'),on=!!(it||h.equipment?.weapon),g=gradeOfLv(on?lv:0),atk=(it&&it.stats&&it.stats.atk)||7;
  return on?{name:it?it.name:'精鐵武器',grade:g,icon:'swords',stars:Math.ceil(lv/2),level:'+'+lv,stats:[['品質',tipGradeName(g)],['強化',`+${lv} / 10`],['攻擊','+'+atk]],

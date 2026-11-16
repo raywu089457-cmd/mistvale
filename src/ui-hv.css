@@ -2522,6 +2522,14 @@ html body #modal-content .gear-store-row .z2b-act .pixel-button{min-height:36px!
 html body #modal-content .gear-store-who{display:flex;align-items:center;gap:6px;flex-wrap:wrap}
 html body #modal-content .gear-store-who select{min-height:36px;max-width:100%;background:#1e1b17;color:var(--hv-text);border:1px solid #4a4540;font:700 13px/1 var(--font-ui);padding:0 6px}
 html body #modal-content .gear-store-empty{opacity:.85}
+/* 2026-11-16 裝備經濟:手機上倉庫列的說明(售價/分解)不要被壓成一行一個字 → 說明獨占一列,按鈕換到下一列 */
+@media(max-width:560px){
+  html body #modal-content .gear-store-row{flex-wrap:wrap}
+  html body #modal-content .gear-store-row .z2b-rb{flex:1 1 100%;order:2}
+  html body #modal-content .gear-store-row .z2b-ic{order:1}
+  html body #modal-content .gear-store-row .z2b-act{order:3;flex:1 1 100%}
+  html body #modal-content .gear-store-row .z2b-ds{overflow-wrap:normal;word-break:keep-all}
+}
 @media(pointer:coarse){html body #modal-content .gear-store-row .z2b-act .pixel-button{min-height:44px!important}}
 /* ===== Z2D end ===== */
 

@@ -3,7 +3,7 @@ import {createVillageNav} from './village-nav.js';
 import {WORLD,REGIONS,walkable,inVillage,regionAt,regionContains,regionEdge,regionCenter,randomRegionPoint,wildAt,nearestRingRoad,ringRoadPath,ringPointAt,onRingRoad,ringRoadDistance} from './overworld.js';
 import {VILLAGE_BOUNDS,EXITS,blockAt,BUILDING_NUDGE,BUILDING_SLOTS,blockCenter} from './village-grid.js';
 import {sfx} from './sfx.js';
-import { SKILLS, BUILDINGS, CLASSES, RARITIES, TRAITS, MATERIALS, PRODUCTS, RECIPES, DIFFICULTIES, CAMP, HUNT_ZONE, PILOT_ATTACK, PILOT_ORB, AI_ATTACK_LOCK, KITE, PROVOKE, MONSTER_RANGED, LEGACY_LAYOUT_V14, LEGACY_LAYOUT_V15, LEGACY_LAYOUT_V16, ART_LAYOUT_HISTORY, REGION_DENSITY, DEFAULT_REGION_DENSITY, MONSTER_SPEED_MULT, MONSTER_ATTACK_RATE, GEAR_SLOTS, EQUIP_SLOTS, EQUIPMENT, CLASS_STARTER } from './pixel-data.js';
+import { SKILLS, BUILDINGS, CLASSES, RARITIES, TRAITS, MATERIALS, PRODUCTS, RECIPES, DIFFICULTIES, CAMP, HUNT_ZONE, PILOT_ATTACK, PILOT_ORB, AI_ATTACK_LOCK, KITE, PROVOKE, MONSTER_RANGED, LEGACY_LAYOUT_V14, LEGACY_LAYOUT_V15, LEGACY_LAYOUT_V16, ART_LAYOUT_HISTORY, REGION_DENSITY, DEFAULT_REGION_DENSITY, MONSTER_SPEED_MULT, MONSTER_ATTACK_RATE, GEAR_SLOTS, EQUIP_SLOTS, EQUIPMENT, CLASS_STARTER, GEAR_DROP } from './pixel-data.js';
 
 const mapById = list => Object.assign(Object.create(null), Object.fromEntries(list.map(item => [item.id, item])));
 const CLASS = mapById(CLASSES), BUILDING = mapById(BUILDINGS), RARITY = mapById(RARITIES), RECIPE = mapById(RECIPES);
@@ -360,6 +360,20 @@ export function createGame(saved = null) {
     for (const slot of EQUIP_SLOTS) h.gear[slot] = null;
     for (const [slot, itemId] of Object.entries(set)) if (EQUIP[itemId]) h.gear[slot] = newGearItem(itemId);
     syncGear(h);
+  }
+  // ── 2026-11-16 裝備經濟(docs/EQUIPMENT-ECONOMY.md):掉落/獎勵直接進村莊裝備倉庫,玩家再決定要穿/賣/分解 ──
+  function grantGear(itemId, sourceLabel = '戰利品') {
+    if (!EQUIP[itemId]) return null;
+    const item = EQUIP[itemId], inst = newGearItem(itemId);
+    state.gearStorage.push(inst);
+    log(`${sourceLabel}：獲得${item.name}（已放入裝備倉庫）。`, 'loot');
+    return inst;
+  }
+  function rollGearDrop(kind) {
+    const rule = GEAR_DROP[kind];
+    if (!rule || !rule.pool || !rule.pool.length) return null;
+    if (rule.chance != null && random() >= rule.chance) return null;
+    return rule.pool[Math.floor(random() * rule.pool.length)];
   }
 
   function gainXp(h, amount) {
@@ -871,7 +885,10 @@ export function createGame(saved = null) {
     for (const h of state.hunters) if (h.hp > 0 && h.task !== 'dungeon' && h.task !== 'arena' && (distance(h, enemy) < 12 || h === hunter)) gainXp(h, Math.round(data.xp * Math.sqrt(multiplier)));
     if (enemy.type === 'boss') {
       state.bossKills++; state.gems += 5; Object.assign(state.expedition, { active: false, bossHp: 0, cooldown: 55, elapsed: 0 });
+      const bossGear = rollGearDrop('boss'); if (bossGear) grantGear(bossGear, '森林領主的寶箱');
       log('森林領主已被擊敗！村莊獲得 5 顆晶石，獵人帶回稀有戰利品。', 'success'); effect('victory', enemy);
+    } else {
+      const wildGear = rollGearDrop('monster'); if (wildGear) grantGear(wildGear, '野外戰利品');
     }
   }
 
@@ -922,6 +939,8 @@ export function createGame(saved = null) {
     if (dgLedger) { dgLedger.wins++; for (const [key, amount] of Object.entries(d.reward)) dgLedger.res[key] = (dgLedger.res[key] || 0) + amount;
       for (const h of party) if (h.hp > 0) { dgLedger.gold[h.id] = (dgLedger.gold[h.id] || 0) + 35 + floor * 10; dgLedger.xp[h.id] = (dgLedger.xp[h.id] || 0) + 140 + floor * 35; } }
     log(`地下城第 ${floor} 層突破！村莊獲得 ${d.reward.gold} 金幣、${d.reward.ore} 鐵礦與 ${d.reward.gems} 晶石。`, 'success'); effect('victory', door('dungeon'));
+    // 2026-11-16 裝備經濟:每 N 層開一次寶箱(掉進村莊裝備倉庫,不佔樓層獎勵帳本)
+    if (floor % GEAR_DROP.dungeon.every === 0) { const dgGear = rollGearDrop('dungeon'); if (dgGear) grantGear(dgGear, `地下城第 ${floor} 層寶箱`); }
     dgEvent('clear', null, null, floor);
     if (d.auto && floor < 100 && party.every(h => h.hp > 0)) {
       d.floor = floor + 1; d.wave = 1; d.foes = []; d.time = 0; d.phase = '休整中'; d.rest = 3;
@@ -1871,6 +1890,8 @@ export function createGame(saved = null) {
     claimQuest() {
       refreshQuest(); if (!state.quest.complete) return result(false, '委託尚未完成。'); if (state.quest.claimed) return result(false, '全部章節委託已完成。');
       for (const [key, amount] of Object.entries(state.quest.reward)) state[key] += amount;
+      // 2026-11-16 裝備經濟:部分章節委託額外送指定裝備(GEAR_DROP.quest)
+      const questGear = GEAR_DROP.quest[state.quest.index]; if (questGear) grantGear(questGear, '委託獎勵');
       log(`委託「${state.quest.title}」完成，獎勵已入庫。`, 'success'); if (state.quest.index < QUESTS.length - 1) state.quest = { index: state.quest.index + 1, claimed: false }; else state.quest.claimed = true;
       refreshQuest(); return result(true, '委託獎勵已領取。');
     },
