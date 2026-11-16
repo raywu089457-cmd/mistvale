@@ -1,6 +1,6 @@
 import {getRoads,onPaved,doorStand,PALISADE,villagePonds,inPond,buildingSolid,statueSolid} from './landscape-layout.js';
 import {createVillageNav} from './village-nav.js';
-import {WORLD,REGIONS,walkable,inVillage,regionAt,regionContains,regionEdge,regionCenter,randomRegionPoint,wildAt,nearestRingRoad,ringRoadPath,ringPointAt,onRingRoad,ringRoadDistance} from './overworld.js';
+import {WORLD,REGIONS,walkable,inVillage,regionAt,regionContains,regionEdge,regionCenter,randomRegionPoint,wildAt,nearestRingRoad,ringRoadPath,ringPointAt,onRingRoad,ringRoadDistance,RING_ROAD_HALF} from './overworld.js';
 import {VILLAGE_BOUNDS,EXITS,blockAt,BUILDING_NUDGE,BUILDING_SLOTS,blockCenter} from './village-grid.js';
 import {sfx} from './sfx.js';
 import { SKILLS, BUILDINGS, CLASSES, RARITIES, TRAITS, MATERIALS, PRODUCTS, RECIPES, GEAR_SLOTS, EQUIP_SLOTS, DIFFICULTIES, CAMP, HUNT_ZONE, PILOT_ATTACK, PILOT_ORB, AI_ATTACK_LOCK, KITE, PROVOKE, MONSTER_RANGED, LEGACY_LAYOUT_V14, LEGACY_LAYOUT_V15, LEGACY_LAYOUT_V16, ART_LAYOUT_HISTORY, REGION_DENSITY, DEFAULT_REGION_DENSITY, MONSTER_SPEED_MULT, MONSTER_ATTACK_RATE } from './pixel-data.js';
@@ -198,7 +198,11 @@ export function createGame(saved = null) {
   const buildingPoint = buildingId => state.layout[buildingId];
   // 環村道路是魔物進不去的安全走廊(2026-10-30 使用者:「路上的怪不會主動攻擊路上走路的英雄,踏出道路邊界才會」):
   // 魔物不在路上生、不走上路(閒晃、追擊、等空位、被推開都一樣);已經在路上的(舊存檔)只准往離開道路的方向走。
-  const ROAD_PAD = 0.35, roadOk = (from, p) => !onRingRoad(p.x, p.z, ROAD_PAD) || ringRoadDistance(p.x, p.z) > ringRoadDistance(from.x, from.z);
+  // 2026-11-16 離線模擬加速:onRingRoad(p.x,p.z,ROAD_PAD) 就是 ringRoadDistance(p) <= RING_ROAD_HALF+ROAD_PAD,
+  // 原本進入第二個條件時會再把 ringRoadDistance(p) 算一次;這裡先算一次距離重複使用。
+  // 比較式、短路順序、浮點運算完全相同。
+  const ROAD_PAD = 0.35, ROAD_PAD_LIMIT = RING_ROAD_HALF + ROAD_PAD,
+    roadOk = (from, p) => { const d = ringRoadDistance(p.x, p.z); return d > ROAD_PAD_LIMIT || d > ringRoadDistance(from.x, from.z); };
   // 2026-10-31 使用者:「怪物在可行走區域邊緣不能來回抖動」。
   // 以前整步被擋就直接不動(或立刻換一個亂數目標,下一格又被擋),貼著海岸/區域邊界的魔物就會一格走一格回。
   // 改成:整步不行就試單一軸(沿著邊界滑),兩個軸都不行才判定走不動,並讓呼叫端停一段時間再換目標。
@@ -223,31 +227,40 @@ export function createGame(saved = null) {
     return true;
   }
   // 直線一步;整步被擋就試只走 x 或只走 z(沿著邊界滑),都不行回 null。
+  // 2026-11-16 離線模擬加速:原本每呼叫都配置 [[dx*k,dz*k],[dx*k,0],[0,dz*k]] 陣列再解構迭代,
+  // 這裡展開成三段相同順序的嘗試(被擋的候選照原本順序試,結果完全相同,只是不再配置陣列)。
   function stepAxis(from, tx, tz, maxStep, ok) {
     const dx = tx - from.x, dz = tz - from.z, d = Math.hypot(dx, dz);
     if (!(d > 1e-6)) return null;
     const k = Math.min(maxStep, d) / d;
-    for (const [fx, fz] of [[dx * k, dz * k], [dx * k, 0], [0, dz * k]]) {
-      if (!fx && !fz) continue;
-      const p = { x: from.x + fx, z: from.z + fz };
-      if (ok(p)) return p;
-    }
+    const fx = dx * k, fz = dz * k;
+    if (fx || fz) { const p = { x: from.x + fx, z: from.z + fz }; if (ok(p)) return p; }
+    if (fx) { const p = { x: from.x + fx, z: from.z + 0 }; if (ok(p)) return p; }
+    if (fz) { const p = { x: from.x + 0, z: from.z + fz }; if (ok(p)) return p; }
     return null;
   }
   const blocked = p => !walkable(p.x,p.z)||!walkable(p.x-.2,p.z)||!walkable(p.x+.2,p.z)||!walkable(p.x,p.z-.2)||!walkable(p.x,p.z+.2)||rects.some(r => p.x > r.minX && p.x < r.maxX && p.z > r.minZ && p.z < r.maxZ)||(ponds.length>0&&inVillage(p.x,p.z)&&inPond(ponds,p.x,p.z,.2));
 
   // 線段是否穿過長方形(slab 測試)。
+  // 2026-11-16 離線模擬加速:原本每呼叫都配置 [['x',...],['z',...]] 陣列再解構迭代,這裡把兩個軸
+  // 展開成直線程式碼(運算、順序、浮點結果完全相同,只是不再配置陣列與迭代器)。
   function crosses(a, b, r) {
     let near = 0, far = 1;
-    for (const [key, low, high] of [['x', r.minX, r.maxX], ['z', r.minZ, r.maxZ]]) {
-      const delta = b[key] - a[key];
-      if (Math.abs(delta) < 1e-8) { if (a[key] <= low || a[key] >= high) return false; }
-      else {
-        let t0 = (low - a[key]) / delta, t1 = (high - a[key]) / delta;
-        if (t0 > t1) [t0, t1] = [t1, t0];
-        near = Math.max(near, t0); far = Math.min(far, t1);
-        if (near >= far) return false;
-      }
+    let delta = b.x - a.x;
+    if (Math.abs(delta) < 1e-8) { if (a.x <= r.minX || a.x >= r.maxX) return false; }
+    else {
+      let t0 = (r.minX - a.x) / delta, t1 = (r.maxX - a.x) / delta;
+      if (t0 > t1) { const t = t0; t0 = t1; t1 = t; }
+      near = Math.max(near, t0); far = Math.min(far, t1);
+      if (near >= far) return false;
+    }
+    delta = b.z - a.z;
+    if (Math.abs(delta) < 1e-8) { if (a.z <= r.minZ || a.z >= r.maxZ) return false; }
+    else {
+      let t0 = (r.minZ - a.z) / delta, t1 = (r.maxZ - a.z) / delta;
+      if (t0 > t1) { const t = t0; t0 = t1; t1 = t; }
+      near = Math.max(near, t0); far = Math.min(far, t1);
+      if (near >= far) return false;
     }
     return far > 1e-7 && near < 1 - 1e-7;
   }
@@ -1237,15 +1250,35 @@ export function createGame(saved = null) {
         else { walk(h, dt); if (!h.route.length) h.rallying = false; continue; }
       }
       const onRoad = onRingRoad(h.x, h.z);   // 走在環村道路上:不攔路邊的怪(路上本來就不會被打),也不站在路上出手
-      const available = state.enemies.filter(e => e.hp > 0 && (e.regionId === h.huntRegion || e.type === 'boss' || (distance(h, e) < 4 && !onRoad)));  // 只打自己狩獵區的魔物(路上被攔截也會還手);四組各去各的區域
+      // 2026-11-16 離線模擬加速:原本每個獵人每 tick 先 filter 出 available(=只打自己狩獵區的魔物;路上被攔截也會還手)
+      // 再 find / filter+sort,每 tick 配置 1~3 個陣列。這裡改成同一份判定式的單迴圈掃描(不配置陣列):
+      // 判定式、候選順序(state.enemies 順序)、同距離取較前者(穩定排序)都與原本完全相同。
       // 一到自己的狩獵區(踩到區域邊界就算到了)就直接挑「最近的魔物」去打,不受視野距離限制;
       // 以前要等魔物走到 SIGHT(12)以內,英雄會在邊界隨機晃來晃去,看起來像沒在打怪。
       const inHuntRegion = !!h.huntRegion && regionContains(h.huntRegion, h.x, h.z);
-      let target = available.find(e => e.id === h.targetId && (state.expedition.active || inHuntRegion || distance(h, e) <= SIGHT * 1.6));
-      if (!target || (state.expedition.active && target.type !== 'boss')) {
-        target = state.expedition.active ? available.find(e => e.type === 'boss') : null;
-        target ??= available.filter(e => inHuntRegion ? e.regionId === h.huntRegion : distance(h, e) <= SIGHT)
-          .sort((a, b) => distance(h, a) - distance(h, b))[0];
+      const expActive = state.expedition.active;
+      let target = null;   // = available.find(e => e.id === h.targetId && (expActive || inHuntRegion || distance(h, e) <= SIGHT * 1.6))
+      for (const e of state.enemies) {
+        if (e.id !== h.targetId) continue;
+        if (!(e.hp > 0 && (e.regionId === h.huntRegion || e.type === 'boss' || (distance(h, e) < 4 && !onRoad)))) continue;
+        if (!(expActive || inHuntRegion || distance(h, e) <= SIGHT * 1.6)) continue;
+        target = e; break;
+      }
+      if (!target || (expActive && target.type !== 'boss')) {
+        target = null;   // = available.find(e => e.type === 'boss')(首領不佔近身名額,所以探險時直接打王)
+        if (expActive) for (const e of state.enemies) if (e.hp > 0 && e.type === 'boss') { target = e; break; }
+        if (!target) {   // = available.filter(inHuntRegion ? 同區 : distance <= SIGHT).sort(距離)[0]
+          let bestD = Infinity;
+          for (const e of state.enemies) {
+            if (!(e.hp > 0)) continue;
+            const same = e.regionId === h.huntRegion;
+            let d;
+            if (!same && e.type !== 'boss') { d = distance(h, e); if (!(d < 4) || onRoad) continue; }
+            if (inHuntRegion) { if (!same) continue; if (d === undefined) d = distance(h, e); }
+            else { if (d === undefined) d = distance(h, e); if (!(d <= SIGHT)) continue; }
+            if (d < bestD) { bestD = d; target = e; }
+          }
+        }
         h.targetId = target?.id ?? null;
       }
       // 先走進戰鬥空地再開打(不在柵欄邊、出村口遠遠放箭),戰鬥才會在開闊處、看得清楚。
@@ -1285,18 +1318,32 @@ export function createGame(saved = null) {
     const slots = new Map();
     for (const e of state.enemies) if (e.hp > 0 && e.engaged && e.slotFor) slots.set(e.slotFor, (slots.get(e.slotFor) || 0) + 1);
     const fieldOk = p => regionContains(p.regionId, p.x, p.z) && !blocked(p);
+    // 2026-11-16 離線模擬加速:每個 tick 只建一次獵物快照。獵人位置在上面那段獵人迴圈才
+    // 會動,流浪英雄的迴圈則在這之後;敵人迴圈期間兩者的 hp/位置都不變,
+    // 所以整段逐敵重算 filter/onRingRoad 的結果完全相同,只是把 (敵人數 × 獵物數) 次 onRingRoad
+    // 降到每個 tick 一次。onRingRoad 只看座標,因此每 tick 每隻獵物算一次即可。
+    const prey = state.hunters.filter(h => h.hp > 0 && !inVillage(h.x,h.z) && h.task !== 'dungeon' && h.task !== 'arena');
+    for (const w of state.wanderers || []) if (w.hp > 0) prey.push(w);
+    const preyOnRoad = new Array(prey.length), preyRanged = new Array(prey.length);
+    for (let i = 0; i < prey.length; i++) { const q = prey[i]; preyOnRoad[i] = onRingRoad(q.x, q.z); preyRanged[i] = isRanged(q); }
     for (const enemy of state.enemies) {
       if (enemy.hp <= 0) continue;
       enemy.age += dt; enemy.attackTimer = Math.max(0, enemy.attackTimer - dt);
       // 目標 = 自己「主動攻擊範圍」內的獵人 + 流浪英雄(以最近的為主)。
       // 超出範圍的敵人完全不追(以前是整區搜尋、看到 10 格外的敵人也會走過去),魔物只守在自己的地盤上。
-      const prey = state.hunters.filter(h => h.hp > 0 && !inVillage(h.x,h.z) && h.task !== 'dungeon' && h.task !== 'arena');
-      for (const w of state.wanderers || []) if (w.hp > 0) prey.push(w);
       const rng = MONSTER_RANGED[enemy.type], aggro = Math.max(AGGRO[enemy.type] ?? 6, rng ? rng.range + 1 : 0);
       // 挨打後(PROVOKE.time 秒內)對遠程獵物的範圍放大到 PROVOKE.aggro:遠遠放箭的人也會被追;近戰獵物照原本的範圍。
-      const provoked = state.time - (enemy.hitAt ?? -99) < PROVOKE.time, reachOf = q => provoked && isRanged(q) ? Math.max(aggro, PROVOKE.aggro) : aggro;
+      const provoked = state.time - (enemy.hitAt ?? -99) < PROVOKE.time, provokedReach = Math.max(aggro, PROVOKE.aggro);
       // 走在環村道路上的獵物不算目標:出村趕路時不會被路邊的怪追(安全走廊)
-      const target = prey.filter(q => !onRingRoad(q.x, q.z) && distance(enemy, q) <= reachOf(q)).sort((a, b) => distance(enemy, a) - distance(enemy, b))[0];
+      // 原本是 prey.filter(...).sort(...)[0]:取距離最近的獵物,同距離時取快照中較前面的(排序穩定)。
+      // 下面這個單迴圈不配置陣列、距離只算一次,結果完全相同(strict < 讓第一個最小值勝出)。
+      let target = null, bestD = Infinity;
+      for (let i = 0; i < prey.length; i++) {
+        if (preyOnRoad[i]) continue;
+        const q = prey[i], d = distance(enemy, q);
+        if (d > (provoked && preyRanged[i] ? provokedReach : aggro)) continue;
+        if (d < bestD) { bestD = d; target = q; }
+      }
       if(!target || !regionContains(enemy.regionId||state.region,target.x,target.z)){enemy.engaged=false;
         // 閒晃:沒有獵人時在自己的狩獵區裡慢慢走到隨機一點、停一下再換點(不會只站在原地)。
         const rid=enemy.regionId;
@@ -1391,7 +1438,14 @@ export function createGame(saved = null) {
         walk(w, dt); continue;
       }
       w.regionId = region.id;
-      const target = state.enemies.filter(e => e.hp > 0 && e.type !== 'boss' && (e.regionId || w.regionId) === region.id && distance(w, e) <= SIGHT).sort((a, b) => distance(w, a) - distance(w, b))[0];
+      // 2026-11-16 離線模擬加速:filter + sort 換成單迴圈(不配置陣列);距離由近到遠取最近,
+      // 同距離取 state.enemies 中較前者(與穩定排序一致)。
+      let target = null, bestD = Infinity;
+      for (const e of state.enemies) {
+        if (!(e.hp > 0) || e.type === 'boss' || (e.regionId || w.regionId) !== region.id) continue;
+        const d = distance(w, e);
+        if (d <= SIGHT && d < bestD) { bestD = d; target = e; }
+      }
       if (!target) {
         searchStep(w, region.id); walk(w, dt); continue;
       }
