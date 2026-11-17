@@ -2154,13 +2154,13 @@ export function createGame(saved = null) {
       return result(true, `${h.name} 換上${item.name}${previous ? `,原本的${gearItemOf(previous)?.name || '裝備'}已放回倉庫` : ''}。`);
     },
     // 2026-11-16 倉庫一鍵整理:換下來的舊階鍛造裝備(階級低於鐵匠鋪目前最高階)一次全部賣出或分解。
-    //   只動「鍛造裝備且階級 < 目前最高階」;地下城／首領掉落與目前最高階的裝備都不動。dry=true 只回傳預覽。
+    //   只動「換下來的初始裝備,以及鍛造裝備且階級 < 目前最高階」(來源不限:自己做的、地下城／首領／委託掉落的升級件都算);目前最高階的裝備不動。dry=true 只回傳預覽。
     bulkStoredGear(kind = 'sell', dry = false) {
-      const top = forgeTier(), pick = (state.gearStorage || []).filter(g => { const gr = gearGradeOf(g); return gr > 0 && gr < top; });
+      const top = forgeTier(), pick = (state.gearStorage || []).filter(g => { if (EQUIP[g.itemId]?.tier === 'starter') return true; const gr = gearGradeOf(g); return gr > 0 && gr < top; });   // 換下來的初始裝備(最弱、14 天約 100 件)也算舊裝備
       let gold = 0; const mats = {};
       for (const g of pick) { const it = gearItemOf(g); if (!it) continue; if (kind === 'sell') gold += it.sell || 0; else for (const [k, n] of Object.entries(it.salvage || {})) mats[k] = (mats[k] || 0) + n; }
       const preview = { count: pick.length, gold, mats, top };
-      if (dry || !pick.length) return { ...result(!!pick.length, pick.length ? '' : '倉庫裡沒有比目前最高階更低的鍛造裝備。'), ...preview };
+      if (dry || !pick.length) return { ...result(!!pick.length, pick.length ? '' : '倉庫裡沒有可以整理的舊裝備（初始裝備或低於目前最高階的鍛造裝備）。'), ...preview };
       const ids = new Set(pick.map(g => g.uid)); state.gearStorage = state.gearStorage.filter(g => !ids.has(g.uid));
       if (kind === 'sell') state.gold += gold; else for (const [k, n] of Object.entries(mats)) state[k] = (state[k] || 0) + n;
       const text = kind === 'sell' ? `${gold} 金幣` : Object.entries(mats).map(([k, n]) => `${MATERIALS[k]?.name || k}×${n}`).join('、') || '沒有材料';

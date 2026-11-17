@@ -7,7 +7,7 @@
 //   --summary  print only one compact line for the final day (for multi-seed tables)
 // Nothing under src/ is touched; this only drives the public game API.
 import { createGame } from '../src/pixel-game.js';
-import { BUILDINGS, PRODUCTS, MATERIALS, DIFFICULTIES } from '../src/pixel-data.js';
+import { BUILDINGS, PRODUCTS, MATERIALS, DIFFICULTIES, EQUIPMENT } from '../src/pixel-data.js';
 import { writeFileSync } from 'node:fs';
 
 const DAYS = Number(process.argv[2]) || 20;
@@ -100,7 +100,7 @@ while (s.day <= DAYS) {
 const fmt = r => `d${String(r.day).padStart(2)} gold ${String(r.gold).padStart(6)} w${r.wood} o${r.ore} h${r.herb} c${r.cloth} f${r.flour} l${r.leather} gem${r.gems} | H ${r.hunters}/${r.cap} lv ${r.lvMin}/${r.lvMed}/${r.lvMax} hg${r.hGold} | sat${r.sat} sta${r.sta} mood${r.mood} | dead ${r.deaths} kills ${r.kills} boss ${r.boss} | forge${r.forge} gi${r.gearInc} | Q${r.quest}${r.questDone ? '✓' : ''} floor ${r.floor} bLv ${r.b} | stk ${Object.values(r.stocks).join('/')}`;
 if (SUMMARY) {
   const r = rows.at(-1), dayOf = q => rows.find(x => x.quest >= q)?.day ?? '-';
-  console.log(`seed ${SEED ?? 'default'} | d${r.day} gold ${r.gold} wood ${r.wood} ore ${r.ore} | lv ${r.lvMin}/${r.lvMed}/${r.lvMax} hg ${r.hGold} | dead ${r.deaths} | Q${r.quest} (Q8@d${dayOf(8)} Q12@d${dayOf(12)} Q16@d${dayOf(16)}) floor ${r.floor} bLv ${r.b} | rebirths ${s.counts.rebirths || 0} diff ${DIFFICULTIES[s.difficulty]?.name} | merchant ${s.counts.merchantBuys || 0} svc ${s.counts.serviceIncome} gear ${s.counts.gearIncome ?? '-'} up ${s.counts.gearUpgrades ?? '-'} forge ${s.buildings.forge}`);
+  console.log(`seed ${SEED ?? 'default'} | d${r.day} gold ${r.gold} wood ${r.wood} ore ${r.ore} | lv ${r.lvMin}/${r.lvMed}/${r.lvMax} hg ${r.hGold} | dead ${r.deaths} | Q${r.quest} (Q8@d${dayOf(8)} Q12@d${dayOf(12)} Q16@d${dayOf(16)}) floor ${r.floor} bLv ${r.b} | store ${(()=>{const by={};for(const it of s.gearStorage||[]){const k=EQUIPMENT[it.itemId]?.tier||"?";by[k]=(by[k]||0)+1;}return (s.gearStorage||[]).length+" "+JSON.stringify(by);})()} | rebirths ${s.counts.rebirths || 0} diff ${DIFFICULTIES[s.difficulty]?.name} | merchant ${s.counts.merchantBuys || 0} svc ${s.counts.serviceIncome} gear ${s.counts.gearIncome ?? '-'} up ${s.counts.gearUpgrades ?? '-'} forge ${s.buildings.forge}`);
   process.exit(0);
 }
 for (const r of rows) console.log(fmt(r));

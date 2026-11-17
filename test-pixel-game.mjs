@@ -1576,9 +1576,9 @@ run(manual, 30, false, assertFiniteEconomy);
 // 2026-11-16 倉庫一鍵整理:只賣／分解「鍛造裝備且階級低於鐵匠鋪目前最高階」,其他(目前最高階、非鍛造掉落)都保留
 {
   const g = createGame(), s = g.state; s.buildings.forge = 3;
-  s.gearStorage = [{ uid: 'b1', itemId: 'craft_chest', grade: 1 }, { uid: 'b2', itemId: 'craft_helm', grade: 2 }, { uid: 'b3', itemId: 'craft_weapon', grade: 3 }];
+  s.gearStorage = [{ uid: 'b1', itemId: 'craft_chest', grade: 1 }, { uid: 'b2', itemId: 'craft_helm', grade: 2 }, { uid: 'b3', itemId: 'craft_weapon', grade: 3 }, { uid: 'b5', itemId: 'archer_bow' }];
   const pre = g.bulkStoredGear('sell', true);
-  assert.equal(pre.count, 2, 'tier 1 and 2 are below forge tier 3'); assert.ok(pre.gold > 0); assert.equal(s.gearStorage.length, 3, 'dry run changes nothing');
+  assert.equal(pre.count, 3, 'tier 1, tier 2 and the starter bow are old gear'); assert.ok(pre.gold > 0); assert.equal(s.gearStorage.length, 4, 'dry run changes nothing');
   const gold0 = s.gold, r = g.bulkStoredGear('sell');
   assert.equal(r.ok, true); assert.equal(s.gold, gold0 + pre.gold); assert.deepEqual(s.gearStorage.map(x => x.uid), ['b3'], 'current-tier gear is kept');
   assert.equal(g.bulkStoredGear('sell').ok, false, 'nothing left to sell');
