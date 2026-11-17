@@ -1499,7 +1499,7 @@ let nextStepEl=null,nextStepKey='';
 Z2C.questGo=s=>{const q=s&&s.quest;if(!q||q.complete||q.claimed)return null;return q.index===0?{text:'',act:'hunters',label:'看名冊'}:questGuide(s);};
 function rebirthTip(s){const top=(s.hunters||[]).filter(h=>(h.level||0)>=100&&(h.rebirths||0)<20&&(h.hp||0)>0);if(!top.length)return null;
   const free=top.find(h=>h.task!=='dungeon'&&h.task!=='arena');if(free)return {text:`${free.name}到 Lv.100 了！可以轉世了，轉世後能力會更強`,act:'rebirth:'+free.id,label:'去轉世'};
-  const dg=top.find(h=>h.task==='dungeon');if(dg)return {text:`${dg.name}已 Lv.100，在地下城裡不能轉世，先撤退回村`,act:'dungeon',label:'去撤退'};
+  const dg=top.find(h=>h.task==='dungeon');if(dg)return {text:`${dg.name}已 Lv.100，在地下城裡，先讓小隊撤退再轉世`,act:'rebirth:'+dg.id,label:'去轉世頁'};
   return {text:`${top[0].name}已 Lv.100，競技場打完就能轉世`,act:'arena',label:'看競技場'};}
 function questGuide(s){const q=s.quest||{},n=q.index+1,p=`（${fmt(q.progress||0)}/${fmt(q.target||0)}）`,dg=(s.buildings?.dungeon||0)>0;
   switch(q.index){
