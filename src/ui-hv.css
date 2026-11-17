@@ -2110,6 +2110,12 @@ html body #modal-content .trade-row.z2b-cell .tr-step{display:grid!important;gri
 html body #modal-content .trade-row.z2b-cell .tr-step .pixel-button{width:100%!important;min-width:0!important;min-height:44px!important;padding:0!important;font:700 14px/1 var(--font-num)!important}
 html body #modal-content .trade-row.z2b-cell .tr-step output{min-width:0;height:44px;display:grid;place-items:center;font:700 15px/1 var(--font-num);color:#fff;background:#161211;border:1px solid #2c2824}
 @media(min-width:761px){html body #modal-content .trade-row.z2b-cell .tr-step{grid-template-columns:repeat(4,minmax(0,1fr))}}
+/* 2026-11-17 持續收購開關:每格底下一條整寬按鈕(aria-pressed);開著時整格金框＋按鈕亮色,成交後收購量自動補回 */
+html body #modal-content .trade-row.z2b-cell .tr-hold{width:100%;min-width:0!important;min-height:36px;padding:0 4px!important;font:700 13px/1 var(--font-ui)!important;border-radius:0;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+html body #modal-content .trade-row.z2b-cell.standing{border-color:#79b866!important;box-shadow:inset 0 0 0 1px #79b86655!important}
+html body #modal-content .trade-row.z2b-cell .tr-hold[aria-pressed="false"]{background:#24201b!important;color:#a99e86!important;border-color:#3b3731!important}
+html body #modal-content .trade-row.z2b-cell .tr-hold[aria-pressed="true"]{background:#3e6b35!important;color:#fff!important;border-color:#000!important;box-shadow:inset 0 0 0 1px #8fd07a!important}
+@media(max-width:760px),(max-height:520px){html body #modal-content .trade-row.z2b-cell .tr-hold{min-height:44px;font-size:12px!important}}
 
 /* ─── 倉庫(A)：圖鑑 29/03 — 方格(圖示框＋右下數量＋白名稱)，點一格看用途／來源 ─── */
 html body #modal-content .z2b-detail{margin:0 0 10px;padding:10px 12px!important;display:flex;flex-direction:column;gap:4px;background:#161211!important;border:1px solid #2c2824!important}
