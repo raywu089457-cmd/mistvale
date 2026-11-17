@@ -77,7 +77,7 @@ function skillPanel(h){const s=C.game().state,lv=h.skillLevel||0,cost=C.game().s
  else if(!s.buildings.academy){ok=false;reason='<span class="no">要先建造學院</span>';}
  else if(s.gold<cost.gold||s.ore<cost.ore){ok=false;reason=need('金幣',s.gold,cost.gold)+' '+need('鐵礦',s.ore,cost.ore);}
  const mBtn=!ok&&s.buildings.academy&&lv<5?merchantRowBtn('merchantSkill',h.id,'補料學習',cost):'';
- return `<div class="z2-list">`+rowHTML({icon:'scroll',name:`戰鬥技能 Lv.${lv}/5`,desc:'每級攻擊 +10%，在學院學習',cost:lv<5?`費用 ${C.iconHTML('gold',true)} ${C.fmt(cost.gold)} · 鐵礦 ${cost.ore}`:'',reason,btn:mBtn||rowBtn('learnSkill',h.id,btn,ok)})+`</div>`;}
+ return `<div class="z2-list">`+rowHTML({icon:'scroll',name:`戰鬥技能 Lv.${lv}/5`,desc:'每級攻擊 +10%，在學院學習',cost:lv<5?`費用 ${C.iconHTML('gold',true)} ${C.fmt(cost.gold)} · 鐵礦 ${cost.ore}`:'',reason,btn:btn==='MAX'?'':(mBtn||rowBtn('learnSkill',h.id,btn,ok))})+`</div>`;}
 function gearBtn(action,id,slot,label,tone){return `<button type="button" class="pixel-button z2-rowbtn"${slot?` data-slot="${slot}"`:''} data-action="${action}" data-id="${id}" data-zb="${tone||'ghost'}"><span>${label}</span></button>`;}
 // 一格一列真實物品：有穿→名稱/數值/卸下·存倉·出售·分解;沒穿→倉庫同位置候選直接穿上
 function gearRow(h,slot){const it=itemIn(h,slot),s=C.game().state,I=C.iconHTML,t=craftGrade(it);
@@ -97,7 +97,7 @@ function gearPanel(h){const s=C.game().state,wl=h.weaponLevel||0,cost=C.game().e
  else if(s.gold<cost.gold||s.ore<cost.ore){ok=false;reason=need('金幣',s.gold,cost.gold)+' '+need('鐵礦',s.ore,cost.ore);}
  const mBtn=!ok&&h.equipment.weapon&&wl<10&&s.buildings.enhancement?merchantRowBtn('merchantEnhance',h.id,'補料強化',cost):'';
  return `<div class="z2-list">`
-  +rowHTML({icon:'swords',name:hasWeapon?`${wIt?wIt.name:'精鐵武器'} +${wl}`:wIt?`${wIt.name}（初始）`:'未裝備武器',tone:hasWeapon?gradeOfLv(wl):'',desc:hasWeapon||!wIt?`攻擊 +${wIt?(wIt.stats&&wIt.stats.atk)||0:7}，每級強化再 +7%`:'初始武器沒有數值加成；精鐵武器 攻擊 +7，可強化',cost:hasWeapon&&wl<10?`費用 ${C.iconHTML('gold',true)} ${C.fmt(cost.gold)} · 鐵礦 ${cost.ore}`:'',reason,btn:mBtn||rowBtn('enhanceHunter',h.id,btn,ok)})
+  +rowHTML({icon:'swords',name:hasWeapon?`${wIt?wIt.name:'精鐵武器'} +${wl}`:wIt?`${wIt.name}（初始）`:'未裝備武器',tone:hasWeapon?gradeOfLv(wl):'',desc:hasWeapon||!wIt?`攻擊 +${wIt?(wIt.stats&&wIt.stats.atk)||0:7}，每級強化再 +7%`:'初始武器沒有數值加成；精鐵武器 攻擊 +7，可強化',cost:hasWeapon&&wl<10?`費用 ${C.iconHTML('gold',true)} ${C.fmt(cost.gold)} · 鐵礦 ${cost.ore}`:'',reason,btn:btn==='MAX'?'':(mBtn||rowBtn('enhanceHunter',h.id,btn,ok))})
   +`<p class="gear-hint">穿在身上的裝備是真的物品：卸下、出售、分解或存進倉庫，角色外觀也會跟著變。鐵匠鋪升級件分Ⅰ–Ⅴ階，有更高階庫存時獵人會自己花錢換新（舊的放回倉庫）。</p>`
   +EQUIP_SLOTS.map(slot=>gearRow(h,slot)).join('')
   +`</div>`;}
