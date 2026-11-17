@@ -1295,7 +1295,7 @@ run(manual, 30, false, assertFiniteEconomy);
   assert.equal(g.dungeonReward(1).first, true);
   const first = clearFloor(1);
   assert.equal(first.first, true); assert.deepEqual(first.village, { gold: 160, ore: 15, gems: 2 }); assert.equal(first.gold, 45); assert.equal(first.xp, 175);
-  assert.equal(d.bestFloor, 1); assert.ok(g.state.log.some(l => l.text.includes('地下城第 1 層突破！村莊獲得 160 金幣、15 鐵礦與 2 晶石')));
+  assert.equal(d.bestFloor, 1); assert.ok(g.state.log.some(l => l.text.includes('地下城第 1 層突破！村莊獲得 160 金幣、15 鐵礦與 2 星晶')));
   assert.equal(g.dungeonReward(1).first, false, 'floor 1 is now a repeat'); assert.equal(g.dungeonReward(2).first, true, 'the next floor is still a first clear');
   const again = clearFloor(1);
   assert.equal(again.first, false); assert.equal(d.bestFloor, 1);

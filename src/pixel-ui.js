@@ -241,7 +241,7 @@ function toastDodge(){
 function save(){if(!started||previewMode)return;try{const data=game.serialize();data.savedAt=Date.now();localStorage.setItem(SAVE_KEY,JSON.stringify(data));$('#save-label').textContent='已自動儲存';$('#save-label').classList.remove('warn');}catch{$('#save-label').textContent='請匯出存檔';$('#save-label').classList.add('warn');}}
 function costs(obj){return Object.entries(obj||{}).map(([k,v])=>`<span class="${game.state[k]<v?'short':''}">${iconHTML(k)} ${fmt(v)}</span>`).join('');}
 // T101：製作、交易所的「夠不夠」要看得到 — 材料寫成 現有/需要，不足整塊標紅；再算出這份成本最多能做幾批。
-function needChips(obj,batches=1){const s=game.state;return Object.entries(obj||{}).map(([k,v])=>{const need=v*batches,have=s[k]||0;return `<span class="cost-chip${have<need?' short':''}" data-have="${have}" data-need="${need}">${iconHTML(k)} <span class="nm">${MATERIALS[k]?.name||({gold:"金幣",gems:"寶石"})[k]||k}</span> <b>${fmt(have)}</b><i>/${fmt(need)}</i></span>`;}).join('');}
+function needChips(obj,batches=1){const s=game.state;return Object.entries(obj||{}).map(([k,v])=>{const need=v*batches,have=s[k]||0;return `<span class="cost-chip${have<need?' short':''}" data-have="${have}" data-need="${need}">${iconHTML(k)} <span class="nm">${MATERIALS[k]?.name||({gold:"金幣",gems:"星晶"})[k]||k}</span> <b>${fmt(have)}</b><i>/${fmt(need)}</i></span>`;}).join('');}
 function buildTileState(b,l){
   // T112：建設彈窗的每張卡自己講清楚「現在夠不夠、還缺什麼、是不是被大廳卡住」
   const st=game.state, hallLv=st.buildings.hall||0;
@@ -287,7 +287,7 @@ function paintPortraits(){document.querySelectorAll('img[data-elder]').forEach(e
 function endgameGoal(s){const R=(s.hunters||[]).reduce((n,h)=>n+(h.rebirths||0),0),next=DIFFICULTIES.find(d=>d.rebirths>R);
   const top=DIFFICULTIES.filter(d=>d.rebirths<=R).at(-1);if(top&&(s.difficulty||0)<top.id)return {title:`長線目標 · 挑戰「${top.name}」難度`,goal:'- 點左上的難度徽章，切換到更高的狩獵難度'};   // 已解鎖但還沒切 → 先叫玩家去挑戰
   if(next)return {title:`長線目標 · 解鎖「${next.name}」難度`,goal:`- 讓獵人在復活聖所轉世，累計 ${fmt(R)}/${fmt(next.rebirths)} 次`};
-  const w=s.arena?.wins||0,nw=(Math.floor(w/5)+1)*5;return {title:'長線目標 · 競技場天梯',goal:`- 競技場累計 ${fmt(w)}/${fmt(nw)} 勝（每 5 勝獎勵晶石）`};}
+  const w=s.arena?.wins||0,nw=(Math.floor(w/5)+1)*5;return {title:'長線目標 · 競技場天梯',goal:`- 競技場累計 ${fmt(w)}/${fmt(nw)} 勝（每 5 勝獎勵星晶）`};}
 function paintHvHud(s){const q=s.quest;const el=$('#hv-quest');if(el&&q){const t=$('#hv-quest-title'),rw=$('#hv-quest-reward'),gl=$('#hv-quest-goal');
   const eg=q.claimed?endgameGoal(s):null;
   const title=q.claimed?eg.title:`第 ${q.index+1} 章 · ${q.title}`;if(t.textContent!==title)t.textContent=title;
@@ -301,7 +301,7 @@ function paintHvHud(s){const q=s.quest;const el=$('#hv-quest');if(el&&q){const t
 function paintQuest(){const q=game.state.quest;$('#quest-chapter').textContent=`CHAPTER ${String(q.index+1).padStart(2,'0')}`;$('#quest-title').textContent=q.title;$('#quest-desc').textContent=q.description;$('#quest-progress').textContent=`${q.progress}/${q.target}`;$('#quest-fill').style.width=`${Math.min(100,q.progress/q.target*100)}%`;$H('#quest-reward').innerHTML=costs(q.reward);$('#quest-button').textContent=q.claimed?'全部委託完成':q.complete?'領取獎勵':'查看委託';$('#quest-button').disabled=q.claimed;}
 // T111：建築面板要說清楚「這一級 → 下一級」、要付多少（現有／需要），
 // 以及**為什麼不能升**（已滿級／大廳等級不夠／資源不足），不要按下去才靠 toast 告訴玩家。
-function costName(k){return MATERIALS[k]?.name||({gold:'金幣',gems:'寶石'})[k]||k;}
+function costName(k){return MATERIALS[k]?.name||({gold:'金幣',gems:'星晶'})[k]||k;}
 function costMissing(obj){const s=game.state;return Object.entries(obj||{}).filter(([k,v])=>(s[k]||0)<v).map(([k,v])=>[k,v-(s[k]||0)]);}
 function missText(missing){return missing.map(([k,d])=>costName(k)+' 還缺 '+fmt(d)).join('、');}
 function upgradeView(b){
@@ -653,12 +653,12 @@ function modalHTML(type){const s=game.state;
    <div class="encounter-actions dispatch-go">${regionFrom==='map'?`<button class="pixel-button" data-action="regionView" data-id="${rig.id}">在地圖上定位</button><button class="pixel-button" data-action="worldmap" data-foot="secondary">返回地圖</button>${rig.id!=='village'?`<button class="pixel-button gold" data-action="regionTravel" data-id="${rig.id}" data-foot="primary">前往${rig.name}</button>`:''}`:`<button class="pixel-button gold" data-action="dispatchRegion" data-id="${rig.id}" data-foot="primary">選為${team.name}的目的地</button><button class="pixel-button" data-action="regionInfoClose" data-foot="secondary">返回派遣</button>`}</div></article>`;
  }
 
- if(type==='offline'){const o=offlineSum||{seconds:0,res:{},kills:0,levels:[]},hh=Math.floor(o.seconds/3600),mm=Math.floor(o.seconds%3600/60),NM={gold:'金幣',gems:'晶石',...Object.fromEntries(Object.entries(MATERIALS).map(([k,m])=>[k,m.name]))};
+ if(type==='offline'){const o=offlineSum||{seconds:0,res:{},kills:0,levels:[]},hh=Math.floor(o.seconds/3600),mm=Math.floor(o.seconds%3600/60),NM={gold:'金幣',gems:'星晶',...Object.fromEntries(Object.entries(MATERIALS).map(([k,m])=>[k,m.name]))};
   // 2026-11-10 T160:離線戰報改成「摘要磚＋資源變化卡」，回來先看到三件大事
   // 2026-11-12:「你的獵人」與「流浪英雄」分兩行(擊倒、打怪拿到的金幣、付給村莊的金幣);資料來自 offlineFinish 的 sum.hunters / sum.wanderers
   const ofWho=(x,cls,ic,name)=>`<div class="offline-kills ${cls}">${iconHTML(ic)}<span>${name}</span><b>擊倒 ${fmt(x.kills||0)} 隻</b>${x.gold!=null?`<span>戰利品 ${fmt(x.gold)} 金 · 付給村莊 ${fmt(x.paid||0)} 金</span>`:''}</div>`;
   const rows=Object.entries(o.res).filter(([,v])=>v).map(([k,v])=>`<div class="material-item ${v<0?'lose':'gain'}">${iconHTML(k)}<div><span>${NM[k]||k}</span><b class="${v<0?'short':''}">${v>0?'+':''}${fmt(v)}</b></div></div>`).join('');
-  const gold=o.res.gold||0,timeTxt=`${hh?hh+' 小時 ':''}${mm} 分鐘`;
+  const gold=o.res.gold||0,timeTxt=`${hh?hh+' 小時\n':''}${mm} 分鐘`;   // 2026-11-18 手機格子窄:在「小時」後面換行,不要斷成「1 小時 1 / 分鐘」
   const tiles=[['離線時間',timeTxt,'scroll'],['擊倒魔物',`${fmt(o.kills)} 隻`,'skull'],[gold<0?'金幣消耗':'金幣增加',`${gold<0?'':"+"}${fmt(gold)}`,'gold']]
     .map(([k,v,ic])=>`<div class="of-tile"><i aria-hidden="true">${iconHTML(ic)}</i><b>${esc(v)}</b><small>${esc(k)}</small></div>`).join('');
   // Z2C(規格 m):緞帶標題(CSS)＋3 格摘要＋清單(你的獵人／流浪英雄兩列)＋底部一顆「收下」;村長頭像拿掉,說明縮成一行
@@ -839,7 +839,7 @@ function modalHTML(type){const s=game.state;
       +`<section class="help-sec" id="help-sec-outside"><h4 class="help-h"><i>${iconHTML('map')}</i>村外內容</h4>${bullets([
         '委託所追蹤 18 章委託，完成時點左上的委託追蹤就能直接領獎；全部完成後，左上追蹤列會改成下一個長線目標（解鎖難度、競技場天梯）。',
         '地下城是三人遠征，走完一層推進紀錄；小隊估計打不過選的那層時，會改從打得過的層出發，快撐不住也會自己撤退。已經打過的樓層再打，獎勵會減少。',
-        '競技場是不會真的死亡的模擬對戰天梯：對手隨勝場變強，獎勵跟著變多（到第 40 勝封頂），之後對手變強得更快，總有一天會輸——要靠轉世、換裝讓隊伍更強才能再往上爬；每 5 勝另給晶石。面板會寫下一位對手的生命與攻擊。',
+        '競技場是不會真的死亡的模擬對戰天梯：對手隨勝場變強，獎勵跟著變多（到第 40 勝封頂），之後對手變強得更快，總有一天會輸——要靠轉世、換裝讓隊伍更強才能再往上爬；每 5 勝另給星晶。面板會寫下一位對手的生命與攻擊。',
         '不知道派誰？地下城與競技場的組隊區都有「推薦隊伍」：地下城挑估計能安全推進最深的三人（職業搭配很重要，例如坦克＋射手＋祭司），競技場挑每秒傷害最高的三人。',
         '地圖首領在生態區深處，需要先升到足夠等級再挑戰。',
       ])}</section>`
@@ -1430,8 +1430,8 @@ function z2cArenaHTML(s){const a=s.arena,lock=z2cLock('arena'),rwd=game.arenaRew
  if(a.active){const party=runHudParty(a);
   return `<div class="z1-box z2c-live" id="ar-live"><div class="z2c-live-h"><b>對戰進行中</b><em id="ar-phase">${esc(a.phase)}</em><span id="ar-left"></span></div><div class="z2c-bar-row foe"><span>對手 ${esc(a.opponent)}</span><i class="z2c-bar"><span id="ar-foe-fill"></span></i><b id="ar-foe-num"></b></div>${party.map(h=>`<div class="z2c-bar-row" data-hid="${h.id}"><span>${esc(h.name)}</span><i class="z2c-bar"><span></span></i><b></b></div>`).join('')}</div><div class="encounter-status">勝場 ${a.wins} · 敗場 ${a.losses} · ${esc(a.phase)}</div><div class="encounter-actions z1-sticky z2c-dock z2c-dock-run"><div class="z2c-wait" id="ar-wait">模擬對戰進行中，結束後會跳出結算</div></div>`;}
  const g=partyGate(a.hunterIds.length,a.cooldown,'開始模擬對戰',lock?lock.name:'');
- return `${lock?z2cLockHint(lock):''}<div class="z1-box z2c-info"><div class="encounter-status">勝場 ${a.wins} · 敗場 ${a.losses} · ${lock?'未解鎖':a.cooldown>0?'整備中':'可挑戰'}</div><div class="z2c-rec"><span>對手「${esc(a.opponent)}」</span><span>勝利獎勵</span><span class="z2c-rw">${iconHTML('gold',true)}<b>${fmt(reward)}</b></span>${rwd.gems?`<span class="z2c-rw" title="每 5 勝的晶石">${iconHTML('gems',true)}<b>${rwd.gems}</b></span>`:''}</div>${(()=>{const f=game.arenaFoe?.();const rp=game.recommendArenaParty?.(),sec=rp?.ok&&rp.dps>0?Math.ceil(f.hp/rp.dps):0;   // 2026-11-17:推薦隊伍約幾秒能打倒(限時 120 秒;不算對手打倒隊員,只是參考)
-      return f?`<div class="encounter-facts z2c-foe-stat">下一位對手：生命 <b>${fmt(f.hp)}</b> · 每次攻擊 <b>${fmt(f.atk)}</b>${sec&&!lock?`<br><small class="${sec<=90?'ok':sec<=120?'warn':'no'}">推薦隊伍約 ${fmt(sec)} 秒打倒對手（限時 120 秒）${sec>120?'，現在大概打不贏':''}</small>`:''}</div>`:'';})()}<div class="encounter-facts">三人小隊模擬戰，倒下不會真的死亡。對手跟著勝場變強，第 40 勝以後變強得更快（獎勵在第 40 勝封頂），每 5 勝多給晶石。</div></div>`
+ return `${lock?z2cLockHint(lock):''}<div class="z1-box z2c-info"><div class="encounter-status">勝場 ${a.wins} · 敗場 ${a.losses} · ${lock?'未解鎖':a.cooldown>0?'整備中':'可挑戰'}</div><div class="z2c-rec"><span>對手「${esc(a.opponent)}」</span><span>勝利獎勵</span><span class="z2c-rw">${iconHTML('gold',true)}<b>${fmt(reward)}</b></span>${rwd.gems?`<span class="z2c-rw" title="每 5 勝的星晶">${iconHTML('gems',true)}<b>${rwd.gems}</b></span>`:''}</div>${(()=>{const f=game.arenaFoe?.();const rp=game.recommendArenaParty?.(),sec=rp?.ok&&rp.dps>0?Math.ceil(f.hp/rp.dps):0;   // 2026-11-17:推薦隊伍約幾秒能打倒(限時 120 秒;不算對手打倒隊員,只是參考)
+      return f?`<div class="encounter-facts z2c-foe-stat">下一位對手：生命 <b>${fmt(f.hp)}</b> · 每次攻擊 <b>${fmt(f.atk)}</b>${sec&&!lock?`<br><small class="${sec<=90?'ok':sec<=120?'warn':'no'}">推薦隊伍約 ${fmt(sec)} 秒打倒對手（限時 120 秒）${sec>120?'，現在大概打不贏':''}</small>`:''}</div>`:'';})()}<div class="encounter-facts">三人小隊模擬戰，倒下不會真的死亡。對手跟著勝場變強，第 40 勝以後變強得更快（獎勵在第 40 勝封頂），每 5 勝多給星晶。</div></div>`
   +`<div class="z2c-party-h"><span>選 3 位獵人上場</span><button class="pixel-button z2c-recbtn" data-zb="gold" data-action="arRecommend" title="挑出每秒傷害最高、體力足夠的三人">推薦隊伍</button></div>`
   +`<div class="party-grid z2c-party">${partyList('arena',a.hunterIds,'toggleArenaHunter','村裡還沒有獵人','先招募一位獵人，才能派隊上競技場')}</div>`
   +`<div class="encounter-actions z1-sticky z2c-dock${lock?' is-lock':''}">${partySummary(a.hunterIds)}<button class="pixel-button gold${g.lock?' z2c-locked':''}" data-action="startArena" ${g.disabled?'disabled':''}>${g.label}</button></div>`;}
@@ -1457,7 +1457,7 @@ function z2cWatch(){const s=game?.state;if(!s||!started||offlineBusy){Z2C_RUNS.d
    z2cShow({kind:'dungeon',tone,title:won?'勝利':run.retreat?'撤退':'落敗',
     line:won?(run.floors>1?`小隊從第 ${run.from} 層一路推進，共通過 ${run.floors} 層，最高紀錄第 ${d.bestFloor} 層。`:`第 ${run.from} 層突破！最高紀錄推進到第 ${d.bestFloor} 層。`)
       :run.retreat?`${d.endNote?d.endNote.replace(/（本層沒有獎勵）。?$/,''):`小隊在第 ${d.floor} 層撤退`}，已返回村莊${run.floors?`；先前通過 ${run.floors} 層`:''}。`:why?`第 ${d.floor} 層${why}，獵人撤回村莊${run.floors?`；先前通過 ${run.floors} 層`:''}。`:`小隊在第 ${d.floor} 層倒下，獵人正撤回村莊休養${run.floors?`；先前通過 ${run.floors} 層`:''}。`,
-    sub:run.who,cells:[{ic:'gold',name:'金幣',v:run.res.gold},{ic:'ore',name:'鐵礦',v:run.res.ore},{ic:'gems',name:'晶石',v:run.res.gems}]});}}
+    sub:run.who,cells:[{ic:'gold',name:'金幣',v:run.res.gold},{ic:'ore',name:'鐵礦',v:run.res.ore},{ic:'gems',name:'星晶',v:run.res.gems}]});}}
  if(a.active&&!R.arena)R.arena={wins:a.wins,who:z2cNames(a.hunterIds)};
  if(R.arena&&!a.active){const run=R.arena;R.arena=null;const won=a.wins>run.wins;
   z2cShow({kind:'arena',tone:won?'win':'lose',title:won?'勝利':'落敗',line:won?`擊敗了「${a.opponent}」，村莊獲得 ${fmt(a.reward)} 金幣。`:`輸給了「${a.opponent}」，隊伍已安全撤回（模擬對戰不會真的死亡）。`,sub:run.who,

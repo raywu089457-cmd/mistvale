@@ -1183,7 +1183,7 @@ export function createGame(saved = null) {
     if (enemy.type === 'boss') {
       state.bossKills++; state.gems += 5; Object.assign(state.expedition, { active: false, bossHp: 0, cooldown: 55, elapsed: 0 });
       const bossGear = rollGearDrop('boss'); if (bossGear) grantGear(bossGear, '森林領主的寶箱');
-      log('森林領主已被擊敗！村莊獲得 5 顆晶石，獵人帶回稀有戰利品。', 'success'); effect('victory', enemy);
+      log('森林領主已被擊敗！村莊獲得 5 顆星晶，獵人帶回稀有戰利品。', 'success'); effect('victory', enemy);
     } else {
       const wildGear = rollGearDrop('monster'); if (wildGear) grantGear(wildGear, '野外戰利品');
     }
@@ -1320,7 +1320,7 @@ export function createGame(saved = null) {
     }
   }
   // 樓層獎勵(2026-11-17):出發體檢(dgSafeStart)讓弱隊從淺層出發、自動續戰一路爬,每趟都把 1..N 層全額再領一次 → 14 天模擬 3/5 個種子建築全滿、獵人 Lv.100。
-  // 改成開羅式:第一次通過(floor > 原本的最高紀錄)全額;已打過的樓層只給一部分(村莊金幣/鐵礦 DG_REPEAT.res、晶石 DG_REPEAT.gems、
+  // 改成開羅式:第一次通過(floor > 原本的最高紀錄)全額;已打過的樓層只給一部分(村莊金幣/鐵礦 DG_REPEAT.res、星晶 DG_REPEAT.gems、
   // 每位獵人金幣 DG_REPEAT.gold、經驗 DG_REPEAT.xp ── 經驗留多一點,弱隊靠刷淺層還追得上)。UI 預估(pixel-ui z2cDungeonHTML)也走這支。
   const DG_REPEAT = { res: 0.3, gems: 0, gold: 0.5, xp: 0.5 };
   function dgFloorReward(floor, first) {
@@ -1337,7 +1337,7 @@ export function createGame(saved = null) {
     for (const h of party) if (h.hp > 0) { h.gold += rw.gold; gainXp(h, rw.xp); }
     if (dgLedger) { dgLedger.wins++; for (const [key, amount] of Object.entries(d.reward)) dgLedger.res[key] = (dgLedger.res[key] || 0) + amount;
       for (const h of party) if (h.hp > 0) { dgLedger.gold[h.id] = (dgLedger.gold[h.id] || 0) + rw.gold; dgLedger.xp[h.id] = (dgLedger.xp[h.id] || 0) + rw.xp; } }
-    const got = [[d.reward.gold, '金幣'], [d.reward.ore, '鐵礦'], [d.reward.gems, '晶石']].filter(([n]) => n > 0).map(([n, name]) => `${n} ${name}`);
+    const got = [[d.reward.gold, '金幣'], [d.reward.ore, '鐵礦'], [d.reward.gems, '星晶']].filter(([n]) => n > 0).map(([n, name]) => `${n} ${name}`);
     const gotText = got.length > 1 ? `${got.slice(0, -1).join('、')}與 ${got[got.length - 1]}` : got.join('');
     log(rw.first ? `地下城第 ${floor} 層突破！村莊獲得 ${gotText}。` : `地下城第 ${floor} 層再次通過，村莊獲得 ${gotText}（已打過的樓層，獎勵減少）。`, 'success'); effect('victory', door('dungeon'));
     // 2026-11-16 裝備經濟:每 N 層開一次寶箱(掉進村莊裝備倉庫,不佔樓層獎勵帳本)。
@@ -1425,7 +1425,7 @@ export function createGame(saved = null) {
   }
 
   // 2026-11-16 平衡:競技場原本 10 勝後對手不再變強、獎勵最多 240 金 → 中期以後等於沒用。
-  //   改成天梯:對手一路變強到第 ARENA_CAP 勝,獎勵跟著勝場成長,每 5 勝另給晶石;參賽獵人的經驗也跟著變多。
+  //   改成天梯:對手一路變強到第 ARENA_CAP 勝,獎勵跟著勝場成長,每 5 勝另給星晶;參賽獵人的經驗也跟著變多。
   const ARENA_CAP = 40;
   // 2026-11-17:對手強度不再停在第 40 勝(獎勵仍封頂在第 40 勝)→ 舊版 40 勝後對手不變強,模擬 30 天 158 勝 0 敗、每場穩拿最高獎勵;
   //   前 40 勝照舊;之後對手生命每勝 ×1.08、攻擊 ×1.05,隊伍爬到自己的極限就會輸,要更強(轉世、換裝)才能繼續贏
@@ -1436,7 +1436,7 @@ export function createGame(saved = null) {
     for (const h of state.hunters.filter(h => a.hunterIds.includes(h.id))) {
       h.task = null; h.hp = Math.max(h.hp, h.maxHp * 0.35); if (won) { h.gold += 25; gainXp(h, 80 + Math.min(ARENA_CAP, a.wins) * 15); } returnToTown(h);
     }
-    log(`競技場模擬對戰${won ? `獲勝（第 ${a.wins} 勝），村莊獲得 ${a.reward} 金幣${gems ? `與 ${gems} 晶石` : ''}` : '落敗，隊伍已安全撤回'}。`, won ? 'success' : 'warning');
+    log(`競技場模擬對戰${won ? `獲勝（第 ${a.wins} 勝），村莊獲得 ${a.reward} 金幣${gems ? `與 ${gems} 星晶` : ''}` : '落敗，隊伍已安全撤回'}。`, won ? 'success' : 'warning');
   }
 
   // 競技場每位獵人的出手間隔(秒):對戰與推薦隊伍共用同一條規則

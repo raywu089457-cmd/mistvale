@@ -2661,3 +2661,6 @@ html body .z2c-r-name .z2c-drops{display:flex;align-items:center;flex-wrap:nowra
 html body #modal-content .party-pick .pp-stats .inline-icon{width:12px!important;min-width:12px!important;height:12px!important;min-height:12px!important;flex:0 0 12px!important}
 html body #modal-content .party-pick .pp-stats .pp-k~.pp-k{margin-left:8px}
 html body #modal-content .party-pick .pp-stats .pp-range{margin-left:8px}
+
+/* 2026-11-18 離線戰報:時間格在「小時」後換行 */
+html body #modal-content .of-tiles .of-tile b{white-space:pre-line;overflow-wrap:normal;word-break:keep-all}
