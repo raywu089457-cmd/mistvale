@@ -1205,23 +1205,33 @@ export function createGame(saved = null) {
   }
   // ── 地下城體檢(2026-11-16) ── 自動續戰原本只看「三人都還活著」,殘血 5–15% 也照樣進下一層 → 地下城團滅成了家常便飯。
   // 估算用跟 dgWave/stepDungeon 同一套數字(純計算:不擲骰、不動 random、不發 id):
-  //   打多久 = 剩下各波總血量 ÷ 小隊輸出(普攻 + 攻擊技能當單體算;祭司算補血不算輸出;飢餓/疲勞 ×0.6);
+  //   打多久 = 剩下各波總血量 ÷ 小隊輸出(普攻 + 攻擊技能當單體算;祭司補完血剩下的出手才算普攻輸出,見下;飢餓/疲勞 ×0.6);
   //   挨多少 = 魔物群滿編時每 DG_HIT_EVERY 秒一擊(第一擊要等 1.5 秒;n 隻一隻隻倒下 → 平均出手率 (n+1)/2n),
   //            落在前排(沒有前排就全隊);目標是亂數挑的,最倒楣那位抓 1.5 倍平均份(DG_UNLUCKY),每擊 = 魔物攻擊 − 防禦 × 0.6;
   //   回多少 = 祭司普攻補 BASIC_HEAL、技能 heal/cd 平均分給挨打的人;聖騎士自補 heal/cd 只算自己;
   //            補血會溢補、施法也佔出手時間 → 只算 DG_HEAL_EFF 成(實測沒打折時,祭司隊的前排常被估成「補得回來」卻倒下)。
   // risk = 最危險那位的「預估淨承傷 ÷ 現有生命」(> 1 = 估計撐不到這層打完);secs = 預估要打幾秒(超過 DG_TIME_LIMIT 就算失敗)。
   // hpOf 讓 floorCleared 用「休整回血之後」的生命來估,不必先改到真的 h.hp。
+  // 祭司輸出(2026-11-17):stepDungeon 裡祭司只有「有人不到 98% 生命」才補血,沒人要補就普攻最前面的魔物 → 以前把祭司輸出算 0,
+  //   全祭司隊 dps = 0 → 預估無限久 → 第 1 層第 1 波打完一定「體力不支」撤退,永遠過不了第 1 層。
+  //   現在照實算:每一擊魔物攻擊要祭司補 ceil(傷害 ÷ 一次普攻補量) 下(技能補血不扣,保守),祭司剩下的出手才算普攻輸出。
   function dgForecast(party, floor, fromWave = 1, hpOf = h => h.hp) {
     const up = party.filter(h => hpOf(h) > 0), healers = up.filter(h => SKILLS[h.classId]?.kind === 'allyHeal');
-    const dps = up.filter(h => !healers.includes(h)).reduce((n, h) => { const sk = SKILLS[h.classId], hit = h.attack * (h.satiety < 15 || h.stamina < 15 ? 0.6 : 1);
-      return n + hit / attackInterval(h) + (sk?.mult ? h.attack * sk.mult / sk.cd : 0); }, 0);
-    if (!up.length || dps <= 0) return { risk: Infinity, secs: Infinity };
+    const hitOf = h => h.attack * (h.satiety < 15 || h.stamina < 15 ? 0.6 : 1);
+    const dps = up.filter(h => !healers.includes(h)).reduce((n, h) => { const sk = SKILLS[h.classId];
+      return n + hitOf(h) / attackInterval(h) + (sk?.mult ? h.attack * sk.mult / sk.cd : 0); }, 0);
+    const healActs = healers.reduce((n, h) => n + 1 / attackInterval(h), 0), healerDps = healers.reduce((n, h) => n + hitOf(h) / attackInterval(h), 0);
+    if (!up.length || dps + healerDps <= 0) return { risk: Infinity, secs: Infinity };
     const front = up.filter(h => !isRanged(h)), pool = front.length ? front : up;
     const healRate = healers.reduce((n, h) => { const sk = SKILLS[h.classId]; return n + BASIC_HEAL / attackInterval(h) + sk.heal / sk.cd; }, 0) / pool.length;
     let secs = 0; const taken = pool.map(() => 0);
     for (let w = fromWave; w <= 3; w++) {
-      const n = dgWaveTypes(floor, w).length, t = dungeonEnemyHp(floor, w) / dps, hits = Math.max(0, t - 1.5) / DG_HIT_EVERY * (n + 1) / (2 * n);
+      const n = dgWaveTypes(floor, w).length, rate = (n + 1) / (2 * n) / DG_HIT_EVERY, atk = dgFoeAttack(floor, w);
+      // 這一波每秒要補幾下(挨打的人平均),扣掉後祭司剩下的出手比例 × 祭司普攻輸出
+      const perHit = pool.reduce((s, h) => s + Math.ceil(Math.max(2, atk - h.defense * 0.6) / Math.max(2, Math.round(h.maxHp * BASIC_HEAL))), 0) / pool.length;
+      const waveDps = dps + (healActs > 0 ? healerDps * Math.max(0, 1 - rate * perHit / healActs) : 0);
+      if (waveDps <= 0) return { risk: Infinity, secs: Infinity };
+      const t = dungeonEnemyHp(floor, w) / waveDps, hits = Math.max(0, t - 1.5) * rate;
       secs += t;
       pool.forEach((h, i) => { taken[i] += hits * Math.min(1, DG_UNLUCKY / pool.length) * Math.max(2, dgFoeAttack(floor, w) - h.defense * 0.6); });
     }

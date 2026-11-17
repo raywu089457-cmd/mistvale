@@ -1298,6 +1298,18 @@ run(manual, 30, false, assertFiniteEconomy);
     assert.ok(d.events.some(e => e.k === 'hurt' && e.b === party[0].id)); }
 }
 {
+  // 全祭司小隊(2026-11-17):祭司沒人要補時會普攻 → 預估不能把祭司輸出算 0(以前 dps = 0 → 第 1 波打完必定「體力不支」半途撤退,永遠過不了第 1 層)
+  const sv = createGame().serialize(); sv.seed = 11; sv.buildings.dungeon = 1;
+  sv.hunters = sv.hunters.slice(0, 3).map(h => ({ ...h, classId: 'priest', level: 20, xp: 0 }));
+  const g = createGame(sv), party = g.state.hunters, d = g.state.dungeon; for (const h of party) h.hp = h.maxHp;
+  g.state.paused = false; g.setDungeonAuto(true); const deaths0 = g.state.counts.deaths;
+  assert.equal(g.dungeonStartFloor(party.map(h => h.id), 1), 1);
+  assert.equal(g.startDungeon(party.map(h => h.id), 1).ok, true); assert.equal(d.floor, 1);
+  run(g, 120, false, s => assert.ok(!s.log.some(l => l.text.includes('半途撤退')), 'no mid-floor retreat'));
+  assert.ok(d.bestFloor >= 1, `an all-priest Lv.20 party clears at least floor 1 (best ${d.bestFloor})`);
+  assert.equal(g.state.counts.deaths, deaths0, 'and nobody dies doing it');
+}
+{
   // 英雄對話框:每句都短;需求優先;倒下說倒下的話
   const all = Object.values(CHATTER_LINES).flatMap(v => Array.isArray(v) ? v : Object.values(v).flat());
   assert.ok(all.every(l => l.replace('{region}', '向陽草原').length <= 12), 'every chatter line is short (≤ 12 characters)');
