@@ -571,7 +571,7 @@ const WELCOME_STEPS=[
 ];
 // 高亮目標:要按的頁籤(建設、地下城、獵人、倉庫、交易)或右上圖示(委託、地圖);同一時間最多一個。每幀只在目標變了才動 DOM。
 let z2dMarkKey='';
-function z2dMarkSel(act){return !act?null:({quests:'#topbar .hv-quests',worldmap:'#topbar [data-action=worldmap]',craft:'#bottom-bar [data-action=inventory]'})[act]||`#bottom-bar [data-action="${act}"]`;}
+function z2dMarkSel(act){if(act&&act.startsWith('rebirth:'))act='hunters';if(act==='arena')return '.hv-actions [data-act=arena]';return !act?null:({quests:'#topbar .hv-quests',worldmap:'#topbar [data-action=worldmap]',craft:'#bottom-bar [data-action=inventory]'})[act]||`#bottom-bar [data-action="${act}"]`;}
 function z2dMarkPaint(){
   let act='';
   if(modal==='welcome')act=WELCOME_STEPS[Math.max(0,Math.min(WELCOME_STEPS.length-1,welcomeStep))].target;
@@ -582,7 +582,7 @@ function z2dMarkPaint(){
   document.querySelectorAll('[data-z2d-target]').forEach(e=>{e.removeAttribute('data-z2d-target');e.querySelector(':scope>.z2d-finger')?.remove();});
   const t=sel&&document.querySelector(sel);if(!t)return;
   t.setAttribute('data-z2d-target','1');const f=document.createElement('i');f.className='z2d-finger';f.setAttribute('aria-hidden','true');t.append(f);}
-const ADVISOR_ICON={quests:'quest',hunters:'hunter',dungeon:'dungeon',build:'hall',worldmap:'map'};
+const ADVISOR_ICON={quests:'quest',hunters:'hunter',arena:'swords',dungeon:'dungeon',build:'hall',worldmap:'map'};
 const ADVISOR_MORE={dungeon0:'地下城入口蓋好之後，才能挑 3 位獵人出發闖關；競技場則要先蓋修煉地。',restock:'獵人會自己出去狩獵，但商品只能靠你在「倉庫 → 製作」補貨；賣完了，村莊就沒有這筆收入。',quest:'領完獎勵就會解鎖下一章。',visitor:'招募要花金幣，稀有度越高越貴、成長也越好。',dungeon:'每層三波魔物；打贏推進紀錄，打不過就會帶傷回村。',build:'先蓋食堂、旅館、酒館：獵人有地方花錢，村莊才有收入。',dungeon2:'地下城一次要三位獵人；其他人可以先去生態區狩獵。',hunt:'在地圖上選一個生態區，獵人會自己去那裡打怪、帶材料回來。'};
 function modalHTML(type){const s=game.state;
  if(type==='visitors')return visitorBandHTML();   // Z2A:新獵人到訪(D 暗帶)
@@ -916,6 +916,8 @@ function doAction(el){const a=el.dataset.action,id=el.dataset.id;let r;
   if(a==='nextStepGo'||a==='questGo'){const t=a==='questGo'?advisorReq.act:el.dataset.act;
     // 2026-11-16:原本「去製作」(act=craft)不在清單裡 → 按了只會關面板;補上製作、交易、鍛造分頁、首領
     if(t==='craftGear'){craftTab='gear';openModal('craft');return;}
+    if(t.startsWith('rebirth:')){const hid=t.slice(8);closeModal();openHunter(hid);if(modal==='hunter-detail'){hc.tab='rebirth';openHunter(hid);}return;}   // 2026-11-18 Lv.100 → 直接開那位獵人的「轉世」頁
+    if(t==='arena'){openModal('arena');return;}
     if(t==='quests'||t==='hunters'||t==='dungeon'||t==='build'||t==='worldmap'||t==='craft'||t==='trade'||t==='boss'||t==='inventory')openModal(t);else closeModal();
     if(t==='inventory')requestAnimationFrame(()=>document.querySelector('#modal-content .gear-store')?.scrollIntoView({block:'start'}));   // 2026-11-17:舊裝備提示 → 直接捲到裝備倉庫(自動整理開關在那裡)
     if(t==='build'&&/地下城入口/.test(advisorReq?.text||''))z2cFlashBuild('dungeon');   // Z2C:顧問叫你蓋地下城入口時,建設面板直接標出那一格
@@ -1494,9 +1496,9 @@ let nextStepEl=null,nextStepKey='';
 // 2026-11-17:Lv.100 還能轉世的獵人。自動續戰不會自己停,滿級獵人常卡在地下城隊伍裡(轉世會被拒絕)→ 先叫玩家撤退
 Z2C.questGo=s=>{const q=s&&s.quest;if(!q||q.complete||q.claimed)return null;return q.index===0?{text:'',act:'hunters',label:'看名冊'}:questGuide(s);};
 function rebirthTip(s){const top=(s.hunters||[]).filter(h=>(h.level||0)>=100&&(h.rebirths||0)<20&&(h.hp||0)>0);if(!top.length)return null;
-  const free=top.find(h=>h.task!=='dungeon'&&h.task!=='arena');if(free)return {text:`${free.name}到 Lv.100 了！到他的詳情「轉世」頁完成轉世`,act:'hunters',label:'看名冊'};
+  const free=top.find(h=>h.task!=='dungeon'&&h.task!=='arena');if(free)return {text:`${free.name}到 Lv.100 了！可以轉世了，轉世後能力會更強`,act:'rebirth:'+free.id,label:'去轉世'};
   const dg=top.find(h=>h.task==='dungeon');if(dg)return {text:`${dg.name}已 Lv.100，在地下城裡不能轉世，先撤退回村`,act:'dungeon',label:'去撤退'};
-  return {text:`${top[0].name}已 Lv.100，競技場打完就能轉世`,act:'dungeon',label:'看競技場'};}
+  return {text:`${top[0].name}已 Lv.100，競技場打完就能轉世`,act:'arena',label:'看競技場'};}
 function questGuide(s){const q=s.quest||{},n=q.index+1,p=`（${fmt(q.progress||0)}/${fmt(q.target||0)}）`,dg=(s.buildings?.dungeon||0)>0;
   switch(q.index){
     case 1:return {text:`到「倉庫 → 製作」做餐點，完成第 ${n} 章${p}`,act:'craft',label:'去製作'};
