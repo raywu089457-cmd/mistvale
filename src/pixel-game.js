@@ -847,7 +847,7 @@ export function createGame(saved = null) {
       if (!amount) continue;
       const price = amount * MATERIALS[key].price;
       // 2026-11-17 持續收購(tradeStanding):開著的材料成交後收購量不扣 → 一直維持玩家設定的數量;只花金庫保留額以上的部分(tradeBudget),一般委託照舊以全部金庫為上限
-      h.inventory[key] -= amount; if (!state.tradeStanding?.[key]) state.tradeRequests[key] -= amount; state[key] += amount; state.gold -= price; h.gold += price; quantity += amount; coins += price;
+      h.inventory[key] -= amount; if (!state.tradeStanding?.[key]) state.tradeRequests[key] -= amount; state[key] += amount; state.gold -= price; h.gold += price; state.counts.tradeGold = (state.counts.tradeGold || 0) + price; quantity += amount; coins += price;
       // 離線取樣期:記下收購量與付給誰,offlineFinish 另外依「剩餘收購量/持續收購/村莊金幣」外推,不照速率無上限地乘
       if (dgLedger) { const T = dgLedger.trade; T.qty[key] = (T.qty[key] || 0) + amount; T.cost += price; T.gold[h.id] = (T.gold[h.id] || 0) + price; if (!wandererOf(h)) T.hunterCost += price; }
     }
@@ -2328,7 +2328,7 @@ export function createGame(saved = null) {
         for (const k of Object.keys(state.stocks)) state.stocks[k] = Math.max(0, Math.round(state.stocks[k] + (state.stocks[k] - (snap.stocks[k] ?? 0)) * f));
         state.totalKills += Math.round(Math.max(0, state.totalKills - snap.kills) * f); state.kills = state.totalKills;
         state.wanderKills = (state.wanderKills || 0) + Math.round(Math.max(0, (state.wanderKills || 0) - snap.wanderKills) * f);
-        for (const [k, v] of Object.entries(state.counts)) { const dv = typeof v === 'number' && typeof snap.counts[k] === 'number' ? v - snap.counts[k] - (k === 'dungeonWins' ? L.wins : 0) - (GEAR_ONE_OFF.has(k) ? v - snap.counts[k] : L.gearPay[k] || 0) - (k === 'traded' ? tradeQty : 0) : 0; if (dv > 0) state.counts[k] = Math.round(v + dv * f); }
+        for (const [k, v] of Object.entries(state.counts)) { const dv = typeof v === 'number' && typeof snap.counts[k] === 'number' ? v - snap.counts[k] - (k === 'dungeonWins' ? L.wins : 0) - (GEAR_ONE_OFF.has(k) ? v - snap.counts[k] : L.gearPay[k] || 0) - (k === 'traded' ? tradeQty : 0) - (k === 'tradeGold' ? (T.cost || 0) : 0) : 0; if (dv > 0) state.counts[k] = Math.round(v + dv * f); }
         // 金幣要守恆:獵人花在村裡的錢 = 村莊收入,錢包花光就沒了 → 「村莊＋獵人」一起外推,每位獵人的錢包到 0 為止,剩下的算村莊的
         const both = state.hunters.filter(h => snap.hunters[h.id]), w0 = both.reduce((n, h) => n + snap.hunters[h.id].gold, 0), w1 = both.reduce((n, h) => n + h.gold, 0);
         // 收購款在村莊與池內獵人之間只是轉手:兩邊都扣掉(field('gold') 已加回,這裡扣掉獵人收到的),最後由「收購外推」實際轉帳
@@ -2346,7 +2346,7 @@ export function createGame(saved = null) {
         const gotTotal = MATERIAL_KEYS.reduce((n, k) => n + (T.got[k] || 0), 0);
         if (T.cost > 0 || gotTotal > 0) {
           let paidOnce = 0, paidStanding = 0;
-          const buy = (k, n, standing) => { const unit = MATERIALS[k].price; state[k] += n; state.gold -= n * unit; if (standing) paidStanding += n * unit; else paidOnce += n * unit; state.counts.traded += n; if (!standing) state.tradeRequests[k] -= n; };
+          const buy = (k, n, standing) => { const unit = MATERIALS[k].price; state[k] += n; state.gold -= n * unit; if (standing) paidStanding += n * unit; else paidOnce += n * unit; state.counts.traded += n; state.counts.tradeGold = (state.counts.tradeGold || 0) + n * unit; if (!standing) state.tradeRequests[k] -= n; };
           // 先結一般委託(玩家明確下的單,有限量):可花到 0
           for (const k of MATERIAL_KEYS) {
             if (state.tradeStanding?.[k]) continue;
@@ -2392,6 +2392,7 @@ export function createGame(saved = null) {
       const dc = k => Math.max(0, (state.counts[k] || 0) - (snap.counts?.[k] || 0));
       sum.hunters = { kills: sum.kills, gold: dc('hunterGold'), paid: dc('hunterPay') };
       sum.wanderers = { kills: sum.wanderKills, gold: dc('wanderGold'), paid: dc('wanderPay') };
+      sum.trade = { gold: dc('tradeGold'), qty: dc('traded') };   // 2026-11-16:交易所收購(含持續收購)離線期間花掉的金幣與買進份數,給離線戰報解釋「金幣去哪了」
       for (const h of state.hunters) { const s0 = snap.hunters[h.id]; if (s0 && h.level > s0.level && h.rebirths === s0.rebirths) sum.levels.push({ name: h.name, from: s0.level, to: h.level }); }
       refreshQuest();
       const hh = Math.floor(sum.seconds / 3600), mm = Math.floor(sum.seconds % 3600 / 60);
