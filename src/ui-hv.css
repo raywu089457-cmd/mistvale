@@ -793,6 +793,9 @@ html body #hv-sel .hv-hex-up{color:#9fe07a}
 html body #hv-sel .hv-hex-up.merchant{color:#7fe0cf}
 html body #hv-sel .hv-hex-up.merchant::after{background:linear-gradient(180deg,#2f7a6e 0%,#1d4f47 100%)}
 html body #hv-sel .hv-hex[hidden]{display:none!important}
+html body #hv-sel .hv-hex-craft{color:#ffd77a}
+html body #hv-sel .hv-hex-craft.merchant{color:#7fe0cf}
+html body #hv-sel .hv-hex-craft.merchant::after{background:linear-gradient(180deg,#2f7a6e 0%,#1d4f47 100%)}
 body.piloting #hv-sel{display:none!important}
 
 /* ── D 亮色對話框(開場導覽、顧問提示展開):底部亮色框、說話者名字掛在上緣、頭像在左 ── */

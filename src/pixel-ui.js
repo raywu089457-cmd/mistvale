@@ -805,7 +805,7 @@ function modalHTML(type){const s=game.state;
       +`<section class="help-sec" id="help-sec-loop"><h4 class="help-h">核心循環</h4><ol class="hl-steps">${loop}</ol></section>`
       +`<section class="help-sec" id="help-sec-keys"><h4 class="help-h"><i>${iconHTML('compass')}</i>基本操作</h4>${bullets([
         coarse?'單指拖曳平移、雙指縮放畫面。':'拖曳平移、滾輪縮放畫面（手機是單指拖曳、雙指縮放）。',
-        '點建築、獵人或魔物，腳下會出現六角小鈕：按 i（或 Enter）看資訊，按 ×（或 Esc）取消選取；建築能升級時還有一顆 ▲（或 U）可以直接升級，青綠色代表會先向行商補料。',
+        '點建築、獵人或魔物，腳下會出現六角小鈕：按 i（或 Enter）看資訊，按 ×（或 Esc）取消選取；建築能升級時還有一顆 ▲（或 U）可以直接升級；餐廳、旅館、酒館、治療所還有一顆 ＋ 可以直接補一批貨。青綠色代表會先向行商補料。',
         '下方五個頁籤是村莊各項功能（建設、地下城、獵人、倉庫、交易）；競技場在地下城裡、製作在倉庫裡，委託從左上任務追蹤或右上捲軸圖示進入。',
       ])}<dl class="help-keys">${keys}</dl></section>`
       +`<section class="help-sec" id="help-sec-day"><h4 class="help-h"><i>${iconHTML('hunter')}</i>獵人的一天</h4>${bullets([
@@ -973,6 +973,10 @@ if(a==='setDifficulty'){r=game.setDifficulty(Number(id));logToast(r.message,r.ok
  if(a==='rosterMenu'){rosterMenu=!rosterMenu;openModal('hunters');if(rosterMenu)$('#roster-menu [aria-pressed=true]')?.focus({preventScroll:true});return;}
  if(a==='locateHunter'){const h=game.state.hunters.find(v=>v.id===id);closeModal();if(h){world?.lookAt(h.x,h.z,Math.max(1.6,world?.getScale?.()||1.6));selectWorld('hunter:'+h.id);}return;}
  if(a==='selInfo'){selInfo();return;}
+ if(a==='selCraft'){const id2=selTarget,st=id2&&selCraftState(id2);if(!st){logToast('現在沒辦法補貨。',false);return;}const p=PRODUCTS[st.product];
+   if(st.merchant){const buy=game.buyMaterials(p.cost);if(!buy.ok){logToast(buy.message,false);selCraftPaint(id2);return;}r=game.craft(st.product,1);logToast(r.ok?`${buy.message} ${r.message}`:r.message,r.ok);}
+   else{r=game.craft(st.product,1);logToast(r.message,r.ok);}
+   paint();save();selUpgradePaint(id2);return;}
  if(a==='selUpgrade'){const id2=selTarget;const st=id2&&selUpgradeState(id2);if(!st){logToast('現在沒辦法升級這棟建築。',false);return;}const lv=game.state.buildings[id2]||0,b=BUILDINGS.find(x=>x.id===id2);
    if(st.merchant){const buy=game.buyMaterials(lv?game.getUpgradeCost(id2):b.cost);if(!buy.ok){logToast(buy.message,false);selUpgradePaint(id2);return;}r=lv?game.upgrade(id2):game.construct(id2);logToast(r.ok?`${buy.message} ${r.message}`:r.message,r.ok);}
    else{r=lv?game.upgrade(id2):game.construct(id2);logToast(r.message,r.ok);}
@@ -1213,7 +1217,12 @@ function selUpgradeState(id){const b=BUILDINGS.find(x=>x.id===id);if(!b)return n
   if(!miss.length)return {merchant:false,label:`${b.name}：${verb}（${Object.entries(cost).map(([k,v])=>costName(k)+' '+fmt(v)).join('、')}）`};
   const q=game.merchantQuote?.(cost);return q?.ok?{merchant:true,label:`${b.name}：補料${verb}（共 ${fmt(q.total)} 金）`}:null;}
 function selUpgradePaint(id){const up=$('#hv-sel .hv-hex-up');if(!up)return;const st=BUILDINGS.some(b=>b.id===id)?selUpgradeState(id):null;
-  up.hidden=!st;up.classList.toggle('merchant',!!st?.merchant);if(st){up.title=st.label;up.setAttribute('aria-label',st.label);}}
+  up.hidden=!st;up.classList.toggle('merchant',!!st?.merchant);if(st){up.title=st.label;up.setAttribute('aria-label',st.label);}selCraftPaint(id);}
+// 2026-11-16 地圖上直接補貨:餐廳／旅館／酒館／治療所選取時多一顆 ＋,做一批商品(缺料而金幣夠 → 青綠,先向行商補料)
+function selCraftState(id){const b=BUILDINGS.find(x=>x.id===id),s=game.state;if(!b?.product||!(s.buildings[id]>0))return null;const p=PRODUCTS[b.product];if(!p)return null;
+  const stock=s.stocks[b.product]||0;if(!costMissing(p.cost).length)return {merchant:false,product:b.product,label:`${b.name}：製作 ${p.amount} 份${p.name}（庫存 ${stock}）`};
+  const q=game.merchantQuote?.(p.cost);return q?.ok?{merchant:true,product:b.product,label:`${b.name}：補料製作 ${p.amount} 份${p.name}（${fmt(q.gold)} 金，庫存 ${stock}）`}:null;}
+function selCraftPaint(id){const c=$('#hv-sel .hv-hex-craft');if(!c)return;const st=selCraftState(id);c.hidden=!st;c.classList.toggle('merchant',!!st?.merchant);if(st){c.title=st.label;c.setAttribute('aria-label',st.label);}}
 function selName(id){if(id.startsWith('hunter:')){const h=game.state.hunters.find(v=>v.id===id.slice(7));return h?h.name:'獵人';}if(id.startsWith('foe:')){const e=(game.state.enemies||[]).find(v=>v.id===id.slice(4));return e?(MONSTER_NAME[e.type]||e.type):'魔物';}return BUILDINGS.find(b=>b.id===id)?.name||id;}
 function selCancel(){if(!selTarget)return;const t=selTarget;selTarget=null;selShownKey='';const el=$('#hv-sel');if(el){el.hidden=true;delete el.dataset.target;}if(!selected||selected!==t)world?.setSelected(selected||null);}
 function selInfo(){const t=selTarget;if(!t)return;selTarget=null;selShownKey='';const el=$('#hv-sel');if(el){el.hidden=true;delete el.dataset.target;}
