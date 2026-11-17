@@ -60,7 +60,7 @@ function infoPanel(h,cls,r){const dps=h.attack/attackInterval(h),tr=C.TRAITS.fin
 
 // 修煉的條件文字(給資訊頁底部,不夠時說明原因):與 game.train 的檢查同一組
 function trainState(h){const s=C.game().state;
- if(!s.buildings.training)return {ok:false,why:'要先蓋修煉地'};if(h.level>=100)return {ok:false,why:'已 Lv.100，可以轉世'};if(h.hp<=0||h.task==='dungeon'||h.task==='arena')return {ok:false,why:'現在無法修煉'};
+ if(!s.buildings.training)return {ok:false,why:'要先蓋修煉地'};if(h.level>=100)return {ok:false,why:'已滿級'};if(h.hp<=0||h.task==='dungeon'||h.task==='arena')return {ok:false,why:'現在無法修煉'};
  if(h.trainCooldown>0)return {ok:false,why:`冷卻 ${Math.ceil(h.trainCooldown)} 秒`};const q=C.game().trainQuote?.(h.id);if(q&&h.gold<q.cost)return {ok:false,why:`還差 ${C.fmt(q.cost-h.gold)} 金`};return {ok:true,why:''};}
 // 2026-11-17 修煉重訂:學費＝20＋等級×10(個人金幣,付給村莊),每次約 1 級份經驗(修煉地升級最多 2 級份),冷卻 30 秒
 function trainHint(h){const t=trainState(h),q=C.game().trainQuote?.(h.id),lv=(q?.xp||0)/(30+h.level*8);return `<b>修煉</b>：花 ${C.fmt(q?.cost??0)} 個人金幣，得到約 ${Math.max(1,Math.round(lv*4)/4)} 級份經驗（升級修煉地可以更多）。${t.ok?'<span class="ok">現在可以修煉</span>':`<span class="no">${t.why}</span>`}`;}
