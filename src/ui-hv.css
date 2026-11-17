@@ -2624,3 +2624,8 @@ html body #modal-content .gear-auto .pixel-button[aria-checked="true"]{outline:2
 html body #modal-content .z2c-party-h{display:flex;align-items:center;justify-content:space-between;gap:8px;margin:0 0 6px;font:600 12px/1.3 var(--font-ui);color:var(--hv-text-dim)}
 html body #modal-content .z2c-party-h>span{min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
 html body #modal-content .z2c-recbtn{flex:0 0 auto;min-height:40px;padding:0 12px;font-size:13px!important}
+/* 2026-11-17 競技場:推薦隊伍打倒下一位對手的預估秒數(綠=從容、黃=勉強、紅=大概打不贏) */
+html body #modal-content .z2c-foe-stat small{font-size:12px}
+html body #modal-content .z2c-foe-stat small.ok{color:#9fd27a}
+html body #modal-content .z2c-foe-stat small.warn{color:#e4c97b}
+html body #modal-content .z2c-foe-stat small.no{color:#ec8a7a}
