@@ -216,6 +216,17 @@ export function createGame(saved = null) {
   const id = prefix => `${prefix}${++state.nextId}`;
   const random = () => { state.seed = (Math.imul(state.seed, 1664525) + 1013904223) >>> 0; return state.seed / 4294967296; };
   const log = (text, tone = 'info') => { state.log.unshift({ id: id('log'), text, tone }); state.log.length = Math.min(32, state.log.length); };
+  // 2026-11-16:持續收購讓「交易所收購」佔掉事件列 75%(一分鐘 21/28 則)→ 20 秒內連續的收購合併成同一行累計,
+  //   不把升級、委託、首領等重要訊息擠出畫面左上只顯示 3 則的事件列。事件列不存檔,不影響存檔與模擬。
+  let tradeAgg = null;
+  function tradeLog(h, quantity, coins) {
+    if (tradeAgg && state.log[0] === tradeAgg.entry && state.time - tradeAgg.t < 20) {
+      tradeAgg.n++; tradeAgg.qty += quantity; tradeAgg.coins += coins; tradeAgg.t = state.time;
+      tradeAgg.entry.text = `交易所收購 ${tradeAgg.n} 位獵人共 ${tradeAgg.qty} 份材料，支付 ${tradeAgg.coins} 金幣。`; return;
+    }
+    log(`交易所收購 ${h.name} 的 ${quantity} 份材料，支付 ${coins} 金幣。`, 'loot');
+    tradeAgg = { entry: state.log[0], n: 1, qty: quantity, coins, t: state.time };
+  }
   // T69:帶 targetId 的命中特效在建立時就記下目標型別(bodyType)。擊殺那一 tick 目標會在第一次繪製前
   // 被移出 state.enemies,世界端沒有這個欄位就只能退回腳下與預設大小(只影響特效錨點,不影響傷害/戰鬥)。
   // T106:暴擊。原本的判定是 `crit: damage >= attack * 1.25`,但傷害就是 Math.round(attack)、沒有變異,
@@ -851,7 +862,7 @@ export function createGame(saved = null) {
       // 離線取樣期:記下收購量與付給誰,offlineFinish 另外依「剩餘收購量/持續收購/村莊金幣」外推,不照速率無上限地乘
       if (dgLedger) { const T = dgLedger.trade; T.qty[key] = (T.qty[key] || 0) + amount; T.cost += price; T.gold[h.id] = (T.gold[h.id] || 0) + price; if (!wandererOf(h)) T.hunterCost += price; }
     }
-    if (quantity) { state.counts.traded += quantity; effect('loot', h, { text: `收購 ${quantity}`, color: '#e4c97b' }); log(`交易所收購 ${h.name} 的 ${quantity} 份材料，支付 ${coins} 金幣。`, 'loot'); }
+    if (quantity) { state.counts.traded += quantity; effect('loot', h, { text: `收購 ${quantity}`, color: '#e4c97b' }); tradeLog(h, quantity, coins); }
     if (dgLedger) dgLedger.trade.visits++;
     h.tradedVisit = true;
   }
