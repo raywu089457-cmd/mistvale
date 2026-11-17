@@ -1418,11 +1418,22 @@ run(manual, 30, false, assertFiniteEconomy);
   assert.equal(sum.seconds, OFFLINE.max, 'offline progress is capped at 8 hours'); assert.equal(sum.capped, true);
   assert.ok(g.state.day > day0 + 100 && g.state.totalKills > k0 + 1000, `8 hours of hunting happened (day ${g.state.day}, kills ${g.state.totalKills})`);
   assertFiniteEconomy(g.state); assert.ok(sum.levels.length > 0, 'hunters level up while offline');
-  // 2026-11-17 起收購另外外推(一般委託買滿就停,賣給流浪英雄的錢不再無上限地流出)→ 這裡全部開持續收購,收購照速率外推,總額公式才成立
-  const idle = createGame(); for (const k of MATERIAL_KEYS_T) idle.state.tradeStanding[k] = true; run(idle, 5); const W = () => idle.state.hunters.reduce((n, h) => n + h.gold, 0);
-  const s2 = idle.offlineSnapshot(), v0 = idle.state.gold, w0 = W(); idle.simulate(OFFLINE.sample);
-  const flow = (idle.state.gold - v0) + (W() - w0); idle.offlineFinish(s2, 3 * 3600);
-  assert.ok(Math.abs((idle.state.gold + W()) - (v0 + w0 + flow * (3 * 3600 / OFFLINE.sample))) <= idle.state.hunters.length + 2, 'village + hunter gold is extrapolated together (no gold from nothing)');
+  // 2026-11-17 起收購另外外推(一般委託買滿就停,賣給流浪英雄的錢不再無上限地流出)→ 這裡全部開持續收購
+  // 2026-11-18:收購外推本來就不是「取樣期 × 倍率」:持續收購照「撿到的量」買(可多於取樣期剛好賣掉的量),付款照「誰撿的」分(不是取樣期誰剛好回村賣)
+  //   → 流到流浪英雄(村莊＋獵人這池以外)的收購款跟線性外推不同。正確的守恆式:
+  //   池子(村莊＋獵人)期末 = 線性外推「不含收購的淨流量」 − 外推期付給流浪英雄的收購款(實際從流浪英雄錢包量)
+  //   twS = 取樣期流浪英雄收到的收購款 = 錢包變化 − 打怪收入(wanderGold) + 付給村莊的錢(wanderPay);offlineFinish 只會因收購付款動到流浪英雄錢包
+  const idle = createGame(); for (const k of MATERIAL_KEYS_T) idle.state.tradeStanding[k] = true; run(idle, 5);
+  const W = () => idle.state.hunters.reduce((n, h) => n + h.gold, 0), WW = () => idle.state.wanderers.reduce((n, w) => n + w.gold, 0), C = k => idle.state.counts[k] || 0;
+  const wIds = () => idle.state.wanderers.map(w => w.id).join();
+  const s2 = idle.offlineSnapshot(), v0 = idle.state.gold, w0 = W(), ww0 = WW(), wg0 = C('wanderGold'), wp0 = C('wanderPay'), ids0 = wIds(); idle.simulate(OFFLINE.sample);
+  const flow = (idle.state.gold - v0) + (W() - w0), twS = (WW() - ww0) - (C('wanderGold') - wg0) + (C('wanderPay') - wp0), ww1 = WW(), tg1 = C('tradeGold');
+  idle.offlineFinish(s2, 3 * 3600);
+  const twX = WW() - ww1, tgX = C('tradeGold') - tg1, mult = 3 * 3600 / OFFLINE.sample;
+  assert.equal(wIds(), ids0, 'same wanderers throughout (the wallet accounting above assumes nobody joined or left)');
+  assert.ok(twS >= 0 && twX >= 0 && twX <= tgX, `wanderers only get what the village paid for materials (sample ${twS}, extrapolated ${twX} of ${tgX})`);
+  assert.ok(tgX > 0, 'standing orders keep buying during the extrapolated part');
+  assert.ok(Math.abs((idle.state.gold + W()) - (v0 + w0 + (flow + twS) * mult - twS - twX)) <= idle.state.hunters.length + 2, 'village + hunter gold is extrapolated together; the only outflow is material payments to wanderers (no gold from nothing)');
   assert.ok(idle.state.hunters.every(h => h.gold >= 0)); assertFiniteEconomy(idle.state);
 }
 {

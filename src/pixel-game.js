@@ -91,8 +91,10 @@ export const ENEMIES = {
   // 2026-11-16 平衡(tools/progression-sim.mjs 14 天):獵人大多在草原/山地/雪原自主狩獵,木材只有森林魔物掉 →
   //   木材整局卡在 0–30、鐵礦堆到 1500,建築升級被木材卡死。木材分散到各區的常見魔物(花芽妖、蕈菇怪、雪人、地精、仙人掌),
   //   順手把同區多出來的鐵礦/麵粉讓一點出來;森林領主(樹人)本來就該掉一大堆木頭 10 → 20。
+  // 2026-11-18 平衡:亞麻布只在森林/雪原/沙漠掉,獵人大多在草原與白樺林 → 第 2–16 天常 0–10 份(床鋪、繃帶、頭盔/腿甲/手套都要它),
+  //   藥草、麵粉卻堆到上千。公羊(羊毛)與花妖精(花莖纖維)讓一部分麵粉/藥草改掉亞麻布。
   sprout: { hp: 60, attack: 9, speed: 0.9, gold: 16, xp: 20, drops: { flour: 3, herb: 2, wood: 1 } },
-  ram: { hp: 88, attack: 13, speed: 1.25, gold: 22, xp: 27, drops: { flour: 2, leather: 2 } },
+  ram: { hp: 88, attack: 13, speed: 1.25, gold: 22, xp: 27, drops: { flour: 1, leather: 2, cloth: 2 } },
   mole: { hp: 75, attack: 11, speed: 0.8, gold: 20, xp: 24, drops: { flour: 2, ore: 1 } },
   shroom: { hp: 70, attack: 12, speed: 0.7, gold: 20, xp: 25, drops: { herb: 3, wood: 1 } },
   boar: { hp: 105, attack: 16, speed: 1.5, gold: 26, xp: 31, drops: { leather: 3, wood: 1 } },
@@ -109,7 +111,7 @@ export const ENEMIES = {
   mummy: { hp: 130, attack: 17, speed: 0.9, gold: 32, xp: 36, drops: { cloth: 3, herb: 1 } },
   cactus: { hp: 150, attack: 16, speed: 0.5, gold: 32, xp: 37, drops: { herb: 3, wood: 1 } },
   scorpion: { hp: 145, attack: 19, speed: 1.05, gold: 34, xp: 39, drops: { herb: 2, leather: 2 } },
-  floraspirit: { hp: 70, attack: 11, speed: 1.3, gold: 22, xp: 26, drops: { herb: 4 } },
+  floraspirit: { hp: 70, attack: 11, speed: 1.3, gold: 22, xp: 26, drops: { herb: 2, cloth: 2 } },
   birchling: { hp: 110, attack: 14, speed: 0.85, gold: 26, xp: 31, drops: { wood: 3, herb: 2 } },
   stag: { hp: 125, attack: 16, speed: 1.5, gold: 30, xp: 34, drops: { leather: 3, herb: 1 } },
   boss: { hp: 1150, attack: 28, speed: 0.85, gold: 260, xp: 180, drops: { ore: 12, wood: 20, herb: 8, leather: 10, cloth: 8, flour: 10 } },
