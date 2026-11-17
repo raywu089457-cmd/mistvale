@@ -1482,5 +1482,17 @@ run(manual, 30, false, assertFiniteEconomy);
   // v1 / 未知版本照舊拒絕
   for (const v of [1, 5, '4', undefined]) { const bad = createGame().serialize(); bad.version = v; bad.gold = 7; assert.equal(createGame(bad).state.gold, 1500, `version ${String(v)} rejected`); }
 }
+// 2026-11-16 倉庫一鍵整理:只賣／分解「鍛造裝備且階級低於鐵匠鋪目前最高階」,其他(目前最高階、非鍛造掉落)都保留
+{
+  const g = createGame(), s = g.state; s.buildings.forge = 3;
+  s.gearStorage = [{ uid: 'b1', itemId: 'craft_chest', grade: 1 }, { uid: 'b2', itemId: 'craft_helm', grade: 2 }, { uid: 'b3', itemId: 'craft_weapon', grade: 3 }];
+  const pre = g.bulkStoredGear('sell', true);
+  assert.equal(pre.count, 2, 'tier 1 and 2 are below forge tier 3'); assert.ok(pre.gold > 0); assert.equal(s.gearStorage.length, 3, 'dry run changes nothing');
+  const gold0 = s.gold, r = g.bulkStoredGear('sell');
+  assert.equal(r.ok, true); assert.equal(s.gold, gold0 + pre.gold); assert.deepEqual(s.gearStorage.map(x => x.uid), ['b3'], 'current-tier gear is kept');
+  assert.equal(g.bulkStoredGear('sell').ok, false, 'nothing left to sell');
+  s.gearStorage = [{ uid: 'c1', itemId: 'craft_chest', grade: 2 }]; const pv = g.bulkStoredGear('salvage', true), before = { ...Object.fromEntries(Object.keys(pv.mats).map(k => [k, s[k]])) };
+  assert.equal(g.bulkStoredGear('salvage').ok, true); for (const [k, n] of Object.entries(pv.mats)) assert.equal(s[k], before[k] + n); assert.equal(s.gearStorage.length, 0);
+}
 console.log(`PASS: ${CLASSES.length} hunters / ${CLASSES.length} classes, seeded visitors, conservation of personal and village gold, paid and emergency services, bounded trading, crafting and gear purchases, upgrades, training, skills, rebirth, difficulty gates, hunting, field boss, death/revival, dungeon combat and save continuation, NPC arena, navigation, malformed saves, pause, deterministic simulation, all 18 quests and legacy quest-save migration. Natural 60s: ${combat.state.totalKills} total kills; ${combat.state.counts.services} services.`);
 

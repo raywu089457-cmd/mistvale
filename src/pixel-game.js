@@ -3,7 +3,7 @@ import {createVillageNav} from './village-nav.js';
 import {WORLD,REGIONS,walkable,inVillage,regionAt,regionContains,regionEdge,regionCenter,randomRegionPoint,wildAt,nearestRingRoad,ringRoadPath,ringPointAt,onRingRoad,ringRoadDistance,RING_ROAD_HALF,RING_ROAD} from './overworld.js';
 import {VILLAGE_BOUNDS,EXITS,blockAt,BUILDING_NUDGE,BUILDING_SLOTS,blockCenter} from './village-grid.js';
 import {sfx} from './sfx.js';
-import { SKILLS, BUILDINGS, CLASSES, RARITIES, TRAITS, MATERIALS, PRODUCTS, RECIPES, GEAR_SLOTS, EQUIP_SLOTS, GEAR_TIERS, GEAR_TIER_MAX, gearAt, DIFFICULTIES, CAMP, HUNT_ZONE, PILOT_ATTACK, PILOT_ORB, MERCHANT, AI_ATTACK_LOCK, KITE, PROVOKE, MONSTER_RANGED, LEGACY_LAYOUT_V14, LEGACY_LAYOUT_V15, LEGACY_LAYOUT_V16, ART_LAYOUT_HISTORY, REGION_DENSITY, DEFAULT_REGION_DENSITY, MONSTER_SPEED_MULT, MONSTER_ATTACK_RATE, EQUIPMENT, CLASS_STARTER, GEAR_DROP, gearItemView, dungeonGearGrade } from './pixel-data.js';
+import { SKILLS, BUILDINGS, CLASSES, RARITIES, TRAITS, MATERIALS, PRODUCTS, RECIPES, GEAR_SLOTS, EQUIP_SLOTS, GEAR_TIERS, GEAR_TIER_MAX, gearAt, DIFFICULTIES, CAMP, HUNT_ZONE, PILOT_ATTACK, PILOT_ORB, MERCHANT, AI_ATTACK_LOCK, KITE, PROVOKE, MONSTER_RANGED, LEGACY_LAYOUT_V14, LEGACY_LAYOUT_V15, LEGACY_LAYOUT_V16, ART_LAYOUT_HISTORY, REGION_DENSITY, DEFAULT_REGION_DENSITY, MONSTER_SPEED_MULT, MONSTER_ATTACK_RATE, EQUIPMENT, CLASS_STARTER, GEAR_DROP, gearItemView, gearGradeOf, dungeonGearGrade } from './pixel-data.js';
 
 const mapById = list => Object.assign(Object.create(null), Object.fromEntries(list.map(item => [item.id, item])));
 const CLASS = mapById(CLASSES), BUILDING = mapById(BUILDINGS), RARITY = mapById(RARITIES), RECIPE = mapById(RECIPES);
@@ -2121,6 +2121,21 @@ export function createGame(saved = null) {
       if (previous) state.gearStorage.push(previous);
       syncGear(h); log(`${h.name} 換上${item.name}。`, 'success');
       return result(true, `${h.name} 換上${item.name}${previous ? `,原本的${gearItemOf(previous)?.name || '裝備'}已放回倉庫` : ''}。`);
+    },
+    // 2026-11-16 倉庫一鍵整理:換下來的舊階鍛造裝備(階級低於鐵匠鋪目前最高階)一次全部賣出或分解。
+    //   只動「鍛造裝備且階級 < 目前最高階」;地下城／首領掉落與目前最高階的裝備都不動。dry=true 只回傳預覽。
+    bulkStoredGear(kind = 'sell', dry = false) {
+      const top = forgeTier(), pick = (state.gearStorage || []).filter(g => { const gr = gearGradeOf(g); return gr > 0 && gr < top; });
+      let gold = 0; const mats = {};
+      for (const g of pick) { const it = gearItemOf(g); if (!it) continue; if (kind === 'sell') gold += it.sell || 0; else for (const [k, n] of Object.entries(it.salvage || {})) mats[k] = (mats[k] || 0) + n; }
+      const preview = { count: pick.length, gold, mats, top };
+      if (dry || !pick.length) return { ...result(!!pick.length, pick.length ? '' : '倉庫裡沒有比目前最高階更低的鍛造裝備。'), ...preview };
+      const ids = new Set(pick.map(g => g.uid)); state.gearStorage = state.gearStorage.filter(g => !ids.has(g.uid));
+      if (kind === 'sell') state.gold += gold; else for (const [k, n] of Object.entries(mats)) state[k] = (state[k] || 0) + n;
+      const text = kind === 'sell' ? `${gold} 金幣` : Object.entries(mats).map(([k, n]) => `${MATERIALS[k]?.name || k}×${n}`).join('、') || '沒有材料';
+      const verb = kind === 'sell' ? '賣出' : '分解';
+      log(`倉庫一鍵${verb} ${pick.length} 件舊階裝備,得到 ${text}。`, 'loot');
+      return { ...result(true, `${verb} ${pick.length} 件舊階裝備,得到 ${text}。`), ...preview };
     },
     sellStoredGear(uid) {
       const index = state.gearStorage.findIndex(g => g.uid === uid); if (index < 0) return result(false, '倉庫裡找不到這件裝備。');

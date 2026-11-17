@@ -709,7 +709,10 @@ function modalHTML(type){const s=game.state;
       return `<li class="z2b-row gear-store-row" data-uid="${g.uid}"><i class="z2b-ic">${gearIconHTML(it,32)||iconHTML(it.slot==='weapon'?'swords':'def')}</i><div class="z2b-rb"><b class="z2b-nm">${esc(it.name)}</b><small class="z2b-ds">${GEAR_LABEL[it.slot]||it.slot} · ${gearStats(it)} · ${gearValue(it)}</small></div><div class="z2b-act">${aliveHunters.length?`<select data-store-who="${g.uid}" aria-label="要讓哪一位獵人穿上${esc(it.name)}">${aliveHunters.map(h=>`<option value="${h.id}">${esc(h.name)}</option>`).join('')}</select><button type="button" class="pixel-button" data-action="gearStoreEquip" data-uid="${g.uid}" data-zb="olive">穿上</button>`:'<small>沒有可裝備的獵人</small>'}<button type="button" class="pixel-button" data-action="gearStoreSell" data-uid="${g.uid}" data-zb="red">出售</button><button type="button" class="pixel-button" data-action="gearStoreSalvage" data-uid="${g.uid}">分解</button></div></li>`;}).join('');
     // 「已穿全套」小圖條:預設看第一位獵人,用下拉換人即可對照七格縮圖
     const gearSetWho=aliveHunters[0]||null;
-    const storeSection=`<section class="stock-sec gear-store" data-sec="裝備倉庫"><h4 class="stock-sec-h"><span>裝備倉庫</span><small>${storedGear.length} 件</small></h4>${gearSetHTML(gearSetWho)}${storedGear.length?`<ul class="z2b-rows">${storeRows}</ul>`:`<p class="gear-store-empty">倉庫裡沒有裝備。在獵人「裝備」頁把身上的裝備「存倉」就會出現在這裡。</p>`}</section>`;
+    // 2026-11-16 倉庫一鍵整理:換下來的舊階鍛造裝備(低於鐵匠鋪目前最高階)一次賣出或分解;地下城／首領掉落與目前最高階都不動
+    const bulk=game.bulkStoredGear?game.bulkStoredGear('sell',true):{count:0},bulkS=bulk.count?game.bulkStoredGear('salvage',true):null;
+    const bulkBar=bulk.count?`<div class="gear-bulk" role="group" aria-label="倉庫一鍵整理"><span class="gear-bulk-tx">舊階裝備 <b>${bulk.count}</b> 件（低於第 ${GEAR_TIERS[bulk.top-1]?.numeral||bulk.top} 階）</span><button class="pixel-button" data-action="gearBulk" data-kind="sell" data-zb="gold">全部賣出<small>${iconHTML('gold',true)}${fmt(bulk.gold)}</small></button><button class="pixel-button quiet" data-action="gearBulk" data-kind="salvage" title="${esc(Object.entries(bulkS?.mats||{}).map(([k,n])=>(MATERIALS[k]?.name||k)+'×'+n).join('、'))}">全部分解</button></div>`:'';
+    const storeSection=`<section class="stock-sec gear-store" data-sec="裝備倉庫"><h4 class="stock-sec-h"><span>裝備倉庫</span><small>${storedGear.length} 件</small></h4>${bulkBar}${gearSetHTML(gearSetWho)}${storedGear.length?`<ul class="z2b-rows">${storeRows}</ul>`:`<p class="gear-store-empty">倉庫裡沒有裝備。在獵人「裝備」頁把身上的裝備「存倉」就會出現在這裡。</p>`}</section>`;
    return `<div class="stock-summary hv-sumline" role="status"><span>持有 <b>${totalKinds}</b>／${Object.keys(ALL).length} 種</span><span>共 <b>${totalPieces}</b> 件</span><small>數量 0 的淡化顯示</small></div>${detail}
    ${groups.map(([title,ids,fb])=>`<section class="stock-sec" data-sec="${title}"><h4 class="stock-sec-h"><span>${title}</span><small>${ids.filter(held).length}／${ids.length} 種</small></h4><ul class="stock-list hv-sq-grid">${ids.map(x=>itemRow(x,fb)).join('')}</ul></section>`).join('')}${storeSection}`;
  }
@@ -937,6 +940,7 @@ if(a==='setDifficulty'){r=game.setDifficulty(Number(id));logToast(r.message,r.ok
   if(a==='gearStoreEquip'){const uid=el.dataset.uid,sel=document.querySelector(`[data-store-who="${uid}"]`),hid=sel&&sel.value;
     if(!hid){logToast('先選一位獵人再穿上。',false);return;}
     r=game.equipFromStorage(hid,uid);logToast(r.message,r.ok);openModal('inventory');paint();save();return;}
+  if(a==='gearBulk'){r=game.bulkStoredGear(el.dataset.kind==='salvage'?'salvage':'sell');logToast(r.message,r.ok);openModal('inventory');paint();save();return;}
   if(a==='gearStoreSell'){r=game.sellStoredGear(el.dataset.uid);logToast(r.message,r.ok);openModal('inventory');paint();save();return;}
   if(a==='gearStoreSalvage'){r=game.salvageStoredGear(el.dataset.uid);logToast(r.message,r.ok);openModal('inventory');paint();save();return;}
  // ── 招募 / 委託 / 首領

@@ -2596,3 +2596,7 @@ html body #modal-content .gear-set-slot.empty{background:#141117;border-style:da
 html body #modal-content .gear-set-gl{font:700 14px/1 var(--font-ui);color:#cbbfa8;text-shadow:0 1px 0 rgba(0,0,0,.6)}
 html body #modal-content .gear-set-slot .gico{width:32px;height:32px}
 @media(pointer:coarse){html body #modal-content .gear-set-who{min-height:44px;font-size:14px}}
+/* 2026-11-16 倉庫一鍵整理列:舊階裝備數量＋全部賣出(金)／全部分解(灰) */
+html body #modal-content .gear-bulk{display:flex;flex-wrap:wrap;align-items:center;gap:6px;margin:4px 0 8px;padding:6px 8px;background:rgba(0,0,0,.25);border:1px solid var(--hv-line,#3b342d);border-radius:3px}
+html body #modal-content .gear-bulk-tx{flex:1 1 100%;font:600 12px/1.4 var(--font-ui);color:var(--hv-text-dim,#cdbfa6)}
+html body #modal-content .gear-bulk .pixel-button small{display:inline-flex;align-items:center;gap:2px;margin-left:4px;font-size:11px}
