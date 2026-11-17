@@ -2595,7 +2595,7 @@ export function createGame(saved = null) {
         // 「這組打不打得動」用跟流浪英雄挑區域同一條公式(comfort vs threat),不要另立一套標準。
         fit(ids = []) {
           const team = state.hunters.filter(h => h.hp > 0 && (!ids.length || ids.includes(h.id)));
-          const f = regionFit(team, r);   // 同一條公式也給獵人自主挑區用(autoHuntRegion)
+          const f = regionFit(team, r, DIFFICULTIES[state.difficulty]?.mult ?? 1);   // 同一條公式也給獵人自主挑區用(autoHuntRegion);2026-11-16 補上難度倍率,跟 AI 挑區一致(初級倍率 1,數字不變)
           return f && { comfort: Math.round(f.comfort), threat: Math.round(f.threat), verdict: f.verdict };
         },
       };
