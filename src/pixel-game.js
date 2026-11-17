@@ -1236,6 +1236,12 @@ export function createGame(saved = null) {
   // 祭司輸出(2026-11-17):stepDungeon 裡祭司只有「有人不到 98% 生命」才補血,沒人要補就普攻最前面的魔物 → 以前把祭司輸出算 0,
   //   全祭司隊 dps = 0 → 預估無限久 → 第 1 層第 1 波打完一定「體力不支」撤退,永遠過不了第 1 層。
   //   現在照實算:每一擊魔物攻擊要祭司補 ceil(傷害 ÷ 一次普攻補量) 下(技能補血不扣,保守),祭司剩下的出手才算普攻輸出。
+  // 2026-11-17 地下城仇恨:前排挨打的機率照「最大生命」加權(原本平均分)。舊版 聖騎士＋刺客＋祭司 一半的打擊落在 100 血的刺客身上,
+  //   一擊將倒就整隊撤退 → 近戰輸出職業 Lv.15 只到第 4–5 層、遠程 11–12 層。加權後皮厚的前排(聖騎士 168 血)多扛;只有一位前排時完全不變。
+  //   只擲一次骰(random 次數不變)。實際挨打(stepDungeon)與預估(dgForecast)共用 dgShare。
+  const dgWeight = h => Math.max(1, h.maxHp);
+  function dgShare(pool) { const sum = pool.reduce((n, h) => n + dgWeight(h), 0); return pool.map(h => dgWeight(h) / sum); }
+  function dgPick(pool, r) { const sh = dgShare(pool); let acc = 0; for (let i = 0; i < pool.length; i++) { acc += sh[i]; if (r < acc) return pool[i]; } return pool[pool.length - 1]; }
   function dgForecast(party, floor, fromWave = 1, hpOf = h => h.hp) {
     const up = party.filter(h => hpOf(h) > 0), healers = up.filter(h => SKILLS[h.classId]?.kind === 'allyHeal');
     const hitOf = h => h.attack * (h.satiety < 15 || h.stamina < 15 ? 0.6 : 1);
@@ -1245,16 +1251,16 @@ export function createGame(saved = null) {
     if (!up.length || dps + healerDps <= 0) return { risk: Infinity, secs: Infinity };
     const front = up.filter(h => !isRanged(h)), pool = front.length ? front : up;
     const healRate = healers.reduce((n, h) => { const sk = SKILLS[h.classId]; return n + BASIC_HEAL / attackInterval(h) + sk.heal / sk.cd; }, 0) / pool.length;
-    let secs = 0; const taken = pool.map(() => 0);
+    let secs = 0; const taken = pool.map(() => 0), share = dgShare(pool);
     for (let w = fromWave; w <= 3; w++) {
       const n = dgWaveTypes(floor, w).length, rate = (n + 1) / (2 * n) / DG_HIT_EVERY, atk = dgFoeAttack(floor, w);
       // 這一波每秒要補幾下(挨打的人平均),扣掉後祭司剩下的出手比例 × 祭司普攻輸出
-      const perHit = pool.reduce((s, h) => s + Math.ceil(Math.max(2, atk - h.defense * 0.6) / Math.max(2, Math.round(h.maxHp * BASIC_HEAL))), 0) / pool.length;
+      const perHit = pool.reduce((s, h, i) => s + share[i] * Math.ceil(Math.max(2, atk - h.defense * 0.6) / Math.max(2, Math.round(h.maxHp * BASIC_HEAL))), 0);
       const waveDps = dps + (healActs > 0 ? healerDps * Math.max(0, 1 - rate * perHit / healActs) : 0);
       if (waveDps <= 0) return { risk: Infinity, secs: Infinity };
       const t = dungeonEnemyHp(floor, w) / waveDps, hits = Math.max(0, t - 1.5) * rate;
       secs += t;
-      pool.forEach((h, i) => { taken[i] += hits * Math.min(1, DG_UNLUCKY / pool.length) * Math.max(2, dgFoeAttack(floor, w) - h.defense * 0.6); });
+      pool.forEach((h, i) => { taken[i] += hits * Math.min(1, DG_UNLUCKY * share[i]) * Math.max(2, dgFoeAttack(floor, w) - h.defense * 0.6); });
     }
     const risk = Math.max(...pool.map((h, i) => { const self = SKILLS[h.classId]?.kind === 'heal' ? SKILLS[h.classId].heal / SKILLS[h.classId].cd : 0;
       return (taken[i] - (healRate + self) * DG_HEAL_EFF * secs * h.maxHp) / hpOf(h); }));
@@ -1397,7 +1403,7 @@ export function createGame(saved = null) {
     for (const f of live()) {
       f.timer = Math.max(0, f.timer - dt); if (f.timer > 0) continue; f.timer = f.every;
       const up = party.filter(h => h.hp > 0), front = up.filter(h => !isRanged(h)), pool = front.length ? front : up;
-      const tg = pool[Math.floor(random() * pool.length)]; if (!tg) break;
+      const tg = pool.length ? dgPick(pool, random()) : null; if (!tg) break;
       const dmg = Math.max(2, Math.round(f.attack - tg.defense * 0.6));
       // 緊急撤退(2026-11-17):這一擊會打倒人 → 小隊在挨打前撤退(同 retreatDungeon:本層沒有獎勵、冷卻 10 秒、帳本不記)。
       // 預估(dgForecast)把傷害當連續的、一波只有 1–2 擊時會少算一擊,補血也攤在整層;與其把預估調得更保守(實測樓層掉),不如在真的要倒的那一擊收手。

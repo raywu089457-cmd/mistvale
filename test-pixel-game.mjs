@@ -669,6 +669,16 @@ run(losingDungeon, 0.2); assert.equal(losingDungeon.state.dungeon.active, false)
 const arena = createGame(); assert.equal(arena.startArena().ok, false); assert.equal(arena.construct('training').ok, true); assert.equal(arena.startArena().ok, true);
 assert.equal(arena.startDungeon(arena.state.arena.hunterIds).ok, false); run(arena, 45, false, assertFiniteEconomy); assert.equal(arena.state.arena.active, false); assert.equal(arena.state.arena.wins, 1); assert.equal(arena.state.arena.opponent, '暮林訓練隊');
 
+{ // 2026-11-17 地下城仇恨照最大生命加權:近戰輸出(刺客)跟聖騎士一起站前排時,不再一半打擊落在薄皮刺客身上而提早撤退
+  const runDg = mid => { const base = createGame(); base.construct('dungeon'); const raw = base.serialize(), src = raw.hunters;
+    raw.hunters = ['paladin', mid, 'priest'].map((c, i) => ({ ...JSON.parse(JSON.stringify(src.find(x => x.classId === c))), id: 'd' + i, level: 30, xp: 0 }));
+    const g = createGame(raw), st = g.state; for (const h of st.hunters) { h.hp = h.maxHp; h.satiety = h.mood = h.stamina = 100; }
+    g.setDungeonAuto(true); assert.equal(g.startDungeon(st.hunters.map(h => h.id), 1).ok, true);
+    for (let t = 0; t < 3600 && st.dungeon.active; t += 0.1) { st.enemies = []; st.spawnTimer = 0; g.tick(0.1); }
+    assert.equal(st.counts.deaths, 0, mid + ' team: nobody dies'); return st.dungeon.bestFloor; };
+  const ranged = runDg('archer'), melee = runDg('assassin');
+  assert.ok(melee >= ranged - 1, `melee DPS keeps up with ranged at Lv.30 (assassin ${melee} vs archer ${ranged})`);
+}
 { // 2026-11-17 競技場天梯:前 40 勝對手公式不變;之後對手繼續變強(生命 ×1.08、攻擊 ×1.05 每勝),獎勵封頂 → 不會永遠穩贏最高獎勵
   const g = createGame(), a = g.state.arena, foe = w => { a.wins = w; return g.arenaFoe(); };
   assert.deepEqual(foe(0), { hp: 720, atk: 21 }); assert.deepEqual(foe(40), { hp: 720 + 40 * 130, atk: 21 + 40 * 3 }, 'first 40 wins unchanged');
