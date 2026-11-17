@@ -1216,11 +1216,12 @@ html body #run-hud :is(.rh-toggle,.rh-x){min-height:32px;min-width:44px;padding:
 /* 手機/橫向:三位獵人緊湊排成三欄(名字＋血量字在上、血條在下),職業小標省略 */
 @media(max-width:760px),(max-height:520px){
   html body #run-hud .rh-head{flex-wrap:wrap;gap:4px 6px}
-  html body #run-hud .rh-party{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:4px 8px}
+  html body #run-hud .rh-party{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:4px 16px}
   html body #run-hud .rh-unit{display:grid;grid-template-columns:minmax(0,1fr) auto;gap:2px 4px;align-items:center}
   html body #run-hud .rh-cls{display:none}
   html body #run-hud .rh-name{order:1;max-width:none}
   html body #run-hud .rh-num{order:2;min-width:0}
+  html body #run-hud .rh-unit:not(.rh-foe) .rh-max{display:none}   /* 2026-11-18 三欄只留目前生命(「3324/3495 賽琳」黏成一串),比例看血條 */
   html body #run-hud .rh-bar{order:3;grid-column:1/-1;width:100%}
   html body #run-hud .rh-foe .rh-bar{width:100%;flex:1}
 }
@@ -2426,6 +2427,7 @@ html body #topbar .treasury:hover .res-plus::before{border-color:#f2c96a}
   html body #topbar .hv-tl{gap:6px!important}
   html body #topbar .hv-crest:not(#z2d){width:58px!important}
   html body #topbar .hv-crest:not(#z2d)>i[data-icon]{width:58px!important}
+  html body #topbar .hv-crest .hv-town-n{position:absolute;width:1px;height:1px;overflow:hidden;clip:rect(0 0 0 0)}   /* 2026-11-18 徽記 56px 放不下「暮影村 Lv.N」→ 顯示「村 Lv.N」,讀屏仍念全名 */
   html body #topbar .treasury:not(#z2d){padding-right:2px!important}
 }
 /* 任務追蹤：可領獎勵時只亮紅色 N 徽章(不閃、不說話；主引導只留顧問一條，見 pixel-ui.js 的 WELCOME_STEPS 註解) */
