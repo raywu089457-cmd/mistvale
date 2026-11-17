@@ -1490,7 +1490,7 @@ function questGuide(s){const q=s.quest||{},n=q.index+1,p=`（${fmt(q.progress||0
     case 7:return (s.capacity||0)<(q.target||12)?{text:`升級獵人小屋增加名額（目前 ${s.capacity}），第 ${n} 章要 ${q.target} 位獵人`,act:'build',label:'去建設',flash:'house'}:{text:`到「招募」邀請旅人，第 ${n} 章${p}`,act:'hunters',label:'看名冊'};
     case 8:case 13:case 16:return {text:`派獵人打地下城、競技場最快練等級，第 ${n} 章${p}`,act:'dungeon',label:'去地下城'};
     case 9:return {text:`把城鎮大廳升到 Lv.${q.target}，第 ${n} 章${p}`,act:'build',label:'去建設',flash:'hall'};
-    case 10:case 14:return {text:`開自動續戰往下推，地下城紀錄第 ${n} 章${p}`,act:'dungeon',label:'去地下城'};
+    case 10:case 14:return s.dungeon?.active&&s.dungeon?.auto?{text:`地下城自動續戰中，推到第 ${fmt(q.target||0)} 層完成第 ${n} 章${p}`,act:'dungeon',label:'看戰況'}:{text:`開自動續戰往下推，地下城紀錄第 ${n} 章${p}`,act:'dungeon',label:'去地下城'};   // 已在自動續戰就不要再叫玩家「開自動續戰」
     case 11:return (s.buildings?.academy||0)>0?{text:`在獵人詳情的「技能」頁學習戰鬥技能，第 ${n} 章${p}`,act:'hunters',label:'看名冊'}:{text:`先蓋學院，才能教獵人戰鬥技能（第 ${n} 章）`,act:'build',label:'去建設',flash:'academy'};
     case 12:return (s.buildings?.enhancement||0)>0?{text:`在獵人詳情的「裝備」頁強化武器，第 ${n} 章${p}`,act:'hunters',label:'看名冊'}:{text:`先蓋強化精煉所，才能強化武器（第 ${n} 章）`,act:'build',label:'去建設',flash:'enhancement'};
     case 15:return {text:`首領出征冷卻好就召喚，第 ${n} 章${p}`,act:'boss',label:'召喚首領'};
