@@ -2699,3 +2699,5 @@ html body #modal-content .cx-summary .cx-s{white-space:nowrap}
 @media(max-height:520px){
   html body #modal .modal-title .hv-mslot>.hv-pres{order:2}
 }
+/* 2026-11-18 首領面板:村莊另得的星晶(獎勵框下方一行) */
+html body #modal-content .boss-vil{display:block;margin-top:6px;font:600 13px/1.4 var(--font-ui);color:var(--hv-quest);text-align:center}
