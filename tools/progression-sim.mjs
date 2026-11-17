@@ -13,7 +13,8 @@ import { writeFileSync } from 'node:fs';
 const DAYS = Number(process.argv[2]) || 20;
 const jsonOut = process.argv.includes('--json') ? process.argv[process.argv.indexOf('--json') + 1] : null;
 const arg = k => process.argv.includes(k) ? process.argv[process.argv.indexOf(k) + 1] : null;
-const SEED = arg('--seed'), SUMMARY = process.argv.includes('--summary'), SAFE_DIFF = process.argv.includes('--stay-easy');   // --stay-easy: never raise difficulty
+const SEED = arg('--seed'), SUMMARY = process.argv.includes('--summary'), SAFE_DIFF = process.argv.includes('--stay-easy');   // --train: tap 修煉 for every hunter whenever it is ready (upper bound for an active player)
+const TRAIN = process.argv.includes('--train');   // --stay-easy: never raise difficulty
 const g = createGame(null);
 const s = g.state;
 if (SEED != null) s.seed = (Number(SEED) >>> 0) || 1;
@@ -56,6 +57,7 @@ function policy() {
   // dungeon, boss when possible
   if (s.buildings.dungeon && !s.dungeon.active && s.dungeon.cooldown <= 0) { g.setDungeonAuto(true); const r = g.startDungeon(); if (r.ok) ev(`dungeon start f${s.dungeon.floor}`); }
   if (!s.expedition.active && s.expedition.cooldown <= 0 && s.day >= 2) { const r = g.expedition(); if (r.ok) ev('boss expedition'); }
+  if (TRAIN) for (const h of s.hunters) g.train(h.id);
   // rebirth: a Lv.100 hunter reincarnates when free (final quest chapter; unlocks harder difficulties)
   for (const h of s.hunters) if (h.level >= 100 && h.hp > 0 && h.task !== 'dungeon' && h.task !== 'arena') { const r = g.reincarnate(h.id); if (r.ok) ev(`rebirth ${h.name} (#${h.rebirths})`); }
   // difficulty: switch to the highest unlocked difficulty (what the endgame tracker suggests); setDifficulty refuses while a run is active

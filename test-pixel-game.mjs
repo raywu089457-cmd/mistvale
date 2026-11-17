@@ -352,8 +352,13 @@ function wear(g, h, slot, grade = 1) {
 assert.equal(gear.enhance(buyer.id).ok, false); assert.equal(gear.construct('enhancement').ok, true); assert.equal(gear.enhance(buyer.id).ok, true); assert.equal(buyer.weaponLevel, 1);
 assert.equal(gear.learnSkill(buyer.id).ok, false); gear.state.ore += 100; assert.equal(gear.construct('academy').ok, true); assert.equal(gear.learnSkill(buyer.id).ok, true);
 assert.equal(gear.train(buyer.id).ok, false); gear.state.gold += 1000; assert.equal(gear.construct('training').ok, true);
-const trainLevel = buyer.level, trainingMoney = totalMoney(gear); assert.equal(gear.train(buyer.id).ok, true); assert.equal(buyer.level, trainLevel + 5); assert.equal(totalMoney(gear), trainingMoney); assert.equal(gear.train(buyer.id).ok, false);
-run(gear, 10.2, true); assert.equal(gear.train(buyer.id).ok, true);
+// 2026-11-17 修煉重訂:學費 20＋等級×10(個人金幣→村莊,總金幣守恆)、1 級份經驗、冷卻 30 秒;修煉地 Lv.5 = 2 級份;錢不夠就不能練
+buyer.gold = 0; assert.equal(gear.train(buyer.id).ok, false, 'cannot train without the fee');
+const tq = gear.trainQuote(buyer.id); assert.equal(tq.cost, 20 + buyer.level * 10); buyer.gold = tq.cost + 5;
+const trainLevel = buyer.level, trainingMoney = totalMoney(gear), village0 = gear.state.gold; assert.equal(gear.train(buyer.id).ok, true); assert.equal(buyer.level, trainLevel + 1, 'one level per session');
+assert.equal(buyer.gold, 5); assert.equal(gear.state.gold, village0 + tq.cost, 'fee goes to the village'); assert.equal(totalMoney(gear), trainingMoney); buyer.gold = 9999; assert.equal(gear.train(buyer.id).ok, false, 'cooldown');
+run(gear, 10.2, true); assert.equal(gear.train(buyer.id).ok, false, 'still cooling down after 10 s'); run(gear, 20.2, true);
+gear.state.buildings.training = 5; const lv5 = buyer.level; assert.equal(gear.train(buyer.id).ok, true); assert.equal(buyer.level, lv5 + 2, 'training ground Lv.5 gives two levels');
 assert.equal(gear.reincarnate(buyer.id).ok, false); buyer.level = 100; const originalRebirth = buyer.rebirths; assert.equal(gear.reincarnate(buyer.id).ok, true); assert.equal(buyer.level, 1); assert.equal(buyer.rebirths, originalRebirth + 1);
 assert.equal(gear.setDifficulty(1).ok, true); assert.equal(gear.setDifficulty(4).ok, false); assert.equal(gear.setDifficulty('1').ok, false);
 

@@ -167,6 +167,9 @@ const distance = (a, b) => Math.hypot(a.x - b.x, a.z - b.z);
 const result = (ok, message) => ({ ok, message });
 const own = (obj, key) => Object.prototype.hasOwnProperty.call(obj, key);
 const xpNeeded = level => 30 + level * 8;
+// 2026-11-17 修煉重訂:原本 20 金幣＋5 級、冷卻 10 秒 → 一直按修煉,第 8 天就 Lv.100、30 天轉世 94 次(長線目標全被跳過)。
+// 改成:每次給「目前等級 1 級份」的經驗(修煉地每升 1 級多 25%,Lv.5 = 2 級份),學費隨等級平方上漲,冷卻 30 秒;學費照舊付給村莊
+const TRAIN = { cooldown: 30, cost: level => 20 + level * 10, levels: bLv => 1 + 0.25 * (Math.max(1, bLv) - 1) };
 // 這一世累積的經驗(Lv.1 起算):離線外推用
 const lifetimeXp = h => { let n = h.xp || 0; for (let l = 1; l < h.level; l++) n += xpNeeded(l); return n; };
 // 離線收益:最多算 8 小時;前 sample 秒真的模擬,其餘照這段的速率外推(見 offlineFinish)
@@ -569,6 +572,12 @@ export function createGame(saved = null) {
     return rule.pool[Math.floor(random() * rule.pool.length)];
   }
 
+  // 修煉報價:學費(個人金幣)與這次會得到的經驗;經驗＝目前等級往上「levels 級份」(小數部分照比例),到 Lv.100 為止
+  function trainQuote(h) {
+    let left = TRAIN.levels(state.buildings.training || 1), xp = 0;
+    for (let level = h.level; level < 100 && left > 0; level++) { const part = Math.min(1, left); xp += Math.round(xpNeeded(level) * part); left -= part; }
+    return { cost: TRAIN.cost(h.level), xp, cooldown: TRAIN.cooldown };
+  }
   function gainXp(h, amount) {
     if (h.level >= 100) { h.xp = 0; return; }
     const before = h.level; h.xp += amount;
@@ -2238,16 +2247,18 @@ export function createGame(saved = null) {
       const text = gains.map(([key, qty]) => `${MATERIALS[key]?.name || key}×${qty}`).join('、') || '沒有可用材料';
       log(`分解倉庫中的${item.name},回收 ${text}。`, 'info'); return result(true, `分解${item.name},回收 ${text}。`);
     },
+    trainQuote(hunterId) { const h = state.hunters.find(x => x.id === hunterId); return h ? trainQuote(h) : null; },
     train(hunterId) {
       const h = state.hunters.find(h => h.id === hunterId); if (!h) return result(false, '找不到這位獵人。');
       if (!state.buildings.training) return result(false, '請先建造修煉地。');
       if (h.hp <= 0 || h.task === 'dungeon' || h.task === 'arena') return result(false, '這位獵人目前無法參加訓練。');
       if (h.level >= 100) return result(false, '獵人已達 Lv.100，可以前往復活聖所轉世。');
       if (h.trainCooldown > 0) return result(false, `還需要休息 ${Math.ceil(h.trainCooldown)} 秒才能再次訓練。`);
-      if (h.gold < 20) return result(false, '獵人自己的金幣不足 20，狩獵或販售材料後才能訓練。');
-      h.gold -= 20; state.gold += 20; h.trainCooldown = 10; let xp = 0;
-      for (let level = h.level; level < Math.min(100, h.level + 5); level++) xp += xpNeeded(level);
-      gainXp(h, xp); state.counts.trained++; effect('level', h); return result(true, `${h.name}支付 20 金幣接受訓練，成長至 Lv.${h.level}。`);
+      const q = trainQuote(h);
+      if (h.gold < q.cost) return result(false, `修煉要 ${q.cost} 個人金幣，${h.name}目前只有 ${Math.floor(h.gold)}；狩獵或販售材料後再來。`);
+      h.gold -= q.cost; state.gold += q.cost; h.trainCooldown = TRAIN.cooldown; const lv0 = h.level;
+      gainXp(h, q.xp); state.counts.trained++; effect('level', h);
+      return result(true, h.level > lv0 ? `${h.name}支付 ${q.cost} 金幣修煉，成長至 Lv.${h.level}。` : `${h.name}支付 ${q.cost} 金幣修煉，經驗增加 ${q.xp}。`);
     },
     learnSkill(hunterId) {
       const h = state.hunters.find(h => h.id === hunterId); if (!h) return result(false, '找不到這位獵人。');
