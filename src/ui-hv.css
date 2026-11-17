@@ -2656,3 +2656,8 @@ html body .z2-id-l .z2-promo-chip .inline-icon{width:14px;height:14px;min-width:
 /* 2026-11-18 世界地圖區域列:主要掉落 */
 html body .z2c-r-name .z2c-drops{display:flex;align-items:center;flex-wrap:nowrap;gap:8px;white-space:nowrap;overflow:hidden}html body .z2c-r-name .z2c-drops .zd{display:inline-flex;align-items:center;gap:2px}html body .z2c-r-name .z2c-drops .inline-icon{width:14px;height:14px;min-width:14px;min-height:14px;flex:0 0 14px}
 @media(max-width:420px){html body .z2c-r-name .z2c-drops .zd:nth-child(3){display:none}}
+
+/* 2026-11-18 隊伍挑選列:攻/防圖示框原本被撐成 32px,「攻 ␣␣ 🗡 210 防」標籤離數字遠、離前一個數字近 */
+html body #modal-content .party-pick .pp-stats .inline-icon{width:12px!important;min-width:12px!important;height:12px!important;min-height:12px!important;flex:0 0 12px!important}
+html body #modal-content .party-pick .pp-stats .pp-k~.pp-k{margin-left:8px}
+html body #modal-content .party-pick .pp-stats .pp-range{margin-left:8px}
