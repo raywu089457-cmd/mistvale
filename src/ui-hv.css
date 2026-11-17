@@ -2695,3 +2695,7 @@ html body #modal-content .cx-summary .cx-s{white-space:nowrap}
   html body #run-hud .rh-unit:not(.rh-foe) .rh-max{display:none}
   html body #run-hud .rh-bar{order:3;grid-column:1/-1;width:100%}
 }
+/* 2026-11-18 橫向手機:面板標題列的資源條從 x=16 開始,被左邊子頁籤(名冊/招募)蓋住,只露出木材、鐵礦 → 靠右排,金幣/星晶看得到 */
+@media(max-height:520px){
+  html body #modal .modal-title .hv-mslot>.hv-pres{order:2}
+}
