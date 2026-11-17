@@ -519,7 +519,7 @@ function openModal(type){if(!modalShown())sfx('open');const wasOpen=modalShown()
  focusModalStart(prev);syncScrollHint();paintPanelRes(game.state);toastDodge();}   // 先把內容畫好、取消隐藏,最後才把焦點放進去(重畫時留在同一顆控件)
 function dungeonStatus(){const d=game.state.dungeon;return d.active?`第 ${d.floor} 層 · 第 ${Math.max(1,d.wave||1)}/3 波 · ${d.phase}${d.auto?' · 自動續戰':''}`:`最高紀錄：第 ${d.bestFloor} 層 · ${!(game.state.buildings.dungeon>0)?'未解鎖':d.cooldown>0?`整備中 ${Math.ceil(d.cooldown)} 秒`:'可以出發'}`;}
 let dgSig='';   // 地下城彈窗開著時:出發/結束(畫面要換)就整個重畫,其他只改狀態列
-function dungeonTick(){if(modal!=='dungeon'){dgSig='';return;}const d=game.state.dungeon,sig=d.active+':'+d.bestFloor;if(dgSig&&sig!==dgSig){dgSig=sig;openModal('dungeon');return;}dgSig=sig;
+function dungeonTick(){if(modal!=='dungeon'){dgSig='';return;}const d=game.state.dungeon,sig=d.active+':'+d.bestFloor+':'+(d.active?d.floor:'');if(dgSig&&sig!==dgSig){dgSig=sig;openModal('dungeon');return;}dgSig=sig;
  const st=$('#dg-status'),txt=dungeonStatus();if(st&&st.textContent!==txt)st.textContent=txt;if(d.active)world?.drawDungeonStrip?.($('#dungeon-strip'),game.state);}
 // 建設面板卡片上直接建造/升級後,面板留著、捲動位置不動,只換成新的狀態。
 function refreshBuildModal(){if(modal!=='build')return;const c=$('#modal-content'),st=c?c.scrollTop:0;openModal('build');if(c)c.scrollTop=st;syncScrollHint();}
@@ -1418,7 +1418,7 @@ function z2cWorldMapHTML(s){const ids=z2cTeamIds();
 function z2cDungeonHTML(s){const d=s.dungeon,maxF=d.bestFloor+1,startF=Math.min(maxF,d.startFloor||maxF),lock=z2cLock('dungeon');
  const auto=`<button class="pixel-button z2c-auto${d.auto?' on':''}" data-action="dgAuto" aria-pressed="${d.auto}">${iconHTML('rebirth',true)}自動續戰：${d.auto?'開':'關'}</button>`;
  const facts=`<div class="encounter-facts" title="三人一隊 · 近戰站前排、遠程站後排">每層 3 波魔物 · 通過後紀錄推進到第 <b>${maxF}</b> 層</div>`;
- if(d.active)return `<canvas id="dungeon-strip" class="dungeon-strip" aria-label="地下城戰鬥畫面"></canvas><div class="encounter-status" id="dg-status">${dungeonStatus()}</div>${facts}<div class="encounter-actions z1-sticky z2c-dock z2c-dock-run">${auto}<button class="pixel-button danger z2c-retreat" data-action="dgRetreat">撤退</button></div>`;
+ if(d.active){const ra=game.dungeonReward?game.dungeonReward(d.floor):null,rv=ra?.village||{};return `<canvas id="dungeon-strip" class="dungeon-strip" aria-label="地下城戰鬥畫面"></canvas><div class="encounter-status z2c-sr" id="dg-status" role="status">${dungeonStatus()}</div>${ra?`<div class="z1-box z2c-rec z2c-run-rw"><span>第 ${d.floor} 層通關獎勵</span>${['gold','ore','gems'].filter(k=>rv[k]>0).map(k=>`<span class="z2c-rw" title="${costName(k)}">${iconHTML(k,true)}<b>${fmt(rv[k])}</b></span>`).join('')}${ra.first?'<small class="z2c-first">新紀錄</small>':'<small class="z2c-lower">已打過，獎勵減少</small>'}</div>`:''}${facts}<div class="encounter-actions z1-sticky z2c-dock z2c-dock-run">${auto}<button class="pixel-button danger z2c-retreat" data-action="dgRetreat">撤退</button></div>`;}
  // 2026-11-16:小隊估計打不過選的那層時,遊戲會改從較淺的層出發(pixel-game dgSafeStart)→ 按鈕與獎勵預估照實際出發層寫,並說明原因
  const realF=d.hunterIds.length===3&&game.dungeonStartFloor?game.dungeonStartFloor(d.hunterIds,startF):startF,lower=realF<startF;
  // 2026-11-17:已打過的樓層獎勵減少(pixel-game dgFloorReward)→ 預估跟 floorCleared 走同一支公式,重複層加註

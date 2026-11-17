@@ -2673,3 +2673,8 @@ html body #modal-content .party-pick .pp-stats .pp-range{margin-left:8px}
 
 /* 2026-11-18 離線戰報:時間格在「小時」後換行 */
 html body #modal-content .of-tiles .of-tile b{white-space:pre-line;overflow-wrap:normal;word-break:keep-all}
+/* 2026-11-18 地下城戰鬥中:狀態字已在戰鬥畫面上 → 下方只留給螢幕閱讀器;改顯示「這層通關獎勵」 */
+html body #modal-content .z2c-sr{position:absolute!important;width:1px!important;height:1px!important;overflow:hidden!important;clip:rect(0 0 0 0)!important;white-space:nowrap!important;padding:0!important;margin:0!important;border:0!important}
+html body #modal-content .z2c-run-rw{padding:8px 12px;font-size:13px}
+html body #modal-content .z2c-run-rw .z2c-rw b{color:#fff}
+html body #modal-content .z2c-first{color:var(--hv-quest);font-weight:700}
