@@ -868,6 +868,9 @@ function doAction(el){const a=el.dataset.action,id=el.dataset.id;let r;
  if(a==='toggleParts'){const on=!(world?.getPartsVisible?.()??true);world?.setPartsVisible?.(on);el.textContent=on?'裝備顯示中':'裝備已卸下';logToast(on?'裝備零件層：開':'裝備零件層：關（同一個身體、不重生）',true);paint();return;}
  if(a==='peekWanderer'){const list=game.state.wanderers||[];if(!list.length)return logToast('目前沒有流浪英雄',false);wandererPeek=(wandererPeek+1)%list.length;const w=list[wandererPeek],c=CLASSES.find(v=>v.id===w.classId);closeModal();world?.lookAt(w.x,w.z,1.7);logToast(`${c?.name||w.classId} ${w.name} Lv.${w.level}｜${w.status}｜野外擊殺 ${game.state.wanderKills}`,true);return;}
  if(a==='spawnClasses'){const spawned=world?.spawnClassVillagers?.()||[];logToast(spawned.length?`已叫進村莊：${spawned.join('、')}`:'角色圖還沒載入好，稍後再試',spawned.length>0);paint();return;}
+ // 2026-11-16 獵魔村式「點一下就收下」:委託完成時點左上追蹤列直接領獎,吐司寫出拿到什麼與下一章;沒完成時照舊打開委託清單
+ if(a==='quests'&&el.id==='hv-quest'&&game.state.quest?.complete&&!game.state.quest?.claimed){const q0=game.state.quest,n0=q0.index+1,rw=Object.entries(q0.reward||{}).filter(([,v])=>v>0).map(([k,v])=>costName(k)+' '+fmt(v)).join('、');
+   r=game.claimQuest();if(r.ok){const q1=game.state.quest;logToast(`第 ${n0} 章完成！獲得 ${rw||'獎勵'}`+(q1.claimed?'':`；下一章：${q1.title}`),true);}else logToast(r.message,false);paint();save();return;}
  if(a==='settings'||a==='help'||a==='build'||a==='hunters'||a==='recruit'||a==='trade'||a==='craft'||a==='dungeon'||a==='arena'||a==='quests'||a==='inventory'||a==='difficulty'||a==='boss'){if(modal===a&&el.closest('#bottom-bar,#topbar'))return closeModal();return openModal(a==='boss'?'boss':a);}   // 再點一次下方/上方同一顆 = 關掉
  if(a==='dispatchHunters'){const teams=game.state.dispatchTeams||[];
    // 第一次使用:四組都空 → 自動把存活獵人放進隊伍 1,一鍵就能出門

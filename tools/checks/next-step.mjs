@@ -99,10 +99,12 @@ const readPill = page => page.evaluate(() => {
   if (!qd.ready) fix('情境 quest：任務追蹤沒有 .ready（可領獎勵要亮起）');
   if (!/獎勵可以領取/.test(qd.goal) || !/獎勵可以領取/.test(qd.aria)) fix(`情境 quest：任務追蹤沒寫可領取（${qd.goal}／${qd.aria}）`);
   if (qd.advisor) fix('情境 quest：顧問提示又重複了「委託可領」（應只由任務追蹤顯示）');
+  // 2026-11-16:委託可領時點任務追蹤＝直接領獎(獵魔村式一鍵收下),不再先開委託清單
+  const qi0 = await page.evaluate(() => globalThis.__mistvaleGame.state.quest.index);
   await page.evaluate(() => document.querySelector('#hv-quest').click());
   await page.waitForTimeout(500);
-  const qOpened = await page.evaluate(() => document.querySelector('#modal')?.dataset.type || '');
-  if (qOpened !== 'quests') fix(`情境 quest：點任務追蹤開的是 ${qOpened}，應為 quests`);
+  const qAfter = await page.evaluate(() => ({ index: globalThis.__mistvaleGame.state.quest.index, toast: [...document.querySelectorAll('#toasts .toast')].some(t => /章完成/.test(t.textContent)) }));
+  if (qAfter.index !== qi0 + 1 || !qAfter.toast) fix(`情境 quest：點任務追蹤應直接領獎並跳到下一章（index ${qi0} → ${qAfter.index}，吐司 ${qAfter.toast}）`);
   await page.keyboard.press('Escape');
   await page.waitForTimeout(300);
 
