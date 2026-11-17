@@ -63,6 +63,12 @@ export const TRAITS=[{id:'swift',name:'快手',desc:'攻擊間隔縮短 10%'},{i
 // 交易所可以直接向行商買材料,單價 = 收購價 × markup;交易所每升一級便宜 step,最低 floor 倍(Lv.1 6 倍、Lv.5 4 倍)。
 // 比向獵人收購貴很多,所以只是「卡關時補差額」的金幣出口,不會取代收購循環。
 export const MERCHANT={markup:6,step:.5,floor:4};
+// 2026-11-17 持續收購的金庫保留額:持續收購只花「金庫 − 保留額」的部分(一般委託照舊可花到 0,玩家明確下的單)。
+// 保留額 = base + perHall × (大廳等級 − 1) → Lv.1 500、Lv.2 1000 … Lv.5 2500。
+// 依據:大廳 Lv.h 時其他建築最高可到 h+1,玩家回來最常做的是「把一棟建築從 Lv.h 升到 h+1」,
+// 中位數建築(基礎 220 金,×2.1/級)這一步要 220/462/970/2037/4279 金 → 保留額在 Lv.1–4 大約夠付一次升級的金幣部分,
+// Lv.5 時金幣收入已經很高(8 小時離線 10 萬以上),不必再追上指數成長。不新增存檔欄位。
+export const TRADE_RESERVE={base:500,perHall:500};
 export const MATERIALS={wood:{name:'木材',price:2},ore:{name:'鐵礦',price:3},herb:{name:'藥草',price:2},cloth:{name:'亞麻布',price:2},flour:{name:'小麥粉',price:2},leather:{name:'獸皮',price:3}};
 export const PRODUCTS={food:{name:'香烤麵包',building:'restaurant',need:'satiety',restore:75,price:12,cost:{flour:5},amount:10},drink:{name:'莓果飲品',building:'tavern',need:'mood',restore:75,price:10,cost:{herb:5},amount:10},bed:{name:'舒適床鋪',building:'inn',need:'stamina',restore:90,price:14,cost:{leather:3,cloth:2},amount:10},bandage:{name:'亞麻繃帶',building:'clinic',need:'hp',restore:80,price:10,cost:{cloth:5,herb:2},amount:10}};
 // 2026-11-13 六格裝備(docs/PAPERDOLL-EQUIPMENT-6.md §4):武器 + 頭盔/胸甲/腰帶/腿甲/靴子/手套。

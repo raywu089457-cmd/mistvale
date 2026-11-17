@@ -126,10 +126,20 @@ run(poorTown, 4, true); assert.equal(poorTown.state.gold, 1); assert.equal(selle
   assert.equal(g.state.counts.traded, 20); assert.equal(totalMoney(g), money0, 'trading only moves gold between village and hunter');
   assert.equal(g.setTradeStanding('ore', false).ok, true); h.inventory.ore = 30; run(g, 6, true);
   assert.equal(g.state.tradeRequests.ore, 0, 'turned off → runs down again'); assert.equal(h.inventory.ore, 20);
-  // 金幣上限:持續收購 999 份但村莊只剩 7 金幣 → 只買 2 份(單價 3),之後付不起就不買,不會變負
-  const p = createGame(), s = isolate(p); p.state.time = 100; p.state.gold = 7; Object.assign(s, marketDoor); s.inventory.ore = 50;
-  p.setTradeRequest('ore', 999); p.setTradeStanding('ore', true); run(p, 10, true, st => assert.ok(st.gold >= 0));
-  assert.equal(p.state.gold, 1); assert.equal(s.inventory.ore, 48); assert.equal(p.state.tradeRequests.ore, 999); assertFiniteEconomy(p.state);
+  // 金庫保留額:持續收購只花「金庫 − 保留額」。保留額 = 500 + 500×(大廳−1);金庫比保留額多 7 → 只買 2 份(單價 3),停在保留額＋1,不再往下買
+  const p = createGame(), s = isolate(p); p.state.time = 100; const R = p.tradeReserve(); assert.equal(R, 500, 'hall Lv.1 keeps 500 gold');
+  p.state.buildings.hall = 3; assert.equal(p.tradeReserve(), 1500); p.state.buildings.hall = 5; assert.equal(p.tradeReserve(), 2500); p.state.buildings.hall = 1;
+  p.state.gold = R + 7; Object.assign(s, marketDoor); s.inventory.ore = 50;
+  p.setTradeRequest('ore', 999); p.setTradeStanding('ore', true); run(p, 10, true, st => assert.ok(st.gold >= R, `standing never dips below the reserve (${st.gold})`));
+  assert.equal(p.state.gold, R + 1); assert.equal(s.inventory.ore, 48); assert.equal(p.state.tradeRequests.ore, 999); assertFiniteEconomy(p.state);
+  // 金庫剛好在保留額:持續收購完全不買,獵人也不會因為「可以交易」而跑去交易所(tradeAvailable 同一條規則)
+  const q = createGame(), t = isolate(q); q.state.time = 100; q.state.gold = q.tradeReserve(); Object.assign(t, marketDoor); t.inventory.ore = 50;
+  q.setTradeRequest('ore', 999); q.setTradeStanding('ore', true); run(q, 6, true);
+  assert.equal(q.state.gold, q.tradeReserve()); assert.equal(t.inventory.ore, 50); assert.equal(q.state.counts.traded, 0);
+  // 一般委託不受保留額影響:同樣只剩保留額的金庫,關掉持續收購 → 照舊買(可花到 0 以上,不會變負)
+  const u = createGame(), v = isolate(u); u.state.time = 100; u.state.gold = u.tradeReserve(); Object.assign(v, marketDoor); v.inventory.ore = 50;
+  u.setTradeRequest('ore', 200); run(u, 4, true, st => assert.ok(st.gold >= 0));
+  assert.equal(u.state.counts.traded, 50, 'one-off orders still buy below the reserve'); assert.equal(u.state.gold, u.tradeReserve() - 150); assertFiniteEconomy(u.state);
   // 存檔:持續收購會存下來;舊存檔(沒有這個欄位)載入後全部關閉;亂值只認 true
   const saved = g.serialize(); saved.tradeStanding.wood = true; const re = createGame(saved); assert.equal(re.state.tradeStanding.wood, true); assert.equal(re.state.tradeStanding.ore, false);
   const old = g.serialize(); delete old.tradeStanding; old.tradeRequests.ore = 25; const legacy = createGame(old);
@@ -144,13 +154,30 @@ run(poorTown, 4, true); assert.equal(poorTown.state.gold, 1); assert.equal(selle
   const snap = g.offlineSnapshot(); g.simulate(OFFLINE.sample); assert.equal(g.state.tradeRequests.ore, 0); assert.equal(g.state.counts.traded - snap.counts.traded, 10);
   g.offlineFinish(snap, 3 * 3600); assert.equal(g.state.counts.traded - snap.counts.traded, 10, 'finished one-shot order is not extrapolated');
   assert.equal(g.state.tradeRequests.ore, 0); assertFiniteEconomy(g.state);
-  const s = createGame(), b = isolate(s); s.state.time = 100; s.state.wanderers = []; Object.assign(b, marketDoor); b.inventory.ore = 200; s.state.gold = 600;
+  // 持續收購:取樣期買 200 份(600 金)後金庫還比保留額多 300 → 外推最多再花 300 金,停在保留額(不是 0)
+  const s = createGame(), b = isolate(s); s.state.time = 100; s.state.wanderers = []; Object.assign(b, marketDoor); b.inventory.ore = 200; const R = s.tradeReserve(); s.state.gold = R + 900;
   for (const k of MATERIAL_KEYS_T) s.state.tradeRequests[k] = 0; s.setTradeRequest('ore', 200); s.setTradeStanding('ore', true);
   const sn = s.offlineSnapshot(); s.simulate(OFFLINE.sample); assert.equal(s.state.counts.traded - sn.counts.traded, 200);
   s.offlineFinish(sn, 3 * 3600); const extra = s.state.counts.traded - sn.counts.traded - 200;
-  assert.ok(extra > 0, 'standing order keeps buying offline'); assert.ok(extra < 200 * (3 * 3600 / OFFLINE.sample - 1), 'capped by village gold');
-  assert.ok(s.state.gold >= 0 && s.state.gold < MATERIALS.ore.price, `village spends down to its last coins, never negative (${s.state.gold})`);
+  // (外推期間獵人付給村莊的服務費也進金庫,所以能多買的不只 300 金;重點是最後停在保留額)
+  assert.ok(extra > 0, 'standing order keeps buying offline'); assert.ok(extra < 200 * (3 * 3600 / OFFLINE.sample - 1), `capped by village gold (${extra})`);
+  assert.ok(s.state.gold >= R && s.state.gold < R + MATERIALS.ore.price, `village spends down to the reserve, not to 0 (${s.state.gold})`);
   assert.equal(s.state.tradeRequests.ore, 200); assertFiniteEconomy(s.state);
+  // 一般委託離線不受保留額影響:取樣期買 20 份後金庫已低於保留額,外推照樣把剩下的 40 份買完,金幣不變負
+  const o = createGame(), c = isolate(o); o.state.time = 100; o.state.wanderers = []; Object.assign(c, marketDoor); c.inventory.ore = 20; o.state.gold = 200;
+  for (const k of MATERIAL_KEYS_T) o.state.tradeRequests[k] = 0; o.setTradeRequest('ore', 60);
+  const on = o.offlineSnapshot(); o.simulate(OFFLINE.sample); assert.equal(o.state.counts.traded - on.counts.traded, 20); assert.ok(o.state.gold < o.tradeReserve());
+  o.offlineFinish(on, 3 * 3600); assert.equal(o.state.counts.traded - on.counts.traded, 60, 'one-off order finishes offline below the reserve');
+  assert.equal(o.state.tradeRequests.ore, 0); assertFiniteEconomy(o.state);
+  // 一般＋持續同時開:離線先結一般委託(可花到保留額以下),持續收購只花保留額以上的部分 → 一般委託把金庫花到保留額以下後,持續收購外推 0 份
+  const m = createGame(), d = isolate(m); m.state.time = 100; m.state.wanderers = []; Object.assign(d, marketDoor); d.inventory.ore = 40; d.inventory.wood = 40; m.state.gold = m.tradeReserve() + 300;
+  for (const k of MATERIAL_KEYS_T) m.state.tradeRequests[k] = 0; m.setTradeRequest('ore', 999); m.setTradeRequest('wood', 200); m.setTradeStanding('ore', true);
+  // 取樣期用安靜模式(不刷魔物 → 沒有野外收入),外推時金庫只受收購影響,結果可精確預期
+  const mn = m.offlineSnapshot(), ore0 = m.state.ore; run(m, OFFLINE.sample, true); const oreS = m.state.ore - ore0, woodLeft = m.state.tradeRequests.wood, tradedS = m.state.counts.traded - mn.counts.traded;
+  assert.equal(oreS, 40); assert.ok(woodLeft > 0 && woodLeft <= 160); assert.ok(m.state.gold >= m.tradeReserve() && m.state.gold < m.tradeReserve() + 2 * woodLeft, `sample leaves gold just above the reserve (${m.state.gold})`);
+  m.offlineFinish(mn, 3 * 3600); assert.equal(m.state.tradeRequests.wood, 0, 'one-off wood order completes offline'); assert.equal(m.state.tradeRequests.ore, 999);
+  assert.ok(m.state.gold >= 0 && m.state.gold < m.tradeReserve(), `one-off spent into the reserve, never negative (${m.state.gold})`);
+  assert.equal(m.state.counts.traded - mn.counts.traded, tradedS + woodLeft, 'no standing ore extrapolated once gold is below the reserve'); assertFiniteEconomy(m.state);
 }
 
 const gear = createGame(), buyer = isolate(gear),forge=BUILDINGS.find(b=>b.id==='forge'); gear.state.time = 100; Object.assign(buyer, doorStand(forge,forge)); buyer.gold = 1000;

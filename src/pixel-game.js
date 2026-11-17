@@ -3,7 +3,7 @@ import {createVillageNav} from './village-nav.js';
 import {WORLD,REGIONS,walkable,inVillage,regionAt,regionContains,regionEdge,regionCenter,randomRegionPoint,wildAt,nearestRingRoad,ringRoadPath,ringPointAt,onRingRoad,ringRoadDistance,RING_ROAD_HALF,RING_ROAD} from './overworld.js';
 import {VILLAGE_BOUNDS,EXITS,blockAt,BUILDING_NUDGE,BUILDING_SLOTS,blockCenter} from './village-grid.js';
 import {sfx} from './sfx.js';
-import { SKILLS, BUILDINGS, CLASSES, RARITIES, TRAITS, MATERIALS, PRODUCTS, RECIPES, GEAR_SLOTS, EQUIP_SLOTS, GEAR_TIERS, GEAR_TIER_MAX, gearAt, DIFFICULTIES, CAMP, HUNT_ZONE, PILOT_ATTACK, PILOT_ORB, MERCHANT, AI_ATTACK_LOCK, KITE, PROVOKE, MONSTER_RANGED, LEGACY_LAYOUT_V14, LEGACY_LAYOUT_V15, LEGACY_LAYOUT_V16, ART_LAYOUT_HISTORY, REGION_DENSITY, DEFAULT_REGION_DENSITY, MONSTER_SPEED_MULT, MONSTER_ATTACK_RATE, EQUIPMENT, CLASS_STARTER, GEAR_DROP, gearItemView, gearGradeOf, dungeonGearGrade } from './pixel-data.js';
+import { SKILLS, BUILDINGS, CLASSES, RARITIES, TRAITS, MATERIALS, PRODUCTS, RECIPES, GEAR_SLOTS, EQUIP_SLOTS, GEAR_TIERS, GEAR_TIER_MAX, gearAt, DIFFICULTIES, CAMP, HUNT_ZONE, PILOT_ATTACK, PILOT_ORB, MERCHANT, TRADE_RESERVE, AI_ATTACK_LOCK, KITE, PROVOKE, MONSTER_RANGED, LEGACY_LAYOUT_V14, LEGACY_LAYOUT_V15, LEGACY_LAYOUT_V16, ART_LAYOUT_HISTORY, REGION_DENSITY, DEFAULT_REGION_DENSITY, MONSTER_SPEED_MULT, MONSTER_ATTACK_RATE, EQUIPMENT, CLASS_STARTER, GEAR_DROP, gearItemView, gearGradeOf, dungeonGearGrade } from './pixel-data.js';
 
 const mapById = list => Object.assign(Object.create(null), Object.fromEntries(list.map(item => [item.id, item])));
 const CLASS = mapById(CLASSES), BUILDING = mapById(BUILDINGS), RARITY = mapById(RARITIES), RECIPE = mapById(RECIPES);
@@ -772,7 +772,11 @@ export function createGame(saved = null) {
     if (h.mood < threshold) return 'drink';
     return null;
   }
-  function tradeAvailable(h) { return state.buildings.trading > 0 && MATERIAL_KEYS.some(key => h.inventory[key] > 0 && state.tradeRequests[key] > 0 && state.gold >= MATERIALS[key].price); }
+  // 持續收購的金庫保留額(pixel-data TRADE_RESERVE):隨大廳等級成長;一般委託不受限(可花到 0)
+  function tradeReserve() { return TRADE_RESERVE.base + TRADE_RESERVE.perHall * Math.max(0, (state.buildings.hall || 1) - 1); }
+  // 這項材料現在村莊可以花多少金幣收購:持續收購只能花保留額以上的部分
+  function tradeBudget(key) { return Math.max(0, state.gold - (state.tradeStanding?.[key] ? tradeReserve() : 0)); }
+  function tradeAvailable(h) { return state.buildings.trading > 0 && MATERIAL_KEYS.some(key => h.inventory[key] > 0 && state.tradeRequests[key] > 0 && tradeBudget(key) >= MATERIALS[key].price); }
   // 這一格現在能買到的最好裝備:庫存裡比身上高階、買得起的最高階(身上已有升級件時要留 GEAR_RESERVE 付吃住);沒有 → null
   // 身上是初始件(0 數值)或空格 = 第 0 階,任何一階都算升級。
   function gearOffer(h, recipe) {
@@ -837,10 +841,10 @@ export function createGame(saved = null) {
   function trade(h) {
     let quantity = 0, coins = 0;
     for (const key of MATERIAL_KEYS) {
-      const amount = Math.min(h.inventory[key], state.tradeRequests[key], Math.floor(state.gold / MATERIALS[key].price));
+      const amount = Math.min(h.inventory[key], state.tradeRequests[key], Math.floor(tradeBudget(key) / MATERIALS[key].price));
       if (!amount) continue;
       const price = amount * MATERIALS[key].price;
-      // 2026-11-17 持續收購(tradeStanding):開著的材料成交後收購量不扣 → 一直維持玩家設定的數量;仍受村莊金幣上限(上面的 floor(gold/單價))
+      // 2026-11-17 持續收購(tradeStanding):開著的材料成交後收購量不扣 → 一直維持玩家設定的數量;只花金庫保留額以上的部分(tradeBudget),一般委託照舊以全部金庫為上限
       h.inventory[key] -= amount; if (!state.tradeStanding?.[key]) state.tradeRequests[key] -= amount; state[key] += amount; state.gold -= price; h.gold += price; quantity += amount; coins += price;
       // 離線取樣期:記下收購量與付給誰,offlineFinish 另外依「剩餘收購量/持續收購/村莊金幣」外推,不照速率無上限地乘
       if (dgLedger) { const T = dgLedger.trade; T.qty[key] = (T.qty[key] || 0) + amount; T.cost += price; T.gold[h.id] = (T.gold[h.id] || 0) + price; if (!wandererOf(h)) T.hunterCost += price; }
@@ -2199,7 +2203,8 @@ export function createGame(saved = null) {
       if (!Number.isInteger(amount) || amount < 0 || amount > 999) return result(false, '收購數量必須是 0 至 999 的整數。');
       state.tradeRequests[materialId] = amount; return result(true, amount ? `已委託收購 ${amount} 份${MATERIALS[materialId].name}，單價 ${MATERIALS[materialId].price} 金幣。` : `已停止收購${MATERIALS[materialId].name}。`);
     },
-    // 持續收購:開著時成交不扣收購量,一直維持在設定的數量(仍以村莊金幣為上限,不會買到負數)
+    // 持續收購:開著時成交不扣收購量,一直維持在設定的數量;金庫低於保留額(tradeReserve)就暫停,不會把金庫買空
+    tradeReserve,
     setTradeStanding(materialId, on) {
       if (!own(MATERIALS, materialId)) return result(false, '找不到這項材料。');
       if (typeof on !== 'boolean') return result(false, '持續收購只能開或關。');
@@ -2329,16 +2334,23 @@ export function createGame(saved = null) {
           h.gold = Math.max(0, Math.round(h.gold + (h.gold - s0.gold - (L.gold[h.id] || 0) - (T.gold[h.id] || 0) + (L.gear[h.id] || 0)) * f)); if (both.includes(h)) wallets += h.gold;
         }
         state.gold = Math.max(0, Math.round(pooled - wallets));
-        // 收購外推(2026-11-17):照取樣期的收購速率,但一般委託最多買到「剩餘收購量」為止(持續收購不扣),而且每份都要村莊付得起
+        // 收購外推(2026-11-17):照取樣期的收購速率,但一般委託最多買到「剩餘收購量」為止(持續收購不扣),而且每份都要村莊付得起;
+        // 持續收購另外不能讓金庫低於保留額(tradeReserve,與線上 trade() 相同規則)
         // → 村莊金幣不會變負、也不會憑空多出材料;付出的錢照取樣期的比例分給當時賣材料的獵人/流浪英雄(總額守恆)
         if (T.cost > 0) {
           let paid = 0;
+          const buy = (k, n, standing) => { const unit = MATERIALS[k].price; state[k] += n; state.gold -= n * unit; paid += n * unit; state.counts.traded += n; if (!standing) state.tradeRequests[k] -= n; };
+          // 先結一般委託(玩家明確下的單,有限量):可花到 0
           for (const k of MATERIAL_KEYS) {
-            const unit = MATERIALS[k].price, standing = !!state.tradeStanding?.[k];
-            let n = Math.round((T.qty[k] || 0) * f); if (!standing) n = Math.min(n, state.tradeRequests[k]); n = Math.max(0, Math.min(n, Math.floor(state.gold / unit)));
-            if (!n) continue;
-            state[k] += n; state.gold -= n * unit; paid += n * unit; state.counts.traded += n; if (!standing) state.tradeRequests[k] -= n;
+            if (state.tradeStanding?.[k]) continue;
+            const n = Math.max(0, Math.min(Math.round((T.qty[k] || 0) * f), state.tradeRequests[k], Math.floor(state.gold / MATERIALS[k].price)));
+            if (n) buy(k, n, false);
           }
+          // 再結持續收購:只花「金庫 − 保留額」;不夠時各材料照比例縮減(不讓排在前面的材料先把錢花光)
+          const want = Object.fromEntries(MATERIAL_KEYS.filter(k => state.tradeStanding?.[k]).map(k => [k, Math.max(0, Math.round((T.qty[k] || 0) * f))]));
+          const wantCost = Object.entries(want).reduce((n, [k, q]) => n + q * MATERIALS[k].price, 0), room = Math.max(0, state.gold - tradeReserve());
+          const scale = wantCost > room ? room / wantCost : 1;
+          for (const [k, q] of Object.entries(want)) { const n = Math.floor(q * scale); if (n) buy(k, n, true); }
           const sellers = Object.keys(T.gold).map(id => state.hunters.find(h => h.id === id) || (state.wanderers || []).find(w => w.id === id)).filter(Boolean);
           const shareBase = sellers.reduce((n, a) => n + (T.gold[a.id] || 0), 0); let given = 0;
           sellers.forEach((a, i) => { const g = i === sellers.length - 1 ? paid - given : Math.floor(paid * (T.gold[a.id] || 0) / shareBase); a.gold += g; given += g; });
