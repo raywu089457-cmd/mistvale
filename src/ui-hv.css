@@ -2678,3 +2678,6 @@ html body #modal-content .z2c-sr{position:absolute!important;width:1px!important
 html body #modal-content .z2c-run-rw{padding:8px 12px;font-size:13px}
 html body #modal-content .z2c-run-rw .z2c-rw b{color:#fff}
 html body #modal-content .z2c-first{color:var(--hv-quest);font-weight:700}
+/* 2026-11-18 圖鑑摘要:每段一個 flex 項目(原本字和數字各自是項目,間距亂、斷在句中) */
+html body #modal-content .cx-summary{gap:4px 16px;align-items:baseline}
+html body #modal-content .cx-summary .cx-s{white-space:nowrap}
