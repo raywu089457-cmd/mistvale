@@ -142,4 +142,5 @@ export function visitorBandHTML(){
 export function visitorArrival(busy){const s=C.game().state,vs=s.visitors||[];
  if(!vb.seen){vb.seen=new Set(vs.map(v=>v.id));return false;}
  const fresh=vs.filter(v=>!vb.seen.has(v.id));for(const v of vs)vb.seen.add(v.id);
- return !busy&&fresh.some(v=>s.gold>=v.cost&&!vb.later.has(v.id));}
+ // 2026-11-16:獵人名額滿了就不彈「新的獵人！」(按邀請也招不進來);旅人照樣記成已看過,之後有名額也不會補彈舊的
+ return !busy&&(s.hunters||[]).length<(s.capacity||0)&&fresh.some(v=>s.gold>=v.cost&&!vb.later.has(v.id));}
