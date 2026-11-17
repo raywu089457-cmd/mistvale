@@ -2435,18 +2435,25 @@ export function createGame(saved = null) {
       if (!r) return null;
       const monsters = [...new Set(REGION_MIX[r.id] || [])].map(t => {
         const d = ENEMIES[t] || {};
-        return { id: t, hp: d.hp || 0, attack: d.attack || 0, gold: d.gold || 0, xp: d.xp || 0, drops: { ...(d.drops || {}) } };
+        // 2026-11-16:*Now = 目前難度下實際生成的數值(spawn:生命/攻擊 × 難度 × 區域風險;擊倒:金幣/經驗 × √難度、材料 dropAmount)。
+        //   原本的 hp/attack/... 保留基礎值(regionFit 的威脅算法與測試都用基礎值)。
+        const m = DIFFICULTIES[state.difficulty]?.mult ?? 1, sm = Math.sqrt(m);
+        return { id: t, hp: d.hp || 0, attack: d.attack || 0, gold: d.gold || 0, xp: d.xp || 0, drops: { ...(d.drops || {}) },
+          hpNow: Math.round((d.hp || 0) * m * (r.risk || 1)), attackNow: Math.round((d.attack || 0) * m * (r.risk || 1)), goldNow: Math.round((d.gold || 0) * sm), xpNow: Math.round((d.xp || 0) * sm),
+          dropsNow: Object.fromEntries(Object.entries(d.drops || {}).map(([k, v]) => [k, dropAmount(v)])) };
       });
       const riskStars = Math.max(1, Math.min(5, Math.round((r.risk - 1) / 0.16) + 1));
       // 掉落合計(三隻魔物各打一隻的平均量),給玩家看「這區主要產什麼」。
       const loot = {};
       for (const m of monsters) for (const [k, v] of Object.entries(m.drops)) loot[k] = (loot[k] || 0) + v / monsters.length;
+      const lootNow = {}; for (const m of monsters) for (const [k, v] of Object.entries(m.dropsNow)) lootNow[k] = (lootNow[k] || 0) + v / monsters.length;
       const round1 = n => Math.round(n * 10) / 10;
       return {
         id: r.id, name: r.name, subtitle: r.subtitle, description: r.description, color: r.color, enemy: r.enemy,
         risk: r.risk, riskStars,
         monsters,
         loot: Object.fromEntries(Object.entries(loot).map(([k, v]) => [k, round1(v)])),
+        lootNow: Object.fromEntries(Object.entries(lootNow).map(([k, v]) => [k, round1(v)])),
         alive: state.enemies.filter(e => e.hp > 0 && e.type !== 'boss' && e.regionId === r.id).length,
         boss: state.enemies.some(e => e.hp > 0 && e.type === 'boss' && e.regionId === r.id),
         hunting: state.hunters.filter(h => h.hp > 0 && h.huntRegion === r.id).length,

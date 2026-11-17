@@ -633,7 +633,7 @@ function modalHTML(type){const s=game.state;
  // 2026-10-30:地圖詳細資訊(派遣出征的區域卡右上角捲軸鈕)。數值全部讀 game.regionInfo(),不另外抄。
  if(type==='region'){const rig=game.regionInfo(infoRegion)||game.regionInfo(REGIONS[1].id);const teams=s.dispatchTeams||[];const team=teams[Math.min(dispatchTab,teams.length-1)]||{name:'這一組',ids:[]};const fit=rig.fit(team.ids||[]);
    const FIT={easy:['easy','這組打這裡很輕鬆，打完幾乎不會受傷。'],ok:['ok','剛好打得動，偶爾會掛彩。'],hard:['hard','偏硬，會被打傷；建議先練等或換更弱的區。']};
-   const lootRows=Object.entries(rig.loot).sort((a,b)=>b[1]-a[1]).map(([k,v])=>`<span>${iconHTML(k)}<b>${v}</b><small>${MATERIALS[k]?.name||k}</small></span>`).join('');
+   const lootRows=Object.entries(rig.lootNow||rig.loot).sort((a,b)=>b[1]-a[1]).map(([k,v])=>`<span>${iconHTML(k)}<b>${v}</b><small>${MATERIALS[k]?.name||k}</small></span>`).join('');
    return `<article class="region-detail" style="--biome:${rig.color}">
    ${AS().ui?.['px-region-'+rig.id]?`<div class="region-detail-art" style="background-image:url('${AS().ui['px-region-'+rig.id]}')" aria-hidden="true"></div>`:''}
    <div class="rd-head"><i class="rd-em" data-icon="em-${rig.id}"></i><div><h3>${rig.name}</h3><small>${rig.subtitle}</small><em class="rd-risk" aria-label="危險度 ${rig.riskStars} 顆星">${riskStars(rig.risk)}<b>危險度 ${rig.riskStars}/5</b></em></div></div>
@@ -641,7 +641,7 @@ function modalHTML(type){const s=game.state;
    <div class="rd-stats"><div><small>場上魔物</small><b>${rig.alive} 隻</b></div><div><small>正在狩獵</small><b>${rig.hunting} 位獵人</b></div><div><small>首領</small><b>${rig.boss?'出沒中':'未出現'}</b></div><div><small>你目前的位置</small><b>${rig.current?'就在這裡':'不在這區'}</b></div></div>
    <p class="rd-fit ${fit?FIT[fit.verdict][0]:'none'}">${iconHTML('hunter')}<span>${fit?`${team.name}：${FIT[fit.verdict][1]}<small>舒適度 ${fit.comfort} · 這區威脅 ${fit.threat}</small>`:'這一組還沒有隊員，先在上面選人。'}</span></p>
    <h4 class="dispatch-h">${iconHTML('skull')}出沒魔物</h4>
-   <ul class="rd-monsters">${rig.monsters.map(m=>`<li><div><b>${MONSTER_NAME[m.id]||m.id}</b><small>生命 ${m.hp} · 攻擊 ${m.attack} · ${m.gold} 金幣 · ${m.xp} 經驗</small></div><p>${MONSTER_LORE[m.id]||''}</p></li>`).join('')}</ul>
+   <ul class="rd-monsters">${rig.monsters.map(m=>`<li><div><b>${MONSTER_NAME[m.id]||m.id}</b><small>生命 ${m.hpNow??m.hp} · 攻擊 ${m.attackNow??m.attack} · ${m.goldNow??m.gold} 金幣 · ${m.xpNow??m.xp} 經驗</small></div><p>${MONSTER_LORE[m.id]||''}</p></li>`).join('')}</ul>
    <h4 class="dispatch-h">${iconHTML('trade')}每打倒一隻的平均掉落</h4>
    <div class="rd-loot">${lootRows}</div>
    <div class="encounter-actions dispatch-go">${regionFrom==='map'?`<button class="pixel-button" data-action="regionView" data-id="${rig.id}">在地圖上定位</button><button class="pixel-button" data-action="worldmap" data-foot="secondary">返回地圖</button>${rig.id!=='village'?`<button class="pixel-button gold" data-action="regionTravel" data-id="${rig.id}" data-foot="primary">前往${rig.name}</button>`:''}`:`<button class="pixel-button gold" data-action="dispatchRegion" data-id="${rig.id}" data-foot="primary">選為${team.name}的目的地</button><button class="pixel-button" data-action="regionInfoClose" data-foot="secondary">返回派遣</button>`}</div></article>`;
