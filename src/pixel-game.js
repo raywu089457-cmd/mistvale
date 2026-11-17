@@ -713,6 +713,12 @@ export function createGame(saved = null) {
     if (state.hunters.some(h => h.classId === c.id) || state.visitors.some(v => v.classId === c.id)) return;
     state.visitors[0] = { id: id('v'), classId: c.id, rarity: 'rare', trait: 'brave', cost: Math.round(c.cost * RARITY.rare.mult) };
   }
+  // 2026-11-18 每天換掉一位訪客(輪流換第 day%3 格):原本只有招募後才補人,三位都太貴/不想要時招募頁好幾天不變。
+  // 離線外推跳過的天數不換(只在逐步模擬的換日時換);名冊滿了也照換,之後有名額就有新面孔。
+  function newDayVisitor() {
+    if (!state.visitors || state.visitors.length < 3) return;
+    state.visitors[state.day % 3] = newVisitor(); offerNewClass();
+  }
   function newVisitor() {
     const c = CLASSES[Math.floor(random() * CLASSES.length)], roll = random();
     const rarity = roll < 0.55 ? 'normal' : roll < 0.82 ? 'rare' : roll < 0.94 ? 'superior' : roll < 0.99 ? 'heroic' : 'legendary';
@@ -1566,7 +1572,8 @@ export function createGame(saved = null) {
   function step(dt) {
     if (pilotStep(dt)) { /* 手動模式:只跑環境與其他單位 */ }
     stepShots(dt); landHits();
-    state.time += dt; state.day = Math.floor(state.time / 240) + 1;
+    const prevDay = state.day; state.time += dt; state.day = Math.floor(state.time / 240) + 1;
+    if (state.day > prevDay) newDayVisitor();
     state.healCooldown = Math.max(0, state.healCooldown - dt); state.expedition.cooldown = Math.max(0, state.expedition.cooldown - dt); state.dungeon.cooldown = Math.max(0, state.dungeon.cooldown - dt); state.arena.cooldown = Math.max(0, state.arena.cooldown - dt);
     // 定時生怪:每個狩獵區都有自己的族群。目前狩獵區 4.5 秒補一隻、上限 8;其他區 8 秒補一隻、上限 3(野外面積砍一半後,沒人在打的區魔物也跟著減半,畫面才不會擠成一團)。
     state.spawnTimer += dt;

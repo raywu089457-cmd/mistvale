@@ -685,6 +685,12 @@ assert.equal(arena.startDungeon(arena.state.arena.hunterIds).ok, false); run(are
   assert.equal(g.sellMaterial('nope', 10).ok, false);
   st.buildings.trading = 0; st.herb = 500; assert.equal(g.sellMaterial('herb', 50).ok, false, 'needs a trading post');
 }
+{ // 2026-11-18 每天換一位訪客(輪流換一格,其他兩格不動)
+  const g = createGame(), st = g.state; st.enemies = []; const before = st.visitors.map(v => v.id), day0 = st.day;
+  while (st.day === day0) { st.enemies = []; st.spawnTimer = 0; g.tick(0.1); }
+  const after = st.visitors.map(v => v.id), changed = after.filter((id, i) => id !== before[i]).length;
+  assert.equal(after.length, 3); assert.equal(changed, 1, 'exactly one visitor slot changes on a new day'); assert.notEqual(after[st.day % 3], before[st.day % 3]);
+}
 { // 2026-11-18 晉升:村莊金幣＋星晶把稀有度升一階,能力跟著變,傳說就封頂
   const g = createGame(), st = g.state, h = st.hunters[0]; h.rarity = 'normal'; st.gold = 50000; st.gems = 300;
   const atk0 = h.attack, q = g.promoteQuote(h.id); assert.equal(q.next, 'rare');
