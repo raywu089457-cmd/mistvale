@@ -1400,13 +1400,15 @@ export function createGame(saved = null) {
     log(`競技場模擬對戰${won ? `獲勝（第 ${a.wins} 勝），村莊獲得 ${a.reward} 金幣${gems ? `與 ${gems} 晶石` : ''}` : '落敗，隊伍已安全撤回'}。`, won ? 'success' : 'warning');
   }
 
+  // 競技場每位獵人的出手間隔(秒):對戰與推薦隊伍共用同一條規則
+  function arenaInterval(h) { return (h.classId === 'sorcerer' ? 1.6 : h.classId === 'priest' ? 1.4 : 1.1) * (h.trait === 'swift' ? 0.9 : 1); }
   function stepArena(dt) {
     const a = state.arena; if (!a.active) return;
     a.time += dt;
     const party = state.hunters.filter(h => a.hunterIds.includes(h.id)), alive = party.filter(h => h.hp > 0);
     if (!alive.length || a.time >= 120) { endArena(false); return; }
     if (a.phase === '集結中') { if (alive.some(h => h.route.length)) return; a.phase = '對戰中'; for (const h of alive) h.status = '競技場模擬對戰'; }
-    for (const h of alive) if (h.attackTimer === 0) { h.attackTimer = (h.classId === 'sorcerer' ? 1.6 : h.classId === 'priest' ? 1.4 : 1.1) * (h.trait === 'swift' ? 0.9 : 1); a.enemyHp = Math.max(0, a.enemyHp - h.attack); effect('slash', door('training'), { value: h.attack }); if (a.enemyHp <= 0) { endArena(true); return; } }
+    for (const h of alive) if (h.attackTimer === 0) { h.attackTimer = arenaInterval(h); a.enemyHp = Math.max(0, a.enemyHp - h.attack); effect('slash', door('training'), { value: h.attack }); if (a.enemyHp <= 0) { endArena(true); return; } }
     a.attackTimer = Math.max(0, a.attackTimer - dt);
     if (a.attackTimer === 0) {
       a.attackTimer = 1.1; const target = alive[Math.floor(random() * alive.length)];
@@ -2354,6 +2356,15 @@ export function createGame(saved = null) {
     },
     // 競技場下一場打贏的獎勵(UI 預覽用,跟 endArena 同一條公式)
     arenaReward() { const w = Math.min(ARENA_CAP, state.arena.wins); return { gold: 90 + w * 25, gems: (state.arena.wins + 1) % 5 === 0 ? 2 + Math.floor(w / 10) : 0, xp: 80 + w * 15 }; },
+    // 2026-11-16 競技場推薦隊伍(唯讀、不擲骰):對手每次打隨機一人、每秒傷害固定,勝負主要看輸出 →
+    //   挑「每秒傷害」(攻擊 ÷ 出手間隔)最高、生命 ≥35%、沒在地下城／復活中的三人。
+    recommendArenaParty() {
+      const ok = state.hunters.filter(h => h.hp > 0 && h.task !== 'dungeon' && h.task !== 'revive' && h.hp >= h.maxHp * 0.35);
+      if (ok.length < 3) return { ...result(false, '可以上場的獵人不到 3 位（需要存活、不在地下城、生命至少 35%）。'), ids: [] };
+      const pick = [...ok].sort((a, b) => b.attack / arenaInterval(b) - a.attack / arenaInterval(a) || b.maxHp - a.maxHp).slice(0, 3);
+      const dps = Math.round(pick.reduce((n, h) => n + h.attack / arenaInterval(h), 0));
+      return { ...result(true, `推薦：${pick.map(h => h.name).join('、')}（合計每秒傷害約 ${dps}）`), ids: pick.map(h => h.id), dps };
+    },
     startArena(hunterIds = null) {
       if (!state.buildings.training) return result(false, '請先建造修煉地，開放競技場模擬對戰。');
       const a = state.arena; if (a.active) return result(false, '模擬對戰正在進行。');

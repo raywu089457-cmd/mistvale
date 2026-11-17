@@ -1631,5 +1631,17 @@ run(manual, 30, false, assertFiniteEconomy);
   s.difficulty = 2; assert.equal(g.dropAmount(3), Math.round(3 * 1.9), 'hard: x1.9');
   s.difficulty = 4; assert.equal(g.dropAmount(3), 12, 'nightmare: x4');
 }
+// 2026-11-16 競技場推薦隊伍:挑每秒傷害(攻擊 ÷ 出手間隔)最高、生命 ≥35% 的三人;唯讀
+{
+  const g = createGame(), s = g.state, hs = s.hunters;
+  hs.forEach((h, i) => { h.attack = 10 + i * 5; h.hp = h.maxHp; });
+  const weak = hs[hs.length - 1]; weak.hp = Math.floor(weak.maxHp * 0.2);   // 攻擊最高但生命 20%:不能上場
+  const before = JSON.stringify(g.serialize()), r = g.recommendArenaParty();
+  assert.equal(r.ok, true); assert.equal(r.ids.length, 3); assert.ok(!r.ids.includes(weak.id), 'low-HP hunter is skipped');
+  const iv = h => (h.classId === 'sorcerer' ? 1.6 : h.classId === 'priest' ? 1.4 : 1.1) * (h.trait === 'swift' ? 0.9 : 1);
+  const best = hs.filter(h => h !== weak).sort((a, b) => b.attack / iv(b) - a.attack / iv(a)).slice(0, 3).map(h => h.id).sort();
+  assert.deepEqual([...r.ids].sort(), best, 'top 3 by damage per second');
+  assert.equal(JSON.stringify(g.serialize()), before, 'recommendation is read-only');
+}
 console.log(`PASS: ${CLASSES.length} hunters / ${CLASSES.length} classes, seeded visitors, conservation of personal and village gold, paid and emergency services, bounded trading, crafting and gear purchases, upgrades, training, skills, rebirth, difficulty gates, hunting, field boss, death/revival, dungeon combat and save continuation, NPC arena, navigation, malformed saves, pause, deterministic simulation, all 18 quests and legacy quest-save migration. Natural 60s: ${combat.state.totalKills} total kills; ${combat.state.counts.services} services.`);
 
