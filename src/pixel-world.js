@@ -2279,7 +2279,7 @@ let renderDprMax=Math.max(1,dprCap||autoDpr());   // 畫布解析度上限(devic
   let dgBgImg=null,dgScroll=0,dgLastNow=0;
   function dgBackground(){if(!dgBgImg){const src=globalThis.PIXEL_ASSETS?.ui?.['dg-strip-bg'];if(!src)return null;dgBgImg=new Image();dgBgImg.src=src;}return dgBgImg.complete&&dgBgImg.naturalWidth?dgBgImg:null;}
   const DG_RANGED=new Set(['archer','sorcerer','priest']);
-  const DG_HERO_SLOTS={front:[[.41,.76],[.33,.82],[.36,.69]],back:[[.21,.73],[.13,.80],[.16,.67]]};
+  const DG_HERO_SLOTS={front:[[.41,.76],[.33,.82],[.36,.69]],back:[[.25,.73],[.12,.80],[.185,.67]]};
   const DG_FOE_SLOTS={front:[[.63,.76],[.71,.82],[.68,.69]],back:[[.84,.73],[.91,.80],[.88,.67]]};
   const DG_SHOT={archer:'#fff3c9',sorcerer:'#c79cff',priest:'#ffe58a'};
   function drawDungeonStrip(cv,st){
@@ -2305,6 +2305,8 @@ let renderDprMax=Math.max(1,dprCap||autoDpr());   // 畫布解析度上限(devic
       for(const h of party){const p=pos.get(h.id);if(p)units.push({y:p.y,draw:()=>dgHero(h,p)});}
       for(const f of foes){const p=pos.get(f.id);if(p)units.push({y:p.y,draw:()=>dgFoe(f,p)});}
       units.sort((a,b)=>a.y-b.y).forEach(u=>u.draw());
+      // 2026-11-18 名字最後畫:原本跟著各自的圖畫,後排兩人疊在一起時下面那位會蓋掉上面那位的名字(弓手名字整個不見)
+      for(const h of party){const p=pos.get(h.id);if(p&&heroSheets[h.classId]?.meta?.actions)dgText(h.name,p.x,p.y+5*scale,{size:Math.round(10*dpr),color:'#f6e3b0'});}
       // 飛行物(英雄的箭/法球/聖光、遠程魔物的飛行物)與數字
       for(const e of ev){const a=pos.get(e.a),b=pos.get(e.b),age=t-e.t;if(age<0||age>1.6)continue;
         if(e.shot&&a&&b&&age<.3){const u=age/.3,ay=a.y-11*scale,by=b.y-11*scale,x=a.x+(b.x-a.x)*u,y=ay+(by-ay)*u-Math.sin(u*Math.PI)*(e.k==='hurt'?(MONSTER_RANGED[e.shot]?.lob||0)*scale*.6:2*scale);
@@ -2337,7 +2339,7 @@ let renderDprMax=Math.max(1,dprCap||autoDpr());   // 畫布解析度上限(devic
       ctx.save();ctx.globalAlpha=.3;ctx.fillStyle='#000';ctx.beginPath();ctx.ellipse(p.x,p.y,9*scale,2.6*scale,0,0,Math.PI*2);ctx.fill();ctx.restore();
       if(!dgDollHero(h,p,act,i,atk,hurt,h.hp>0?1:.75))drawSheetHero(h,p,1,{act,i},h.hp>0?1:.75);   // 紙娃娃沒涵蓋/還沒載好 → 舊 sheet
       if(h.hp>0)hpBar(p.x,p.y-26*scale,14*scale,h.hp/h.maxHp,h.hp/h.maxHp>.35?'#7ccf6a':'#e0533f');
-      dgText(h.name,p.x,p.y+5*scale,{size:Math.round(10*dpr),color:'#f6e3b0'});}
+      }
     // 地下城條的紙娃娃(HeroLoom)英雄:跟地圖同一套合成,但動作/tick 只由地下城事件(d.events)推出來 —— 直接呼叫純函式
     // dollActionTick + dollHero.compose,不經 drawDollHero,所以不碰地圖的逐獵人狀態(dollSeq/dollWind/dollHurt/dollAtk/drawnFacing/heroMemo),
     // 獵人回到地圖時動畫不會錯位。事件時間 = 出手(release);近戰命中格對到傷害數字跳出(land),遠程在出手時射出。
