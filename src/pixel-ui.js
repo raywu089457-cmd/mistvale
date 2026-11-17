@@ -904,7 +904,8 @@ function doAction(el){const a=el.dataset.action,id=el.dataset.id;let r;
   if(a==='nextStepGo'){const t=el.dataset.act;
     // 2026-11-16:原本「去製作」(act=craft)不在清單裡 → 按了只會關面板;補上製作、交易、鍛造分頁、首領
     if(t==='craftGear'){craftTab='gear';openModal('craft');return;}
-    if(t==='quests'||t==='hunters'||t==='dungeon'||t==='build'||t==='worldmap'||t==='craft'||t==='trade'||t==='boss')openModal(t);else closeModal();
+    if(t==='quests'||t==='hunters'||t==='dungeon'||t==='build'||t==='worldmap'||t==='craft'||t==='trade'||t==='boss'||t==='inventory')openModal(t);else closeModal();
+    if(t==='inventory')requestAnimationFrame(()=>document.querySelector('#modal-content .gear-store')?.scrollIntoView({block:'start'}));   // 2026-11-17:舊裝備提示 → 直接捲到裝備倉庫(自動整理開關在那裡)
     if(t==='build'&&/地下城入口/.test(advisorReq?.text||''))z2cFlashBuild('dungeon');   // Z2C:顧問叫你蓋地下城入口時,建設面板直接標出那一格
     if(t==='build'&&advisorReq?.flash)z2cFlashBuild(advisorReq.flash);
     return;
@@ -1506,6 +1507,8 @@ function nextStepPick(s,skipQuest=false){
   if(sold.length)return {key:'restock',text:sold.slice(0,2).join('、')+(sold.length>2?'等':'')+'賣完了，到倉庫的製作補貨',act:'craft',label:'去製作'};
   // 中期章節(8–18)的帶路排在「商品賣完」之後:斷貨會直接少收入,比章節目標急
   {const q=s.quest,g=q&&q.index>=7?questGuide(s):null;if(q&&!q.complete&&!q.claimed&&g)return {key:'quest'+q.index+'-'+(q.progress||0),...g};}
+  // 2026-11-17:倉庫舊裝備堆到 30 件、又沒開自動整理 → 提醒一次去倉庫整理(30 天會堆到約 300 件);件數以 10 件為一格,避免每換一件就重彈
+  if((s.autoJunk||'off')==='off'&&(s.gearStorage||[]).length>=30&&game.bulkStoredGear){const old=game.bulkStoredGear('sell',true).count;if(old>=30)return {key:'junk'+Math.floor(old/10),text:'倉庫堆了 '+old+' 件舊裝備，可以一鍵賣出或開「自動賣出」',act:'inventory',label:'去倉庫'};}
   const d=s.dungeon||{};
   if((s.buildings&&s.buildings.dungeon||0)>0&&idle.length>=3&&!d.active&&!(d.cooldown>0))
     return {key:'dungeon',text:idle.length+' 位獵人待機，可以派去地下城',act:'dungeon',label:'去地下城'};
