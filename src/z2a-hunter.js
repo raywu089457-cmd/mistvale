@@ -101,10 +101,10 @@ function gearPanel(h){const s=C.game().state,wl=h.weaponLevel||0,cost=C.game().e
   +`<p class="gear-hint">穿在身上的裝備是真的物品：卸下、出售、分解或存進倉庫，角色外觀也會跟著變。鐵匠鋪升級件分Ⅰ–Ⅴ階，有更高階庫存時獵人會自己花錢換新（舊的放回倉庫）。</p>`
   +EQUIP_SLOTS.map(slot=>gearRow(h,slot)).join('')
   +`</div>`;}
-function rebirthPanel(h){const ready=h.level>=100,maxed=h.rebirths>=20;
+function rebirthPanel(h){const ready=h.level>=100,maxed=h.rebirths>=20,busy=h.hp<=0?'倒下了，復活後才能轉世':h.task==='dungeon'?'還在地下城裡，先撤退回村才能轉世':h.task==='arena'?'競技場打完才能轉世':'';   // 2026-11-18 跟 reincarnate 的拒絕條件一致,不要顯示「可以轉世」卻按了被拒
  return `<div class="z2-list">`+rowHTML({icon:'rebirth',name:`轉世 ${h.rebirths}/20`,desc:'Lv.100 可轉世：等級回到 1，基礎能力永久 +35%、防禦 +2',
-  reason:maxed?'<span class="ok">已完成全部 20 次轉世</span>':ready?'<span class="ok">已達 Lv.100，可以轉世</span>':`<span class="no">Lv.100 才能轉世（還差 ${100-h.level} 級）</span>`,
-  btn:rowBtn('reincarnate',h.id,'轉世',ready&&!maxed)})+`</div>`;}
+  reason:maxed?'<span class="ok">已完成全部 20 次轉世</span>':ready&&busy?`<span class="no">已達 Lv.100，但${busy}</span>`:ready?'<span class="ok">已達 Lv.100，可以轉世</span>':`<span class="no">Lv.100 才能轉世（還差 ${100-h.level} 級）</span>`,
+  btn:rowBtn('reincarnate',h.id,'轉世',ready&&!maxed&&!busy)})+`</div>`;}
 
 export function hunterDetailHTML(h){
  const r=C.RARITIES.find(v=>v.id===h.rarity),cls=C.CLASSES.find(c=>c.id===h.classId),max=h.level>=100,xn=xpNeed(h.level),xp=Math.min(h.xp||0,xn);
