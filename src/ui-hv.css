@@ -191,6 +191,10 @@ body.hud-modal #topbar #region-badge{display:none!important}
 html body #hv-left{position:fixed;left:var(--hv-gut);top:calc(env(safe-area-inset-top,0px) + 8px + var(--hv-top-left-h) + 8px);z-index:8;
   display:flex;flex-direction:column;align-items:flex-start;gap:8px;width:min(300px,calc(100vw - 2 * var(--hv-gut) - 88px));pointer-events:none}
 html body #hv-left>*{pointer-events:auto}
+/* 左欄文字壓在地圖怪物上:整欄一片由左往右淡出的深色底 */
+html body #hv-left::before{content:"";position:absolute;z-index:-1;inset:-14px -28px -14px calc(-1 * var(--hv-gut));pointer-events:none;
+  background:linear-gradient(90deg,rgba(14,10,20,.5),rgba(14,10,20,.32) 60%,rgba(14,10,20,0));
+  -webkit-mask-image:linear-gradient(180deg,transparent,#000 10px,#000 calc(100% - 10px),transparent);mask-image:linear-gradient(180deg,transparent,#000 10px,#000 calc(100% - 10px),transparent)}
 /* 缺口 3：村務面板打開時任務追蹤要看得到（顧問提示與事件訊息先讓位，見 FIX-B 段） */
 html body .hv-quest{display:flex!important;flex-direction:column!important;align-items:flex-start!important;gap:4px!important;width:100%!important;min-height:44px!important;
   padding:4px 6px 4px 4px!important;text-align:left!important;cursor:pointer;position:relative}
