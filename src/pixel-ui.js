@@ -320,6 +320,8 @@ function upgradeDelta(b,lv,next){
   // 2026-11-16 裝備階級:鐵匠鋪 Lv.N 最高鍛造第 N 階(pixel-game forgeTier),升級的主要理由要寫出來
   if(b.id==='forge'){const nm=l=>GEAR_TIERS[Math.min(GEAR_TIERS.length,l)-1]?.numeral||l;return '可鍛造裝備 第 '+nm(lv)+' 階 → 第 '+nm(next)+' 階';}
   if(b.id==='trading'){const r=l=>Math.max(MERCHANT.floor,MERCHANT.markup-MERCHANT.step*(l-1));return '行商補料單價 '+r(lv)+' → '+r(next)+' 倍收購價';}
+  // 2026-11-17 修煉重訂:修煉地每升 1 級,每次修煉多 25% 經驗(pixel-game TRAIN.levels:Lv.1 = 1 級份、Lv.5 = 2 級份)
+  if(b.id==='training'){const g=l=>1+.25*(l-1);return '每次修煉經驗 '+g(lv)+' → '+g(next)+' 級份';}
   return '';
 }
 // Z1:建築詳情是 C 置中視窗 —— 主動作(升級／建造)搬進底部按鈕列、「移動位置」搬到標題右上的幽靈鈕、底部固定補一顆「關閉」(搬動不複製,按鈕只有一份)
