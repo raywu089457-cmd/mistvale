@@ -1494,5 +1494,12 @@ run(manual, 30, false, assertFiniteEconomy);
   s.gearStorage = [{ uid: 'c1', itemId: 'craft_chest', grade: 2 }]; const pv = g.bulkStoredGear('salvage', true), before = { ...Object.fromEntries(Object.keys(pv.mats).map(k => [k, s[k]])) };
   assert.equal(g.bulkStoredGear('salvage').ok, true); for (const [k, n] of Object.entries(pv.mats)) assert.equal(s[k], before[k] + n); assert.equal(s.gearStorage.length, 0);
 }
+// 2026-11-16 定案:難度越高,野外材料掉落越多(初級不變);金幣本來就隨難度提高
+{
+  const g = createGame(), s = g.state;
+  s.difficulty = 0; assert.equal(g.dropAmount(3), 3, 'easy difficulty keeps drops unchanged'); assert.equal(g.dropAmount(1), 1);
+  s.difficulty = 2; assert.equal(g.dropAmount(3), Math.round(3 * 1.9), 'hard: x1.9');
+  s.difficulty = 4; assert.equal(g.dropAmount(3), 12, 'nightmare: x4');
+}
 console.log(`PASS: ${CLASSES.length} hunters / ${CLASSES.length} classes, seeded visitors, conservation of personal and village gold, paid and emergency services, bounded trading, crafting and gear purchases, upgrades, training, skills, rebirth, difficulty gates, hunting, field boss, death/revival, dungeon combat and save continuation, NPC arena, navigation, malformed saves, pause, deterministic simulation, all 18 quests and legacy quest-save migration. Natural 60s: ${combat.state.totalKills} total kills; ${combat.state.counts.services} services.`);
 

@@ -724,7 +724,7 @@ export function createGame(saved = null) {
     const data = ENEMIES[enemy.type], multiplier = DIFFICULTIES[state.difficulty].mult;
     const gold = Math.round(data.gold * Math.sqrt(multiplier));
     w.gold += gold; state.counts.wanderGold = (state.counts.wanderGold || 0) + gold;
-    for (const [key, amount] of Object.entries(data.drops)) w.inventory[key] += amount;
+    for (const [key, amount] of Object.entries(data.drops)) w.inventory[key] += dropAmount(amount);
     effect('death', enemy, { enemyType: enemy.type, flipHint: (enemy.hitFromX ?? enemy.x) - (enemy.hitFromZ ?? enemy.z) < enemy.x - enemy.z });
     effect('loot', enemy, { text: `+${gold}`, color: '#efcd82', delay: 0.35 });
     isoEffect('soul-rise-iso', enemy, 3.6, { delay: .1 }); isoEffect('coin-drop-iso', enemy, 3.4, { delay: .45 });   // 流浪英雄打倒的魔物也一樣:魂升天 + 金幣落地
@@ -869,6 +869,9 @@ export function createGame(saved = null) {
   // 2026-11-16 平衡:設施越高級,餐點/飲品/床鋪/繃帶賣得越貴(每級 +25%,Lv.5 = 2 倍)。
   //   14 天模擬裡每位獵人身上閒置 2000+ 金(裝備每格只買一次、服務 10–14 金固定價),村莊卻缺錢;
   //   讓「升級設施 → 收入變多」成為升級的理由(經營模擬的基本循環)。付不起的獵人照舊走免費的基本服務。
+  // 2026-11-16 定案(docs/BALANCE.md):高難度＝更高收益。野外材料掉落 × (1 + (難度倍率 − 1) / 2):初級 ×1、普通 ×1.35、困難 ×1.9、專家 ×2.75、噩夢 ×4。
+  //   四捨五入成整數(不擲骰、不加存檔欄位);金幣本來就 × √倍率。地下城不受難度影響,維持原樣。
+  function dropAmount(amount) { const m = DIFFICULTIES[state.difficulty]?.mult ?? 1; return Math.max(0, Math.round(amount * (1 + (m - 1) / 2))); }
   function servicePrice(productId) { const p = PRODUCTS[productId]; return p ? Math.round(p.price * (1 + 0.25 * Math.max(0, (state.buildings[p.building] || 1) - 1))) : 0; }
   function beginService(h) {
     const p = PRODUCTS[h.serviceProduct], price = servicePrice(h.serviceProduct), paid = state.stocks[h.serviceProduct] > 0 && h.gold >= price;
@@ -1121,7 +1124,7 @@ export function createGame(saved = null) {
     state.codex = state.codex || {}; state.codex[enemy.type] = (state.codex[enemy.type] || 0) + 1;   // T126:圖鑑擊殺紀錄
     const data = ENEMIES[enemy.type], multiplier = DIFFICULTIES[state.difficulty].mult;
     const gold = Math.round(data.gold * Math.sqrt(multiplier)); hunter.gold += gold; state.counts.hunterGold = (state.counts.hunterGold || 0) + gold;   // 離線戰報分開記「你的獵人」與流浪英雄
-    for (const [key, amount] of Object.entries(data.drops)) hunter.inventory[key] += amount;
+    for (const [key, amount] of Object.entries(data.drops)) hunter.inventory[key] += dropAmount(amount);
     effect('death', enemy, { enemyType: enemy.type, flipHint: (enemy.hitFromX ?? enemy.x) - (enemy.hitFromZ ?? enemy.z) < enemy.x - enemy.z });  // 打的人在左邊 → 翻面朝左(面向打倒牠的人)
     effect('loot', enemy, { text: `+${gold}`, color: '#efcd82', delay: 0.35 });
     // iso 擊殺:靈魂從屍體往上飄(soul-rise-iso)、金幣從身上彈出來在地上跳(coin-drop-iso)。純畫面,不影響掉落。
@@ -2192,6 +2195,7 @@ export function createGame(saved = null) {
     // 2026-11-16 交易所行商直購(pixel-data MERCHANT):補足某份成本(建築/升級/製作)缺的材料。
     // merchantQuote(cost) → { ok, short:{材料:缺幾份}, gold:補料要花的金幣, total:補料＋成本本身的金幣, unit:{材料:單價}, reason }
     //   ok=false 時 reason 說明為什麼不能補(沒有交易所、缺的是金幣/星晶這類不能買的東西、金幣不夠)。
+    dropAmount,   // 野外材料掉落量(隨難度提高;測試與 UI 預覽用)
     servicePrice,   // 設施服務的目前售價(隨設施等級上升;UI 顯示用)
     merchantRate() { const lv = state.buildings.trading || 0; return lv ? Math.max(MERCHANT.floor, MERCHANT.markup - MERCHANT.step * (lv - 1)) : 0; },
     merchantQuote(cost = {}) {
