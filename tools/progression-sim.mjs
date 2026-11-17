@@ -90,7 +90,7 @@ rows.push(snap());
 while (s.day <= DAYS) {
   if (t >= nextPolicy) { policy(); nextPolicy += POLICY_EVERY; }
   g.tick(1); t += 1;
-  const deadNow = new Set(s.hunters.filter(h => h.hp <= 0).map(h => h.id));
+  const deadNow = new Set(s.hunters.filter(h => h.hp <= 0 && h.task !== 'arena').map(h => h.id));   // 競技場是模擬戰:打倒會在賽後回到 35% 生命,不算死亡(遊戲的 counts.deaths 也不算)
   for (const id of deadNow) if (!lastDead.has(id)) {
     deaths++; const h = s.hunters.find(x => x.id === id), p = prevOf.get(id) || {};   // p = what the hunter was doing one second before dying
     const key = `${p.task || 'field'}:${p.region || '-'}:lv${Math.min(30, Math.floor((p.level ?? h.level) / 5) * 5)}+`;
