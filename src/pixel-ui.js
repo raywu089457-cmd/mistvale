@@ -740,10 +740,10 @@ function modalHTML(type){const s=game.state;
  if(type==='difficulty'){
    // 跟 game.setDifficulty() 同一個算法：全體獵人的轉世次數加總（不是村莊的 counts.rebirths）
    const rb=s.hunters.reduce((n,h)=>n+(h.rebirths||0),0);
-   return `<p class="hv-note">難度提高魔物生命與攻擊，金幣與經驗小幅加成；切換會重生整張地圖的魔物。</p>
+   return `<p class="hv-note">難度提高魔物生命與攻擊；金幣與經驗小幅加成，野外材料掉落大幅增加（地下城不受影響）。切換會重生整張地圖的魔物。</p>
    <div class="diff-summary" role="status">目前 <b>${DIFFICULTIES[s.difficulty].name}</b> · 累計轉世 <b>${rb}</b> 次</div>
    <div class="difficulty-grid">${DIFFICULTIES.map((d,i)=>{const cur=s.difficulty===d.id,locked=!cur&&rb<d.rebirths;return `<article class="difficulty-card ${cur?'current':''}${locked?' locked':''}" data-diff="${d.id}" ${locked?'aria-disabled="true"':''}><i>${iconHTML('diff-'+Math.min(4,i))}</i><h3>${d.name}${cur?'<em class="diff-now">目前</em>':''}</h3>
-     <dl class="diff-stats"><div><dt>魔物生命</dt><dd>×${d.mult}</dd></div><div><dt>魔物攻擊</dt><dd>×${d.mult}</dd></div><div><dt>金幣・經驗</dt><dd>×${(Math.sqrt(d.mult)).toFixed(2)}</dd></div></dl>
+     <dl class="diff-stats"><div><dt>魔物生命</dt><dd>×${d.mult}</dd></div><div><dt>魔物攻擊</dt><dd>×${d.mult}</dd></div><div><dt>金幣・經驗</dt><dd>×${(Math.sqrt(d.mult)).toFixed(2)}</dd></div><div><dt>材料掉落</dt><dd>×${+(1+(d.mult-1)/2).toFixed(2)}</dd></div></dl>
      <small class="diff-gate ${locked?'short':''}">${locked?`需要累計轉世 ${d.rebirths} 次（目前 ${rb}）`:`轉世 ${d.rebirths} 次解鎖`}</small>
      <button class="pixel-button ${cur?'gold':''}" data-action="setDifficulty" data-id="${d.id}" ${cur||locked?'disabled':''}>${cur?'目前難度':locked?'<i class="hv-lock" aria-hidden="true"></i>未解鎖':'選擇'}</button></article>`;}).join('')}</div>`;
  }

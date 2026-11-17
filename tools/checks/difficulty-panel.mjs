@@ -89,6 +89,7 @@ const mult = [1, 1.7, 2.8, 4.5, 7];
     if (c.rows['魔物攻擊'] !== `×${mult[i]}`) fix(`${c.name} 魔物攻擊倍率 ${c.rows['魔物攻擊'] || '(缺)'}，預期 ×${mult[i]}`);
     const want = `×${Math.sqrt(mult[i]).toFixed(2)}`;
     if (c.rows['金幣・經驗'] !== want) fix(`${c.name} 金幣・經驗倍率 ${c.rows['金幣・經驗'] || '(缺)'}，預期 ${want}`);
+    { const wantDrop = `×${+(1 + (mult[i] - 1) / 2).toFixed(2)}`; if (c.rows['材料掉落'] !== wantDrop) fix(`${c.name} 材料掉落倍率 ${c.rows['材料掉落'] || '(缺)'}，預期 ${wantDrop}`); }   // 2026-11-16 高難度＝更多材料(pixel-game dropAmount)
     const shouldLock = i > 0;
     if (shouldLock && !c.locked) fix(`${c.name} 0 次轉世應該鎖住，但沒有 .locked`);
     if (shouldLock && !c.btnDisabled) fix(`${c.name} 鎖住但按鈕仍可按`);
