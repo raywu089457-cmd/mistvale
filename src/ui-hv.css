@@ -2643,3 +2643,6 @@ html body #modal-content .z2c-foe-stat small.no{color:#ec8a7a}
 
 /* 2026-11-18 招募頁名額已滿提示 */
 .recruit-full{color:#f0c674;display:flex;gap:6px;align-items:flex-start}.recruit-full .inline-icon{flex:0 0 16px;margin-top:2px}
+
+/* 2026-11-18 建設卡「缺材料」鈕下方:補料總價(金幣不夠時) */
+html body .hv-btn.short-btn{flex-direction:column;align-items:center;justify-content:center;gap:1px}html body .hv-btn.short-btn .short-mq{display:flex;align-items:center;justify-content:center;gap:3px;font-size:11px;opacity:.85;line-height:1.1}html body .hv-btn.short-btn .short-mq .inline-icon{width:12px;height:12px;min-width:12px;min-height:12px}
