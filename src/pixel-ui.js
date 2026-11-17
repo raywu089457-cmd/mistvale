@@ -592,7 +592,7 @@ function modalHTML(type){const s=game.state;
   if(type==='build'){   // T112：先把庫存攤在上面，每張卡再寫自己的缺口，不用點進去才知道能不能蓋
     const stock=['gold',...Object.keys(MATERIALS)].map(k=>`<span class="bs-item" data-key="${k}">${iconHTML(k)} <span class="nm">${MATERIALS[k]?.name||'金幣'}</span> <b>${fmt(s[k]||0)}</b></span>`).join('');
     // 2026-11-11 獵魔村風格卡片:標題＋右上金色 i(開詳情)→ 建築圖 → 成本一行(不足的數字標紅)→ 滿寬主按鈕(建造/升級/缺什麼/鎖住);滿級改一行綠字。
-    return `<div class="build-stock" role="status" aria-label="村莊庫存">${stock}</div><div class="building-grid hv-build-grid">${listHTML(BUILDINGS,b=>{const l=s.buildings[b.id],st=buildTileState(b,l),v=upgradeView(b);
+    return `<div class="build-stock" role="status" aria-label="村莊庫存">${stock}</div>${(()=>{const mx=BUILDINGS.filter(b=>(s.buildings[b.id]||0)>=5).length;return mx===BUILDINGS.length?`<p class="hv-note bs-allmax" role="status">${iconHTML('check',true)} 全部建築都已滿級。之後的金幣與星晶留給獵人晉升、轉世與強化。</p>`:'';})()}<div class="building-grid hv-build-grid">${listHTML([...BUILDINGS].sort((a,b)=>((s.buildings[a.id]||0)>=5)-((s.buildings[b.id]||0)>=5)),b=>{const l=s.buildings[b.id],st=buildTileState(b,l),v=upgradeView(b);
       const cost=v.cost?Object.entries(v.cost).map(([k,n])=>`<span class="hv-cost${(s[k]||0)<n?' short':''}" title="${costName(k)} ${fmt(s[k]||0)}/${fmt(n)}">${iconHTML(k,true)}<b>${fmt(n)}</b></span>`).join(''):'';
       const miss=v.missing||[],lock=v.mode==='upgrade'&&v.hallBlocked,mq=miss.length&&!lock?game.merchantQuote(v.cost):null;
       // 2026-11-16:只缺材料、金幣又夠 → 主按鈕變「補料升級」(交易所行商補差額後直接升級),不要讓玩家卡在灰色按鈕
