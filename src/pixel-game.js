@@ -1301,6 +1301,7 @@ export function createGame(saved = null) {
   function endDungeon(won, retreat = false, note = null) {
     const d = state.dungeon, floor = d.floor;
     d.active = false; d.phase = won ? '勝利' : '撤退'; d.cooldown = won ? 15 : retreat ? 10 : 20; d.foes = []; dgSync();
+    d.endKind = won ? 'won' : retreat ? 'retreat' : 'lost'; d.endNote = retreat && note ? note : '';   // 2026-11-17 結算視窗用:撤退(含緊急撤退)不要寫成「倒下」
     if (won) d.floor = Math.min(100, d.bestFloor + 1);
     else if (retreat) { d.reward = {}; log(note || `小隊從地下城第 ${floor} 層撤退，正返回村莊。`, 'info'); }
     else { d.reward = {}; log(`地下城第 ${floor} 層探險失敗。獵人正撤回村莊休養。`, 'warning'); }
@@ -1376,7 +1377,7 @@ export function createGame(saved = null) {
       d.phase = '戰鬥中'; if (!d.foes?.length) d.foes = dgWave(d.floor, d.wave); dgSync(); return;
     }
     d.time += dt;
-    if (d.time >= 180) { endDungeon(false); return; }
+    if (d.time >= 180) { endDungeon(false); d.endKind = 'timeout'; return; }
     const live = () => d.foes.filter(f => f.hp > 0);
     for (const h of alive) {
       h.skillCd = Math.max(0, (h.skillCd ?? 3) - dt);

@@ -63,6 +63,8 @@ function policy() {
   if (SELL && g.sellMaterial) for (const k of Object.keys(MATERIALS)) while ((s[k] || 0) >= 150) if (!g.sellMaterial(k, 50).ok) break;
   if (TRAIN) for (const h of s.hunters) g.train(h.id);
   if (ARENA && s.buildings.training && !s.arena?.active && !(s.arena?.cooldown > 0)) { const p = g.recommendArenaParty(); const r = g.startArena(Array.isArray(p) ? p : p?.ids); if (r.ok) ev('arena'); }
+  // a Lv.100 hunter stuck in an auto-continue dungeon party: retreat so it can rebirth (the advisor tells players to)
+  if (s.dungeon.active && s.hunters.some(h => s.dungeon.hunterIds?.includes(h.id) && h.level >= 100 && (h.rebirths || 0) < 20)) { const r = g.retreatDungeon(); if (r.ok) ev('retreat for rebirth'); }
   // rebirth: a Lv.100 hunter reincarnates when free (final quest chapter; unlocks harder difficulties)
   for (const h of s.hunters) if (h.level >= 100 && h.hp > 0 && h.task !== 'dungeon' && h.task !== 'arena') { const r = g.reincarnate(h.id); if (r.ok) ev(`rebirth ${h.name} (#${h.rebirths})`); }
   // difficulty: switch to the highest unlocked difficulty (what the endgame tracker suggests); setDifficulty refuses while a run is active

@@ -1441,10 +1441,10 @@ function z2cWatch(){const s=game?.state;if(!s||!started||offlineBusy){Z2C_RUNS.d
  const d=s.dungeon,a=s.arena,R=Z2C_RUNS;
  if(d.active&&!R.dungeon)R.dungeon={from:d.floor,wins:s.counts.dungeonWins,floors:0,res:{gold:0,ore:0,gems:0},who:z2cNames(d.hunterIds),retreat:false};
  if(R.dungeon){const run=R.dungeon,n=s.counts.dungeonWins-run.wins;if(n>0){run.wins=s.counts.dungeonWins;run.floors+=n;for(const k of ['gold','ore','gems'])run.res[k]+=(d.reward&&d.reward[k])||0;}
-  if(!d.active){R.dungeon=null;const won=d.phase==='勝利',tone=won?'win':'lose';
+  if(!d.active){R.dungeon=null;const won=d.phase==='勝利',tone=won?'win':'lose';if(d.endKind==='retreat')run.retreat=true;const why=d.endKind==='timeout'?'超過 180 秒沒打完':'';
    z2cShow({kind:'dungeon',tone,title:won?'勝利':run.retreat?'撤退':'落敗',
     line:won?(run.floors>1?`小隊從第 ${run.from} 層一路推進，共通過 ${run.floors} 層，最高紀錄第 ${d.bestFloor} 層。`:`第 ${run.from} 層突破！最高紀錄推進到第 ${d.bestFloor} 層。`)
-      :run.retreat?`小隊在第 ${d.floor} 層撤退，已返回村莊${run.floors?`；先前通過 ${run.floors} 層`:''}。`:`小隊在第 ${d.floor} 層倒下，獵人正撤回村莊休養${run.floors?`；先前通過 ${run.floors} 層`:''}。`,
+      :run.retreat?`${d.endNote?d.endNote.replace(/（本層沒有獎勵）。?$/,''):`小隊在第 ${d.floor} 層撤退`}，已返回村莊${run.floors?`；先前通過 ${run.floors} 層`:''}。`:why?`第 ${d.floor} 層${why}，獵人撤回村莊${run.floors?`；先前通過 ${run.floors} 層`:''}。`:`小隊在第 ${d.floor} 層倒下，獵人正撤回村莊休養${run.floors?`；先前通過 ${run.floors} 層`:''}。`,
     sub:run.who,cells:[{ic:'gold',name:'金幣',v:run.res.gold},{ic:'ore',name:'鐵礦',v:run.res.ore},{ic:'gems',name:'晶石',v:run.res.gems}]});}}
  if(a.active&&!R.arena)R.arena={wins:a.wins,who:z2cNames(a.hunterIds)};
  if(R.arena&&!a.active){const run=R.arena;R.arena=null;const won=a.wins>run.wins;
@@ -1478,6 +1478,11 @@ Object.assign(Z2C,{worldMap:z2cWorldMapHTML,dungeon:z2cDungeonHTML,arena:z2cAren
 // 純粹由 state 推導，不記任何「已看過」狀態；條件消失就自己收起來。
 let nextStepEl=null,nextStepKey='';
 // 教學鏈(第 2–7 章)每章的「下一步」:文字＋要開的畫面(nextStepGo 的 act)＋建設面板要標的建築(flash)
+// 2026-11-17:Lv.100 還能轉世的獵人。自動續戰不會自己停,滿級獵人常卡在地下城隊伍裡(轉世會被拒絕)→ 先叫玩家撤退
+function rebirthTip(s){const top=(s.hunters||[]).filter(h=>(h.level||0)>=100&&(h.rebirths||0)<20&&(h.hp||0)>0);if(!top.length)return null;
+  const free=top.find(h=>h.task!=='dungeon'&&h.task!=='arena');if(free)return {text:`${free.name}到 Lv.100 了！到他的詳情「轉世」頁完成轉世`,act:'hunters',label:'看名冊'};
+  const dg=top.find(h=>h.task==='dungeon');if(dg)return {text:`${dg.name}已 Lv.100，在地下城裡不能轉世，先撤退回村`,act:'dungeon',label:'去撤退'};
+  return {text:`${top[0].name}已 Lv.100，競技場打完就能轉世`,act:'dungeon',label:'看競技場'};}
 function questGuide(s){const q=s.quest||{},n=q.index+1,p=`（${fmt(q.progress||0)}/${fmt(q.target||0)}）`,dg=(s.buildings?.dungeon||0)>0;
   switch(q.index){
     case 1:return {text:`到「倉庫 → 製作」做餐點，完成第 ${n} 章${p}`,act:'craft',label:'去製作'};
@@ -1494,7 +1499,7 @@ function questGuide(s){const q=s.quest||{},n=q.index+1,p=`（${fmt(q.progress||0
     case 11:return (s.buildings?.academy||0)>0?{text:`在獵人詳情的「技能」頁學習戰鬥技能，第 ${n} 章${p}`,act:'hunters',label:'看名冊'}:{text:`先蓋學院，才能教獵人戰鬥技能（第 ${n} 章）`,act:'build',label:'去建設',flash:'academy'};
     case 12:return (s.buildings?.enhancement||0)>0?{text:`在獵人詳情的「裝備」頁強化武器，第 ${n} 章${p}`,act:'hunters',label:'看名冊'}:{text:`先蓋強化精煉所，才能強化武器（第 ${n} 章）`,act:'build',label:'去建設',flash:'enhancement'};
     case 15:return {text:`首領出征冷卻好就召喚，第 ${n} 章${p}`,act:'boss',label:'召喚首領'};
-    case 17:return (s.hunters||[]).some(h=>h.level>=100)?{text:'有獵人到 Lv.100 了！到他的詳情「轉世」頁完成轉世',act:'hunters',label:'看名冊'}:{text:`讓獵人練到 Lv.100 後轉世（最高 Lv.${Math.max(0,...(s.hunters||[]).map(h=>h.level||0))}）`,act:'dungeon',label:'去地下城'};
+    case 17:return rebirthTip(s)||{text:`讓獵人練到 Lv.100 後轉世（最高 Lv.${Math.max(0,...(s.hunters||[]).map(h=>h.level||0))}）`,act:'dungeon',label:'去地下城'};
   }return null;}
 function nextStepPick(s,skipQuest=false){
   if(!s||!s.hunters)return null;
@@ -1514,6 +1519,7 @@ function nextStepPick(s,skipQuest=false){
   {const q=s.quest,g=q&&q.index>=7?questGuide(s):null;if(q&&!q.complete&&!q.claimed&&g)return {key:'quest'+q.index+'-'+(q.progress||0),...g};}
   // 2026-11-17:倉庫舊裝備堆到 30 件、又沒開自動整理 → 提醒一次去倉庫整理(30 天會堆到約 300 件);件數以 10 件為一格,避免每換一件就重彈
   if((s.autoJunk||'off')==='off'&&(s.gearStorage||[]).length>=30&&game.bulkStoredGear){const old=game.bulkStoredGear('sell',true).count;if(old>=30)return {key:'junk'+Math.floor(old/10),text:'倉庫堆了 '+old+' 件舊裝備，可以一鍵賣出或開「自動賣出」',act:'inventory',label:'去倉庫'};}
+  {const q=s.quest,t=(!q||q.claimed||q.index>17)?rebirthTip(s):null;if(t)return {key:'rebirth|'+t.text,...t};}
   const d=s.dungeon||{};
   if((s.buildings&&s.buildings.dungeon||0)>0&&idle.length>=3&&!d.active&&!(d.cooldown>0))
     return {key:'dungeon',text:idle.length+' 位獵人待機，可以派去地下城',act:'dungeon',label:'去地下城'};

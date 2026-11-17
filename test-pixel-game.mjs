@@ -669,6 +669,12 @@ run(losingDungeon, 0.2); assert.equal(losingDungeon.state.dungeon.active, false)
 const arena = createGame(); assert.equal(arena.startArena().ok, false); assert.equal(arena.construct('training').ok, true); assert.equal(arena.startArena().ok, true);
 assert.equal(arena.startDungeon(arena.state.arena.hunterIds).ok, false); run(arena, 45, false, assertFiniteEconomy); assert.equal(arena.state.arena.active, false); assert.equal(arena.state.arena.wins, 1); assert.equal(arena.state.arena.opponent, '暮林訓練隊');
 
+{ // 2026-11-17 地下城結束方式(結算視窗用):撤退 ≠ 倒下
+  const g = createGame(), st = g.state; g.construct('dungeon');
+  for (const h of st.hunters) { h.hp = h.maxHp; h.satiety = h.mood = h.stamina = 100; }
+  assert.equal(g.startDungeon().ok, true); assert.equal(g.retreatDungeon().ok, true);
+  assert.equal(st.dungeon.endKind, 'retreat'); assert.equal(st.dungeon.active, false);
+}
 { // 2026-11-17 多的材料半價賣給行商:單價 = 收購價 × 0.5,低於收購價(不會買賣套利)
   const g = createGame(), st = g.state; st.flour = 300; const gold0 = st.gold;
   const r = g.sellMaterial('flour', 50); assert.equal(r.ok, true);
