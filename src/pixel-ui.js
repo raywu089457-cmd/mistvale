@@ -676,7 +676,7 @@ function modalHTML(type){const s=game.state;
    const tagIcon=st==='done'?iconHTML('check',true):st==='locked'?iconHTML('lock',true):'';
    // Z2B(圖鑑 38／規格 k):每個委託一列——標題、目標進度膠囊「x/y」、獎勵；可領取用金棕「領取」鈕，領過的列壓暗＋灰色「已完成」
    const prog=st==='current'?s.quest.progress:st==='done'?q.target:0,pp=st==='current'?pct:st==='done'?100:0;
-   return `<li class="zq-row ${st}${st==='current'&&claimable?' ready':''}"${st==='current'?' aria-current="step"':''}><span class="zq-num" aria-hidden="true">${st==='done'?'✓':String(i+1).padStart(2,'0')}</span><div class="zq-body"><h3>${q.title}</h3><p>${q.description}</p><div class="zq-line"><div class="zq-cap" role="progressbar" aria-valuemin="0" aria-valuemax="${q.target}" aria-valuenow="${prog}" aria-label="${q.title}進度"><span style="width:${pp.toFixed(1)}%"></span><b>${fmt(prog)}/${fmt(q.target)}</b></div><div class="cost zq-reward"><small>獎勵</small>${costs(q.reward)}</div>${st==='current'?'':`<em class="zq-tag ${st}">${tagIcon}${tag}</em>`}</div></div>${st==='current'?`<div class="zq-side"><button class="pixel-button gold zq-claim" data-action="quest" ${claimable?'':'disabled'}>${claimable?'領取':'進行中'}</button></div>`:''}</li>`;};
+   return `<li class="zq-row ${st}${st==='current'&&claimable?' ready':''}"${st==='current'?' aria-current="step"':''}><span class="zq-num" aria-hidden="true">${st==='done'?'✓':String(i+1).padStart(2,'0')}</span><div class="zq-body"><h3>${q.title}</h3><p>${q.description}</p><div class="zq-line"><div class="zq-cap" role="progressbar" aria-valuemin="0" aria-valuemax="${q.target}" aria-valuenow="${prog}" aria-label="${q.title}進度"><span style="width:${pp.toFixed(1)}%"></span><b>${fmt(prog)}/${fmt(q.target)}</b></div><div class="cost zq-reward"><small>獎勵</small>${costs(q.reward)}</div>${st==='current'?'':`<em class="zq-tag ${st}">${tagIcon}${tag}</em>`}</div></div>${st==='current'?`<div class="zq-side">${claimable?'<button class="pixel-button gold zq-claim" data-action="quest">領取</button>':(g=>g?`<button class="pixel-button zq-claim zq-go" data-action="questGo">${esc(g.label)}</button>`:'<button class="pixel-button gold zq-claim" data-action="quest" disabled>進行中</button>')(Z2C.questGo?.(s))}</div>`:''}</li>`;};
    const sep=t=>`<li class="z2b-sep" role="separator" aria-label="${t}"><span>${t}</span></li>`;
   const head=`<div class="qs-banner hv-sumline"><div class="qs-meta"><span>第 <b>${Math.min(cur+1,list.length)}</b> 章／共 ${list.length} 章</span><span>已解鎖 <b>${unlocked}</b> 章</span>${claimable?'<span class="qs-ready">本章獎勵可領取</span>':s.quest.claimed?'<span>全部章節完成</span>':''}</div></div>`;
   const grp=f=>list.map((q,i)=>f(i)?step(q,i):'').join('');
@@ -912,7 +912,8 @@ function doAction(el){const a=el.dataset.action,id=el.dataset.id;let r;
     advisorReq={text:el.querySelector('.ns-tx')?.textContent||'',act:el.dataset.act||'',flash:el.dataset.flash||'',label:el.querySelector('.ns-go')?.textContent||'前往',more:ADVISOR_MORE[el.dataset.key]||''};
     openModal('advisor');return;
   }
-  if(a==='nextStepGo'){const t=el.dataset.act;
+  if(a==='questGo'){const g=Z2C.questGo?.(game.state);if(!g)return;advisorReq={text:g.text||'',act:g.act,flash:g.flash||'',label:g.label};}   // 2026-11-18 委託頁「前往」
+  if(a==='nextStepGo'||a==='questGo'){const t=a==='questGo'?advisorReq.act:el.dataset.act;
     // 2026-11-16:原本「去製作」(act=craft)不在清單裡 → 按了只會關面板;補上製作、交易、鍛造分頁、首領
     if(t==='craftGear'){craftTab='gear';openModal('craft');return;}
     if(t==='quests'||t==='hunters'||t==='dungeon'||t==='build'||t==='worldmap'||t==='craft'||t==='trade'||t==='boss'||t==='inventory')openModal(t);else closeModal();
@@ -1491,6 +1492,7 @@ Object.assign(Z2C,{worldMap:z2cWorldMapHTML,dungeon:z2cDungeonHTML,arena:z2cAren
 let nextStepEl=null,nextStepKey='';
 // 教學鏈(第 2–7 章)每章的「下一步」:文字＋要開的畫面(nextStepGo 的 act)＋建設面板要標的建築(flash)
 // 2026-11-17:Lv.100 還能轉世的獵人。自動續戰不會自己停,滿級獵人常卡在地下城隊伍裡(轉世會被拒絕)→ 先叫玩家撤退
+Z2C.questGo=s=>{const q=s&&s.quest;if(!q||q.complete||q.claimed)return null;return q.index===0?{text:'',act:'hunters',label:'看名冊'}:questGuide(s);};
 function rebirthTip(s){const top=(s.hunters||[]).filter(h=>(h.level||0)>=100&&(h.rebirths||0)<20&&(h.hp||0)>0);if(!top.length)return null;
   const free=top.find(h=>h.task!=='dungeon'&&h.task!=='arena');if(free)return {text:`${free.name}到 Lv.100 了！到他的詳情「轉世」頁完成轉世`,act:'hunters',label:'看名冊'};
   const dg=top.find(h=>h.task==='dungeon');if(dg)return {text:`${dg.name}已 Lv.100，在地下城裡不能轉世，先撤退回村`,act:'dungeon',label:'去撤退'};
