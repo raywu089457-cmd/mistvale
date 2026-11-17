@@ -1585,6 +1585,7 @@ html body #modal-content .quest-step.locked .qs-tag{color:#c4b99f!important}
   --z1-br-br:url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 10 10' shape-rendering='crispEdges'%3E%3Cpath fill='%23aca99a' d='M10 0H8v6H6v2H0v2h10z'/%3E%3C/svg%3E");
   --z1-brackets:var(--z1-br-tl) left top,var(--z1-br-tr) right top,var(--z1-br-bl) left bottom,var(--z1-br-br) right bottom;
 }
+@media(min-width:761px){:root{--hv-drawer-h:min(max(45vh,420px),calc(100vh - 220px))}}   /* 2026-11-17 筆電 768 高時 45% 只剩 345px(交易所只看得到一列):至少 420px,但頂部 HUD 仍露出 */
 @media(max-width:760px){:root{--hv-tab-h:70px;--hv-drawer-h:50vh;--hv-hit:44px}}
 @media(max-height:520px){:root{--hv-tab-h:58px;--hv-hit:44px}}
 
