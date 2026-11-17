@@ -1612,7 +1612,11 @@ function paintMap(canvas,mini=false){
  for(let z=WORLD.minZ;z<WORLD.maxZ;z+=1)for(let x=WORLD.minX;x<WORLD.maxX;x+=1){const terrain=biomeAt(x,z);g.fillStyle=MAP_PALETTE[terrain]||BIOME_PALETTE[terrain];if((x*17+z*31)%11===0&&!['ocean','river','ice','bridge'].includes(terrain))g.fillStyle=terrain==='snow'?MAP_ACCENT.snow:terrain==='desert'?MAP_ACCENT.desert:terrain==='mountain'?MAP_ACCENT.mountain:MAP_ACCENT.grass;g.fillRect(Math.floor(margin+(x-WORLD.minX)*sx),Math.floor(margin+(z-WORLD.minZ)*sy),Math.ceil(sx),Math.ceil(sy));}
  const to=(x,z)=>[margin+(x-WORLD.minX)*sx,margin+(z-WORLD.minZ)*sy];
  for(const b of BUILDINGS){if(!game.state.buildings[b.id])continue;const p=game.state.layout[b.id],q=to(p.x,p.z);g.fillStyle='#efe1af';g.fillRect(q[0]-3,q[1]-2,6,4);}
- for(const r of REGIONS){const[x,y]=to(r.x,r.z);g.fillStyle=r.id===game.state.region?'#ffe182':'#344634';g.fillRect(x-3,y-3,6,6);if(!mini){g.font='bold 12px "Ark Pixel 12", "Microsoft JhengHei", sans-serif';g.textAlign='center';const tw=g.measureText(r.name).width;g.fillStyle='#233428dd';g.fillRect(x-tw/2-4,y+6,tw+8,19);g.fillStyle='#ffebbd';g.fillText(r.name,x,y+20);}}
+ const placed=[];   // 2026-11-17 區域名牌互相避開:先試點的下方,再試上方、右、左;四個位置都會壓到別的名牌就只畫點(名字在下方清單)
+ for(const r of REGIONS){const[x,y]=to(r.x,r.z);g.fillStyle=r.id===game.state.region?'#ffe182':'#344634';g.fillRect(x-3,y-3,6,6);if(!mini){const small=w<260,nm=small?r.name.slice(0,2):r.name;g.font=`bold ${small?11:12}px "Ark Pixel 12", "Microsoft JhengHei", sans-serif`;g.textAlign='center';const tw=g.measureText(nm).width,bw=tw+(small?4:8),bh=small?15:19;
+  const spots=[[x-bw/2,y+4],[x-bw/2,y-4-bh],[x+5,y-bh/2],[x-5-bw,y-bh/2]].map(([lx,ly])=>[Math.max(1,Math.min(w-bw-1,lx)),Math.max(1,Math.min(h-bh-1,ly))]);
+  const hit=([lx,ly])=>placed.some(q=>lx<q[0]+q[2]&&lx+bw>q[0]&&ly<q[1]+q[3]&&ly+bh>q[1]),spot=spots.find(p=>!hit(p));if(!spot)continue;placed.push([spot[0],spot[1],bw,bh]);
+  g.fillStyle='#233428dd';g.fillRect(spot[0],spot[1],bw,bh);g.fillStyle='#ffebbd';g.fillText(nm,spot[0]+bw/2,spot[1]+(small?12:14));}}   // 手機地圖只有約 160px 寬:用兩個字的簡稱(白樺、向陽…都不重複)
  if(mini)for(const h of game.state.hunters){const[x,y]=to(h.x,h.z);g.fillStyle='#fff7da';g.fillRect(x-1,y-1,3,3);}
 }
 

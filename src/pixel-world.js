@@ -2335,9 +2335,38 @@ let renderDprMax=Math.max(1,dprCap||autoDpr());   // 畫布解析度上限(devic
       else if(marching){act='walk';i=Math.floor(t/A('walk').frameTime)%A('walk').frames;}
       else{const id=m.idle?'idle':Object.keys(m)[0];act=id;i=Math.floor(t/m[id].frameTime+hash(h.id))%m[id].frames;}
       ctx.save();ctx.globalAlpha=.3;ctx.fillStyle='#000';ctx.beginPath();ctx.ellipse(p.x,p.y,9*scale,2.6*scale,0,0,Math.PI*2);ctx.fill();ctx.restore();
-      drawSheetHero(h,p,1,{act,i},h.hp>0?1:.75);
+      if(!dgDollHero(h,p,act,i,atk,hurt,h.hp>0?1:.75))drawSheetHero(h,p,1,{act,i},h.hp>0?1:.75);   // 紙娃娃沒涵蓋/還沒載好 → 舊 sheet
       if(h.hp>0)hpBar(p.x,p.y-26*scale,14*scale,h.hp/h.maxHp,h.hp/h.maxHp>.35?'#7ccf6a':'#e0533f');
       dgText(h.name,p.x,p.y+5*scale,{size:Math.round(10*dpr),color:'#f6e3b0'});}
+    // 地下城條的紙娃娃(HeroLoom)英雄:跟地圖同一套合成,但動作/tick 只由地下城事件(d.events)推出來 —— 直接呼叫純函式
+    // dollActionTick + dollHero.compose,不經 drawDollHero,所以不碰地圖的逐獵人狀態(dollSeq/dollWind/dollHurt/dollAtk/drawnFacing/heroMemo),
+    // 獵人回到地圖時動畫不會錯位。事件時間 = 出手(release);近戰命中格對到傷害數字跳出(land),遠程在出手時射出。
+    // 一律朝右(小隊在左、魔物在右)。HeroLoom 沒有 death 動作 → dollActionTick 回 lie(hurt 末格以腳底為軸倒下)。
+    function dgDollHero(h,p,act,i,atk,hurt,alpha){
+      if(!dollHero.covers(h.classId))return false;const data=dollHero.data;if(!data)return false;
+      const meta=heroSheets[h.classId].meta,A=n=>actOf(meta,n)||meta.actions.idle;
+      const AR=A('attack'),rel=AR.release??1,ft=AR.frameTime,sd=AR.strikeDur,imp=(AR.impact||rel+1)-rel,
+        hs=sd?sd.slice(0,imp).reduce((s,v)=>s+v,0):imp*ft,sLen=sd?sd.reduce((s,v)=>s+v,0):(AR.frames-rel)*ft;
+      const pose=act==='death'?'dead':act==='skill'?'skill':act==='attack'?'strike':act==='hurt'?'hurt':act==='walk'?'walk':'idle';
+      const wn=A('walk').frames||8,wt=dollHero.weaponTypeOf(h),stamp=pose==='strike'?atk.t:null;
+      const req=dollActionTick({pose,i,t,atkAt:pose==='strike'?atk.t:-99,skillAt:pose==='skill'?atk.t:-99,hit:pose==='hurt'?Math.max(0,t-land(hurt)):0,
+        hitDelay:pose==='strike'&&!atk.shot?Math.max(.001,land(atk)-atk.t):hs,strikeEnd:sLen+HIT_STOP,hitStop:HIT_STOP,
+        skillRelease:SKILLS[h.classId]?.release,skillLen:A('skill').frames*A('skill').frameTime,hurtLen:A('hurt').frames*A('hurt').frameTime,
+        walkFrames:wn,elapsed:t,seed:(hash(h.id)%97)/97,data,weaponType:wt,attack:dollAttackVariant(data,wt,h.id,pose,{stamp,prev:stamp}),
+        deathT:9,deathLen:A('death').frames*A('death').frameTime});
+      if(!req)return false;
+      const c=dollHero.compose(h,{action:req.action,tick:req.tick,walkPhase:pose==='walk'?((((i%wn)+wn)%wn)+.5)/wn:null,dir:'side',sideHint:1,
+        hideWeapon:!partsVisible,globalTick:Math.floor(t*(data.tickRate||20))});
+      if(!c)return false;
+      const cw2=c.cv.width,ch2=c.cv.height,k=(HERO_H/c.heroHeight)*scale,dw=Math.round(cw2*k),dh=Math.round(ch2*k);
+      // 跟 drawDollHero 一樣的整體前衝/受擊後退(sheet MOTION 的 fx),朝右
+      const mrow=actOf(meta,act),mo=mrow&&!mrow.bakedMotion?motionOf(actRow(meta.actions,act),i,mrow.frames||8):null,
+        lunge=mo?.fx?R(mo.fx*(mrow.cell||meta.cell)*(HERO_H/meta.heroHeight)*scale/100):0;
+      ctx.save();
+      if(req.lie){ctx.globalAlpha=alpha*(1-.25*req.lie);ctx.translate(R(p.x),R(p.y));ctx.rotate(-req.lie*Math.PI/2);ctx.drawImage(c.cv,0,0,cw2,ch2,-c.footX*k,-c.footY*k,dw,dh);}
+      else{ctx.globalAlpha=alpha;ctx.drawImage(c.cv,0,0,cw2,ch2,R(p.x-c.footX*k)+lunge,R(p.y-c.footY*k),dw,dh);}
+      ctx.restore();
+      return true;}
     function dgFoe(f,p){const ms=MON_SHEET(f.type);if(!ms)return;const m=ms.meta.actions,big=f.big?1.3:1;
       const atk=lastEv(e=>e.a===f.id&&e.k==='hurt'),hit=lastEv(e=>e.b===f.id&&(e.k==='hit'||e.k==='skill'));
       let act='idle',i=0,alpha=1,flash=0;
