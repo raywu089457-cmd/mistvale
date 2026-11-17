@@ -926,6 +926,7 @@ function doAction(el){const a=el.dataset.action,id=el.dataset.id;let r;
     return;
   }
   // T107:小隊 HUD 的兩個按鈕(不開面板,直接在畫面上操作)
+  if(a==='hunterRetreat'){z2cMarkRetreat();r=game.retreatDungeon();logToast(r.message,r.ok);if(r.ok&&modal==='hunter-detail'){hc.tab='rebirth';openHunter(id);}paint();save();return;}   // 2026-11-18 轉世頁的「小隊撤退」:撤完留在這頁(結算視窗等面板關了再出)
   if(a==='runRetreat'){z2cMarkRetreat();r=game.retreatDungeon();logToast(r.message,r.ok);paint();save();return;}
   if(a==='runAuto'){r=game.setDungeonAuto(!game.state.dungeon.auto);logToast(r.message,r.ok);save();return;}
    // T109:世界小卡上的兩顆按鈕
