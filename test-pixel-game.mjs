@@ -669,6 +669,16 @@ run(losingDungeon, 0.2); assert.equal(losingDungeon.state.dungeon.active, false)
 const arena = createGame(); assert.equal(arena.startArena().ok, false); assert.equal(arena.construct('training').ok, true); assert.equal(arena.startArena().ok, true);
 assert.equal(arena.startDungeon(arena.state.arena.hunterIds).ok, false); run(arena, 45, false, assertFiniteEconomy); assert.equal(arena.state.arena.active, false); assert.equal(arena.state.arena.wins, 1); assert.equal(arena.state.arena.opponent, '暮林訓練隊');
 
+{ // 2026-11-17 多的材料半價賣給行商:單價 = 收購價 × 0.5,低於收購價(不會買賣套利)
+  const g = createGame(), st = g.state; st.flour = 300; const gold0 = st.gold;
+  const r = g.sellMaterial('flour', 50); assert.equal(r.ok, true);
+  assert.equal(st.flour, 250); assert.equal(st.gold - gold0, Math.floor(50 * MATERIALS.flour.price * 0.5));
+  assert.ok(MATERIALS.flour.price * 0.5 < MATERIALS.flour.price, 'sell below buy price');
+  assert.equal(g.sellMaterial('flour', 999).ok, true); assert.equal(st.flour, 0, 'sells at most what is in stock');
+  assert.equal(g.sellMaterial('flour', 10).ok, false, 'nothing left to sell');
+  assert.equal(g.sellMaterial('nope', 10).ok, false);
+  st.buildings.trading = 0; st.herb = 500; assert.equal(g.sellMaterial('herb', 50).ok, false, 'needs a trading post');
+}
 { // 2026-11-17 地下城仇恨照最大生命加權:近戰輸出(刺客)跟聖騎士一起站前排時,不再一半打擊落在薄皮刺客身上而提早撤退
   const runDg = mid => { const base = createGame(); base.construct('dungeon'); const raw = base.serialize(), src = raw.hunters;
     raw.hunters = ['paladin', mid, 'priest'].map((c, i) => ({ ...JSON.parse(JSON.stringify(src.find(x => x.classId === c))), id: 'd' + i, level: 30, xp: 0 }));

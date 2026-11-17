@@ -2323,6 +2323,17 @@ export function createGame(saved = null) {
       return { ok: true, short, gold, total, unit, reason: '' };
     },
     // 只買缺的那部分材料(不付成本本身);成功後呼叫端再照常 construct/upgrade/craft。
+    // 2026-11-17 多的材料半價賣給行商(藥草、小麥粉常堆到幾百份用不完;木材鐵礦才是建設瓶頸)。單價 = 收購價 × MERCHANT.sell,低於收購價 → 不會有買低賣高的迴圈。
+    sellMaterial(materialId, amount) {
+      const m = MATERIALS[materialId]; if (!m) return result(false, '沒有這種材料。');
+      if (!state.buildings.trading) return result(false, '請先建造交易所。');
+      const n = Math.min(Math.floor(Number(amount) || 0), Math.floor(state[materialId] || 0));
+      if (n <= 0) return result(false, `${m.name}沒有庫存可以賣。`);
+      const gold = Math.floor(n * m.price * MERCHANT.sell);
+      state[materialId] -= n; state.gold += gold;
+      state.counts.matSold = (state.counts.matSold || 0) + n; state.counts.matSoldGold = (state.counts.matSoldGold || 0) + gold;
+      log(`賣給行商 ${n} 份${m.name}，得到 ${gold} 金幣。`, 'info'); return result(true, `賣出 ${n} 份${m.name}，得到 ${gold} 金幣。`);
+    },
     buyMaterials(cost = {}) {
       const q = this.merchantQuote(cost);
       if (!Object.keys(q.short).length) return { ...result(false, '材料已經足夠，不需要購買。'), spent: 0 };

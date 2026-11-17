@@ -2629,3 +2629,8 @@ html body #modal-content .z2c-foe-stat small{font-size:12px}
 html body #modal-content .z2c-foe-stat small.ok{color:#9fd27a}
 html body #modal-content .z2c-foe-stat small.warn{color:#e4c97b}
 html body #modal-content .z2c-foe-stat small.no{color:#ec8a7a}
+
+/* 2026-11-17 交易所:多的材料賣給行商 */
+.trade-row .tr-sell{display:flex;flex-direction:column;align-items:center;gap:1px;line-height:1.2}
+.trade-row .tr-sell small{display:block;font-size:var(--fs-tiny);color:#e5c47f}
+@media(max-width:760px){html body #modal-content .trade-row.z2b-cell .tr-step{grid-template-columns:1.25fr 1fr 1fr}}   /* 手機:數量框藏起來(數字在圖示角標),−10／−／＋ 排成一列,不要「＋」單獨掉到第二列 */

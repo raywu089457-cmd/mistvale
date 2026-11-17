@@ -15,7 +15,9 @@ const jsonOut = process.argv.includes('--json') ? process.argv[process.argv.inde
 const arg = k => process.argv.includes(k) ? process.argv[process.argv.indexOf(k) + 1] : null;
 const SEED = arg('--seed'), SUMMARY = process.argv.includes('--summary'), SAFE_DIFF = process.argv.includes('--stay-easy');   // --train: tap 修煉 for every hunter whenever it is ready (upper bound for an active player)
 const TRAIN = process.argv.includes('--train');   // --arena: start the arena ladder whenever it is ready (recommended party)
-const ARENA = process.argv.includes('--arena');   // --stay-easy: never raise difficulty
+const ARENA = process.argv.includes('--arena');   // --save FILE: write the final save (open it in the browser to review mid-game screens)
+const saveOut = arg('--save');   // --sell: sell surplus materials to the merchant (50 at a time while stock ≥ 150)
+const SELL = process.argv.includes('--sell');   // --stay-easy: never raise difficulty
 const g = createGame(null);
 const s = g.state;
 if (SEED != null) s.seed = (Number(SEED) >>> 0) || 1;
@@ -58,6 +60,7 @@ function policy() {
   // dungeon, boss when possible
   if (s.buildings.dungeon && !s.dungeon.active && s.dungeon.cooldown <= 0) { g.setDungeonAuto(true); const r = g.startDungeon(); if (r.ok) ev(`dungeon start f${s.dungeon.floor}`); }
   if (!s.expedition.active && s.expedition.cooldown <= 0 && s.day >= 2) { const r = g.expedition(); if (r.ok) ev('boss expedition'); }
+  if (SELL && g.sellMaterial) for (const k of Object.keys(MATERIALS)) while ((s[k] || 0) >= 150) if (!g.sellMaterial(k, 50).ok) break;
   if (TRAIN) for (const h of s.hunters) g.train(h.id);
   if (ARENA && s.buildings.training && !s.arena?.active && !(s.arena?.cooldown > 0)) { const p = g.recommendArenaParty(); const r = g.startArena(Array.isArray(p) ? p : p?.ids); if (r.ok) ev('arena'); }
   // rebirth: a Lv.100 hunter reincarnates when free (final quest chapter; unlocks harder difficulties)
@@ -102,7 +105,9 @@ while (s.day <= DAYS) {
   if (s.day !== lastDay) { lastDay = s.day; rows.push(snap()); }
 }
 const fmt = r => `d${String(r.day).padStart(2)} gold ${String(r.gold).padStart(6)} w${r.wood} o${r.ore} h${r.herb} c${r.cloth} f${r.flour} l${r.leather} gem${r.gems} | H ${r.hunters}/${r.cap} lv ${r.lvMin}/${r.lvMed}/${r.lvMax} hg${r.hGold} | sat${r.sat} sta${r.sta} mood${r.mood} | dead ${r.deaths} kills ${r.kills} boss ${r.boss} | forge${r.forge} gi${r.gearInc} | Q${r.quest}${r.questDone ? '✓' : ''} floor ${r.floor} bLv ${r.b} | stk ${Object.values(r.stocks).join('/')}`;
+const writeSave = () => { if (saveOut) { const d = g.serialize(); d.paused = true; d.savedAt = Date.now(); writeFileSync(saveOut, JSON.stringify(d)); } };
 if (SUMMARY) {
+  writeSave();
   const r = rows.at(-1), dayOf = q => rows.find(x => x.quest >= q)?.day ?? '-';
   console.log(`seed ${SEED ?? 'default'} | d${r.day} gold ${r.gold} wood ${r.wood} ore ${r.ore} | lv ${r.lvMin}/${r.lvMed}/${r.lvMax} hg ${r.hGold} | dead ${r.deaths} | Q${r.quest} (Q8@d${dayOf(8)} Q12@d${dayOf(12)} Q16@d${dayOf(16)}) floor ${r.floor} bLv ${r.b} | store ${(()=>{const by={};for(const it of s.gearStorage||[]){const k=EQUIPMENT[it.itemId]?.tier||"?";by[k]=(by[k]||0)+1;}return (s.gearStorage||[]).length+" "+JSON.stringify(by);})()} | rebirths ${s.counts.rebirths || 0} diff ${DIFFICULTIES[s.difficulty]?.name} | arena ${s.arena?.wins || 0}W/${s.arena?.losses || 0}L | merchant ${s.counts.merchantBuys || 0} svc ${s.counts.serviceIncome} gear ${s.counts.gearIncome ?? '-'} up ${s.counts.gearUpgrades ?? '-'} forge ${s.buildings.forge}`);
   process.exit(0);
@@ -114,4 +119,5 @@ console.log('codex (kills by type):', JSON.stringify(s.codex));
 console.log('counts:', JSON.stringify(s.counts));
 console.log(`\nsim ${DAYS} days in ${((Date.now() - t0) / 1000).toFixed(1)}s`);
 console.log('events (first 80):'); for (const e of events.slice(0, 80)) console.log('  ' + e);
+writeSave();
 if (jsonOut) writeFileSync(jsonOut, JSON.stringify({ rows, events }, null, 1));
