@@ -59,8 +59,8 @@ export const SKILLS={
 };
 export const RARITIES=[{id:'normal',name:'普通',color:'#d3cab2',mult:1},{id:'rare',name:'稀有',color:'#6fbe8b',mult:1.08},{id:'superior',name:'超級稀有',color:'#6caeee',mult:1.18},{id:'heroic',name:'英雄',color:'#c184e1',mult:1.32},{id:'legendary',name:'傳說',color:'#efb955',mult:1.5}];
 // 2026-11-18 晉升:村莊金幣＋星晶把獵人的稀有度往上升一階(後期金幣、星晶的出口;只改 h.rarity,存檔格式不變)。
-// key = 升上去的那一階。普通 → 傳說全程 40,500 金＋245 星晶。
-export const PROMOTE={rare:{gold:1500,gems:10},superior:{gold:4000,gems:25},heroic:{gold:10000,gems:60},legendary:{gold:25000,gems:150}};
+// key = 升上去的那一階。普通 → 傳說全程 40,500 金＋735 星晶(星晶跟金幣約 1:50,兩種一起用完)。
+export const PROMOTE={rare:{gold:1500,gems:30},superior:{gold:4000,gems:75},heroic:{gold:10000,gems:180},legendary:{gold:25000,gems:450}};
 export const TRAITS=[{id:'swift',name:'快手',desc:'攻擊間隔縮短 10%'},{id:'stout',name:'壯碩',desc:'最大生命提高 15%'},{id:'cheerful',name:'樂天',desc:'心情消耗減半'},{id:'frugal',name:'節儉',desc:'生活需求消耗減少 15%'},{id:'brave',name:'勇敢',desc:'攻擊力提高 10%'}];
 // 2026-11-16 交易所商人直購:村莊金幣後期大量閒置(14 天模擬 5000~8000 金沒地方花),材料卻卡住升級。
 // 交易所可以直接向行商買材料,單價 = 收購價 × markup;交易所每升一級便宜 step,最低 floor 倍(Lv.1 6 倍、Lv.5 4 倍)。
