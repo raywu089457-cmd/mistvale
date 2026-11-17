@@ -2681,3 +2681,17 @@ html body #modal-content .z2c-first{color:var(--hv-quest);font-weight:700}
 /* 2026-11-18 圖鑑摘要:每段一個 flex 項目(原本字和數字各自是項目,間距亂、斷在句中) */
 html body #modal-content .cx-summary{gap:4px 16px;align-items:baseline}
 html body #modal-content .cx-summary .cx-s{white-space:nowrap}
+/* 2026-11-18 窄平板直向(761–899px):小隊 HUD 夾在左欄與行動徽章之間只剩約 280px,原本字一個個被擠斷(地下城直排、撤/退)。
+   位置不動,內容改用手機那套緊湊排法:標題列可換行、每段不斷字,三位獵人排三欄、只留目前生命。 */
+@media(min-width:761px) and (max-width:899px) and (min-height:521px){
+  html body #run-hud{padding:6px 8px 7px;gap:4px}
+  html body #run-hud .rh-head{flex-wrap:wrap;gap:4px 6px}
+  html body #run-hud .rh-head>*{white-space:nowrap;flex:0 0 auto}
+  html body #run-hud .rh-party{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:4px 12px}
+  html body #run-hud .rh-unit{display:grid;grid-template-columns:minmax(0,1fr) auto;gap:2px 4px;align-items:center}
+  html body #run-hud .rh-cls{display:none}
+  html body #run-hud .rh-name{order:1;max-width:none;overflow:hidden;text-overflow:ellipsis}
+  html body #run-hud .rh-num{order:2;min-width:0}
+  html body #run-hud .rh-unit:not(.rh-foe) .rh-max{display:none}
+  html body #run-hud .rh-bar{order:3;grid-column:1/-1;width:100%}
+}
