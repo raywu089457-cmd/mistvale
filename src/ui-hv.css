@@ -788,6 +788,11 @@ html body #hv-sel .hv-hex-x>span{background:url("data:image/svg+xml,%3Csvg xmlns
 html body #hv-sel .hv-hex:hover::after{background:linear-gradient(180deg,#4a4038 0%,#2e2620 100%)}
 html body #hv-sel .hv-hex:active{transform:translateY(1px)}
 html body #hv-sel .hv-hex:focus-visible{outline:2px solid var(--hv-gold)!important;outline-offset:0!important}
+/* 2026-11-16 升級六角鈕 ▲:綠色＝直接升級;青綠＝補料後升級(要多花金幣) */
+html body #hv-sel .hv-hex-up{color:#9fe07a}
+html body #hv-sel .hv-hex-up.merchant{color:#7fe0cf}
+html body #hv-sel .hv-hex-up.merchant::after{background:linear-gradient(180deg,#2f7a6e 0%,#1d4f47 100%)}
+html body #hv-sel .hv-hex[hidden]{display:none!important}
 body.piloting #hv-sel{display:none!important}
 
 /* ── D 亮色對話框(開場導覽、顧問提示展開):底部亮色框、說話者名字掛在上緣、頭像在左 ── */

@@ -973,6 +973,10 @@ if(a==='setDifficulty'){r=game.setDifficulty(Number(id));logToast(r.message,r.ok
  if(a==='rosterMenu'){rosterMenu=!rosterMenu;openModal('hunters');if(rosterMenu)$('#roster-menu [aria-pressed=true]')?.focus({preventScroll:true});return;}
  if(a==='locateHunter'){const h=game.state.hunters.find(v=>v.id===id);closeModal();if(h){world?.lookAt(h.x,h.z,Math.max(1.6,world?.getScale?.()||1.6));selectWorld('hunter:'+h.id);}return;}
  if(a==='selInfo'){selInfo();return;}
+ if(a==='selUpgrade'){const id2=selTarget;const st=id2&&selUpgradeState(id2);if(!st){logToast('現在沒辦法升級這棟建築。',false);return;}const lv=game.state.buildings[id2]||0,b=BUILDINGS.find(x=>x.id===id2);
+   if(st.merchant){const buy=game.buyMaterials(lv?game.getUpgradeCost(id2):b.cost);if(!buy.ok){logToast(buy.message,false);selUpgradePaint(id2);return;}r=lv?game.upgrade(id2):game.construct(id2);logToast(r.ok?`${buy.message} ${r.message}`:r.message,r.ok);}
+   else{r=lv?game.upgrade(id2):game.construct(id2);logToast(r.message,r.ok);}
+   paint();save();selUpgradePaint(id2);return;}
  if(a==='selCancel'){selCancel();return;}
  if(a==='rosterFilter'||a==='rosterSort'){if(a==='rosterFilter')rosterFilter=id;else rosterSort=id;return openModal('hunters');}
  if(a==='tradeStep'){const cur=game.state.tradeRequests[id]||0,v=Math.max(0,Math.min(999,cur+Number(el.dataset.d||0)));r=game.setTradeRequest(id,v);if(!r.ok)logToast(r.message,false);openModal('trade');save();return;}
@@ -1201,7 +1205,15 @@ function handleWorldSelect(id){
 // ── 世界內選取:兩顆六角鈕跟著目標(建築點擊框的下緣／角色腳底)走,每幀用 world 的點擊框換算成畫面座標 ──
 let selTarget=null,selShownKey='';
 function selectWorld(id){hideUnitCard();if(selected&&!$('#inspector').classList.contains('hidden'))closeInspector();selTarget=id;world?.setSelected(id);
-  const el=$('#hv-sel');if(el){const nm=selName(id);el.dataset.target=id;el.setAttribute('aria-label','已選取 '+nm);el.querySelector('[data-action=selInfo]')?.setAttribute('aria-label',nm+' 資訊');}selPaint();}
+  const el=$('#hv-sel');if(el){const nm=selName(id);el.dataset.target=id;el.setAttribute('aria-label','已選取 '+nm);el.querySelector('[data-action=selInfo]')?.setAttribute('aria-label',nm+' 資訊');}selUpgradePaint(id);selPaint();}
+// 2026-11-16 獵魔村式「在地圖上直接升級」:點建築後的六角鈕多一顆 ▲,能升級(或補料後能升級／建造)時才出現
+function selUpgradeState(id){const b=BUILDINGS.find(x=>x.id===id);if(!b)return null;const s=game.state,lv=s.buildings[id]||0;if(lv>=5)return null;
+  if(lv&&id!=='hall'&&lv+1>(s.buildings.hall||1)+1)return null;
+  const cost=lv?game.getUpgradeCost(id):b.cost,miss=costMissing(cost),verb=lv?`升級到 Lv.${lv+1}`:'建造';
+  if(!miss.length)return {merchant:false,label:`${b.name}：${verb}（${Object.entries(cost).map(([k,v])=>costName(k)+' '+fmt(v)).join('、')}）`};
+  const q=game.merchantQuote?.(cost);return q?.ok?{merchant:true,label:`${b.name}：補料${verb}（共 ${fmt(q.total)} 金）`}:null;}
+function selUpgradePaint(id){const up=$('#hv-sel .hv-hex-up');if(!up)return;const st=BUILDINGS.some(b=>b.id===id)?selUpgradeState(id):null;
+  up.hidden=!st;up.classList.toggle('merchant',!!st?.merchant);if(st){up.title=st.label;up.setAttribute('aria-label',st.label);}}
 function selName(id){if(id.startsWith('hunter:')){const h=game.state.hunters.find(v=>v.id===id.slice(7));return h?h.name:'獵人';}if(id.startsWith('foe:')){const e=(game.state.enemies||[]).find(v=>v.id===id.slice(4));return e?(MONSTER_NAME[e.type]||e.type):'魔物';}return BUILDINGS.find(b=>b.id===id)?.name||id;}
 function selCancel(){if(!selTarget)return;const t=selTarget;selTarget=null;selShownKey='';const el=$('#hv-sel');if(el){el.hidden=true;delete el.dataset.target;}if(!selected||selected!==t)world?.setSelected(selected||null);}
 function selInfo(){const t=selTarget;if(!t)return;selTarget=null;selShownKey='';const el=$('#hv-sel');if(el){el.hidden=true;delete el.dataset.target;}
