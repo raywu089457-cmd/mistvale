@@ -800,7 +800,7 @@ function modalHTML(type){const s=game.state;
     const facilities=BUILDINGS.map(b=>`<li class="hf-item" data-id="${b.id}"><b>${esc(b.name)}</b><small>${esc(b.effect||b.desc||'')}</small></li>`).join('');
     const bullets=list=>`<ul class="help-list">${list.map(t=>`<li>${t}</li>`).join('')}</ul>`;
     return ``
-      +"<nav class=\"help-nav\" aria-label=\"說明段落\">" + [['loop','核心循環'],['keys','基本操作'],['day','獵人的一天'],['facilities','村莊設施'],['outside','村外內容']].map(([k,t]) => `<button type=\"button\" class=\"help-nav-chip\" data-action=\"helpNav\" data-target=\"help-sec-${k}\">${t}</button>`).join('') + "</nav>"
+      +"<nav class=\"help-nav\" aria-label=\"說明段落\">" + [['loop','核心循環'],['keys','基本操作'],['day','獵人的一天'],['economy','經濟與裝備'],['facilities','村莊設施'],['outside','村外內容']].map(([k,t]) => `<button type=\"button\" class=\"help-nav-chip\" data-action=\"helpNav\" data-target=\"help-sec-${k}\">${t}</button>`).join('') + "</nav>"
       +`<section class="help-sec" id="help-sec-loop"><h4 class="help-h">核心循環</h4><ol class="hl-steps">${loop}</ol></section>`
       +`<section class="help-sec" id="help-sec-keys"><h4 class="help-h"><i>${iconHTML('compass')}</i>基本操作</h4>${bullets([
         coarse?'單指拖曳平移、雙指縮放畫面。':'拖曳平移、滾輪縮放畫面（手機是單指拖曳、雙指縮放）。',
@@ -810,12 +810,20 @@ function modalHTML(type){const s=game.state;
       +`<section class="help-sec" id="help-sec-day"><h4 class="help-h"><i>${iconHTML('hunter')}</i>獵人的一天</h4>${bullets([
         '每個獵人有自己的金幣、飽食度、心情與精力，也會自己決定去哪裡狩獵。',
         '外出狩獵會帶回材料、金幣與經驗；回到村莊會在餐廳吃飯、旅館休息、酒館喝酒、治療所療傷，付錢給村莊金庫。',
-        '飽食、心情或精力太低會拖慢成長；設施等級越高，一次能服務的獵人越多。',
+        '飽食、心情或精力太低會拖慢成長；設施等級越高，商品賣得越貴（每級 +25%，村莊收入跟著變多）、恢復量也越大。',
+        '受傷時獵人會照周圍的危險程度提早回村，來回都走村外的環形道路，比較不會在半路被圍。',
+        '名冊卡片上的小圖示代表獵人餓了（麵包）、累了（床）或心情差（飲品），記得補齊對應的商品。',
+      ])}</section>`
+      +`<section class="help-sec" id="help-sec-economy"><h4 class="help-h"><i>${iconHTML('gold')}</i>經濟與裝備</h4>${bullets([
+        '材料不夠時，建設、製作、鍛造、學技能與強化的按鈕會變成青綠色「補料」：向交易所行商買缺的那部分，比向獵人收購貴（收購價的 6 倍，交易所越高級越便宜）。',
+        '鐵匠鋪每升一級解鎖下一階裝備（Ⅰ～Ⅴ）；獵人回村看到比身上更高階的裝備，會自己花錢換新。',
+        '換下來的舊裝備會放進倉庫，可以一件件處理，也能在倉庫標題下「全部賣出」或「全部分解」舊階裝備（地下城、首領掉落的不會被動到）。',
       ])}</section>`
       +`<section class="help-sec" id="help-sec-facilities"><h4 class="help-h"><i>${iconHTML('hall')}</i>村莊設施與用途</h4><ul class="hf-grid">${facilities}</ul></section>`
       +`<section class="help-sec" id="help-sec-outside"><h4 class="help-h"><i>${iconHTML('map')}</i>村外內容</h4>${bullets([
-        '委託所追蹤章節與討伐目標，完成可以領獎勵。',
-        '地下城是三人遠征，走完一層推進紀錄；競技場是模擬對戰，可以測試小隊強度。',
+        '委託所追蹤 18 章委託，完成可以領獎勵；全部完成後，左上追蹤列會改成下一個長線目標（解鎖難度、競技場天梯）。',
+        '地下城是三人遠征，走完一層推進紀錄；小隊估計打不過選的那層時，會改從打得過的層出發，快撐不住也會自己撤退。已經打過的樓層再打，獎勵會減少。',
+        '競技場是不會真的死亡的模擬對戰天梯：對手隨勝場變強（到第 40 勝），獎勵跟著變多，每 5 勝另給晶石。',
         '地圖首領在生態區深處，需要先升到足夠等級再挑戰。',
       ])}</section>`
       +`<div class="help-foot"><small>想再看一次開場導覽？</small><button class="pixel-button" data-action="welcomeReplay">重看開場</button></div>`;
@@ -900,7 +908,8 @@ function doAction(el){const a=el.dataset.action,id=el.dataset.id;let r;
   if(a==='unitCardClose'){hideUnitCard();return;}
  if(a==='helpNav'){   // T148：說明目錄跳到指定段落
   const box=$('#modal-content'),t=el&&el.dataset.target?document.getElementById(el.dataset.target):null;
-  if(box&&t){const top=t.getBoundingClientRect().top-box.getBoundingClientRect().top+box.scrollTop-56;
+  // 2026-11-16:黏在上面的目錄在手機上會換成兩行(6 顆) → 用目錄實際高度當偏移,段落標題才不會被蓋住
+  if(box&&t){const nav=box.querySelector('.help-nav'),off=(nav?nav.getBoundingClientRect().height:48)+8,top=t.getBoundingClientRect().top-box.getBoundingClientRect().top+box.scrollTop-off;
     if(matchMedia('(prefers-reduced-motion: reduce)').matches)box.scrollTop=Math.max(0,top);
     else box.scrollTo({top:Math.max(0,top),behavior:'smooth'});}
   return;}

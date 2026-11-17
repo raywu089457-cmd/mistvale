@@ -1002,7 +1002,7 @@ html body #modal-content .hunter-actions .hv-act-s small .hv-k{flex:none;color:#
 html body #modal-content .hunter-actions .hv-act-s.ready{outline:2px solid var(--hv-ok);outline-offset:-3px}
 
 /* ── E 說明 ── */
-html body #modal-content .help-nav{display:flex!important;flex-wrap:wrap;gap:4px;margin:0 0 10px!important;padding:0 0 8px!important;border:0!important;border-bottom:1px solid var(--hv-line)!important;background:none!important;box-shadow:none!important}
+html body #modal-content .help-nav{display:flex!important;flex-wrap:wrap;gap:4px;margin:0 0 10px!important;padding:0 0 8px!important;border:0!important;border-bottom:1px solid var(--hv-line)!important;background:var(--hv-panel,#1f1b17)!important;box-shadow:0 6px 6px -6px rgba(0,0,0,.6)!important;padding-top:6px!important}   /* 2026-11-16:黏在上方時要有底色,不然底下的段落字會從按鈕縫隙透出來 */
 html body #modal-content .help-nav-chip{min-height:32px;padding:0 12px!important;background:var(--hv-panel-2)!important;border:1px solid var(--hv-line)!important;border-radius:2px!important;color:var(--hv-text)!important;font:700 12px/1 var(--font-ui)!important;box-shadow:none!important;text-shadow:none!important}
 html body #modal-content .help-nav-chip:hover{background:#353029!important}
 @media(max-width:760px),(max-height:520px){html body #modal-content .help-nav-chip{min-height:44px}}

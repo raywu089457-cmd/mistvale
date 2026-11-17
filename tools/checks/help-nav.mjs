@@ -27,7 +27,7 @@ for (const dev of [{ name: 'desktop 1440x900', w: 1440, h: 900, mobile: false },
       pageH: document.documentElement.scrollWidth > innerWidth + 2,
     };
   });
-  if (base.chips.length !== 5) fix(`${dev.name}: 目錄有 ${base.chips.length} 顆（應該 5）`);
+  if (base.chips.length !== 6) fix(`${dev.name}: 目錄有 ${base.chips.length} 顆（應該 6；2026-11-16 加了「經濟與裝備」）`);
   else ok(`${dev.name}: 目錄 5 顆（${base.chips.map((c) => c.t).join('／')}）`);
   const minH = dev.mobile ? 44 : 32;
   const small = base.chips.filter((c) => c.h < minH);
