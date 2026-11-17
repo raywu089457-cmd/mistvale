@@ -2652,3 +2652,7 @@ html body .z2-id-l .z2-rar-row{display:flex;align-items:center;gap:8px;flex-wrap
 html body .z2-id-l .z2-promo-chip{display:inline-flex!important;align-items:center;gap:3px;margin:0!important;padding:0 8px!important;height:26px!important;min-height:0!important;width:auto!important;border:1px solid #000;background:#3c6b2e;color:#e8f7d2;font:600 12px/1 var(--font-ui);vertical-align:middle;cursor:pointer}
 html body .z2-id-l .z2-promo-chip:hover{background:#4c8239}
 html body .z2-id-l .z2-promo-chip .inline-icon{width:14px;height:14px;min-width:14px;min-height:14px}
+
+/* 2026-11-18 世界地圖區域列:主要掉落 */
+html body .z2c-r-name .z2c-drops{display:flex;align-items:center;flex-wrap:nowrap;gap:8px;white-space:nowrap;overflow:hidden}html body .z2c-r-name .z2c-drops .zd{display:inline-flex;align-items:center;gap:2px}html body .z2c-r-name .z2c-drops .inline-icon{width:14px;height:14px;min-width:14px;min-height:14px;flex:0 0 14px}
+@media(max-width:420px){html body .z2c-r-name .z2c-drops .zd:nth-child(3){display:none}}
