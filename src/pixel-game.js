@@ -724,7 +724,7 @@ export function createGame(saved = null) {
     const data = ENEMIES[enemy.type], multiplier = DIFFICULTIES[state.difficulty].mult;
     const gold = Math.round(data.gold * Math.sqrt(multiplier));
     w.gold += gold; state.counts.wanderGold = (state.counts.wanderGold || 0) + gold;
-    for (const [key, amount] of Object.entries(data.drops)) w.inventory[key] += dropAmount(amount);
+    for (const [key, amount] of Object.entries(data.drops)) { const n = dropAmount(amount); w.inventory[key] += n; ledgerGot(w, key, n); }
     effect('death', enemy, { enemyType: enemy.type, flipHint: (enemy.hitFromX ?? enemy.x) - (enemy.hitFromZ ?? enemy.z) < enemy.x - enemy.z });
     effect('loot', enemy, { text: `+${gold}`, color: '#efcd82', delay: 0.35 });
     isoEffect('soul-rise-iso', enemy, 3.6, { delay: .1 }); isoEffect('coin-drop-iso', enemy, 3.4, { delay: .45 });   // 流浪英雄打倒的魔物也一樣:魂升天 + 金幣落地
@@ -773,6 +773,8 @@ export function createGame(saved = null) {
     return null;
   }
   // 持續收購的金庫保留額(pixel-data TRADE_RESERVE):隨大廳等級成長;一般委託不受限(可花到 0)
+  // 背包裝到這麼多份材料(而且交易所買得起)就回村賣;離線外推也用它估「一趟賣多少、多久回村一次」
+  const TRADE_BAG = 14;
   function tradeReserve() { return TRADE_RESERVE.base + TRADE_RESERVE.perHall * Math.max(0, (state.buildings.hall || 1) - 1); }
   // 這項材料現在村莊可以花多少金幣收購:持續收購只能花保留額以上的部分
   function tradeBudget(key) { return Math.max(0, state.gold - (state.tradeStanding?.[key] ? tradeReserve() : 0)); }
@@ -850,6 +852,7 @@ export function createGame(saved = null) {
       if (dgLedger) { const T = dgLedger.trade; T.qty[key] = (T.qty[key] || 0) + amount; T.cost += price; T.gold[h.id] = (T.gold[h.id] || 0) + price; if (!wandererOf(h)) T.hunterCost += price; }
     }
     if (quantity) { state.counts.traded += quantity; effect('loot', h, { text: `收購 ${quantity}`, color: '#e4c97b' }); log(`交易所收購 ${h.name} 的 ${quantity} 份材料，支付 ${coins} 金幣。`, 'loot'); }
+    if (dgLedger) dgLedger.trade.visits++;
     h.tradedVisit = true;
   }
 
@@ -1131,7 +1134,7 @@ export function createGame(saved = null) {
     state.codex = state.codex || {}; state.codex[enemy.type] = (state.codex[enemy.type] || 0) + 1;   // T126:圖鑑擊殺紀錄
     const data = ENEMIES[enemy.type], multiplier = DIFFICULTIES[state.difficulty].mult;
     const gold = Math.round(data.gold * Math.sqrt(multiplier)); hunter.gold += gold; state.counts.hunterGold = (state.counts.hunterGold || 0) + gold;   // 離線戰報分開記「你的獵人」與流浪英雄
-    for (const [key, amount] of Object.entries(data.drops)) hunter.inventory[key] += dropAmount(amount);
+    for (const [key, amount] of Object.entries(data.drops)) { const n = dropAmount(amount); hunter.inventory[key] += n; ledgerGot(hunter, key, n); }
     effect('death', enemy, { enemyType: enemy.type, flipHint: (enemy.hitFromX ?? enemy.x) - (enemy.hitFromZ ?? enemy.z) < enemy.x - enemy.z });  // 打的人在左邊 → 翻面朝左(面向打倒牠的人)
     effect('loot', enemy, { text: `+${gold}`, color: '#efcd82', delay: 0.35 });
     // iso 擊殺:靈魂從屍體往上飄(soul-rise-iso)、金幣從身上彈出來在地上跳(coin-drop-iso)。純畫面,不影響掉落。
@@ -1175,7 +1178,10 @@ export function createGame(saved = null) {
   let dgLedger = null;
   // gear/gearWander/gearPay:取樣期裡獵人(依 id)/流浪英雄買裝備花的錢 → 外推時不重複算(裝備庫存離線不會補貨)
   // trade:取樣期交易所收購(材料份數、村莊付出的金幣、各獵人/流浪英雄收到的金幣)→ 外推時從速率裡扣掉,改由 offlineFinish 依上限另算
-  const newLedger = () => ({ wins: 0, res: {}, gold: {}, xp: {}, gear: {}, gearWander: 0, gearPay: { hunterPay: 0, wanderPay: 0 }, trade: { qty: {}, cost: 0, hunterCost: 0, gold: {} } });
+  // trade.got/gotBy/visits(2026-11-17):取樣期野外掉進背包的材料份數、各獵人/流浪英雄撿到的材料價值、交易所來訪次數
+  //   → 持續收購外推不只看「取樣期剛好成交多少」,也看「撿了多少」(取樣期沒人回村賣、或金庫一開始低於保留額時不會整段 0)
+  const newLedger = () => ({ wins: 0, res: {}, gold: {}, xp: {}, gear: {}, gearWander: 0, gearPay: { hunterPay: 0, wanderPay: 0 }, trade: { qty: {}, cost: 0, hunterCost: 0, gold: {}, got: {}, gotBy: {}, visits: 0 } });
+  function ledgerGot(a, key, n) { if (!dgLedger || !(n > 0)) return; const T = dgLedger.trade; T.got[key] = (T.got[key] || 0) + n; T.gotBy[a.id] = (T.gotBy[a.id] || 0) + n * MATERIALS[key].price; }
   function dgWaveTypes(floor, wave) {
     const mix = REGION_MIX[DG_TIERS[Math.floor((floor - 1) / 3) % DG_TIERS.length]], small = mix[0], mid = mix[3], big = mix[6];
     return wave === 1 ? [small, small] : wave === 2 ? (floor >= 5 ? [mid, small, small] : [mid, small]) : (floor >= 10 ? [big, mid] : [big]);
@@ -1523,7 +1529,7 @@ export function createGame(saved = null) {
         } } }
       if (h.task === 'trade' || h.task === 'shop' || h.task === 'service') { runTownTask(h, dt, nextTownTask); continue; }
       const bagSize = MATERIAL_KEYS.reduce((sum, key) => sum + h.inventory[key], 0);
-      if (needProduct(h) || (bagSize >= 14 && tradeAvailable(h) && state.time - h.lastTownVisit > 12) || (state.time - h.lastTownVisit > 60 && gearAvailable(h))) { returnToTown(h); continue; }
+      if (needProduct(h) || (bagSize >= TRADE_BAG && tradeAvailable(h) && state.time - h.lastTownVisit > 12) || (state.time - h.lastTownVisit > 60 && gearAvailable(h))) { returnToTown(h); continue; }
       // 自己出來打獵的比較謹慎:血掉到 AUTO_HUNT.retreatHp 就回村療傷(玩家派出去的照原本 28% 才回)。
       if (h.autoHunt && h.hp < h.maxHp * AUTO_HUNT.retreatHp) { returnToTown(h); continue; }
       // 看情勢撤退(玩家派的、自主的都適用):身邊魔物 RETREAT.window 秒內打得出的傷害 ≥ 剩餘血量就先回村。
@@ -2337,24 +2343,37 @@ export function createGame(saved = null) {
         // 收購外推(2026-11-17):照取樣期的收購速率,但一般委託最多買到「剩餘收購量」為止(持續收購不扣),而且每份都要村莊付得起;
         // 持續收購另外不能讓金庫低於保留額(tradeReserve,與線上 trade() 相同規則)
         // → 村莊金幣不會變負、也不會憑空多出材料;付出的錢照取樣期的比例分給當時賣材料的獵人/流浪英雄(總額守恆)
-        if (T.cost > 0) {
-          let paid = 0;
-          const buy = (k, n, standing) => { const unit = MATERIALS[k].price; state[k] += n; state.gold -= n * unit; paid += n * unit; state.counts.traded += n; if (!standing) state.tradeRequests[k] -= n; };
+        const gotTotal = MATERIAL_KEYS.reduce((n, k) => n + (T.got[k] || 0), 0);
+        if (T.cost > 0 || gotTotal > 0) {
+          let paidOnce = 0, paidStanding = 0;
+          const buy = (k, n, standing) => { const unit = MATERIALS[k].price; state[k] += n; state.gold -= n * unit; if (standing) paidStanding += n * unit; else paidOnce += n * unit; state.counts.traded += n; if (!standing) state.tradeRequests[k] -= n; };
           // 先結一般委託(玩家明確下的單,有限量):可花到 0
           for (const k of MATERIAL_KEYS) {
             if (state.tradeStanding?.[k]) continue;
             const n = Math.max(0, Math.min(Math.round((T.qty[k] || 0) * f), state.tradeRequests[k], Math.floor(state.gold / MATERIALS[k].price)));
             if (n) buy(k, n, false);
           }
-          // 再結持續收購:只花「金庫 − 保留額」;不夠時各材料照比例縮減(不讓排在前面的材料先把錢花光)
-          const want = Object.fromEntries(MATERIAL_KEYS.filter(k => state.tradeStanding?.[k]).map(k => [k, Math.max(0, Math.round((T.qty[k] || 0) * f))]));
+          // 再結持續收購:想買的量 = max(取樣期真的成交 × 倍率, 取樣期撿到 × 倍率 但每趟最多收購量);
+          //   後者讓「取樣期剛好沒人回村賣」或「金庫一開始低於保留額、之後收入才把它推過保留額」時不會整段 0 份。
+          //   回村趟數 = max(取樣期交易所來訪次數, 撿到的總份數 ÷ TRADE_BAG)(背包裝滿 TRADE_BAG 份才回村賣)。
+          // 只花「外推完的金庫 − 保留額」(外推期間的收入已經算進金庫);不夠時各材料照比例縮減(不讓排在前面的材料先把錢花光)
+          //   沒有交易所(trading 0 級)就沒人能賣 → 只剩取樣期真的成交的部分(那時也是 0)
+          const trips = state.buildings.trading > 0 ? Math.max(T.visits || 0, gotTotal / TRADE_BAG) * f : 0;
+          const want = Object.fromEntries(MATERIAL_KEYS.filter(k => state.tradeStanding?.[k]).map(k => [k, Math.max(0, Math.round(Math.max((T.qty[k] || 0) * f, Math.min((T.got[k] || 0) * f, (state.tradeRequests[k] || 0) * trips))))]));
           const wantCost = Object.entries(want).reduce((n, [k, q]) => n + q * MATERIALS[k].price, 0), room = Math.max(0, state.gold - tradeReserve());
           const scale = wantCost > room ? room / wantCost : 1;
           for (const [k, q] of Object.entries(want)) { const n = Math.floor(q * scale); if (n) buy(k, n, true); }
-          const sellers = Object.keys(T.gold).map(id => state.hunters.find(h => h.id === id) || (state.wanderers || []).find(w => w.id === id)).filter(Boolean);
-          const shareBase = sellers.reduce((n, a) => n + (T.gold[a.id] || 0), 0); let given = 0;
-          sellers.forEach((a, i) => { const g = i === sellers.length - 1 ? paid - given : Math.floor(paid * (T.gold[a.id] || 0) / shareBase); a.gold += g; given += g; });
-          if (!sellers.length) state.gold += paid;   // 賣家都不在了(極少見)→ 錢退回村莊,不讓金幣消失
+          // 付款:一般委託照取樣期誰賣了多少分;持續收購照取樣期誰撿了多少分(沒人撿 → 照誰賣了多少);賣家都不在了(極少見)→ 錢退回村莊,不讓金幣消失
+          const actor = id => state.hunters.find(h => h.id === id) || (state.wanderers || []).find(w => w.id === id);
+          const payOut = (amount, weights) => {
+            if (!(amount > 0)) return;
+            const sellers = Object.keys(weights).filter(id => weights[id] > 0).map(actor).filter(Boolean), base = sellers.reduce((n, a) => n + weights[a.id], 0); let given = 0;
+            if (!sellers.length) { state.gold += amount; return; }
+            sellers.forEach((a, i) => { const g = i === sellers.length - 1 ? amount - given : Math.floor(amount * weights[a.id] / base); a.gold += g; given += g; });
+          };
+          const hasW = w => Object.keys(w).some(id => w[id] > 0 && actor(id));
+          payOut(paidOnce, hasW(T.gold) ? T.gold : T.gotBy);
+          payOut(paidStanding, hasW(T.gotBy) ? T.gotBy : T.gold);
         }
         // 地下城(自動續戰)照實打完剩下的時間:只跑地下城那一塊(沒有尋路,8 小時也很快);獎勵直接進帳,上面已經把取樣期的地下城收入排除
         let dgT = 0; const d = state.dungeon;

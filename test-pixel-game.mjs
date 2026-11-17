@@ -179,6 +179,29 @@ run(poorTown, 4, true); assert.equal(poorTown.state.gold, 1); assert.equal(selle
   assert.ok(m.state.gold >= 0 && m.state.gold < m.tradeReserve(), `one-off spent into the reserve, never negative (${m.state.gold})`);
   assert.equal(m.state.counts.traded - mn.counts.traded, tradedS + woodLeft, 'no standing ore extrapolated once gold is below the reserve'); assertFiniteEconomy(m.state);
 }
+{ // 2026-11-17 倒楣的取樣:大廳 5 級(保留額 2500)、金庫 1500 多 → 取樣期金庫一直低於保留額,持續收購 0 份成交;
+  // 但外推期間的收入會把金庫推過保留額 → 照「取樣期撿到的材料」估收購量,花到保留額為止(以前整整 8 小時 0 份材料、金庫堆到 14 萬)
+  // A/B/C 是同一個(確定性)村莊:B 外推前把收購量歸 0(不買),C 收購量改成每趟 1 份(每趟上限)
+  const make = () => { const g = createGame(); g.state.buildings.hall = 5; for (const h of g.state.hunters) h.huntRegion = 'meadow'; for (const k of MATERIAL_KEYS_T) g.state.tradeStanding[k] = true; run(g, 20); const snap = g.offlineSnapshot(); g.simulate(OFFLINE.sample); return { g, snap }; };
+  const money = g => g.state.gold + g.state.hunters.reduce((n, h) => n + h.gold, 0) + (g.state.wanderers || []).reduce((n, w) => n + w.gold, 0);
+  const mats = g => MATERIAL_KEYS_T.reduce((n, k) => n + g.state[k], 0), traded = x => x.g.state.counts.traded - x.snap.counts.traded;
+  const A = make(), B = make(), C = make();
+  assert.equal(money(A.g), money(B.g), 'same deterministic sample'); assert.equal(mats(A.g), mats(B.g));
+  assert.equal(traded(A), 0, 'unlucky sample: no standing trade at all'); assert.ok(A.g.state.gold < A.g.tradeReserve(), `sample stays below the reserve (${A.g.state.gold})`);
+  for (const k of MATERIAL_KEYS_T) { B.g.state.tradeRequests[k] = 0; C.g.state.tradeRequests[k] = 1; }
+  for (const x of [A, B, C]) x.g.offlineFinish(x.snap, OFFLINE.max);
+  assert.equal(traded(B), 0); assert.ok(B.g.state.gold > 20 * B.g.tradeReserve(), `offline income lifts gold far above the reserve (${B.g.state.gold})`);
+  const bought = traded(A), priceSum = MATERIAL_KEYS_T.reduce((n, k) => n + MATERIALS[k].price, 0);
+  assert.ok(bought > 10000, `standing orders buy materials over 8 h offline (${bought})`);
+  assert.equal(mats(A.g) - mats(B.g), bought, 'every bought unit lands in the village');
+  assert.equal(money(A.g), money(B.g), 'buying only moves gold from the village to the sellers (no gold from nothing)');
+  assert.ok(A.g.state.gold >= A.g.tradeReserve() && A.g.state.gold < A.g.tradeReserve() + priceSum, `spends down to the reserve, never below (${A.g.state.gold})`);
+  assert.ok(traded(C) > 0 && traded(C) < bought, `request size caps what one return trip can sell (${traded(C)} < ${bought})`);
+  assert.ok(C.g.state.gold > C.g.tradeReserve() + priceSum, 'a small request leaves gold unspent');
+  for (const x of [A, B, C]) assertFiniteEconomy(x.g.state);
+  // 沒有交易所:撿到再多也沒人收購
+  const D = make(); D.g.state.buildings.trading = 0; D.g.offlineFinish(D.snap, OFFLINE.max); assert.equal(traded(D), 0, 'no trading post, no offline purchases');
+}
 
 const gear = createGame(), buyer = isolate(gear),forge=BUILDINGS.find(b=>b.id==='forge'); gear.state.time = 100; Object.assign(buyer, doorStand(forge,forge)); buyer.gold = 1000;
 const gearIds = RECIPES.map(r => r.id);
