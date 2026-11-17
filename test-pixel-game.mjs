@@ -1310,6 +1310,33 @@ run(manual, 30, false, assertFiniteEconomy);
   assert.equal(g.state.counts.deaths, deaths0, 'and nobody dies doing it');
 }
 {
+  // 推薦隊伍(2026-11-17):用地下城預估挑職業組合 → 不會挑三個高攻低血的法師;純函式;自動挑隊也走它
+  const sv = createGame().serialize(); sv.seed = 5; sv.buildings.dungeon = 1;
+  const cls = ['sorcerer', 'sorcerer', 'sorcerer', 'paladin', 'archer', 'priest'];
+  sv.hunters = cls.map((c, i) => { const b = sv.hunters[i % sv.hunters.length]; return { ...b, name: b.name + (i + 1), classId: c, level: 20, xp: 0 }; });
+  const g = createGame(sv), d = g.state.dungeon, hs = g.state.hunters; for (const h of hs) h.hp = h.maxHp; d.bestFloor = 20;
+  const glass = hs.filter(h => h.classId === 'sorcerer'), others = hs.filter(h => h.classId !== 'sorcerer'), ids = a => a.map(h => h.id).sort();
+  assert.equal(new Set(hs.map(h => h.id)).size, 6);
+  assert.ok(Math.min(...glass.map(h => h.attack)) > Math.max(...others.map(h => h.attack)) && Math.max(...glass.map(h => h.maxHp)) < Math.max(...others.map(h => h.maxHp)), 'premise: the sorcerers are the glass cannons');
+  const snap = JSON.stringify(g.serialize()), rnd = Math.random; Math.random = () => { throw new Error('recommendDungeonParty must not roll'); };
+  let rec; try { rec = g.recommendDungeonParty(); } finally { Math.random = rnd; }
+  assert.equal(JSON.stringify(g.serialize()), snap, 'recommending changes nothing');
+  assert.deepEqual(g.recommendDungeonParty(), rec, 'same roster → same answer');
+  assert.equal(rec.ok, true); assert.equal(rec.ids.length, 3); assert.notDeepEqual([...rec.ids].sort(), ids(glass), 'not the three glass cannons');
+  const team = rec.ids.map(id => hs.find(h => h.id === id));
+  assert.ok(team.some(h => h.classId === 'priest') && team.some(h => h.classId === 'paladin'), `a healer and a front-liner (${team.map(h => h.classId)})`);
+  assert.ok(rec.floor > 0 && rec.message.includes(`可安全推進到第 ${rec.floor} 層`) && team.every(h => rec.message.includes(h.name)), rec.message);
+  // 只剩三個法師能出發 → 推薦就是他們,而且估得比平衡隊淺
+  for (const h of others) h.hp = Math.floor(h.maxHp * 0.3);
+  const glassRec = g.recommendDungeonParty(); assert.deepEqual([...glassRec.ids].sort(), ids(glass), 'below 35% HP is not eligible');
+  assert.ok(glassRec.floor < rec.floor, `glass cannons reach ${glassRec.floor} < balanced ${rec.floor}`);
+  glass[0].hp = 0; const none = g.recommendDungeonParty(); assert.equal(none.ok, false); assert.deepEqual(none.ids, []);
+  glass[0].hp = glass[0].maxHp; for (const h of others) h.hp = h.maxHp;
+  // 自動挑隊:舊規則(血量比例 → 攻擊)會挑三個法師;現在用推薦
+  g.setDungeonAuto(true); assert.equal(g.startDungeon().ok, true);
+  assert.deepEqual([...d.hunterIds].sort(), [...rec.ids].sort(), 'startDungeon(null) takes the recommended party');
+}
+{
   // 英雄對話框:每句都短;需求優先;倒下說倒下的話
   const all = Object.values(CHATTER_LINES).flatMap(v => Array.isArray(v) ? v : Object.values(v).flat());
   assert.ok(all.every(l => l.replace('{region}', '向陽草原').length <= 12), 'every chatter line is short (≤ 12 characters)');

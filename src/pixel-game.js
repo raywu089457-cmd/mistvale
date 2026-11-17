@@ -1244,6 +1244,31 @@ export function createGame(saved = null) {
   // 現在出發時從想去的那層往下找,找到「估得過」(跟自動續戰同一套 DG_FIT_RISK / DG_FIT_TIME)的最深一層才出發;第 1 層是底線。
   function dgFitStart(party, floor) { const f = dgForecast(party, floor); return f.risk <= DG_FIT_RISK && f.secs <= DG_TIME_LIMIT * DG_FIT_TIME; }
   function dgSafeStart(party, want) { let f = want; while (f > 1 && !dgFitStart(party, f)) f--; return f; }
+  // ── 推薦隊伍(2026-11-17) ── 職業組合差很多(Lv.20、自動續戰 600 秒:聖騎+弓手+祭司 第 9 層、三法師 第 2–3 層),
+  // 但自動挑隊只看血量比例與攻擊、UI 選人也沒有提示 → 用上面同一套預估,把候選人的每個三人組合都估一遍:
+  //   出發層 = dgSafeStart(隊伍, 想去的層);能推進到 = 從出發層往上,dgFitStart 估得過就再上一層(跟自動續戰一樣碰到第一層估不過就停),
+  //   出發層本身就估不過(只能硬上第 1 層)= 0。用「現在」的生命估(殘血的強者會讓給滿血的人;休整回血不算,偏保守)。
+  // 排序:能推進得最深 → 最深那層的 risk 較低(負的當 0) → 總攻擊較高 → 候選順序(等級、攻擊、id,結果固定)。
+  // 候選:活著、不在競技場/復活中、生命 ≥ DG_FIT_MIN_HP(startDungeon 的出發門檻);只取等級/攻擊前 DG_REC_POOL 位 → 最多 C(12,3) = 220 組。
+  // 往上估最多到 max(想去的層, 最高紀錄 +1) + DG_REC_AHEAD 層:再深的差別一趟也爬不到,超過的隊伍改比那層的 risk。
+  // 純計算:不擲骰、不動 random、不改 state(UI 按鈕與 startDungeon(null) 共用)。
+  const DG_REC_POOL = 12, DG_REC_AHEAD = 10;
+  const dgRecEligible = h => h.hp > 0 && h.task !== 'revive' && h.task !== 'arena' && h.hp >= h.maxHp * DG_FIT_MIN_HP;
+  function dgRecommend(want) {
+    const pool = state.hunters.filter(dgRecEligible).sort((a, b) => b.level - a.level || b.attack - a.attack || (a.id < b.id ? -1 : a.id > b.id ? 1 : 0)).slice(0, DG_REC_POOL);
+    if (pool.length < 3) return null;
+    const cap = Math.min(100, Math.max(want, state.dungeon.bestFloor + 1) + DG_REC_AHEAD);
+    let best = null;
+    for (let i = 0; i < pool.length - 2; i++) for (let j = i + 1; j < pool.length - 1; j++) for (let k = j + 1; k < pool.length; k++) {
+      const party = [pool[i], pool[j], pool[k]], start = dgSafeStart(party, want);
+      let reach = 0;
+      if (dgFitStart(party, start)) { reach = start; while (reach < cap && dgFitStart(party, reach + 1)) reach++; }
+      // risk < 0 = 補血追得上承傷:打越久估得越「安全」→ 會偏好攻擊低的人;一律當 0,改由總攻擊(打得快)決定
+      const risk = Math.max(0, dgForecast(party, Math.max(1, reach)).risk), attack = party.reduce((n, h) => n + h.attack, 0);
+      if (!best || reach > best.reach || (reach === best.reach && (risk < best.risk || (risk === best.risk && attack > best.attack)))) best = { party, start, reach, risk, attack };
+    }
+    return best;
+  }
   function dgEvent(k, a, b, v, shot = null) { const d = state.dungeon; (d.events ||= []).push({ t: state.time, k, a, b, v, shot }); if (d.events.length > 32) d.events.splice(0, d.events.length - 32); }
   function dgSync() { const d = state.dungeon, f = d.foes || []; d.enemyHp = f.reduce((n, x) => n + Math.max(0, x.hp), 0); d.enemyMaxHp = f.reduce((n, x) => n + x.maxHp, 0); }
   function endDungeon(won, retreat = false, note = null) {
@@ -2287,6 +2312,16 @@ export function createGame(saved = null) {
       const w = clamp(Math.floor(number(want, d.startFloor || d.bestFloor + 1, 1, 100)), 1, d.bestFloor + 1);
       return party.length === 3 ? dgSafeStart(party, w) : w;
     },
+    // 2026-11-17 推薦隊伍(唯讀、不呼叫 random、不改 state;見 dgRecommend):startFloor 省略 = 下次出發的層(d.startFloor 或最高紀錄 +1)
+    // → { ok, ids, floor(估計能安全推進到第幾層,0 = 連第 1 層都有風險), start(實際出發層), risk, message }
+    recommendDungeonParty(startFloor = null) {
+      const d = state.dungeon, want = clamp(Math.floor(number(startFloor, d.startFloor || d.bestFloor + 1, 1, 100)), 1, d.bestFloor + 1);
+      const best = dgRecommend(want);
+      if (!best) return { ok: false, ids: [], floor: 0, start: want, risk: Infinity, message: `能出發的獵人不到 3 位（要活著、不在競技場，生命至少 ${Math.round(DG_FIT_MIN_HP * 100)}%）。` };
+      const names = best.party.map(h => h.name).join('、');
+      return { ok: true, ids: best.party.map(h => h.id), floor: best.reach, start: best.start, risk: best.risk,
+        message: best.reach > 0 ? `推薦：${names}（${d.auto ? '' : '開自動續戰'}可安全推進到第 ${best.reach} 層）` : `推薦：${names}（目前連第 1 層都有風險，先練等或休養）` };
+    },
     // 2026-11-17 UI 用(唯讀):通過第 floor 層會拿到的獎勵 → { first, village:{gold,ore,gems}, gold, xp }(gold/xp 是每位獵人);floorCleared 同一支公式
     dungeonReward(floor) { const f = clamp(Math.floor(number(floor, 1, 1, 100)), 1, 100); return dgFloorReward(f, f > state.dungeon.bestFloor); },
     retreatDungeon() { if (!state.dungeon.active) return result(false, '地下城小隊不在探險中。'); endDungeon(false, true); return result(true, '小隊撤退，正返回村莊。'); },
@@ -2297,8 +2332,11 @@ export function createGame(saved = null) {
       const d = state.dungeon; if (d.active) return result(false, '地下城小隊正在探險。');
       if (d.cooldown > 0) return result(false, `小隊整備還需要 ${Math.ceil(d.cooldown)} 秒。`);
       let selected;
-      if (hunterIds === null) selected = state.hunters.filter(h => h.hp > 0 && h.task !== 'revive' && h.task !== 'arena').sort((a, b) => b.hp / b.maxHp - a.hp / a.maxHp || b.attack - a.attack).slice(0, 3);
-      else {
+      // 自動挑隊(2026-11-17):先用推薦隊伍(dgRecommend,看職業組合估得最深的三人);能出發的不到 3 位才退回舊規則(血量比例最高 → 攻擊),讓下面的血量門檻說明誰要休養
+      if (hunterIds === null) {
+        const want0 = clamp(Math.floor(number(startFloor, d.startFloor || d.bestFloor + 1, 1, 100)), 1, d.bestFloor + 1), rec = dgRecommend(want0);
+        selected = rec ? rec.party : state.hunters.filter(h => h.hp > 0 && h.task !== 'revive' && h.task !== 'arena').sort((a, b) => b.hp / b.maxHp - a.hp / a.maxHp || b.attack - a.attack).slice(0, 3);
+      } else {
         if (!Array.isArray(hunterIds) || hunterIds.length !== 3 || new Set(hunterIds).size !== 3) return result(false, '請選擇 3 位不同的存活獵人。');
         selected = hunterIds.map(hid => state.hunters.find(h => h.id === hid)).filter(Boolean);
       }
