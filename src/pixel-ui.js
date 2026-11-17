@@ -560,7 +560,7 @@ let welcomeStep=0;
 const WELCOME_STEPS=[
   {h:'',target:'',p:()=>`歡迎來到暮影村！你和${cnNum(game.state.hunters.length)}位獵人剛抵達這座被霧包圍的村莊。先把三件事做好，村子就會自己轉起來。`},
   // 2026-11-16:配合 18 章委託與顧問帶路改寫 —— 原本第 2 步叫玩家先蓋地下城(現在是第 7 章)、第 3 步叫玩家蓋食堂旅館(開局就有)
-  {h:'跟著委託走',target:'hunters',p:()=>`左上是<strong>村長委託</strong>，下面的村長會一次只提醒一件事。第一章很簡單：到<strong>獵人</strong>的「招募」邀請 1 位旅人加入。領完獎勵就會解鎖下一章。`},
+  {h:'跟著委託走',target:'hunters',p:()=>`左上是<strong>村長委託</strong>，下面的村長會一次只提醒一件事。第一章很簡單：到<strong>獵人</strong>的「招募」邀請 1 位旅人加入。完成後點左上的委託就能領獎，並解鎖下一章。`},
   {h:'讓村子賺錢',target:'craft',p:()=>`獵人在<strong>餐廳、旅館、酒館、治療所</strong>花錢，村莊就有收入；商品賣完記得到<strong>倉庫 → 製作</strong>補貨。設施升級後賣得更貴。材料不夠時，按鈕會變成青綠色的<strong>補料</strong>，可以直接向行商買。`},
   {h:'變強之後',target:'quests',p:()=>`鐵匠鋪做出更高階的裝備，獵人會自己買來換。之後的章節會帶你蓋<strong>地下城</strong>、召喚<strong>首領</strong>、挑戰<strong>競技場</strong>天梯。<br><small>隨時可以按右上角「說明」重看這段；點建築或獵人，腳下會出現兩顆小鈕，按 i 看詳情。</small>`},
 ];
@@ -823,7 +823,7 @@ function modalHTML(type){const s=game.state;
       ])}</section>`
       +`<section class="help-sec" id="help-sec-facilities"><h4 class="help-h"><i>${iconHTML('hall')}</i>村莊設施與用途</h4><ul class="hf-grid">${facilities}</ul></section>`
       +`<section class="help-sec" id="help-sec-outside"><h4 class="help-h"><i>${iconHTML('map')}</i>村外內容</h4>${bullets([
-        '委託所追蹤 18 章委託，完成可以領獎勵；全部完成後，左上追蹤列會改成下一個長線目標（解鎖難度、競技場天梯）。',
+        '委託所追蹤 18 章委託，完成時點左上的委託追蹤就能直接領獎；全部完成後，左上追蹤列會改成下一個長線目標（解鎖難度、競技場天梯）。',
         '地下城是三人遠征，走完一層推進紀錄；小隊估計打不過選的那層時，會改從打得過的層出發，快撐不住也會自己撤退。已經打過的樓層再打，獎勵會減少。',
         '競技場是不會真的死亡的模擬對戰天梯：對手隨勝場變強（到第 40 勝），獎勵跟著變多，每 5 勝另給晶石。',
         '不知道派誰？地下城與競技場的組隊區都有「推薦隊伍」：地下城挑估計能安全推進最深的三人（職業搭配很重要，例如坦克＋射手＋祭司），競技場挑每秒傷害最高的三人。',
