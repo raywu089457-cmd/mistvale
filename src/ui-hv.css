@@ -232,6 +232,11 @@ html body .hv-actions .hv-act [data-icon]{display:grid!important;place-items:cen
 html body .hv-actions .hv-act [data-icon] :is(canvas,img){width:32px!important;height:32px!important}
 html body .hv-actions .hv-act :is(.ha-l1,.ha-l2){display:block;font:700 12px/1.2 var(--font-ui);color:var(--hv-quest);text-shadow:var(--hv-outline);white-space:nowrap}
 html body .hv-actions .hv-act .ha-l2{color:#fff}
+/* 標籤壓在地圖怪物上看不清:加一片淡淡的深色底 */
+html body .hv-actions .hv-act :is(.ha-l1,.ha-l2){width:max-content;max-width:76px;margin:0 auto;padding:0 4px;background:rgba(14,10,20,.55);border-radius:3px}
+html body .hv-actions .hv-act .ha-l1:has(+.ha-l2:not(:empty)){border-radius:3px 3px 0 0}
+html body .hv-actions .hv-act .ha-l1+.ha-l2{border-radius:0 0 3px 3px}
+html body .hv-actions .hv-act .ha-l2:empty{display:none}
 html body .hv-actions .hv-act.cooling :is(.ha-l1,.ha-l2){color:var(--hv-text-dim)}
 html body .hv-actions .hv-act.cooling [data-icon]{opacity:.6}
 
