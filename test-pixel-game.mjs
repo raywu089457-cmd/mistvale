@@ -669,6 +669,13 @@ run(losingDungeon, 0.2); assert.equal(losingDungeon.state.dungeon.active, false)
 const arena = createGame(); assert.equal(arena.startArena().ok, false); assert.equal(arena.construct('training').ok, true); assert.equal(arena.startArena().ok, true);
 assert.equal(arena.startDungeon(arena.state.arena.hunterIds).ok, false); run(arena, 45, false, assertFiniteEconomy); assert.equal(arena.state.arena.active, false); assert.equal(arena.state.arena.wins, 1); assert.equal(arena.state.arena.opponent, '暮林訓練隊');
 
+{ // 2026-11-17 競技場天梯:前 40 勝對手公式不變;之後對手繼續變強(生命 ×1.08、攻擊 ×1.05 每勝),獎勵封頂 → 不會永遠穩贏最高獎勵
+  const g = createGame(), a = g.state.arena, foe = w => { a.wins = w; return g.arenaFoe(); };
+  assert.deepEqual(foe(0), { hp: 720, atk: 21 }); assert.deepEqual(foe(40), { hp: 720 + 40 * 130, atk: 21 + 40 * 3 }, 'first 40 wins unchanged');
+  assert.equal(foe(41).hp, Math.round(5920 * 1.08)); assert.ok(foe(60).hp > foe(40).hp * 4 && foe(60).atk > foe(40).atk * 2.5, 'opponent keeps growing past 40 wins');
+  assert.equal(g.construct('training').ok, true); a.wins = 50; assert.equal(g.startArena().ok, true); assert.equal(a.enemyMaxHp, g.arenaFoe().hp, 'match uses the same formula');
+}
+
 const navigation = createGame(); navigation.moveBuilding('bounty', 5, 17);
 let returning = false, serviceStatus = false;
 run(navigation, 150, false, state => {

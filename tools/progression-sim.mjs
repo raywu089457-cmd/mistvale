@@ -14,7 +14,8 @@ const DAYS = Number(process.argv[2]) || 20;
 const jsonOut = process.argv.includes('--json') ? process.argv[process.argv.indexOf('--json') + 1] : null;
 const arg = k => process.argv.includes(k) ? process.argv[process.argv.indexOf(k) + 1] : null;
 const SEED = arg('--seed'), SUMMARY = process.argv.includes('--summary'), SAFE_DIFF = process.argv.includes('--stay-easy');   // --train: tap 修煉 for every hunter whenever it is ready (upper bound for an active player)
-const TRAIN = process.argv.includes('--train');   // --stay-easy: never raise difficulty
+const TRAIN = process.argv.includes('--train');   // --arena: start the arena ladder whenever it is ready (recommended party)
+const ARENA = process.argv.includes('--arena');   // --stay-easy: never raise difficulty
 const g = createGame(null);
 const s = g.state;
 if (SEED != null) s.seed = (Number(SEED) >>> 0) || 1;
@@ -58,6 +59,7 @@ function policy() {
   if (s.buildings.dungeon && !s.dungeon.active && s.dungeon.cooldown <= 0) { g.setDungeonAuto(true); const r = g.startDungeon(); if (r.ok) ev(`dungeon start f${s.dungeon.floor}`); }
   if (!s.expedition.active && s.expedition.cooldown <= 0 && s.day >= 2) { const r = g.expedition(); if (r.ok) ev('boss expedition'); }
   if (TRAIN) for (const h of s.hunters) g.train(h.id);
+  if (ARENA && s.buildings.training && !s.arena?.active && !(s.arena?.cooldown > 0)) { const p = g.recommendArenaParty(); const r = g.startArena(Array.isArray(p) ? p : p?.ids); if (r.ok) ev('arena'); }
   // rebirth: a Lv.100 hunter reincarnates when free (final quest chapter; unlocks harder difficulties)
   for (const h of s.hunters) if (h.level >= 100 && h.hp > 0 && h.task !== 'dungeon' && h.task !== 'arena') { const r = g.reincarnate(h.id); if (r.ok) ev(`rebirth ${h.name} (#${h.rebirths})`); }
   // difficulty: switch to the highest unlocked difficulty (what the endgame tracker suggests); setDifficulty refuses while a run is active
@@ -102,7 +104,7 @@ while (s.day <= DAYS) {
 const fmt = r => `d${String(r.day).padStart(2)} gold ${String(r.gold).padStart(6)} w${r.wood} o${r.ore} h${r.herb} c${r.cloth} f${r.flour} l${r.leather} gem${r.gems} | H ${r.hunters}/${r.cap} lv ${r.lvMin}/${r.lvMed}/${r.lvMax} hg${r.hGold} | sat${r.sat} sta${r.sta} mood${r.mood} | dead ${r.deaths} kills ${r.kills} boss ${r.boss} | forge${r.forge} gi${r.gearInc} | Q${r.quest}${r.questDone ? '✓' : ''} floor ${r.floor} bLv ${r.b} | stk ${Object.values(r.stocks).join('/')}`;
 if (SUMMARY) {
   const r = rows.at(-1), dayOf = q => rows.find(x => x.quest >= q)?.day ?? '-';
-  console.log(`seed ${SEED ?? 'default'} | d${r.day} gold ${r.gold} wood ${r.wood} ore ${r.ore} | lv ${r.lvMin}/${r.lvMed}/${r.lvMax} hg ${r.hGold} | dead ${r.deaths} | Q${r.quest} (Q8@d${dayOf(8)} Q12@d${dayOf(12)} Q16@d${dayOf(16)}) floor ${r.floor} bLv ${r.b} | store ${(()=>{const by={};for(const it of s.gearStorage||[]){const k=EQUIPMENT[it.itemId]?.tier||"?";by[k]=(by[k]||0)+1;}return (s.gearStorage||[]).length+" "+JSON.stringify(by);})()} | rebirths ${s.counts.rebirths || 0} diff ${DIFFICULTIES[s.difficulty]?.name} | merchant ${s.counts.merchantBuys || 0} svc ${s.counts.serviceIncome} gear ${s.counts.gearIncome ?? '-'} up ${s.counts.gearUpgrades ?? '-'} forge ${s.buildings.forge}`);
+  console.log(`seed ${SEED ?? 'default'} | d${r.day} gold ${r.gold} wood ${r.wood} ore ${r.ore} | lv ${r.lvMin}/${r.lvMed}/${r.lvMax} hg ${r.hGold} | dead ${r.deaths} | Q${r.quest} (Q8@d${dayOf(8)} Q12@d${dayOf(12)} Q16@d${dayOf(16)}) floor ${r.floor} bLv ${r.b} | store ${(()=>{const by={};for(const it of s.gearStorage||[]){const k=EQUIPMENT[it.itemId]?.tier||"?";by[k]=(by[k]||0)+1;}return (s.gearStorage||[]).length+" "+JSON.stringify(by);})()} | rebirths ${s.counts.rebirths || 0} diff ${DIFFICULTIES[s.difficulty]?.name} | arena ${s.arena?.wins || 0}W/${s.arena?.losses || 0}L | merchant ${s.counts.merchantBuys || 0} svc ${s.counts.serviceIncome} gear ${s.counts.gearIncome ?? '-'} up ${s.counts.gearUpgrades ?? '-'} forge ${s.buildings.forge}`);
   process.exit(0);
 }
 for (const r of rows) console.log(fmt(r));

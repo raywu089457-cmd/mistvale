@@ -1412,6 +1412,9 @@ export function createGame(saved = null) {
   // 2026-11-16 平衡:競技場原本 10 勝後對手不再變強、獎勵最多 240 金 → 中期以後等於沒用。
   //   改成天梯:對手一路變強到第 ARENA_CAP 勝,獎勵跟著勝場成長,每 5 勝另給晶石;參賽獵人的經驗也跟著變多。
   const ARENA_CAP = 40;
+  // 2026-11-17:對手強度不再停在第 40 勝(獎勵仍封頂在第 40 勝)→ 舊版 40 勝後對手不變強,模擬 30 天 158 勝 0 敗、每場穩拿最高獎勵;
+  //   前 40 勝照舊;之後對手生命每勝 ×1.08、攻擊 ×1.05,隊伍爬到自己的極限就會輸,要更強(轉世、換裝)才能繼續贏
+  const arenaFoeHp = w => Math.round((720 + Math.min(ARENA_CAP, w) * 130) * 1.08 ** Math.max(0, w - ARENA_CAP)), arenaFoeAtk = w => Math.round((21 + Math.min(ARENA_CAP, w) * 3) * 1.05 ** Math.max(0, w - ARENA_CAP));
   function endArena(won) {
     const a = state.arena; a.active = false; a.cooldown = 25; a.phase = won ? '勝利' : '落敗'; a.reward = won ? 90 + Math.min(ARENA_CAP, a.wins) * 25 : 0; const gems = won && (a.wins + 1) % 5 === 0 ? 2 + Math.floor(Math.min(ARENA_CAP, a.wins) / 10) : 0;
     if (won) { a.wins++; state.gold += a.reward; state.gems += gems; } else a.losses++;
@@ -1433,7 +1436,7 @@ export function createGame(saved = null) {
     a.attackTimer = Math.max(0, a.attackTimer - dt);
     if (a.attackTimer === 0) {
       a.attackTimer = 1.1; const target = alive[Math.floor(random() * alive.length)];
-      const damage = Math.max(3, 21 + Math.min(ARENA_CAP, a.wins) * 3 - target.defense); target.hp = Math.max(0, target.hp - damage); effect('hit', target, { value: damage });
+      const damage = Math.max(3, arenaFoeAtk(a.wins) - target.defense); target.hp = Math.max(0, target.hp - damage); effect('hit', target, { value: damage });
       if (target.hp === 0) { target.status = '模擬對戰倒下'; target.route = []; }
     }
   }
@@ -2028,7 +2031,7 @@ export function createGame(saved = null) {
     a.wins = integer(rawArena?.wins, 0, 0, 1e6); a.losses = integer(rawArena?.losses, 0, 0, 1e6); a.cooldown = number(rawArena?.cooldown, 0, 0, 25);
     const arenaIds = Array.isArray(rawArena?.hunterIds) ? [...new Set(rawArena.hunterIds)].filter(hid => state.hunters.some(h => h.id === hid && h.task !== 'dungeon')).slice(0, 3) : [];
     if (rawArena?.active === true && state.buildings.training > 0 && arenaIds.length === 3) {
-      Object.assign(a, { active: true, phase: '集結中', hunterIds: arenaIds, time: number(rawArena.time, 0, 0, 120), enemyMaxHp: 720 + Math.min(ARENA_CAP, a.wins) * 130, attackTimer: number(rawArena.attackTimer, 1, 0, 2) }); a.enemyHp = number(rawArena.enemyHp, a.enemyMaxHp, 1, a.enemyMaxHp);
+      Object.assign(a, { active: true, phase: '集結中', hunterIds: arenaIds, time: number(rawArena.time, 0, 0, 120), enemyMaxHp: arenaFoeHp(a.wins), attackTimer: number(rawArena.attackTimer, 1, 0, 2) }); a.enemyHp = number(rawArena.enemyHp, a.enemyMaxHp, 1, a.enemyMaxHp);
       for (const h of state.hunters.filter(h => arenaIds.includes(h.id))) { h.task = 'arena'; h.status = '競技場模擬集結'; h.destination = 'training'; route(h, [door('training', h)]); }
     }
     state.effects = []; state.shots = []; state.log = []; log('存檔已載入。獵人重新整隊，村莊繼續運作。', 'success'); refreshQuest();
@@ -2388,6 +2391,8 @@ export function createGame(saved = null) {
     arenaReward() { const w = Math.min(ARENA_CAP, state.arena.wins); return { gold: 90 + w * 25, gems: (state.arena.wins + 1) % 5 === 0 ? 2 + Math.floor(w / 10) : 0, xp: 80 + w * 15 }; },
     // 2026-11-16 競技場推薦隊伍(唯讀、不擲骰):對手每次打隨機一人、每秒傷害固定,勝負主要看輸出 →
     //   挑「每秒傷害」(攻擊 ÷ 出手間隔)最高、生命 ≥35%、沒在地下城／復活中的三人。
+    // 下一場競技場對手的生命／攻擊(面板顯示用,跟 startArena 同一條公式)
+    arenaFoe() { const w = state.arena?.wins || 0; return { hp: arenaFoeHp(w), atk: arenaFoeAtk(w) }; },
     recommendArenaParty() {
       const ok = state.hunters.filter(h => h.hp > 0 && h.task !== 'dungeon' && h.task !== 'revive' && h.hp >= h.maxHp * 0.35);
       if (ok.length < 3) return { ...result(false, '可以上場的獵人不到 3 位（需要存活、不在地下城、生命至少 35%）。'), ids: [] };
@@ -2403,7 +2408,7 @@ export function createGame(saved = null) {
       if (hunterIds === null) selected = state.hunters.filter(h => h.hp > 0 && h.task !== 'dungeon' && h.task !== 'revive').sort((a, b) => b.hp / b.maxHp - a.hp / a.maxHp || b.attack - a.attack).slice(0, 3);
       else { if (!Array.isArray(hunterIds) || hunterIds.length !== 3 || new Set(hunterIds).size !== 3) return result(false, '請選擇 3 位不同的存活獵人。'); selected = hunterIds.map(hid => state.hunters.find(h => h.id === hid)).filter(Boolean); }
       if (selected.length !== 3 || selected.some(h => h.hp <= 0 || h.task === 'dungeon' || h.task === 'revive')) return result(false, '請準備 3 位未參與地下城的存活獵人。');
-      Object.assign(a, { active: true, phase: '集結中', time: 0, hunterIds: selected.map(h => h.id), enemyMaxHp: 720 + Math.min(ARENA_CAP, a.wins) * 130, attackTimer: 1.5, reward: 0 }); a.enemyHp = a.enemyMaxHp;
+      Object.assign(a, { active: true, phase: '集結中', time: 0, hunterIds: selected.map(h => h.id), enemyMaxHp: arenaFoeHp(a.wins), attackTimer: 1.5, reward: 0 }); a.enemyHp = a.enemyMaxHp;
       for (const h of selected) { h.task = 'arena'; h.destination = 'training'; h.status = '競技場模擬集結'; h.targetId = null; h.serviceProduct = null; h.serviceStarted = false; route(h, [door('training', h)]); }
       log('三人小隊開始與暮林訓練隊進行離線模擬對戰。', 'info'); return result(true, '競技場模擬對戰已開始，對手為 NPC 訓練隊。');
     },

@@ -828,7 +828,7 @@ function modalHTML(type){const s=game.state;
       +`<section class="help-sec" id="help-sec-outside"><h4 class="help-h"><i>${iconHTML('map')}</i>村外內容</h4>${bullets([
         '委託所追蹤 18 章委託，完成時點左上的委託追蹤就能直接領獎；全部完成後，左上追蹤列會改成下一個長線目標（解鎖難度、競技場天梯）。',
         '地下城是三人遠征，走完一層推進紀錄；小隊估計打不過選的那層時，會改從打得過的層出發，快撐不住也會自己撤退。已經打過的樓層再打，獎勵會減少。',
-        '競技場是不會真的死亡的模擬對戰天梯：對手隨勝場變強（到第 40 勝），獎勵跟著變多，每 5 勝另給晶石。',
+        '競技場是不會真的死亡的模擬對戰天梯：對手隨勝場變強，獎勵跟著變多（到第 40 勝封頂），之後對手變強得更快，總有一天會輸——要靠轉世、換裝讓隊伍更強才能再往上爬；每 5 勝另給晶石。面板會寫下一位對手的生命與攻擊。',
         '不知道派誰？地下城與競技場的組隊區都有「推薦隊伍」：地下城挑估計能安全推進最深的三人（職業搭配很重要，例如坦克＋射手＋祭司），競技場挑每秒傷害最高的三人。',
         '地圖首領在生態區深處，需要先升到足夠等級再挑戰。',
       ])}</section>`
@@ -1414,7 +1414,7 @@ function z2cArenaHTML(s){const a=s.arena,lock=z2cLock('arena'),rwd=game.arenaRew
  if(a.active){const party=runHudParty(a);
   return `<div class="z1-box z2c-live" id="ar-live"><div class="z2c-live-h"><b>對戰進行中</b><em id="ar-phase">${esc(a.phase)}</em><span id="ar-left"></span></div><div class="z2c-bar-row foe"><span>對手 ${esc(a.opponent)}</span><i class="z2c-bar"><span id="ar-foe-fill"></span></i><b id="ar-foe-num"></b></div>${party.map(h=>`<div class="z2c-bar-row" data-hid="${h.id}"><span>${esc(h.name)}</span><i class="z2c-bar"><span></span></i><b></b></div>`).join('')}</div><div class="encounter-status">勝場 ${a.wins} · 敗場 ${a.losses} · ${esc(a.phase)}</div><div class="encounter-actions z1-sticky z2c-dock z2c-dock-run"><div class="z2c-wait" id="ar-wait">模擬對戰進行中，結束後會跳出結算</div></div>`;}
  const g=partyGate(a.hunterIds.length,a.cooldown,'開始模擬對戰',lock?lock.name:'');
- return `${lock?z2cLockHint(lock):''}<div class="z1-box z2c-info"><div class="encounter-status">勝場 ${a.wins} · 敗場 ${a.losses} · ${lock?'未解鎖':a.cooldown>0?'整備中':'可挑戰'}</div><div class="z2c-rec"><span>對手「${esc(a.opponent)}」</span><span>勝利獎勵</span><span class="z2c-rw">${iconHTML('gold',true)}<b>${fmt(reward)}</b></span>${rwd.gems?`<span class="z2c-rw" title="每 5 勝的晶石">${iconHTML('gems',true)}<b>${rwd.gems}</b></span>`:''}</div><div class="encounter-facts">三人小隊模擬戰，倒下不會真的死亡。對手跟著勝場變強（到第 40 勝），每 5 勝多給晶石。</div></div>`
+ return `${lock?z2cLockHint(lock):''}<div class="z1-box z2c-info"><div class="encounter-status">勝場 ${a.wins} · 敗場 ${a.losses} · ${lock?'未解鎖':a.cooldown>0?'整備中':'可挑戰'}</div><div class="z2c-rec"><span>對手「${esc(a.opponent)}」</span><span>勝利獎勵</span><span class="z2c-rw">${iconHTML('gold',true)}<b>${fmt(reward)}</b></span>${rwd.gems?`<span class="z2c-rw" title="每 5 勝的晶石">${iconHTML('gems',true)}<b>${rwd.gems}</b></span>`:''}</div>${(()=>{const f=game.arenaFoe?.();return f?`<div class="encounter-facts z2c-foe-stat">下一位對手：生命 <b>${fmt(f.hp)}</b> · 每次攻擊 <b>${fmt(f.atk)}</b></div>`:'';})()}<div class="encounter-facts">三人小隊模擬戰，倒下不會真的死亡。對手跟著勝場變強，第 40 勝以後變強得更快（獎勵在第 40 勝封頂），每 5 勝多給晶石。</div></div>`
   +`<div class="z2c-party-h"><span>選 3 位獵人上場</span><button class="pixel-button z2c-recbtn" data-zb="gold" data-action="arRecommend" title="挑出每秒傷害最高、體力足夠的三人">推薦隊伍</button></div>`
   +`<div class="party-grid z2c-party">${partyList('arena',a.hunterIds,'toggleArenaHunter','村裡還沒有獵人','先招募一位獵人，才能派隊上競技場')}</div>`
   +`<div class="encounter-actions z1-sticky z2c-dock${lock?' is-lock':''}">${partySummary(a.hunterIds)}<button class="pixel-button gold${g.lock?' z2c-locked':''}" data-action="startArena" ${g.disabled?'disabled':''}>${g.label}</button></div>`;}
