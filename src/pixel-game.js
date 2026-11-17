@@ -26,7 +26,7 @@ const GEAR_RESERVE = 40;
 // 村莊裝備倉庫讀檔上限(v4 原本 400;裝備階級上線後換下來的舊件也進倉庫,放寬)
 const GEAR_STORAGE_MAX = 2000;
 // 離線外推時整段不乘倍率的統計(裝備買賣只發生在取樣期,離線庫存不會補)
-const GEAR_ONE_OFF = new Set(['gearSold', 'gearUpgrades', 'gearIncome']);
+const GEAR_ONE_OFF = new Set(['gearSold', 'gearUpgrades', 'gearIncome', 'autoJunk', 'autoJunkGold']);
 // 2026-11-15 裝備物品化(experiment/heroloom 併入 5024,存檔 v4):實例 = {uid,itemId[,grade]};物品表在 pixel-data.EQUIPMENT。
 // 2026-11-17 併入裝備階級:鐵匠鋪升級件的實例多一個 grade(1..5,沒有 = 1);實際數值/名稱/售價/分解一律經過 gearItemView。
 // 唯一的數值來源是身上的物品;沒有 h.gear 的暫時物件(訪客預覽、實驗面板假獵人)才退回 v3 布林值算法(第 1 階)。
@@ -869,6 +869,18 @@ export function createGame(saved = null) {
 
   // 付給村莊的錢記到誰的帳上(離線戰報分開列「你的獵人」與「流浪英雄」帶給村莊的收入)
   function payLedger(a, gold) { const k = wandererOf(a) ? 'wanderPay' : 'hunterPay'; state.counts[k] = (state.counts[k] || 0) + gold; }
+  // 舊階裝備:初始裝備,或低於鍛造屋目前最高階的鍛造件(倉庫一鍵整理與自動整理共用同一條規則)
+  function isOldGear(g, top = forgeTier()) { if (EQUIP[g.itemId]?.tier === 'starter') return true; const gr = gearGradeOf(g); return gr > 0 && gr < top; }
+  // 2026-11-17 UX:獵人在鍛造屋換新裝時,換下來的舊件依「自動整理」設定直接賣出/分解,不再塞滿倉庫(30 天約 300 件);關閉時照舊進倉庫
+  function stashReplaced(inst) {
+    const mode = state.autoJunk, it = gearItemOf(inst);
+    if (!it || (mode !== 'sell' && mode !== 'salvage') || !isOldGear(inst)) { state.gearStorage.push(inst); return; }
+    // 離線取樣期:跟換裝一樣是一次性的,記進帳本 res(offlineFinish 會從外推速率扣掉,不會乘倍率重複算)
+    const got = mode === 'sell' ? { gold: it.sell || 0 } : (it.salvage || {});
+    for (const [k, n] of Object.entries(got)) { state[k] = (state[k] || 0) + n; if (dgLedger) dgLedger.res[k] = (dgLedger.res[k] || 0) + n; }
+    if (mode === 'sell') state.counts.autoJunkGold = (state.counts.autoJunkGold || 0) + (it.sell || 0);
+    state.counts.autoJunk = (state.counts.autoJunk || 0) + 1;
+  }
   function shop(h) {
     if (!h.gear) giveStarterGear(h);   // 保險:沒有裝備資料的物件(舊測試/外部呼叫)先補上初始套裝
     for (const recipe of RECIPES) {
@@ -876,7 +888,7 @@ export function createGame(saved = null) {
       const slot = recipe.type, previous = h.gear[slot], upgrade = gearTierOf(h, slot) > 0;
       h.gold -= g.price; state.gold += g.price; payLedger(h, g.price); state.gearStock[slot][g.tier]--;
       // 換下來的舊件(初始件或低階升級件)進村莊倉庫,不是消失:玩家可以拿去賣、拆,或給別的獵人穿
-      if (previous) state.gearStorage.push(previous);
+      if (previous) stashReplaced(previous);
       h.gear[slot] = newGearItem('craft_' + slot, g.tier);
       syncGear(h); state.counts.gearSold++; state.counts.gearIncome += g.price; if (upgrade) state.counts.gearUpgrades++;
       // 離線外推:裝備是一次性的(庫存離線不會補),取樣期買的不能乘上倍率重複算(見 offlineFinish)
@@ -1843,7 +1855,7 @@ export function createGame(saved = null) {
   function fresh() {
 
     for (const key of Object.keys(state)) delete state[key];
-    Object.assign(state, { version: 4, layoutRevision: 3, worldRevision: 4, region: 'meadow', visitedRegions:['village','meadow'], gold: 1500, wood: 160, ore: 120, herb: 60, cloth: 60, flour: 80, leather: 50, gems: 20, day: 1, time: 0, paused: false, speed: 1, difficulty: 0, kills: 0, totalKills: 0, bossKills: 0, codex: {}, recruited: 0, hunters: [], enemies: [], buildings: Object.fromEntries(BUILDINGS.map(b => [b.id, UNBUILT.has(b.id) ? 0 : 1])), layout: Object.fromEntries(BUILDINGS.map(b => [b.id, { x: b.x, z: b.z }])), stocks: { food: 30, drink: 30, bed: 30, bandage: 30 }, gearStock: emptyGearStock(), gearStorage: [], gearSeq: 1, tradeRequests: { wood: 30, ore: 40, herb: 30, cloth: 30, flour: 40, leather: 30 }, tradeStanding: Object.fromEntries(MATERIAL_KEYS.map(k => [k, false])), counts: { crafted: 0, foodCrafted: 0, traded: 0, gearCrafted: 0, weaponsCrafted: 0, gearSold: 0, gearUpgrades: 0, gearIncome: 0, services: 0, basicServices: 0, serviceIncome: 0, dungeonWins: 0, rebirths: 0, deaths: 0, trained: 0, hunterGold: 0, hunterPay: 0, wanderGold: 0, wanderPay: 0 }, effects: [], log: [], quest: { index: 0, claimed: false }, questRevision: QUEST_REVISION, questFinalPaid: false, expedition: { active: false, bossHp: 0, bossMaxHp: 1150, cooldown: 0, elapsed: 0 }, dungeon: { active: false, floor: 1, bestFloor: 0, wave: 0, enemyHp: 0, enemyMaxHp: 0, time: 0, hunterIds: [], reward: {}, cooldown: 0, phase: '待命', attackTimer: 1, foes: [], events: [], auto: false, startFloor: 0, rest: 0 }, healCooldown: 0, capacity: Math.max(8, CLASSES.length + 2), spawnTimer: 0, seed: 918273, nextId: 0, rally: null, dispatchTeams: defaultDispatchTeams(), regionDensity: normalizeRegionDensity(null), settings: { ...DEFAULT_SETTINGS } });
+    Object.assign(state, { version: 4, layoutRevision: 3, worldRevision: 4, region: 'meadow', visitedRegions:['village','meadow'], gold: 1500, wood: 160, ore: 120, herb: 60, cloth: 60, flour: 80, leather: 50, gems: 20, day: 1, time: 0, paused: false, speed: 1, difficulty: 0, kills: 0, totalKills: 0, bossKills: 0, codex: {}, recruited: 0, hunters: [], enemies: [], buildings: Object.fromEntries(BUILDINGS.map(b => [b.id, UNBUILT.has(b.id) ? 0 : 1])), layout: Object.fromEntries(BUILDINGS.map(b => [b.id, { x: b.x, z: b.z }])), stocks: { food: 30, drink: 30, bed: 30, bandage: 30 }, gearStock: emptyGearStock(), gearStorage: [], gearSeq: 1, tradeRequests: { wood: 30, ore: 40, herb: 30, cloth: 30, flour: 40, leather: 30 }, tradeStanding: Object.fromEntries(MATERIAL_KEYS.map(k => [k, false])), autoJunk: 'off', counts: { crafted: 0, foodCrafted: 0, traded: 0, gearCrafted: 0, weaponsCrafted: 0, gearSold: 0, gearUpgrades: 0, gearIncome: 0, services: 0, basicServices: 0, serviceIncome: 0, dungeonWins: 0, rebirths: 0, deaths: 0, trained: 0, hunterGold: 0, hunterPay: 0, wanderGold: 0, wanderPay: 0 }, effects: [], log: [], quest: { index: 0, claimed: false }, questRevision: QUEST_REVISION, questFinalPaid: false, expedition: { active: false, bossHp: 0, bossMaxHp: 1150, cooldown: 0, elapsed: 0 }, dungeon: { active: false, floor: 1, bestFloor: 0, wave: 0, enemyHp: 0, enemyMaxHp: 0, time: 0, hunterIds: [], reward: {}, cooldown: 0, phase: '待命', attackTimer: 1, foes: [], events: [], auto: false, startFloor: 0, rest: 0 }, healCooldown: 0, capacity: Math.max(8, CLASSES.length + 2), spawnTimer: 0, seed: 918273, nextId: 0, rally: null, dispatchTeams: defaultDispatchTeams(), regionDensity: normalizeRegionDensity(null), settings: { ...DEFAULT_SETTINGS } });
     rebuildNavigation();
     state.visitors = [];
     state.arena = { active: false, wins: 0, losses: 0, enemyHp: 0, enemyMaxHp: 0, time: 0, hunterIds: [], cooldown: 0, phase: '待命', attackTimer: 1, opponent: '暮林訓練隊', reward: 0 };
@@ -1923,6 +1935,8 @@ export function createGame(saved = null) {
     // 持續收購(2026-11-17 新增,不升版本):舊存檔沒有這個欄位 → 全部關閉,行為跟以前一樣;只認 true,其他值一律當關閉
     const standing = source.tradeStanding && typeof source.tradeStanding === 'object' ? source.tradeStanding : {};
     for (const key of MATERIAL_KEYS) state.tradeStanding[key] = own(standing, key) && standing[key] === true;
+    // 自動整理舊裝備(2026-11-17 新增,不升版本):舊存檔沒有 → 關閉;只認 sell / salvage
+    state.autoJunk = source.autoJunk === 'sell' || source.autoJunk === 'salvage' ? source.autoJunk : 'off';
     for (const key of Object.keys(state.counts)) state.counts[key] = integer(source.counts?.[key], 0, 0, 1e7);
     state.healCooldown = number(source.healCooldown, 0, 0, 40); state.spawnTimer = number(source.spawnTimer, 0, 0, 4.5);
     if (!oldMap && source.rally && Number.isFinite(source.rally.x) && Number.isFinite(source.rally.z)) state.rally = safePoint({ x: clamp(source.rally.x,WORLD.minX+1,WORLD.maxX-1), z: clamp(source.rally.z,WORLD.minZ+1,WORLD.maxZ-1) });
@@ -2192,8 +2206,13 @@ export function createGame(saved = null) {
     },
     // 2026-11-16 倉庫一鍵整理:換下來的舊階鍛造裝備(階級低於鐵匠鋪目前最高階)一次全部賣出或分解。
     //   只動「換下來的初始裝備,以及鍛造裝備且階級 < 目前最高階」(來源不限:自己做的、地下城／首領／委託掉落的升級件都算);目前最高階的裝備不動。dry=true 只回傳預覽。
+    setAutoJunk(mode) {
+      if (mode !== 'off' && mode !== 'sell' && mode !== 'salvage') return result(false, '自動整理只能是關閉、賣出或分解。');
+      state.autoJunk = mode;
+      return result(true, mode === 'off' ? '已關閉自動整理:換下來的舊裝備會放進倉庫。' : `已開啟自動整理:獵人換新裝時,換下來的舊階裝備直接${mode === 'sell' ? '賣出換金幣' : '分解成材料'}。`);
+    },
     bulkStoredGear(kind = 'sell', dry = false) {
-      const top = forgeTier(), pick = (state.gearStorage || []).filter(g => { if (EQUIP[g.itemId]?.tier === 'starter') return true; const gr = gearGradeOf(g); return gr > 0 && gr < top; });   // 換下來的初始裝備(最弱、14 天約 100 件)也算舊裝備
+      const top = forgeTier(), pick = (state.gearStorage || []).filter(g => isOldGear(g, top));   // 換下來的初始裝備(最弱、14 天約 100 件)也算舊裝備
       let gold = 0; const mats = {};
       for (const g of pick) { const it = gearItemOf(g); if (!it) continue; if (kind === 'sell') gold += it.sell || 0; else for (const [k, n] of Object.entries(it.salvage || {})) mats[k] = (mats[k] || 0) + n; }
       const preview = { count: pick.length, gold, mats, top };

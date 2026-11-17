@@ -318,6 +318,22 @@ function wear(g, h, slot, grade = 1) {
   h2.gold = gearAt('chest', 2).price + 39; Object.assign(h2, doorStand(forge, forge)); const v2 = g2.state.gold; run(g2, 5, true);
   assert.equal(g2.gearTierOf(h2, 'chest'), 1, 'upgrade keeps a 40-gold reserve'); assert.equal(g2.state.gold, v2);
 }
+{ // 2026-11-17 自動整理:換下的舊階裝備直接賣出/分解,不進倉庫;目前最高階不會被自動處理;存檔只認 sell/salvage
+  const forge = BUILDINGS.find(b => b.id === 'forge');
+  const setup = mode => { const g = createGame(), h = isolate(g); g.state.time = 100; g.state.buildings.forge = 3; Object.assign(g.state, { ore: 9999, wood: 9999, leather: 9999, cloth: 9999 });
+    wear(g, h, 'chest', 1); assert.equal(g.craftEquipment('chest', 3).ok, true); h.gold = gearAt('chest', 3).price + 45; Object.assign(h, doorStand(forge, forge));
+    assert.equal(g.setAutoJunk(mode).ok, true); return { g, h, old: h.gear.chest.uid }; };
+  assert.equal(createGame().state.autoJunk, 'off', 'new game: off'); assert.equal(createGame().setAutoJunk('burn').ok, false);
+  { const { g, h, old } = setup('sell'), v = g.state.gold; run(g, 5, true);
+    assert.equal(g.gearTierOf(h, 'chest'), 3, 'auto-sell: hunter still upgrades');
+    assert.ok(!g.state.gearStorage.some(x => x.uid === old), 'auto-sell: replaced chest skips the warehouse');
+    assert.equal(g.state.gold, v + gearAt('chest', 3).price + gearItemView({ itemId: 'craft_chest', grade: 1 }).sell, 'village gets price + sell value'); assert.equal(g.state.counts.autoJunk, 1); }
+  { const { g, old } = setup('salvage'), leather = g.state.leather; run(g, 5, true);
+    assert.ok(!g.state.gearStorage.some(x => x.uid === old)); assert.ok(g.state.leather > leather || Object.keys(gearItemView({ itemId: 'craft_chest', grade: 1 }).salvage || {}).length === 0, 'auto-salvage returns materials'); }
+  { const { g, old } = setup('off'); run(g, 5, true); assert.ok(g.state.gearStorage.some(x => x.uid === old), 'off: warehouse as before'); }
+  const sv = createGame().serialize(); sv.autoJunk = 'salvage'; assert.equal(createGame(sv).state.autoJunk, 'salvage', 'save keeps salvage');
+  sv.autoJunk = 'nuke'; assert.equal(createGame(sv).state.autoJunk, 'off', 'unknown value → off');
+}
 { // 離線外推:取樣期買的裝備是一次性的(庫存離線不補),不乘倍率;村莊＋獵人金幣仍守恆
   const g = createGame(), h = isolate(g), forge = BUILDINGS.find(b => b.id === 'forge'); g.state.time = 100; g.state.buildings.forge = 2;
   Object.assign(g.state, { ore: 999, leather: 999 }); wear(g, h, 'chest', 1); assert.equal(g.craftEquipment('chest').ok, true);
