@@ -1161,6 +1161,9 @@ html body #modal-content .region-detail:has(.region-detail-art){display:grid;gri
 html body #modal-content .region-detail:has(.region-detail-art)>*{grid-column:1/-1}
 html body #modal-content .region-detail:has(.region-detail-art)>.region-detail-art{grid-column:1;grid-row:1}
 html body #modal-content .region-detail:has(.region-detail-art)>.rd-head{grid-column:2;grid-row:1}
+/* 2026-11-16:360px 手機上圖 144px＋標頭只剩 88px,地名與危險度星星擠出框外(內容溢出 19px)→ 窄螢幕改成圖在上、標頭在下 */
+@media (max-width:400px){html body #modal-content .region-detail:has(.region-detail-art){grid-template-columns:minmax(0,1fr)}html body #modal-content .region-detail:has(.region-detail-art)>.rd-head{grid-column:1;grid-row:2}}
+html body #modal-content .rd-head>div{min-width:0}html body #modal-content .rd-risk{flex-wrap:wrap}
 html body #modal-content .region-detail .region-detail-art{display:block!important;position:relative;width:200px;height:auto!important;aspect-ratio:2/1;margin:0 0 10px!important;
   background-size:cover;background-position:center;background-repeat:no-repeat;image-rendering:pixelated;border:1px solid var(--hv-line)!important;border-radius:0!important;box-shadow:none!important;opacity:1;filter:none}
 html body #modal-content .region-detail .region-detail-art::after{content:none!important;display:none!important}
