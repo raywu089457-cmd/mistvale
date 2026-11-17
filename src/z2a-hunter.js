@@ -53,7 +53,7 @@ function barHTML(kind,icon,label,cur,max){const pct=max>0?Math.max(0,Math.min(10
 const valRow=(icon,label,v)=>`<div class="z2-val"><i aria-hidden="true">${C.iconHTML(icon,true)}</i><span>${label}</span><b>${v}</b></div>`;
 
 function infoPanel(h,cls,r){const dps=h.attack/attackInterval(h),tr=C.TRAITS.find(t=>t.id===h.trait);
- return `<div class="z2-id"><div class="z2-id-l"><em class="z2-rar" style="color:${r?.color}">${r?.name||''}</em><span class="z2-cls">等級.${h.level} <b>${cls?.name||''}</b></span><small class="z2-st">${C.esc(h.status)}${tr?` · ${C.esc(tr.name)}`:''}</small></div><div class="z2-dps"><small>每秒攻擊力</small><b>${dps.toFixed(1)}</b></div></div>`
+ return `<div class="z2-id"><div class="z2-id-l"><span class="z2-rar-row"><em class="z2-rar" style="color:${r?.color}">${r?.name||''}</em>${promoteChip(h)}</span><span class="z2-cls">等級.${h.level} <b>${cls?.name||''}</b></span><small class="z2-st">${C.esc(h.status)}${tr?` · ${C.esc(tr.name)}`:''}</small></div><div class="z2-dps"><small>每秒攻擊力</small><b>${dps.toFixed(1)}</b></div></div>`
   +`<div class="z2-cols"><div class="z2-bars">${barHTML('hp','hp','生命',h.hp,h.maxHp)}${barHTML('satiety','satiety','飽食',h.satiety,100)}${barHTML('stamina','stamina','精力',h.stamina,100)}${barHTML('mood','mood','心情',h.mood,100)}</div>`
   +`<div class="z2-vals">${valRow('atk','攻擊力',h.attack)}${valRow('def','防禦力',h.defense)}${valRow('scroll','技能等級',`Lv.${h.skillLevel||0}`)}${valRow('anvil','武器強化',`+${h.weaponLevel||0}`)}${valRow('rebirth','轉世',`${h.rebirths}/20`)}</div></div>`
   +`<p class="z2-train z1-hint">${trainHint(h)}</p>`;}
@@ -106,6 +106,8 @@ function rebirthPanel(h){const ready=h.level>=100,maxed=h.rebirths>=20,busy=h.hp
   reason:maxed?'<span class="ok">已完成全部 20 次轉世</span>':ready&&busy?`<span class="no">已達 Lv.100，但${busy}</span>`:ready?'<span class="ok">已達 Lv.100，可以轉世</span>':`<span class="no">Lv.100 才能轉世（還差 ${100-h.level} 級）</span>`,
   btn:rowBtn('reincarnate',h.id,'轉世',ready&&!maxed&&!busy)})+promoteRow(h,busy)+`</div>`;}
 // 2026-11-18 晉升:稀有度升一階(村莊金幣＋星晶)。後期金幣與星晶的出口,放在轉世旁邊(都是永久成長)。
+// 2026-11-18 資訊頁稀有度旁:金幣與星晶夠晉升時出現「可晉升」小鈕,點了跳到「轉世」頁(晉升放在那裡,不然沒人找得到)
+function promoteChip(h){const g=C.game(),s=g.state,q=g.promoteQuote?.(h.id);if(!q||q.max||s.gold<q.gold||s.gems<q.gems)return '';return `<button type="button" class="z2-promo-chip" data-action="hunterTab" data-id="rebirth" aria-label="可以晉升為${q.name}，前往轉世頁">${C.iconHTML('up',true)}可晉升</button>`;}
 function promoteRow(h,busy){const g=C.game(),s=g.state,q=g.promoteQuote?.(h.id);if(!q)return '';const cur=C.RARITIES.find(v=>v.id===h.rarity);
  if(q.max)return rowHTML({icon:'up',name:`稀有度：${cur.name}`,tone:h.rarity,desc:'已是最高稀有度，能力倍率 ×1.5',reason:'<span class="ok">晉升已完成</span>'});
  const pct=Math.round((q.mult/q.from-1)*100),ok=!busy&&s.gold>=q.gold&&s.gems>=q.gems;

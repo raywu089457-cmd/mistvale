@@ -2646,3 +2646,9 @@ html body #modal-content .z2c-foe-stat small.no{color:#ec8a7a}
 
 /* 2026-11-18 建設卡「缺材料」鈕下方:補料總價(金幣不夠時) */
 html body .hv-btn.short-btn{flex-direction:column;align-items:center;justify-content:center;gap:1px}html body .hv-btn.short-btn .short-mq{display:flex;align-items:center;justify-content:center;gap:3px;font-size:11px;opacity:.85;line-height:1.1}html body .hv-btn.short-btn .short-mq .inline-icon{width:12px;height:12px;min-width:12px;min-height:12px}
+
+/* 2026-11-18 獵人資訊頁「可晉升」小鈕 */
+html body .z2-id-l .z2-rar-row{display:flex;align-items:center;gap:8px;flex-wrap:wrap}
+html body .z2-id-l .z2-promo-chip{display:inline-flex!important;align-items:center;gap:3px;margin:0!important;padding:0 8px!important;height:26px!important;min-height:0!important;width:auto!important;border:1px solid #000;background:#3c6b2e;color:#e8f7d2;font:600 12px/1 var(--font-ui);vertical-align:middle;cursor:pointer}
+html body .z2-id-l .z2-promo-chip:hover{background:#4c8239}
+html body .z2-id-l .z2-promo-chip .inline-icon{width:14px;height:14px;min-width:14px;min-height:14px}
