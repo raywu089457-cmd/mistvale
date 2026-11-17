@@ -827,6 +827,7 @@ function modalHTML(type){const s=game.state;
       +`<section class="help-sec" id="help-sec-economy"><h4 class="help-h"><i>${iconHTML('gold')}</i>經濟與裝備</h4>${bullets([
         '材料不夠時，建設、製作、鍛造、學技能與強化的按鈕會變成青綠色「補料」：向交易所行商買缺的那部分，比向獵人收購貴（收購價的 6 倍，交易所越高級越便宜）。',
         '反過來，用不完的材料（常見是小麥粉、藥草）庫存到 150 份以上時，交易所卡片會出現「賣 50 份」：半價賣給行商換金幣。',
+        '後期金幣與星晶的用途：獵人詳情「轉世」頁可以「晉升」，花村莊金幣＋星晶把稀有度升一階（普通→稀有→超級稀有→英雄→傳說），生命與攻擊永久提高。',
         '交易所每種材料都能開「持續收購」：成交後收購量自動補回，不用一直重新下單；為了留錢升級，持續收購會保留一筆金幣（大廳 Lv.1 是 500 金，每升一級多 500），一般的單次收購則可以花到 0。',
         '鐵匠鋪每升一級解鎖下一階裝備（Ⅰ～Ⅴ）；獵人回村看到比身上更高階的裝備，會自己花錢換新。',
         '換下來的舊裝備會放進倉庫，可以一件件處理，也能在倉庫標題下「全部賣出」或「全部分解」舊裝備：所有初始裝備，以及比鐵匠鋪目前最高階還低的鍛造裝備（不管是自己做的還是掉落的）；目前最高階的裝備會留著。嫌倉庫太滿，可以把「換下的舊裝備」切成「自動賣出」或「自動分解」：之後獵人在鐵匠鋪換新裝時，換下來的舊件就直接處理掉，不進倉庫。',
@@ -957,6 +958,7 @@ if(a==='setDifficulty'){r=game.setDifficulty(Number(id));logToast(r.message,r.ok
  if(a==='train'){r=game.train(id);logToast(r.message,r.ok);openHunter(id);paint();return;}
  if(a==='enhanceHunter'){r=game.enhance(id);logToast(r.message,r.ok);openHunter(id);paint();return;}
  if(a==='reincarnate'){r=game.reincarnate(id);logToast(r.message,r.ok);openHunter(id);paint();return;}
+ if(a==='promoteHunter'){r=game.promoteHunter(id);logToast(r.message,r.ok);openHunter(id);paint();return;}
   // ── 裝備物品(2026-11-15):身上的七格 → 卸下／存倉／出售／分解;空位直接從倉庫穿上
   if(a==='gearUnequip'){r=game.unequipGear(id,el.dataset.slot);logToast(r.message,r.ok);openHunter(id);paint();save();return;}
   if(a==='gearStore'){r=game.storeGear(id,el.dataset.slot);logToast(r.message,r.ok);openHunter(id);paint();save();return;}
@@ -1524,6 +1526,8 @@ function nextStepPick(s,skipQuest=false){
   // 2026-11-17:倉庫舊裝備堆到 30 件、又沒開自動整理 → 提醒一次去倉庫整理(30 天會堆到約 300 件);件數以 10 件為一格,避免每換一件就重彈
   if((s.autoJunk||'off')==='off'&&(s.gearStorage||[]).length>=30&&game.bulkStoredGear){const old=game.bulkStoredGear('sell',true).count;if(old>=30)return {key:'junk'+Math.floor(old/10),text:'倉庫堆了 '+old+' 件舊裝備，可以一鍵賣出或開「自動賣出」',act:'inventory',label:'去倉庫'};}
   {const q=s.quest,t=(!q||q.claimed||q.index>17)?rebirthTip(s):null;if(t)return {key:'rebirth|'+t.text,...t};}
+  // 2026-11-18:委託鏈結束後金幣、星晶會一直堆 → 夠晉升時提醒(只在委託全部完成後,不跟前期引導互搶)
+  {const q=s.quest;if(q&&q.claimed&&game.promoteQuote){const c=(s.hunters||[]).filter(h=>h.hp>0&&h.task!=='dungeon'&&h.task!=='arena').map(h=>({h,p:game.promoteQuote(h.id)})).filter(x=>x.p&&!x.p.max&&s.gold>=x.p.gold&&s.gems>=x.p.gems).sort((a,b)=>b.h.level-a.h.level)[0];if(c)return {key:'promote|'+c.h.id+'|'+c.p.next,text:`金幣與星晶夠讓${c.h.name}晉升為${c.p.name}（「轉世」頁）`,act:'hunters',label:'看名冊'};}}
   const d=s.dungeon||{};
   if((s.buildings&&s.buildings.dungeon||0)>0&&idle.length>=3&&!d.active&&!(d.cooldown>0))
     return {key:'dungeon',text:idle.length+' 位獵人待機，可以派去地下城',act:'dungeon',label:'去地下城'};

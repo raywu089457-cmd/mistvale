@@ -104,7 +104,15 @@ function gearPanel(h){const s=C.game().state,wl=h.weaponLevel||0,cost=C.game().e
 function rebirthPanel(h){const ready=h.level>=100,maxed=h.rebirths>=20,busy=h.hp<=0?'倒下了，復活後才能轉世':h.task==='dungeon'?'還在地下城裡，先撤退回村才能轉世':h.task==='arena'?'競技場打完才能轉世':'';   // 2026-11-18 跟 reincarnate 的拒絕條件一致,不要顯示「可以轉世」卻按了被拒
  return `<div class="z2-list">`+rowHTML({icon:'rebirth',name:`轉世 ${h.rebirths}/20`,desc:'Lv.100 可轉世：等級回到 1，基礎能力永久 +35%、防禦 +2',
   reason:maxed?'<span class="ok">已完成全部 20 次轉世</span>':ready&&busy?`<span class="no">已達 Lv.100，但${busy}</span>`:ready?'<span class="ok">已達 Lv.100，可以轉世</span>':`<span class="no">Lv.100 才能轉世（還差 ${100-h.level} 級）</span>`,
-  btn:rowBtn('reincarnate',h.id,'轉世',ready&&!maxed&&!busy)})+`</div>`;}
+  btn:rowBtn('reincarnate',h.id,'轉世',ready&&!maxed&&!busy)})+promoteRow(h,busy)+`</div>`;}
+// 2026-11-18 晉升:稀有度升一階(村莊金幣＋星晶)。後期金幣與星晶的出口,放在轉世旁邊(都是永久成長)。
+function promoteRow(h,busy){const g=C.game(),s=g.state,q=g.promoteQuote?.(h.id);if(!q)return '';const cur=C.RARITIES.find(v=>v.id===h.rarity);
+ if(q.max)return rowHTML({icon:'up',name:`稀有度：${cur.name}`,tone:h.rarity,desc:'已是最高稀有度，能力倍率 ×1.5',reason:'<span class="ok">晉升已完成</span>'});
+ const pct=Math.round((q.mult/q.from-1)*100),ok=!busy&&s.gold>=q.gold&&s.gems>=q.gems;
+ return rowHTML({icon:'up',name:`晉升：${cur.name} → ${q.name}`,tone:q.next,desc:`生命、攻擊再 +${pct}%（能力倍率 ×${q.from} → ×${q.mult}）`,
+  cost:`費用 ${C.iconHTML('gold',true)} ${C.fmt(q.gold)} · ${C.iconHTML('gems',true)} ${q.gems}`,
+  reason:busy?`<span class="no">${busy.replace('轉世','晉升')}</span>`:ok?'<span class="ok">村莊金幣與星晶足夠</span>':need('金幣',s.gold,q.gold)+' '+need('星晶',s.gems,q.gems),
+  btn:rowBtn('promoteHunter',h.id,'晉升',ok)});}
 
 export function hunterDetailHTML(h){
  const r=C.RARITIES.find(v=>v.id===h.rarity),cls=C.CLASSES.find(c=>c.id===h.classId),max=h.level>=100,xn=xpNeed(h.level),xp=Math.min(h.xp||0,xn);

@@ -3,7 +3,7 @@ import {createVillageNav} from './village-nav.js';
 import {WORLD,REGIONS,walkable,inVillage,regionAt,regionContains,regionEdge,regionCenter,randomRegionPoint,wildAt,nearestRingRoad,ringRoadPath,ringPointAt,onRingRoad,ringRoadDistance,RING_ROAD_HALF,RING_ROAD} from './overworld.js';
 import {VILLAGE_BOUNDS,EXITS,blockAt,BUILDING_NUDGE,BUILDING_SLOTS,blockCenter} from './village-grid.js';
 import {sfx} from './sfx.js';
-import { SKILLS, BUILDINGS, CLASSES, RARITIES, TRAITS, MATERIALS, PRODUCTS, RECIPES, GEAR_SLOTS, EQUIP_SLOTS, GEAR_TIERS, GEAR_TIER_MAX, gearAt, DIFFICULTIES, CAMP, HUNT_ZONE, PILOT_ATTACK, PILOT_ORB, MERCHANT, TRADE_RESERVE, AI_ATTACK_LOCK, KITE, PROVOKE, MONSTER_RANGED, LEGACY_LAYOUT_V14, LEGACY_LAYOUT_V15, LEGACY_LAYOUT_V16, ART_LAYOUT_HISTORY, REGION_DENSITY, DEFAULT_REGION_DENSITY, MONSTER_SPEED_MULT, MONSTER_ATTACK_RATE, EQUIPMENT, CLASS_STARTER, GEAR_DROP, gearItemView, gearGradeOf, dungeonGearGrade } from './pixel-data.js';
+import { SKILLS, BUILDINGS, CLASSES, RARITIES, PROMOTE, TRAITS, MATERIALS, PRODUCTS, RECIPES, GEAR_SLOTS, EQUIP_SLOTS, GEAR_TIERS, GEAR_TIER_MAX, gearAt, DIFFICULTIES, CAMP, HUNT_ZONE, PILOT_ATTACK, PILOT_ORB, MERCHANT, TRADE_RESERVE, AI_ATTACK_LOCK, KITE, PROVOKE, MONSTER_RANGED, LEGACY_LAYOUT_V14, LEGACY_LAYOUT_V15, LEGACY_LAYOUT_V16, ART_LAYOUT_HISTORY, REGION_DENSITY, DEFAULT_REGION_DENSITY, MONSTER_SPEED_MULT, MONSTER_ATTACK_RATE, EQUIPMENT, CLASS_STARTER, GEAR_DROP, gearItemView, gearGradeOf, dungeonGearGrade } from './pixel-data.js';
 
 const mapById = list => Object.assign(Object.create(null), Object.fromEntries(list.map(item => [item.id, item])));
 const CLASS = mapById(CLASSES), BUILDING = mapById(BUILDINGS), RARITY = mapById(RARITIES), RECIPE = mapById(RECIPES);
@@ -2284,6 +2284,21 @@ export function createGame(saved = null) {
       if (h.rebirths >= 20) return result(false, '這位獵人已完成全部 20 次轉世。');
       h.rebirths++; state.counts.rebirths++; h.level = 1; h.xp = 0; updateStats(h); h.hp = h.maxHp; h.satiety = 100; h.stamina = 100; h.mood = 100; effect('level', h);
       log(`${h.name}完成第 ${h.rebirths} 次轉世！等級重置為 1，基礎能力永久提高。`, 'success'); refreshQuest(); return result(true, `${h.name}完成轉世；能力加成保留，可挑戰更高難度。`);
+    },
+    // 2026-11-18 晉升:稀有度升一階(能力倍率 ×1→1.08→1.18→1.32→1.5),花村莊金幣與星晶。
+    promoteQuote(hunterId) {
+      const h = state.hunters.find(h => h.id === hunterId); if (!h) return null;
+      const i = RARITIES.findIndex(r => r.id === h.rarity), next = RARITIES[i + 1]; if (!next) return { max: true };
+      return { next: next.id, name: next.name, gold: PROMOTE[next.id].gold, gems: PROMOTE[next.id].gems, mult: next.mult, from: RARITIES[i].mult };
+    },
+    promoteHunter(hunterId) {
+      const h = state.hunters.find(h => h.id === hunterId); if (!h) return result(false, '找不到這位獵人。');
+      const q = this.promoteQuote(hunterId); if (q.max) return result(false, `${h.name}已經是最高稀有度「傳說」。`);
+      if (h.hp <= 0 || h.task === 'dungeon' || h.task === 'arena') return result(false, '請等待獵人復活或結束探險與對戰。');   // 跟轉世同一套:戰鬥中不改能力
+      if (state.gold < q.gold || state.gems < q.gems) return result(false, `晉升到${q.name}需要 ${q.gold} 村莊金幣與 ${q.gems} 星晶。`);
+      state.gold -= q.gold; state.gems -= q.gems; h.rarity = q.next; updateStats(h, true); effect('level', h);
+      state.counts.promoted = (state.counts.promoted || 0) + 1;
+      log(`${h.name}晉升為${q.name}！能力倍率 ×${q.mult}。`, 'success'); return result(true, `${h.name}晉升為${q.name}。`);
     },
     setDifficulty(difficultyId) {
       const difficulty = DIFFICULTIES.find(d => d.id === difficultyId); if (!difficulty) return result(false, '找不到這個狩獵難度。');

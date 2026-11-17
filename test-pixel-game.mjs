@@ -685,6 +685,16 @@ assert.equal(arena.startDungeon(arena.state.arena.hunterIds).ok, false); run(are
   assert.equal(g.sellMaterial('nope', 10).ok, false);
   st.buildings.trading = 0; st.herb = 500; assert.equal(g.sellMaterial('herb', 50).ok, false, 'needs a trading post');
 }
+{ // 2026-11-18 晉升:村莊金幣＋星晶把稀有度升一階,能力跟著變,傳說就封頂
+  const g = createGame(), st = g.state, h = st.hunters[0]; h.rarity = 'normal'; st.gold = 50000; st.gems = 300;
+  const atk0 = h.attack, q = g.promoteQuote(h.id); assert.equal(q.next, 'rare');
+  assert.equal(g.promoteHunter(h.id).ok, true); assert.equal(h.rarity, 'rare'); assert.equal(st.gold, 50000 - q.gold); assert.equal(st.gems, 300 - q.gems);
+  assert.ok(h.attack >= atk0, 'stats go up');
+  st.gems = 0; assert.equal(g.promoteHunter(h.id).ok, false, 'needs gems too'); assert.equal(h.rarity, 'rare');
+  h.rarity = 'legendary'; assert.equal(g.promoteQuote(h.id).max, true); assert.equal(g.promoteHunter(h.id).ok, false, 'legendary is the top');
+  const k = st.hunters[1]; k.rarity = 'normal'; st.gems = 300; k.hp = 0; assert.equal(g.promoteHunter(k.id).ok, false, 'not while down');
+  const saved = createGame(g.serialize()); assert.equal(saved.state.hunters[0].rarity, 'legendary', 'rarity survives save');
+}
 { // 2026-11-17 地下城仇恨照最大生命加權:近戰輸出(刺客)跟聖騎士一起站前排時,不再一半打擊落在薄皮刺客身上而提早撤退
   const runDg = mid => { const base = createGame(); base.construct('dungeon'); const raw = base.serialize(), src = raw.hunters;
     raw.hunters = ['paladin', mid, 'priest'].map((c, i) => ({ ...JSON.parse(JSON.stringify(src.find(x => x.classId === c))), id: 'd' + i, level: 30, xp: 0 }));
