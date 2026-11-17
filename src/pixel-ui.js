@@ -296,7 +296,8 @@ function paintHvHud(s){const q=s.quest;const el=$('#hv-quest');if(el&&q){const t
   el.classList.toggle('ready',!!q.complete&&!q.claimed);el.setAttribute('aria-label',`村長委託：${q.title}，${q.complete&&!q.claimed?'獎勵可以領取':`進度 ${q.progress}/${q.target}`}`);}
  const away=s.hunters.filter(h=>h.hp>0&&/狩獵|前往|戰鬥|追擊|出征|遠征|搜尋|後撤|趕去治療/.test(h.status||'')).length,rest=s.hunters.filter(h=>h.hp>0).length-away;
  const hl=$('#hv-act-hunters');if(hl){const txt=away?`狩獵中 ${away}`:`待命 ${rest}`;if(hl.textContent!==txt)hl.textContent=txt;}
- const ex=s.expedition||{},b1=$('#hv-act-boss1'),b2=$('#hv-act-boss2');if(b1&&b2){const a=ex.active?['討伐中','首領']:ex.cooldown>0?['整備',`${Math.ceil(ex.cooldown)} 秒`]:['召喚','首領'];if(b1.textContent!==a[0])b1.textContent=a[0];if(b2.textContent!==a[1])b2.textContent=a[1];b1.closest('button')?.classList.toggle('cooling',!ex.active&&ex.cooldown>0);}}
+ const ex=s.expedition||{},b1=$('#hv-act-boss1'),b2=$('#hv-act-boss2');if(b1&&b2){const a=ex.active?['討伐中','首領']:ex.cooldown>0?['整備',`${Math.ceil(ex.cooldown)} 秒`]:['召喚','首領'];if(b1.textContent!==a[0])b1.textContent=a[0];if(b2.textContent!==a[1])b2.textContent=a[1];b1.closest('button')?.classList.toggle('cooling',!ex.active&&ex.cooldown>0);}
+ const ar=s.arena||{},r1=$('#hv-act-arena1'),r2=$('#hv-act-arena2');if(r1&&r2){const locked=!s.buildings?.training,a=locked?['競技場','需修煉地']:ar.active?['對戰中','競技場']:ar.cooldown>0?['整備',`${Math.ceil(ar.cooldown)} 秒`]:['進入','競技場'];if(r1.textContent!==a[0])r1.textContent=a[0];if(r2.textContent!==a[1])r2.textContent=a[1];const btn=r1.closest('button');btn?.classList.toggle('cooling',locked||(!ar.active&&ar.cooldown>0));btn?.setAttribute('aria-label',a.join(''));}}
 function paintQuest(){const q=game.state.quest;$('#quest-chapter').textContent=`CHAPTER ${String(q.index+1).padStart(2,'0')}`;$('#quest-title').textContent=q.title;$('#quest-desc').textContent=q.description;$('#quest-progress').textContent=`${q.progress}/${q.target}`;$('#quest-fill').style.width=`${Math.min(100,q.progress/q.target*100)}%`;$H('#quest-reward').innerHTML=costs(q.reward);$('#quest-button').textContent=q.claimed?'全部委託完成':q.complete?'領取獎勵':'查看委託';$('#quest-button').disabled=q.claimed;}
 // T111：建築面板要說清楚「這一級 → 下一級」、要付多少（現有／需要），
 // 以及**為什麼不能升**（已滿級／大廳等級不夠／資源不足），不要按下去才靠 toast 告訴玩家。
@@ -1566,7 +1567,7 @@ function bootWhenReady(){
   const seed=el=>{if(el.animate)el.animate([{opacity:.3},{opacity:1}],{duration:REDUCE_MOTION.matches?0:180,easing:'ease-out'});};   // 文字變了才寫(避免每幀重排),新文字從 30% 透明淡入
   const set=(el,text)=>{if(!el||el.textContent===text)return;el.textContent=text;seed(el);};
   // 讀取畫面底部的提示輪替：一閃就過的畫面也順便教一件事(2 秒換一則，減少動態時只換文字不做淡入)。
-  const TIPS=['提示：拖曳畫面可平移視角，滾輪縮放','提示：點選建築再按腳下的 i，就能升級；升級前會先告訴你需要什麼','提示：蓋好地下城入口後，選三位獵人就能派去地下城，回來會帶回材料','提示：交易所收購的材料，會在獵人回村時自動成交','提示：鐵匠鋪與學院等級越高，裝備與技能越強','提示：手機上左下搖桿走路、右下按鈕攻擊'];
+  const TIPS=[matchMedia('(pointer:coarse)').matches?'提示：單指拖曳平移視角，雙指縮放':'提示：拖曳畫面可平移視角，滾輪縮放','提示：點選建築再按腳下的 i，就能升級；升級前會先告訴你需要什麼','提示：蓋好地下城入口後，選三位獵人就能派去地下城，回來會帶回材料','提示：交易所收購的材料，會在獵人回村時自動成交','提示：鐵匠鋪與學院等級越高，裝備與技能越強','提示：手機上左下搖桿走路、右下按鈕攻擊'];
   const tipEl=$('#loading-tip');
   let tipI=0,tipTimer=0;
   const tipNext=()=>{if(!tipEl)return;tipEl.textContent=TIPS[tipI++%TIPS.length];if(tipEl.animate&&!REDUCE_MOTION.matches)tipEl.animate([{opacity:.2},{opacity:.95}],{duration:220,easing:'ease-out'});};
