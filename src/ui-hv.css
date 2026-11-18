@@ -2731,3 +2731,7 @@ html body #modal-content .of-todo-row .pixel-button{flex:none;min-height:40px;pa
 
 /* 2026-11-18 地圖詳情：狩獵人數超過區域容量 → 標紅「太擠」 */
 html body #modal-content .rd-stats .rd-crowd b{color:#e08a6a}
+
+/* 2026-11-18 名冊卡：Lv.100 的獵人在立繪上方標「可轉世」，點了直接開轉世頁 */
+html body #modal-content .hv-hcard .hc-art{position:relative}
+html body #modal-content .hv-hcard .hc-reb{position:absolute;top:4px;left:50%;transform:translateX(-50%);z-index:2;min-height:0;padding:2px 8px;border:2px solid #3a2a10;background:#e2b43c;color:#2a1c06;font:800 13px/1.2 var(--font-ui);letter-spacing:0;white-space:nowrap;cursor:pointer;box-shadow:0 2px 0 #000}
