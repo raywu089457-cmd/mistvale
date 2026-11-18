@@ -743,6 +743,7 @@ assert.equal(createGame().dispatchHunters().ok, true, 'The one-click dispatch st
   assert.ok(ri.riskStars >= 1 && ri.riskStars <= 5, 'Risk stars stay in 1-5');
   assert.ok(Object.keys(ri.loot).length > 0 && Object.values(ri.loot).every(v => v > 0), 'Average loot per kill is listed');
   assert.equal(info.regionInfo('village'), null, 'The village is not a hunting region');
+  assert.equal(ri.room, Math.round(info.huntRoom('snow') * 10) / 10, 'Region detail shows hunting capacity'); assert.ok(ri.room > 0 && Number.isInteger(ri.wanderersHere));
   const fit = ri.fit([]);
   assert.ok(fit && ['easy', 'ok', 'hard'].includes(fit.verdict) && fit.threat > 0 && fit.comfort > 0, 'Squad fit compares comfort against regional threat');
   const weakest = info.regionInfo('meadow'), strongest = info.regionInfo('mountain');

@@ -2879,6 +2879,8 @@ export function createGame(saved = null) {
         alive: state.enemies.filter(e => e.hp > 0 && e.type !== 'boss' && e.regionId === r.id).length,
         boss: state.enemies.some(e => e.hp > 0 && e.type === 'boss' && e.regionId === r.id),
         hunting: state.hunters.filter(h => h.hp > 0 && h.huntRegion === r.id).length,
+        // 2026-11-18 UX:流浪英雄也佔容量;room = 這區生怪速度養得起幾位(huntRoom),詳情頁顯示「擠不擠」
+        wanderersHere: (state.wanderers || []).filter(w => w.hp > 0 && w.huntRegion === r.id).length, room: Math.round(huntRoom(r.id) * 10) / 10,
         current: state.region === r.id,
         // 「這組打不打得動」用跟流浪英雄挑區域同一條公式(comfort vs threat),不要另立一套標準。
         fit(ids = []) {
