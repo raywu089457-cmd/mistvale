@@ -991,6 +991,9 @@ export function createGame(saved = null) {
     }
     h.shoppedVisit = true;
   }
+  // 不用走到鍛造屋的購買:規則全部照 shop(挑件、價格、庫存、GEAR_RESERVE、換下的舊件、村莊收入、統計、離線帳本),只是不算一趟村內行程(shoppedVisit 不動)。
+  // 地下城自動續戰的休整(floorCleared)與離線外推的「每人逛一次」共用。
+  function shopRemote(h) { if (!gearAvailable(h)) return; const visited = h.shoppedVisit; shop(h); h.shoppedVisit = visited; }
 
   // 2026-11-16 平衡:設施越高級,餐點/飲品/床鋪/繃帶賣得越貴(每級 +25%,Lv.5 = 2 倍)。
   //   14 天模擬裡每位獵人身上閒置 2000+ 金(裝備每格只買一次、服務 10–14 金固定價),村莊卻缺錢;
@@ -1453,7 +1456,11 @@ export function createGame(saved = null) {
       if (fit && next.secs <= DG_TIME_LIMIT * DG_FIT_TIME) {
         d.floor = floor + 1; d.wave = 1; d.foes = []; d.time = 0; d.phase = '休整中'; d.rest = 3;
         for (const h of party) h.hp = rested(h);
-        log(`小隊稍作休整，自動續戰第 ${d.floor} 層。`, 'info'); return;
+        log(`小隊稍作休整，自動續戰第 ${d.floor} 層。`, 'info');
+        // 2026-11-18 自動續戰的小隊一趟可以打上千秒、中間不回村,鍛造屋永遠逛不到(docs/BALANCE.md「地下城小隊的裝備」)→ 層與層之間的休整順便託人買。
+        // 放在續戰判斷之後:下一層的體檢照買之前的數值算,休整秒數不變;線上/離線都走這裡(離線 ② 照實跑 stepDungeon)。
+        for (const h of party) shopRemote(h);
+        return;
       }
       log(fit ? `第 ${floor + 1} 層的魔物太耐打，小隊帶著戰利品返村休整。` : '小隊體力不足，帶著戰利品返村休整。', 'info');
     }
@@ -2738,9 +2745,10 @@ export function createGame(saved = null) {
         state.counts.services += sold; state.counts.serviceIncome += svcPaid; state.counts.basicServices = (state.counts.basicServices || 0) + Math.round(basic);
         state.counts.hunterPay = (state.counts.hunterPay || 0) + hunterSvc; state.counts.wanderPay = (state.counts.wanderPay || 0) + wanderSvc;
         // ⑥ 裝備:外推期間每位獵人至少回村一趟 → 照線上規則(gearOffer:買得起、身上已有升級件要留 GEAR_RESERVE)逛一次鍛造屋;庫存買完就沒了
+        //   還在地下城的小隊不算:他們在 ② 照實打的時候,每層休整已經買過了(floorCleared)
         if (rest >= OFFLINE_SHOP_MIN && state.buildings.forge > 0) for (const h of pool) {
-          if (h.hp <= 0 || h.task === 'dungeon' || h.task === 'arena' || !gearAvailable(h)) continue;
-          const visited = h.shoppedVisit; shop(h); h.shoppedVisit = visited;
+          if (h.hp <= 0 || h.task === 'dungeon' || h.task === 'arena') continue;
+          shopRemote(h);
         }
         // 收購外推(2026-11-17):照取樣期的收購速率,但一般委託最多買到「剩餘收購量」為止(持續收購不扣),而且每份都要村莊付得起;
         // 持續收購另外不能讓金庫低於保留額(tradeReserve,與線上 trade() 相同規則)

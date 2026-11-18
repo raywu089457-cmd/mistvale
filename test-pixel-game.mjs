@@ -2028,3 +2028,92 @@ console.log(`PASS: ${CLASSES.length} hunters / ${CLASSES.length} classes, seeded
   assert.ok(starters(off) > 0, `off: drops and replaced starters still go to storage (${starters(off)})`);
   assert.ok((sell.state.counts.autoJunk || 0) > 0, 'auto-sell counted');
 }
+
+{ // 2026-11-18 地下城小隊的裝備(docs/BALANCE.md「地下城小隊的裝備」):自動續戰的小隊在層與層的休整時買鍛造屋的升級件,規則跟回村逛鍛造屋完全一樣
+  const weapon = RECIPES.find(r => r.type === 'weapon'), price = t => gearAt(weapon, t).price, floorGold = createGame().dungeonReward(1).gold;
+  const make = (prep, auto = true) => {
+    const base = createGame(); base.construct('dungeon'); const raw = base.serialize(), src = raw.hunters;
+    raw.hunters = ['paladin', 'archer', 'priest'].map((c, i) => ({ ...JSON.parse(JSON.stringify(src.find(x => x.classId === c))), id: 'dp' + i, level: 60, xp: 0, gold: 0 }));
+    raw.wanderers = []; raw.autoJunk = 'off';
+    const g = createGame(raw), s = g.state, party = s.hunters, buyer = party[2];
+    for (const h of party) { h.hp = h.maxHp; h.satiety = h.mood = h.stamina = 100; }
+    g.setDungeonAuto(auto); prep?.(s, buyer, party);
+    assert.equal(g.startDungeon(party.map(h => h.id), 1).ok, true);
+    for (const h of party) h.route = [];
+    g.tick(0.1); assert.equal(s.dungeon.phase, '戰鬥中');
+    return { g, s, d: s.dungeon, party, buyer };
+  };
+  const clearFloor = (g, d) => { d.wave = 3; for (const f of d.foes) f.hp = 0; g.tick(0.1); };
+  const rich = (s, b) => { b.gold = 1000; s.gearStock.weapon[1] = 1; };
+
+  { // 休整時買到:庫存、錢包、村莊金幣、統計、換下的舊件、數值都照一般購買;休整時間不變
+    const { g, s, d, buyer } = make(rich), twin = make((s, b) => { b.gold = 1000; });
+    const starter = buyer.gear.weapon.itemId, rw = g.dungeonReward(1), gold0 = s.gold, c0 = { ...s.counts };
+    clearFloor(g, d); clearFloor(twin.g, twin.d);
+    assert.equal(d.active, true); assert.equal(d.phase, '休整中'); assert.equal(d.floor, 2); assert.equal(d.rest, 3, 'the rest between floors is not longer');
+    assert.equal(buyer.gear.weapon.itemId, 'craft_weapon'); assert.equal(buyer.equipment.weapon, true);
+    assert.ok(buyer.attack > twin.buyer.attack, 'stats refresh right away');
+    assert.equal(s.gearStock.weapon[1], 0, 'stock goes down');
+    assert.equal(buyer.gold, 1000 + rw.gold - price(1), 'wallet pays the normal price');
+    assert.equal(s.gold, gold0 + rw.village.gold + price(1), 'the village receives the price');
+    assert.equal(s.counts.gearSold, c0.gearSold + 1); assert.equal(s.counts.gearIncome, c0.gearIncome + price(1)); assert.equal(s.counts.hunterPay, (c0.hunterPay || 0) + price(1));
+    assert.ok(s.gearStorage.some(x => x.itemId === starter), 'the replaced piece goes to the warehouse when auto-junk is off');
+    assert.equal(buyer.shoppedVisit, false, 'buying from the dungeon is not a town visit');
+  }
+  { // 換下的舊件照「自動整理」賣掉
+    const { g, s, d, buyer } = make((s, b) => { rich(s, b); s.autoJunk = 'sell'; });
+    const sell = EQUIPMENT[buyer.gear.weapon.itemId].sell || 0, rw = g.dungeonReward(1), gold0 = s.gold, junk0 = s.counts.autoJunk || 0;
+    clearFloor(g, d);
+    assert.equal(s.gearStorage.length, 0); assert.equal(s.counts.autoJunk, junk0 + 1); assert.equal(s.gold, gold0 + rw.village.gold + price(1) + sell);
+  }
+  { // 庫存有限:一件只賣給一位
+    const { g, s, d, party } = make((s, b, p) => { for (const h of p) h.gold = 1000; s.gearStock.weapon[1] = 1; });
+    clearFloor(g, d);
+    assert.equal(party.filter(h => h.gear.weapon.itemId === 'craft_weapon').length, 1); assert.equal(s.gearStock.weapon[1], 0); assert.equal(s.counts.gearSold, 1);
+  }
+  { // GEAR_RESERVE:身上已有升級件要多留 40 金;初始件可以花到 0
+    const upgrade = wallet => { const t = make((s, b) => { b.gear.weapon = { uid: 'old', itemId: 'craft_weapon' }; s.gearStock.weapon[2] = 1; b.gold = wallet - floorGold; }); clearFloor(t.g, t.d); return t; };
+    const short = upgrade(price(2) + 39);
+    assert.equal(short.buyer.gear.weapon.uid, 'old', 'one coin short of the reserve: no purchase'); assert.equal(short.s.gearStock.weapon[2], 1); assert.equal(short.buyer.gold, price(2) + 39);
+    const enough = upgrade(price(2) + 40);
+    assert.equal(enough.buyer.gear.weapon.grade, 2); assert.equal(enough.buyer.gold, 40, 'keeps exactly the reserve'); assert.equal(enough.s.gearStock.weapon[2], 0);
+    const first = make((s, b) => { s.gearStock.weapon[1] = 1; b.gold = price(1) - floorGold; }); clearFloor(first.g, first.d);
+    assert.equal(first.buyer.gear.weapon.itemId, 'craft_weapon'); assert.equal(first.buyer.gold, 0, 'starter gear has no reserve, same as the forge');
+  }
+  { // 戰鬥中、波與波之間都不買,打完這層才買
+    const { g, s, d, buyer } = make(rich), starter = buyer.gear.weapon.itemId;
+    for (let i = 0; i < 5; i++) { g.tick(0.1); assert.equal(s.gearStock.weapon[1], 1, 'no purchase during the fight'); }
+    d.wave = 1; for (const f of d.foes) f.hp = 0; g.tick(0.1);
+    assert.equal(d.phase, '前進中'); assert.equal(d.wave, 2);
+    assert.equal(buyer.gear.weapon.itemId, starter, 'no purchase between waves'); assert.equal(buyer.gold, 1000); assert.equal(s.gearStock.weapon[1], 1);
+  }
+  { // 沒有續戰的路線照舊:關掉自動續戰、殘血回村 → 這一刻不買,走回村裡的鍛造屋
+    const off = make(rich, false), starter = off.buyer.gear.weapon.itemId; clearFloor(off.g, off.d);
+    assert.equal(off.d.active, false); assert.equal(off.buyer.gear.weapon.itemId, starter, 'auto-continue off: nothing bought remotely'); assert.equal(off.s.gearStock.weapon[1], 1);
+    const worn = make(rich); for (const h of worn.party) h.hp = Math.max(1, Math.round(h.maxHp * 0.05)); clearFloor(worn.g, worn.d);
+    assert.equal(worn.d.active, false); assert.equal(worn.s.gearStock.weapon[1], 1, 'a party heading home shops in town instead');
+  }
+  { // 沒有鍛造屋:什麼都不發生
+    const { g, s, d, buyer } = make((s, b) => { rich(s, b); s.buildings.forge = 0; }), starter = buyer.gear.weapon.itemId, c0 = s.counts.gearSold, rw = g.dungeonReward(1).gold;
+    clearFloor(g, d);
+    assert.equal(d.phase, '休整中'); assert.equal(buyer.gear.weapon.itemId, starter); assert.equal(buyer.gold, 1000 + rw, 'only the floor reward'); assert.equal(s.gearStock.weapon[1], 1); assert.equal(s.counts.gearSold, c0);
+  }
+  { // 離線 ②(取樣之後照實打完的地下城):休整時一樣會買;外推不到一天,所以不是「每人逛一次鍛造屋」買的
+    const { g, s, d, party } = make((s, b) => { b.gold = 5000; });
+    const snap = g.offlineSnapshot(); g.simulate(OFFLINE.sample);
+    assert.equal(d.active, true, 'the party is still in the dungeon when sampling ends');
+    s.gearStock.weapon[1] = 1; const sold0 = s.counts.gearSold;
+    g.offlineFinish(snap, OFFLINE.sample + 120);
+    assert.equal(s.gearStock.weapon[1], 0); assert.equal(s.counts.gearSold, sold0 + 1); assert.equal(party.filter(h => h.gear.weapon.itemId === 'craft_weapon').length, 1);
+    assertFiniteEconomy(s);
+  }
+  { // 離線取樣期買的是一次性的:外推 3 小時不會把這筆裝備收入乘上倍率
+    const { g, s, d, buyer } = make((s, b) => { b.gold = 5000; });
+    const snap = g.offlineSnapshot(); g.simulate(OFFLINE.warm + 10);
+    s.gearStock.weapon[1] = 1; const sold0 = s.counts.gearSold, income0 = s.counts.gearIncome;
+    clearFloor(g, d); assert.equal(s.counts.gearSold, sold0 + 1, 'bought during the rate window');
+    const paid = s.counts.gearIncome - income0; assert.equal(paid, price(1));
+    g.simulate(OFFLINE.sample - OFFLINE.warm - 10); g.offlineFinish(snap, 3 * 3600);
+    assert.equal(s.counts.gearSold, sold0 + 1, 'one piece, not extrapolated'); assert.equal(s.counts.gearIncome, income0 + paid); assert.ok(buyer.gold >= 0); assertFiniteEconomy(s);
+  }
+}
