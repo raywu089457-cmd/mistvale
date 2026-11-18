@@ -825,6 +825,35 @@ assert.equal(arena.startDungeon(arena.state.arena.hunterIds).ok, false); run(are
   assert.equal(foe(41).hp, Math.round(5920 * 1.08)); assert.ok(foe(60).hp > foe(40).hp * 4 && foe(60).atk > foe(40).atk * 2.5, 'opponent keeps growing past 40 wins');
   assert.equal(g.construct('training').ok, true); a.wins = 50; assert.equal(g.startArena().ok, true); assert.equal(a.enemyMaxHp, g.arenaFoe().hp, 'match uses the same formula');
 }
+{ // 2026-11-18 競技場整備時間(docs/BALANCE.md「競技場整備時間」):整備 25 → 120 秒,首領討伐中不能開賽
+  //   原本一有空就開賽 → 野外最強三人整天在競技場與村子之間來回,野外打不死首領,討伐一再逾時,全村第 7 天擊倒 88(不打 437)
+  const g = createGame(), s = g.state, a = s.arena; g.construct('training');
+  assert.equal(g.startArena().ok, true); const party = [...a.hunterIds];
+  run(g, 45, false, assertFiniteEconomy); assert.equal(a.active, false); assert.equal(a.wins, 1);
+  assert.ok(a.cooldown > 120 - 45 && a.cooldown <= 120, `cooldown after a match is 120 s (left ${a.cooldown})`);
+  assert.ok(party.every(id => s.hunters.find(h => h.id === id).task !== 'arena'), 'the party is released after the match');
+  { // 模擬戰的傷不帶出場:輸了(全員被打倒)也是回滿生命,不算死亡
+    const L = createGame(), la = L.state.arena; L.construct('training'); assert.equal(L.startArena().ok, true);
+    const lp = L.state.hunters.filter(h => la.hunterIds.includes(h.id)); for (const h of lp) h.hp = 1;
+    la.wins = 39; la.enemyMaxHp = la.enemyHp = 1e9; const deaths0 = L.state.counts.deaths;   // 打不贏的對手
+    for (let i = 0; i < 1300 && la.active; i++) L.tick(0.1);   // 停在剛打完那一刻(之後他們會出門打怪、可能又受傷)
+    assert.equal(la.active, false); assert.equal(la.losses, 1);
+    assert.ok(lp.every(h => h.hp === h.maxHp && h.task !== 'arena' && h.task !== 'revive'), 'arena losers come back at full HP'); assert.equal(L.state.counts.deaths, deaths0, 'arena knock-outs are not deaths');
+  }
+  const busy = g.startArena(); assert.equal(busy.ok, false); assert.match(busy.message, /整備/);
+  // 存檔:整備時間照存、超過上限夾到 120;舊存檔(最多 25 秒)照原值
+  assert.equal(createGame({ ...g.serialize(), arena: { ...g.serialize().arena, cooldown: 25 } }).state.arena.cooldown, 25, 'legacy 25 s cooldown loads as is');
+  assert.equal(createGame({ ...g.serialize(), arena: { ...g.serialize().arena, cooldown: 9999 } }).state.arena.cooldown, 120, 'cooldown clamps to 120');
+  assert.ok(Math.abs(createGame(g.serialize()).state.arena.cooldown - a.cooldown) < 1e-9, 'cooldown round-trips');
+  a.cooldown = 0; s.expedition.cooldown = 0;
+  assert.equal(g.expedition().ok, true); assert.equal(s.expedition.active, true);
+  const blocked = g.startArena(); assert.equal(blocked.ok, false, 'no arena match during a boss expedition'); assert.match(blocked.message, /討伐/);
+  assert.equal(a.active, false); assert.ok(s.hunters.every(h => h.task !== 'arena'), 'a refused start pulls nobody');
+  s.enemies = s.enemies.filter(e => e.type !== 'boss'); run(g, 1);   // 首領消失 → 討伐結束(逾時同一條路)
+  assert.equal(s.expedition.active, false); assert.equal(g.startArena().ok, true, 'arena opens again once the expedition ends');
+  // 反過來:對戰進行中仍然可以召喚首領(場外的人去打,對戰完的三人回村後再加入)
+  s.expedition.cooldown = 0; assert.equal(g.expedition().ok, true, 'boss can still be summoned while a match runs');
+}
 
 const navigation = createGame(); navigation.moveBuilding('bounty', 5, 17);
 let returning = false, serviceStatus = false;

@@ -1526,14 +1526,26 @@ export function createGame(saved = null) {
   // 2026-11-16 平衡:競技場原本 10 勝後對手不再變強、獎勵最多 240 金 → 中期以後等於沒用。
   //   改成天梯:對手一路變強到第 ARENA_CAP 勝,獎勵跟著勝場成長,每 5 勝另給星晶;參賽獵人的經驗也跟著變多。
   const ARENA_CAP = 40;
+  // 2026-11-18 競技場整備時間(docs/BALANCE.md「競技場整備時間」):原本每場打完只整備 25 秒,模擬器一有空就按 →
+  //   一場約 50 秒(集結 10 + 對戰 11 + 整備 25 +回村辦事),推薦隊伍永遠是「不在地下城、每秒傷害最高」的三人 = 野外最強的三人,
+  //   他們一整天都在「回村 → 被叫去競技場 → 回村」,從沒完整出去打過一趟(7 天 35 場,三分之一是從首領戰被拉走的)。
+  //   地下城又帶走另外三位強者,野外只剩弱的打不死首領:討伐每次拖到 210 秒逾時、35 秒後再召喚 → 第 2–5 天每天 240 秒裡有 210 秒全員圍著首領轉,
+  //   seed 1 第 7 天村莊擊倒 88(不打競技場 437)、首領章(第 6 章)卡到第 6 天。
+  //   改成整備 ARENA_COOLDOWN 秒(半天):打完的三人有時間去療傷、出門打一整趟;一天約 1.7 場(原本 5 場)。
+  //   另外首領討伐進行中不能開賽(startArena):討伐要所有村外獵人一起上,競技場不能把打得動首領的人從王身邊拉走。
+  //   第三條:模擬對戰的傷不帶出場 —— 賽後三人回滿生命(修煉地幫忙包紮)。原本打完只保底 35%,
+  //   剛出場的三人常常半血以下,要先回村療傷、也排不進地下城推薦隊伍(推薦看血量),等於又少打一趟。
+  //   (也試過「回到開賽時的生命」,要多存一個欄位,10 seed 結果沒有比較好,見 BALANCE.md)
+  //   只有用到競技場時才會走到這幾條規則 → 不打競技場的局逐位元不變。
+  const ARENA_COOLDOWN = 120;
   // 2026-11-17:對手強度不再停在第 40 勝(獎勵仍封頂在第 40 勝)→ 舊版 40 勝後對手不變強,模擬 30 天 158 勝 0 敗、每場穩拿最高獎勵;
   //   前 40 勝照舊;之後對手生命每勝 ×1.08、攻擊 ×1.05,隊伍爬到自己的極限就會輸,要更強(轉世、換裝)才能繼續贏
   const arenaFoeHp = w => Math.round((720 + Math.min(ARENA_CAP, w) * 130) * 1.08 ** Math.max(0, w - ARENA_CAP)), arenaFoeAtk = w => Math.round((21 + Math.min(ARENA_CAP, w) * 3) * 1.05 ** Math.max(0, w - ARENA_CAP));
   function endArena(won) {
-    const a = state.arena; a.active = false; a.cooldown = 25; a.phase = won ? '勝利' : '落敗'; a.reward = won ? 90 + Math.min(ARENA_CAP, a.wins) * 25 : 0; const gems = won && (a.wins + 1) % 5 === 0 ? 2 + Math.floor(Math.min(ARENA_CAP, a.wins) / 10) : 0;
+    const a = state.arena; a.active = false; a.cooldown = ARENA_COOLDOWN; a.phase = won ? '勝利' : '落敗'; a.reward = won ? 90 + Math.min(ARENA_CAP, a.wins) * 25 : 0; const gems = won && (a.wins + 1) % 5 === 0 ? 2 + Math.floor(Math.min(ARENA_CAP, a.wins) / 10) : 0;
     if (won) { a.wins++; state.gold += a.reward; state.gems += gems; } else a.losses++;
     for (const h of state.hunters.filter(h => a.hunterIds.includes(h.id))) {
-      h.task = null; h.hp = Math.max(h.hp, h.maxHp * 0.35); if (won) { h.gold += 25; gainXp(h, 80 + Math.min(ARENA_CAP, a.wins) * 15); } returnToTown(h);
+      h.task = null; h.hp = h.maxHp; if (won) { h.gold += 25; gainXp(h, 80 + Math.min(ARENA_CAP, a.wins) * 15); } returnToTown(h);   // 模擬戰的傷不帶出場:賽後回滿生命(見 ARENA_COOLDOWN)
     }
     log(`競技場模擬對戰${won ? `獲勝（第 ${a.wins} 勝），村莊獲得 ${a.reward} 金幣${gems ? `與 ${gems} 星晶` : ''}` : '落敗，隊伍已安全撤回'}。`, won ? 'success' : 'warning');
   }
@@ -2144,7 +2156,7 @@ export function createGame(saved = null) {
       for (const h of state.hunters.filter(h => selected.includes(h.id))) { h.task = 'dungeon'; h.status = h.hp > 0 ? '地下城集結' : '復活中'; h.destination = 'dungeon'; route(h, [door('dungeon', h)]); }
     }
     const a = state.arena, rawArena = source.arena;
-    a.wins = integer(rawArena?.wins, 0, 0, 1e6); a.losses = integer(rawArena?.losses, 0, 0, 1e6); a.cooldown = number(rawArena?.cooldown, 0, 0, 25);
+    a.wins = integer(rawArena?.wins, 0, 0, 1e6); a.losses = integer(rawArena?.losses, 0, 0, 1e6); a.cooldown = number(rawArena?.cooldown, 0, 0, ARENA_COOLDOWN);   // 舊存檔最多 25 秒,照原值讀入
     const arenaIds = Array.isArray(rawArena?.hunterIds) ? [...new Set(rawArena.hunterIds)].filter(hid => state.hunters.some(h => h.id === hid && h.task !== 'dungeon')).slice(0, 3) : [];
     if (rawArena?.active === true && state.buildings.training > 0 && arenaIds.length === 3) {
       Object.assign(a, { active: true, phase: '集結中', hunterIds: arenaIds, time: number(rawArena.time, 0, 0, 120), enemyMaxHp: arenaFoeHp(a.wins), attackTimer: number(rawArena.attackTimer, 1, 0, 2) }); a.enemyHp = number(rawArena.enemyHp, a.enemyMaxHp, 1, a.enemyMaxHp);
@@ -2593,6 +2605,7 @@ export function createGame(saved = null) {
       if (!state.buildings.training) return result(false, '請先建造修煉地，開放競技場模擬對戰。');
       const a = state.arena; if (a.active) return result(false, '模擬對戰正在進行。');
       if (a.cooldown > 0) return result(false, `隊伍還需整備 ${Math.ceil(a.cooldown)} 秒。`);
+      if (state.expedition.active) return result(false, '森林領主討伐中，村外獵人都要上陣；討伐結束後再開始模擬對戰。');   // 見 ARENA_COOLDOWN 的說明
       let selected;
       if (hunterIds === null) selected = state.hunters.filter(h => h.hp > 0 && h.task !== 'dungeon' && h.task !== 'revive').sort((a, b) => b.hp / b.maxHp - a.hp / a.maxHp || b.attack - a.attack).slice(0, 3);
       else { if (!Array.isArray(hunterIds) || hunterIds.length !== 3 || new Set(hunterIds).size !== 3) return result(false, '請選擇 3 位不同的存活獵人。'); selected = hunterIds.map(hid => state.hunters.find(h => h.id === hid)).filter(Boolean); }
