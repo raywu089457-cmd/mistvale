@@ -397,6 +397,41 @@ assert.ok(idle.state.counts.services > 0, 'Hunters visibly use town services wit
   const mid = createGame(out.serialize()); run(mid, 60, false, assertFiniteEconomy);
   assert.ok(mid.state.hunters.some(h => h.autoHunt), 'a save taken mid-hunt resumes hunting after load');
 }
+{ // 2026-11-18 生態區特產 + 村莊缺料偏好:缺木材時,有些獵人改去「輕鬆」的木材區;絕不為了缺料去可行/危險的區;去的人多了加分就消失
+  const g = createGame(), s = g.state;
+  // 生態區特產:橡木密林每隻魔物平均掉的木材明顯比鐵脊山麓多,山麓還是鐵礦最多的區(地圖詳情的 loot 直接從 ENEMIES 算)
+  const loot = id => g.regionInfo(id).loot;
+  assert.ok(loot('forest').wood >= 2 * loot('mountain').wood, `forest out-produces mountain on wood (${loot('forest').wood} vs ${loot('mountain').wood})`);
+  assert.ok(loot('birch').wood > loot('mountain').wood, 'birch out-produces mountain on wood too');
+  assert.ok(['meadow', 'forest', 'taiga', 'snow', 'desert', 'birch'].every(id => (loot(id).ore || 0) < loot('mountain').ore), 'mountain stays the ore region');
+  const [h, ...others] = s.hunters;
+  for (const o of others) { o.huntRegion = null; o.autoHunt = false; }
+  const fill = () => { for (const k of Object.keys(s.tradeRequests)) { s.tradeRequests[k] = 60; s[k] = 500; } };
+  Object.assign(h, { level: 60, attack: 100, defense: 50 });   // 每一區都「輕鬆」
+  fill(); assert.deepEqual(g.villageNeed(), {}, 'no shortage while every stock is above its trade request');
+  assert.equal(g.autoHuntPick(h.id), 'mountain', 'without a shortage a strong hunter still takes the riskiest easy region');
+  s.wood = 0; assert.equal(g.villageNeed().wood, 1, 'wood at 0 against a request of 60 = full need');
+  const seed = s.seed; assert.equal(g.autoHuntPick(h.id), 'forest', 'wood shortage sends a hunter to the wood region when it is easy for him');
+  assert.equal(s.seed, seed, 'picking a region rolls no dice (deterministic, RNG untouched)');
+  assert.equal(g.regionInfo('forest').fit([h.id]).verdict, 'easy');
+  others[0].huntRegion = 'forest';   // 已經有人在森林了 → 加分變小,下一位照常去山麓
+  assert.equal(g.autoHuntPick(h.id), 'mountain', 'the bonus falls off once another hunter already covers the wood region');
+  others[0].huntRegion = null;
+  s.tradeRequests.wood = 0; assert.equal(g.autoHuntPick(h.id), 'mountain', 'no trade request for wood = the village is not asking for it');
+  s.tradeRequests.wood = 60; s.buildings.trading = 0; assert.deepEqual(g.villageNeed(), {}, 'no trading post = no shortage signal'); s.buildings.trading = 1;
+  // 森林只是「可行」、草原才「輕鬆」:缺木材也不能去森林
+  Object.assign(h, { level: 4, attack: 10, defense: 4 });
+  assert.equal(g.regionInfo('forest').fit([h.id]).verdict, 'ok'); assert.equal(g.regionInfo('meadow').fit([h.id]).verdict, 'easy');
+  assert.equal(g.autoHuntPick(h.id), 'meadow', 'a shortage never sends a hunter to a non-easy region while an easy one exists');
+  // 掃一遍各種強度:有輕鬆的區就一定挑輕鬆的(缺什麼都一樣)
+  for (const k of Object.keys(s.tradeRequests)) s[k] = 0;
+  for (let lv = 1; lv <= 100; lv += 3) for (const def of [0, 2, 4, 6, 9, 14, 20, 30]) {
+    Object.assign(h, { level: lv, attack: 8 + lv, defense: def });
+    const anyEasy = ['meadow', 'forest', 'taiga', 'snow', 'mountain', 'desert', 'birch'].some(id => g.regionInfo(id).fit([h.id]).verdict === 'easy');
+    const pick = g.autoHuntPick(h.id);
+    if (anyEasy) assert.equal(g.regionInfo(pick).fit([h.id]).verdict, 'easy', `lv${lv} def${def} picked ${pick}`);
+  }
+}
 { // 2026-11-17 野外存活:看情勢撤退、返村走環路、趕路時不離開環路去追自己區的魔物
   const foe = (type, x, z, attack, regionId) => ({ id: 'e-t-' + type + x.toFixed(2), type, x, z, hp: 999, maxHp: 999, attack, attackTimer: 9, age: 0, regionId, homeX: x, homeZ: z });
   const field = (hpFrac, foes) => {

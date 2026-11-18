@@ -93,26 +93,30 @@ export const ENEMIES = {
   //   順手把同區多出來的鐵礦/麵粉讓一點出來;森林領主(樹人)本來就該掉一大堆木頭 10 → 20。
   // 2026-11-18 平衡:亞麻布只在森林/雪原/沙漠掉,獵人大多在草原與白樺林 → 第 2–16 天常 0–10 份(床鋪、繃帶、頭盔/腿甲/手套都要它),
   //   藥草、麵粉卻堆到上千。公羊(羊毛)與花妖精(花莖纖維)讓一部分麵粉/藥草改掉亞麻布。
+  // 2026-11-18 生態區特產(docs/BALANCE.md「生態區特產與缺料偏好」):獵人一律去「打得動的最高危險區」→ 山麓一區每隻掉 1.6 木材＋鐵礦,
+//   比主打木材的橡木密林(1.5)還多,低危險區沒人去(30 天森林魔物只被打幾十隻)。現在每區主產一兩樣、而且是全圖最好的來源:
+//   橡木密林 木材 2.75/隻(山麓 0.9)、鐵脊山麓 鐵礦 2.5/隻、白樺花原與霜杉林地 木材 1.25/1.0、白霜雪原 亞麻布 1.1/隻。
+//   村莊缺某樣材料時,autoHuntRegion 讓部分獵人改去產那樣材料的「輕鬆」區(NEED_BIAS)。
   sprout: { hp: 60, attack: 9, speed: 0.9, gold: 16, xp: 20, drops: { flour: 3, herb: 2, wood: 1 } },
   ram: { hp: 88, attack: 13, speed: 1.25, gold: 22, xp: 27, drops: { flour: 1, leather: 2, cloth: 2 } },
   mole: { hp: 75, attack: 11, speed: 0.8, gold: 20, xp: 24, drops: { flour: 2, ore: 1 } },
-  shroom: { hp: 70, attack: 12, speed: 0.7, gold: 20, xp: 25, drops: { herb: 3, wood: 1 } },
-  boar: { hp: 105, attack: 16, speed: 1.5, gold: 26, xp: 31, drops: { leather: 3, wood: 1 } },
-  vine: { hp: 95, attack: 14, speed: 0.62, gold: 24, xp: 29, drops: { wood: 3, herb: 2 } },
+  shroom: { hp: 70, attack: 12, speed: 0.7, gold: 20, xp: 25, drops: { herb: 2, wood: 2 } },
+  boar: { hp: 105, attack: 16, speed: 1.5, gold: 26, xp: 31, drops: { leather: 3, wood: 2 } },
+  vine: { hp: 95, attack: 14, speed: 0.62, gold: 24, xp: 29, drops: { wood: 5, herb: 1 } },
   wolfman: { hp: 120, attack: 17, speed: 1.55, gold: 30, xp: 36, drops: { leather: 3, cloth: 1 } },
-  moss: { hp: 150, attack: 18, speed: 0.7, gold: 34, xp: 40, drops: { wood: 3, herb: 2, ore: 1 } },
+  moss: { hp: 150, attack: 18, speed: 0.7, gold: 34, xp: 40, drops: { wood: 4, herb: 1, ore: 1 } },
   snowhare: { hp: 85, attack: 13, speed: 1.8, gold: 24, xp: 28, drops: { leather: 2, cloth: 2 } },
   yeti: { hp: 200, attack: 22, speed: 0.65, gold: 44, xp: 52, drops: { ore: 3, leather: 3, wood: 2 } },
-  snowman: { hp: 140, attack: 15, speed: 0.75, gold: 32, xp: 37, drops: { wood: 2, cloth: 2 } },   // 樹枝手臂
+  snowman: { hp: 140, attack: 15, speed: 0.75, gold: 32, xp: 37, drops: { wood: 1, cloth: 3 } },   // 樹枝手臂
   icebeetle: { hp: 160, attack: 16, speed: 0.6, gold: 34, xp: 39, drops: { ore: 3, herb: 1 } },
-  kobold: { hp: 100, attack: 15, speed: 1.1, gold: 26, xp: 30, drops: { ore: 2, wood: 2 } },   // 礦坑支架木
+  kobold: { hp: 100, attack: 15, speed: 1.1, gold: 26, xp: 30, drops: { ore: 3, wood: 1 } },   // 礦坑支架木
   boulder: { hp: 210, attack: 23, speed: 0.5, gold: 46, xp: 54, drops: { ore: 4, wood: 2 } },   // 2026-11-16:5 seed 裡第 15 天鐵礦 400–800、木材常 0 → 山區讓一點鐵礦給木材
-  goat: { hp: 130, attack: 18, speed: 1.4, gold: 30, xp: 35, drops: { leather: 2, ore: 1, wood: 1 } },
+  goat: { hp: 130, attack: 18, speed: 1.4, gold: 30, xp: 35, drops: { leather: 2, ore: 1 } },
   mummy: { hp: 130, attack: 17, speed: 0.9, gold: 32, xp: 36, drops: { cloth: 3, herb: 1 } },
   cactus: { hp: 150, attack: 16, speed: 0.5, gold: 32, xp: 37, drops: { herb: 3, wood: 1 } },
   scorpion: { hp: 145, attack: 19, speed: 1.05, gold: 34, xp: 39, drops: { herb: 2, leather: 2 } },
   floraspirit: { hp: 70, attack: 11, speed: 1.3, gold: 22, xp: 26, drops: { herb: 2, cloth: 2 } },
-  birchling: { hp: 110, attack: 14, speed: 0.85, gold: 26, xp: 31, drops: { wood: 3, herb: 2 } },
+  birchling: { hp: 110, attack: 14, speed: 0.85, gold: 26, xp: 31, drops: { wood: 5, herb: 1 } },
   stag: { hp: 125, attack: 16, speed: 1.5, gold: 30, xp: 34, drops: { leather: 3, herb: 1 } },
   boss: { hp: 1150, attack: 28, speed: 0.85, gold: 260, xp: 180, drops: { ore: 12, wood: 20, herb: 8, leather: 10, cloth: 8, flour: 10 } },
 };
@@ -655,16 +659,38 @@ export function createGame(saved = null) {
     if (h.hp >= h.maxHp * RETREAT.cap || inVillage(h.x, h.z)) return false;
     return h.hp < incomingDps(h) * RETREAT.window;
   }
-  // 自己挑狩獵區:只考慮「輕鬆」的區,挑其中最難的(經驗與戰利品較多),同難度挑離村近的、目前主狩獵區(魔物最多)小加分。
-  // 沒有輕鬆的區就退一步挑「可行」裡最簡單的;連可行都沒有 → null(留在村裡,不去送死)。
+  // ── 村莊缺料偏好(2026-11-18,獵魔村物語式「村民去找村裡缺的東西」) ──
+  // 原本每位獵人都去「輕鬆」裡危險度最高的區 → 全員擠在山麓/雪原,低危險區(森林、白樺、針葉林)整局沒人去,木材永遠缺。
+  // 現在:交易所正在收購、而且倉庫存量低於收購數量的材料 = 村莊缺料(need 0–1 = 1 − 存量 / 收購數量)。
+  // 「輕鬆」區裡主產這樣材料的區加分:weight × need × 產量占比²(REGION_SUPPLY,全圖最會掉的區 = 1;平方 → 只有「特產區」拉得動人,
+  // 山麓的 0.3 份木材占比只剩 0.1),每多一位已經在那區的獵人扣 crowd 分(扣到 0 為止)→ 缺得越兇去的人越多,但不會全員一起換區。
+  // 分數尺度:危險度 ×10(山麓 16.5、雪原 15、森林 11.5),所以木材見底時大約 1 位會從山麓、再 1 位從雪原/沙地改去森林;缺一半時只有雪原/沙地的人會換。
+  // 代價(21 天 5 seed):獵人分散後少了「12 格內一起拿經驗」,中位數等級約慢 3 級(≈ 1 天);最高等級、委託章節、轉世沒變慢(見 BALANCE.md)。
+  // 只在「輕鬆」的區之間比(加分不會讓獵人去可行/危險的區);純函式,不擲骰(隨機數序列不受影響)。
+  const NEED_BIAS = { weight: 8, crowd: 4 };
+  function villageNeed() {
+    const need = {};
+    if (!(state.buildings.trading > 0)) return need;
+    for (const k of MATERIAL_KEYS) { const want = state.tradeRequests?.[k] || 0; if (want > 0 && (state[k] || 0) < want) need[k] = Math.min(1, 1 - (state[k] || 0) / want); }
+    return need;
+  }
+  function needBonus(rid, need, crowd) {
+    let best = 0;
+    for (const [k, n] of Object.entries(need)) best = Math.max(best, n * (REGION_SUPPLY[rid]?.[k] || 0) ** 2);
+    return best > 0 ? Math.max(0, NEED_BIAS.weight * best - NEED_BIAS.crowd * crowd) : 0;
+  }
+  // 自己挑狩獵區:只考慮「輕鬆」的區,挑其中最難的(經驗與戰利品較多),同難度挑離村近的、目前主狩獵區(魔物最多)小加分,
+  // 再加上村莊缺料偏好(見上)。沒有輕鬆的區就退一步挑「可行」裡最簡單的;連可行都沒有 → null(留在村裡,不去送死)。
   function autoHuntRegion(h) {
     const mult = DIFFICULTIES[state.difficulty]?.mult ?? 1, home = REGIONS.find(r => r.id === 'village') || CAMP;
+    const need = villageNeed(), crowd = {};
+    for (const o of state.hunters) if (o !== h && o.hp > 0 && o.huntRegion) crowd[o.huntRegion] = (crowd[o.huntRegion] || 0) + 1;
     let easy = null, easyScore = -Infinity, ok = null, okThreat = Infinity;
     for (const r of REGIONS) {
       if (r.id === 'village') continue;
       const fit = regionFit([h], r, mult);
       if (fit.verdict === 'easy') {
-        const score = r.risk * 10 - Math.hypot(r.x - home.x, r.z - home.z) * 0.02 + (r.id === state.region ? 0.3 : 0);
+        const score = r.risk * 10 - Math.hypot(r.x - home.x, r.z - home.z) * 0.02 + (r.id === state.region ? 0.3 : 0) + needBonus(r.id, need, crowd[r.id] || 0);
         if (score > easyScore) { easy = r; easyScore = score; }
       } else if (fit.verdict === 'ok' && fit.threat < okThreat) { ok = r; okThreat = fit.threat; }
     }
@@ -1164,6 +1190,15 @@ export function createGame(saved = null) {
     mountain:['kobold','kobold','kobold','goat','goat','goat','boulder','boulder'],desert:['cactus','cactus','cactus','scorpion','scorpion','scorpion','mummy','mummy'],
     birch:['floraspirit','floraspirit','floraspirit','stag','stag','stag','birchling','birchling']};
   const mixOf = id => REGION_MIX[id] || REGION_MIX.meadow;
+  // 每區「打一隻魔物平均掉多少」(照出怪權重),每樣材料再除以全圖最高的那區 → 0–1 的產量占比(村莊缺料偏好用,見 needBonus)。
+  const REGION_SUPPLY = (() => {
+    const per = {}, top = {};
+    for (const [rid, mix] of Object.entries(REGION_MIX)) {
+      const sum = {}; for (const t of mix) for (const [k, v] of Object.entries(ENEMIES[t]?.drops || {})) sum[k] = (sum[k] || 0) + v / mix.length;
+      per[rid] = sum; for (const [k, v] of Object.entries(sum)) top[k] = Math.max(top[k] || 0, v);
+    }
+    return Object.fromEntries(Object.entries(per).map(([rid, sum]) => [rid, Object.fromEntries(Object.entries(sum).map(([k, v]) => [k, v / top[k]]))]));
+  })();
   // 進區前先把該區會出現的魔物 sheet 叫回來(像素世界是「用到才載」,26 種全載會吃掉 280 MB)。
   const preloadMix = mix => { try { globalThis.__mistvalePreloadMonsters?.(mix); } catch { } };
   function spawn(type, position = null, regionId = null) {
@@ -2391,6 +2426,8 @@ export function createGame(saved = null) {
     // merchantQuote(cost) → { ok, short:{材料:缺幾份}, gold:補料要花的金幣, total:補料＋成本本身的金幣, unit:{材料:單價}, reason }
     //   ok=false 時 reason 說明為什麼不能補(沒有交易所、缺的是金幣/星晶這類不能買的東西、金幣不夠)。
     dropAmount,   // 野外材料掉落量(隨難度提高;測試與 UI 預覽用)
+    villageNeed,   // 村莊缺料程度 { 材料: 0–1 }(交易所收購中、存量低於收購數量);獵人自主挑區的偏好用
+    autoHuntPick(hunterId) { const h = state.hunters.find(x => x.id === hunterId); return h ? autoHuntRegion(h) : null; },   // 這位獵人現在自己出門會挑哪一區(測試與 UI 用;不改任何狀態)
     servicePrice,   // 設施服務的目前售價(隨設施等級上升;UI 顯示用)
     merchantRate() { const lv = state.buildings.trading || 0; return lv ? Math.max(MERCHANT.floor, MERCHANT.markup - MERCHANT.step * (lv - 1)) : 0; },
     merchantQuote(cost = {}) {
