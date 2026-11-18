@@ -571,7 +571,7 @@ const WELCOME_STEPS=[
 ];
 // 高亮目標:要按的頁籤(建設、地下城、獵人、倉庫、交易)或右上圖示(委託、地圖);同一時間最多一個。每幀只在目標變了才動 DOM。
 let z2dMarkKey='';
-function z2dMarkSel(act){if(act&&act.startsWith('rebirth:'))act='hunters';if(act==='arena')return '.hv-actions [data-act=arena]';return !act?null:({quests:'#topbar .hv-quests',worldmap:'#topbar [data-action=worldmap]',craft:'#bottom-bar [data-action=inventory]'})[act]||`#bottom-bar [data-action="${act}"]`;}
+function z2dMarkSel(act){if(act&&act.startsWith('rebirth:')||act==='recruit')act='hunters';if(act==='arena')return '.hv-actions [data-act=arena]';return !act?null:({quests:'#topbar .hv-quests',worldmap:'#topbar [data-action=worldmap]',craft:'#bottom-bar [data-action=inventory]'})[act]||`#bottom-bar [data-action="${act}"]`;}
 function z2dMarkPaint(){
   let act='';
   if(modal==='welcome')act=WELCOME_STEPS[Math.max(0,Math.min(WELCOME_STEPS.length-1,welcomeStep))].target;
@@ -582,7 +582,7 @@ function z2dMarkPaint(){
   document.querySelectorAll('[data-z2d-target]').forEach(e=>{e.removeAttribute('data-z2d-target');e.querySelector(':scope>.z2d-finger')?.remove();});
   const t=sel&&document.querySelector(sel);if(!t)return;
   t.setAttribute('data-z2d-target','1');const f=document.createElement('i');f.className='z2d-finger';f.setAttribute('aria-hidden','true');t.append(f);}
-const ADVISOR_ICON={quests:'quest',hunters:'hunter',arena:'swords',dungeon:'dungeon',build:'hall',worldmap:'map'};
+const ADVISOR_ICON={quests:'quest',hunters:'hunter',recruit:'hunter',arena:'swords',dungeon:'dungeon',build:'hall',worldmap:'map'};
 const ADVISOR_MORE={dungeon0:'地下城入口蓋好之後，才能挑 3 位獵人出發闖關；競技場則要先蓋修煉地。',restock:'獵人會自己出去狩獵，但商品只能靠你在「倉庫 → 製作」補貨；賣完了，村莊就沒有這筆收入。',quest:'領完獎勵就會解鎖下一章。',visitor:'招募要花金幣，稀有度越高越貴、成長也越好。',dungeon:'每層三波魔物；打贏推進紀錄，打不過就會帶傷回村。',build:'先蓋食堂、旅館、酒館：獵人有地方花錢，村莊才有收入。',dungeon2:'地下城一次要三位獵人；其他人可以先去生態區狩獵。',hunt:'在地圖上選一個生態區，獵人會自己去那裡打怪、帶材料回來。'};
 function modalHTML(type){const s=game.state;
  if(type==='visitors')return visitorBandHTML();   // Z2A:新獵人到訪(D 暗帶)
@@ -919,7 +919,7 @@ function doAction(el){const a=el.dataset.action,id=el.dataset.id;let r;
     if(t==='craftGear'){craftTab='gear';openModal('craft');return;}
     if(t.startsWith('rebirth:')){const hid=t.slice(8);closeModal();openHunter(hid);if(modal==='hunter-detail'){hc.tab='rebirth';openHunter(hid);}return;}   // 2026-11-18 Lv.100 → 直接開那位獵人的「轉世」頁
     if(t==='arena'){openModal('arena');return;}
-    if(t==='quests'||t==='hunters'||t==='dungeon'||t==='build'||t==='worldmap'||t==='craft'||t==='trade'||t==='boss'||t==='inventory')openModal(t);else closeModal();
+    if(t==='quests'||t==='hunters'||t==='recruit'||t==='dungeon'||t==='build'||t==='worldmap'||t==='craft'||t==='trade'||t==='boss'||t==='inventory')openModal(t);else closeModal();
     if(t==='inventory')requestAnimationFrame(()=>document.querySelector('#modal-content .gear-store')?.scrollIntoView({block:'start'}));   // 2026-11-17:舊裝備提示 → 直接捲到裝備倉庫(自動整理開關在那裡)
     if(t==='build'&&/地下城入口/.test(advisorReq?.text||''))z2cFlashBuild('dungeon');   // Z2C:顧問叫你蓋地下城入口時,建設面板直接標出那一格
     if(t==='build'&&advisorReq?.flash)z2cFlashBuild(advisorReq.flash);
@@ -1503,7 +1503,7 @@ Object.assign(Z2C,{worldMap:z2cWorldMapHTML,dungeon:z2cDungeonHTML,arena:z2cAren
 let nextStepEl=null,nextStepKey='';
 // 教學鏈(第 2–7 章)每章的「下一步」:文字＋要開的畫面(nextStepGo 的 act)＋建設面板要標的建築(flash)
 // 2026-11-17:Lv.100 還能轉世的獵人。自動續戰不會自己停,滿級獵人常卡在地下城隊伍裡(轉世會被拒絕)→ 先叫玩家撤退
-Z2C.questGo=s=>{const q=s&&s.quest;if(!q||q.complete||q.claimed)return null;return q.index===0?{text:'',act:'hunters',label:'看名冊'}:questGuide(s);};
+Z2C.questGo=s=>{const q=s&&s.quest;if(!q||q.complete||q.claimed)return null;return q.index===0?{text:'',act:'recruit',label:'去招募'}:questGuide(s);};
 function rebirthTip(s){const top=(s.hunters||[]).filter(h=>(h.level||0)>=100&&(h.rebirths||0)<20&&(h.hp||0)>0);if(!top.length)return null;
   const free=top.find(h=>h.task!=='dungeon'&&h.task!=='arena');if(free)return {text:`${free.name}到 Lv.100 了！可以轉世了，轉世後能力會更強`,act:'rebirth:'+free.id,label:'去轉世'};
   const dg=top.find(h=>h.task==='dungeon');if(dg)return {text:`${dg.name}已 Lv.100，在地下城裡，先讓小隊撤退再轉世`,act:'rebirth:'+dg.id,label:'去轉世頁'};
@@ -1517,7 +1517,7 @@ function questGuide(s){const q=s.quest||{},n=q.index+1,p=`（${fmt(q.progress||0
     case 5:return {text:`召喚森林領主，讓獵人一起討伐，完成第 ${n} 章`,act:'boss',label:'召喚首領'};
     case 6:return dg?{text:`派 3 位獵人進地下城打完 1 層，完成第 ${n} 章`,act:'dungeon',label:'去地下城'}:{text:'先蓋地下城入口，獵人才能出發闖關',act:'build',label:'去建設'};
     // 2026-11-16 中期章節(8–18):每章也給「下一步該按哪裡」;條件不足時先指向卡住的那棟建築
-    case 7:return (s.capacity||0)<(q.target||12)?{text:`升級獵人小屋增加名額（目前 ${s.capacity}），第 ${n} 章要 ${q.target} 位獵人`,act:'build',label:'去建設',flash:'house'}:{text:`到「招募」邀請旅人，第 ${n} 章${p}`,act:'hunters',label:'看名冊'};
+    case 7:return (s.capacity||0)<(q.target||12)?{text:`升級獵人小屋增加名額（目前 ${s.capacity}），第 ${n} 章要 ${q.target} 位獵人`,act:'build',label:'去建設',flash:'house'}:{text:`到「招募」邀請旅人，第 ${n} 章${p}`,act:'recruit',label:'去招募'};
     case 8:case 13:case 16:return {text:`派獵人打地下城、競技場最快練等級，第 ${n} 章${p}`,act:'dungeon',label:'去地下城'};
     case 9:return {text:`把城鎮大廳升到 Lv.${q.target}，第 ${n} 章${p}`,act:'build',label:'去建設',flash:'hall'};
     case 10:case 14:return s.dungeon?.active&&s.dungeon?.auto?{text:`地下城自動續戰中，推到第 ${fmt(q.target||0)} 層完成第 ${n} 章${p}`,act:'dungeon',label:'看戰況'}:{text:`開自動續戰往下推，地下城紀錄第 ${n} 章${p}`,act:'dungeon',label:'去地下城'};   // 已在自動續戰就不要再叫玩家「開自動續戰」
@@ -1531,13 +1531,13 @@ function nextStepPick(s,skipQuest=false){
   const idle=(s.hunters||[]).filter(h=>!h.task&&(h.hp||0)>0);
   if(!skipQuest&&s.quest&&s.quest.complete)return {key:'quest',text:'村長委託的獎勵可以領了',act:'quests',label:'查看委託'};
   // 2026-11-16:第 1 章是「邀請 1 位旅人」→ 這時引導先跟委託走同一件事,不要上面寫招募、下面叫人去蓋地下城(兩個第一步互搶)
-  if(s.quest&&s.quest.index===0&&!s.quest.complete){const v0=(s.visitors||[]).filter(v=>(s.gold||0)>=v.cost);if(v0.length)return {key:'visitor',text:'先邀請 1 位旅人加入，完成第 1 章委託',act:'hunters',label:'看名冊'};}
+  if(s.quest&&s.quest.index===0&&!s.quest.complete){const v0=(s.visitors||[]).filter(v=>(s.gold||0)>=v.cost);if(v0.length)return {key:'visitor',text:'先邀請 1 位旅人加入，完成第 1 章委託',act:'recruit',label:'去招募'};}
   // 2026-11-16:前 7 章是教學鏈 → 顧問照「目前這一章要做的事」帶路(獵魔村式:一次只指一件事),不要跟委託追蹤互搶
   {const q=s.quest,g=q&&q.index<=6?questGuide(s):null;if(q&&!q.complete&&!q.claimed&&g)return {key:'quest'+q.index+'-'+(q.progress||0),...g};}
   // Z2C(UX #1):還沒有地下城入口、而且蓋得起 → 第一步是蓋它(不是「去地下城挑人」);蓋不起時照舊走下面的建議
   {const dg0=BUILDINGS.find(b=>b.id==='dungeon');if(dg0&&!(s.buildings&&s.buildings.dungeon>0)&&Object.entries(dg0.cost).every(([k,n])=>(s[k]||0)>=n))return {key:'dungeon0',text:'先蓋地下城入口，獵人才能出發闖關',act:'build',label:'去建設'};}
   const vis=(s.hunters||[]).length<(s.capacity||0)?(s.visitors||[]).filter(v=>(s.gold||0)>=v.cost):[];   // 2026-11-16:名額滿了就不提示招募(按了也招不進來)
-  if(vis.length)return {key:'visitor',text:'有 '+vis.length+' 位旅人願意加入',act:'hunters',label:'看名冊'};
+  if(vis.length)return {key:'visitor',text:'有 '+vis.length+' 位旅人願意加入',act:'recruit',label:'去招募'};
   const sold=soldOutGoods(s);
   if(sold.length)return {key:'restock',text:sold.slice(0,2).join('、')+(sold.length>2?'等':'')+'賣完了，到倉庫的製作補貨',act:'craft',label:'去製作'};
   // 中期章節(8–18)的帶路排在「商品賣完」之後:斷貨會直接少收入,比章節目標急
