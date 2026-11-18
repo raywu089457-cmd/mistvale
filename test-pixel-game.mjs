@@ -2347,3 +2347,16 @@ console.log(`PASS: ${CLASSES.length} hunters / ${CLASSES.length} classes, seeded
   const ui = fs.readFileSync(new URL('./src/pixel-ui.js', import.meta.url), 'utf8');
   assert.ok(ui.includes('<dt>魔物攻擊</dt><dd>×${d.atk}</dd>'), 'difficulty card shows the attack multiplier'); assert.ok(ui.includes('<dt>魔物生命</dt><dd>×${d.mult}</dd>'), 'difficulty card shows the HP multiplier');
 }
+
+// 2026-11-18 獵人倒下的回報:講清楚倒在哪、被誰打倒;切換難度重新計算
+{
+  const g = createGame(), h = g.state.hunters[0];
+  assert.deepEqual(g.downReport(), { count: 0, place: null, foe: null }, 'no downs yet');
+  h.hp = 0; g.tick(0.1);
+  assert.equal(h.task, 'revive', 'downed hunter waits for the sanctuary');
+  const r = g.downReport(); assert.equal(r.count, 1); assert.ok(r.place, 'report names the place'); assert.equal(r.foe, null, 'no attacker recorded when nothing hit them');
+  assert.ok(g.state.log.some(l => l.text.includes(h.name) && l.text.includes(r.place) && l.text.includes('送回復活聖所')), 'log says where the hunter fell');
+  g.state.time += 241; assert.equal(g.downReport().count, 0, 'report only covers the last game day');
+  const f = createGame(), v = f.state.hunters[0]; v.hp = 0; f.tick(0.1); v.rebirths = 10; assert.equal(f.setDifficulty(1).ok, true); assert.equal(f.downReport().count, 0, 'changing difficulty starts a fresh report');
+  const src = fs.readFileSync(new URL('./src/pixel-game.js', import.meta.url), 'utf8'); assert.ok(src.includes('else died(t, ph.by);'), 'monster hits pass the attacker to died()');
+}

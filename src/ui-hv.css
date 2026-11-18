@@ -2755,3 +2755,9 @@ html body #modal-content .trade-info{margin-top:10px}
 
 /* 2026-11-18 手機直向:清單很長的面板加高到 70%,一次看得到更多項目;地下城、競技場維持半高,還看得到戰場 */
 @media(max-width:760px) and (min-height:700px){html body #modal-backdrop[data-mode=A] #modal:is([data-type=hunters],[data-type=inventory],[data-type=craft],[data-type=build],[data-type=trade],[data-type=recruit]){height:70vh!important;max-height:70vh!important}}
+
+/* 2026-11-18 獵人倒下的回報:快捷鈕轉紅、難度面板列出最近傷亡 */
+html body .hv-act .ha-l2.is-down{background:#8e2b20;color:#fff}
+html body #modal[data-type=difficulty] #modal-content .diff-downs{margin:0 0 8px;padding:5px 10px;border:1px solid #7a3a30;background:#3a1712cc;border-radius:3px;font:600 13px/1.6 var(--font-ui);color:#e8d6c0}
+html body #modal[data-type=difficulty] #modal-content .diff-downs b{color:#ff9d86}
+html body #modal[data-type=difficulty] #modal-content .diff-downs small{display:block;font:inherit;color:#d9c8a2}

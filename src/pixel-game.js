@@ -1258,11 +1258,17 @@ export function createGame(saved = null) {
     effect('warning', w); isoEffect('soul-rise-iso', w, 3.6, { delay: .2 });   // iso:倒下也讓魂升天,和魔物死亡同一個語言
     log(`流浪英雄 ${w.name} 被${ENEMY_NAME[by?.type] || '魔物'}打倒，在野外倒地不起。`, 'warning');
   }
-  function died(h) {
+  // 最近倒下的紀錄(難度面板用):不進存檔,重開遊戲就清空;切換難度也清空,才看得出「這個難度」的風險
+  const DOWN_WINDOW = 240;   // 一個遊戲日
+  const recentDowns = [];
+  function died(h, by) {
     h.hp = 0; h.reviveTimer = 8; h.status = '復活中'; h.targetId = null; h.route = []; h.mount = null;   // 倒地自動下坐騎
     if (h.task !== 'dungeon' && h.task !== 'arena') h.task = 'revive';
     h.mood = Math.max(0, h.mood - 12); effect('warning', h); isoEffect('soul-rise-iso', h, 3.6, { delay: .35 });   // iso:獵人陣亡的魂升天(復活聖所接引)
-    state.counts.deaths++; log(`${h.name} 倒下了，復活聖所正在接引他的靈魂。`, 'warning');
+    state.counts.deaths++;
+    const place = regionAt(h.x, h.z)?.name, foe = ENEMY_NAME[by];
+    recentDowns.push({ at: state.time, place, foe }); if (recentDowns.length > 60) recentDowns.shift();
+    log(`${h.name} ${place ? `在${place}` : ''}${foe ? `被${foe}打倒` : '倒下了'}，送回復活聖所。`, 'warning');
   }
 
   function revive(h) {
@@ -1711,7 +1717,7 @@ export function createGame(saved = null) {
       const t = state.hunters.find(h => h.id === ph.id) || (state.wanderers || []).find(w => w.id === ph.id);
       if (!t || t.hp <= 0 || t.task === 'dungeon' || t.task === 'arena') continue;
       t.hitAt = state.time; t.hitFromX = ph.fromX; t.hitFromZ = ph.fromZ; t.hp = Math.max(0, t.hp - ph.damage);
-      if (t.hp === 0) { if (wandererOf(t)) downWanderer(t, { type: ph.by }); else died(t); }
+      if (t.hp === 0) { if (wandererOf(t)) downWanderer(t, { type: ph.by }); else died(t, ph.by); }
     }
   }
   function stepShots(dt) {
@@ -2531,7 +2537,7 @@ export function createGame(saved = null) {
       const difficulty = DIFFICULTIES.find(d => d.id === difficultyId); if (!difficulty) return result(false, '找不到這個狩獵難度。');
       if (state.expedition.active || state.dungeon.active || state.arena.active) return result(false, '討伐、地下城或對戰進行中，請結束後再切換難度。');
       const rebirths = state.hunters.reduce((sum, h) => sum + h.rebirths, 0); if (rebirths < difficulty.rebirths) return result(false, `${difficulty.name}難度需要全體獵人累計 ${difficulty.rebirths} 次轉世。`);
-      state.difficulty = difficulty.id; state.enemies = []; const dm = mixOf(state.region || 'meadow'); for (let i = 0; i < 8 * MONSTER_POP; i++) spawn(dm[Math.floor(random() * dm.length)], null, state.region && state.region !== 'village' ? state.region : 'meadow');
+      state.difficulty = difficulty.id; recentDowns.length = 0; state.enemies = []; const dm = mixOf(state.region || 'meadow'); for (let i = 0; i < 8 * MONSTER_POP; i++) spawn(dm[Math.floor(random() * dm.length)], null, state.region && state.region !== 'village' ? state.region : 'meadow');
       for (const h of state.hunters) h.targetId = null; log(`狩獵難度切換為「${difficulty.name}」。`, 'warning'); return result(true, `已切換為${difficulty.name}難度。`);
     },
     setTradeRequest(materialId, amount) {
@@ -2666,6 +2672,12 @@ export function createGame(saved = null) {
     //   挑「每秒傷害」(攻擊 ÷ 出手間隔)最高、生命 ≥35%、沒在地下城／復活中的三人。
     // 下一場競技場對手的生命／攻擊(面板顯示用,跟 startArena 同一條公式)
     // 首領面板預覽:在目前生態區召喚時的生命與獎勵(跟 spawn / 擊倒結算同一套倍率)
+    // 最近一個遊戲日倒下幾次、最常倒在哪、最常被誰打倒
+    downReport() {
+      const list = recentDowns.filter(d => d.at <= state.time && state.time - d.at <= DOWN_WINDOW);
+      const top = key => { const n = {}; let best = null; for (const d of list) { const v = d[key]; if (!v) continue; n[v] = (n[v] || 0) + 1; if (!best || n[v] > n[best]) best = v; } return best; };
+      return { count: list.length, place: top('place'), foe: top('foe') };
+    },
     bossPreview() { const region = REGIONS.find(r => r.id === state.region) || REGIONS[1], risk = bossRiskOf(region.id), m = DIFFICULTIES[state.difficulty]?.mult ?? 1; return { region: region.name, risk, hp: Math.round(ENEMIES.boss.hp * (m * (region.risk || 1))), attack: scaledFoeAttack(ENEMIES.boss.attack, region.risk || 1), ...bossLoot(risk) }; },
     arenaFoe() { const w = state.arena?.wins || 0; return { hp: arenaFoeHp(w), atk: arenaFoeAtk(w) }; },
     // 2026-11-18 開賽前的勝算(面板顯示用):照 stepArena 的規則用獨立亂數試打 80 場,不動遊戲狀態與亂數。
