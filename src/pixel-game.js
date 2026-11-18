@@ -194,9 +194,10 @@ const distance = (a, b) => Math.hypot(a.x - b.x, a.z - b.z);
 const result = (ok, message) => ({ ok, message });
 const own = (obj, key) => Object.prototype.hasOwnProperty.call(obj, key);
 const xpNeeded = level => 30 + level * 8;
+// 2026-11-18 使用者要求拿掉修煉冷卻,只靠學費限制(docs/BALANCE.md「修煉」)。
 // 2026-11-17 修煉重訂:原本 20 金幣＋5 級、冷卻 10 秒 → 一直按修煉,第 8 天就 Lv.100、30 天轉世 94 次(長線目標全被跳過)。
 // 改成:每次給「目前等級 1 級份」的經驗(修煉地每升 1 級多 25%,Lv.5 = 2 級份),學費隨等級平方上漲,冷卻 30 秒;學費照舊付給村莊
-const TRAIN = { cooldown: 30, cost: level => 20 + level * 10, levels: bLv => 1 + 0.25 * (Math.max(1, bLv) - 1) };
+const TRAIN = { cost: level => 20 + level * 10, levels: bLv => 1 + 0.25 * (Math.max(1, bLv) - 1) };
 // 這一世累積的經驗(Lv.1 起算):離線外推用
 const lifetimeXp = h => { let n = h.xp || 0; for (let l = 1; l < h.level; l++) n += xpNeeded(l); return n; };
 // 離線收益:最多算 8 小時;前 sample 秒真的模擬,其餘照這段的速率外推(見 offlineFinish)。
@@ -612,7 +613,7 @@ export function createGame(saved = null) {
   function trainQuote(h) {
     let left = TRAIN.levels(state.buildings.training || 1), xp = 0;
     for (let level = h.level; level < 100 && left > 0; level++) { const part = Math.min(1, left); xp += Math.round(xpNeeded(level) * part); left -= part; }
-    return { cost: TRAIN.cost(h.level), xp, cooldown: TRAIN.cooldown };
+    return { cost: TRAIN.cost(h.level), xp };
   }
   function gainXp(h, amount) {
     if (h.level >= 100) { h.xp = 0; return; }
@@ -775,7 +776,7 @@ export function createGame(saved = null) {
   function newHunter(classId, position = CAMP, initialIndex = -1) {
     const roll = random(), rarity = initialIndex >= 0 ? ['normal', 'rare', 'normal', 'superior', 'rare'][initialIndex % 5] : roll < 0.55 ? 'normal' : roll < 0.82 ? 'rare' : roll < 0.94 ? 'superior' : roll < 0.99 ? 'heroic' : 'legendary';
     const p = onRoadPoint(safePoint(position));
-    const h = { id: id('h'), name: freeName(state.hunters.length), classId, rarity, trait: TRAITS[Math.floor(random() * TRAITS.length)].id, level: initialIndex >= 0 ? 3 + initialIndex % 3 : 1, xp: 0, rebirths: 0, skillLevel: 0, weaponLevel: 0, equipment: emptyEquipment(), gear: null, gold: 100, inventory: Object.fromEntries(MATERIAL_KEYS.map(key => [key, 0])), satiety: initialIndex >= 0 ? 70 + initialIndex * 4 : 90, mood: initialIndex >= 0 ? 88 - initialIndex * 4 : 90, stamina: initialIndex >= 0 ? 78 + initialIndex * 2 : 90, x: p.x, z: p.z, hp: CLASS[classId].hp, maxHp: CLASS[classId].hp, status: '待機', targetId: null, attackTimer: random() * 0.5, route: [], task: null, serviceProduct: null, actionTimer: 0, trainCooldown: 0, reviveTimer: 0, lastTownVisit: state.time, tradedVisit: false, shoppedVisit: false, servedVisit: [], inTown: true, huntRegion: null, mount: null };
+    const h = { id: id('h'), name: freeName(state.hunters.length), classId, rarity, trait: TRAITS[Math.floor(random() * TRAITS.length)].id, level: initialIndex >= 0 ? 3 + initialIndex % 3 : 1, xp: 0, rebirths: 0, skillLevel: 0, weaponLevel: 0, equipment: emptyEquipment(), gear: null, gold: 100, inventory: Object.fromEntries(MATERIAL_KEYS.map(key => [key, 0])), satiety: initialIndex >= 0 ? 70 + initialIndex * 4 : 90, mood: initialIndex >= 0 ? 88 - initialIndex * 4 : 90, stamina: initialIndex >= 0 ? 78 + initialIndex * 2 : 90, x: p.x, z: p.z, hp: CLASS[classId].hp, maxHp: CLASS[classId].hp, status: '待機', targetId: null, attackTimer: random() * 0.5, route: [], task: null, serviceProduct: null, actionTimer: 0, reviveTimer: 0, lastTownVisit: state.time, tradedVisit: false, shoppedVisit: false, servedVisit: [], inTown: true, huntRegion: null, mount: null };
     h.gender = nameGender(h.name) ?? hunterGender(h.id);   // 性別跟名字走(NAME_GENDER);自訂名才用 id 雜湊。不擲骰,隨機數序列不變
     giveStarterGear(h);  // 新獵人直接穿上該職業的初始七件套(0 數值,只有外觀;開局數值跟沒裝備時一樣)
     h.hp = h.maxHp; state.hunters.push(h); idleInTown(h); return h;
@@ -1711,7 +1712,7 @@ export function createGame(saved = null) {
       if (state.enemies.filter(e => e.hp > 0 && e.type !== 'boss' && e.regionId === a.id).length < dens.other) { const mix = REGION_MIX[a.id]; spawn(mix[Math.floor(random() * mix.length)], null, a.id); } }
     for (const h of state.hunters) {
       if (dgLedger && (h.task === 'dungeon' || h.task === 'arena')) dgLedger.away[h.id] = (dgLedger.away[h.id] || 0) + dt;   // 離線取樣:不在野外的秒數
-      h.attackTimer = Math.max(0, h.attackTimer - dt); h.trainCooldown = Math.max(0, h.trainCooldown - dt);
+      h.attackTimer = Math.max(0, h.attackTimer - dt);
       if (h.hp <= 0) { if (h.mount) h.mount = null;   // 倒地(含地下城/競技場)一律下坐騎
         if (h.task !== 'dungeon' && h.task !== 'arena') { if (h.task !== 'revive') died(h); h.reviveTimer = Math.max(0, h.reviveTimer - dt); if (h.reviveTimer === 0) revive(h); } continue; }
       if (h.task === 'dungeon' || h.task === 'arena') { walk(h, dt); h.stamina = Math.max(0, h.stamina - dt * 0.2); continue; }
@@ -2114,7 +2115,7 @@ export function createGame(saved = null) {
         // 性別(docs/DV2-PHASE6.md G6,只影響紙娃娃的頭):舊存檔沒有欄位/不認得的值 → 'm'。加法欄位,存檔版本不變(同 h.mount)。
         // 2026-11-15:名字認得就以名字為準(舊存檔的 id 雜湊性別會被名字更正);自訂名照存檔值。
         h.gender = nameGender(h.name) ?? (raw.gender === 'f' ? 'f' : 'm');
-        h.trainCooldown = number(raw.trainCooldown, 0, 0, 10); h.lastTownVisit = number(raw.lastTownVisit, state.time, 0, state.time);
+        h.lastTownVisit = number(raw.lastTownVisit, state.time, 0, state.time);
         if (h.hp === 0) { h.task = 'revive'; h.reviveTimer = number(raw.reviveTimer, 5, 0.1, 8); h.status = '復活中'; h.route = []; }
         else if (raw.task === 'service' && raw.serviceStarted === true && own(PRODUCTS, raw.serviceProduct)) {
           // Continue an already-paid service instead of charging its fee again after reload.
@@ -2400,10 +2401,9 @@ export function createGame(saved = null) {
       if (!state.buildings.training) return result(false, '請先建造修煉地。');
       if (h.hp <= 0 || h.task === 'dungeon' || h.task === 'arena') return result(false, '這位獵人目前無法參加訓練。');
       if (h.level >= 100) return result(false, '獵人已達 Lv.100，可以前往復活聖所轉世。');
-      if (h.trainCooldown > 0) return result(false, `還需要休息 ${Math.ceil(h.trainCooldown)} 秒才能再次訓練。`);
       const q = trainQuote(h);
       if (h.gold < q.cost) return result(false, `修煉要 ${q.cost} 個人金幣，${h.name}目前只有 ${Math.floor(h.gold)}；狩獵或販售材料後再來。`);
-      h.gold -= q.cost; state.gold += q.cost; h.trainCooldown = TRAIN.cooldown; const lv0 = h.level;
+      h.gold -= q.cost; state.gold += q.cost; const lv0 = h.level;
       gainXp(h, q.xp); state.counts.trained++; effect('level', h);
       return result(true, h.level > lv0 ? `${h.name}支付 ${q.cost} 金幣修煉，成長至 Lv.${h.level}。` : `${h.name}支付 ${q.cost} 金幣修煉，經驗增加 ${q.xp}。`);
     },

@@ -361,12 +361,12 @@ function wear(g, h, slot, grade = 1) {
 assert.equal(gear.enhance(buyer.id).ok, false); assert.equal(gear.construct('enhancement').ok, true); assert.equal(gear.enhance(buyer.id).ok, true); assert.equal(buyer.weaponLevel, 1);
 assert.equal(gear.learnSkill(buyer.id).ok, false); gear.state.ore += 100; assert.equal(gear.construct('academy').ok, true); assert.equal(gear.learnSkill(buyer.id).ok, true);
 assert.equal(gear.train(buyer.id).ok, false); gear.state.gold += 1000; assert.equal(gear.construct('training').ok, true);
-// 2026-11-17 修煉重訂:學費 20＋等級×10(個人金幣→村莊,總金幣守恆)、1 級份經驗、冷卻 30 秒;修煉地 Lv.5 = 2 級份;錢不夠就不能練
+// 2026-11-17 修煉重訂:學費 20＋等級×10(個人金幣→村莊,總金幣守恆)、1 級份經驗、沒有冷卻(2026-11-18);修煉地 Lv.5 = 2 級份;錢不夠就不能練
 buyer.gold = 0; assert.equal(gear.train(buyer.id).ok, false, 'cannot train without the fee');
 const tq = gear.trainQuote(buyer.id); assert.equal(tq.cost, 20 + buyer.level * 10); buyer.gold = tq.cost + 5;
 const trainLevel = buyer.level, trainingMoney = totalMoney(gear), village0 = gear.state.gold; assert.equal(gear.train(buyer.id).ok, true); assert.equal(buyer.level, trainLevel + 1, 'one level per session');
-assert.equal(buyer.gold, 5); assert.equal(gear.state.gold, village0 + tq.cost, 'fee goes to the village'); assert.equal(totalMoney(gear), trainingMoney); buyer.gold = 9999; assert.equal(gear.train(buyer.id).ok, false, 'cooldown');
-run(gear, 10.2, true); assert.equal(gear.train(buyer.id).ok, false, 'still cooling down after 10 s'); run(gear, 20.2, true);
+assert.equal(buyer.gold, 5); assert.equal(gear.state.gold, village0 + tq.cost, 'fee goes to the village'); assert.equal(totalMoney(gear), trainingMoney); buyer.gold = 9999; { const lv = buyer.level; assert.equal(gear.train(buyer.id).ok, true, 'no cooldown: can train again right away'); assert.equal(buyer.level, lv + 1); }
+run(gear, 30.4, true);
 gear.state.buildings.training = 5; const lv5 = buyer.level; assert.equal(gear.train(buyer.id).ok, true); assert.equal(buyer.level, lv5 + 2, 'training ground Lv.5 gives two levels');
 assert.equal(gear.reincarnate(buyer.id).ok, false); buyer.level = 100; const originalRebirth = buyer.rebirths; assert.equal(gear.reincarnate(buyer.id).ok, true); assert.equal(buyer.level, 1); assert.equal(buyer.rebirths, originalRebirth + 1);
 assert.equal(gear.setDifficulty(1).ok, true); assert.equal(gear.setDifficulty(4).ok, false); assert.equal(gear.setDifficulty('1').ok, false);
@@ -1811,13 +1811,14 @@ run(manual, 30, false, assertFiniteEconomy);
   assert.equal(wb[0].gender, 'f', 'wanderer custom name keeps saved gender');
   assert.ok(wb.slice(1).every(w => w.gender === (nameGender(w.name) ?? hunterGender(w.id))), 'wanderer gender from name on load');
 }
-// 2026-11-14 修:trainCooldown / lastTownVisit 曾被寫進 h.mount 那行的註解裡,讀檔時沒還原(Phase 5.1 引入)。現在照存檔值還原(有夾範圍)。
+// 2026-11-14 修:lastTownVisit 曾被寫進 h.mount 那行的註解裡,讀檔時沒還原(Phase 5.1 引入)。現在照存檔值還原(有夾範圍)。2026-11-18 修煉沒有冷卻了,舊存檔留下的冷卻值不再擋修煉。
 {
-  const g = createGame(); g.state.time = 500; const h = g.state.hunters[0]; h.trainCooldown = 7.5; h.lastTownVisit = 321;
+  const g = createGame(); g.state.time = 500; const h = g.state.hunters[0]; h.lastTownVisit = 321;
   const back = createGame(g.serialize()).state.hunters[0];
-  assert.equal(back.trainCooldown, 7.5, 'trainCooldown restored from the save'); assert.equal(back.lastTownVisit, 321, 'lastTownVisit restored from the save');
+  assert.equal(back.lastTownVisit, 321, 'lastTownVisit restored from the save');
   const bad = g.serialize(); bad.hunters[0].trainCooldown = 99; bad.hunters[0].lastTownVisit = -5;
-  const bb = createGame(bad).state.hunters[0]; assert.equal(bb.trainCooldown, 10, 'clamped'); assert.equal(bb.lastTownVisit, 0, 'clamped');
+  const bb = createGame(bad).state.hunters[0]; assert.equal(bb.lastTownVisit, 0, 'clamped');
+  const old = createGame(bad); old.state.buildings.training = 1; old.state.hunters[0].gold = 9999; assert.equal(old.train(old.state.hunters[0].id).ok, true, 'a cooldown left in an old save does not block training');
 }
 {
   // 騎乘走速 = 職業走速 × MOUNT_SPEED_MULT(手動操控:同一個種子、同一段輸入,騎著的走得遠 1.3 倍)

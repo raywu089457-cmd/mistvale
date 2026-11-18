@@ -65,7 +65,7 @@ function policy() {
   if (s.buildings.dungeon && !s.dungeon.active && s.dungeon.cooldown <= 0) { g.setDungeonAuto(true); const r = g.startDungeon(); if (r.ok) ev(`dungeon start f${s.dungeon.floor}`); }
   if (!s.expedition.active && s.expedition.cooldown <= 0 && s.day >= 2) { const r = g.expedition(); if (r.ok) ev('boss expedition'); }
   if (SELL && g.sellMaterial) for (const k of Object.keys(MATERIALS)) while ((s[k] || 0) >= 150) if (!g.sellMaterial(k, 50).ok) break;
-  if (TRAIN) for (const h of s.hunters) g.train(h.id);
+  if (TRAIN) for (const h of s.hunters) for (let i = 0; i < 100 && g.train(h.id).ok; i++);   // 沒有冷卻:有錢就一直練(積極玩家的上限)
   if (PROMOTE_ON && g.promoteHunter && Object.values(s.buildings).every(v => v >= 5)) {
     const c = s.hunters.filter(h => h.hp > 0 && h.task !== 'dungeon' && h.task !== 'arena').map(h => ({ h, q: g.promoteQuote(h.id) })).filter(x => x.q && !x.q.max)
       .sort((a, b) => a.q.gold - b.q.gold || b.h.level - a.h.level)[0];
