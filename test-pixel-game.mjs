@@ -1731,5 +1731,67 @@ run(manual, 30, false, assertFiniteEconomy);
   assert.deepEqual([...r.ids].sort(), best, 'top 3 by damage per second');
   assert.equal(JSON.stringify(g.serialize()), before, 'recommendation is read-only');
 }
+// 2026-11-18 送別獵人:名額滿時騰出位置;裝備回倉庫;拒絕條件;清掉所有指向他的 id;存讀檔
+{
+  const g = createGame(), s = g.state;
+  s.gold = 1e6; s.capacity = s.hunters.length;   // 名額已滿
+  assert.equal(g.recruit(s.visitors[0].id).ok, false, 'full roster refuses recruit');
+  const h = s.hunters[1], id = h.id, n0 = s.hunters.length;
+  // 穿一件第 3 階鐵匠鋪胸甲(升級件帶 grade),確認物品實例原封不動回倉庫
+  s.gearStorage.push({ uid: 'gX1', itemId: 'craft_chest', grade: 3 }); assert.equal(g.equipFromStorage(id, 'gX1').ok, true);
+  const worn = EQUIP_SLOTS.map(slot => h.gear[slot]).filter(Boolean), storage0 = s.gearStorage.length;
+  assert.ok(worn.length >= 1 && worn.some(i => i.uid === 'gX1'));
+  // 把他塞進各種名單:地下城/競技場待選名單、派遣隊伍、手動操控、魔物近身名額、飛行中的箭
+  s.dungeon.hunterIds = [id, s.hunters[2].id]; s.arena.hunterIds = [s.hunters[3].id, id];
+  assert.equal(g.setDispatchTeam(0, { ids: [id, s.hunters[0].id] }).ok, true);
+  s.pilot = { id, dx: 0, dz: 0, atk: false, readyAt: 0, lockUntil: 0, faceX: 1, faceZ: 0 };
+  if (s.enemies[0]) { s.enemies[0].slotFor = id; s.enemies[0].engaged = true; }
+  s.shots = [{ x: 0, z: 0, dx: 1, dz: 0, left: 3, ownerId: id, dmg: 5, hit: [] }, { x: 0, z: 0, dx: 1, dz: 0, left: 3, ownerId: s.hunters[0].id, dmg: 5, hit: [] }];
+  const goldBefore = s.gold, r = g.dismissHunter(id);
+  assert.equal(r.ok, true, r.message);
+  assert.equal(s.hunters.length, n0 - 1); assert.ok(!s.hunters.some(x => x.id === id));
+  assert.equal(s.gold, goldBefore, 'no village gold refund or cost');
+  assert.equal(s.gearStorage.length, storage0 + worn.length, 'every equipped item goes back to storage');
+  for (const inst of worn) assert.ok(s.gearStorage.includes(inst), `item ${inst.itemId} kept as the same instance`);
+  assert.equal(s.gearStorage.find(i => i.uid === 'gX1')?.grade, 3, 'upgrade grade survives');
+  assert.ok(!s.dungeon.hunterIds.includes(id) && s.dungeon.hunterIds.length === 1);
+  assert.ok(!s.arena.hunterIds.includes(id) && s.arena.hunterIds.length === 1);
+  assert.ok(s.dispatchTeams.every(t => !t.ids.includes(id)) && s.dispatchTeams[0].ids.length === 1);
+  assert.equal(s.pilot, null); assert.ok(s.enemies.every(e => e.slotFor !== id));
+  assert.ok(s.shots.every(x => x.ownerId !== id) && s.shots.length === 1);
+  assert.ok(s.log[0].text.includes(`「${h.name}」離開了村莊`));
+  // 騰出的名額可以招募
+  assert.equal(g.recruit(s.visitors[0].id).ok, true, 'freed slot lets a visitor join');
+  assert.equal(g.dismissHunter(id).ok, false, 'unknown id refused');
+  run(g, 5, false, assertFiniteEconomy);   // 送別後繼續跑不會壞
+  // 存讀檔:人數、倉庫物品(uid 會重新配號,所以比 itemId/grade)、隊伍名單都一致
+  const save = g.serialize(), re = createGame(save), rs = re.state;
+  assert.equal(rs.hunters.length, s.hunters.length); assert.ok(!rs.hunters.some(x => x.id === id));
+  const key = list => list.map(i => `${i.itemId}:${i.grade || 1}`).sort();
+  assert.deepEqual(key(rs.gearStorage), key(s.gearStorage), 'storage round-trips');
+  assert.deepEqual(rs.dispatchTeams.map(t => t.ids), s.dispatchTeams.map(t => t.ids));
+  run(re, 3, false, assertFiniteEconomy);
+}
+{
+  // 拒絕:地下城小隊、倒下、少於 3 人、轉世數低於難度門檻
+  const g = createGame(), s = g.state; s.buildings.dungeon = 1;
+  for (const h of s.hunters) h.hp = h.maxHp;
+  const party = s.hunters.slice(0, 3).map(h => h.id);
+  assert.equal(g.startDungeon(party).ok, true);
+  const n0 = s.hunters.length;
+  assert.equal(g.dismissHunter(party[0]).ok, false, 'dungeon party member refused');
+  assert.equal(g.dismissCheck(party[0]).ok, false);
+  const down = s.hunters[4]; down.hp = 0; down.task = 'revive';
+  assert.equal(g.dismissHunter(down.id).ok, false, 'downed hunter refused');
+  assert.equal(s.hunters.length, n0, 'refusals change nothing');
+  const g2 = createGame(), s2 = g2.state; s2.hunters = s2.hunters.slice(0, 3);
+  assert.equal(g2.dismissHunter(s2.hunters[0].id).ok, false, 'never below 3 hunters');
+  assert.equal(s2.hunters.length, 3);
+  const g3 = createGame(), s3 = g3.state; s3.hunters[0].rebirths = 3; s3.difficulty = 2;   // 困難要 3 次轉世
+  const c3 = g3.dismissCheck(s3.hunters[0].id); assert.equal(c3.ok, false); assert.match(c3.why, /難度/);
+  assert.equal(g3.dismissCheck(s3.hunters[1].id).ok, true, 'other hunters still dismissable');
+  assert.equal(g3.dismissHunter(s3.hunters[1].id).ok, true);
+  assert.equal(createGame(g3.serialize()).state.difficulty, 2, 'difficulty survives save/load after dismissal');
+}
 console.log(`PASS: ${CLASSES.length} hunters / ${CLASSES.length} classes, seeded visitors, conservation of personal and village gold, paid and emergency services, bounded trading, crafting and gear purchases, upgrades, training, skills, rebirth, difficulty gates, hunting, field boss, death/revival, dungeon combat and save continuation, NPC arena, navigation, malformed saves, pause, deterministic simulation, all 18 quests and legacy quest-save migration. Natural 60s: ${combat.state.totalKills} total kills; ${combat.state.counts.services} services.`);
 

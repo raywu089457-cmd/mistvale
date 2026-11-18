@@ -2309,6 +2309,38 @@ export function createGame(saved = null) {
       state.counts.promoted = (state.counts.promoted || 0) + 1;
       log(`${h.name}晉升為${q.name}！能力倍率 ×${q.mult}。`, 'success'); return result(true, `${h.name}晉升為${q.name}。`);
     },
+    // 2026-11-18 送別獵人:名額滿了(小屋滿級)時讓位給更好的旅人。唯讀檢查 dismissCheck 是單一來源,UI 的鎖定原因也讀它。
+    //   不能送別:倒下/復活中、在地下城或競技場(含已出發的小隊名單)、送別後少於 3 人(地下城/競技場要 3 人)、
+    //   送別後全體轉世次數低於目前狩獵難度的門檻(讀檔時會把難度打回初級,所以先擋下,請玩家先調低難度)。
+    dismissCheck(hunterId) {
+      const h = state.hunters.find(x => x.id === hunterId); if (!h) return { ok: false, why: '找不到這位獵人。' };
+      const d = state.dungeon, a = state.arena;
+      if (h.hp <= 0 || h.task === 'revive') return { ok: false, why: '倒下了，復活後才能送別。' };
+      if (h.task === 'dungeon' || (d.active && (d.hunterIds || []).includes(h.id))) return { ok: false, why: '還在地下城裡，撤退回村後才能送別。' };
+      if (h.task === 'arena' || (a?.active && (a.hunterIds || []).includes(h.id))) return { ok: false, why: '競技場打完才能送別。' };
+      if (state.hunters.length <= 3) return { ok: false, why: '村裡至少要留 3 位獵人（地下城與競技場要 3 人組隊）。' };
+      const diff = DIFFICULTIES[state.difficulty], left = state.hunters.reduce((n, q) => n + (q === h ? 0 : q.rebirths), 0);
+      if (diff && diff.rebirths > left) return { ok: false, why: `送別後全體轉世只剩 ${left} 次，低於「${diff.name}」難度的門檻 ${diff.rebirths} 次；請先調低狩獵難度。` };
+      return { ok: true, why: '' };
+    },
+    dismissHunter(hunterId) {
+      const chk = this.dismissCheck(hunterId); if (!chk.ok) return result(false, chk.why);
+      const index = state.hunters.findIndex(x => x.id === hunterId), h = state.hunters[index], id = h.id;
+      // 身上的裝備物品一件不少放回村莊倉庫(跟 unequipGear 同一條路:實例原封不動 push 進 gearStorage,不走自動整理)
+      let returned = 0;
+      for (const slot of EQUIP_SLOTS) { const inst = h.gear && h.gear[slot]; if (gearItemOf(inst)) { state.gearStorage.push(inst); returned++; } }
+      state.hunters.splice(index, 1);
+      // 清掉所有指向這位獵人的 id:地下城/競技場的待選名單、派遣隊伍、手動操控、魔物的近身名額、飛行中的箭
+      const d = state.dungeon, a = state.arena;
+      if (Array.isArray(d.hunterIds)) d.hunterIds = d.hunterIds.filter(x => x !== id);
+      if (a && Array.isArray(a.hunterIds)) a.hunterIds = a.hunterIds.filter(x => x !== id);
+      for (const t of state.dispatchTeams || []) if (Array.isArray(t.ids)) t.ids = t.ids.filter(x => x !== id);
+      if (state.pilot && state.pilot.id === id) state.pilot = null;
+      for (const e of state.enemies) if (e.slotFor === id) { e.slotFor = null; e.engaged = false; }
+      if (Array.isArray(state.shots)) state.shots = state.shots.filter(s => s.ownerId !== id);
+      log(`「${h.name}」離開了村莊，踏上新的旅程。`, 'info'); refreshQuest();
+      return result(true, `${h.name}離開了村莊${returned ? `，${returned} 件裝備已放回倉庫` : ''}。`);
+    },
     setDifficulty(difficultyId) {
       const difficulty = DIFFICULTIES.find(d => d.id === difficultyId); if (!difficulty) return result(false, '找不到這個狩獵難度。');
       if (state.expedition.active || state.dungeon.active || state.arena.active) return result(false, '討伐、地下城或對戰進行中，請結束後再切換難度。');

@@ -56,7 +56,10 @@ function infoPanel(h,cls,r){const dps=h.attack/attackInterval(h),tr=C.TRAITS.fin
  return `<div class="z2-id"><div class="z2-id-l"><span class="z2-rar-row"><em class="z2-rar" style="color:${r?.color}">${r?.name||''}</em>${promoteChip(h)}</span><span class="z2-cls">等級.${h.level} <b>${cls?.name||''}</b></span><small class="z2-st">${C.esc(h.status)}${tr?` · ${C.esc(tr.name)}`:''}</small></div><div class="z2-dps"><small>每秒攻擊力</small><b>${dps.toFixed(1)}</b></div></div>`
   +`<div class="z2-cols"><div class="z2-bars">${barHTML('hp','hp','生命',h.hp,h.maxHp)}${barHTML('satiety','satiety','飽食',h.satiety,100)}${barHTML('stamina','stamina','精力',h.stamina,100)}${barHTML('mood','mood','心情',h.mood,100)}</div>`
   +`<div class="z2-vals">${valRow('atk','攻擊力',h.attack)}${valRow('def','防禦力',h.defense)}${valRow('scroll','技能等級',`Lv.${h.skillLevel||0}`)}${valRow('anvil','武器強化',`+${h.weaponLevel||0}`)}${valRow('rebirth','轉世',`${h.rebirths}/20`)}</div></div>`
-  +`<p class="z2-train z1-hint">${trainHint(h)}</p>`;}
+  +`<p class="z2-train z1-hint">${trainHint(h)}</p>`+dismissRow(h);}
+// 2026-11-18 送別:資訊頁最底下一顆不顯眼的鈕(名額滿時讓位給更好的旅人)。能不能送別讀 game.dismissCheck(跟 dismissHunter 同一組條件);按了先跳確認框。
+function dismissRow(h){const c=C.game().dismissCheck?.(h.id);if(!c)return '';
+ return `<div class="z2-dismiss"><button type="button" class="pixel-button quiet z2-dismiss-btn" data-action="dismissHunter" data-id="${h.id}" data-zb="ghost"${c.ok?'':' disabled aria-disabled="true"'} aria-label="送別 ${C.esc(h.name)}">送別</button><small class="z2-dismiss-why">${c.ok?'讓這位獵人離開村莊，空出一個名額':`<span class="no">${C.esc(c.why)}</span>`}</small></div>`;}
 
 // 修煉的條件文字(給資訊頁底部,不夠時說明原因):與 game.train 的檢查同一組
 function trainState(h){const s=C.game().state;

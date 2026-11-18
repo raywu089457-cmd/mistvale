@@ -1902,6 +1902,11 @@ html body #modal[data-type=hunter] .z2-val{display:flex;align-items:center;gap:5
 html body #modal[data-type=hunter] .z2-val span{flex:1 1 auto;min-width:0;font:600 12px/1 var(--font-ui);color:#fff;white-space:nowrap}
 html body #modal[data-type=hunter] .z2-val b{flex:0 0 auto;font:700 13px/1 var(--font-num);color:var(--z2-orange)}
 html body #modal[data-type=hunter] .z2-train{margin:8px 0 0;padding:6px 8px;font:600 12px/1.5 var(--font-ui);color:var(--hv-text)}
+html body #modal[data-type=hunter] .z2-dismiss{display:flex;align-items:center;gap:8px;margin:10px 0 0;padding:6px 8px 0;border-top:1px dashed rgba(211,202,178,.18);opacity:.8}
+html body #modal[data-type=hunter] .z2-dismiss-btn{min-height:28px;padding:2px 12px;font-size:12px;flex:0 0 auto}
+html body #modal[data-type=hunter] .z2-dismiss-btn[disabled]{opacity:.5;cursor:not-allowed}
+html body #modal[data-type=hunter] .z2-dismiss-why{font:600 11px/1.4 var(--font-ui);color:var(--hv-text);opacity:.85}
+html body #modal[data-type=hunter] .z2-dismiss-why .no{color:#d08080}
 /* 清單列(技能／裝備／轉世頁；規格 e：金棕動作鈕、停用灰＋鎖頭) */
 html body #modal[data-type=hunter] .z2-list{display:flex;flex-direction:column;gap:6px}
 html body #modal[data-type=hunter] .z2-row{display:grid;grid-template-columns:40px minmax(0,1fr) auto;gap:8px;align-items:center;padding:6px;background:#1e1b17;border:1px solid #2e2926}
