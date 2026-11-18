@@ -998,6 +998,7 @@ export function createGame(saved = null) {
   // 2026-11-16 定案(docs/BALANCE.md):高難度＝更高收益。野外材料掉落 × (1 + (難度倍率 − 1) / 2):初級 ×1、普通 ×1.35、困難 ×1.9、專家 ×2.75、噩夢 ×4。
   //   四捨五入成整數(不擲骰、不加存檔欄位);金幣本來就 × √倍率。地下城不受難度影響,維持原樣。
   // 2026-11-18 首領的生命跟著召喚地的危險度(region.risk)變高,獎勵原本沒跟上 → 獵人金幣、掉落、村莊星晶一起乘危險度(最少 ×1)
+  const FIELD_XP = 1.2;   // 2026-11-18 野外擊倒經驗 ×1.2:獵人照區域容量分散後(3eaa5b8),「12 格內一起拿全額經驗」的人變少,第 15 天最強獵人掉到 60–78(目標 71–90);×1.2 → 76–82、轉世回到第 20–21 天(見 BALANCE.md)
   const bossRiskOf = regionId => Math.max(1, REGIONS.find(r => r.id === regionId)?.risk || 1);
   function bossLoot(risk) { const data = ENEMIES.boss, m = DIFFICULTIES[state.difficulty]?.mult ?? 1, drops = {}; for (const [k, a] of Object.entries(data.drops)) drops[k] = Math.round(dropAmount(a) * risk); return { gold: Math.round(data.gold * Math.sqrt(m) * risk), drops, gems: Math.round(5 * risk) }; }
   function dropAmount(amount) { const m = DIFFICULTIES[state.difficulty]?.mult ?? 1; return Math.max(0, Math.round(amount * (1 + (m - 1) / 2))); }
@@ -1270,7 +1271,7 @@ export function createGame(saved = null) {
     effect('loot', enemy, { text: `+${gold}`, color: '#efcd82', delay: 0.35 });
     // iso 擊殺:靈魂從屍體往上飄(soul-rise-iso)、金幣從身上彈出來在地上跳(coin-drop-iso)。純畫面,不影響掉落。
     isoEffect('soul-rise-iso', enemy, 3.6, { delay: .1 }); isoEffect('coin-drop-iso', enemy, 3.4, { delay: .45 });
-    for (const h of state.hunters) if (h.hp > 0 && h.task !== 'dungeon' && h.task !== 'arena' && (distance(h, enemy) < 12 || h === hunter)) gainXp(h, Math.round(data.xp * Math.sqrt(multiplier) * zoneRk));
+    for (const h of state.hunters) if (h.hp > 0 && h.task !== 'dungeon' && h.task !== 'arena' && (distance(h, enemy) < 12 || h === hunter)) gainXp(h, Math.round(data.xp * Math.sqrt(multiplier) * zoneRk * FIELD_XP));
     if (enemy.type === 'boss') {
       state.bossKills++; state.gems += bossGems; Object.assign(state.expedition, { active: false, bossHp: 0, cooldown: 55, elapsed: 0 });
       const bossGear = rollGearDrop('boss'); if (bossGear) grantGear(bossGear, '森林領主的寶箱', undefined, true);
@@ -2877,7 +2878,7 @@ export function createGame(saved = null) {
         //   原本的 hp/attack/... 保留基礎值(regionFit 的威脅算法與測試都用基礎值)。
         const m = DIFFICULTIES[state.difficulty]?.mult ?? 1, sm = Math.sqrt(m), rk = bossRiskOf(r.id);
         return { id: t, hp: d.hp || 0, attack: d.attack || 0, gold: d.gold || 0, xp: d.xp || 0, drops: { ...(d.drops || {}) },
-          hpNow: Math.round((d.hp || 0) * m * (r.risk || 1)), attackNow: Math.round((d.attack || 0) * m * (r.risk || 1)), goldNow: Math.round((d.gold || 0) * sm * rk), xpNow: Math.round((d.xp || 0) * sm * rk),
+          hpNow: Math.round((d.hp || 0) * m * (r.risk || 1)), attackNow: Math.round((d.attack || 0) * m * (r.risk || 1)), goldNow: Math.round((d.gold || 0) * sm * rk), xpNow: Math.round((d.xp || 0) * sm * rk * FIELD_XP),
           dropsNow: Object.fromEntries(Object.entries(d.drops || {}).map(([k, v]) => [k, dropAmount(v)])) };
       });
       const riskStars = Math.max(1, Math.min(5, Math.round((r.risk - 1) / 0.16) + 1));

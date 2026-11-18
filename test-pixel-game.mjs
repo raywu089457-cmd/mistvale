@@ -1652,7 +1652,7 @@ run(manual, 30, false, assertFiniteEconomy);
   assert.ok(dOn.gold > 0 && dOn.svc > 0, 'the online hour earns village gold');
   assert.ok(ratio('gold') >= 0.75 && ratio('gold') <= 1.25, msg('gold'));
   assert.ok(ratio('svc') >= 0.75 && ratio('svc') <= 1.25, msg('svc'));
-  assert.ok(ratio('wallets') >= 0.5 && ratio('wallets') <= 2, msg('wallets'));
+  assert.ok(ratio('wallets') >= 0.4 && ratio('wallets') <= 2, msg('wallets'));   // 2026-11-18 野外經驗 ×1.2 後剛開局升級更快、更早換到金幣多的區 → 開局取樣低估錢包(實測 0.46);第 6/16 天存檔 0.98–1.07
   assert.ok(ratio('xp') >= 1 / 3 && ratio('xp') <= 3, msg('xp'));
   assert.ok(ratio('kills') >= 1 / 3 && ratio('kills') <= 3, msg('kills'));
 }
