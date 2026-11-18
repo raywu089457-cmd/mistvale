@@ -22,6 +22,8 @@ const PROMOTE_ON = process.argv.includes('--promote');   // --stay-easy: never r
 const g = createGame(null);
 const s = g.state;
 if (SEED != null) s.seed = (Number(SEED) >>> 0) || 1;
+// --junk off|sell|salvage: 換下來的舊裝備自動整理設定(預設照遊戲)
+if (arg('--junk')) { const r = g.setAutoJunk(arg('--junk')); if (!r.ok) throw new Error(r.message); }
 s.paused = false; s.speed = 1;
 const DAY = 240, POLICY_EVERY = 5;
 const rows = [], events = [];

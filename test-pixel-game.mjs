@@ -208,7 +208,7 @@ run(poorTown, 4, true); assert.equal(poorTown.state.gold, 1); assert.equal(selle
   const D = make(); D.g.state.buildings.trading = 0; D.g.offlineFinish(D.snap, OFFLINE.max); assert.equal(traded(D), 0, 'no trading post, no offline purchases');
 }
 
-const gear = createGame(), buyer = isolate(gear),forge=BUILDINGS.find(b=>b.id==='forge'); gear.state.time = 100; Object.assign(buyer, doorStand(forge,forge)); buyer.gold = 1000;
+const gear = createGame(), buyer = isolate(gear),forge=BUILDINGS.find(b=>b.id==='forge'); gear.state.autoJunk = 'off'; gear.state.time = 100; Object.assign(buyer, doorStand(forge,forge)); buyer.gold = 1000;   // 金幣守恆測試:autoJunk off → 換下的舊件進倉庫(自動賣出會另外多出售價)
 const gearIds = RECIPES.map(r => r.id);
 for (const id of gearIds) assert.equal(gear.craftEquipment(id).ok, true, `craft ${id}`);
 const gearMoney = totalMoney(gear), attackBefore = buyer.attack, hpBefore = buyer.maxHp; run(gear, 5, true);
@@ -304,7 +304,7 @@ function wear(g, h, slot, grade = 1) {
   assert.equal(gearAt('weapon', 1).bonus, 7); assert.equal(gearAt('chest', 1).price, 140); assert.equal(gearAt('chest', 2).name, '胸甲 Ⅱ');
 }
 { // 換更高階:獵人付錢給村莊(總金幣守恆)、身上換成高階(舊件進倉庫)、低階不重買;留 40 金付吃住;沒有更高階就不買
-  const g = createGame(), h = isolate(g), forge = BUILDINGS.find(b => b.id === 'forge'); g.state.time = 100; g.state.buildings.forge = 3;
+  const g = createGame(), h = isolate(g), forge = BUILDINGS.find(b => b.id === 'forge'); g.state.time = 100; g.state.buildings.forge = 3; g.state.autoJunk = 'off';
   Object.assign(g.state, { ore: 9999, wood: 9999, leather: 9999, cloth: 9999 });
   wear(g, h, 'chest', 1); wear(g, h, 'weapon', 3); const oldChest = h.gear.chest.uid;
   assert.equal(g.craftEquipment('chest', 1).ok, true); assert.equal(g.craftEquipment('chest', 3).ok, true); assert.equal(g.craftEquipment('weapon', 2).ok, true);
@@ -328,7 +328,7 @@ function wear(g, h, slot, grade = 1) {
   const setup = mode => { const g = createGame(), h = isolate(g); g.state.time = 100; g.state.buildings.forge = 3; Object.assign(g.state, { ore: 9999, wood: 9999, leather: 9999, cloth: 9999 });
     wear(g, h, 'chest', 1); assert.equal(g.craftEquipment('chest', 3).ok, true); h.gold = gearAt('chest', 3).price + 45; Object.assign(h, doorStand(forge, forge));
     assert.equal(g.setAutoJunk(mode).ok, true); return { g, h, old: h.gear.chest.uid }; };
-  assert.equal(createGame().state.autoJunk, 'off', 'new game: off'); assert.equal(createGame().setAutoJunk('burn').ok, false);
+  assert.equal(createGame().state.autoJunk, 'sell', 'new game: sell (2026-11-18: 30 天倉庫約 400 件 → 約 100 件)'); { const old = createGame().serialize(); delete old.autoJunk; assert.equal(createGame(old).state.autoJunk, 'off', 'old save without the field keeps off'); } assert.equal(createGame().setAutoJunk('burn').ok, false);
   { const { g, h, old } = setup('sell'), v = g.state.gold; run(g, 5, true);
     assert.equal(g.gearTierOf(h, 'chest'), 3, 'auto-sell: hunter still upgrades');
     assert.ok(!g.state.gearStorage.some(x => x.uid === old), 'auto-sell: replaced chest skips the warehouse');
@@ -1853,7 +1853,7 @@ run(manual, 30, false, assertFiniteEconomy);
   }
   for (const w of g.state.wanderers) assert.deepEqual(pick(w), v3Stats(w, none), `wanderer ${w.classId} opening stats unchanged`);
   // 七份配方全做 → 獵人回村逐格買下 → 身上七件 craft_*,初始件進倉庫,庫存歸零,uid 不重複
-  const f = createGame(), buyer = isolate(f), forge = BUILDINGS.find(b => b.id === 'forge'); f.state.time = 100; Object.assign(buyer, doorStand(forge, forge)); buyer.gold = 2000;
+  const f = createGame(), buyer = isolate(f), forge = BUILDINGS.find(b => b.id === 'forge'); f.state.time = 100; f.state.autoJunk = 'off'; Object.assign(buyer, doorStand(forge, forge)); buyer.gold = 2000;
   for (const r of RECIPES) assert.equal(f.craftEquipment(r.id).ok, true, `craft ${r.id}`);
   assert.ok(EQUIP_SLOTS.every(s => f.state.gearStock[s][1] === 1));
   run(f, 5, true);
