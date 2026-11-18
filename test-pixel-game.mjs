@@ -1618,7 +1618,7 @@ run(manual, 30, false, assertFiniteEconomy);
 {
   // 2026-11-18 離線服務收入以庫存為上限:線上庫存賣完、沒人補貨,村莊就沒有這筆收入(以前照取樣速率外推,離線 4 小時村莊金幣是線上的 19 倍)
   //   買不到的獵人錢留在錢包(改用免費的基本服務);金幣守恆
-  const make = stock => { const g = createGame(); for (const h of g.state.hunters) h.huntRegion = 'meadow'; run(g, 20);
+  const make = stock => { const g = createGame(); g.state.autoJunk = 'off'; for (const h of g.state.hunters) h.huntRegion = 'meadow'; run(g, 20);
     for (const k of MATERIAL_KEYS_T) g.state.tradeRequests[k] = 0; g.state.wanderers = [];
     for (const k of Object.keys(g.state.stocks)) g.state.stocks[k] = stock; return g; };
   const wallets = g => g.state.hunters.reduce((n, h) => n + h.gold, 0), C = (g, k) => g.state.counts[k] || 0;
@@ -2012,3 +2012,11 @@ run(manual, 30, false, assertFiniteEconomy);
 }
 console.log(`PASS: ${CLASSES.length} hunters / ${CLASSES.length} classes, seeded visitors, conservation of personal and village gold, paid and emergency services, bounded trading, crafting and gear purchases, upgrades, training, skills, rebirth, difficulty gates, hunting, field boss, death/revival, dungeon combat and save continuation, NPC arena, navigation, malformed saves, pause, deterministic simulation, all ${questChain.length} quests and legacy (rev 1, rev 2) quest-save migration. Natural 60s: ${combat.state.totalKills} total kills; ${combat.state.counts.services} services.`);
 
+{ // 2026-11-18 野外掉落(初始件)與首領寶箱的舊件照「自動整理」處理:自動賣出時倉庫不會有初始裝備;放進倉庫時照舊收著
+  const starters = g => g.state.gearStorage.filter(x => EQUIPMENT[x.itemId]?.tier === 'starter').length;
+  const go = mode => { const g = createGame(); g.state.autoJunk = mode; g.state.paused = false; for (let t = 0; t < 2400; t += 5) g.simulate(5); return g; };
+  const sell = go('sell'), off = go('off');
+  assert.equal(starters(sell), 0, 'auto-sell: no starter junk piles up in storage');
+  assert.ok(starters(off) > 0, `off: drops and replaced starters still go to storage (${starters(off)})`);
+  assert.ok((sell.state.counts.autoJunk || 0) > 0, 'auto-sell counted');
+}

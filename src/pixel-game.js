@@ -591,9 +591,12 @@ export function createGame(saved = null) {
 
 
   // ── 2026-11-16 裝備經濟(docs/EQUIPMENT-ECONOMY.md):掉落/獎勵直接進村莊裝備倉庫,玩家再決定要穿/賣/分解 ──
-  function grantGear(itemId, sourceLabel = '戰利品', grade) {
+  // junkable(2026-11-18):野外掉落(每隻 2.5% 的初始件)與首領寶箱(第 Ⅰ 階)若是舊裝備,照「自動整理」直接賣出/分解,不再塞滿倉庫(30 天約 200 件);
+  //   地下城寶箱(依層數給階級)與委託獎勵不套用。自動整理掉的不寫日誌(野外掉落很頻繁)。
+  function grantGear(itemId, sourceLabel = '戰利品', grade, junkable = false) {
     if (!EQUIP[itemId]) return null;
     const inst = newGearItem(itemId, grade), item = gearItemOf(inst);
+    if (junkable && (state.autoJunk === 'sell' || state.autoJunk === 'salvage') && isOldGear(inst)) { stashReplaced(inst); return inst; }
     state.gearStorage.push(inst);
     log(`${sourceLabel}：獲得${item.name}（已放入裝備倉庫）。`, 'loot');
     return inst;
@@ -1270,10 +1273,10 @@ export function createGame(saved = null) {
     for (const h of state.hunters) if (h.hp > 0 && h.task !== 'dungeon' && h.task !== 'arena' && (distance(h, enemy) < 12 || h === hunter)) gainXp(h, Math.round(data.xp * Math.sqrt(multiplier) * zoneRk));
     if (enemy.type === 'boss') {
       state.bossKills++; state.gems += bossGems; Object.assign(state.expedition, { active: false, bossHp: 0, cooldown: 55, elapsed: 0 });
-      const bossGear = rollGearDrop('boss'); if (bossGear) grantGear(bossGear, '森林領主的寶箱');
+      const bossGear = rollGearDrop('boss'); if (bossGear) grantGear(bossGear, '森林領主的寶箱', undefined, true);
       log(`森林領主已被擊敗！村莊獲得 ${bossGems} 顆星晶，獵人帶回稀有戰利品。`, 'success'); effect('victory', enemy);
     } else {
-      const wildGear = rollGearDrop('monster'); if (wildGear) grantGear(wildGear, '野外戰利品');
+      const wildGear = rollGearDrop('monster'); if (wildGear) grantGear(wildGear, '野外戰利品', undefined, true);
     }
   }
 
