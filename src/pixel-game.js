@@ -2182,9 +2182,11 @@ export function createGame(saved = null) {
   // 學院教學／武器強化的成本(2026-11-16 抽成單一來源:遊戲、獵人詳情、行商補料都讀這兩個)
   function skillCostOf(h) { const lv = h?.skillLevel || 0; return { gold: 80 + lv * 50, ore: 8 + lv * 4 }; }
   function enhanceCostOf(h) { const lv = h?.weaponLevel || 0; return { gold: 60 + lv * 30, ore: 6 + lv * 3 }; }
+  // 2026-11-18 最後一級(Lv.4→5)的費用 ×1.6(docs/BALANCE.md「建築最後一級」):地下城小隊開始買裝備後村莊收入多兩成,第 15 天建築總等級 65–69(目標 55–65、不會全滿)
+  const FINAL_UPGRADE = 1.6;
   function getUpgradeCost(buildingId) {
     const b = BUILDING[buildingId];
-    return b ? Object.fromEntries(Object.entries(b.cost).map(([key, amount]) => [key, Math.round(amount * UPGRADE_GROWTH ** Math.max(0, state.buildings[buildingId] - 1))])) : null;
+    return b ? Object.fromEntries(Object.entries(b.cost).map(([key, amount]) => [key, Math.round(amount * UPGRADE_GROWTH ** Math.max(0, state.buildings[buildingId] - 1) * (state.buildings[buildingId] >= 4 ? FINAL_UPGRADE : 1))])) : null;
   }
 
   function rerouteHunters() {
