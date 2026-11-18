@@ -2715,3 +2715,4 @@ html body #modal-content .dispatch-go{bottom:-16px!important;margin-bottom:-16px
 @media(max-height:520px){html body #modal-content .dispatch-go{bottom:-12px!important;margin-bottom:-12px!important}}
 /* 2026-11-18 首領面板「召喚森林領主」(圖示＋6 字)在 390 寬手機比按鈕寬 7px,兩邊被切掉 → 窄螢幕縮字距與左右留白 */
 @media(max-width:760px){html body #modal [data-action=bossAsk].z1-foot-btn{letter-spacing:0!important;padding:0 6px!important;font-size:16px!important;gap:4px}}
+html body #modal .boss-vil .boss-where{color:var(--z2b-cream,#e8dcc4);font-size:12px;opacity:.85}

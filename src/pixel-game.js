@@ -921,6 +921,9 @@ export function createGame(saved = null) {
   //   讓「升級設施 → 收入變多」成為升級的理由(經營模擬的基本循環)。付不起的獵人照舊走免費的基本服務。
   // 2026-11-16 定案(docs/BALANCE.md):高難度＝更高收益。野外材料掉落 × (1 + (難度倍率 − 1) / 2):初級 ×1、普通 ×1.35、困難 ×1.9、專家 ×2.75、噩夢 ×4。
   //   四捨五入成整數(不擲骰、不加存檔欄位);金幣本來就 × √倍率。地下城不受難度影響,維持原樣。
+  // 2026-11-18 首領的生命跟著召喚地的危險度(region.risk)變高,獎勵原本沒跟上 → 獵人金幣、掉落、村莊星晶一起乘危險度(最少 ×1)
+  const bossRiskOf = regionId => Math.max(1, REGIONS.find(r => r.id === regionId)?.risk || 1);
+  function bossLoot(risk) { const data = ENEMIES.boss, m = DIFFICULTIES[state.difficulty]?.mult ?? 1, drops = {}; for (const [k, a] of Object.entries(data.drops)) drops[k] = Math.round(dropAmount(a) * risk); return { gold: Math.round(data.gold * Math.sqrt(m) * risk), drops, gems: Math.round(5 * risk) }; }
   function dropAmount(amount) { const m = DIFFICULTIES[state.difficulty]?.mult ?? 1; return Math.max(0, Math.round(amount * (1 + (m - 1) / 2))); }
   function servicePrice(productId) { const p = PRODUCTS[productId]; return p ? Math.round(p.price * (1 + 0.25 * Math.max(0, (state.buildings[p.building] || 1) - 1))) : 0; }
   function beginService(h) {
@@ -1173,17 +1176,18 @@ export function createGame(saved = null) {
     enemy.rewarded = true; enemy.hp = 0; state.totalKills++; state.kills = state.totalKills;
     state.codex = state.codex || {}; state.codex[enemy.type] = (state.codex[enemy.type] || 0) + 1;   // T126:圖鑑擊殺紀錄
     const data = ENEMIES[enemy.type], multiplier = DIFFICULTIES[state.difficulty].mult;
-    const gold = Math.round(data.gold * Math.sqrt(multiplier)); hunter.gold += gold; state.counts.hunterGold = (state.counts.hunterGold || 0) + gold;   // 離線戰報分開記「你的獵人」與流浪英雄
-    for (const [key, amount] of Object.entries(data.drops)) { const n = dropAmount(amount); hunter.inventory[key] += n; ledgerGot(hunter, key, n); }
+    const bossRk = enemy.type === 'boss' ? bossRiskOf(enemy.regionId) : 1, bossGems = Math.round(5 * bossRk);
+    const gold = Math.round(data.gold * Math.sqrt(multiplier) * bossRk); hunter.gold += gold; state.counts.hunterGold = (state.counts.hunterGold || 0) + gold;   // 離線戰報分開記「你的獵人」與流浪英雄
+    for (const [key, amount] of Object.entries(data.drops)) { const n = Math.round(dropAmount(amount) * bossRk); hunter.inventory[key] += n; ledgerGot(hunter, key, n); }
     effect('death', enemy, { enemyType: enemy.type, flipHint: (enemy.hitFromX ?? enemy.x) - (enemy.hitFromZ ?? enemy.z) < enemy.x - enemy.z });  // 打的人在左邊 → 翻面朝左(面向打倒牠的人)
     effect('loot', enemy, { text: `+${gold}`, color: '#efcd82', delay: 0.35 });
     // iso 擊殺:靈魂從屍體往上飄(soul-rise-iso)、金幣從身上彈出來在地上跳(coin-drop-iso)。純畫面,不影響掉落。
     isoEffect('soul-rise-iso', enemy, 3.6, { delay: .1 }); isoEffect('coin-drop-iso', enemy, 3.4, { delay: .45 });
     for (const h of state.hunters) if (h.hp > 0 && h.task !== 'dungeon' && h.task !== 'arena' && (distance(h, enemy) < 12 || h === hunter)) gainXp(h, Math.round(data.xp * Math.sqrt(multiplier)));
     if (enemy.type === 'boss') {
-      state.bossKills++; state.gems += 5; Object.assign(state.expedition, { active: false, bossHp: 0, cooldown: 55, elapsed: 0 });
+      state.bossKills++; state.gems += bossGems; Object.assign(state.expedition, { active: false, bossHp: 0, cooldown: 55, elapsed: 0 });
       const bossGear = rollGearDrop('boss'); if (bossGear) grantGear(bossGear, '森林領主的寶箱');
-      log('森林領主已被擊敗！村莊獲得 5 顆星晶，獵人帶回稀有戰利品。', 'success'); effect('victory', enemy);
+      log(`森林領主已被擊敗！村莊獲得 ${bossGems} 顆星晶，獵人帶回稀有戰利品。`, 'success'); effect('victory', enemy);
     } else {
       const wildGear = rollGearDrop('monster'); if (wildGear) grantGear(wildGear, '野外戰利品');
     }
@@ -2474,6 +2478,8 @@ export function createGame(saved = null) {
     // 2026-11-16 競技場推薦隊伍(唯讀、不擲骰):對手每次打隨機一人、每秒傷害固定,勝負主要看輸出 →
     //   挑「每秒傷害」(攻擊 ÷ 出手間隔)最高、生命 ≥35%、沒在地下城／復活中的三人。
     // 下一場競技場對手的生命／攻擊(面板顯示用,跟 startArena 同一條公式)
+    // 首領面板預覽:在目前生態區召喚時的生命與獎勵(跟 spawn / 擊倒結算同一套倍率)
+    bossPreview() { const region = REGIONS.find(r => r.id === state.region) || REGIONS[1], risk = bossRiskOf(region.id), m = DIFFICULTIES[state.difficulty]?.mult ?? 1; return { region: region.name, risk, hp: Math.round(ENEMIES.boss.hp * m * (region.risk || 1)), ...bossLoot(risk) }; },
     arenaFoe() { const w = state.arena?.wins || 0; return { hp: arenaFoeHp(w), atk: arenaFoeAtk(w) }; },
     recommendArenaParty() {
       const ok = state.hunters.filter(h => h.hp > 0 && h.task !== 'dungeon' && h.task !== 'revive' && h.hp >= h.maxHp * 0.35);

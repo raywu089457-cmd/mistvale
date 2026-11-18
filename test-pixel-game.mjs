@@ -1793,5 +1793,15 @@ run(manual, 30, false, assertFiniteEconomy);
   assert.equal(g3.dismissHunter(s3.hunters[1].id).ok, true);
   assert.equal(createGame(g3.serialize()).state.difficulty, 2, 'difficulty survives save/load after dismissal');
 }
+// 2026-11-18 首領獎勵跟召喚地危險度走(生命本來就乘 region.risk)
+{
+  const g = createGame(); g.state.region = 'meadow'; const a = g.bossPreview(); g.state.region = 'mountain'; const b = g.bossPreview();
+  assert.equal(a.risk, 1); assert.equal(a.gems, 5); assert.equal(a.hp, ENEMIES.boss.hp);
+  assert.ok(b.risk > 1 && b.hp > a.hp && b.gold > a.gold && b.gems >= a.gems && b.drops.ore > a.drops.ore, 'riskier region → stronger boss and bigger reward');
+  for (const h of g.state.hunters) { h.attack = 5000; h.maxHp = h.hp = 50000; }
+  assert.equal(g.exploreRegion('mountain').ok, true); const gems0 = g.state.gems;
+  assert.equal(g.expedition().ok, true); run(g, 200, false, () => {});
+  assert.ok(g.state.bossKills >= 1, 'boss defeated in mountain'); assert.equal(g.state.gems - gems0, b.gems * g.state.bossKills, 'village gems match the preview');
+}
 console.log(`PASS: ${CLASSES.length} hunters / ${CLASSES.length} classes, seeded visitors, conservation of personal and village gold, paid and emergency services, bounded trading, crafting and gear purchases, upgrades, training, skills, rebirth, difficulty gates, hunting, field boss, death/revival, dungeon combat and save continuation, NPC arena, navigation, malformed saves, pause, deterministic simulation, all 18 quests and legacy quest-save migration. Natural 60s: ${combat.state.totalKills} total kills; ${combat.state.counts.services} services.`);
 
