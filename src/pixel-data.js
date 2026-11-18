@@ -71,7 +71,8 @@ export const MERCHANT={markup:6,step:.5,floor:4,sell:.5,sellLot:50,sellKeep:100,
 // 依據:大廳 Lv.h 時其他建築最高可到 h+1,玩家回來最常做的是「把一棟建築從 Lv.h 升到 h+1」,
 // 中位數建築(基礎 220 金,×2.1/級)這一步要 220/462/970/2037/4279 金 → 保留額在 Lv.1–4 大約夠付一次升級的金幣部分,
 // Lv.5 時金幣收入已經很高(8 小時離線 10 萬以上),不必再追上指數成長。不新增存檔欄位。
-export const TRADE_RESERVE={base:500,perHall:500};
+// 2026-11-18 保留額固定 500:原本大廳 Lv.5 要留 2,500,金庫常常低於這條線,持續收購整段停擺、獵人背包堆滿材料,玩家看起來就是「持續收購失效」。
+export const TRADE_RESERVE={base:500,perHall:0};
 export const MATERIALS={wood:{name:'木材',price:2},ore:{name:'鐵礦',price:3},herb:{name:'藥草',price:2},cloth:{name:'亞麻布',price:2},flour:{name:'小麥粉',price:2},leather:{name:'獸皮',price:3}};
 export const PRODUCTS={food:{name:'香烤麵包',building:'restaurant',need:'satiety',restore:75,price:12,cost:{flour:5},amount:10},drink:{name:'莓果飲品',building:'tavern',need:'mood',restore:75,price:10,cost:{herb:5},amount:10},bed:{name:'舒適床鋪',building:'inn',need:'stamina',restore:90,price:14,cost:{leather:3,cloth:2},amount:10},bandage:{name:'亞麻繃帶',building:'clinic',need:'hp',restore:80,price:10,cost:{cloth:5,herb:2},amount:10}};
 // 2026-11-13 六格裝備(docs/PAPERDOLL-EQUIPMENT-6.md §4):武器 + 頭盔/胸甲/腰帶/腿甲/靴子/手套。

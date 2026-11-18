@@ -126,9 +126,9 @@ run(poorTown, 4, true); assert.equal(poorTown.state.gold, 1); assert.equal(selle
   assert.equal(g.state.counts.traded, 20); assert.equal(totalMoney(g), money0, 'trading only moves gold between village and hunter');
   assert.equal(g.setTradeStanding('ore', false).ok, true); h.inventory.ore = 30; run(g, 6, true);
   assert.equal(g.state.tradeRequests.ore, 0, 'turned off → runs down again'); assert.equal(h.inventory.ore, 20);
-  // 金庫保留額:持續收購只花「金庫 − 保留額」。保留額 = 500 + 500×(大廳−1);金庫比保留額多 7 → 只買 2 份(單價 3),停在保留額＋1,不再往下買
+  // 金庫保留額:持續收購只花「金庫 − 保留額」。保留額固定 500(2026-11-18);金庫比保留額多 7 → 只買 2 份(單價 3),停在保留額＋1,不再往下買
   const p = createGame(), s = isolate(p); p.state.time = 100; const R = p.tradeReserve(); assert.equal(R, 500, 'hall Lv.1 keeps 500 gold');
-  p.state.buildings.hall = 3; assert.equal(p.tradeReserve(), 1500); p.state.buildings.hall = 5; assert.equal(p.tradeReserve(), 2500); p.state.buildings.hall = 1;
+  p.state.buildings.hall = 5; assert.equal(p.tradeReserve(), 500, 'the reserve no longer grows with the hall, so standing orders keep working late game'); p.state.buildings.hall = 1;
   p.state.gold = R + 7; Object.assign(s, marketDoor); s.inventory.ore = 50;
   p.setTradeRequest('ore', 999); p.setTradeStanding('ore', true); run(p, 10, true, st => assert.ok(st.gold >= R, `standing never dips below the reserve (${st.gold})`));
   assert.equal(p.state.gold, R + 1); assert.equal(s.inventory.ore, 48); assert.equal(p.state.tradeRequests.ore, 999); assertFiniteEconomy(p.state);
@@ -181,13 +181,13 @@ run(poorTown, 4, true); assert.equal(poorTown.state.gold, 1); assert.equal(selle
   assert.ok(m.state.gold >= 0 && m.state.gold < m.tradeReserve(), `one-off spent into the reserve, never negative (${m.state.gold})`);
   assert.equal(m.state.counts.traded - mn.counts.traded, tradedS + woodLeft, 'no standing ore extrapolated once gold is below the reserve'); assertFiniteEconomy(m.state);
 }
-{ // 2026-11-17 倒楣的取樣:大廳 5 級(保留額 2500)、金庫 1500 多 → 取樣期金庫一直低於保留額,持續收購 0 份成交;
+{ // 2026-11-17 倒楣的取樣:金庫比保留額低 2000 → 取樣期金庫一直低於保留額,持續收購 0 份成交;
   // 但外推期間的收入會把金庫推過保留額 → 照「取樣期撿到的材料」估收購量,花到保留額為止(以前整整 8 小時 0 份材料、金庫堆到 14 萬)
   // A/B/C 是同一個(確定性)村莊:B 外推前把收購量歸 0(不買),C 收購量改成每趟 1 份(每趟上限)
   // 2026-11-18:離線服務收入以庫存為上限 → 這裡備足庫存(玩家離線前做了大量商品),外推期間才有持續的服務收入;
-  //   取樣拉長到 240 秒 → 金庫從 500 起算,取樣期才不會被服務費推過保留額
+  //   取樣拉長到 240 秒 → 金庫從保留額 − 2000 起算,取樣期才不會被服務費推過保留額(2026-11-18 保留額固定 500,所以起點是 −1500,只用來重現這個情境)
   const make = () => { const g = createGame(); g.state.buildings.hall = 5; for (const h of g.state.hunters) h.huntRegion = 'meadow'; for (const k of MATERIAL_KEYS_T) g.state.tradeStanding[k] = true; run(g, 20);
-    for (const k of Object.keys(g.state.stocks)) g.state.stocks[k] = 1e5; g.state.gold = 500; const snap = g.offlineSnapshot(); g.simulate(OFFLINE.sample); return { g, snap }; };
+    for (const k of Object.keys(g.state.stocks)) g.state.stocks[k] = 1e5; g.state.gold = g.tradeReserve() - 2000; const snap = g.offlineSnapshot(); g.simulate(OFFLINE.sample); return { g, snap }; };
   const money = g => g.state.gold + g.state.hunters.reduce((n, h) => n + h.gold, 0) + (g.state.wanderers || []).reduce((n, w) => n + w.gold, 0);
   const mats = g => MATERIAL_KEYS_T.reduce((n, k) => n + g.state[k], 0), traded = x => x.g.state.counts.traded - x.snap.counts.traded;
   const A = make(), B = make(), C = make();
