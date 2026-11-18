@@ -2716,3 +2716,6 @@ html body #modal-content .dispatch-go{bottom:-16px!important;margin-bottom:-16px
 /* 2026-11-18 首領面板「召喚森林領主」(圖示＋6 字)在 390 寬手機比按鈕寬 7px,兩邊被切掉 → 窄螢幕縮字距與左右留白 */
 @media(max-width:760px){html body #modal [data-action=bossAsk].z1-foot-btn{letter-spacing:0!important;padding:0 6px!important;font-size:16px!important;gap:4px}}
 html body #modal .boss-vil .boss-where{color:var(--z2b-cream,#e8dcc4);font-size:12px;opacity:.85}
+
+/* 2026-11-18 委託：之後的章節已達成目標 → 綠色「已達成」(解鎖後可以直接領) */
+html body #modal-content .zq-tag.locked.met{background:#3d5222;color:#cfe6a8}

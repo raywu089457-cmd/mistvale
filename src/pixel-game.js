@@ -2614,7 +2614,7 @@ export function createGame(saved = null) {
       log(`離線 ${hh ? hh + ' 小時 ' : ''}${mm} 分鐘：你的獵人擊倒 ${sum.kills} 隻魔物、流浪英雄擊倒 ${sum.wanderKills} 隻，村莊金幣 ${sum.res.gold >= 0 ? '+' : ''}${sum.res.gold}。`, 'success');
       return sum;
     },
-    questList() { return QUESTS.map((q, i) => ({ title: q.title, description: q.description, target: q.target, reward: questReward(i) })); },   // 委託章節鏈畫面用(唯讀)
+    questList() { return QUESTS.map((q, i) => ({ title: q.title, description: q.description, target: q.target, reward: questReward(i), progress: Math.max(0, Math.min(q.target, Number(q.metric(state)) || 0)) })); },   // progress:2026-11-18 之後的章節也顯示現況(已達成的章一解鎖就能領)   // 委託章節鏈畫面用(唯讀)
     claimQuest() {
       refreshQuest(); if (!state.quest.complete) return result(false, '委託尚未完成。'); if (state.quest.claimed) return result(false, '全部章節委託已完成。');
       for (const [key, amount] of Object.entries(state.quest.reward)) state[key] += amount;

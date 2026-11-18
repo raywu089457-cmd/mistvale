@@ -753,6 +753,7 @@ quests.state.counts.traded = 10; assert.equal(quests.claimQuest().ok, true); que
 quests.state.bossKills = 1; assert.equal(quests.claimQuest().ok, true); quests.state.counts.dungeonWins = 1; assert.equal(quests.claimQuest().ok, true);
 // ── 中期委託(2026-11-16):第 7 章之後插入 10 章;後期委託(2026-11-18)再插 4 章;最後一章仍是轉世 ──
 const questChain = quests.questList(), LAST_Q = questChain.length - 1;
+{ const pq = createGame(); pq.state.hunters[0].level = 999; const pl = pq.questList(), i80 = pl.findIndex(q => q.title === '百戰的先鋒'); assert.equal(pl[i80].progress, 80, 'Later chapters report live progress capped at the target'); assert.ok(pl.every(q => q.progress >= 0 && q.progress <= q.target)); }
 assert.equal(questChain.length, 22); assert.equal(LAST_Q, 21);
 // 2026-11-18 後期委託(QUEST_REVISION 3):「傳奇的前夜」與轉世之間插入 4 章,轉世仍是最後一章
 assert.deepEqual(questChain.slice(16).map(q => q.title), ['傳奇的前夜', '深淵之下', '百戰的先鋒', '無底的地城', '百級前的最後一哩', '下一段獵魔人生']);
