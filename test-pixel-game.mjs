@@ -751,9 +751,16 @@ const sameObject = loaded.state; loaded.reset(); assert.equal(loaded.state, same
 const quests = createGame(); quests.recruit(CLASSES[0].id); assert.equal(quests.claimQuest().ok, true); quests.craft('food', 2); assert.equal(quests.claimQuest().ok, true);
 quests.state.counts.traded = 10; assert.equal(quests.claimQuest().ok, true); quests.upgrade('forge'); assert.equal(quests.claimQuest().ok, true); quests.craftEquipment('weapon'); assert.equal(quests.claimQuest().ok, true);
 quests.state.bossKills = 1; assert.equal(quests.claimQuest().ok, true); quests.state.counts.dungeonWins = 1; assert.equal(quests.claimQuest().ok, true);
-// ── 中期委託(2026-11-16):第 7 章之後插入 10 章,最後一章仍是轉世 ──
+// ── 中期委託(2026-11-16):第 7 章之後插入 10 章;後期委託(2026-11-18)再插 4 章;最後一章仍是轉世 ──
 const questChain = quests.questList(), LAST_Q = questChain.length - 1;
-assert.equal(questChain.length, 18); assert.equal(LAST_Q, 17);
+assert.equal(questChain.length, 22); assert.equal(LAST_Q, 21);
+// 2026-11-18 後期委託(QUEST_REVISION 3):「傳奇的前夜」與轉世之間插入 4 章,轉世仍是最後一章
+assert.deepEqual(questChain.slice(16).map(q => q.title), ['傳奇的前夜', '深淵之下', '百戰的先鋒', '無底的地城', '百級前的最後一哩', '下一段獵魔人生']);
+assert.deepEqual(questChain.slice(17, LAST_Q).map(q => q.target), [32, 80, 38, 90]);
+for (let i = 17; i < LAST_Q; i++) {   // 後期獎勵介於第 17 章與最終章之間
+  for (const key of ['gold', 'wood', 'gems']) assert.ok(questChain[i].reward[key] >= questChain[16].reward[key] && questChain[i].reward[key] <= questChain[LAST_Q].reward[key], `late chapter ${i + 1} ${key}`);
+  assert.ok(questChain[i].description.length > 0);
+}
 assert.equal(createGame().state.quest.complete, false);   // 第 1 章(招募 1 位旅人)開局不會直接完成
 assert.deepEqual(questChain.slice(0, 7).map(q => q.title), ['迎接新的獵人', '餐廳的第一爐麵包', '建立戰利品循環', '鐵匠爐火', '獵人的新武器', '討伐森林領主', '地下城的門後']);
 assert.equal(questChain[LAST_Q].title, '下一段獵魔人生'); assert.match(questChain[LAST_Q].description, /Lv\.100/);
@@ -786,13 +793,13 @@ for (let i = 8; i < LAST_Q; i++) { assert.equal(quests.state.quest.index, i); as
 assert.equal(quests.state.quest.index, LAST_Q); assert.equal(quests.claimQuest().ok, false);   // 轉世還沒達成 → 停在最終章
 quests.state.counts.rebirths = 1; const finalGold = quests.state.gold; assert.equal(quests.claimQuest().ok, true); assert.equal(quests.state.gold, finalGold + questChain[LAST_Q].reward.gold);
 const questGold = quests.state.gold; assert.equal(quests.claimQuest().ok, false); assert.equal(quests.state.gold, questGold); assert.equal(createGame(quests.serialize()).claimQuest().ok, false);
-assert.equal(quests.serialize().questRevision, 2);
+assert.equal(quests.serialize().questRevision, 3);
 // (b) 舊存檔遷移:沒有 questRevision = 舊的 8 章版(index 7 = 轉世)
 const legacyQuestSave = (index, claimed, patch = {}) => { const save = createGame().serialize(); delete save.questRevision; delete save.questFinalPaid; save.quest = { index, claimed }; return Object.assign(save, patch); };
 for (let i = 0; i < 7; i++) { const g = createGame(legacyQuestSave(i, false)); assert.equal(g.state.quest.index, i); assert.equal(g.state.quest.title, questChain[i].title); }   // 0–6 不變
 const oldAt7 = createGame(legacyQuestSave(7, false));   // 舊轉世章、還沒領 → 第一個中期委託
 assert.equal(oldAt7.state.quest.index, 7); assert.equal(oldAt7.state.quest.claimed, false); assert.equal(oldAt7.state.quest.title, questChain[7].title); assert.equal(oldAt7.state.questFinalPaid, false);
-assert.equal(oldAt7.state.questRevision, 2); assert.equal(createGame(oldAt7.serialize()).state.quest.index, 7);
+assert.equal(oldAt7.state.questRevision, 3); assert.equal(createGame(oldAt7.serialize()).state.quest.index, 7);
 const oldDone = createGame(legacyQuestSave(7, true, { counts: { ...createGame().serialize().counts, rebirths: 1 } }));   // 舊版已領完最終章
 assert.equal(oldDone.state.quest.index, 7); assert.equal(oldDone.state.quest.claimed, false); assert.equal(oldDone.state.questFinalPaid, true);
 assert.notEqual(oldDone.claimQuest().message, '全部章節委託已完成。');   // 不會卡在「全部完成」
@@ -804,6 +811,31 @@ const legacyFinalGold = oldDoneReload.state.gold, legacyFinalGems = oldDoneReloa
 assert.equal(oldDoneReload.state.gold, legacyFinalGold); assert.equal(oldDoneReload.state.gems, legacyFinalGems); assert.equal(oldDoneReload.state.quest.claimed, true);
 // 新版存檔(有 questRevision)照原 index 讀回,包含中期章節與已完成的最終章
 const midSave = createGame(); midSave.state.quest = { index: 12, claimed: false }; assert.equal(createGame(midSave.serialize()).state.quest.index, 12);
+for (const i of [17, 18, 20]) { const late = createGame(); late.state.quest = { index: i, claimed: false }; assert.equal(createGame(late.serialize()).state.quest.index, i); }   // 版本 3 的後期章不會被當成舊轉世章再搬一次
+// (d) 版本 2(18 章,index 17 = 轉世)→ 版本 3:0–16 不變;17 → 新的轉世章,claimed 照存檔;finalPaid 照存檔
+const rev2QuestSave = (index, claimed, patch = {}) => { const save = createGame().serialize(); save.questRevision = 2; save.questFinalPaid = false; save.quest = { index, claimed }; return Object.assign(save, patch); };
+for (const i of [0, 5, 12, 16]) for (const claimed of [false, true]) {
+  const g = createGame(rev2QuestSave(i, claimed));
+  assert.equal(g.state.quest.index, i, `rev2 index ${i}`); assert.equal(g.state.quest.claimed, false); assert.equal(g.state.quest.title, questChain[i].title);
+  assert.equal(g.state.questRevision, 3); assert.equal(g.serialize().questRevision, 3); assert.equal(createGame(g.serialize()).state.quest.index, i);
+}
+const rev2At16 = createGame(rev2QuestSave(16, false)); rev2At16.state.hunters[0].level = 65; assert.equal(rev2At16.claimQuest().ok, true); assert.equal(rev2At16.state.quest.index, 17);   // 領完第 17 章接到新插入的第 18 章
+assert.equal(rev2At16.state.quest.title, '深淵之下');
+const rev2At17 = createGame(rev2QuestSave(17, false));   // 停在舊轉世章、還沒領 → 新插入的第一章(index 17),已達成的章可以連領
+assert.equal(rev2At17.state.quest.index, 17); assert.equal(rev2At17.state.quest.claimed, false); assert.equal(rev2At17.state.quest.title, questChain[17].title);
+assert.equal(rev2At17.state.questFinalPaid, false);
+assert.equal(rev2At17.serialize().questRevision, 3); const rev2At17Reload = createGame(rev2At17.serialize()); assert.equal(rev2At17Reload.state.quest.index, 17); assert.equal(rev2At17Reload.state.quest.claimed, false);
+rev2At17Reload.state.counts.rebirths = 1; rev2At17Reload.state.hunters[0].level = 100; rev2At17Reload.state.dungeon.bestFloor = 40; const rev2FinalGold = rev2At17Reload.state.gold;
+for (let i = 17; i <= LAST_Q; i++) assert.equal(rev2At17Reload.claimQuest().ok, true, 'migrated save claims chapter ' + i);
+assert.equal(rev2At17Reload.state.gold, rev2FinalGold + questChain.slice(17).reduce((n, q) => n + q.reward.gold, 0)); assert.equal(rev2At17Reload.state.quest.claimed, true);
+const rev2Done = createGame(rev2QuestSave(17, true, { counts: { ...createGame().serialize().counts, rebirths: 1 } }));   // 版本 2 已全部完成 → 仍是全部完成,不重做、不重複發獎
+assert.equal(rev2Done.state.quest.index, LAST_Q); assert.equal(rev2Done.state.quest.claimed, true);
+const rev2DoneGold = rev2Done.state.gold; assert.equal(rev2Done.claimQuest().message, '全部章節委託已完成。'); assert.equal(rev2Done.state.gold, rev2DoneGold);
+assert.equal(rev2Done.serialize().questRevision, 3); const rev2DoneReload = createGame(rev2Done.serialize()); assert.equal(rev2DoneReload.state.quest.index, LAST_Q); assert.equal(rev2DoneReload.state.quest.claimed, true);
+const rev2Paid = createGame(rev2QuestSave(17, false, { questFinalPaid: true }));   // 版本 1 → 2 時已領過轉世獎勵的存檔:最終章仍不重複發
+assert.equal(rev2Paid.state.quest.index, 17); assert.equal(rev2Paid.state.questFinalPaid, true);
+assert.equal(createGame(rev2QuestSave(99, true)).state.quest.index, 17); assert.equal(createGame(rev2QuestSave(99, true)).state.quest.claimed, false);   // 越界夾回 17;index 不是 17 就不當成已領完
+assert.equal(createGame(rev2QuestSave(-3, false)).state.quest.index, 0);
 
 // ── 手動操控(搖桿/動作鈕走的是同一條 API):輸入會推動角色、出手會打到最近的魔物、離開後回到 AI ──
 const manual = createGame(); const mh = isolate(manual);
@@ -1804,5 +1836,5 @@ run(manual, 30, false, assertFiniteEconomy);
   assert.equal(g.expedition().ok, true); run(g, 200, false, () => {});
   assert.ok(g.state.bossKills >= 1, 'boss defeated in mountain'); assert.equal(g.state.gems - gems0, b.gems * g.state.bossKills, 'village gems match the preview');
 }
-console.log(`PASS: ${CLASSES.length} hunters / ${CLASSES.length} classes, seeded visitors, conservation of personal and village gold, paid and emergency services, bounded trading, crafting and gear purchases, upgrades, training, skills, rebirth, difficulty gates, hunting, field boss, death/revival, dungeon combat and save continuation, NPC arena, navigation, malformed saves, pause, deterministic simulation, all 18 quests and legacy quest-save migration. Natural 60s: ${combat.state.totalKills} total kills; ${combat.state.counts.services} services.`);
+console.log(`PASS: ${CLASSES.length} hunters / ${CLASSES.length} classes, seeded visitors, conservation of personal and village gold, paid and emergency services, bounded trading, crafting and gear purchases, upgrades, training, skills, rebirth, difficulty gates, hunting, field boss, death/revival, dungeon combat and save continuation, NPC arena, navigation, malformed saves, pause, deterministic simulation, all ${questChain.length} quests and legacy (rev 1, rev 2) quest-save migration. Natural 60s: ${combat.state.totalKills} total kills; ${combat.state.counts.services} services.`);
 

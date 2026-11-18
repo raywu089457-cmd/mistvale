@@ -28,12 +28,13 @@ const rows = [], events = [];
 let deaths = 0, lastDead = new Set();
 const deathWhere = {}, deathLog = [], prevOf = new Map();
 const ev = (t) => events.push(`d${s.day} ${t}`);
+const claimDay = {};   // 章節(1 起算)→ 領取那天;--summary 印第 15 章起(後期節奏,見 docs/BALANCE.md「後期委託」)
 
 // build order a sensible player follows (hint says dungeon first; quests want forge 2)
 const BUILD_ORDER = ['dungeon', 'academy', 'training', 'enhancement'];
 function policy() {
   // claim quests
-  for (let i = 0; i < 3; i++) { const r = g.claimQuest(); if (r.ok) ev(`quest claimed → ch${s.quest.index + 1}`); else break; }
+  for (let i = 0; i < 3; i++) { const ch = s.quest.index + 1, r = g.claimQuest(); if (r.ok) { claimDay[ch] ??= s.day; ev(`quest claimed → ch${s.quest.index + 1}`); } else break; }
   // keep trade requests on for every material (players are told to do this)
   for (const k of Object.keys(MATERIALS)) if (!s.tradeRequests[k]) g.setTradeRequest(k, 60);
   // keep each service stocked
@@ -119,7 +120,7 @@ const writeSave = () => { if (saveOut) { const d = g.serialize(); d.paused = tru
 if (SUMMARY) {
   writeSave();
   const r = rows.at(-1), dayOf = q => rows.find(x => x.quest >= q)?.day ?? '-';
-  console.log(`seed ${SEED ?? 'default'} | d${r.day} gold ${r.gold} gems ${s.gems} promo ${s.counts.promoted || 0} gemBuy ${s.counts.gemsBought || 0} rar ${['normal','rare','superior','heroic','legendary'].map(k => s.hunters.filter(h => h.rarity === k).length).join('/')} wood ${r.wood} ore ${r.ore} | lv ${r.lvMin}/${r.lvMed}/${r.lvMax} hg ${r.hGold} | dead ${r.deaths} | Q${r.quest} (Q8@d${dayOf(8)} Q12@d${dayOf(12)} Q16@d${dayOf(16)}) floor ${r.floor} bLv ${r.b} | store ${(()=>{const by={};for(const it of s.gearStorage||[]){const k=EQUIPMENT[it.itemId]?.tier||"?";by[k]=(by[k]||0)+1;}return (s.gearStorage||[]).length+" "+JSON.stringify(by);})()} | rebirths ${s.counts.rebirths || 0} diff ${DIFFICULTIES[s.difficulty]?.name} | arena ${s.arena?.wins || 0}W/${s.arena?.losses || 0}L | merchant ${s.counts.merchantBuys || 0} svc ${s.counts.serviceIncome} gear ${s.counts.gearIncome ?? '-'} up ${s.counts.gearUpgrades ?? '-'} forge ${s.buildings.forge}`);
+  console.log(`seed ${SEED ?? 'default'} | d${r.day} gold ${r.gold} gems ${s.gems} promo ${s.counts.promoted || 0} gemBuy ${s.counts.gemsBought || 0} rar ${['normal','rare','superior','heroic','legendary'].map(k => s.hunters.filter(h => h.rarity === k).length).join('/')} wood ${r.wood} ore ${r.ore} | lv ${r.lvMin}/${r.lvMed}/${r.lvMax} hg ${r.hGold} | dead ${r.deaths} | Q${r.quest} (Q8@d${dayOf(8)} Q12@d${dayOf(12)} Q16@d${dayOf(16)}) done[${Object.entries(claimDay).filter(([c]) => c >= 15).map(([c, d]) => `${c}@${d}`).join(' ')}] floor ${r.floor} bLv ${r.b} | store ${(()=>{const by={};for(const it of s.gearStorage||[]){const k=EQUIPMENT[it.itemId]?.tier||"?";by[k]=(by[k]||0)+1;}return (s.gearStorage||[]).length+" "+JSON.stringify(by);})()} | rebirths ${s.counts.rebirths || 0} diff ${DIFFICULTIES[s.difficulty]?.name} | arena ${s.arena?.wins || 0}W/${s.arena?.losses || 0}L | merchant ${s.counts.merchantBuys || 0} svc ${s.counts.serviceIncome} gear ${s.counts.gearIncome ?? '-'} up ${s.counts.gearUpgrades ?? '-'} forge ${s.buildings.forge}`);
   process.exit(0);
 }
 for (const r of rows) console.log(fmt(r));

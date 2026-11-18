@@ -138,6 +138,13 @@ const QUESTS = [
   { title: '地城的深淵', description: '把地下城最佳紀錄推進到第 22 層', target: 22, reward: { gold: 950, wood: 100, cloth: 60, gems: 10 }, metric: s => s.dungeon.bestFloor },
   { title: '領主剋星', description: '出征冷卻一好就召集獵人，累計擊敗 30 位森林領主', target: 30, reward: { gold: 1050, wood: 110, gems: 12 }, metric: s => s.bossKills },
   { title: '傳奇的前夜', description: '讓 1 位獵人升到 Lv.65，轉世就在前方', target: 65, reward: { gold: 1200, wood: 120, gems: 15 }, metric: s => maxHunterLevel(s) },
+  // ── 後期委託(2026-11-18,QUEST_REVISION 3):Lv.65(約第 12–15 天)到第一次轉世(約第 21–25 天)之間空 8–10 天,
+  // 補 4 章,門檻照 tools/progression-sim.mjs(24 天、--sell、seed 1–5)的實測日期挑,讓每章間隔約 1–3 天。見 docs/BALANCE.md「後期委託」。
+  { title: '深淵之下', description: '開著自動續戰，把地下城最佳紀錄推進到第 32 層（第 31 層起寶箱開出 Ⅳ 階裝備）', target: 32, reward: { gold: 1250, wood: 125, gems: 18 }, metric: s => s.dungeon.bestFloor },
+  { title: '百戰的先鋒', description: '讓獵人持續狩獵、打地下城，讓 1 位獵人升到 Lv.80', target: 80, reward: { gold: 1300, wood: 130, gems: 20 }, metric: s => maxHunterLevel(s) },
+  // 試過「8 棟建築 Lv.5」:各 seed 都落在第 18 天左右,跟等級章同一天完成(3/5 個 seed 間隔 0 天);第 38 層跟著獵人強度走,間隔比較平均。
+  { title: '無底的地城', description: '讓等級最高的三人隊打自動續戰，把地下城最佳紀錄推進到第 38 層', target: 38, reward: { gold: 1350, wood: 135, gems: 22 }, metric: s => s.dungeon.bestFloor },
+  { title: '百級前的最後一哩', description: '讓 1 位獵人升到 Lv.90，再 10 級就能在復活聖所轉世', target: 90, reward: { gold: 1400, wood: 140, gems: 25 }, metric: s => maxHunterLevel(s) },
   // 最終章固定是轉世(QUESTS 最後一個);獎勵跟著中期委託往上調。
   { title: '下一段獵魔人生', description: '讓 1 位 Lv.100 獵人在復活聖所轉世', target: 1, reward: { gold: 1500, wood: 150, gems: 30 }, metric: s => s.counts.rebirths },
 ];
@@ -145,12 +152,21 @@ function maxHunterLevel(s) { let n = 0; for (const h of s.hunters) if (h.level >
 // 委託章節表的版本(存在 state.questRevision,serialize() 會整個 state 存下來)。
 // 存檔的 state.quest 只有 { index, claimed },沒有章節 id;章節表一改,舊 index 指的就是別章。所以讀檔時用這個欄位判斷
 // 存檔是哪一版的章節表 —— 欄位不存在(或不等於目前版本)= 舊的 8 章版(index 0–7,7 = 轉世)。
-// 2 = 2026-11-16 在第 7 章與轉世之間插入 10 章中期委託。之後再改章節表:版本 +1,並在 migrateQuest() 補一段對照。
-const QUEST_REVISION = 2;
+// 2 = 2026-11-16 在第 7 章與轉世之間插入 10 章中期委託(18 章,index 17 = 轉世)。
+// 3 = 2026-11-18 在「傳奇的前夜」(index 16)與轉世之間插入 4 章後期委託(22 章,index 21 = 轉世)。
+// 之後再改章節表:版本 +1,並在 migrateQuest() 補一段對照。
+const QUEST_REVISION = 3;
 const LEGACY_QUEST_LAST = 7;   // 版本 1(8 章)的最後一章 index = 轉世
+const REV2_QUEST_LAST = 17;    // 版本 2(18 章)的最後一章 index = 轉世
 // 舊存檔 → 目前章節表。回傳 { index, claimed, finalPaid }。
-// - 版本 1 的 index 0–6:這 7 章順序沒變 → 原 index。
-// - 版本 1 的 index 7(轉世章,還沒領):新表 index 7 剛好是第一個中期委託 → 從那裡接著玩,轉世留到最後一章。
+// 版本 2 → 3:
+// - index 0–16:順序沒變 → 原 index、claimed=false(claimed 只在最終章有意義:領完非最終章會直接前進到下一章)。
+// - index 17(轉世章):接到新的轉世章 index(QUESTS.length - 1),claimed 照存檔(已領完 = 全部完成,不會被拉回去重做
+//   新插入的 4 章)。代價:停在轉世章、還沒領的玩家不會拿到新插入 4 章的獎勵(他們已經過了那段進度)。
+// - finalPaid 照存檔(版本 1 已領過轉世獎勵的存檔,走到最終章時仍不重複發)。
+// 版本 1(沒有 questRevision,或不認得的值):
+// - index 0–6:這 7 章順序沒變 → 原 index。
+// - index 7(轉世章,還沒領):新表 index 7 剛好是第一個中期委託 → 從那裡接著玩,轉世留到最後一章。
 // - 版本 1 已領完最終章(index 7 + claimed):同樣接到 index 7、claimed=false(中期委託都還沒領過,不會卡在「全部完成」);
 //   轉世獎勵已經發過,記 finalPaid=true,走到新的最終章時只標記完成、不重複發獎。
 function migrateQuest(source) {
@@ -158,6 +174,11 @@ function migrateQuest(source) {
   if (revision === QUEST_REVISION) {
     const index = integer(raw?.index, 0, 0, QUESTS.length - 1);
     return { index, claimed: raw?.claimed === true && raw?.index === QUESTS.length - 1, finalPaid: source.questFinalPaid === true };
+  }
+  if (revision === 2) {
+    // 舊轉世章已領完 → 新轉世章(全部完成);還沒領 → 停在 index 17 = 新插入的第一章(指標讀現況,已達成的章可以直接連領,拿到新獎勵)
+    const old = integer(raw?.index, 0, 0, REV2_QUEST_LAST), done = old === REV2_QUEST_LAST && raw?.claimed === true && raw?.index === REV2_QUEST_LAST;
+    return { index: done ? QUESTS.length - 1 : old, claimed: done, finalPaid: source.questFinalPaid === true };
   }
   const index = integer(raw?.index, 0, 0, LEGACY_QUEST_LAST);
   return { index, claimed: false, finalPaid: index === LEGACY_QUEST_LAST && raw?.claimed === true };
