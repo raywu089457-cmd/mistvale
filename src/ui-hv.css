@@ -2722,3 +2722,9 @@ html body #modal-content .zq-tag.locked.met{background:#3d5222;color:#cfe6a8}
 
 /* 2026-11-18 交易所：缺料提示(自主狩獵偏向該材料的特產區) */
 html body #modal-content .trade-row .tr-need{display:block;margin-top:2px;color:#d9c26a;font:700 12px/1.3 var(--font-ui);font-style:normal}
+
+/* 2026-11-18 離線戰報「回來先做」:賣完的商品、可轉世、可領委託,一列一顆按鈕 */
+html body #modal-content .of-todo{margin:10px 0 6px}
+html body #modal-content .of-todo-row{display:flex;align-items:center;gap:10px;padding:8px 10px;margin-top:6px;background:#2a2418;border:2px solid #8a6a2a}
+html body #modal-content .of-todo-row span{flex:1;min-width:0;font:700 14px/1.35 var(--font-ui);color:#f0e2b8}
+html body #modal-content .of-todo-row .pixel-button{flex:none;min-height:40px;padding:0 14px;font-size:15px}
