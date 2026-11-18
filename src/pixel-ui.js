@@ -567,11 +567,11 @@ const WELCOME_STEPS=[
   // 2026-11-16:配合 18 章委託與顧問帶路改寫 —— 原本第 2 步叫玩家先蓋地下城(現在是第 7 章)、第 3 步叫玩家蓋食堂旅館(開局就有)
   {h:'跟著委託走',target:'hunters',p:()=>`左上是<strong>村長委託</strong>，下面的村長會一次只提醒一件事。第一章很簡單：到<strong>獵人</strong>的「招募」邀請 1 位旅人加入。完成後點左上的委託就能領獎，並解鎖下一章。`},
   {h:'讓村子賺錢',target:'craft',p:()=>`獵人在<strong>餐廳、旅館、酒館、治療所</strong>花錢，村莊就有收入；商品賣完記得到<strong>倉庫 → 製作</strong>補貨。設施升級後賣得更貴。材料不夠時，按鈕會變成青綠色的<strong>補料</strong>，可以直接向行商買。`},
-  {h:'變強之後',target:'quests',p:()=>`鐵匠鋪做出更高階的裝備，獵人會自己買來換。之後的章節會帶你蓋<strong>地下城</strong>、召喚<strong>首領</strong>、挑戰<strong>競技場</strong>天梯。<br><small>隨時可以按右上角「說明」重看這段；點建築或獵人，腳下會出現兩顆小鈕，按 i 看詳情。</small>`},
+  {h:'變強之後',target:'help',p:()=>`鐵匠鋪做出更高階的裝備，獵人會自己買來換。之後的章節會帶你蓋<strong>地下城</strong>、召喚<strong>首領</strong>、挑戰<strong>競技場</strong>天梯。<br><small>隨時可以按右上角「說明」重看這段；點建築或獵人，腳下會出現兩顆小鈕，按 i 看詳情。</small>`},
 ];
 // 高亮目標:要按的頁籤(建設、地下城、獵人、倉庫、交易)或右上圖示(委託、地圖);同一時間最多一個。每幀只在目標變了才動 DOM。
 let z2dMarkKey='';
-function z2dMarkSel(act){if(act&&act.startsWith('rebirth:')||act==='recruit')act='hunters';if(act==='arena')return '.hv-actions [data-act=arena]';return !act?null:({quests:'#topbar .hv-quests',worldmap:'#topbar [data-action=worldmap]',craft:'#bottom-bar [data-action=inventory]'})[act]||`#bottom-bar [data-action="${act}"]`;}
+function z2dMarkSel(act){if(act&&act.startsWith('rebirth:')||act==='recruit')act='hunters';if(act==='arena')return '.hv-actions [data-act=arena]';return !act?null:({quests:'#topbar .hv-quests',help:'#topbar [data-action=help]',worldmap:'#topbar [data-action=worldmap]',craft:'#bottom-bar [data-action=inventory]'})[act]||`#bottom-bar [data-action="${act}"]`;}
 function z2dMarkPaint(){
   let act='';
   if(modal==='welcome')act=WELCOME_STEPS[Math.max(0,Math.min(WELCOME_STEPS.length-1,welcomeStep))].target;
