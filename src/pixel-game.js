@@ -1176,14 +1176,15 @@ export function createGame(saved = null) {
     enemy.rewarded = true; enemy.hp = 0; state.totalKills++; state.kills = state.totalKills;
     state.codex = state.codex || {}; state.codex[enemy.type] = (state.codex[enemy.type] || 0) + 1;   // T126:圖鑑擊殺紀錄
     const data = ENEMIES[enemy.type], multiplier = DIFFICULTIES[state.difficulty].mult;
-    const bossRk = enemy.type === 'boss' ? bossRiskOf(enemy.regionId) : 1, bossGems = Math.round(5 * bossRk);
-    const gold = Math.round(data.gold * Math.sqrt(multiplier) * bossRk); hunter.gold += gold; state.counts.hunterGold = (state.counts.hunterGold || 0) + gold;   // 離線戰報分開記「你的獵人」與流浪英雄
+    // 2026-11-18 生態區危險度:魔物生命與攻擊本來就乘 region.risk,金幣與經驗原本沒跟上(山麓每點生命的金幣只有草原的一半)→ 金幣、經驗也乘危險度;掉落材料只有首領乘
+    const zoneRk = bossRiskOf(enemy.regionId), bossRk = enemy.type === 'boss' ? zoneRk : 1, bossGems = Math.round(5 * bossRk);
+    const gold = Math.round(data.gold * Math.sqrt(multiplier) * zoneRk); hunter.gold += gold; state.counts.hunterGold = (state.counts.hunterGold || 0) + gold;   // 離線戰報分開記「你的獵人」與流浪英雄
     for (const [key, amount] of Object.entries(data.drops)) { const n = Math.round(dropAmount(amount) * bossRk); hunter.inventory[key] += n; ledgerGot(hunter, key, n); }
     effect('death', enemy, { enemyType: enemy.type, flipHint: (enemy.hitFromX ?? enemy.x) - (enemy.hitFromZ ?? enemy.z) < enemy.x - enemy.z });  // 打的人在左邊 → 翻面朝左(面向打倒牠的人)
     effect('loot', enemy, { text: `+${gold}`, color: '#efcd82', delay: 0.35 });
     // iso 擊殺:靈魂從屍體往上飄(soul-rise-iso)、金幣從身上彈出來在地上跳(coin-drop-iso)。純畫面,不影響掉落。
     isoEffect('soul-rise-iso', enemy, 3.6, { delay: .1 }); isoEffect('coin-drop-iso', enemy, 3.4, { delay: .45 });
-    for (const h of state.hunters) if (h.hp > 0 && h.task !== 'dungeon' && h.task !== 'arena' && (distance(h, enemy) < 12 || h === hunter)) gainXp(h, Math.round(data.xp * Math.sqrt(multiplier)));
+    for (const h of state.hunters) if (h.hp > 0 && h.task !== 'dungeon' && h.task !== 'arena' && (distance(h, enemy) < 12 || h === hunter)) gainXp(h, Math.round(data.xp * Math.sqrt(multiplier) * zoneRk));
     if (enemy.type === 'boss') {
       state.bossKills++; state.gems += bossGems; Object.assign(state.expedition, { active: false, bossHp: 0, cooldown: 55, elapsed: 0 });
       const bossGear = rollGearDrop('boss'); if (bossGear) grantGear(bossGear, '森林領主的寶箱');
