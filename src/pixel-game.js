@@ -2426,6 +2426,8 @@ export function createGame(saved = null) {
     // merchantQuote(cost) → { ok, short:{材料:缺幾份}, gold:補料要花的金幣, total:補料＋成本本身的金幣, unit:{材料:單價}, reason }
     //   ok=false 時 reason 說明為什麼不能補(沒有交易所、缺的是金幣/星晶這類不能買的東西、金幣不夠)。
     dropAmount,   // 野外材料掉落量(隨難度提高;測試與 UI 預覽用)
+    // 2026-11-18 UX:某材料的特產區(全圖每隻掉最多的區)名稱;交易所「缺料」提示用
+    specialtyRegion(k) { const rid = Object.keys(REGION_SUPPLY).find(r => REGION_SUPPLY[r][k] === 1); return rid ? REGIONS.find(r => r.id === rid) || null : null; },
     villageNeed,   // 村莊缺料程度 { 材料: 0–1 }(交易所收購中、存量低於收購數量);獵人自主挑區的偏好用
     autoHuntPick(hunterId) { const h = state.hunters.find(x => x.id === hunterId); return h ? autoHuntRegion(h) : null; },   // 這位獵人現在自己出門會挑哪一區(測試與 UI 用;不改任何狀態)
     servicePrice,   // 設施服務的目前售價(隨設施等級上升;UI 顯示用)
