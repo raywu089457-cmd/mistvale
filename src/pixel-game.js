@@ -199,8 +199,14 @@ const xpNeeded = level => 30 + level * 8;
 const TRAIN = { cooldown: 30, cost: level => 20 + level * 10, levels: bLv => 1 + 0.25 * (Math.max(1, bLv) - 1) };
 // 這一世累積的經驗(Lv.1 起算):離線外推用
 const lifetimeXp = h => { let n = h.xp || 0; for (let l = 1; l < h.level; l++) n += xpNeeded(l); return n; };
-// 離線收益:最多算 8 小時;前 sample 秒真的模擬,其餘照這段的速率外推(見 offlineFinish)
-export const OFFLINE = { max: 8 * 3600, sample: 120 };
+// 離線收益:最多算 8 小時;前 sample 秒真的模擬,其餘照這段的速率外推(見 offlineFinish)。
+// 2026-11-18:前 warm 秒是暖機(照實算、不當速率),速率窗 = sample − warm 秒(docs/BALANCE.md「離線收益」)
+export const OFFLINE = { max: 8 * 3600, sample: 240, warm: 60 };
+// 離線外推另外算的統計(服務有庫存上限、付給村莊的錢要扣掉服務與裝備)、照流浪英雄速率(不是獵人野外秒數)外推的統計
+const OFFLINE_SPECIAL_COUNTS = new Set(['services', 'serviceIncome', 'hunterPay', 'wanderPay']);
+const OFFLINE_WANDER_COUNTS = new Set(['wanderGold', 'wanderPay', 'wandererPurchases']);
+// 外推的時間至少這麼長才讓每位獵人逛一次鍛造屋(一個遊戲日;更短的離線不一定每個人都回過村)
+const OFFLINE_SHOP_MIN = 240;
 // 騎乘(docs/PAPERDOLL.md §20,DV2 C1):獵人欄位 h.mount = 坐騎物種 id(ENEMIES 的鍵,不含 boss)或 null。
 // 騎著時所有移動(路線、遠程後撤、手動操控)的走速 × MOUNT_SPEED_MULT。1.3 是我們定的:DV2 有騎乘走速表
 // (Character2.SEB_H_WALK_MONSTER_SPEED),但數值沒有逆向出來。出招時序、攻擊間隔、射程都不變(只有動畫換成騎乘動作)。
@@ -924,10 +930,10 @@ export function createGame(saved = null) {
       // 2026-11-17 持續收購(tradeStanding):開著的材料成交後收購量不扣 → 一直維持玩家設定的數量;只花金庫保留額以上的部分(tradeBudget),一般委託照舊以全部金庫為上限
       h.inventory[key] -= amount; if (!state.tradeStanding?.[key]) state.tradeRequests[key] -= amount; state[key] += amount; state.gold -= price; h.gold += price; state.counts.tradeGold = (state.counts.tradeGold || 0) + price; quantity += amount; coins += price;
       // 離線取樣期:記下收購量與付給誰,offlineFinish 另外依「剩餘收購量/持續收購/村莊金幣」外推,不照速率無上限地乘
-      if (dgLedger) { const T = dgLedger.trade; T.qty[key] = (T.qty[key] || 0) + amount; T.cost += price; T.gold[h.id] = (T.gold[h.id] || 0) + price; if (!wandererOf(h)) T.hunterCost += price; }
+      if (dgLedger) for (const T of tradeBooks()) { T.qty[key] = (T.qty[key] || 0) + amount; T.cost += price; T.gold[h.id] = (T.gold[h.id] || 0) + price; if (!wandererOf(h)) T.hunterCost += price; }
     }
     if (quantity) { state.counts.traded += quantity; effect('loot', h, { text: `收購 ${quantity}`, color: '#e4c97b' }); tradeLog(h, quantity, coins); }
-    if (dgLedger) dgLedger.trade.visits++;
+    if (dgLedger) for (const T of tradeBooks()) T.visits++;
     h.tradedVisit = true;
   }
 
@@ -977,7 +983,8 @@ export function createGame(saved = null) {
     const p = PRODUCTS[h.serviceProduct], price = servicePrice(h.serviceProduct), paid = state.stocks[h.serviceProduct] > 0 && h.gold >= price;
     h.serviceStarted = true; h.actionTimer = paid ? 3.2 : 5.2; h.serviceDuration = h.actionTimer;
     h.status = ({ food: '用餐中', drink: '飲用中', bed: '休息中', bandage: '休養中' })[h.serviceProduct];
-    if (paid) { effect('loot', buildingPoint(p.building), { text: `+${price}`, color: '#efcd82' }); h.gold -= price; state.gold += price; payLedger(h, price); state.stocks[h.serviceProduct]--; state.counts.services++; state.counts.serviceIncome += price; }
+    if (paid) { effect('loot', buildingPoint(p.building), { text: `+${price}`, color: '#efcd82' }); h.gold -= price; state.gold += price; payLedger(h, price); state.stocks[h.serviceProduct]--; state.counts.services++; state.counts.serviceIncome += price;
+      if (dgLedger) { const S = dgLedger.svc, k = h.serviceProduct; S.qty[k] = (S.qty[k] || 0) + 1; S.gold[k] = (S.gold[k] || 0) + price; const by = S.by[h.id] ??= {}; by[k] = (by[k] || 0) + price; } }
     else state.counts.basicServices++;
     const current = p.need === 'hp' ? h.hp / h.maxHp * 100 : h[p.need];
     const restore = paid ? p.restore * (1 + (state.buildings[p.building] - 1) * 0.05) : 65;
@@ -1281,8 +1288,19 @@ export function createGame(saved = null) {
   // trade:取樣期交易所收購(材料份數、村莊付出的金幣、各獵人/流浪英雄收到的金幣)→ 外推時從速率裡扣掉,改由 offlineFinish 依上限另算
   // trade.got/gotBy/visits(2026-11-17):取樣期野外掉進背包的材料份數、各獵人/流浪英雄撿到的材料價值、交易所來訪次數
   //   → 持續收購外推不只看「取樣期剛好成交多少」,也看「撿了多少」(取樣期沒人回村賣、或金庫一開始低於保留額時不會整段 0)
-  const newLedger = () => ({ wins: 0, res: {}, gold: {}, xp: {}, gear: {}, gearWander: 0, gearPay: { hunterPay: 0, wanderPay: 0 }, trade: { qty: {}, cost: 0, hunterCost: 0, gold: {}, got: {}, gotBy: {}, visits: 0 } });
-  function ledgerGot(a, key, n) { if (!dgLedger || !(n > 0)) return; const T = dgLedger.trade; T.got[key] = (T.got[key] || 0) + n; T.gotBy[a.id] = (T.gotBy[a.id] || 0) + n * MATERIALS[key].price; }
+  // svc(2026-11-18):取樣期付費服務(餐點/飲品/床鋪/繃帶)賣了幾份、收多少、誰付的 → 外推時以「剩下的庫存」為上限另算(庫存離線不會補)
+  // away(2026-11-18):每位獵人取樣期在地下城/競技場(不在野外)的秒數 → 野外速率以「在野外的獵人秒數」為單位外推
+  const newLedger = () => ({ wins: 0, res: {}, gold: {}, xp: {}, gear: {}, gearWander: 0, gearPay: { hunterPay: 0, wanderPay: 0 }, trade: { qty: {}, cost: 0, hunterCost: 0, gold: {}, got: {}, gotBy: {}, visits: 0 },
+    svc: { qty: {}, gold: {}, by: {} }, away: {} });
+  // 離線取樣的基準點(offlineSnapshot 與暖機結束時各記一次);offWarm = 還在暖機中的 snapshot(simulate 跑過 OFFLINE.warm 秒就記下 snap.win)
+  let offWarm = null;
+  function offlineMark() {
+    return { res: Object.fromEntries(RESOURCE_KEYS.map(k => [k, state[k]])), stocks: { ...state.stocks }, kills: state.totalKills, wanderKills: state.wanderKills || 0, bestFloor: state.dungeon.bestFloor, counts: { ...state.counts },
+      hunters: Object.fromEntries(state.hunters.map(h => [h.id, { xp: lifetimeXp(h), gold: h.gold, level: h.level, rebirths: h.rebirths }])), time: state.time };
+  }
+  function ledgerGot(a, key, n) { if (!dgLedger || !(n > 0)) return; for (const T of tradeBooks()) { T.got[key] = (T.got[key] || 0) + n; T.gotBy[a.id] = (T.gotBy[a.id] || 0) + n * MATERIALS[key].price; } }
+  // 收購帳有兩本:trade = 速率窗(扣錢包/金庫的野外速率用)、tradeAll = 整段取樣(收購外推用;暖機時沒有另外一本 → 同一本)
+  const tradeBooks = () => dgLedger.tradeAll && dgLedger.tradeAll !== dgLedger.trade ? [dgLedger.trade, dgLedger.tradeAll] : [dgLedger.trade];
   function dgWaveTypes(floor, wave) {
     const mix = REGION_MIX[DG_TIERS[Math.floor((floor - 1) / 3) % DG_TIERS.length]], small = mix[0], mid = mix[3], big = mix[6];
     return wave === 1 ? [small, small] : wave === 2 ? (floor >= 5 ? [mid, small, small] : [mid, small]) : (floor >= 10 ? [big, mid] : [big]);
@@ -1646,6 +1664,7 @@ export function createGame(saved = null) {
     for (const a of REGIONS) { if (a.id === 'village' || a.id === state.region) continue; const dens = densOf(a.id); state.regionSpawn[a.id] = (state.regionSpawn[a.id] || 0) + dt; if (state.regionSpawn[a.id] < dens.otherEvery) continue; state.regionSpawn[a.id] = 0;
       if (state.enemies.filter(e => e.hp > 0 && e.type !== 'boss' && e.regionId === a.id).length < dens.other) { const mix = REGION_MIX[a.id]; spawn(mix[Math.floor(random() * mix.length)], null, a.id); } }
     for (const h of state.hunters) {
+      if (dgLedger && (h.task === 'dungeon' || h.task === 'arena')) dgLedger.away[h.id] = (dgLedger.away[h.id] || 0) + dt;   // 離線取樣:不在野外的秒數
       h.attackTimer = Math.max(0, h.attackTimer - dt); h.trainCooldown = Math.max(0, h.trainCooldown - dt);
       if (h.hp <= 0) { if (h.mount) h.mount = null;   // 倒地(含地下城/競技場)一律下坐騎
         if (h.task !== 'dungeon' && h.task !== 'arena') { if (h.task !== 'revive') died(h); h.reviveTimer = Math.max(0, h.reviveTimer - dt); if (h.reviveTimer === 0) revive(h); } continue; }
@@ -2563,40 +2582,109 @@ export function createGame(saved = null) {
     },
     // ── 離線／背景掛機(2026-10-30 使用者:「離線後也等同掛機要持續計算各種數據,最大八小時」) ──
     // 8 小時照 0.1 秒一步完整模擬要好幾分鐘(桌機實測 600 秒 ≈ 7.7 秒)→ 先真的模擬前 OFFLINE.sample 秒(UI 分段呼叫 simulate,畫面不卡),
-    // 其餘時間照這段的「每秒淨變化」外推:村莊資源、商品庫存、擊倒數、各項統計(只外推增加的)、每位獵人的經驗(會升級)與個人金幣;
-    // 遊戲時間、天數、冷卻照實際經過。用完的東西(淨變化是負的)外推到 0 為止。地下城最高樓層不外推(只算真的模擬到的)。
+    // 其餘時間照這段的速率外推:擊倒數、各項統計(只外推增加的)、每位獵人的經驗(會升級)與個人金幣;
+    // 遊戲時間、天數、冷卻照實際經過。地下城最高樓層不外推(自動續戰的小隊照實打完剩下的時間)。
+    // 2026-11-18 校正(離線 1 小時村莊金幣是線上的 5 倍、4 小時 19 倍;docs/BALANCE.md「離線收益」):
+    //   ・速率窗:前 OFFLINE.warm 秒是暖機(載入存檔後全員從村裡出發,一起吃飯睡覺、一起衝進滿怪的狩獵區),只照實算、不拿來當速率
+    //   ・服務收入以「剩下的庫存」為上限(庫存離線不會補,線上賣完村莊就沒這筆收入);買不到的獵人錢留在錢包、改用免費的基本服務
+    //   ・野外速率以「在野外的獵人秒數」為單位:取樣期在地下城的小隊,地下城打完後也照平均速率打怪
+    //   ・每位獵人的經驗/打怪金幣 = 自己的速率與全隊平均各半(120 秒裡剛好在村裡辦事的人不會整段 0)
+    //   ・裝備:外推結束時每位獵人逛一次鍛造屋(照線上規則買庫存裡買得起的升級件;一次性,不照速率乘)
     offlineSnapshot() {
       dgLedger = newLedger();
-      return { res: Object.fromEntries(RESOURCE_KEYS.map(k => [k, state[k]])), stocks: { ...state.stocks }, kills: state.totalKills, wanderKills: state.wanderKills || 0, bestFloor: state.dungeon.bestFloor, counts: { ...state.counts },
-        hunters: Object.fromEntries(state.hunters.map(h => [h.id, { xp: lifetimeXp(h), gold: h.gold, level: h.level, rebirths: h.rebirths }])), time: state.time };
+      const snap = offlineMark(); offWarm = OFFLINE.warm > 0 ? snap : null; return snap;
     },
-    simulate(seconds) { let left = number(seconds, 0, 0, OFFLINE.max); while (left > 1e-7) { const d = Math.min(0.1, left); step(d); left -= d; } },
+    simulate(seconds) {
+      let left = number(seconds, 0, 0, OFFLINE.max);
+      while (left > 1e-7) { const d = Math.min(0.1, left); step(d); left -= d;
+        // 暖機結束:從這裡起算速率窗(帳本重來;暖機期的進帳都是真的模擬,照實保留)
+        if (offWarm && state.time - offWarm.time >= OFFLINE.warm - 1e-6) { offWarm.win = offlineMark(); const all = dgLedger.tradeAll || dgLedger.trade; dgLedger = newLedger(); dgLedger.tradeAll = all; offWarm = null; } }
+    },
     offlineFinish(snap, totalSeconds) {
-      const total = number(totalSeconds, 0, 0, OFFLINE.max), sampled = Math.max(0, state.time - snap.time), rest = Math.max(0, total - sampled), f = sampled >= 1 ? rest / sampled : 0;
+      const total = number(totalSeconds, 0, 0, OFFLINE.max), sampled = Math.max(0, state.time - snap.time), rest = Math.max(0, total - sampled);
+      // 速率窗 w:有暖機就從暖機結束算起(窗至少 1 秒,否則退回整段取樣)
+      const w = snap.win && state.time - snap.win.time >= 1 ? snap.win : snap, span = Math.max(0, state.time - w.time), f = span >= 1 ? rest / span : 0;
+      offWarm = null;
       const L = dgLedger || newLedger(); dgLedger = null;
-      const T = L.trade, tradeQty = MATERIAL_KEYS.reduce((n, k) => n + (T.qty[k] || 0), 0);
+      const T = L.trade, S = L.svc, tradeQty = MATERIAL_KEYS.reduce((n, k) => n + (T.qty[k] || 0), 0);
       // 野外(非地下城)的淨變化;交易所收購另外算(下面「收購外推」),所以材料扣掉收購進來的份數、金幣加回付出去的收購款
-      const field = k => (state[k] - snap.res[k]) - (L.res[k] || 0) - (T.qty[k] || 0) + (k === 'gold' ? T.cost : 0);
+      const field = k => (state[k] - w.res[k]) - (L.res[k] || 0) - (T.qty[k] || 0) + (k === 'gold' ? T.cost : 0);
       if (f > 0) {
-        for (const k of RESOURCE_KEYS) if (k !== 'gold') state[k] = Math.max(0, Math.round(state[k] + field(k) * f));
-        for (const k of Object.keys(state.stocks)) state.stocks[k] = Math.max(0, Math.round(state.stocks[k] + (state.stocks[k] - (snap.stocks[k] ?? 0)) * f));
-        state.totalKills += Math.round(Math.max(0, state.totalKills - snap.kills) * f); state.kills = state.totalKills;
-        state.wanderKills = (state.wanderKills || 0) + Math.round(Math.max(0, (state.wanderKills || 0) - snap.wanderKills) * f);
-        for (const [k, v] of Object.entries(state.counts)) { const dv = typeof v === 'number' && typeof snap.counts[k] === 'number' ? v - snap.counts[k] - (k === 'dungeonWins' ? L.wins : 0) - (GEAR_ONE_OFF.has(k) ? v - snap.counts[k] : L.gearPay[k] || 0) - (k === 'traded' ? tradeQty : 0) - (k === 'tradeGold' ? (T.cost || 0) : 0) : 0; if (dv > 0) state.counts[k] = Math.round(v + dv * f); }
-        // 金幣要守恆:獵人花在村裡的錢 = 村莊收入,錢包花光就沒了 → 「村莊＋獵人」一起外推,每位獵人的錢包到 0 為止,剩下的算村莊的
-        const both = state.hunters.filter(h => snap.hunters[h.id]), w0 = both.reduce((n, h) => n + snap.hunters[h.id].gold, 0), w1 = both.reduce((n, h) => n + h.gold, 0);
-        // 收購款在村莊與池內獵人之間只是轉手:兩邊都扣掉(field('gold') 已加回,這裡扣掉獵人收到的),最後由「收購外推」實際轉帳
-        const dgW = both.reduce((n, h) => n + (L.gold[h.id] || 0) + (T.gold[h.id] || 0), 0), pooled = state.gold + w1 + (field('gold') - L.gearWander + (w1 - w0 - dgW)) * f;
-        let wallets = 0;
-        for (const h of state.hunters) {
-          const s0 = snap.hunters[h.id]; if (!s0) { wallets += h.gold; continue; }
-          const xp = lifetimeXp(h) - s0.xp - (L.xp[h.id] || 0); if (xp > 0 && h.rebirths === s0.rebirths) gainXp(h, Math.round(xp * f));
-          h.gold = Math.max(0, Math.round(h.gold + (h.gold - s0.gold - (L.gold[h.id] || 0) - (T.gold[h.id] || 0) + (L.gear[h.id] || 0)) * f)); if (both.includes(h)) wallets += h.gold;
+        // ① 先量完速率窗的各項變化(下面跑地下城、外推都會改 state)
+        const sumVals = o => Object.values(o || {}).reduce((n, v) => n + v, 0);
+        const svcAll = sumVals(S.gold), gearAll = L.gearPay.hunterPay + L.gearPay.wanderPay;
+        const resW = Object.fromEntries(RESOURCE_KEYS.filter(k => k !== 'gold').map(k => [k, field(k)]));
+        // 村莊自己的金幣速率:扣掉收購(另算)、地下城/自動整理(帳本)、裝備(一次性)、服務(另算,有庫存上限)→ 通常只剩競技場之類
+        const villageW = field('gold') - gearAll - svcAll;
+        const killsW = Math.max(0, state.totalKills - w.kills), wanderKillsW = Math.max(0, (state.wanderKills || 0) - w.wanderKills);
+        const countsW = {};
+        for (const [k, v] of Object.entries(state.counts)) {
+          if (typeof v !== 'number' || typeof w.counts[k] !== 'number' || OFFLINE_SPECIAL_COUNTS.has(k)) continue;
+          countsW[k] = v - w.counts[k] - (k === 'dungeonWins' ? L.wins : 0) - (GEAR_ONE_OFF.has(k) ? v - w.counts[k] : L.gearPay[k] || 0) - (k === 'traded' ? tradeQty : 0) - (k === 'tradeGold' ? (T.cost || 0) : 0);
         }
-        state.gold = Math.max(0, Math.round(pooled - wallets));
+        // 服務費是誰付的:獵人(錢包付得起才算)/流浪英雄(村外的錢)
+        const hunterById = new Map(state.hunters.map(h => [h.id, h]));
+        const svcBySide = side => Object.entries(S.by).reduce((n, [id, by]) => n + ((hunterById.has(id) ? 'hunter' : 'wander') === side ? sumVals(by) : 0), 0);
+        const payKeyW = { hunterPay: svcBySide('hunter'), wanderPay: svcBySide('wander') };
+        for (const k of ['hunterPay', 'wanderPay']) if (typeof state.counts[k] === 'number' && typeof w.counts[k] === 'number') countsW[k] = state.counts[k] - w.counts[k] - (L.gearPay[k] || 0) - payKeyW[k];
+        // 每位獵人在野外的秒數、野外經驗、打怪金幣(錢包變化扣掉地下城、收購、裝備、服務)
+        const pool = state.hunters.filter(h => w.hunters[h.id]);
+        const rate = new Map(pool.map(h => { const s0 = w.hunters[h.id], sameLife = h.rebirths === s0.rebirths;
+          return [h.id, { sec: Math.max(0, span - (L.away[h.id] || 0)), xp: sameLife ? Math.max(0, lifetimeXp(h) - s0.xp - (L.xp[h.id] || 0)) : 0, xpOk: sameLife && s0.level < 100 && h.level < 100,
+            gold: Math.max(0, h.gold - s0.gold - (L.gold[h.id] || 0) - (T.gold[h.id] || 0) + (L.gear[h.id] || 0) + sumVals(S.by[h.id])), sameLife }]; }));
+        const mean = (key, ok) => { let a = 0, b = 0; for (const r of rate.values()) if (ok(r)) { a += r[key]; b += r.sec; } return b >= 1 ? a / b : 0; };
+        const xpMean = mean('xp', r => r.xpOk), goldMean = mean('gold', () => true);
+        // 自己的速率與全隊平均各半;在野外時間越短,自己的速率權重越低
+        const blend = (r, key, m) => { const own = r.sec >= 1 ? r[key] / r.sec : 0, a = 0.5 * Math.min(1, r.sec / span); return a * own + (1 - a) * m; };
+
+        // ② 地下城(自動續戰)照實打完剩下的時間:只跑地下城那一塊(沒有尋路,8 小時也很快);獎勵直接進帳,速率窗已經把地下城收入排除
+        //   記下每位隊員在地下城待了幾秒 → 打完之後剩下的時間照野外速率算
+        let dgT = 0; const d = state.dungeon, dgRest = {};
+        if (d.active) {
+          for (const h of state.hunters.filter(h => d.hunterIds.includes(h.id))) if (h.route.length) { Object.assign(h, door('dungeon', h)); h.route = []; }
+          while (d.active && dgT < rest) { for (const h of state.hunters) if (d.hunterIds.includes(h.id)) { h.attackTimer = Math.max(0, h.attackTimer - 0.1); dgRest[h.id] = (dgRest[h.id] || 0) + 0.1; } state.time += 0.1; dgT += 0.1; stepDungeon(0.1); }
+        }
+        const restField = h => Math.max(0, rest - (dgRest[h.id] || 0));
+        const FW = pool.reduce((n, h) => n + rate.get(h.id).sec, 0), FR = pool.reduce((n, h) => n + restField(h), 0);
+        const g = FW >= 1 ? FR / FW : f;   // 獵人帶動的東西(擊倒、各項統計、服務需求)照「野外獵人秒數」外推
+        // ③ 擊倒、材料、統計
+        for (const [k, v] of Object.entries(resW)) state[k] = Math.max(0, Math.round(state[k] + v * g));
+        // 擊倒數只照速率窗在野外的人數外推(f,不是 g):地下城小隊回來後去的是最危險的區,擊倒少、經驗金幣多 → 用全隊平均會多算 30% 以上
+        state.totalKills += Math.round(killsW * f); state.kills = state.totalKills;
+        state.wanderKills = (state.wanderKills || 0) + Math.round(wanderKillsW * f);
+        for (const [k, dv] of Object.entries(countsW)) if (dv > 0) state.counts[k] = Math.round(state.counts[k] + dv * (OFFLINE_WANDER_COUNTS.has(k) ? f : g));
+
+        // ④ 服務:想買的份數照速率外推,但最多賣到剩下的庫存為止;各人照比例付款
+        const share = {}; let sold = 0, basic = 0;
+        for (const k of PRODUCT_KEYS) {
+          const want = (S.qty[k] || 0) * g, n = Math.max(0, Math.min(Math.round(want), state.stocks[k] || 0));
+          share[k] = want > 0 ? n / want : 0; state.stocks[k] = (state.stocks[k] || 0) - n; sold += n; basic += Math.max(0, want - n);
+        }
+        const svcWant = id => Math.round(Object.entries(S.by[id] || {}).reduce((n, [k, gold]) => n + gold * g * share[k], 0));
+        let village = state.gold + villageW * f, svcPaid = 0, hunterSvc = 0, wanderSvc = 0;
+        // ⑤ 金幣:獵人錢包 = 現在 + 野外收入 − 付得起的服務費;服務費進村莊(金幣守恆:獵人付多少村莊收多少)
+        for (const h of pool) {
+          const r = rate.get(h.id), tf = restField(h);
+          if (r.sameLife) { const xp = Math.round(blend(r, 'xp', xpMean) * tf); if (xp > 0) gainXp(h, xp); }
+          h.gold = Math.max(0, Math.round(h.gold + blend(r, 'gold', goldMean) * tf));
+          const pay = Math.min(h.gold, svcWant(h.id)); h.gold -= pay; hunterSvc += pay;
+        }
+        // 流浪英雄(含取樣期付過費、已經離開的):錢包不在池子裡(他們從村外帶錢來),一樣以庫存為上限
+        for (const id of Object.keys(S.by)) if (!hunterById.has(id) || !w.hunters[id]) wanderSvc += svcWant(id);
+        svcPaid = hunterSvc + wanderSvc; village += svcPaid;
+        state.gold = Math.max(0, Math.round(village));
+        state.counts.services += sold; state.counts.serviceIncome += svcPaid; state.counts.basicServices = (state.counts.basicServices || 0) + Math.round(basic);
+        state.counts.hunterPay = (state.counts.hunterPay || 0) + hunterSvc; state.counts.wanderPay = (state.counts.wanderPay || 0) + wanderSvc;
+        // ⑥ 裝備:外推期間每位獵人至少回村一趟 → 照線上規則(gearOffer:買得起、身上已有升級件要留 GEAR_RESERVE)逛一次鍛造屋;庫存買完就沒了
+        if (rest >= OFFLINE_SHOP_MIN && state.buildings.forge > 0) for (const h of pool) {
+          if (h.hp <= 0 || h.task === 'dungeon' || h.task === 'arena' || !gearAvailable(h)) continue;
+          const visited = h.shoppedVisit; shop(h); h.shoppedVisit = visited;
+        }
         // 收購外推(2026-11-17):照取樣期的收購速率,但一般委託最多買到「剩餘收購量」為止(持續收購不扣),而且每份都要村莊付得起;
         // 持續收購另外不能讓金庫低於保留額(tradeReserve,與線上 trade() 相同規則)
         // → 村莊金幣不會變負、也不會憑空多出材料;付出的錢照取樣期的比例分給當時賣材料的獵人/流浪英雄(總額守恆)
+        // 2026-11-18:收購照「整段取樣」(含暖機)的帳與倍率外推(暖機時剛好把背包賣空的那一趟也算進收購速率,一般委託才補得完)
+        { const T = L.tradeAll || L.trade, f = sampled >= 1 ? rest / sampled : 0;
         const gotTotal = MATERIAL_KEYS.reduce((n, k) => n + (T.got[k] || 0), 0);
         if (T.cost > 0 || gotTotal > 0) {
           let paidOnce = 0, paidStanding = 0;
@@ -2616,7 +2704,7 @@ export function createGame(saved = null) {
           const want = Object.fromEntries(MATERIAL_KEYS.filter(k => state.tradeStanding?.[k]).map(k => [k, Math.max(0, Math.round(Math.max((T.qty[k] || 0) * f, Math.min((T.got[k] || 0) * f, (state.tradeRequests[k] || 0) * trips))))]));
           const wantCost = Object.entries(want).reduce((n, [k, q]) => n + q * MATERIALS[k].price, 0), room = Math.max(0, state.gold - tradeReserve());
           const scale = wantCost > room ? room / wantCost : 1;
-          for (const [k, q] of Object.entries(want)) { const n = Math.floor(q * scale); if (n) buy(k, n, true); }
+          for (const [k, q] of Object.entries(want)) { const n = Math.floor(q * scale + 1e-9); if (n) buy(k, n, true); }   // +1e-9:room/wantCost 剛好整除時浮點誤差會少買 1 份
           // 付款:一般委託照取樣期誰賣了多少分;持續收購照取樣期誰撿了多少分(沒人撿 → 照誰賣了多少);賣家都不在了(極少見)→ 錢退回村莊,不讓金幣消失
           const actor = id => state.hunters.find(h => h.id === id) || (state.wanderers || []).find(w => w.id === id);
           const payOut = (amount, weights) => {
@@ -2628,13 +2716,7 @@ export function createGame(saved = null) {
           const hasW = w => Object.keys(w).some(id => w[id] > 0 && actor(id));
           payOut(paidOnce, hasW(T.gold) ? T.gold : T.gotBy);
           payOut(paidStanding, hasW(T.gotBy) ? T.gotBy : T.gold);
-        }
-        // 地下城(自動續戰)照實打完剩下的時間:只跑地下城那一塊(沒有尋路,8 小時也很快);獎勵直接進帳,上面已經把取樣期的地下城收入排除
-        let dgT = 0; const d = state.dungeon;
-        if (d.active) {
-          for (const h of state.hunters.filter(h => d.hunterIds.includes(h.id))) if (h.route.length) { Object.assign(h, door('dungeon', h)); h.route = []; }
-          while (d.active && dgT < rest) { for (const h of state.hunters) if (d.hunterIds.includes(h.id)) h.attackTimer = Math.max(0, h.attackTimer - 0.1); state.time += 0.1; dgT += 0.1; stepDungeon(0.1); }
-        }
+        } }
         state.time += Math.max(0, rest - dgT); state.day = Math.floor(state.time / 240) + 1;
         state.healCooldown = Math.max(0, state.healCooldown - rest);
         for (const k of ['expedition', 'dungeon', 'arena']) state[k].cooldown = Math.max(0, state[k].cooldown - rest);

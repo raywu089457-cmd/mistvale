@@ -42,7 +42,7 @@ Data tables for the current pixel game: buildings, hunter classes, items, monste
 Simulation core: world state, hunter AI, combat, dungeons, quests, offline progress and saves.
 
 - `ENEMIES` (line 23): map monster id → {hp,attack,speed,gold,xp,drops}, including `boss`.
-- `OFFLINE` (line 69): offline-progress limits {max: 8h in seconds, sample: 120} simulated seconds.
+- `OFFLINE` (line 69): offline-progress limits {max: 8h in seconds, sample: 240 simulated seconds, warm: 60 of those excluded from the extrapolation rate} (2026-11-18, docs/BALANCE.md).
 - `createGame(saved)` (line 90): builds the whole game state from a save (or fresh) and returns the API object below.
 
 ### `createGame()` return object

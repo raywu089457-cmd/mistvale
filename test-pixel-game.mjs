@@ -173,6 +173,8 @@ run(poorTown, 4, true); assert.equal(poorTown.state.gold, 1); assert.equal(selle
   const m = createGame(), d = isolate(m); m.state.time = 100; m.state.wanderers = []; Object.assign(d, marketDoor); d.inventory.ore = 40; d.inventory.wood = 40; m.state.gold = m.tradeReserve() + 300;
   for (const k of MATERIAL_KEYS_T) m.state.tradeRequests[k] = 0; m.setTradeRequest('ore', 999); m.setTradeRequest('wood', 200); m.setTradeStanding('ore', true);
   // 取樣期用安靜模式(不刷魔物 → 沒有野外收入),外推時金庫只受收購影響,結果可精確預期
+  //   (2026-11-18 取樣拉長到 240 秒後獵人會在取樣期肚子餓去吃飯 → 商品庫存清空,只能用免費的基本服務,金庫才不會多出服務費)
+  for (const k of Object.keys(m.state.stocks)) m.state.stocks[k] = 0;
   const mn = m.offlineSnapshot(), ore0 = m.state.ore; run(m, OFFLINE.sample, true); const oreS = m.state.ore - ore0, woodLeft = m.state.tradeRequests.wood, tradedS = m.state.counts.traded - mn.counts.traded;
   assert.equal(oreS, 40); assert.ok(woodLeft > 0 && woodLeft <= 160); assert.ok(m.state.gold >= m.tradeReserve() && m.state.gold < m.tradeReserve() + 2 * woodLeft, `sample leaves gold just above the reserve (${m.state.gold})`);
   m.offlineFinish(mn, 3 * 3600); assert.equal(m.state.tradeRequests.wood, 0, 'one-off wood order completes offline'); assert.equal(m.state.tradeRequests.ore, 999);
@@ -182,7 +184,10 @@ run(poorTown, 4, true); assert.equal(poorTown.state.gold, 1); assert.equal(selle
 { // 2026-11-17 倒楣的取樣:大廳 5 級(保留額 2500)、金庫 1500 多 → 取樣期金庫一直低於保留額,持續收購 0 份成交;
   // 但外推期間的收入會把金庫推過保留額 → 照「取樣期撿到的材料」估收購量,花到保留額為止(以前整整 8 小時 0 份材料、金庫堆到 14 萬)
   // A/B/C 是同一個(確定性)村莊:B 外推前把收購量歸 0(不買),C 收購量改成每趟 1 份(每趟上限)
-  const make = () => { const g = createGame(); g.state.buildings.hall = 5; for (const h of g.state.hunters) h.huntRegion = 'meadow'; for (const k of MATERIAL_KEYS_T) g.state.tradeStanding[k] = true; run(g, 20); const snap = g.offlineSnapshot(); g.simulate(OFFLINE.sample); return { g, snap }; };
+  // 2026-11-18:離線服務收入以庫存為上限 → 這裡備足庫存(玩家離線前做了大量商品),外推期間才有持續的服務收入;
+  //   取樣拉長到 240 秒 → 金庫從 500 起算,取樣期才不會被服務費推過保留額
+  const make = () => { const g = createGame(); g.state.buildings.hall = 5; for (const h of g.state.hunters) h.huntRegion = 'meadow'; for (const k of MATERIAL_KEYS_T) g.state.tradeStanding[k] = true; run(g, 20);
+    for (const k of Object.keys(g.state.stocks)) g.state.stocks[k] = 1e5; g.state.gold = 500; const snap = g.offlineSnapshot(); g.simulate(OFFLINE.sample); return { g, snap }; };
   const money = g => g.state.gold + g.state.hunters.reduce((n, h) => n + h.gold, 0) + (g.state.wanderers || []).reduce((n, w) => n + w.gold, 0);
   const mats = g => MATERIAL_KEYS_T.reduce((n, k) => n + g.state[k], 0), traded = x => x.g.state.counts.traded - x.snap.counts.traded;
   const A = make(), B = make(), C = make();
@@ -339,13 +344,17 @@ function wear(g, h, slot, grade = 1) {
   Object.assign(g.state, { ore: 999, leather: 999 }); wear(g, h, 'chest', 1); assert.equal(g.craftEquipment('chest').ok, true);
   // 賣礦 → 取樣期非裝備的錢包流量為正。2026-11-17 起收購另外外推(一般委託買滿就停)→ 這裡用持續收購＋村莊金幣充足,讓收購照速率外推
   h.gold = 2000; h.inventory.ore = 200; g.state.tradeRequests.ore = 200; g.state.tradeStanding.ore = true; g.state.gold = 1e6; Object.assign(h, doorStand(forge, forge)); g.state.wanderers = [];
+  // 2026-11-18:商品庫存清空 → 獵人只用免費的基本服務,錢包的外推只剩打怪收入＋收購款,下面可以精確對帳
+  for (const key of Object.keys(g.state.stocks)) g.state.stocks[key] = 0;
   const snap = g.offlineSnapshot(), v0 = g.state.gold; g.simulate(OFFLINE.sample);
   assert.equal(g.gearTierOf(h, 'chest'), 2, 'bought the upgrade during the sample'); const price = gearAt('chest', 2).price;
   assert.equal(h.inventory.ore, 0, 'sold all ore in the sample'); const tradeIn = 200 * MATERIALS.ore.price;
-  const flowHunter = h.gold - 2000 + price; assert.ok(flowHunter > 0);   // 錢包在取樣期「除了裝備以外」的變化
+  const flowHunter = h.gold - 2000 + price; assert.ok(flowHunter >= tradeIn);   // 錢包在取樣期「除了裝備以外」的變化(收購款＋打怪)
+  const w1 = h.gold, hg1 = g.state.counts.hunterGold || 0, tg1 = g.state.counts.tradeGold || 0;
   g.offlineFinish(snap, 3 * 3600); const k = 3 * 3600 / OFFLINE.sample - 1;
-  const want = Math.max(0, Math.round(2000 - price + flowHunter + (flowHunter - tradeIn) * k)) + tradeIn * k;
-  assert.ok(Math.abs(h.gold - want) <= 1, `gear purchase is not extrapolated (wallet ${h.gold}, want ${want})`);
+  // 外推期錢包只多「打怪金幣(hunterGold)＋收購款(tradeGold)」;要是裝備價格也照倍率扣,錢包會少 price × k
+  const want = w1 + ((g.state.counts.hunterGold || 0) - hg1) + ((g.state.counts.tradeGold || 0) - tg1);
+  assert.ok(Math.abs(h.gold - want) <= 2, `gear purchase is not extrapolated (wallet ${h.gold}, want ${want})`); assert.ok(h.gold > w1 + tradeIn, 'standing order keeps paying the seller');
   assert.equal(g.state.counts.gearSold, snap.counts.gearSold + 1); assert.equal(g.state.counts.gearIncome, snap.counts.gearIncome + price);
   assert.ok(g.state.gold >= 0 && Number.isFinite(g.state.gold)); assert.ok(g.state.gold < v0 + price * (k + 1), 'village does not collect the gear price for every extrapolated slice');
 }
@@ -1510,14 +1519,57 @@ run(manual, 30, false, assertFiniteEconomy);
   const W = () => idle.state.hunters.reduce((n, h) => n + h.gold, 0), WW = () => idle.state.wanderers.reduce((n, w) => n + w.gold, 0), C = k => idle.state.counts[k] || 0;
   const wIds = () => idle.state.wanderers.map(w => w.id).join();
   const s2 = idle.offlineSnapshot(), v0 = idle.state.gold, w0 = W(), ww0 = WW(), wg0 = C('wanderGold'), wp0 = C('wanderPay'), ids0 = wIds(); idle.simulate(OFFLINE.sample);
-  const flow = (idle.state.gold - v0) + (W() - w0), twS = (WW() - ww0) - (C('wanderGold') - wg0) + (C('wanderPay') - wp0), ww1 = WW(), tg1 = C('tradeGold');
+  const twS = (WW() - ww0) - (C('wanderGold') - wg0) + (C('wanderPay') - wp0), ww1 = WW(), tg1 = C('tradeGold'), pool1 = idle.state.gold + W(), hg1 = C('hunterGold'), wp1 = C('wanderPay');
   idle.offlineFinish(s2, 3 * 3600);
-  const twX = WW() - ww1, tgX = C('tradeGold') - tg1, mult = 3 * 3600 / OFFLINE.sample;
+  const twX = WW() - ww1, tgX = C('tradeGold') - tg1;
   assert.equal(wIds(), ids0, 'same wanderers throughout (the wallet accounting above assumes nobody joined or left)');
   assert.ok(twS >= 0 && twX >= 0 && twX <= tgX, `wanderers only get what the village paid for materials (sample ${twS}, extrapolated ${twX} of ${tgX})`);
   assert.ok(tgX > 0, 'standing orders keep buying during the extrapolated part');
-  assert.ok(Math.abs((idle.state.gold + W()) - (v0 + w0 + (flow + twS) * mult - twS - twX)) <= idle.state.hunters.length + 2, 'village + hunter gold is extrapolated together; the only outflow is material payments to wanderers (no gold from nothing)');
+  // 2026-11-18 守恆式改成「外推期的進出」:池子(村莊＋獵人)只多了獵人打怪的金幣(hunterGold)與流浪英雄付給村莊的錢(wanderPay,服務有庫存上限),
+  //   只少了付給流浪英雄的收購款;服務費、裝備、賣材料給村莊都是池子內部轉手(獵人付多少、村莊收多少)
+  assert.ok(Math.abs((idle.state.gold + W()) - (pool1 + (C('hunterGold') - hg1) + (C('wanderPay') - wp1) - twX)) <= idle.state.hunters.length + 2, 'village + hunter gold: only hunting income and wanderer payments come in, only material payments to wanderers go out (no gold from nothing)');
   assert.ok(idle.state.hunters.every(h => h.gold >= 0)); assertFiniteEconomy(idle.state);
+}
+{
+  // 2026-11-18 離線服務收入以庫存為上限:線上庫存賣完、沒人補貨,村莊就沒有這筆收入(以前照取樣速率外推,離線 4 小時村莊金幣是線上的 19 倍)
+  //   買不到的獵人錢留在錢包(改用免費的基本服務);金幣守恆
+  const make = stock => { const g = createGame(); for (const h of g.state.hunters) h.huntRegion = 'meadow'; run(g, 20);
+    for (const k of MATERIAL_KEYS_T) g.state.tradeRequests[k] = 0; g.state.wanderers = [];
+    for (const k of Object.keys(g.state.stocks)) g.state.stocks[k] = stock; return g; };
+  const wallets = g => g.state.hunters.reduce((n, h) => n + h.gold, 0), C = (g, k) => g.state.counts[k] || 0;
+  const offline = g => { const snap = g.offlineSnapshot(), c0 = { ...g.state.counts }, stock0 = Object.values(g.state.stocks).reduce((a, b) => a + b, 0), m0 = g.state.gold + wallets(g);
+    g.simulate(OFFLINE.sample); g.offlineFinish(snap, 3 * 3600);
+    return { g, stock0, m0, sold: C(g, 'services') - c0.services, income: C(g, 'serviceIncome') - c0.serviceIncome, hunterGold: C(g, 'hunterGold') - (c0.hunterGold || 0), wanderPay: C(g, 'wanderPay') - (c0.wanderPay || 0), basic: C(g, 'basicServices') - c0.basicServices }; };
+  const lo = offline(make(5)), hi = offline(make(1e5)), maxPrice = 2 * Math.max(...Object.values(PRODUCTS).map(p => p.price));
+  const left = lo.g.state.stocks;
+  assert.ok(Object.values(left).every(n => Number.isInteger(n) && n >= 0), 'stocks never go negative');
+  assert.equal(lo.sold, lo.stock0 - Object.values(left).reduce((a, b) => a + b, 0), 'every paid service came out of the stock');
+  assert.ok(lo.sold <= lo.stock0 && lo.income <= lo.sold * maxPrice, `service income is capped by the stock (${lo.sold} sold of ${lo.stock0}, ${lo.income} gold)`);
+  assert.ok(hi.sold > 5 * lo.sold && hi.income > 5 * lo.income, `a full stock keeps selling (${hi.sold} vs ${lo.sold})`);
+  assert.ok(lo.basic > hi.basic, 'hunters who could not buy used the free basic service');
+  assert.ok(wallets(lo.g) > wallets(hi.g), 'hunters keep the gold they could not spend');
+  // 守恆:池子(村莊＋獵人)只多了打怪金幣與流浪英雄付的錢;服務費是池子內部轉手
+  assert.ok(Math.abs(lo.g.state.gold + wallets(lo.g) - (lo.m0 + lo.hunterGold + lo.wanderPay)) <= lo.g.state.hunters.length + 2, 'no gold from nothing');
+  for (const x of [lo, hi]) assertFiniteEconomy(x.g.state);
+}
+{
+  // 2026-11-18 同一個存檔:離線 1 小時 vs 線上掛機 1 小時(玩家不操作)→ 村莊金幣、服務收入同一個量級(以前離線村莊金幣是線上的 5 倍)
+  //   擊倒/經驗/錢包:剛開局的獵人一小時從 Lv.7 升到 Lv.57、一路換更難的區(前 10 分鐘經驗速率只有之後的 1/3,擊倒速率是之後的 2 倍),
+  //   4 分鐘的取樣線性外推只抓得到量級 → 只擋「差好幾倍」;中後期存檔(第 6/16 天)實測在 ±20% 內(docs/BALANCE.md「離線收益」)
+  const base = createGame(); for (const h of base.state.hunters) h.huntRegion = 'meadow'; run(base, 30);
+  const save = base.serialize(); for (const k of Object.keys(save.tradeRequests)) save.tradeRequests[k] = 0;
+  const life = h => { let n = h.xp || 0; for (let l = 1; l < h.level; l++) n += 30 + l * 8; return n; };
+  const pick = g => ({ gold: g.state.gold, svc: g.state.counts.serviceIncome, kills: g.state.totalKills, xp: g.state.hunters.reduce((n, h) => n + life(h), 0), wallets: g.state.hunters.reduce((n, h) => n + h.gold, 0) });
+  const delta = (a, b) => Object.fromEntries(Object.keys(a).map(k => [k, b[k] - a[k]]));
+  const on = createGame(save), on0 = pick(on); for (let t = 0; t < 3600; t += 5) on.simulate(5); const dOn = delta(on0, pick(on));
+  const off = createGame(save), off0 = pick(off), snap = off.offlineSnapshot(); off.simulate(OFFLINE.sample); off.offlineFinish(snap, 3600); const dOff = delta(off0, pick(off));
+  const ratio = k => dOff[k] / dOn[k], msg = k => `${k}: offline ${dOff[k]} vs online ${dOn[k]}`;
+  assert.ok(dOn.gold > 0 && dOn.svc > 0, 'the online hour earns village gold');
+  assert.ok(ratio('gold') >= 0.75 && ratio('gold') <= 1.25, msg('gold'));
+  assert.ok(ratio('svc') >= 0.75 && ratio('svc') <= 1.25, msg('svc'));
+  assert.ok(ratio('wallets') >= 0.5 && ratio('wallets') <= 2, msg('wallets'));
+  assert.ok(ratio('xp') >= 1 / 3 && ratio('xp') <= 3, msg('xp'));
+  assert.ok(ratio('kills') >= 1 / 3 && ratio('kills') <= 3, msg('kills'));
 }
 {
   // 地下城撤退;離線時自動續戰的小隊照實繼續打(不靠外推),摘要記樓層與流浪英雄擊倒
