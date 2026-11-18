@@ -2752,3 +2752,6 @@ html body #modal-content .trade-bulk>span.pz{color:#ec8a7a}
 html body #modal-content .trade-bulk>.pixel-button{flex:none;min-height:44px;padding:0 12px;font-size:14px;white-space:nowrap}
 html body #modal-content .trade-row.z2b-cell .tr-hold.paused[aria-pressed="true"]{background:#7a4a1c!important;color:#fff!important;box-shadow:inset 0 0 0 1px #e0a860!important}
 html body #modal-content .trade-info{margin-top:10px}
+
+/* 2026-11-18 手機直向:清單很長的面板加高到 70%,一次看得到更多項目;地下城、競技場維持半高,還看得到戰場 */
+@media(max-width:760px) and (min-height:700px){html body #modal-backdrop[data-mode=A] #modal:is([data-type=hunters],[data-type=inventory],[data-type=craft],[data-type=build],[data-type=trade],[data-type=recruit]){height:70vh!important;max-height:70vh!important}}
