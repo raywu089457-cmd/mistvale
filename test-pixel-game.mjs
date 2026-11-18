@@ -373,7 +373,7 @@ assert.equal(gear.setDifficulty(1).ok, true); assert.equal(gear.setDifficulty(4)
 
 const buildings = createGame(); buildings.state.gold = buildings.state.wood = buildings.state.ore = 100000;
 assert.equal(buildings.upgrade('forge').ok, true); assert.deepEqual(buildings.getUpgradeCost('forge'), { gold: 462, wood: 53, ore: 63 });
-{ const u = createGame(), base = u.getUpgradeCost('forge').gold / 1; u.state.buildings.forge = 3; const lv3 = u.getUpgradeCost('forge').gold; u.state.buildings.forge = 4; const lv4 = u.getUpgradeCost('forge').gold; assert.ok(base > 0 && lv4 > lv3 * 1.6 && lv4 < lv3 * 2.6, `the last building level costs 1.6x more (Lv.3 ${lv3}, Lv.4 ${lv4})`); }
+{ const u = createGame(), at = l => { u.state.buildings.forge = l; return u.getUpgradeCost('forge').gold; }, growth = at(3) / at(2); assert.ok(Math.abs(at(4) / at(3) / growth - 1.6) < 0.01, `only the last building level costs 1.6x extra (Lv.2 ${at(2)}, Lv.3 ${at(3)}, Lv.4 ${at(4)})`); }
 assert.equal(buildings.upgrade('forge').ok, false, 'Hall gates higher building levels'); assert.equal(buildings.upgrade('hall').ok, true); assert.equal(buildings.upgrade('forge').ok, true);
 assert.equal(buildings.upgrade('house').ok, true); assert.equal(buildings.state.capacity, Math.max(8, CLASSES.length + 2) + 2); assert.equal(buildings.upgrade('academy').ok, false);
 assert.equal(buildings.construct('academy').ok, true); assert.equal(buildings.construct('academy').ok, false);
