@@ -6,7 +6,7 @@ import { doorStand, buildingSolid } from './src/landscape-layout.js';
 import { blockCenter, VILLAGE_BOUNDS } from './src/village-grid.js';
 import { BUILDINGS, CLASSES, MATERIALS, MERCHANT, PROMOTE, PRODUCTS, RECIPES, RARITIES, PILOT_ATTACK, AI_ATTACK_LOCK, KITE, GEAR_TIER_MAX, gearAt, EQUIPMENT, CLASS_STARTER, EQUIP_SLOTS, GEAR_SLOTS, gearItemView, dungeonGearGrade, GEAR_DROP } from './src/pixel-data.js';
 import { WORLD, regionAt, regionEdge, regionCenter, regionContains, walkable, RING_ROAD, onRingRoad, inVillage, randomRegionPoint } from './src/overworld.js';
-import { MONSTER_RANGED, MONSTER_SPEED_MULT, MONSTER_ATTACK_RATE, REGION_DENSITY } from './src/pixel-data.js';
+import { MONSTER_RANGED, MONSTER_SPEED_MULT, MONSTER_ATTACK_RATE, REGION_DENSITY, DIFFICULTIES } from './src/pixel-data.js';
 import { pickHeroLine, CHATTER_LINES } from './src/hero-chatter.js';
 import { REGION_MONSTERS, MONSTER_NAME, MONSTER_LORE } from './src/lore.js';
 
@@ -2294,4 +2294,56 @@ console.log(`PASS: ${CLASSES.length} hunters / ${CLASSES.length} classes, seeded
     const g = createGame(), before = JSON.stringify(g.questList().map(q => q.progress)); g.state.counts.trained = 500;
     assert.equal(JSON.stringify(g.questList().map(q => q.progress)), before, 'no quest metric reads counts.trained');
   }
+}
+
+// 2026-11-18 難度的風險:魔物攻擊倍率 atk 跟生命/獎勵倍率 mult 分開(docs/BALANCE.md「難度的風險」)
+{
+  const unlocked = (d, region = 'mountain') => { const g = createGame(); g.state.hunters[0].rebirths = 10; g.state.region = region; assert.equal(g.setDifficulty(d.id).ok, true, d.name); return g; };
+  assert.deepEqual(DIFFICULTIES.map(d => d.mult), [1, 1.7, 2.8, 4.5, 7], 'HP and reward multipliers stay as they were');
+  assert.equal(DIFFICULTIES[0].atk, 1, '初級 attack is untouched');
+  DIFFICULTIES.forEach((d, i) => { if (i) { assert.ok(d.atk > DIFFICULTIES[i - 1].atk, d.name + ' hits harder than the tier below'); assert.ok(d.atk > d.mult, d.name + ' attack outgrows HP'); } });
+  for (const d of DIFFICULTIES) {
+    const g = unlocked(d), s = g.state, info = g.regionInfo('mountain'), shown = Object.fromEntries(info.monsters.map(m => [m.id, m]));
+    assert.ok(s.enemies.length > 0);
+    for (const e of s.enemies) {
+      const base = ENEMIES[e.type];
+      assert.equal(e.maxHp, Math.round(base.hp * (d.mult * info.risk)), d.name + ' spawned HP uses mult');
+      assert.equal(e.attack, Math.round(base.attack * (d.atk * info.risk)), d.name + ' spawned attack uses atk');
+      assert.equal(shown[e.type].attackNow, e.attack, d.name + ' region panel shows the real attack');
+      assert.equal(shown[e.type].hpNow, e.maxHp, d.name + ' region panel shows the real HP');
+      assert.equal(shown[e.type].goldNow, Math.round(base.gold * Math.sqrt(d.mult) * info.risk), d.name + ' gold still follows mult');
+    }
+    assert.equal(g.dropAmount(3), Math.max(0, Math.round(3 * (1 + (d.mult - 1) / 2))), d.name + ' drops still follow mult');
+    const threat = Math.max(...info.monsters.map(m => m.attack)) * info.risk * d.atk;
+    assert.equal(info.fit([s.hunters[0].id]).threat, Math.round(threat), d.name + ' danger label judges the real attack');
+    const preview = g.bossPreview(); assert.equal(g.expedition().ok, true); const boss = s.enemies.find(e => e.type === 'boss');
+    assert.equal(boss.attack, Math.round(ENEMIES.boss.attack * (d.atk * info.risk)), d.name + ' boss attack uses atk'); assert.equal(preview.attack, boss.attack, d.name + ' boss preview attack is real');
+    assert.equal(boss.maxHp, Math.round(ENEMIES.boss.hp * (d.mult * info.risk)), d.name + ' boss HP uses mult'); assert.equal(preview.hp, boss.maxHp, d.name + ' boss preview HP is real');
+    assert.equal(preview.gold, Math.round(ENEMIES.boss.gold * Math.sqrt(d.mult) * info.risk), d.name + ' boss gold still follows mult');
+  }
+  // 自主挑區看真正的攻擊,高難度的獵人肯冒險(nerve):舒適度 ≥ 威脅 × nerve 的區也去,差更多的留在村裡;初級沒有這條
+  assert.equal(DIFFICULTIES[0].nerve, undefined, '初級 hunters take no extra risk');
+  DIFFICULTIES.slice(1).forEach((d, i, list) => { assert.ok(d.nerve > 0 && d.nerve < 1, d.name + ' nerve'); if (i) assert.ok(d.nerve <= list[i - 1].nerve, d.name + ' takes at least as much risk as the tier below'); });
+  { const d = DIFFICULTIES[4], g = unlocked(d, 'meadow'), h = g.state.hunters[1], regions = ['meadow', 'forest', 'taiga', 'snow', 'mountain', 'desert', 'birch'];
+    const baseThreat = id => { const r = g.regionInfo(id); return Math.max(...r.monsters.map(m => m.attack)) * r.risk; }, weakest = regions.reduce((a, id) => baseThreat(id) < baseThreat(a) ? id : a);
+    const comfortTo = (u, c) => Object.assign(u, { level: 1, attack: 0, defense: Math.ceil((c - 8.5) / 2) }), allHard = (x, u) => regions.every(id => x.regionInfo(id).fit([u.id]).verdict === 'hard');
+    comfortTo(h, baseThreat(weakest) * d.atk * d.nerve * 0.9); assert.ok(allHard(g, h), 'outmatched everywhere'); assert.equal(g.autoHuntPick(h.id), null, 'too weak even for the weakest region: stays home');
+    comfortTo(h, baseThreat(weakest) * d.atk * d.nerve * 1.05); assert.ok(allHard(g, h), 'panel still says hard'); assert.equal(g.autoHuntPick(h.id), weakest, 'within nerve: takes the risk');
+    assert.ok(d.mult * 1.2 < d.atk, 'setup: attack outgrows HP'); comfortTo(h, baseThreat(weakest) * d.mult * d.nerve * 1.2); assert.equal(g.autoHuntPick(h.id), null, 'AI judges the real attack, not the HP multiplier');
+    const g0 = createGame(), h0 = g0.state.hunters[1]; comfortTo(h0, baseThreat(weakest) * 0.9); assert.ok(allHard(g0, h0), '初級 setup'); assert.equal(g0.autoHuntPick(h0.id), null, '初級 keeps the old stay-home rule'); }
+  // 撤退預留的秒數 × nerve:同樣的血量與魔物,初級先撤,噩夢的獵人留下來打
+  { const d = DIFFICULTIES[4], taskAt = difficulty => { const g = createGame(), h = isolate(g), c = regionCenter('meadow'); g.state.difficulty = difficulty; g.state.spawnTimer = 0; g.state.regionSpawn = {};
+      Object.assign(h, { x: c.x, z: c.z, inTown: false, huntRegion: 'meadow', autoHunt: false, status: '出征中', targetId: null, lastTownVisit: 0 }); h.hp = Math.round(h.maxHp * 0.6);
+      const incoming = h.hp / (4 * (1 + d.nerve) / 2), attack = Math.round(incoming / 2 * (1.8 / MONSTER_ATTACK_RATE) + h.defense * 0.7);   // 剩餘血量落在「4 秒 × nerve」與「4 秒」的傷害之間
+      g.state.enemies = [1.2, -1.2].map((dx, i) => ({ id: 'e-nerve-' + i, type: 'goat', x: c.x + dx, z: c.z, hp: 999, maxHp: 999, attack, attackTimer: 9, age: 0, regionId: 'meadow', homeX: c.x + dx, homeZ: c.z })); g.tick(0.1); return h.task; };
+    assert.equal(taskAt(0), 'service', '初級 keeps the 4-second retreat margin'); assert.equal(taskAt(4), null, '噩夢 hunters hold their ground longer'); }
+  // 舊存檔:魔物身上存的是舊攻擊,讀檔照新倍率重算;難度保留、可以自由調低
+  { const d = DIFFICULTIES[4], g = unlocked(d), save = g.serialize(), risk = g.regionInfo('mountain').risk;
+    for (const e of save.enemies) e.attack = Math.round(ENEMIES[e.type].attack * d.mult * risk);
+    const old = createGame(save); assert.equal(old.state.difficulty, 4, 'old save keeps its difficulty'); assert.ok(old.state.enemies.length > 0);
+    for (const e of old.state.enemies) assert.equal(e.attack, Math.round(ENEMIES[e.type].attack * (d.atk * old.regionInfo(e.regionId).risk)), 'old save gets the new attack');
+    assert.equal(old.setDifficulty(0).ok, true, 'difficulty can be lowered freely');
+    for (const e of old.state.enemies) assert.equal(e.attack, Math.round(ENEMIES[e.type].attack * old.regionInfo(e.regionId).risk), '初級 attack is back to base'); }
+  const ui = fs.readFileSync(new URL('./src/pixel-ui.js', import.meta.url), 'utf8');
+  assert.ok(ui.includes('<dt>魔物攻擊</dt><dd>×${d.atk}</dd>'), 'difficulty card shows the attack multiplier'); assert.ok(ui.includes('<dt>魔物生命</dt><dd>×${d.mult}</dd>'), 'difficulty card shows the HP multiplier');
 }

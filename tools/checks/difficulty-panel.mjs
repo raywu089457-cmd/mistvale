@@ -1,5 +1,5 @@
 // difficulty-panel.mjs — T122：狩獵難度卡要寫出真正的倍率與「不能選的原因」
-//   * 魔物生命／攻擊 ×mult（DIFFICULTIES.mult）、金幣・經驗 ×√mult（遊戲用 Math.sqrt）
+//   * 魔物生命 ×mult、魔物攻擊 ×atk（DIFFICULTIES）、金幣・經驗 ×√mult（遊戲用 Math.sqrt）
 //   * 解鎖條件跟 game.setDifficulty() 一樣看「全體獵人轉世次數加總」，不是村莊的 counts.rebirths
 //   * 不能選的難度：卡片 .locked、aria-disabled、按鈕 disabled 並寫「未解鎖」與目前進度
 // Usage: node tools/checks/difficulty-panel.mjs    (game server on 5024 expected)
@@ -7,6 +7,7 @@
 // Exit: 0 = PASS line only, 1 = FIX lines.
 import { createRequire } from 'node:module';
 import fs from 'node:fs';
+import { DIFFICULTIES } from '../../src/pixel-data.js';
 const require = createRequire('C:/Users/ray/AppData/Roaming/npm/node_modules/');
 const { chromium } = require('playwright');
 
@@ -66,7 +67,7 @@ const readCards = page => page.evaluate(() => {
   };
 });
 
-const mult = [1, 1.7, 2.8, 4.5, 7];
+const mult = DIFFICULTIES.map(d => d.mult), atk = DIFFICULTIES.map(d => d.atk);
 
 // ── 0 次轉世：只有初級能選 ───────────────────────────────
 {
@@ -86,7 +87,7 @@ const mult = [1, 1.7, 2.8, 4.5, 7];
 
   d.cards.forEach((c, i) => {
     if (c.rows['魔物生命'] !== `×${mult[i]}`) fix(`${c.name} 魔物生命倍率 ${c.rows['魔物生命'] || '(缺)'}，預期 ×${mult[i]}`);
-    if (c.rows['魔物攻擊'] !== `×${mult[i]}`) fix(`${c.name} 魔物攻擊倍率 ${c.rows['魔物攻擊'] || '(缺)'}，預期 ×${mult[i]}`);
+    if (c.rows['魔物攻擊'] !== `×${atk[i]}`) fix(`${c.name} 魔物攻擊倍率 ${c.rows['魔物攻擊'] || '(缺)'}，預期 ×${atk[i]}`);
     const want = `×${Math.sqrt(mult[i]).toFixed(2)}`;
     if (c.rows['金幣・經驗'] !== want) fix(`${c.name} 金幣・經驗倍率 ${c.rows['金幣・經驗'] || '(缺)'}，預期 ${want}`);
     { const wantDrop = `×${+(1 + (mult[i] - 1) / 2).toFixed(2)}`; if (c.rows['材料掉落'] !== wantDrop) fix(`${c.name} 材料掉落倍率 ${c.rows['材料掉落'] || '(缺)'}，預期 ${wantDrop}`); }   // 2026-11-16 高難度＝更多材料(pixel-game dropAmount)
@@ -177,4 +178,4 @@ if (fails.length) {
   process.exit(1);
 }
 for (const o of oks) console.log('ok  ' + o);
-console.log('PASS difficulty panel: 每張難度卡寫出魔物生命／攻擊（×mult）與金幣經驗（×√mult）、累計轉世次數看全體獵人加總、沒解鎖的卡片標 .locked 並停用且寫出還差幾次，切換後「目前」標記跟著移動，手機不溢出');
+console.log('PASS difficulty panel: 每張難度卡寫出魔物生命（×mult）、魔物攻擊（×atk）與金幣經驗（×√mult）、累計轉世次數看全體獵人加總、沒解鎖的卡片標 .locked 並停用且寫出還差幾次，切換後「目前」標記跟著移動，手機不溢出');

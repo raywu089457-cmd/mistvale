@@ -198,7 +198,9 @@ export const CLASS_STARTER={
   assassin:{weapon:'assn_dagger',helm:'assn_band',chest:'assn_vest',belt:'assn_belt',legs:'assn_legs',boots:'assn_sandals',gloves:'assn_gloves'},
   traveler:{weapon:'trav_wraps',helm:'trav_hood',chest:'trav_vest',belt:'trav_belt',legs:'trav_legs',boots:'trav_boots',gloves:'trav_gloves'},
 };
-export const DIFFICULTIES=[{id:0,name:'初級',mult:1,rebirths:0},{id:1,name:'普通',mult:1.7,rebirths:1},{id:2,name:'困難',mult:2.8,rebirths:3},{id:3,name:'專家',mult:4.5,rebirths:5},{id:4,name:'噩夢',mult:7,rebirths:10}];
+// mult = 魔物生命與獎勵的倍率;atk = 魔物攻擊的倍率;nerve = 獵人肯冒的險:舒適度 ≥ 威脅 × nerve 的區也算能去,撤退的預留秒數也 × nerve(沒有 nerve = 只去打得動的區、照原本時機撤退)。
+// 2026-11-18 分開,見 docs/BALANCE.md「難度的風險」。初級 atk 1、沒有 nerve,行為不變。
+export const DIFFICULTIES=[{id:0,name:'初級',mult:1,atk:1,rebirths:0},{id:1,name:'普通',mult:1.7,atk:3,nerve:0.5,rebirths:1},{id:2,name:'困難',mult:2.8,atk:6.5,nerve:0.45,rebirths:3},{id:3,name:'專家',mult:4.5,atk:13,nerve:0.35,rebirths:5},{id:4,name:'噩夢',mult:7,atk:20,nerve:0.3,rebirths:10}];
 
 // ── 2026-11-16 裝備經濟(docs/EQUIPMENT-ECONOMY.md)──
 // 售價: 一律 標價 × 40%(四捨五入) → 賣掉永遠比標價便宜,不會變成刷錢機器。

@@ -678,11 +678,13 @@ export function createGame(saved = null) {
   // 讀檔後一律從「待在村裡、稍後自己決定」開始 → 存檔格式不變、舊存檔不用遷移。
   const AUTO_HUNT = { dwell: 6, recallHold: 180, retreatHp: 0.4 };
   // 「這組打不打得動」:comfort vs threat → easy(輕鬆)/ok(可行)/hard(危險)。地圖詳細資訊的 fit() 與獵人自主挑區共用這一條。
-  // mult:魔物強度倍率(自主挑區帶難度倍率,實際生出來的魔物就是這麼強;地圖面板沿用原本不帶倍率的算法)。
-  function regionFit(units, r, mult = 1) {
+  // atkMult:魔物攻擊倍率(帶難度的 atk,實際生出來的魔物就是這麼強)。
+  const foeAtkMult = () => DIFFICULTIES[state.difficulty]?.atk ?? 1;
+  const scaledFoeAttack = (base, risk) => Math.round(base * (foeAtkMult() * risk));   // 生怪與面板共用,顯示的攻擊就是實際的攻擊
+  function regionFit(units, r, atkMult = 1) {
     if (!units.length) return null;
     const comfort = units.reduce((n, h) => n + h.defense * 2 + h.level * 0.5 + h.attack * 0.15 + 8, 0) / units.length;
-    const threat = Math.max(0, ...[...new Set(mixOf(r.id))].map(t => ENEMIES[t]?.attack || 0)) * r.risk * mult;
+    const threat = Math.max(0, ...[...new Set(mixOf(r.id))].map(t => ENEMIES[t]?.attack || 0)) * r.risk * atkMult;
     return { comfort, threat, verdict: comfort >= threat * 1.15 ? 'easy' : comfort >= threat ? 'ok' : 'hard' };
   }
   // ── 看情勢撤退(2026-11-17) ──
@@ -707,7 +709,7 @@ export function createGame(saved = null) {
   }
   function shouldRetreat(h) {
     if (h.hp >= h.maxHp * RETREAT.cap || inVillage(h.x, h.z)) return false;
-    return h.hp < incomingDps(h) * RETREAT.window;
+    return h.hp < incomingDps(h) * RETREAT.window * (DIFFICULTIES[state.difficulty]?.nerve ?? 1);   // 高難度的獵人撐得比較久才撤(nerve,初級沒有 = 原本的 4 秒)
   }
   // ── 村莊缺料偏好(2026-11-18,獵魔村物語式「村民去找村裡缺的東西」) ──
   // 原本每位獵人都去「輕鬆」裡危險度最高的區 → 全員擠在山麓/雪原,低危險區(森林、白樺、針葉林)整局沒人去,木材永遠缺。
@@ -752,15 +754,17 @@ export function createGame(saved = null) {
   const crowdPenalty = (rid, others) => HUNT_ROOM.weight * Math.max(0, others + 1 - huntRoom(rid));
   // 自己挑狩獵區:只考慮「輕鬆」的區,挑其中最難的(經驗與戰利品較多),同難度挑離村近的、目前主狩獵區(魔物最多)小加分,
   // 再加上村莊缺料偏好(見上)、減去擠滿的扣分(見上)。沒有輕鬆的區就退一步挑「可行」裡最簡單的;連可行都沒有 → null(留在村裡,不去送死)。
+  // 2026-11-18 普通以上:舒適度 ≥ 威脅 × nerve 的區也算在「輕鬆」裡一起比(獵人肯冒險,面板照實寫「偏硬」),見 docs/BALANCE.md「難度的風險」。
   function autoHuntRegion(h) {
-    const mult = DIFFICULTIES[state.difficulty]?.mult ?? 1, home = REGIONS.find(r => r.id === 'village') || CAMP;
+    const atkMult = foeAtkMult(), home = REGIONS.find(r => r.id === 'village') || CAMP;
     const need = villageNeed(), crowd = {}, field = fieldCrowd(h);
     for (const o of state.hunters) if (o !== h && o.hp > 0 && o.huntRegion) crowd[o.huntRegion] = (crowd[o.huntRegion] || 0) + 1;
+    const nerve = DIFFICULTIES[state.difficulty]?.nerve ?? 0;   // 高難度:獵人肯冒險,威脅超過舒適度一些的區也去(見 pixel-data DIFFICULTIES)
     let easy = null, easyScore = -Infinity, ok = null, okThreat = Infinity;
     for (const r of REGIONS) {
       if (r.id === 'village') continue;
-      const fit = regionFit([h], r, mult);
-      if (fit.verdict === 'easy') {
+      const fit = regionFit([h], r, atkMult);
+      if (fit.verdict === 'easy' || (nerve > 0 && fit.comfort >= fit.threat * nerve)) {
         const score = r.risk * 10 - Math.hypot(r.x - home.x, r.z - home.z) * 0.02 + (r.id === state.region ? 0.3 : 0) + needBonus(r.id, need, crowd[r.id] || 0) - crowdPenalty(r.id, field[r.id] || 0);
         if (score > easyScore) { easy = r; easyScore = score; }
       } else if (fit.verdict === 'ok' && fit.threat < okThreat) { ok = r; okThreat = fit.threat; }
@@ -1266,7 +1270,7 @@ export function createGame(saved = null) {
     effect('heal', h); returnToTown(h);
   }
 
-  // 各生態區出怪:每區 3 隻新怪(小/中/大)＋ 1 隻舊怪保留(權重用重複項調整)。強度＝難度倍率 × 該區 risk。
+  // 各生態區出怪:每區 3 隻新怪(小/中/大)＋ 1 隻舊怪保留(權重用重複項調整)。生命＝難度 mult × 該區 risk,攻擊＝難度 atk × 該區 risk。
   // 每區只有 3 種(小/中/大),權重 3:3:2 —— 舊的 slime/wolf/golem 不再出現。
   const REGION_MIX={meadow:['sprout','sprout','sprout','ram','ram','ram','mole','mole'],forest:['shroom','shroom','shroom','boar','boar','boar','vine','vine'],
     taiga:['snowhare','snowhare','snowhare','wolfman','wolfman','wolfman','moss','moss'],snow:['icebeetle','icebeetle','icebeetle','snowman','snowman','snowman','yeti','yeti'],
@@ -1305,7 +1309,7 @@ export function createGame(saved = null) {
       proposed = best;
     }
     const p = safePoint(proposed), data = ENEMIES[type], multiplier = DIFFICULTIES[state.difficulty].mult * (region.risk || 1);
-    const e = { id: id('e'), type, x: p.x, z: p.z, hp: Math.round(data.hp * multiplier), maxHp: Math.round(data.hp * multiplier), attack: Math.round(data.attack * multiplier), attackTimer: 0.6 + random(), age: 0 };
+    const e = { id: id('e'), type, x: p.x, z: p.z, hp: Math.round(data.hp * multiplier), maxHp: Math.round(data.hp * multiplier), attack: scaledFoeAttack(data.attack, region.risk || 1), attackTimer: 0.6 + random(), age: 0 };
     const center = regionCenter(region.id) || proposed;
     e.regionId = region.id; e.homeX = center.x; e.homeZ = center.z; state.enemies.push(e); return e;
   }
@@ -2662,7 +2666,7 @@ export function createGame(saved = null) {
     //   挑「每秒傷害」(攻擊 ÷ 出手間隔)最高、生命 ≥35%、沒在地下城／復活中的三人。
     // 下一場競技場對手的生命／攻擊(面板顯示用,跟 startArena 同一條公式)
     // 首領面板預覽:在目前生態區召喚時的生命與獎勵(跟 spawn / 擊倒結算同一套倍率)
-    bossPreview() { const region = REGIONS.find(r => r.id === state.region) || REGIONS[1], risk = bossRiskOf(region.id), m = DIFFICULTIES[state.difficulty]?.mult ?? 1; return { region: region.name, risk, hp: Math.round(ENEMIES.boss.hp * m * (region.risk || 1)), ...bossLoot(risk) }; },
+    bossPreview() { const region = REGIONS.find(r => r.id === state.region) || REGIONS[1], risk = bossRiskOf(region.id), m = DIFFICULTIES[state.difficulty]?.mult ?? 1; return { region: region.name, risk, hp: Math.round(ENEMIES.boss.hp * (m * (region.risk || 1))), attack: scaledFoeAttack(ENEMIES.boss.attack, region.risk || 1), ...bossLoot(risk) }; },
     arenaFoe() { const w = state.arena?.wins || 0; return { hp: arenaFoeHp(w), atk: arenaFoeAtk(w) }; },
     // 2026-11-18 開賽前的勝算(面板顯示用):照 stepArena 的規則用獨立亂數試打 80 場,不動遊戲狀態與亂數。
     //   原本只看「幾秒打倒對手」,對手變強後常常顯示綠字、實際上隊伍先被打倒。
@@ -2964,12 +2968,12 @@ export function createGame(saved = null) {
       if (!r) return null;
       const monsters = [...new Set(REGION_MIX[r.id] || [])].map(t => {
         const d = ENEMIES[t] || {};
-        // 2026-11-16:*Now = 目前難度下實際生成的數值(spawn:生命/攻擊 × 難度 × 區域風險;擊倒:金幣/經驗 × √難度、材料 dropAmount)。
+        // 2026-11-16:*Now = 目前難度下實際生成的數值(spawn:生命 × 難度 mult × 區域風險、攻擊 × 難度 atk × 區域風險;擊倒:金幣/經驗 × √mult、材料 dropAmount)。
         //   2026-11-18:金幣/經驗也 × 生態區危險度(跟擊倒結算一致)。
         //   原本的 hp/attack/... 保留基礎值(regionFit 的威脅算法與測試都用基礎值)。
         const m = DIFFICULTIES[state.difficulty]?.mult ?? 1, sm = Math.sqrt(m), rk = bossRiskOf(r.id);
         return { id: t, hp: d.hp || 0, attack: d.attack || 0, gold: d.gold || 0, xp: d.xp || 0, drops: { ...(d.drops || {}) },
-          hpNow: Math.round((d.hp || 0) * m * (r.risk || 1)), attackNow: Math.round((d.attack || 0) * m * (r.risk || 1)), goldNow: Math.round((d.gold || 0) * sm * rk), xpNow: Math.round((d.xp || 0) * sm * rk * FIELD_XP),
+          hpNow: Math.round((d.hp || 0) * (m * (r.risk || 1))), attackNow: scaledFoeAttack(d.attack || 0, r.risk || 1), goldNow: Math.round((d.gold || 0) * sm * rk), xpNow: Math.round((d.xp || 0) * sm * rk * FIELD_XP),
           dropsNow: Object.fromEntries(Object.entries(d.drops || {}).map(([k, v]) => [k, dropAmount(v)])) };
       });
       const riskStars = Math.max(1, Math.min(5, Math.round((r.risk - 1) / 0.16) + 1));
@@ -2993,7 +2997,7 @@ export function createGame(saved = null) {
         // 「這組打不打得動」用跟流浪英雄挑區域同一條公式(comfort vs threat),不要另立一套標準。
         fit(ids = []) {
           const team = state.hunters.filter(h => h.hp > 0 && (!ids.length || ids.includes(h.id)));
-          const f = regionFit(team, r, DIFFICULTIES[state.difficulty]?.mult ?? 1);   // 同一條公式也給獵人自主挑區用(autoHuntRegion);2026-11-16 補上難度倍率,跟 AI 挑區一致(初級倍率 1,數字不變)
+          const f = regionFit(team, r, foeAtkMult());   // 同一條公式也給獵人自主挑區用(autoHuntRegion);帶魔物實際的攻擊倍率,跟 AI 挑區一致(初級倍率 1,數字不變)
           return f && { comfort: Math.round(f.comfort), threat: Math.round(f.threat), verdict: f.verdict };
         },
       };
