@@ -826,6 +826,13 @@ assert.equal(arena.startDungeon(arena.state.arena.hunterIds).ok, false); run(are
   assert.equal(foe(41).hp, Math.round(94720 * 1.08)); assert.ok(foe(60).hp > foe(40).hp * 4 && foe(60).atk > foe(40).atk * 2.5, 'opponent keeps growing past 40 wins');
   assert.equal(g.construct('training').ok, true); a.wins = 50; assert.equal(g.startArena().ok, true); assert.equal(a.enemyMaxHp, g.arenaFoe().hp, 'match uses the same formula');
 }
+{ // 2026-11-18 開賽前勝算:只讀不改狀態、結果固定,打不贏是 0、碾壓是 100,不是三人回 null
+  const g = createGame(), s = g.state, ids = s.hunters.slice(0, 3).map(h => h.id), before = JSON.stringify(g.serialize());
+  const o = g.arenaOdds(ids); assert.equal(JSON.stringify(g.serialize()), before, 'arenaOdds does not touch the game state or RNG'); assert.deepEqual(g.arenaOdds(ids), o, 'same party, same answer');
+  assert.equal(g.arenaOdds(ids.slice(0, 2)), null, 'needs exactly three hunters');
+  s.arena.wins = 200; assert.deepEqual(g.arenaOdds(ids), { win: 0, sec: 0 }, 'hopeless match');
+  s.arena.wins = 0; for (const h of s.hunters) h.attack = 1e5; assert.equal(g.arenaOdds(ids).win, 100, 'overwhelming party');
+}
 { // 2026-11-18 競技場整備時間(docs/BALANCE.md「競技場整備時間」):整備 25 → 120 秒,首領討伐中不能開賽
   //   原本一有空就開賽 → 野外最強三人整天在競技場與村子之間來回,野外打不死首領,討伐一再逾時,全村第 7 天擊倒 88(不打 437)
   const g = createGame(), s = g.state, a = s.arena; g.construct('training');

@@ -2601,6 +2601,27 @@ export function createGame(saved = null) {
     // 首領面板預覽:在目前生態區召喚時的生命與獎勵(跟 spawn / 擊倒結算同一套倍率)
     bossPreview() { const region = REGIONS.find(r => r.id === state.region) || REGIONS[1], risk = bossRiskOf(region.id), m = DIFFICULTIES[state.difficulty]?.mult ?? 1; return { region: region.name, risk, hp: Math.round(ENEMIES.boss.hp * m * (region.risk || 1)), ...bossLoot(risk) }; },
     arenaFoe() { const w = state.arena?.wins || 0; return { hp: arenaFoeHp(w), atk: arenaFoeAtk(w) }; },
+    // 2026-11-18 開賽前的勝算(面板顯示用):照 stepArena 的規則用獨立亂數試打 80 場,不動遊戲狀態與亂數。
+    //   原本只看「幾秒打倒對手」,對手變強後常常顯示綠字、實際上隊伍先被打倒。
+    arenaOdds(ids) {
+      const party = (ids || []).map(id => state.hunters.find(h => h.id === id)).filter(Boolean);
+      if (party.length !== 3 || party.every(h => h.hp <= 0)) return null;
+      const w = state.arena.wins, foeMax = arenaFoeHp(w), foeAtk = arenaFoeAtk(w), TRIALS = 80, LIMIT = 110;   // 限時 120 秒扣掉集結約 10 秒
+      let seed = 20261118, wins = 0, winTime = 0;
+      const rnd = () => { seed = (seed + 0x6D2B79F5) | 0; let t = Math.imul(seed ^ (seed >>> 15), 1 | seed); t = (t + Math.imul(t ^ (t >>> 7), 61 | t)) ^ t; return ((t ^ (t >>> 14)) >>> 0) / 4294967296; };
+      for (let n = 0; n < TRIALS; n++) {
+        const hp = party.map(h => h.hp), next = party.map(h => arenaInterval(h) * rnd()); let foe = foeMax, foeNext = 1.5, t = 0, won = false;
+        for (;;) {
+          const up = hp.map((v, i) => v > 0 ? i : -1).filter(i => i >= 0); if (!up.length) break;
+          t = Math.min(foeNext, ...up.map(i => next[i])); if (t >= LIMIT) break;
+          for (const i of up) if (next[i] <= t) { foe -= party[i].attack; next[i] += arenaInterval(party[i]); }
+          if (foe <= 0) { won = true; break; }
+          if (foeNext <= t) { foeNext += 1.1; const i = up[Math.floor(rnd() * up.length)]; hp[i] = Math.max(0, hp[i] - Math.max(3, foeAtk - party[i].defense)); }
+        }
+        if (won) { wins++; winTime += t; }
+      }
+      return { win: Math.round(wins / TRIALS * 100), sec: wins ? Math.ceil(winTime / wins) : 0 };
+    },
     recommendArenaParty() {
       const ok = state.hunters.filter(h => h.hp > 0 && h.task !== 'dungeon' && h.task !== 'revive' && h.hp >= h.maxHp * 0.35);
       if (ok.length < 3) return { ...result(false, '可以上場的獵人不到 3 位（需要存活、不在地下城、生命至少 35%）。'), ids: [] };
