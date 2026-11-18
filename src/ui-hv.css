@@ -1973,7 +1973,7 @@ html body #modal[data-type=hunters] #modal-content .hv-hcard .hc-name{grid-colum
 html body #modal[data-type=hunters] #modal-content .hv-hcard .hc-sub{grid-column:1;grid-row:4;text-align:center;padding:0 3px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
 html body #modal[data-type=hunters] #modal-content .hv-hcard .hc-status{grid-column:1;grid-row:5;padding:0 3px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
 html body #modal[data-type=hunters] #modal-content .hv-hcard .hc-hp{grid-column:1;grid-row:6;margin:1px 6px 0!important}
-html body #modal[data-type=hunters] #modal-content .hv-hcard .hc-btns{display:block;position:absolute;right:0;top:44px;width:44px;height:44px;margin:0;z-index:2}
+html body #modal[data-type=hunters] #modal-content .hv-hcard .hc-btns{display:block;position:absolute;right:0;top:78px;width:44px;height:44px;margin:0;z-index:2}
 html body #modal[data-type=hunters] #modal-content .hv-hcard .hc-loc{position:static;grid-row:auto;width:44px!important;height:44px!important;min-height:44px!important;margin:0;border:9px solid transparent!important;background-clip:padding-box!important;box-shadow:none!important;padding:0!important;display:grid!important;place-items:center}
 /* 標題列子頁籤「招募」的待辦數字 */
 html body #modal[data-mode=A] .z1-subtab[data-badge]{position:relative}
