@@ -685,18 +685,37 @@ export function createGame(saved = null) {
     for (const [k, n] of Object.entries(need)) best = Math.max(best, n * (REGION_SUPPLY[rid]?.[k] || 0) ** 2);
     return best > 0 ? Math.max(0, NEED_BIAS.weight * best - NEED_BIAS.crowd * crowd) : 0;
   }
+  // ── 狩獵區容量(2026-11-18,docs/BALANCE.md「狩獵區容量」) ──
+  // 原本誰都去「輕鬆」裡最危險的區:第 30 天存檔 12.5 位獵人＋7 位流浪英雄擠在鐵脊山麓(非主狩獵區,8 秒才補 1 隻),
+  // 那區平均只有 0.1 隻活著的魔物,其他區都滿著沒人打 → 野外的獵人大多沒有目標,難度越高(山麓不再輕鬆、被迫分散)反而賺越多。
+  // 現在每區有「容量」= 補怪速度 × killSec(一位忙碌的獵人約 killSec 秒打完一隻、找下一隻):
+  //   主狩獵區(state.region,第 2 級 2.5 秒一隻)= 8 人,其他區(8 秒一隻)= 2.5 人;立牌密度 I/III 跟著變。
+  // 挑區時,加入後超過容量的部分每人扣 weight 分(連續值)。分數尺度是危險度 ×10,相鄰兩區差 0.5–1.5 → 扣 4 分足以讓第 3 位改去下一個區,
+  // 但「有空位」時仍照危險度挑。只在「輕鬆」的區之間比(擠也不會去可行/危險的區);不擲骰。
+  // 「已在區內」= 其他存活、有狩獵區的獵人(玩家派的、自主的;不含地下城/競技場)＋流浪英雄(牠們也在吃同一區的魔物;流浪英雄自己挑區的規則不變)。
+  // 不需要在野外重新評估:自主獵人每次回村辦事(實測約每 2 分鐘一次)會清掉狩獵區、出門時重挑,看得到當下的人數 → 不會在兩區之間來回跳。
+  const HUNT_ROOM = { killSec: 20, weight: 4 };
+  function densityOf(id) { return REGION_DENSITY[Math.max(0, Math.min(2, (state.regionDensity?.[id] ?? DEFAULT_REGION_DENSITY) - 1))]; }
+  function huntRoom(rid) { const d = densityOf(rid); return HUNT_ROOM.killSec / (rid === state.region ? d.every : d.otherEvery); }
+  function fieldCrowd(self) {
+    const n = {};
+    for (const o of state.hunters) if (o !== self && o.hp > 0 && o.huntRegion && o.task !== 'dungeon' && o.task !== 'arena') n[o.huntRegion] = (n[o.huntRegion] || 0) + 1;
+    for (const w of state.wanderers || []) if (w !== self && w.hp > 0 && w.huntRegion) n[w.huntRegion] = (n[w.huntRegion] || 0) + 1;
+    return n;
+  }
+  const crowdPenalty = (rid, others) => HUNT_ROOM.weight * Math.max(0, others + 1 - huntRoom(rid));
   // 自己挑狩獵區:只考慮「輕鬆」的區,挑其中最難的(經驗與戰利品較多),同難度挑離村近的、目前主狩獵區(魔物最多)小加分,
-  // 再加上村莊缺料偏好(見上)。沒有輕鬆的區就退一步挑「可行」裡最簡單的;連可行都沒有 → null(留在村裡,不去送死)。
+  // 再加上村莊缺料偏好(見上)、減去擠滿的扣分(見上)。沒有輕鬆的區就退一步挑「可行」裡最簡單的;連可行都沒有 → null(留在村裡,不去送死)。
   function autoHuntRegion(h) {
     const mult = DIFFICULTIES[state.difficulty]?.mult ?? 1, home = REGIONS.find(r => r.id === 'village') || CAMP;
-    const need = villageNeed(), crowd = {};
+    const need = villageNeed(), crowd = {}, field = fieldCrowd(h);
     for (const o of state.hunters) if (o !== h && o.hp > 0 && o.huntRegion) crowd[o.huntRegion] = (crowd[o.huntRegion] || 0) + 1;
     let easy = null, easyScore = -Infinity, ok = null, okThreat = Infinity;
     for (const r of REGIONS) {
       if (r.id === 'village') continue;
       const fit = regionFit([h], r, mult);
       if (fit.verdict === 'easy') {
-        const score = r.risk * 10 - Math.hypot(r.x - home.x, r.z - home.z) * 0.02 + (r.id === state.region ? 0.3 : 0) + needBonus(r.id, need, crowd[r.id] || 0);
+        const score = r.risk * 10 - Math.hypot(r.x - home.x, r.z - home.z) * 0.02 + (r.id === state.region ? 0.3 : 0) + needBonus(r.id, need, crowd[r.id] || 0) - crowdPenalty(r.id, field[r.id] || 0);
         if (score > easyScore) { easy = r; easyScore = score; }
       } else if (fit.verdict === 'ok' && fit.threat < okThreat) { ok = r; okThreat = fit.threat; }
     }
@@ -785,6 +804,7 @@ export function createGame(saved = null) {
 
   // 挑區域:怪物攻擊 × 區域風險 要在他「扛得住」的範圍內,能打的最高一階就去那裡。
   // 例:防禦 1 的魔法師只會在草原;防禦 8 的聖騎士會跑到霜杉林地。
+  // 2026-11-18 狩獵區容量(HUNT_ROOM)只改獵人;流浪英雄照舊挑最高一階,但會算進獵人挑區的「已在區內」人數。
   function bestRegionFor(w) {
     const comfort = w.defense * 2 + w.level * 0.5 + w.attack * 0.15 + 8;
     let best = REGIONS[1];
@@ -1657,7 +1677,7 @@ export function createGame(saved = null) {
     // 定時生怪:每個狩獵區都有自己的族群。目前狩獵區 4.5 秒補一隻、上限 8;其他區 8 秒補一隻、上限 3(野外面積砍一半後,沒人在打的區魔物也跟著減半,畫面才不會擠成一團)。
     state.spawnTimer += dt;
     // 2026-10-30:上限與補怪間隔照各地區立牌設定的等級(REGION_DENSITY);預設第 2 級＝原本的 14 隻/2.5 秒、其他區 6 隻/8 秒。
-    const densOf = id => REGION_DENSITY[Math.max(0, Math.min(2, (state.regionDensity?.[id] ?? DEFAULT_REGION_DENSITY) - 1))];
+    const densOf = densityOf;
     const homeDensity = densOf(state.region);
     if (state.spawnTimer >= homeDensity.every) { state.spawnTimer -= homeDensity.every; const n = state.enemies.filter(e => e.hp > 0 && e.type !== 'boss' && e.regionId === state.region).length; if (n < homeDensity.cap) { const mix = REGION_MIX[state.region] || REGION_MIX.meadow; spawn(mix[Math.floor(random() * mix.length)], null, state.region); } }
     state.regionSpawn ??= {};
@@ -2449,6 +2469,7 @@ export function createGame(saved = null) {
     specialtyRegion(k) { const rid = Object.keys(REGION_SUPPLY).find(r => REGION_SUPPLY[r][k] === 1); return rid ? REGIONS.find(r => r.id === rid) || null : null; },
     villageNeed,   // 村莊缺料程度 { 材料: 0–1 }(交易所收購中、存量低於收購數量);獵人自主挑區的偏好用
     autoHuntPick(hunterId) { const h = state.hunters.find(x => x.id === hunterId); return h ? autoHuntRegion(h) : null; },   // 這位獵人現在自己出門會挑哪一區(測試與 UI 用;不改任何狀態)
+    huntRoom(regionId) { return REGIONS.some(r => r.id === regionId && r.id !== 'village') ? huntRoom(regionId) : 0; },   // 狩獵區容量(幾位獵人打得飽;見 HUNT_ROOM)
     servicePrice,   // 設施服務的目前售價(隨設施等級上升;UI 顯示用)
     merchantRate() { const lv = state.buildings.trading || 0; return lv ? Math.max(MERCHANT.floor, MERCHANT.markup - MERCHANT.step * (lv - 1)) : 0; },
     merchantQuote(cost = {}) {

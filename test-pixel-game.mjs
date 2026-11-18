@@ -415,6 +415,7 @@ assert.ok(idle.state.counts.services > 0, 'Hunters visibly use town services wit
   assert.ok(['meadow', 'forest', 'taiga', 'snow', 'desert', 'birch'].every(id => (loot(id).ore || 0) < loot('mountain').ore), 'mountain stays the ore region');
   const [h, ...others] = s.hunters;
   for (const o of others) { o.huntRegion = null; o.autoHunt = false; }
+  for (const w of s.wanderers) w.huntRegion = null;   // 開局流浪英雄有 4 位在森林(容量 2.5);這段只測缺料偏好,先拿掉狩獵區容量的影響(容量另測,見下一段)
   const fill = () => { for (const k of Object.keys(s.tradeRequests)) { s.tradeRequests[k] = 60; s[k] = 500; } };
   Object.assign(h, { level: 60, attack: 100, defense: 50 });   // 每一區都「輕鬆」
   fill(); assert.deepEqual(g.villageNeed(), {}, 'no shortage while every stock is above its trade request');
@@ -439,6 +440,60 @@ assert.ok(idle.state.counts.services > 0, 'Hunters visibly use town services wit
     const anyEasy = ['meadow', 'forest', 'taiga', 'snow', 'mountain', 'desert', 'birch'].some(id => g.regionInfo(id).fit([h.id]).verdict === 'easy');
     const pick = g.autoHuntPick(h.id);
     if (anyEasy) assert.equal(g.regionInfo(pick).fit([h.id]).verdict, 'easy', `lv${lv} def${def} picked ${pick}`);
+  }
+}
+{ // 2026-11-18 狩獵區容量(HUNT_ROOM):很多強獵人一個接一個出門 → 分散到各「輕鬆」區,不會一區擠爆而另一個輕鬆區空著;
+  // 擠也不去非輕鬆的區;流浪英雄算人數、地下城裡的不算;不擲骰、同樣的局面挑出同樣的區
+  const REG = ['meadow', 'forest', 'taiga', 'snow', 'mountain', 'desert', 'birch'];
+  const setup = (n = 24) => {
+    const g = createGame(), s = g.state;
+    for (const w of s.wanderers) w.huntRegion = null;
+    for (const k of Object.keys(s.tradeRequests)) s.tradeRequests[k] = 0;   // 沒有缺料偏好,只看容量
+    const base = s.hunters[0];
+    for (let i = s.hunters.length; i < n; i++) s.hunters.push({ ...structuredClone(base), id: 'h-room-' + i });
+    for (const h of s.hunters) Object.assign(h, { level: 60, attack: 100, defense: 50, hp: h.maxHp, huntRegion: null, autoHunt: false, task: null });
+    return g;
+  };
+  const departAll = g => g.state.hunters.map(h => { const r = g.autoHuntPick(h.id); h.huntRegion = r; h.autoHunt = true; return r; });
+  { const g = setup();
+    assert.equal(g.huntRoom('meadow'), 8, 'home region (2.5 s per spawn) feeds 8 hunters'); assert.equal(g.huntRoom('mountain'), 2.5, 'other regions (8 s per spawn) feed 2.5');
+    assert.equal(g.huntRoom('village'), 0);
+    assert.equal(g.setRegionDensity('mountain', 3).ok, true); assert.equal(g.huntRoom('mountain'), 20 / 6, 'denser sign = more room'); g.setRegionDensity('mountain', 2);
+    assert.ok(g.state.hunters.every(h => REG.every(id => g.regionInfo(id).fit([h.id]).verdict === 'easy')), 'setup: every region is easy for everyone');
+    const seed = g.state.seed, picks = departAll(g);
+    assert.equal(g.state.seed, seed, 'picking regions rolls no dice');
+    assert.equal(picks[0], 'mountain', 'the first hunter still takes the riskiest easy region');
+    const count = Object.fromEntries(REG.map(id => [id, picks.filter(p => p === id).length]));
+    assert.ok(REG.every(id => count[id] >= 1), `24 strong hunters cover every easy region ${JSON.stringify(count)}`);
+    for (const id of REG) assert.ok(count[id] <= Math.ceil(g.huntRoom(id)) + 1, `${id}: ${count[id]} hunters vs room ${g.huntRoom(id)}`);
+    assert.ok(count.mountain < 6, `mountain no longer takes everyone (${count.mountain}/24)`);
+    // 有空位時仍照危險度:前 6 位各去一個非主狩獵區,由危險往安全排
+    assert.deepEqual(picks.slice(0, 3), ['mountain', 'mountain', 'snow'], 'room left in the riskiest region is used before moving down');
+    // 決定性:同樣的局面再跑一次,挑法完全一樣
+    assert.deepEqual(departAll(setup()), picks, 'same situation → same picks');
+  }
+  { // 擠滿也只在輕鬆的區之間換:弱獵人只有草原輕鬆,草原已擠到 3 倍容量也照去
+    const g = setup(), s = g.state, [weak, ...rest] = s.hunters;
+    for (const o of rest) o.huntRegion = 'meadow';
+    Object.assign(weak, { level: 4, attack: 10, defense: 4 });
+    assert.equal(g.regionInfo('meadow').fit([weak.id]).verdict, 'easy'); assert.notEqual(g.regionInfo('forest').fit([weak.id]).verdict, 'easy');
+    assert.equal(g.autoHuntPick(weak.id), 'meadow', 'a crowded easy region still beats an empty non-easy one');
+    // 掃一遍各種強度:每區都塞滿人,挑出來的一定是輕鬆的區
+    for (const [i, o] of rest.entries()) o.huntRegion = REG[i % REG.length];
+    for (let lv = 1; lv <= 100; lv += 3) for (const def of [0, 2, 4, 6, 9, 14, 20, 30]) {
+      Object.assign(weak, { level: lv, attack: 8 + lv, defense: def });
+      const anyEasy = REG.some(id => g.regionInfo(id).fit([weak.id]).verdict === 'easy'), pick = g.autoHuntPick(weak.id);
+      if (anyEasy) assert.equal(g.regionInfo(pick).fit([weak.id]).verdict, 'easy', `crowded lv${lv} def${def} picked ${pick}`);
+    }
+  }
+  { // 誰算「已在區內」:流浪英雄算(也在吃那區的魔物),地下城裡的獵人不算
+    const g = setup(8), s = g.state, [h, ...rest] = s.hunters;
+    assert.equal(g.autoHuntPick(h.id), 'mountain');
+    for (const w of s.wanderers.slice(0, 3)) w.huntRegion = 'mountain';
+    assert.notEqual(g.autoHuntPick(h.id), 'mountain', '3 wanderers already fill the mountain (room 2.5)');
+    for (const w of s.wanderers) w.huntRegion = null;
+    for (const o of rest.slice(0, 4)) Object.assign(o, { huntRegion: 'mountain', task: 'dungeon' });
+    assert.equal(g.autoHuntPick(h.id), 'mountain', 'hunters away in the dungeon do not crowd a field region');
   }
 }
 { // 2026-11-17 野外存活:看情勢撤退、返村走環路、趕路時不離開環路去追自己區的魔物
