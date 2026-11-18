@@ -2349,6 +2349,14 @@ export function createGame(saved = null) {
     },
     // 只買缺的那部分材料(不付成本本身);成功後呼叫端再照常 construct/upgrade/craft。
     // 2026-11-17 多的材料半價賣給行商(藥草、小麥粉常堆到幾百份用不完;木材鐵礦才是建設瓶頸)。單價 = 收購價 × MERCHANT.sell,低於收購價 → 不會有買低賣高的迴圈。
+    // 2026-11-18 後期:金幣堆到用不完(有修煉的玩家 36 天 7–10 萬),星晶卡住晉升 → 交易所 Lv.5 起可向行商買星晶
+    buyGems(lots = 1) {
+      const lv = state.buildings.trading || 0; if (lv < MERCHANT.gemTrading) return result(false, `交易所 Lv.${MERCHANT.gemTrading} 才能向行商買星晶。`);
+      const k = Math.max(1, Math.floor(Number(lots) || 1)), n = k * MERCHANT.gemLot, cost = n * MERCHANT.gemPrice;
+      if ((state.gold || 0) < cost) return result(false, `金幣不足：${n} 顆星晶要 ${cost} 金。`);
+      state.gold -= cost; state.gems += n; state.counts.gemsBought = (state.counts.gemsBought || 0) + n; state.counts.gemsBoughtGold = (state.counts.gemsBoughtGold || 0) + cost;
+      log(`向行商買了 ${n} 顆星晶，花費 ${cost} 金幣。`, 'info'); return result(true, `買到 ${n} 顆星晶（${cost} 金）。`);
+    },
     sellMaterial(materialId, amount) {
       const m = MATERIALS[materialId]; if (!m) return result(false, '沒有這種材料。');
       if (!state.buildings.trading) return result(false, '請先建造交易所。');

@@ -7,7 +7,7 @@
 //   --summary  print only one compact line for the final day (for multi-seed tables)
 // Nothing under src/ is touched; this only drives the public game API.
 import { createGame } from '../src/pixel-game.js';
-import { BUILDINGS, PRODUCTS, MATERIALS, DIFFICULTIES, EQUIPMENT } from '../src/pixel-data.js';
+import { BUILDINGS, PRODUCTS, MATERIALS, DIFFICULTIES, EQUIPMENT, MERCHANT } from '../src/pixel-data.js';
 import { writeFileSync } from 'node:fs';
 
 const DAYS = Number(process.argv[2]) || 20;
@@ -67,6 +67,8 @@ function policy() {
     const c = s.hunters.filter(h => h.hp > 0 && h.task !== 'dungeon' && h.task !== 'arena').map(h => ({ h, q: g.promoteQuote(h.id) })).filter(x => x.q && !x.q.max)
       .sort((a, b) => a.q.gold - b.q.gold || b.h.level - a.h.level)[0];
     if (c && s.gold >= c.q.gold + 2000 && s.gems >= c.q.gems) { const r = g.promoteHunter(c.h.id); if (r.ok) ev(`promote ${c.h.name} → ${c.q.next}`); }
+    // 2026-11-18 星晶不夠、金幣卻夠「晉升費＋買差額＋留 2000」→ 向行商買星晶(一次一組)
+    else if (c && g.buyGems && s.gems < c.q.gems && s.gold >= c.q.gold + 2000 + Math.ceil((c.q.gems - s.gems) / MERCHANT.gemLot) * MERCHANT.gemLot * MERCHANT.gemPrice) { const r = g.buyGems(1); if (r.ok) ev(`buy gems ${MERCHANT.gemLot}`); }
   }
   if (ARENA && s.buildings.training && !s.arena?.active && !(s.arena?.cooldown > 0)) { const p = g.recommendArenaParty(); const r = g.startArena(Array.isArray(p) ? p : p?.ids); if (r.ok) ev('arena'); }
   // a Lv.100 hunter stuck in an auto-continue dungeon party: retreat so it can rebirth (the advisor tells players to)
@@ -117,7 +119,7 @@ const writeSave = () => { if (saveOut) { const d = g.serialize(); d.paused = tru
 if (SUMMARY) {
   writeSave();
   const r = rows.at(-1), dayOf = q => rows.find(x => x.quest >= q)?.day ?? '-';
-  console.log(`seed ${SEED ?? 'default'} | d${r.day} gold ${r.gold} gems ${s.gems} promo ${s.counts.promoted || 0} rar ${['normal','rare','superior','heroic','legendary'].map(k => s.hunters.filter(h => h.rarity === k).length).join('/')} wood ${r.wood} ore ${r.ore} | lv ${r.lvMin}/${r.lvMed}/${r.lvMax} hg ${r.hGold} | dead ${r.deaths} | Q${r.quest} (Q8@d${dayOf(8)} Q12@d${dayOf(12)} Q16@d${dayOf(16)}) floor ${r.floor} bLv ${r.b} | store ${(()=>{const by={};for(const it of s.gearStorage||[]){const k=EQUIPMENT[it.itemId]?.tier||"?";by[k]=(by[k]||0)+1;}return (s.gearStorage||[]).length+" "+JSON.stringify(by);})()} | rebirths ${s.counts.rebirths || 0} diff ${DIFFICULTIES[s.difficulty]?.name} | arena ${s.arena?.wins || 0}W/${s.arena?.losses || 0}L | merchant ${s.counts.merchantBuys || 0} svc ${s.counts.serviceIncome} gear ${s.counts.gearIncome ?? '-'} up ${s.counts.gearUpgrades ?? '-'} forge ${s.buildings.forge}`);
+  console.log(`seed ${SEED ?? 'default'} | d${r.day} gold ${r.gold} gems ${s.gems} promo ${s.counts.promoted || 0} gemBuy ${s.counts.gemsBought || 0} rar ${['normal','rare','superior','heroic','legendary'].map(k => s.hunters.filter(h => h.rarity === k).length).join('/')} wood ${r.wood} ore ${r.ore} | lv ${r.lvMin}/${r.lvMed}/${r.lvMax} hg ${r.hGold} | dead ${r.deaths} | Q${r.quest} (Q8@d${dayOf(8)} Q12@d${dayOf(12)} Q16@d${dayOf(16)}) floor ${r.floor} bLv ${r.b} | store ${(()=>{const by={};for(const it of s.gearStorage||[]){const k=EQUIPMENT[it.itemId]?.tier||"?";by[k]=(by[k]||0)+1;}return (s.gearStorage||[]).length+" "+JSON.stringify(by);})()} | rebirths ${s.counts.rebirths || 0} diff ${DIFFICULTIES[s.difficulty]?.name} | arena ${s.arena?.wins || 0}W/${s.arena?.losses || 0}L | merchant ${s.counts.merchantBuys || 0} svc ${s.counts.serviceIncome} gear ${s.counts.gearIncome ?? '-'} up ${s.counts.gearUpgrades ?? '-'} forge ${s.buildings.forge}`);
   process.exit(0);
 }
 for (const r of rows) console.log(fmt(r));

@@ -4,7 +4,7 @@ import assert from 'node:assert/strict';
 import { createGame, OFFLINE, ENEMIES, MOUNT_SPEED_MULT, isRideable, hunterGender, GENDERS, nameGender, NAME_GENDER } from './src/pixel-game.js';
 import { doorStand, buildingSolid } from './src/landscape-layout.js';
 import { blockCenter } from './src/village-grid.js';
-import { BUILDINGS, CLASSES, MATERIALS, PRODUCTS, RECIPES, RARITIES, PILOT_ATTACK, AI_ATTACK_LOCK, KITE, GEAR_TIER_MAX, gearAt, EQUIPMENT, CLASS_STARTER, EQUIP_SLOTS, GEAR_SLOTS, gearItemView, dungeonGearGrade, GEAR_DROP } from './src/pixel-data.js';
+import { BUILDINGS, CLASSES, MATERIALS, MERCHANT, PROMOTE, PRODUCTS, RECIPES, RARITIES, PILOT_ATTACK, AI_ATTACK_LOCK, KITE, GEAR_TIER_MAX, gearAt, EQUIPMENT, CLASS_STARTER, EQUIP_SLOTS, GEAR_SLOTS, gearItemView, dungeonGearGrade, GEAR_DROP } from './src/pixel-data.js';
 import { regionCenter, regionContains, walkable, RING_ROAD, onRingRoad, inVillage, randomRegionPoint } from './src/overworld.js';
 import { MONSTER_RANGED, MONSTER_SPEED_MULT, MONSTER_ATTACK_RATE, REGION_DENSITY } from './src/pixel-data.js';
 import { pickHeroLine, CHATTER_LINES } from './src/hero-chatter.js';
@@ -700,6 +700,13 @@ assert.equal(arena.startDungeon(arena.state.arena.hunterIds).ok, false); run(are
   h.rarity = 'legendary'; assert.equal(g.promoteQuote(h.id).max, true); assert.equal(g.promoteHunter(h.id).ok, false, 'legendary is the top');
   const k = st.hunters[1]; k.rarity = 'normal'; st.gems = 300; k.hp = 0; assert.equal(g.promoteHunter(k.id).ok, false, 'not while down');
   const saved = createGame(g.serialize()); assert.equal(saved.state.hunters[0].rarity, 'legendary', 'rarity survives save');
+}
+{ // 2026-11-18 後期金幣出口:交易所 Lv.5 起向行商買星晶(10 顆一組),金幣不夠或交易所等級不夠都拒絕
+  const g = createGame(), st = g.state, lot = MERCHANT.gemLot, cost = lot * MERCHANT.gemPrice; st.gold = cost * 2; const gems0 = st.gems;
+  st.buildings.trading = MERCHANT.gemTrading - 1; assert.equal(g.buyGems().ok, false, 'needs trading Lv.5'); assert.equal(st.gems, gems0);
+  st.buildings.trading = MERCHANT.gemTrading; assert.equal(g.buyGems().ok, true); assert.equal(st.gems, gems0 + lot); assert.equal(st.gold, cost);
+  st.gold = cost - 1; assert.equal(g.buyGems().ok, false, 'not enough gold'); assert.equal(st.gold, cost - 1); assert.equal(st.gems, gems0 + lot);
+  assert.ok(MERCHANT.gemPrice > PROMOTE.superior.gold / PROMOTE.superior.gems * 3, 'buying gems stays much pricier than earning them');
 }
 { // 2026-11-17 地下城仇恨照最大生命加權:近戰輸出(刺客)跟聖騎士一起站前排時,不再一半打擊落在薄皮刺客身上而提早撤退
   const runDg = mid => { const base = createGame(); base.construct('dungeon'); const raw = base.serialize(), src = raw.hunters;

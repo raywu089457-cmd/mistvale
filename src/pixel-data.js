@@ -65,7 +65,7 @@ export const TRAITS=[{id:'swift',name:'快手',desc:'攻擊間隔縮短 10%'},{i
 // 2026-11-16 交易所商人直購:村莊金幣後期大量閒置(14 天模擬 5000~8000 金沒地方花),材料卻卡住升級。
 // 交易所可以直接向行商買材料,單價 = 收購價 × markup;交易所每升一級便宜 step,最低 floor 倍(Lv.1 6 倍、Lv.5 4 倍)。
 // 比向獵人收購貴很多,所以只是「卡關時補差額」的金幣出口,不會取代收購循環。
-export const MERCHANT={markup:6,step:.5,floor:4,sell:.5,sellLot:50,sellKeep:100};   // sell:多的材料半價賣給行商(低於收購價,不會變成買賣迴圈);庫存 ≥ sellLot+sellKeep 才顯示賣出鈕
+export const MERCHANT={markup:6,step:.5,floor:4,sell:.5,sellLot:50,sellKeep:100,gemPrice:250,gemLot:10,gemTrading:5};   // gem*:2026-11-18 後期金幣出口:交易所 Lv.5 起向行商買星晶(每顆 250 金,10 顆一組;比晉升的金幣:星晶 ≈ 53:1 貴很多,自己賺仍然划算)   // sell:多的材料半價賣給行商(低於收購價,不會變成買賣迴圈);庫存 ≥ sellLot+sellKeep 才顯示賣出鈕
 // 2026-11-17 持續收購的金庫保留額:持續收購只花「金庫 − 保留額」的部分(一般委託照舊可花到 0,玩家明確下的單)。
 // 保留額 = base + perHall × (大廳等級 − 1) → Lv.1 500、Lv.2 1000 … Lv.5 2500。
 // 依據:大廳 Lv.h 時其他建築最高可到 h+1,玩家回來最常做的是「把一棟建築從 Lv.h 升到 h+1」,

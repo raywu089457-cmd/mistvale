@@ -2701,3 +2701,6 @@ html body #modal-content .cx-summary .cx-s{white-space:nowrap}
 }
 /* 2026-11-18 首領面板:村莊另得的星晶(獎勵框下方一行) */
 html body #modal-content .boss-vil{display:block;margin-top:6px;font:600 13px/1.4 var(--font-ui);color:var(--hv-quest);text-align:center}
+/* 2026-11-18 交易所:向行商買星晶(交易所 Lv.5 起) */
+html body #modal-content .trade-gems{display:flex;align-items:center;justify-content:space-between;gap:8px 12px;flex-wrap:wrap;margin:0 0 8px}
+html body #modal-content .trade-gems .pixel-button{min-height:40px;padding:0 14px}

@@ -114,7 +114,7 @@ function promoteRow(h,busy){const g=C.game(),s=g.state,q=g.promoteQuote?.(h.id);
  const pct=Math.round((q.mult/q.from-1)*100),ok=!busy&&s.gold>=q.gold&&s.gems>=q.gems;
  return rowHTML({icon:'up',name:`晉升：${cur.name} → ${q.name}`,tone:q.next,desc:`生命、攻擊再 +${pct}%（能力倍率 ×${q.from} → ×${q.mult}）`,
   cost:`費用 ${C.iconHTML('gold',true)} ${C.fmt(q.gold)} · ${C.iconHTML('gems',true)} ${q.gems}`,
-  reason:busy?`<span class="no">${busy.replace('轉世','晉升')}</span>`:ok?'<span class="ok">村莊金幣與星晶足夠</span>':need('金幣',s.gold,q.gold)+' '+need('星晶',s.gems,q.gems),
+  reason:busy?`<span class="no">${busy.replace('轉世','晉升')}</span>`:ok?'<span class="ok">村莊金幣與星晶足夠</span>':need('金幣',s.gold,q.gold)+' '+need('星晶',s.gems,q.gems)+(s.gems<q.gems&&(s.buildings.trading||0)>=5?'<span class="ok"> · 交易所可用金幣買星晶</span>':''),
   btn:rowBtn('promoteHunter',h.id,'晉升',ok)});}
 
 export function hunterDetailHTML(h){
