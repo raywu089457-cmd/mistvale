@@ -82,12 +82,12 @@ function skillPanel(h){const s=C.game().state,lv=h.skillLevel||0,cost=C.game().s
  const mBtn=!ok&&s.buildings.academy&&lv<5?merchantRowBtn('merchantSkill',h.id,'補料學習',cost):'';
  return `<div class="z2-list">`+rowHTML({icon:'scroll',name:`戰鬥技能 Lv.${lv}/5`,desc:'每級攻擊 +10%，在學院學習',cost:lv<5?`費用 ${C.iconHTML('gold',true)} ${C.fmt(cost.gold)} · 鐵礦 ${cost.ore}`:'',reason,btn:btn==='MAX'?'':(mBtn||rowBtn('learnSkill',h.id,btn,ok))})+`</div>`;}
 function gearBtn(action,id,slot,label,tone){return `<button type="button" class="pixel-button z2-rowbtn"${slot?` data-slot="${slot}"`:''} data-action="${action}" data-id="${id}" data-zb="${tone||'ghost'}"><span>${label}</span></button>`;}
-// 一格一列真實物品：有穿→名稱/數值/卸下·存倉·出售·分解;沒穿→倉庫同位置候選直接穿上
+// 一格一列真實物品：有穿→名稱/數值/卸下·出售·分解(存倉跟卸下重複,2026-11-18 拿掉);沒穿→倉庫同位置候選直接穿上
 function gearRow(h,slot){const it=itemIn(h,slot),s=C.game().state,I=C.iconHTML,t=craftGrade(it);
  if(it){const stats=statLine(it),desc=it.name.includes(SLOT_LABEL[slot])?stats:`${SLOT_LABEL[slot]} · ${stats}`;
   return `<div class="z2-row gear-slot" data-slot="${slot}"><i class="z2-row-ic gico-box" aria-hidden="true">${gearIconHTML(it,32)||I(slot==='weapon'?'swords':'def',true)}</i>`
    +`<div class="z2-row-b"><b class="z2-row-n"${t?` data-grade="${TIER_GRADE[t]||'superior'}"`:''}>${C.esc(it.name)}</b><small class="z2-row-d">${desc}</small>${t?`<small class="z2-row-w"><span class="ok">${t<GEAR_TIER_MAX?'有更高階庫存時會自己換新':'已是最高階 Ⅴ'}</span></small>`:''}<div class="gear-btns">`
-   +gearBtn('gearUnequip',h.id,slot,'卸下','gold')+gearBtn('gearStore',h.id,slot,'存倉')+gearBtn('gearSell',h.id,slot,'出售','red')+gearBtn('gearSalvage',h.id,slot,'分解')
+   +gearBtn('gearUnequip',h.id,slot,'卸下')+gearBtn('gearSell',h.id,slot,'出售','red')+gearBtn('gearSalvage',h.id,slot,'分解')
    +`</div></div></div>`;}
  const cands=(s.gearStorage||[]).map(g=>{const i=gearItemView(g);return i&&i.slot===slot?{uid:g.uid,it:i}:null;}).filter(Boolean);
  const body=cands.length?cands.map(c=>`<button type="button" class="pixel-button z2-rowbtn gear-cand" data-action="gearEquip" data-id="${h.id}" data-uid="${c.uid}" data-zb="olive" aria-label="穿上${C.esc(c.it.name)}"><span>穿上 · ${C.esc(c.it.name)}</span></button>`).join(''):`<small class="z2-row-w">倉庫沒有可穿的${SLOT_LABEL[slot]}</small>`;
@@ -101,7 +101,7 @@ function gearPanel(h){const s=C.game().state,wl=h.weaponLevel||0,cost=C.game().e
  const mBtn=!ok&&h.equipment.weapon&&wl<10&&s.buildings.enhancement?merchantRowBtn('merchantEnhance',h.id,'補料強化',cost):'';
  return `<div class="z2-list">`
   +rowHTML({icon:'swords',name:hasWeapon?`${wIt?wIt.name:'精鐵武器'} +${wl}`:wIt?`${wIt.name}（初始）`:'未裝備武器',tone:hasWeapon?gradeOfLv(wl):'',desc:hasWeapon||!wIt?`攻擊 +${wIt?(wIt.stats&&wIt.stats.atk)||0:7}，每級強化再 +7%`:'初始武器沒有數值加成；精鐵武器 攻擊 +7，可強化',cost:hasWeapon&&wl<10?`費用 ${C.iconHTML('gold',true)} ${C.fmt(cost.gold)} · 鐵礦 ${cost.ore}`:'',reason,btn:btn==='MAX'?'':(mBtn||rowBtn('enhanceHunter',h.id,btn,ok))})
-  +`<p class="gear-hint">穿在身上的裝備是真的物品：卸下、出售、分解或存進倉庫，角色外觀也會跟著變。鐵匠鋪升級件分Ⅰ–Ⅴ階，有更高階庫存時獵人會自己花錢換新（舊的放回倉庫）。</p>`
+  +`<p class="gear-hint">裝備可以卸下（放回倉庫）、出售或分解。倉庫有更高階的，獵人會自己花錢換上。</p>`
   +EQUIP_SLOTS.map(slot=>gearRow(h,slot)).join('')
   +`</div>`;}
 function rebirthPanel(h){const ready=h.level>=100,maxed=h.rebirths>=20,busy=h.hp<=0?'倒下了，復活後才能轉世':h.task==='dungeon'?'還在地下城裡，先撤退回村才能轉世':h.task==='arena'?'競技場打完才能轉世':'';   // 2026-11-18 跟 reincarnate 的拒絕條件一致,不要顯示「可以轉世」卻按了被拒
