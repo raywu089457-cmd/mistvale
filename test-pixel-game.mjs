@@ -1,7 +1,7 @@
 import { vdir4, dirSuffix, leftRow, rows4, fromScreen, toScreen, quantize4, quantize4Stable, facingOk, screenAngle, DIR4_CENTER_DEG, QUADRANT_OFFSET_DEG, FACING_HYSTERESIS_DEG } from './src/dir4.js';
 import fs from 'node:fs';
 import assert from 'node:assert/strict';
-import { createGame, OFFLINE, ENEMIES, MOUNT_SPEED_MULT, isRideable, hunterGender, GENDERS, nameGender, NAME_GENDER } from './src/pixel-game.js';
+import { createGame, OFFLINE, AUTO_TRAIN, ENEMIES, MOUNT_SPEED_MULT, isRideable, hunterGender, GENDERS, nameGender, NAME_GENDER } from './src/pixel-game.js';
 import { doorStand, buildingSolid } from './src/landscape-layout.js';
 import { blockCenter, VILLAGE_BOUNDS } from './src/village-grid.js';
 import { BUILDINGS, CLASSES, MATERIALS, MERCHANT, PROMOTE, PRODUCTS, RECIPES, RARITIES, PILOT_ATTACK, AI_ATTACK_LOCK, KITE, GEAR_TIER_MAX, gearAt, EQUIPMENT, CLASS_STARTER, EQUIP_SLOTS, GEAR_SLOTS, gearItemView, dungeonGearGrade, GEAR_DROP } from './src/pixel-data.js';
@@ -2192,5 +2192,106 @@ console.log(`PASS: ${CLASSES.length} hunters / ${CLASSES.length} classes, seeded
     assert.ok(Math.hypot(a.x - b.x, a.z - b.z) < 1, 'revision 5 saves keep monster positions');
     const ancient = createGame({ ...save, worldRevision: 3 });
     assert.equal(ancient.state.worldRevision, 5); assert.notEqual(ancient.state.layout.house.x, save.layout.house.x, 'pre-revision-4 saves still reset the layout');
+  }
+}
+
+// ── 2026-11-18 滿裝獵人自己修煉(docs/BALANCE.md「滿裝獵人自己修煉」) ──
+{
+  const fee = level => 20 + level * 10, { reserve, perVisit, offlineVisitSec } = AUTO_TRAIN;
+  const maxGear = (g, h, skip = null) => { for (const slot of EQUIP_SLOTS) wear(g, h, slot, slot === skip ? GEAR_TIER_MAX - 1 : GEAR_TIER_MAX); };
+  // 一位 Lv.40、待在村裡的獵人;商品庫存清空 → 走免費的基本服務,錢包只會被修煉動到
+  const setup = (gold, { skip = null, training = 1 } = {}) => {
+    const g = createGame(), h = isolate(g), s = g.state; s.wanderers = []; s.autoJunk = 'off'; s.time = 100; s.buildings.training = training;
+    for (const k of Object.keys(s.stocks)) s.stocks[k] = 0; for (const k of MATERIAL_KEYS_T) s.tradeRequests[k] = 0;
+    h.level = 40; h.xp = 0; maxGear(g, h, skip); h.gold = gold; h.hp = h.maxHp; return { g, h, s };
+  };
+  // 真的走一趟村內行程:心情低落 → 回村喝一杯 → 辦完事
+  const visit = (g, h) => {
+    h.mood = 20; h.satiety = h.stamina = 100; h.hp = h.maxHp; h.route = []; h.task = null; h.servedVisit = []; h.huntRegion = null; h.autoHunt = false;
+    for (let i = 0; i < 600; i++) { g.state.enemies = []; g.tick(0.1); if (h.servedVisit.includes('drink') && h.task !== 'service') return; }
+    assert.fail('the town visit should finish');
+  };
+  const lines = (s, h) => s.log.filter(l => l.text.startsWith(`${h.name} 自費`)).length;
+
+  { // 有任何一格不是最高階:一毛都不花(不跟買裝備搶錢)
+    const { g, h, s } = setup(9000, { skip: 'boots' }), t0 = s.counts.trained, money = totalMoney(g);
+    visit(g, h);
+    assert.equal(s.counts.trained, t0, 'one slot below the top tier: no automatic training'); assert.equal(h.level, 40); assert.equal(h.gold, 9000); assert.equal(totalMoney(g), money);
+  }
+  { // 滿裝、錢夠:學費進村莊、總金幣守恆、一趟一行日誌
+    const { g, h, s } = setup(3000), t0 = s.counts.trained, money = totalMoney(g), v0 = s.gold, pay0 = s.counts.hunterPay || 0;
+    visit(g, h);
+    assert.equal(s.counts.trained, t0 + 1); assert.equal(h.level, 41, 'training ground Lv.1 gives one level'); assert.equal(h.gold, 3000 - fee(40));
+    assert.equal(s.gold, v0 + fee(40), 'tuition reaches the village'); assert.equal(totalMoney(g), money, 'total money is conserved'); assert.equal(s.counts.hunterPay, pay0 + fee(40));
+    assert.equal(lines(s, h), 1, 'one log line for the visit');
+  }
+  { // 保留額:剛好夠 → 練完剩下保留額;差 1 金 → 不練;錢再多一趟也只練 perVisit 次;連跑幾趟不會低於保留額
+    const exact = setup(fee(40) + reserve); visit(exact.g, exact.h); assert.equal(exact.h.gold, reserve, 'keeps exactly the reserve'); assert.equal(exact.h.level, 41);
+    const short = setup(fee(40) + reserve - 1), t0 = short.s.counts.trained; visit(short.g, short.h); assert.equal(short.s.counts.trained, t0, 'one coin short: no session'); assert.equal(short.h.gold, fee(40) + reserve - 1);
+    const rich = setup(1e6), t1 = rich.s.counts.trained; visit(rich.g, rich.h); assert.equal(rich.s.counts.trained, t1 + perVisit, 'capped per visit');
+    const many = setup(reserve + 2000); for (let i = 0; i < 8; i++) { visit(many.g, many.h); assert.ok(many.h.gold >= reserve, `wallet ${many.h.gold} stays above the reserve`); }
+    assert.ok(many.s.counts.trained >= 2, 'several visits, several sessions');
+  }
+  { // Lv.100 不花錢;轉世後裝備還在,規則接著生效
+    const { g, h, s } = setup(9000), t0 = s.counts.trained; h.level = 100; visit(g, h);
+    assert.equal(s.counts.trained, t0, 'Lv.100 does not train'); assert.equal(h.gold, 9000);
+    assert.equal(g.reincarnate(h.id).ok, true); assert.equal(h.level, 1); visit(g, h);
+    assert.equal(s.counts.trained, t0 + 1, 'training resumes after rebirth'); assert.equal(h.gold, 9000 - fee(1));
+  }
+  { // 沒有修煉地
+    const { g, h, s } = setup(9000, { training: 0 }), t0 = s.counts.trained; visit(g, h);
+    assert.equal(s.counts.trained, t0, 'no training ground'); assert.equal(h.gold, 9000); assert.equal(h.level, 40);
+  }
+  { // 讀檔會讓在村裡的獵人重走 returnToTown:不能因此多練一次或動到錢
+    const { g, h, s } = setup(9000), raw = g.serialize(), t0 = s.counts.trained, v0 = s.gold;
+    const again = createGame(raw), h2 = again.state.hunters.find(x => x.id === h.id);
+    assert.equal(h2.gold, 9000, 'loading a save never trains'); assert.equal(h2.level, 40); assert.equal(again.state.counts.trained, t0); assert.equal(again.state.gold, v0);
+  }
+  { // 競技場裡不練(心情再低也不會回村)
+    const g = createGame(), s = g.state; s.wanderers = []; assert.equal(g.construct('training').ok, true);
+    for (const h of s.hunters) { maxGear(g, h); h.gold = 9000; h.hp = h.maxHp; }
+    assert.equal(g.startArena().ok, true); const ids = [...s.arena.hunterIds]; s.hunters = s.hunters.filter(h => ids.includes(h.id));
+    assert.equal(g.train(ids[0]).ok, false, 'the shared rule refuses training during the arena');
+    const t0 = s.counts.trained; for (let i = 0; i < 80 && s.arena.active; i++) { for (const h of s.hunters) h.mood = 20; g.tick(0.1); assert.equal(s.counts.trained, t0, 'no automatic training in the arena'); assert.ok(s.hunters.every(h => h.gold === 9000)); }
+  }
+  { // 地下城自動續戰的層間休整:照同一套條件練一次,休整時間與樓層不變;戰鬥中不練;不寫日誌
+    const make = (gold, full) => {
+      const base = createGame(); base.construct('dungeon'); const raw = base.serialize(), src = raw.hunters;
+      raw.hunters = ['paladin', 'archer', 'priest'].map((c, i) => ({ ...JSON.parse(JSON.stringify(src.find(x => x.classId === c))), id: 'dp' + i, level: 60, xp: 0, gold: 0 })); raw.wanderers = []; raw.autoJunk = 'off';
+      const g = createGame(raw), s = g.state, party = s.hunters, h = party[2]; s.buildings.training = 1; if (full) maxGear(g, h); h.gold = gold;
+      for (const p of party) { p.hp = p.maxHp; p.satiety = p.mood = p.stamina = 100; }
+      g.setDungeonAuto(true); assert.equal(g.startDungeon(party.map(p => p.id), 1).ok, true); for (const p of party) p.route = [];
+      g.tick(0.1); assert.equal(s.dungeon.phase, '戰鬥中'); return { g, s, d: s.dungeon, h };
+    };
+    const clearFloor = t => { t.d.wave = 3; for (const f of t.d.foes) f.hp = 0; t.g.tick(0.1); };
+    const full = make(5000, true), twin = make(5000, false), rw = full.g.dungeonReward(1), t0 = full.s.counts.trained;
+    { const fight = make(5000, true), n0 = fight.s.counts.trained; for (let i = 0; i < 20 && fight.d.phase === '戰鬥中'; i++) { fight.g.tick(0.1); assert.equal(fight.s.counts.trained, n0, 'no training during the fight'); } }
+    const v0 = full.s.gold; clearFloor(full); clearFloor(twin);
+    assert.equal(full.d.phase, '休整中'); assert.equal(full.d.floor, 2); assert.equal(full.d.rest, twin.d.rest, 'the rest between floors does not change'); assert.equal(full.d.rest, 3);
+    const paid = fee(twin.h.level); assert.equal(twin.h.gold, 5000 + rw.gold, 'gear not maxed: only the floor reward');
+    assert.equal(full.s.counts.trained, t0 + 1); assert.equal(full.h.gold, 5000 + rw.gold - paid); assert.equal(full.s.gold, v0 + rw.village.gold + paid, 'tuition reaches the village');
+    assert.ok(full.h.level > twin.h.level); assert.equal(lines(full.s, full.h), 0, 'no log line per floor');
+    const below = make(reserve + paid - rw.gold - 1, true), t1 = below.s.counts.trained; clearFloor(below); assert.equal(below.s.counts.trained, t1, 'the reserve also holds between floors');
+    const edge = make(reserve + paid - rw.gold, true); clearFloor(edge); assert.equal(edge.h.gold, reserve, 'keeps exactly the reserve between floors');
+  }
+  { // 離線:總金幣守恆、外推期照實一次一次練、取樣期的學費不乘倍率
+    const make = () => { const g = createGame(), s = g.state; s.autoJunk = 'off'; s.buildings.training = 5; for (const h of s.hunters) { h.huntRegion = 'meadow'; maxGear(g, h); h.gold = 6000; }
+      run(g, 20); for (const k of MATERIAL_KEYS_T) s.tradeRequests[k] = 0; s.wanderers = []; return g; };
+    const wallets = g => g.state.hunters.reduce((n, h) => n + h.gold, 0), C = (g, k) => g.state.counts[k] || 0;
+    const noGoldFromNothing = (g, m0, c0, msg) => assert.ok(Math.abs(g.state.gold + wallets(g) - (m0 + C(g, 'hunterGold') - (c0.hunterGold || 0) + C(g, 'wanderPay') - (c0.wanderPay || 0))) <= g.state.hunters.length + 2, msg);
+    { // 離線 20 分鐘:時間再長,這批低等獵人光靠外推的野外經驗就到 Lv.100,就不用再練了
+      const total = 1200, g = make(), s = g.state, snap = g.offlineSnapshot(), m0 = s.gold + wallets(g), c0 = { ...s.counts }; g.simulate(OFFLINE.sample); const t1 = s.counts.trained; g.offlineFinish(snap, total);
+      noGoldFromNothing(g, m0, c0, 'village + wallets only grow by hunting income');
+      assert.ok(s.counts.trained > t1, 'sessions continue during the extrapolated part');
+      assert.ok(s.counts.trained - t1 <= s.hunters.length * Math.floor((total - OFFLINE.sample) / offlineVisitSec) * perVisit, 'no more than one session per estimated visit');
+      assert.ok(s.hunters.every(h => h.gold >= reserve), 'offline training keeps the reserve'); assertFiniteEconomy(s); }
+    { // 取樣後關掉修煉地 → 外推期一次都不練:次數不被乘倍率,金幣一樣守恆
+      const g = make(), s = g.state, snap = g.offlineSnapshot(), m0 = s.gold + wallets(g), c0 = { ...s.counts }, t0 = s.counts.trained; g.simulate(OFFLINE.sample); const t1 = s.counts.trained;
+      assert.ok(t1 > t0, 'hunters trained during the sample'); s.buildings.training = 0; g.offlineFinish(snap, 3 * 3600);
+      assert.equal(s.counts.trained, t1, 'sampled sessions are not extrapolated'); noGoldFromNothing(g, m0, c0, 'sampled tuition is not multiplied into village income'); assertFiniteEconomy(s); }
+  }
+  { // 委託不看修煉次數:自動修煉不會直接完成任何一章
+    const g = createGame(), before = JSON.stringify(g.questList().map(q => q.progress)); g.state.counts.trained = 500;
+    assert.equal(JSON.stringify(g.questList().map(q => q.progress)), before, 'no quest metric reads counts.trained');
   }
 }

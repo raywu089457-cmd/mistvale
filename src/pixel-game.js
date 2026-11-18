@@ -25,8 +25,8 @@ const tierStockTotal = st => GEAR_TIERS.reduce((n, t) => n + (st?.[t.tier] || 0)
 const GEAR_RESERVE = 40;
 // 村莊裝備倉庫讀檔上限(v4 原本 400;裝備階級上線後換下來的舊件也進倉庫,放寬)
 const GEAR_STORAGE_MAX = 2000;
-// 離線外推時整段不乘倍率的統計(裝備買賣只發生在取樣期,離線庫存不會補)
-const GEAR_ONE_OFF = new Set(['gearSold', 'gearUpgrades', 'gearIncome', 'autoJunk', 'autoJunkGold']);
+// 離線外推時整段不乘倍率的統計(裝備買賣只發生在取樣期,離線庫存不會補;修煉次數由 offlineFinish ⑦ 照實一次一次算)
+const GEAR_ONE_OFF = new Set(['gearSold', 'gearUpgrades', 'gearIncome', 'autoJunk', 'autoJunkGold', 'trained']);
 // 2026-11-15 裝備物品化(experiment/heroloom 併入 5024,存檔 v4):實例 = {uid,itemId[,grade]};物品表在 pixel-data.EQUIPMENT。
 // 2026-11-17 併入裝備階級:鐵匠鋪升級件的實例多一個 grade(1..5,沒有 = 1);實際數值/名稱/售價/分解一律經過 gearItemView。
 // 唯一的數值來源是身上的物品;沒有 h.gear 的暫時物件(訪客預覽、實驗面板假獵人)才退回 v3 布林值算法(第 1 階)。
@@ -198,6 +198,10 @@ const xpNeeded = level => 30 + level * 8;
 // 2026-11-17 修煉重訂:原本 20 金幣＋5 級、冷卻 10 秒 → 一直按修煉,第 8 天就 Lv.100、30 天轉世 94 次(長線目標全被跳過)。
 // 改成:每次給「目前等級 1 級份」的經驗(修煉地每升 1 級多 25%,Lv.5 = 2 級份),學費隨等級平方上漲,冷卻 30 秒;學費照舊付給村莊
 const TRAIN = { cost: level => 20 + level * 10, levels: bLv => 1 + 0.25 * (Math.max(1, bLv) - 1) };
+// 2026-11-18 獵人自己修煉(docs/BALANCE.md「滿裝獵人自己修煉」):七格都是最高階、鍛造屋沒東西可賣的獵人,回村辦完事用多的個人金幣修煉一次。
+//   reserve:修煉後錢包至少留這麼多。設施全滿時吃喝睡療傷一輪 92 金(46 × 2),500 金 ≈ 5 趟,一路沒收入也付得起
+//   perVisit:每趟回村(或地下城每層休整)最多幾次;offlineVisitSec:離線外推時多久算回村一趟(第 24–31 天實測每位獵人約 45 秒回村一趟)
+export const AUTO_TRAIN = { reserve: 500, perVisit: 1, offlineVisitSec: 45 };
 // 這一世累積的經驗(Lv.1 起算):離線外推用
 const lifetimeXp = h => { let n = h.xp || 0; for (let l = 1; l < h.level; l++) n += xpNeeded(l); return n; };
 // 離線收益:最多算 8 小時;前 sample 秒真的模擬,其餘照這段的速率外推(見 offlineFinish)。
@@ -637,6 +641,28 @@ export function createGame(saved = null) {
     if (h.level !== before) { updateStats(h, true); effect('level', h); if (h.level % 5 === 0 || h.level === 100) log(`${h.name} 成長至 Lv.${h.level}。`, 'success'); }
   }
 
+  // 修煉規則只寫在這裡:手動(train)、回村自動修煉(autoTrain)、離線外推(offlineFinish ⑦)共用。回傳擋下的原因,可以練 → null
+  // floorBreak = 地下城自動續戰的層間休整(floorCleared):人還算在地下城裡,但這段休整可以練;其他時候在地下城、競技場都不行
+  function trainBlock(h, floorBreak = false) {
+    if (!state.buildings.training) return '請先建造修煉地。';
+    if (h.hp <= 0 || (h.task === 'dungeon' && !floorBreak) || h.task === 'arena') return '這位獵人目前無法參加訓練。';
+    if (h.level >= 100) return '獵人已達 Lv.100，可以前往復活聖所轉世。';
+    return null;
+  }
+  // 付學費、拿經驗。離線取樣期跟買裝備走同一本帳(一次性):學費不算進村莊收入速率、錢包速率補回來、修煉經驗不算進野外經驗速率,才不會被外推乘上倍率
+  function payTraining(h, q) {
+    h.gold -= q.cost; state.gold += q.cost; payLedger(h, q.cost);
+    if (dgLedger) { dgLedger.gearPay.hunterPay += q.cost; dgLedger.gear[h.id] = (dgLedger.gear[h.id] || 0) + q.cost; dgLedger.xp[h.id] = (dgLedger.xp[h.id] || 0) + q.xp; }
+    gainXp(h, q.xp); state.counts.trained++; effect('level', h);
+  }
+  // 自動修煉的條件:能修煉、七格都是最高階(不會跟買裝備搶錢)、付完學費還留得住 AUTO_TRAIN.reserve
+  const autoTrainReady = (h, floorBreak = false) => !trainBlock(h, floorBreak) && h.gold >= TRAIN.cost(h.level) + AUTO_TRAIN.reserve && EQUIP_SLOTS.every(slot => gearTierOf(h, slot) >= GEAR_TIER_MAX);
+  function autoTrain(h, floorBreak = false) {
+    let paid = 0, n = 0; const lv0 = h.level;
+    while (n < AUTO_TRAIN.perVisit && autoTrainReady(h, floorBreak)) { const q = trainQuote(h); payTraining(h, q); paid += q.cost; n++; }
+    if (n && !floorBreak) log(h.level > lv0 ? `${h.name} 自費 ${paid} 金幣修煉，成長至 Lv.${h.level}。` : `${h.name} 自費 ${paid} 金幣修煉。`, 'info');
+  }
+
   function idleInTown(h) {
     // 沒有狩獵指令:先在村內待一下(AUTO_HUNT.dwell 秒),之後由 step() 的待機分支自己挑區出村(見 autoHuntRegion)。
     h.task = null; h.serviceProduct = null; h.serviceStarted = false; h.destination = null; h.inTown = true;
@@ -915,15 +941,19 @@ export function createGame(saved = null) {
     if (inVillage(h.x, h.z)) route(h, [door(buildingId, h)]); else homeRoute(h, buildingId);
   }
 
-  function nextTownTask(h) {
+  // errandDone = 剛在村裡辦完一件事(runTownTask 呼叫)。自動修煉只在這時候、而且這趟沒有別的事要辦才發生:
+  //   讀檔、復活、地下城結束也會走 returnToTown → 這裡,那些不算「辦完事」(讀檔時 state 還沒還原完,不能動錢)
+  function nextTownTask(h, errandDone = false) {
     if (!h.tradedVisit && tradeAvailable(h)) { goToBuilding(h, 'trading', 'trade'); return; }
     const product = needProduct(h, true);
     if (product && !h.servedVisit.includes(product)) {
       h.serviceProduct = product; h.serviceStarted = false; goToBuilding(h, PRODUCTS[product].building, 'service'); return;
     }
     if (!h.shoppedVisit && gearAvailable(h)) { goToBuilding(h, 'forge', 'shop'); return; }
+    if (errandDone) autoTrain(h);
     depart(h);
   }
+  const townErrandDone = h => nextTownTask(h, true);
 
   // 自主狩獵的這一趟到回村為止:清掉自己挑的區,辦完事再重新挑(可能已經升級、能去更難的區)。玩家指定的 huntRegion 不動。
   function returnToTown(h) { if (h.autoHunt) { h.autoHunt = false; h.huntRegion = null; } h.inTown = true; h.tradedVisit = false; h.shoppedVisit = false; h.servedVisit = []; h.targetId = null; nextTownTask(h); }
@@ -1478,7 +1508,8 @@ export function createGame(saved = null) {
         log(`小隊稍作休整，自動續戰第 ${d.floor} 層。`, 'info');
         // 2026-11-18 自動續戰的小隊一趟可以打上千秒、中間不回村,鍛造屋永遠逛不到(docs/BALANCE.md「地下城小隊的裝備」)→ 層與層之間的休整順便託人買。
         // 放在續戰判斷之後:下一層的體檢照買之前的數值算,休整秒數不變;線上/離線都走這裡(離線 ② 照實跑 stepDungeon)。
-        for (const h of party) shopRemote(h);
+        // 2026-11-18 自動修煉同一個位置、同一個理由:常駐隊員幾乎不回村,錢包只進不出(docs/BALANCE.md「滿裝獵人自己修煉」)。一樣排在續戰判斷之後(下一層的體檢照修煉前的數值算、休整秒數不變);每層都會發生,不寫日誌
+        for (const h of party) { shopRemote(h); autoTrain(h, true); }
         return;
       }
       log(fit ? `第 ${floor + 1} 層的魔物太耐打，小隊帶著戰利品返村休整。` : '小隊體力不足，帶著戰利品返村休整。', 'info');
@@ -1760,7 +1791,7 @@ export function createGame(saved = null) {
             h.status = '趕去治療'; walk(h, dt); continue;
           }
         } } }
-      if (h.task === 'trade' || h.task === 'shop' || h.task === 'service') { runTownTask(h, dt, nextTownTask); continue; }
+      if (h.task === 'trade' || h.task === 'shop' || h.task === 'service') { runTownTask(h, dt, townErrandDone); continue; }
       const bagSize = MATERIAL_KEYS.reduce((sum, key) => sum + h.inventory[key], 0);
       if (needProduct(h) || (bagSize >= TRADE_BAG && tradeAvailable(h) && state.time - h.lastTownVisit > 12) || (state.time - h.lastTownVisit > 60 && gearAvailable(h))) { returnToTown(h); continue; }
       // 自己出來打獵的比較謹慎:血掉到 AUTO_HUNT.retreatHp 就回村療傷(玩家派出去的照原本 28% 才回)。
@@ -2424,13 +2455,10 @@ export function createGame(saved = null) {
     trainQuote(hunterId) { const h = state.hunters.find(x => x.id === hunterId); return h ? trainQuote(h) : null; },
     train(hunterId) {
       const h = state.hunters.find(h => h.id === hunterId); if (!h) return result(false, '找不到這位獵人。');
-      if (!state.buildings.training) return result(false, '請先建造修煉地。');
-      if (h.hp <= 0 || h.task === 'dungeon' || h.task === 'arena') return result(false, '這位獵人目前無法參加訓練。');
-      if (h.level >= 100) return result(false, '獵人已達 Lv.100，可以前往復活聖所轉世。');
+      const blocked = trainBlock(h); if (blocked) return result(false, blocked);
       const q = trainQuote(h);
       if (h.gold < q.cost) return result(false, `修煉要 ${q.cost} 個人金幣，${h.name}目前只有 ${Math.floor(h.gold)}；狩獵或販售材料後再來。`);
-      h.gold -= q.cost; state.gold += q.cost; const lv0 = h.level;
-      gainXp(h, q.xp); state.counts.trained++; effect('level', h);
+      const lv0 = h.level; payTraining(h, q);
       return result(true, h.level > lv0 ? `${h.name}支付 ${q.cost} 金幣修煉，成長至 Lv.${h.level}。` : `${h.name}支付 ${q.cost} 金幣修煉，經驗增加 ${q.xp}。`);
     },
     learnSkill(hunterId) {
@@ -2815,6 +2843,9 @@ export function createGame(saved = null) {
           payOut(paidOnce, hasW(T.gold) ? T.gold : T.gotBy);
           payOut(paidStanding, hasW(T.gotBy) ? T.gotBy : T.gold);
         } }
+        // ⑦ 自動修煉:外推期間每 offlineVisitSec 秒算回村一趟,照線上規則一次一次練(條件、學費、保留額都走 autoTrainReady / payTraining;學費照實從錢包轉給村莊)。
+        //   放在所有錢包入帳之後;還在地下城的隊員 trainBlock 會擋下;不寫日誌,學費算進離線戰報的「付給村莊」
+        for (const h of pool) for (let n = Math.floor(restField(h) / AUTO_TRAIN.offlineVisitSec) * AUTO_TRAIN.perVisit; n > 0 && autoTrainReady(h); n--) payTraining(h, trainQuote(h));
         state.time += Math.max(0, rest - dgT); state.day = Math.floor(state.time / 240) + 1;
         state.healCooldown = Math.max(0, state.healCooldown - rest);
         for (const k of ['expedition', 'dungeon', 'arena']) state[k].cooldown = Math.max(0, state[k].cooldown - rest);
