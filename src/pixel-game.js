@@ -2694,10 +2694,11 @@ export function createGame(saved = null) {
       const monsters = [...new Set(REGION_MIX[r.id] || [])].map(t => {
         const d = ENEMIES[t] || {};
         // 2026-11-16:*Now = 目前難度下實際生成的數值(spawn:生命/攻擊 × 難度 × 區域風險;擊倒:金幣/經驗 × √難度、材料 dropAmount)。
+        //   2026-11-18:金幣/經驗也 × 生態區危險度(跟擊倒結算一致)。
         //   原本的 hp/attack/... 保留基礎值(regionFit 的威脅算法與測試都用基礎值)。
-        const m = DIFFICULTIES[state.difficulty]?.mult ?? 1, sm = Math.sqrt(m);
+        const m = DIFFICULTIES[state.difficulty]?.mult ?? 1, sm = Math.sqrt(m), rk = bossRiskOf(r.id);
         return { id: t, hp: d.hp || 0, attack: d.attack || 0, gold: d.gold || 0, xp: d.xp || 0, drops: { ...(d.drops || {}) },
-          hpNow: Math.round((d.hp || 0) * m * (r.risk || 1)), attackNow: Math.round((d.attack || 0) * m * (r.risk || 1)), goldNow: Math.round((d.gold || 0) * sm), xpNow: Math.round((d.xp || 0) * sm),
+          hpNow: Math.round((d.hp || 0) * m * (r.risk || 1)), attackNow: Math.round((d.attack || 0) * m * (r.risk || 1)), goldNow: Math.round((d.gold || 0) * sm * rk), xpNow: Math.round((d.xp || 0) * sm * rk),
           dropsNow: Object.fromEntries(Object.entries(d.drops || {}).map(([k, v]) => [k, dropAmount(v)])) };
       });
       const riskStars = Math.max(1, Math.min(5, Math.round((r.risk - 1) / 0.16) + 1));

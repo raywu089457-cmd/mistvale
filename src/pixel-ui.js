@@ -644,7 +644,7 @@ function modalHTML(type){const s=game.state;
    const lootRows=Object.entries(rig.lootNow||rig.loot).sort((a,b)=>b[1]-a[1]).map(([k,v])=>`<span>${iconHTML(k)}<b>${v}</b><small>${MATERIALS[k]?.name||k}</small></span>`).join('');
    return `<article class="region-detail" style="--biome:${rig.color}">
    ${AS().ui?.['px-region-'+rig.id]?`<div class="region-detail-art" style="background-image:url('${AS().ui['px-region-'+rig.id]}')" aria-hidden="true"></div>`:''}
-   <div class="rd-head"><i class="rd-em" data-icon="em-${rig.id}"></i><div><h3>${rig.name}</h3><small>${rig.subtitle}</small><em class="rd-risk" aria-label="危險度 ${rig.riskStars} 顆星">${riskStars(rig.risk)}<b>危險度 ${rig.riskStars}/5</b></em></div></div>
+   <div class="rd-head"><i class="rd-em" data-icon="em-${rig.id}"></i><div><h3>${rig.name}</h3><small>${rig.subtitle}</small><em class="rd-risk" aria-label="危險度 ${rig.riskStars} 顆星">${riskStars(rig.risk)}<b>危險度 ${rig.riskStars}/5${rig.risk>1?` · 金幣經驗 ×${rig.risk}`:''}</b></em></div></div>
    <p class="rd-desc">${rig.description}</p>
    <div class="rd-stats"><div><small>場上魔物</small><b>${rig.alive} 隻</b></div><div><small>正在狩獵</small><b>${rig.hunting} 位獵人</b></div><div><small>首領</small><b>${rig.boss?'出沒中':'未出現'}</b></div><div><small>你目前的位置</small><b>${rig.current?'就在這裡':'不在這區'}</b></div></div>
    <p class="rd-fit ${fit?FIT[fit.verdict][0]:'none'}">${iconHTML('hunter')}<span>${fit?`${team.name}：${FIT[fit.verdict][1]}<small>舒適度 ${fit.comfort} · 這區威脅 ${fit.threat}</small>`:'這一組還沒有隊員，先在上面選人。'}</span></p>

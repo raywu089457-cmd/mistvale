@@ -649,6 +649,7 @@ assert.equal(createGame().dispatchHunters().ok, true, 'The one-click dispatch st
   const weakest = info.regionInfo('meadow'), strongest = info.regionInfo('mountain');
   assert.ok(Math.max(...strongest.monsters.map(m => m.attack)) > Math.max(...weakest.monsters.map(m => m.attack)), 'Mountain hits harder than the meadow');
   assert.ok(strongest.riskStars > weakest.riskStars, 'Danger stars follow region risk');
+  for (const [x, w] of [[strongest, strongest.risk], [weakest, 1]]) for (const mo of x.monsters) assert.equal(mo.goldNow, Math.round(mo.gold * w), x.id + ' shown gold/xp include region risk (difficulty 0)');
   assert.equal(fit.threat, Math.round(Math.max(...ri.monsters.map(m => m.attack)) * ri.risk), 'Threat is the hardest monster times the regional multiplier');
 }
 const dead = createGame(), fallen = isolate(dead); fallen.hp = 0; run(dead, 0.2, true); assert.equal(fallen.status, '復活中'); assert.equal(dead.state.counts.deaths, 1); run(dead, 10, true); assert.ok(fallen.hp > 0 && fallen.reviveTimer === 0);
