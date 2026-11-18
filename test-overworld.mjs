@@ -19,9 +19,9 @@ const risks=RING_ORDER.map(id=>REGIONS.find(r=>r.id===id).risk);
 assert.deepEqual(risks,[...risks].sort((a,b)=>a-b),'the ring runs from easy to hard');
 const cnt=Object.fromEntries(RING_ORDER.map(id=>[id,0]));let wild=0;
 for(let z=WORLD.minZ+1;z<=WORLD.maxZ-1;z+=.5)for(let x=WORLD.minX+1;x<=WORLD.maxX-1;x+=.5){if(inVillage(x,z)||!walkable(x,z))continue;cnt[biomeAt(x,z)]++;wild++;}   // 只算陸地(海岸線以內)
-// 野外(可走陸地扣掉村莊)面積:2026-10-20 起海岸線改成不規則(世界矩形內含一段海),約 3400 平方單位。
+// 野外(可走陸地扣掉村莊)面積:2026-11-18 擴張成兩倍,約 5900 平方單位(擴張前 2951)。
 const wildArea=wild*.25;
-assert.ok(wildArea>2950&&wildArea<3600,`wild land stays in the intended range (${wildArea.toFixed(0)})`);
+assert.ok(wildArea>5700&&wildArea<6100,`wild land stays in the intended range (${wildArea.toFixed(0)})`);
 for(const id of RING_ORDER){const share=cnt[id]/wild;assert.ok(share>.1&&share<.2,`${id} covers ${(share*100).toFixed(1)}% of the wild land (rings stay balanced)`);}
 for(const r of REGIONS.slice(1)){assert.equal(biomeAt(r.x,r.z),r.id,`${r.name} center is its own terrain`);assert.equal(regionAt(r.x,r.z).id,r.id,`${r.name} center belongs to its region`);}
 // 沒有河流/小溪/橋:每一格不是陸地就是海。海岸線在世界矩形**裡面**(不規則海岸),所以矩形內會有海。
@@ -42,8 +42,8 @@ assert.ok(seaSamples>150,`the coastline cuts into the world rect (${seaSamples} 
  assert.ok(mx-mn>4,`the biome border is irregular (${(mx-mn).toFixed(1)} world units)`);}
 for(const region of REGIONS.slice(1)){
  const game=createGame();assert.equal(game.exploreRegion(region.id).ok,true);assert.equal(game.state.region,region.id);
- assert.ok(game.state.visitedRegions.includes(region.id));assert.equal(game.state.enemies.filter(e=>e.regionId===region.id).length,12);
- // 魔物生在整個地形上,不是擠在中心:12 隻之間最遠的兩隻要隔得開。
+ assert.ok(game.state.visitedRegions.includes(region.id));assert.equal(game.state.enemies.filter(e=>e.regionId===region.id).length,24);
+ // 魔物生在整個地形上,不是擠在中心:24 隻之間最遠的兩隻要隔得開。
  const pts=game.state.enemies.filter(e=>e.regionId===region.id).map(e=>[e.x,e.z]);let spread=0;
  // 出生點要和村莊圍籬保持距離(玩家一走出門不該直接撞到怪)。
  for(const [x,z] of pts){const d=Math.hypot(Math.max(VILLAGE_BOUNDS.minX-x,x-VILLAGE_BOUNDS.maxX,0),Math.max(VILLAGE_BOUNDS.minZ-z,z-VILLAGE_BOUNDS.maxZ,0));assert.ok(d>3,`${region.id} monsters keep their distance from the village (${d.toFixed(1)})`);}
@@ -67,9 +67,9 @@ for(const region of REGIONS.slice(1)){
 const g=createGame();assert.equal(g.exploreRegion('__proto__').ok,false);assert.equal(g.exploreRegion('missing').ok,false);assert.equal(g.setRally(VC.x,VC.z).ok,false,'rally point must be outside the village');assert.equal(g.setRally(999,999).ok,false);
 const old=g.serialize();delete old.worldRevision;delete old.region;delete old.visitedRegions;assert.equal(createGame(old).state.region,'meadow','old pixel saves migrate safely');
 // 每個狩獵區都會自己定時補怪,強度照該區 risk。
-// 沒人在打的區上限 3、補怪間隔 8 秒,流浪英雄會打掉其中一部分,所以不看某一刻的數量,看 60 秒內「出現過」的不同魔物:開局 2 隻 + 至少補 1 隻。
+// 沒人在打的區上限 12、補怪間隔 4 秒,流浪英雄會打掉其中一部分,所以不看某一刻的數量,看 60 秒內「出現過」的不同魔物。
 {const g2=createGame(),seen=Object.fromEntries(REGIONS.slice(1).map(r=>[r.id,new Set(g2.state.enemies.filter(e=>e.regionId===r.id).map(e=>e.id))]));
  for(let i=0;i<300;i++){g2.tick(.2);for(const e of g2.state.enemies)if(e.type!=='boss')seen[e.regionId]?.add(e.id);}
  for(const r of REGIONS.slice(1))assert.ok(seen[r.id].size>=3,`${r.name} keeps spawning monsters (${seen[r.id].size} different monsters in 60 s)`);
  const mt=g2.state.enemies.find(e=>e.regionId==='mountain'&&e.type==='golem'),me=g2.state.enemies.find(e=>e.regionId==='meadow'&&e.type==='golem');if(mt&&me)assert.ok(mt.maxHp>me.maxHp,'harder regions spawn stronger monsters');}
-console.log('PASS: wild land halved, 8 regions on a counter-clockwise ring, balanced terrain, all-solid ground, region search and combat, old-save compatibility.');
+console.log('PASS: wild land doubled (2026-11-18), 8 regions on a counter-clockwise ring, balanced terrain, all-solid ground, region search and combat, old-save compatibility.');

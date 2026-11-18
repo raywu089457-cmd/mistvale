@@ -236,13 +236,16 @@ export function gearItemView(inst){
   GEAR_VIEW.set(key,view);return view;
 }
 
+// 2026-11-18 使用者:怪物區域兩倍大、怪物量也兩倍(密度不變)。同時在場上限、補怪速度、開局與派遣時的補怪數量都乘這個倍率。
+export const MONSTER_POP=2;
 // 2026-10-30:每個狩獵區中央立牌切換「怪物數量」三級(羅馬數字)。只改同時出現的數量與補怪速度,魔物本身不變強。
-// cap = 目前狩獵區的上限、other = 沒人在打的區的上限、every = 補一隻的間隔(秒)。第 2 級就是原本的 14/6、2.5/8 秒。
+// cap = 目前狩獵區的上限、other = 沒人在打的區的上限、every = 補一隻的間隔(秒)。下表是一倍的基準,實際值再乘 MONSTER_POP:
+// 第 2 級 = 主狩獵區 28 隻/1.25 秒、其他區 12 隻/4 秒。
 export const REGION_DENSITY=[
   {level:1,numeral:'I',name:'稀疏',cap:8,other:4,every:4,otherEvery:12},
   {level:2,numeral:'II',name:'標準',cap:14,other:6,every:2.5,otherEvery:8},
   {level:3,numeral:'III',name:'密集',cap:22,other:9,every:1.8,otherEvery:6},
-];
+].map(d=>({...d,cap:d.cap*MONSTER_POP,other:d.other*MONSTER_POP,every:d.every/MONSTER_POP,otherEvery:d.otherEvery/MONSTER_POP}));
 // 2026-10-31 使用者:怪物移動速度 ×1.5、攻擊速度 ×1.3。
 // 攻擊速度是「間隔變短」→ 攻擊間隔 ÷1.3(近戰 1.8→1.385 秒、首領 1.5→1.154、遠程 each÷1.3);走路動畫照位移距離推進,會自己跟著變快。
 // 只影響魔物(含首領),英雄、流浪英雄、村民都不動。

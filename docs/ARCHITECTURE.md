@@ -18,7 +18,7 @@
 | `src/village-grid.js` | 村莊 4×4 棋盤：建築位置、街道、村界、出入口（改版面只改這裡） |
 | `src/landscape-layout.js` | 道路、柵欄、池塘、碰撞（`buildingSolid`、`onPaved`、`doorStand`） |
 | `src/village-nav.js` | 村內 8 方向 A*，0.5 格解析度 |
-| `src/overworld.js` | 世界 74×69、七個狩獵區、生態域、環形道路 |
+| `src/overworld.js` | 世界 94×89(2026-11-18 擴張,七區面積各 ×2,`worldRevision` 5)、七個狩獵區、生態域、環形道路 |
 | `src/concept-ground.js` / `concept-props.js` | 概念圖對齊的地面與道具 |
 | `src/lore.js` / `hero-chatter.js` | 魔物名稱與設定、獵人對話 |
 | `src/asset-loading.js` | `trackImage`：**新增任何 `new Image` 都要包它**，否則讀取畫面閘門失效 |

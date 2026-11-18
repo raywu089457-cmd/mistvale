@@ -1063,7 +1063,7 @@ let renderDprMax=Math.max(1,dprCap||autoDpr());   // 畫布解析度上限(devic
   // 縮放階梯:每個元素都各自把自己的世界座標四捨五入到整數螢幕像素,所以 scale 每動一點點,
   // 所有元件都會各自「跳一格」= 縮放時整個畫面在抖。把使用者縮放鎖在等比階梯(約 1.05 倍一階)上,
   // 位置重排只發生在換階的瞬間;階梯夠細(5%),連續 pinch 看起來就是平滑的,不會一格一格跳。
-  const ZOOM_MIN=.75,ZOOM_MAX=5.4;   // 最遠只能放到 0.75 倍(再遠就只會看到一堆海)
+  const ZOOM_MIN=.65,ZOOM_MAX=5.4;   // 最遠只能放到 0.65 倍(2026-11-18 地圖變大後,桌機 1366×768 還能一眼看完整張地圖;再遠就只會看到一堆海)
   const ZOOM_LADDER=(()=>{const a=[];for(let s=.48;s<=ZOOM_MAX+.0001;s*=1.05)a.push(+s.toFixed(3));return a;})();
   // 縮小的下限:0.75,但「首頁剛好放得下整村」如果比 0.75 小(手機),就以現在的比例為下限,不會反而放大。
   const zoomFloor=()=>Math.min(ZOOM_MIN,scale);

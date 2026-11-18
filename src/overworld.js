@@ -1,11 +1,13 @@
 import {inVillageBounds,VILLAGE_BOUNDS} from './village-grid.js';
 // One shared world contract for drawing, travel, spawning and saved coordinates.
 // 2026-10-19:整場地圖縮小。村莊收攏成緊湊棋盤(30.1 × 26.9),野外面積砍一半(8046 → 4014,可走範圍 72 × 67);
-// 世界 74 × 69,村莊靠西,七個狩獵區圍著村莊一圈(起始角依新的形狀重新切成每區面積相等)。
-// 世界以「村莊中心」為中心(74 × 69):村界到四邊的距離完全相同,外圍七個野怪區的縱深才會一樣,
+// 七個狩獵區圍著村莊一圈(起始角依新的形狀重新切成每區面積相等)。
+// 世界以「村莊中心」為中心:村界到四邊的距離幾乎相同,外圍七個野怪區的縱深才會一樣,
 // 不會再出現「西邊只有 13 格、東邊有 31 格」那種一側被壓扁的環。
+// 2026-11-18 使用者:怪物區域擴展兩倍大。村莊不動,世界 74×69 → 94×89(寬高的奇偶不變,地面格線對齊原本的位置),
+// 七個狩獵區的陸地面積各 ×2(舊 2,951 → 新約 5,900 平方格);舊地圖的每一格陸地在新地圖上都還是陸地(舊座標全部有效)。
 const VCMD={x:(VILLAGE_BOUNDS.minX+VILLAGE_BOUNDS.maxX)/2,z:(VILLAGE_BOUNDS.minZ+VILLAGE_BOUNDS.maxZ)/2};
-export const WORLD={minX:VCMD.x-37,maxX:VCMD.x+37,minZ:VCMD.z-34.5,maxZ:VCMD.z+34.5,width:74,height:69,area:5106,seed:349180};
+export const WORLD={minX:VCMD.x-47,maxX:VCMD.x+47,minZ:VCMD.z-44.5,maxZ:VCMD.z+44.5,width:94,height:89,area:8366,seed:349180};
 // ── 狩獵區:七個怪物地形從村莊右邊開始逆時針圍成一圈,依風險由低到高(向陽草原 → 鐵脊山麓)。
 // 每區的範圍就是整片地形(生怪、閒晃、找怪都在區內);區與區的分界是從村莊中心射出的畫面角,
 // 角度依「每區面積約相等」切分(2026-10-18),所以各區大小差不多、不會有一區只剩一條邊。
@@ -16,7 +18,7 @@ const isoX=(x,z)=>(x-z)*9,isoY=(x,z)=>(x+z)*4.5;   // 與畫面的等角投影�
 const mod=(a,m)=>((a%m)+m)%m;
 // ── 海岸線:世界邊界不是直線。四面都用「低頻海灣＋中頻岬角＋一點毛邊」的弦波決定陸地從哪裡結束,
 // 所以整張地圖是一圈不規則海岸的島,不會出現筆直的海岸線。
-const COAST_MIN=1.6,COAST_MAX=6.4;   // 海岸內縮的範圍(格):至少 1.6(陸地不會貼在世界邊界上),最多 6.4
+const COAST_MIN=1.6,COAST_MAX=5.9;   // 海岸內縮的範圍(格):至少 1.6(陸地不會貼在世界邊界上),最多 5.9(2026-11-18 從 6.4 微調,七區面積才剛好 ×2)
 function coastInset(x,z){
  // 四個頻率的弦波都先轉成 0..1 再加權平均 → 一定是 0..1,不會因為正弦全部同向而出現「陸地貼到邊界」的直線段。
  const w=a=>(Math.sin(a)+1)/2;
@@ -37,16 +39,73 @@ function ringPhi(x,z){
  // 所以區的「逆時針順序」不會被打亂,只有邊界形狀改變。
  phi+=.088*Math.sin(phi*3+r*.055+1.3)+.05*Math.sin(phi*7-r*.115)+.026*Math.sin(phi*13+r*.23+2.1);
  return mod(phi,TAU);}
+// ── 環村道路(2026-10-28) ───────────────────────────────────────────────
+// 沿著圍籬外側一圈的封閉道路,四個出村口各有短引道接上來。
+// 英雄出村→別的狩獵區一律先走這條路(見 pixel-game 的 ringWaypoints),而且**路上的獵物不會被魔物鎖定**
+// (pixel-game 的索敵會跳過 onRingRoad 的位置),所以移動途中不會被路邊的怪騷擾。
+export const RING_ROAD_OFFSET = 3.4;     // 離村界多遠(留一段草地把道路跟圍籬分開)
+export const RING_ROAD_HALF = 1.05;      // 道路半寬(格)
+export const RING_ROAD = (() => {
+  // 矩形外擴 o，四角用「半徑 o 的四分之一圓」收邊：整圈每個點都離村界 o 格，
+  // 不會像切角那樣把斜線切進村莊的角落（實測切角會在角落變成 0 距離）。
+  const b = VILLAGE_BOUNDS, o = RING_ROAD_OFFSET;
+  const x0 = b.minX - o, x1 = b.maxX + o, z0 = b.minZ - o, z1 = b.maxZ + o;
+  const arc = (cx, cz, a0) => {
+    const pts = [];
+    for (let k = 0; k <= 8; k++) {
+      const a = a0 + (Math.PI / 2) * (k / 8);
+      pts.push({ x: cx + o * Math.cos(a), z: cz + o * Math.sin(a) });
+    }
+    return pts;
+  };
+  const edge = (ax, az, bx, bz) => {
+    const len = Math.hypot(bx - ax, bz - az), steps = Math.max(1, Math.round(len / 2));
+    const pts = [];
+    for (let k = 0; k < steps; k++) pts.push({ x: ax + (bx - ax) * k / steps, z: az + (bz - az) * k / steps });
+    return pts;
+  };
+  const pts = [];
+  // 上邊（z0）由左往右 → 右上圓角 → 右邊 → 右下 → 下邊 → 左下 → 左邊 → 左上
+  pts.push(...edge(b.minX, z0, b.maxX, z0), ...arc(b.maxX, b.minZ, -Math.PI / 2));
+  pts.push(...edge(x1, b.minZ, x1, b.maxZ), ...arc(b.maxX, b.maxZ, 0));
+  pts.push(...edge(b.maxX, z1, b.minX, z1), ...arc(b.minX, b.maxZ, Math.PI / 2));
+  pts.push(...edge(x0, b.maxZ, x0, b.minZ), ...arc(b.minX, b.minZ, Math.PI));
+  return pts;
+})();
+// 環路的外框:點在外框外超過 limit 格,離環路一定超過 limit 格,不用逐段算距離(2026-11-18 魔物變兩倍,這是模擬裡最熱的一段)。
+const RING_BOX={minX:Math.min(...RING_ROAD.map(p=>p.x)),maxX:Math.max(...RING_ROAD.map(p=>p.x)),minZ:Math.min(...RING_ROAD.map(p=>p.z)),maxZ:Math.max(...RING_ROAD.map(p=>p.z))};
+export function ringRoadFar(x,z,limit){return x<RING_BOX.minX-limit||x>RING_BOX.maxX+limit||z<RING_BOX.minZ-limit||z>RING_BOX.maxZ+limit;}
+// T68: straight meadow/mountain border on the right. Its west end is the first ring-road point hit by
+// the screen-angle-0 ray from the village centre (the same direction that used to be the border).
+const FOOTHILLS_EDGE=(()=>{
+ const d=ringDir(0);   // 草原的起始畫面角固定是 0
+ let best=Infinity;
+ for(let i=0;i<RING_ROAD.length;i++){
+  const a=RING_ROAD[i],b=RING_ROAD[(i+1)%RING_ROAD.length];
+  const ex=b.x-a.x,ez=b.z-a.z,den=d.x*ez-d.z*ex;
+  if(Math.abs(den)<1e-12)continue;
+  const qx=a.x-VC.x,qz=a.z-VC.z;
+  const t=(qx*ez-qz*ex)/den,u=(qx*d.z-qz*d.x)/den;
+  if(t>1e-9&&u>=-1e-9&&u<=1+1e-9&&t<best)best=t;
+ }
+ return {x:VC.x+d.x*best,z:VC.z+d.z*best,endX:WORLD.maxX};
+})();
+// 各區陸地面積的比例 = 2026-11-18 擴張前實測的面積(平方格),所以擴張後「每一區」都是自己的兩倍,不只是總和兩倍。
+const REGION_AREA_SHARE={meadow:449,birch:420.3,forest:424.8,taiga:420.6,desert:420.3,snow:421.8,mountain:394.1};
 // 各區起始畫面角(弧度,逆時針;0 = 畫面右邊)。不寫死角度:掃描整片陸地、依 ringPhi 的分位數切,
-// 這樣「海岸線吃掉邊角」之後每一區的陸地面積還是幾乎相等(地形均勻分佈在村莊四周)。
+// 這樣「海岸線吃掉邊角」之後每一區的陸地面積還是照上面的比例。
+// 草原／山麓在村莊東邊的交界是一條直線(FOOTHILLS_EDGE),直線以北那塊楔形照角度算是山麓、實際歸草原,
+// 地圖越大楔形越大:切角度時把楔形先扣掉,兩區的面積才會對。
 const RING_START=(()=>{
- const phis=[];
+ const phis=[];let wedge=0;
  for(let z=WORLD.minZ;z<WORLD.maxZ;z+=.5)for(let x=WORLD.minX;x<WORLD.maxX;x+=.5){
   if(!inWorld(x,z)||inVillageBounds(x,z))continue;
-  phis.push(ringPhi(x,z));}
- phis.sort((a,b)=>a-b);
- const starts=[0];
- for(let k=1;k<RING_ORDER.length;k++)starts.push(phis[Math.min(phis.length-1,Math.floor(phis.length*k/RING_ORDER.length))]||0);
+  const phi=ringPhi(x,z);phis.push(phi);
+  if(x>=FOOTHILLS_EDGE.x){if(z<=FOOTHILLS_EDGE.z&&phi>Math.PI)wedge++;else if(z>FOOTHILLS_EDGE.z&&phi<Math.PI)wedge--;}}   // 起伏會讓交界附近幾格落在另一側,兩個方向都要算
+ phis.sort((p,q)=>p-q);
+ const unit=phis.length/RING_ORDER.reduce((n,id)=>n+REGION_AREA_SHARE[id],0);
+ const starts=[0];let at=REGION_AREA_SHARE[RING_ORDER[0]]*unit-wedge;
+ for(let k=1;k<RING_ORDER.length;k++){starts.push(phis[Math.max(0,Math.min(phis.length-1,Math.floor(at)))]||0);at+=REGION_AREA_SHARE[RING_ORDER[k]]*unit;}
  return starts;})();
 function ringIndex(x,z){
  const phi=ringPhi(x,z);let k=RING_START.length-1;while(k>0&&phi<RING_START[k])k--;
@@ -108,54 +167,6 @@ export function randomRegionPoint(id,rnd=Math.random){
  return regionCenter(id);}
 export const BIOME_PALETTE={village:'#719b55',meadow:'#8caf5d',forest:'#356b3d',taiga:'#527c68',snow:'#d9e8df',mountain:'#a09e91',desert:'#e0bb73',birch:'#9fbd67',river:'#3395bd',ice:'#94cbd3',bridge:'#a77b50',ocean:'#3d7488'};
 
-// ── 環村道路(2026-10-28) ───────────────────────────────────────────────
-// 沿著圍籬外側一圈的封閉道路,四個出村口各有短引道接上來。
-// 英雄出村→別的狩獵區一律先走這條路(見 pixel-game 的 ringWaypoints),而且**路上的獵物不會被魔物鎖定**
-// (pixel-game 的索敵會跳過 onRingRoad 的位置),所以移動途中不會被路邊的怪騷擾。
-export const RING_ROAD_OFFSET = 3.4;     // 離村界多遠(留一段草地把道路跟圍籬分開)
-export const RING_ROAD_HALF = 1.05;      // 道路半寬(格)
-export const RING_ROAD = (() => {
-  // 矩形外擴 o，四角用「半徑 o 的四分之一圓」收邊：整圈每個點都離村界 o 格，
-  // 不會像切角那樣把斜線切進村莊的角落（實測切角會在角落變成 0 距離）。
-  const b = VILLAGE_BOUNDS, o = RING_ROAD_OFFSET;
-  const x0 = b.minX - o, x1 = b.maxX + o, z0 = b.minZ - o, z1 = b.maxZ + o;
-  const arc = (cx, cz, a0) => {
-    const pts = [];
-    for (let k = 0; k <= 8; k++) {
-      const a = a0 + (Math.PI / 2) * (k / 8);
-      pts.push({ x: cx + o * Math.cos(a), z: cz + o * Math.sin(a) });
-    }
-    return pts;
-  };
-  const edge = (ax, az, bx, bz) => {
-    const len = Math.hypot(bx - ax, bz - az), steps = Math.max(1, Math.round(len / 2));
-    const pts = [];
-    for (let k = 0; k < steps; k++) pts.push({ x: ax + (bx - ax) * k / steps, z: az + (bz - az) * k / steps });
-    return pts;
-  };
-  const pts = [];
-  // 上邊（z0）由左往右 → 右上圓角 → 右邊 → 右下 → 下邊 → 左下 → 左邊 → 左上
-  pts.push(...edge(b.minX, z0, b.maxX, z0), ...arc(b.maxX, b.minZ, -Math.PI / 2));
-  pts.push(...edge(x1, b.minZ, x1, b.maxZ), ...arc(b.maxX, b.maxZ, 0));
-  pts.push(...edge(b.maxX, z1, b.minX, z1), ...arc(b.minX, b.maxZ, Math.PI / 2));
-  pts.push(...edge(x0, b.maxZ, x0, b.minZ), ...arc(b.minX, b.minZ, Math.PI));
-  return pts;
-})();
-// T68: straight meadow/mountain border on the right. Its west end is the first ring-road point hit by
-// the screen-angle-0 ray from the village centre (the same direction that used to be the border).
-const FOOTHILLS_EDGE=(()=>{
- const d=ringDir(RING_START[0]);
- let best=Infinity;
- for(let i=0;i<RING_ROAD.length;i++){
-  const a=RING_ROAD[i],b=RING_ROAD[(i+1)%RING_ROAD.length];
-  const ex=b.x-a.x,ez=b.z-a.z,den=d.x*ez-d.z*ex;
-  if(Math.abs(den)<1e-12)continue;
-  const qx=a.x-VC.x,qz=a.z-VC.z;
-  const t=(qx*ez-qz*ex)/den,u=(qx*d.z-qz*d.x)/den;
-  if(t>1e-9&&u>=-1e-9&&u<=1+1e-9&&t<best)best=t;
- }
- return {x:VC.x+d.x*best,z:VC.z+d.z*best,endX:WORLD.maxX};
-})();
 function segDist(x, z, a, b) {
   const dx = b.x - a.x, dz = b.z - a.z, len = dx * dx + dz * dz;
   const t = len ? Math.max(0, Math.min(1, ((x - a.x) * dx + (z - a.z) * dz) / len)) : 0;
@@ -183,7 +194,7 @@ export function nearestRingRoad(x, z) {
   return { index, distance: best };
 }
 // 是否站在環村道路上(含額外容差)
-export function onRingRoad(x, z, extra = 0) { return ringRoadDistance(x, z) <= RING_ROAD_HALF + extra; }
+export function onRingRoad(x, z, extra = 0) { return !ringRoadFar(x, z, RING_ROAD_HALF + extra) && ringRoadDistance(x, z) <= RING_ROAD_HALF + extra; }
 // 環上第 index 個點(自動取整與繞回)
 export function ringPointAt(index) { const n = RING_ROAD.length; return { ...RING_ROAD[mod(Math.round(index), n)] }; }
 // 從 a 沿著環走到索引 b 的路徑點(走較短的一側)

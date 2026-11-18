@@ -1,9 +1,9 @@
 import {getRoads,onPaved,doorStand,PALISADE,villagePonds,inPond,buildingSolid,statueSolid} from './landscape-layout.js';
 import {createVillageNav} from './village-nav.js';
-import {WORLD,REGIONS,walkable,inVillage,regionAt,regionContains,regionEdge,regionCenter,randomRegionPoint,wildAt,nearestRingRoad,ringRoadPath,ringPointAt,onRingRoad,ringRoadDistance,RING_ROAD_HALF,RING_ROAD} from './overworld.js';
+import {WORLD,REGIONS,RING_ORDER,walkable,inVillage,regionAt,regionContains,regionEdge,regionCenter,randomRegionPoint,wildAt,nearestRingRoad,ringRoadPath,ringPointAt,onRingRoad,ringRoadDistance,ringRoadFar,RING_ROAD_HALF,RING_ROAD} from './overworld.js';
 import {VILLAGE_BOUNDS,EXITS,blockAt,BUILDING_NUDGE,BUILDING_SLOTS,blockCenter} from './village-grid.js';
 import {sfx} from './sfx.js';
-import { SKILLS, BUILDINGS, CLASSES, RARITIES, PROMOTE, TRAITS, MATERIALS, PRODUCTS, RECIPES, GEAR_SLOTS, EQUIP_SLOTS, GEAR_TIERS, GEAR_TIER_MAX, gearAt, DIFFICULTIES, CAMP, HUNT_ZONE, PILOT_ATTACK, PILOT_ORB, MERCHANT, TRADE_RESERVE, AI_ATTACK_LOCK, KITE, PROVOKE, MONSTER_RANGED, LEGACY_LAYOUT_V14, LEGACY_LAYOUT_V15, LEGACY_LAYOUT_V16, ART_LAYOUT_HISTORY, REGION_DENSITY, DEFAULT_REGION_DENSITY, MONSTER_SPEED_MULT, MONSTER_ATTACK_RATE, EQUIPMENT, CLASS_STARTER, GEAR_DROP, gearItemView, gearGradeOf, dungeonGearGrade } from './pixel-data.js';
+import { SKILLS, BUILDINGS, CLASSES, RARITIES, PROMOTE, TRAITS, MATERIALS, PRODUCTS, RECIPES, GEAR_SLOTS, EQUIP_SLOTS, GEAR_TIERS, GEAR_TIER_MAX, gearAt, DIFFICULTIES, CAMP, HUNT_ZONE, PILOT_ATTACK, PILOT_ORB, MERCHANT, TRADE_RESERVE, AI_ATTACK_LOCK, KITE, PROVOKE, MONSTER_RANGED, LEGACY_LAYOUT_V14, LEGACY_LAYOUT_V15, LEGACY_LAYOUT_V16, ART_LAYOUT_HISTORY, REGION_DENSITY, DEFAULT_REGION_DENSITY, MONSTER_POP, MONSTER_SPEED_MULT, MONSTER_ATTACK_RATE, EQUIPMENT, CLASS_STARTER, GEAR_DROP, gearItemView, gearGradeOf, dungeonGearGrade } from './pixel-data.js';
 
 const mapById = list => Object.assign(Object.create(null), Object.fromEntries(list.map(item => [item.id, item])));
 const CLASS = mapById(CLASSES), BUILDING = mapById(BUILDINGS), RARITY = mapById(RARITIES), RECIPE = mapById(RECIPES);
@@ -333,7 +333,7 @@ export function createGame(saved = null) {
   // 原本進入第二個條件時會再把 ringRoadDistance(p) 算一次;這裡先算一次距離重複使用。
   // 比較式、短路順序、浮點運算完全相同。
   const ROAD_PAD = 0.35, ROAD_PAD_LIMIT = RING_ROAD_HALF + ROAD_PAD,
-    roadOk = (from, p) => { const d = ringRoadDistance(p.x, p.z); return d > ROAD_PAD_LIMIT || d > ringRoadDistance(from.x, from.z); };
+    roadOk = (from, p) => { if (ringRoadFar(p.x, p.z, ROAD_PAD_LIMIT)) return true; const d = ringRoadDistance(p.x, p.z); return d > ROAD_PAD_LIMIT || d > ringRoadDistance(from.x, from.z); };
   // 2026-10-31 使用者:「怪物在可行走區域邊緣不能來回抖動」。
   // 以前整步被擋就直接不動(或立刻換一個亂數目標,下一格又被擋),貼著海岸/區域邊界的魔物就會一格走一格回。
   // 改成:整步不行就試單一軸(沿著邊界滑),兩個軸都不行才判定走不動,並讓呼叫端停一段時間再換目標。
@@ -502,9 +502,23 @@ export function createGame(saved = null) {
   // 2026-10-28:跨區移動一律先沿「環村道路」走,再從最靠近目的地的位置切進地形。
   // waypoints = 環上最近的點 → 沿環(走較短的一側) → 目的地。
   // 這條路同時是安全走廊:魔物索敵會跳過站在環上的獵物(pixel-game 的 onRingRoad 檢查)。
+  // 從野外上環路的位置。2026-11-18 地圖變大後,區的外緣離「最近的環路點」常常隔著別的區(實測直線最多切過隔壁區 19 格):
+  // 直線走得到(全程在自己區裡)才用最近點;否則先朝自己區靠村的那一段走,從那裡上環路。
+  function ringEntry(from) {
+    const near = nearestRingRoad(from.x, from.z), rid = regionAt(from.x, from.z)?.id;
+    if (!rid || rid === 'village' || !regionContains(rid, from.x, from.z)) return near;
+    const p = ringPointAt(near.index), n = Math.ceil(distance(from, p) / 0.5);
+    for (let i = 1; i <= n; i++) {
+      const x = from.x + (p.x - from.x) * i / n, z = from.z + (p.z - from.z) * i / n;
+      if (regionContains(rid, x, z) || onRingRoad(x, z, 0.5)) continue;
+      const edge = regionEdge(rid);
+      return { index: nearestRingRoad(edge.x, edge.z).index, distance: near.distance };
+    }
+    return near;
+  }
   function ringWaypoints(from, target) {
     if (!target) return [];
-    const a = nearestRingRoad(from.x, from.z), b = nearestRingRoad(target.x, target.z);
+    const a = ringEntry(from), b = nearestRingRoad(target.x, target.z);
     const ring = ringRoadPath(a.index, b.index);
     // 隔一個點取一個,最後一個環上點一定要留(2026-11-17 修正:以前是 ring.length = 12「截斷」而不是取樣,
     // 遠一點的目的地會在半路離開環路、直線切過別的狩獵區 —— Lv.1 新人要去草原卻穿過鐵脊山麓被岩塊怪打死)。
@@ -514,7 +528,7 @@ export function createGame(saved = null) {
   // 返村路線(2026-11-17):先走到最近的環村道路,沿環走到「沿環最近」的出村口,再進村走到門口。
   // 以前直接從野外直線走向門口,會穿過別的狩獵區(受傷的獵人在半路被別區的魔物打死)。走不通就退回直線。
   function homeRoute(h, buildingId) {
-    const near = nearestRingRoad(h.x, h.z), n = RING_ROAD.length;
+    const near = ringEntry(h), n = RING_ROAD.length;
     let gate = null, best = Infinity;
     for (const g of GATES) { const k = Math.abs(nearestRingRoad(g.out.x, g.out.z).index - near.index) % n, steps = Math.min(k, n - k); if (steps < best) { best = steps; gate = g; } }
     // 已經在環路內側、出村口比環路還近(例如剛出門):直接進村,不要先繞去環路再回頭
@@ -693,12 +707,14 @@ export function createGame(saved = null) {
   // 原本誰都去「輕鬆」裡最危險的區:第 30 天存檔 12.5 位獵人＋7 位流浪英雄擠在鐵脊山麓(非主狩獵區,8 秒才補 1 隻),
   // 那區平均只有 0.1 隻活著的魔物,其他區都滿著沒人打 → 野外的獵人大多沒有目標,難度越高(山麓不再輕鬆、被迫分散)反而賺越多。
   // 現在每區有「容量」= 補怪速度 × killSec(一位忙碌的獵人約 killSec 秒打完一隻、找下一隻):
-  //   主狩獵區(state.region,第 2 級 2.5 秒一隻)= 8 人,其他區(8 秒一隻)= 2.5 人;立牌密度 I/III 跟著變。
+  //   主狩獵區(state.region,第 2 級 1.25 秒一隻)= 8 人,其他區(4 秒一隻)= 2.5 人;立牌密度 I/III 跟著變。
+  //   2026-11-18 怪物量 ×2:killSec 跟著減半,容量維持 8/2.5。不減半的話容量會變 16/5,實測第 6/16 天獵人從分散 5 區縮到 3 區,
+  //   橡木密林、白樺花原幾乎沒人去;「獵人分散到各區」是這個機制的目的,多出來的魔物讓每區更好打,不是讓人更擠。
   // 挑區時,加入後超過容量的部分每人扣 weight 分(連續值)。分數尺度是危險度 ×10,相鄰兩區差 0.5–1.5 → 扣 4 分足以讓第 3 位改去下一個區,
   // 但「有空位」時仍照危險度挑。只在「輕鬆」的區之間比(擠也不會去可行/危險的區);不擲骰。
   // 「已在區內」= 其他存活、有狩獵區的獵人(玩家派的、自主的;不含地下城/競技場)＋流浪英雄(牠們也在吃同一區的魔物;流浪英雄自己挑區的規則不變)。
   // 不需要在野外重新評估:自主獵人每次回村辦事(實測約每 2 分鐘一次)會清掉狩獵區、出門時重挑,看得到當下的人數 → 不會在兩區之間來回跳。
-  const HUNT_ROOM = { killSec: 20, weight: 4 };
+  const HUNT_ROOM = { killSec: 20 / MONSTER_POP, weight: 4 };
   function densityOf(id) { return REGION_DENSITY[Math.max(0, Math.min(2, (state.regionDensity?.[id] ?? DEFAULT_REGION_DENSITY) - 1))]; }
   function huntRoom(rid) { const d = densityOf(rid); return HUNT_ROOM.killSec / (rid === state.region ? d.every : d.otherEvery); }
   function fieldCrowd(self) {
@@ -1002,6 +1018,8 @@ export function createGame(saved = null) {
   // 2026-11-16 定案(docs/BALANCE.md):高難度＝更高收益。野外材料掉落 × (1 + (難度倍率 − 1) / 2):初級 ×1、普通 ×1.35、困難 ×1.9、專家 ×2.75、噩夢 ×4。
   //   四捨五入成整數(不擲骰、不加存檔欄位);金幣本來就 × √倍率。地下城不受難度影響,維持原樣。
   // 2026-11-18 首領的生命跟著召喚地的危險度(region.risk)變高,獎勵原本沒跟上 → 獵人金幣、掉落、村莊星晶一起乘危險度(最少 ×1)
+  // 2026-11-18 狩獵區面積 ×2:獵人站得更開,「附近一起拿全額經驗」的範圍 12 → 15 格,否則第 15 天中位等級從 59 掉到 52.6(掃描 12/14/15/17 格,見 BALANCE.md「怪物區域與數量 ×2」)。
+  const XP_SHARE_RANGE = 15;
   const FIELD_XP = 1.2;   // 2026-11-18 野外擊倒經驗 ×1.2:獵人照區域容量分散後(3eaa5b8),「12 格內一起拿全額經驗」的人變少,第 15 天最強獵人掉到 60–78(目標 71–90);×1.2 → 76–82、轉世回到第 20–21 天(見 BALANCE.md)
   const bossRiskOf = regionId => Math.max(1, REGIONS.find(r => r.id === regionId)?.risk || 1);
   function bossLoot(risk) { const data = ENEMIES.boss, m = DIFFICULTIES[state.difficulty]?.mult ?? 1, drops = {}; for (const [k, a] of Object.entries(data.drops)) drops[k] = Math.round(dropAmount(a) * risk); return { gold: Math.round(data.gold * Math.sqrt(m) * risk), drops, gems: Math.round(5 * risk) }; }
@@ -1275,7 +1293,7 @@ export function createGame(saved = null) {
     effect('loot', enemy, { text: `+${gold}`, color: '#efcd82', delay: 0.35 });
     // iso 擊殺:靈魂從屍體往上飄(soul-rise-iso)、金幣從身上彈出來在地上跳(coin-drop-iso)。純畫面,不影響掉落。
     isoEffect('soul-rise-iso', enemy, 3.6, { delay: .1 }); isoEffect('coin-drop-iso', enemy, 3.4, { delay: .45 });
-    for (const h of state.hunters) if (h.hp > 0 && h.task !== 'dungeon' && h.task !== 'arena' && (distance(h, enemy) < 12 || h === hunter)) gainXp(h, Math.round(data.xp * Math.sqrt(multiplier) * zoneRk * FIELD_XP));
+    for (const h of state.hunters) if (h.hp > 0 && h.task !== 'dungeon' && h.task !== 'arena' && (distance(h, enemy) < XP_SHARE_RANGE || h === hunter)) gainXp(h, Math.round(data.xp * Math.sqrt(multiplier) * zoneRk * FIELD_XP));
     if (enemy.type === 'boss') {
       state.bossKills++; state.gems += bossGems; Object.assign(state.expedition, { active: false, bossHp: 0, cooldown: 55, elapsed: 0 });
       const bossGear = rollGearDrop('boss'); if (bossGear) grantGear(bossGear, '森林領主的寶箱', undefined, true);
@@ -1701,9 +1719,9 @@ export function createGame(saved = null) {
     const prevDay = state.day; state.time += dt; state.day = Math.floor(state.time / 240) + 1;
     if (state.day > prevDay) newDayVisitor();
     state.healCooldown = Math.max(0, state.healCooldown - dt); state.expedition.cooldown = Math.max(0, state.expedition.cooldown - dt); state.dungeon.cooldown = Math.max(0, state.dungeon.cooldown - dt); state.arena.cooldown = Math.max(0, state.arena.cooldown - dt);
-    // 定時生怪:每個狩獵區都有自己的族群。目前狩獵區 4.5 秒補一隻、上限 8;其他區 8 秒補一隻、上限 3(野外面積砍一半後,沒人在打的區魔物也跟著減半,畫面才不會擠成一團)。
+    // 定時生怪:每個狩獵區都有自己的族群。主狩獵區與其他區的上限、補怪間隔見 REGION_DENSITY。
     state.spawnTimer += dt;
-    // 2026-10-30:上限與補怪間隔照各地區立牌設定的等級(REGION_DENSITY);預設第 2 級＝原本的 14 隻/2.5 秒、其他區 6 隻/8 秒。
+    // 2026-10-30:上限與補怪間隔照各地區立牌設定的等級(REGION_DENSITY);預設第 2 級＝主狩獵區 28 隻/1.25 秒、其他區 12 隻/4 秒(2026-11-18 怪物量 ×2)。
     const densOf = densityOf;
     const homeDensity = densOf(state.region);
     if (state.spawnTimer >= homeDensity.every) { state.spawnTimer -= homeDensity.every; const n = state.enemies.filter(e => e.hp > 0 && e.type !== 'boss' && e.regionId === state.region).length; if (n < homeDensity.cap) { const mix = REGION_MIX[state.region] || REGION_MIX.meadow; spawn(mix[Math.floor(random() * mix.length)], null, state.region); } }
@@ -2010,7 +2028,7 @@ export function createGame(saved = null) {
   function fresh() {
 
     for (const key of Object.keys(state)) delete state[key];
-    Object.assign(state, { version: 4, layoutRevision: 3, worldRevision: 4, region: 'meadow', visitedRegions:['village','meadow'], gold: 1500, wood: 160, ore: 120, herb: 60, cloth: 60, flour: 80, leather: 50, gems: 20, day: 1, time: 0, paused: false, speed: 1, difficulty: 0, kills: 0, totalKills: 0, bossKills: 0, codex: {}, recruited: 0, hunters: [], enemies: [], buildings: Object.fromEntries(BUILDINGS.map(b => [b.id, UNBUILT.has(b.id) ? 0 : 1])), layout: Object.fromEntries(BUILDINGS.map(b => [b.id, { x: b.x, z: b.z }])), stocks: { food: 30, drink: 30, bed: 30, bandage: 30 }, gearStock: emptyGearStock(), gearStorage: [], gearSeq: 1, tradeRequests: { wood: 30, ore: 40, herb: 30, cloth: 30, flour: 40, leather: 30 }, tradeStanding: Object.fromEntries(MATERIAL_KEYS.map(k => [k, false])), autoJunk: 'sell', counts: { crafted: 0, foodCrafted: 0, traded: 0, gearCrafted: 0, weaponsCrafted: 0, gearSold: 0, gearUpgrades: 0, gearIncome: 0, services: 0, basicServices: 0, serviceIncome: 0, dungeonWins: 0, rebirths: 0, deaths: 0, trained: 0, hunterGold: 0, hunterPay: 0, wanderGold: 0, wanderPay: 0 }, effects: [], log: [], quest: { index: 0, claimed: false }, questRevision: QUEST_REVISION, questFinalPaid: false, expedition: { active: false, bossHp: 0, bossMaxHp: 1150, cooldown: 0, elapsed: 0 }, dungeon: { active: false, floor: 1, bestFloor: 0, wave: 0, enemyHp: 0, enemyMaxHp: 0, time: 0, hunterIds: [], reward: {}, cooldown: 0, phase: '待命', attackTimer: 1, foes: [], events: [], auto: false, startFloor: 0, rest: 0 }, healCooldown: 0, capacity: Math.max(8, CLASSES.length + 2), spawnTimer: 0, seed: 918273, nextId: 0, rally: null, dispatchTeams: defaultDispatchTeams(), regionDensity: normalizeRegionDensity(null), settings: { ...DEFAULT_SETTINGS } });
+    Object.assign(state, { version: 4, layoutRevision: 3, worldRevision: 5, region: 'meadow', visitedRegions:['village','meadow'], gold: 1500, wood: 160, ore: 120, herb: 60, cloth: 60, flour: 80, leather: 50, gems: 20, day: 1, time: 0, paused: false, speed: 1, difficulty: 0, kills: 0, totalKills: 0, bossKills: 0, codex: {}, recruited: 0, hunters: [], enemies: [], buildings: Object.fromEntries(BUILDINGS.map(b => [b.id, UNBUILT.has(b.id) ? 0 : 1])), layout: Object.fromEntries(BUILDINGS.map(b => [b.id, { x: b.x, z: b.z }])), stocks: { food: 30, drink: 30, bed: 30, bandage: 30 }, gearStock: emptyGearStock(), gearStorage: [], gearSeq: 1, tradeRequests: { wood: 30, ore: 40, herb: 30, cloth: 30, flour: 40, leather: 30 }, tradeStanding: Object.fromEntries(MATERIAL_KEYS.map(k => [k, false])), autoJunk: 'sell', counts: { crafted: 0, foodCrafted: 0, traded: 0, gearCrafted: 0, weaponsCrafted: 0, gearSold: 0, gearUpgrades: 0, gearIncome: 0, services: 0, basicServices: 0, serviceIncome: 0, dungeonWins: 0, rebirths: 0, deaths: 0, trained: 0, hunterGold: 0, hunterPay: 0, wanderGold: 0, wanderPay: 0 }, effects: [], log: [], quest: { index: 0, claimed: false }, questRevision: QUEST_REVISION, questFinalPaid: false, expedition: { active: false, bossHp: 0, bossMaxHp: 1150, cooldown: 0, elapsed: 0 }, dungeon: { active: false, floor: 1, bestFloor: 0, wave: 0, enemyHp: 0, enemyMaxHp: 0, time: 0, hunterIds: [], reward: {}, cooldown: 0, phase: '待命', attackTimer: 1, foes: [], events: [], auto: false, startFloor: 0, rest: 0 }, healCooldown: 0, capacity: Math.max(8, CLASSES.length + 2), spawnTimer: 0, seed: 918273, nextId: 0, rally: null, dispatchTeams: defaultDispatchTeams(), regionDensity: normalizeRegionDensity(null), settings: { ...DEFAULT_SETTINGS } });
     rebuildNavigation();
     state.visitors = [];
     state.arena = { active: false, wins: 0, losses: 0, enemyHp: 0, enemyMaxHp: 0, time: 0, hunterIds: [], cooldown: 0, phase: '待命', attackTimer: 1, opponent: '暮林訓練隊', reward: 0 };
@@ -2022,9 +2040,9 @@ export function createGame(saved = null) {
     // 2026-10-28:流浪英雄也改成每個職業各一隻(沒指定職業時仍隨機)
     state.wanderers = []; for (const c of CLASSES) state.wanderers.push(newWanderer(c.id));
     state.wanderKills = 0;
-    for (let i = 0; i < 10; i++) { const m = mixOf('meadow'); spawn(m[Math.floor(random() * m.length)], null, 'meadow'); }  // 開局草原就有 10 隻
-    // 其他狩獵區各 5 隻;*不*預先下載牠們的 sheet(21 隻要 5.6 MB)——真的畫到或進區時才載。
-    for (const a of REGIONS) if (a.id !== 'village' && a.id !== 'meadow') { const mix = mixOf(a.id); for (let i = 0; i < 5; i++) spawn(mix[Math.floor(random() * mix.length)], null, a.id); }
+    for (let i = 0; i < 10 * MONSTER_POP; i++) { const m = mixOf('meadow'); spawn(m[Math.floor(random() * m.length)], null, 'meadow'); }  // 開局草原就有 20 隻
+    // 其他狩獵區各 10 隻;*不*預先下載牠們的 sheet(21 隻要 5.6 MB)——真的畫到或進區時才載。
+    for (const a of REGIONS) if (a.id !== 'village' && a.id !== 'meadow') { const mix = mixOf(a.id); for (let i = 0; i < 5 * MONSTER_POP; i++) spawn(mix[Math.floor(random() * mix.length)], null, a.id); }
     log(`${['零', '一', '二', '三', '四', '五', '六', '七', '八', '九', '十'][state.hunters.length] ?? state.hunters.length}位獵人抵達暮影村。準備餐點、收購戰利品，讓小鎮繁盛起來。`, 'success'); refreshQuest();   // Z2D:人數從資料讀(開局每個職業一位),不寫死「五位」
   }
 
@@ -2049,7 +2067,10 @@ export function createGame(saved = null) {
     if (!source || typeof source !== 'object' || Array.isArray(source) || (source.version !== 2 && source.version !== 3 && source.version !== 4)) return;
     // 2026-10-19 起地圖縮小、村莊重排(worldRevision 4):舊存檔裡的座標(英雄、流浪英雄、魔物、集結點)和自訂建築位置在新地圖上沒有意義,
     // 所以建築回到新預設、英雄回營地、魔物與流浪英雄的位置重新來;進度、資源、等級都保留。
-    const oldMap = source.worldRevision !== 4;
+    // 2026-11-18 地圖擴張(worldRevision 5):村莊沒動、舊陸地全部還是陸地,所以 4 → 5 不重置任何座標與建築;
+    // 只有區界跟著移動了,魔物要重新放回自己那一區(見下面還原 enemies 的地方)。
+    const oldMap = source.worldRevision !== 4 && source.worldRevision !== 5;
+    const regionsMoved = source.worldRevision === 4;
     // 2026-10-24 遊俠併入弓箭手、移除獵魔人:舊存檔的 ranger／witchhunter 轉成 archer(等級、裝備、名字都保留),不然下面 own(CLASS) 會把他們整隻濾掉。
     for (const list of [source.hunters, source.visitors, source.wanderers]) if (Array.isArray(list)) for (const x of list) if (x && (x.classId === 'ranger' || x.classId === 'witchhunter')) x.classId = 'archer';
     state.region=REGIONS.some(r=>r.id===source.region&&r.id!=='village')?source.region:'meadow';
@@ -2142,6 +2163,7 @@ export function createGame(saved = null) {
       // kiting/kiteDir 是暫態(遠程後撤中),讀檔一律從「沒在後撤」開始。
       const base = { ...newWanderer(), ...w, speed: CLASS[w.classId].speed, range: Math.max(CLASS[w.classId].range, 1.75), route: [], kiting: false, kiteDir: null };
       if (oldMap) { const f = newWanderer(); Object.assign(base, { x: f.x, z: f.z, regionId: f.regionId, huntRegion: f.huntRegion, targetId: null, task: null, destination: null, inTown: false, serviceProduct: null, status: '遊蕩中' }); }
+      if (regionsMoved) Object.assign(base, { searchTo: null, searchUntil: 0, targetId: null });   // 舊的找怪目標點是照舊區界挑的;魔物的 id 下面也會重發
       // 性別:名字認得就用名字;否則存檔值;舊存檔沒有 → id 雜湊(不用上面 newWanderer() 隨機取名的性別)
       base.gender = nameGender(base.name) ?? (w.gender === 'f' || w.gender === 'm' ? w.gender : hunterGender(base.id));
       restoreGear(base, w);   // 裝備物品化(v4):流浪英雄跟獵人同一套遷移;newWanderer() 是隨機職業,初始件要照存檔的職業重發
@@ -2151,10 +2173,14 @@ export function createGame(saved = null) {
     // 委託:章節表改過版,舊存檔的 index 要對照到新表(規則見 migrateQuest)。
     { const q = migrateQuest(source); state.quest = { index: q.index, claimed: q.claimed }; state.questRevision = QUEST_REVISION; state.questFinalPaid = q.finalPaid; }
     state.enemies = [];
-    if (!oldMap && Array.isArray(source.enemies)) for (const raw of source.enemies.filter(e => e && own(ENEMIES, e.type) && e.type !== 'boss').slice(0, 40)) {
-      const e = spawn(raw.type, { x: number(raw.x,16,WORLD.minX+1,WORLD.maxX-1), z: number(raw.z,-2,WORLD.minZ+1,WORLD.maxZ-1) }); e.hp = number(raw.hp, e.maxHp, 1, e.maxHp); e.attackTimer = number(raw.attackTimer, 1, 0, 2); e.age = number(raw.age, 0, 0, 1e7);
+    // 上限 = 最高密度下每區都打滿(以前寫死 40,比第 2 級全圖的 50 隻還少,讀檔會少怪)。
+    if (!oldMap && Array.isArray(source.enemies)) for (const raw of source.enemies.filter(e => e && own(ENEMIES, e.type) && e.type !== 'boss').slice(0, REGION_DENSITY[2].cap * RING_ORDER.length)) {
+      const saved = { x: number(raw.x,16,WORLD.minX+1,WORLD.maxX-1), z: number(raw.z,-2,WORLD.minZ+1,WORLD.maxZ-1) };
+      // worldRevision 4 的魔物:站在舊區界裡,新區界下可能落到隔壁區(走不動,因為魔物不能離開自己的區)。留種類與血量,在原本那一區的新範圍重新找位置。
+      const movedTo = regionsMoved ? (RING_ORDER.includes(raw.regionId) ? raw.regionId : (regionAt(saved.x, saved.z).id !== 'village' ? regionAt(saved.x, saved.z).id : null)) : null;
+      const e = movedTo ? spawn(raw.type, null, movedTo) : spawn(raw.type, saved); e.hp = number(raw.hp, e.maxHp, 1, e.maxHp); e.attackTimer = number(raw.attackTimer, 1, 0, 2); e.age = number(raw.age, 0, 0, 1e7);
     }
-    if (!state.enemies.length) { const m = mixOf('meadow'); for (let i = 0; i < 6; i++) spawn(m[Math.floor(random() * m.length)], null, 'meadow'); }
+    if (!state.enemies.length) { const m = mixOf('meadow'); for (let i = 0; i < 6 * MONSTER_POP; i++) spawn(m[Math.floor(random() * m.length)], null, 'meadow'); }
     state.expedition.cooldown = number(source.expedition?.cooldown, 0, 0, 60);
     if (source.expedition?.active === true) { const boss = spawn('boss', regionCenter(state.region) || REGIONS[1]); boss.hp = number(source.expedition.bossHp, boss.maxHp, 1, boss.maxHp); Object.assign(state.expedition, { active: true, bossHp: boss.hp, bossMaxHp: boss.maxHp, elapsed: number(source.expedition.elapsed, 0, 0, 210) }); }
     const rawDungeon = source.dungeon, d = state.dungeon;
@@ -2473,7 +2499,7 @@ export function createGame(saved = null) {
       const difficulty = DIFFICULTIES.find(d => d.id === difficultyId); if (!difficulty) return result(false, '找不到這個狩獵難度。');
       if (state.expedition.active || state.dungeon.active || state.arena.active) return result(false, '討伐、地下城或對戰進行中，請結束後再切換難度。');
       const rebirths = state.hunters.reduce((sum, h) => sum + h.rebirths, 0); if (rebirths < difficulty.rebirths) return result(false, `${difficulty.name}難度需要全體獵人累計 ${difficulty.rebirths} 次轉世。`);
-      state.difficulty = difficulty.id; state.enemies = []; const dm = mixOf(state.region || 'meadow'); for (let i = 0; i < 8; i++) spawn(dm[Math.floor(random() * dm.length)], null, state.region && state.region !== 'village' ? state.region : 'meadow');
+      state.difficulty = difficulty.id; state.enemies = []; const dm = mixOf(state.region || 'meadow'); for (let i = 0; i < 8 * MONSTER_POP; i++) spawn(dm[Math.floor(random() * dm.length)], null, state.region && state.region !== 'village' ? state.region : 'meadow');
       for (const h of state.hunters) h.targetId = null; log(`狩獵難度切換為「${difficulty.name}」。`, 'warning'); return result(true, `已切換為${difficulty.name}難度。`);
     },
     setTradeRequest(materialId, amount) {
@@ -2827,7 +2853,7 @@ export function createGame(saved = null) {
       const region=REGIONS.find(r=>r.id===regionId&&r.id!=='village');if(!region)return result(false,'請選擇村外的生態區。');
       if(state.expedition.active)return result(false,'請先結束目前的首領討伐。');
       state.region=region.id;state.rally=null;if(!state.visitedRegions.includes(region.id))state.visitedRegions.push(region.id);
-      state.enemies=state.enemies.filter(e=>e.type==='boss'||e.regionId!==region.id);const mix=mixOf(region.id);preloadMix(mix);for(let i=0;i<12;i++)spawn(mix[Math.floor(random()*mix.length)],null,region.id);
+      state.enemies=state.enemies.filter(e=>e.type==='boss'||e.regionId!==region.id);const mix=mixOf(region.id);preloadMix(mix);for(let i=0;i<12*MONSTER_POP;i++)spawn(mix[Math.floor(random()*mix.length)],null,region.id);
       // 給「所有」存活獵人下指令(正在村內辦事的也先記下,辦完就出發),不要漏掉。
       for(const h of state.hunters)if(h.hp>0){h.huntRegion=region.id;h.autoHunt=false;h.targetId=null;if(!h.task){h.rallying=true;h.status='出征中';route(h,ringWaypoints({x:h.x,z:h.z},regionEdge(region.id)));}}
       log(`已派遣獵人前往${region.name}。隊伍會經由橋樑穿越河流。`,'success');return result(true,`出發探索${region.name}！`);
@@ -2840,10 +2866,10 @@ export function createGame(saved = null) {
       state.region = region.id;
       state.rally = null;   // 派遣不佔用玩家設的集結點:獵人走到區的邊緣,進區後自動搜尋
       if (!state.visitedRegions.includes(region.id)) state.visitedRegions.push(region.id);
-      // 該區魔物不足就先補到 6 隻,才不會派出去沒東西打
+      // 該區魔物不足就先補滿,才不會派出去沒東西打
       const alive = state.enemies.filter(e => e.hp > 0 && e.regionId === region.id).length;
       const mix = mixOf(region.id); preloadMix(mix);
-      for (let i = alive; i < 12; i++) spawn(mix[Math.floor(random() * mix.length)], null, region.id);
+      for (let i = alive; i < 12 * MONSTER_POP; i++) spawn(mix[Math.floor(random() * mix.length)], null, region.id);
       const chosen = Array.isArray(hunterIds) && hunterIds.length ? new Set(hunterIds) : null;
       let n = 0;
       for (const h of state.hunters) if (h.hp > 0 && (!chosen || chosen.has(h.id))) {
