@@ -88,6 +88,7 @@ function policy() {
 }
 
 let t = 0, nextPolicy = 0, lastDay = 1;
+const ARENA_TRACE = process.argv.includes('--arena-trace'); let arenaRun = null;   // --arena-trace: print each arena fight (wins before, result, fight seconds, lowest party HP%)
 const t0 = Date.now();
 const snap = () => {
   const lv = s.hunters.map(h => h.level).sort((a, b) => a - b);
@@ -114,6 +115,7 @@ while (s.day <= DAYS) {
     deathLog.push(`d${s.day} ${h.name} ${h.classId} lv${p.level ?? h.level} ${p.auto ? 'auto' : 'ordered'}:${p.region || '-'} status=${p.status || '?'} gear=${Object.values(h.equipment || {}).filter(Boolean).length}/7`);
   }
   lastDead = deadNow;
+  if (ARENA_TRACE) { const A = s.arena; if (A.active && A.phase === '對戰中') { arenaRun ??= { w: A.wins, t: 0, min: 1, p: (() => { const P = s.hunters.filter(h => A.hunterIds.includes(h.id)); return ' dps ' + Math.round(P.reduce((n, h) => n + h.attack / ((h.classId === 'sorcerer' ? 1.6 : h.classId === 'priest' ? 1.4 : 1.1) * (h.trait === 'swift' ? 0.9 : 1)), 0)) + ' hp ' + P.map(h => h.maxHp).join('/') + ' def ' + P.map(h => h.defense).join('/') + ' foe ' + A.enemyMaxHp; })() }; arenaRun.t++; for (const h of s.hunters.filter(h => A.hunterIds.includes(h.id))) arenaRun.min = Math.min(arenaRun.min, h.hp / h.maxHp); } else if (arenaRun && !A.active) { console.log('arena d' + s.day + ' w' + arenaRun.w + ' ' + A.phase + ' t' + arenaRun.t + 's minHp ' + Math.round(arenaRun.min * 100) + '% lv ' + s.hunters.filter(h => A.hunterIds.includes(h.id)).map(h => h.level).join('/') + arenaRun.p); arenaRun = null; } }
   for (const h of s.hunters) if (h.hp > 0) prevOf.set(h.id, { task: h.task, region: h.huntRegion, level: h.level, auto: h.autoHunt, status: h.status });
   if (s.day !== lastDay) { lastDay = s.day; rows.push(snap()); }
 }

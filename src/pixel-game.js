@@ -1544,12 +1544,15 @@ export function createGame(saved = null) {
   const ARENA_COOLDOWN = 120;
   // 2026-11-17:對手強度不再停在第 40 勝(獎勵仍封頂在第 40 勝)→ 舊版 40 勝後對手不變強,模擬 30 天 158 勝 0 敗、每場穩拿最高獎勵;
   //   前 40 勝照舊;之後對手生命每勝 ×1.08、攻擊 ×1.05,隊伍爬到自己的極限就會輸,要更強(轉世、換裝)才能繼續贏
-  const arenaFoeHp = w => Math.round((720 + Math.min(ARENA_CAP, w) * 130) * 1.08 ** Math.max(0, w - ARENA_CAP)), arenaFoeAtk = w => Math.round((21 + Math.min(ARENA_CAP, w) * 3) * 1.05 ** Math.max(0, w - ARENA_CAP));
+  // 2026-11-18 對手曲線(docs/BALANCE.md「競技場對手曲線」):原本每勝生命 +130、攻擊 +3 是直線,隊伍每秒傷害卻跟等級平方一起長 →
+  //   第 11 天起每場 2 秒打完、三人幾乎沒掉血,30 天 48 勝 0 敗。改成二次曲線,第 w 勝約是「Lv.3w 的三人打 20–30 秒、打完剩一點血」:
+  //   3 seed 第 15 天 21–23 勝(跟原本差不多),第 20–23 天開始會輸,第 30 天卡在 38–39 勝,要轉世/換裝才爬得上去。第 0 勝不變。 一場變長,最強三人少打一段野外 → 參賽經驗 80+15w 改 80+30w 補回來(第 15 天最高等級 82.8 → 82.5)。
+  const arenaFoeHp = w => { const c = Math.min(ARENA_CAP, w); return Math.round((720 + 750 * c + 40 * c * c) * 1.08 ** Math.max(0, w - ARENA_CAP)); }, arenaFoeAtk = w => { const c = Math.min(ARENA_CAP, w); return Math.round((21 + 5.4 * c + 0.047 * c * c) * 1.05 ** Math.max(0, w - ARENA_CAP)); };
   function endArena(won) {
     const a = state.arena; a.active = false; a.cooldown = ARENA_COOLDOWN; a.phase = won ? '勝利' : '落敗'; a.reward = won ? 90 + Math.min(ARENA_CAP, a.wins) * 25 : 0; const gems = won && (a.wins + 1) % 5 === 0 ? 2 + Math.floor(Math.min(ARENA_CAP, a.wins) / 10) : 0;
     if (won) { a.wins++; state.gold += a.reward; state.gems += gems; } else a.losses++;
     for (const h of state.hunters.filter(h => a.hunterIds.includes(h.id))) {
-      h.task = null; h.hp = h.maxHp; if (won) { h.gold += 25; gainXp(h, 80 + Math.min(ARENA_CAP, a.wins) * 15); } returnToTown(h);   // 模擬戰的傷不帶出場:賽後回滿生命(見 ARENA_COOLDOWN)
+      h.task = null; h.hp = h.maxHp; if (won) { h.gold += 25; gainXp(h, 80 + Math.min(ARENA_CAP, a.wins) * 30); } returnToTown(h);   // 模擬戰的傷不帶出場:賽後回滿生命(見 ARENA_COOLDOWN)
     }
     log(`競技場模擬對戰${won ? `獲勝（第 ${a.wins} 勝），村莊獲得 ${a.reward} 金幣${gems ? `與 ${gems} 星晶` : ''}` : '落敗，隊伍已安全撤回'}。`, won ? 'success' : 'warning');
   }
@@ -2591,7 +2594,7 @@ export function createGame(saved = null) {
       log(`${selected.map(h => h.name).join('、')}前往地下城第 ${d.floor} 層${d.auto ? '（自動續戰）' : ''}。`, 'info'); return result(true, '三位獵人已組成小隊，正在前往地下城入口。');
     },
     // 競技場下一場打贏的獎勵(UI 預覽用,跟 endArena 同一條公式)
-    arenaReward() { const w = Math.min(ARENA_CAP, state.arena.wins); return { gold: 90 + w * 25, gems: (state.arena.wins + 1) % 5 === 0 ? 2 + Math.floor(w / 10) : 0, xp: 80 + w * 15 }; },
+    arenaReward() { const w = Math.min(ARENA_CAP, state.arena.wins); return { gold: 90 + w * 25, gems: (state.arena.wins + 1) % 5 === 0 ? 2 + Math.floor(w / 10) : 0, xp: 80 + w * 30 }; },
     // 2026-11-16 競技場推薦隊伍(唯讀、不擲骰):對手每次打隨機一人、每秒傷害固定,勝負主要看輸出 →
     //   挑「每秒傷害」(攻擊 ÷ 出手間隔)最高、生命 ≥35%、沒在地下城／復活中的三人。
     // 下一場競技場對手的生命／攻擊(面板顯示用,跟 startArena 同一條公式)

@@ -821,8 +821,9 @@ assert.equal(arena.startDungeon(arena.state.arena.hunterIds).ok, false); run(are
 }
 { // 2026-11-17 競技場天梯:前 40 勝對手公式不變;之後對手繼續變強(生命 ×1.08、攻擊 ×1.05 每勝),獎勵封頂 → 不會永遠穩贏最高獎勵
   const g = createGame(), a = g.state.arena, foe = w => { a.wins = w; return g.arenaFoe(); };
-  assert.deepEqual(foe(0), { hp: 720, atk: 21 }); assert.deepEqual(foe(40), { hp: 720 + 40 * 130, atk: 21 + 40 * 3 }, 'first 40 wins unchanged');
-  assert.equal(foe(41).hp, Math.round(5920 * 1.08)); assert.ok(foe(60).hp > foe(40).hp * 4 && foe(60).atk > foe(40).atk * 2.5, 'opponent keeps growing past 40 wins');
+  assert.deepEqual(foe(0), { hp: 720, atk: 21 }); assert.deepEqual(foe(40), { hp: 720 + 750 * 40 + 40 * 40 * 40, atk: Math.round(21 + 5.4 * 40 + 0.047 * 1600) }, 'curve at the cap (2026-11-18 quadratic curve)');
+  assert.ok(foe(20).hp > foe(10).hp * 2.5 && foe(30).atk > foe(15).atk * 1.8, 'opponent grows faster than linearly (party DPS grows with level squared)');
+  assert.equal(foe(41).hp, Math.round(94720 * 1.08)); assert.ok(foe(60).hp > foe(40).hp * 4 && foe(60).atk > foe(40).atk * 2.5, 'opponent keeps growing past 40 wins');
   assert.equal(g.construct('training').ok, true); a.wins = 50; assert.equal(g.startArena().ok, true); assert.equal(a.enemyMaxHp, g.arenaFoe().hp, 'match uses the same formula');
 }
 { // 2026-11-18 競技場整備時間(docs/BALANCE.md「競技場整備時間」):整備 25 → 120 秒,首領討伐中不能開賽
