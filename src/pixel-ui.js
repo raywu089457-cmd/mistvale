@@ -974,8 +974,10 @@ if(a==='setDifficulty'){r=game.setDifficulty(Number(id));logToast(r.message,r.ok
   // ── 裝備物品(2026-11-15):身上的七格 → 卸下／存倉／出售／分解;空位直接從倉庫穿上
   if(a==='gearUnequip'){r=game.unequipGear(id,el.dataset.slot);logToast(r.message,r.ok);openHunter(id);paint();save();return;}
   if(a==='gearStore'){r=game.storeGear(id,el.dataset.slot);logToast(r.message,r.ok);openHunter(id);paint();save();return;}
-  if(a==='gearSell'){r=game.sellGear(id,el.dataset.slot);logToast(r.message,r.ok);openHunter(id);paint();save();return;}
-  if(a==='gearSalvage'){r=game.salvageGear(id,el.dataset.slot);logToast(r.message,r.ok);openHunter(id);paint();save();return;}
+  // 2026-11-18 身上的裝備出售／分解不能復原 → 先確認(倉庫裡的批次整理不變)
+  if(a==='gearSell'||a==='gearSalvage'){const slot=el.dataset.slot,h=game.state.hunters.find(v=>v.id===id),it=gearItemView(h?.gear?.[slot]);if(!h||!it)return;const sell=a==='gearSell',back=()=>{openHunter(id);if(modal==='hunter-detail'){hc.tab='gear';openHunter(id);}};   // 從確認框回來時 openHunter 會把頁籤重設成資訊 → 再切回裝備頁
+    askConfirm(sell?`把 ${h.name} 身上的「${it.name}」賣掉，換 ${fmt(it.sell||0)} 個人金幣。賣掉就拿不回來；想留著可以按「卸下」放回倉庫。`:`把 ${h.name} 身上的「${it.name}」分解成材料。分解後就沒有這件裝備了；想留著可以按「卸下」放回倉庫。`,sell?'出售':'分解',()=>{r=sell?game.sellGear(id,slot):game.salvageGear(id,slot);logToast(r.message,r.ok);if(r.ok&&sell)sfx('coin');back();paint();save();},back,sell?`確定要賣掉「${it.name}」嗎？`:`確定要分解「${it.name}」嗎？`);
+    const y=document.querySelector('#modal [data-action=confirmYes]'),n=document.querySelector('#modal [data-action=confirmNo]');if(y)y.dataset.zb='red';if(n)n.dataset.zb='ghost';return;}
   if(a==='gearEquip'){r=game.equipFromStorage(id,el.dataset.uid);logToast(r.message,r.ok);openHunter(id);paint();save();return;}
   if(a==='gearStoreEquip'){const uid=el.dataset.uid,sel=document.querySelector(`[data-store-who="${uid}"]`),hid=sel&&sel.value;
     if(!hid){logToast('先選一位獵人再穿上。',false);return;}
