@@ -3,7 +3,8 @@
 //   A. 獵人卡(C 視窗 #modal[data-type=hunter]):標題＝獵人名;星級＋「轉世」、個人金幣膠囊、裝備環(武器、護甲 2 格＋3 個暫空位)、經驗條(置中白字)、圖示子頁籤(資訊／技能／裝備／轉世)、
 //      資訊頁的稀有度字＋「等級.n 職業」＋每秒攻擊力、四條狀態條(紅／橘／綠／藍、條上白字 ≥12px)、右欄數值行(橘數值);主要資訊一屏可見(不被捲動區蓋掉)、熱區 ≥44(觸控)、無互蓋、字 ≥12、換子頁籤視窗高度不變。
 //   B. 現有動作都還能做:修煉(底部橄欖綠,與紅色關閉並排)、學習技能／強化裝備／轉世(各在子頁籤清單列,金棕小鈕;條件不足＝灰＋鎖頭、點了不生效)。
-//   C. 名冊(A 抽屜):稀有度字在卡頂、稀有度邊框與漸層底、名字在立繪下方、右上金色小「i」(≥44 熱區、打得開獵人卡)、定位鈕還在、手機 4 欄／桌機 6 欄;標題列子頁籤「名冊｜招募」,招募清單完整。
+//   C. 名冊(A 抽屜):稀有度字在卡頂、稀有度邊框與漸層底、名字在立繪下方、整張卡本體可點(沒有右上「i」徽章、tabindex=0)、
+//      點卡片直接開獵人卡、關閉獵人卡後回到名冊(焦點回原卡)、定位鈕還在、手機 4 欄／桌機 6 欄;標題列子頁籤「名冊｜招募」,招募清單完整。
 //   D. 新獵人暗帶(D):旅人提示 → 「新的獵人！」斜體標題、最多 2 張稀有度立繪卡(選中的放大約 1.4 倍、點選切換)、一行說明、邀請(橄欖綠)＋稍後(紅);邀請真的加入獵人並扣款、稍後不再自動彈;
 //      新旅人「到」的時候(閒著、付得起)自動彈出,面板開著時不彈;「看全部旅人」進名冊的招募清單。
 //   E. tooltip:點(觸控)／hover(滑鼠)／鍵盤焦點裝備格出現迷你視窗(品級色名稱、圖示格、數值列、藍／紅／金條列),點別處與 Esc 關閉(Esc 先關 tooltip 再關視窗);共用元件 __mistvaleTip 給任何 data-tip 元素用。
@@ -220,7 +221,7 @@ for (const name of only) {
       const m = document.querySelector('#modal'), g = P.G(), cards = [...document.querySelectorAll('#modal-content .hv-hgrid .hv-hcard')], out = { mode: m.dataset.mode, type: m.dataset.type, n: cards.length, want: g.state.hunters.length };
       const grid = document.querySelector('#modal-content .hv-hgrid'); out.cols = getComputedStyle(grid).gridTemplateColumns.split(' ').length;
       out.subtabs = [...document.querySelectorAll('#modal-subtabs .z1-subtab')].map(t => t.textContent.trim() + (t.classList.contains('on') ? '*' : ''));
-      out.cards = cards.map(c => { const r = P.R(c), head = c.querySelector('.hc-head'), rar = c.querySelector('.hc-rar'), art = c.querySelector('.hc-art'), name = c.querySelector('.hc-name'), info = c.querySelector('.hc-info'), loc = c.querySelector('.hc-loc'); const cs = getComputedStyle(c); return { id: c.dataset.id, rarity: c.dataset.rarity, r, rar: rar?.textContent, rarColor: rar && getComputedStyle(rar).color, rarBelow: rar && art ? P.R(rar).b <= P.R(art).t + 1 : false, nameBelow: name && art ? P.R(name).t >= P.R(art).b - 1 : false, nameTxt: name?.textContent, border: cs.borderTopColor, bw: cs.borderTopWidth, grad: /gradient/.test(getComputedStyle(c, '::before').backgroundImage), info: info && { r: P.R(info), txt: info.textContent.trim(), aria: info.getAttribute('aria-label'), hit: P.hitsSelf(info), vis: P.vis(info), icon: info.querySelector('span') && getComputedStyle(info.querySelector('span')).backgroundColor }, loc: loc && { r: P.R(loc), hit: P.hitsSelf(loc), vis: P.vis(loc) }, oldInfo: !!c.querySelector('.hc-btns .hc-info'), infoOverLoc: info && loc ? P.inter(P.R(info), P.R(loc)) : null }; });
+      out.cards = cards.map(c => { const rr = P.R(c), head = c.querySelector('.hc-head'), rar = c.querySelector('.hc-rar'), art = c.querySelector('.hc-art'), name = c.querySelector('.hc-name'), loc = c.querySelector('.hc-loc'); const cs = getComputedStyle(c); return { id: c.dataset.id, rarity: c.dataset.rarity, r: rr, rar: rar?.textContent, rarColor: rar && getComputedStyle(rar).color, rarBelow: rar && art ? P.R(rar).b <= P.R(art).t + 1 : false, nameBelow: name && art ? P.R(name).t >= P.R(art).b - 1 : false, nameTxt: name?.textContent, border: cs.borderTopColor, bw: cs.borderTopWidth, grad: /gradient/.test(getComputedStyle(c, '::before').backgroundImage), act: c.dataset.action, tabIndex: c.getAttribute('tabindex'), oldInfo: !!c.querySelector('.hc-info'), hit: P.hitsSelf(c), loc: loc && { r: P.R(loc), hit: P.hitsSelf(loc), vis: P.vis(loc) } }; });
       out.names = out.cards.map(c => c.nameTxt); out.cr = P.R(document.querySelector('#modal-content')); return out;
     });
     const cf = [];
@@ -231,19 +232,32 @@ for (const name of only) {
     for (const c of C.cards) {
       if (c.rar !== rarName[c.rarity] || !c.rarBelow === true) { if (c.rar !== rarName[c.rarity]) cf.push(`卡 ${c.nameTxt} 頂端稀有度字「${c.rar}」應為「${rarName[c.rarity]}」`); }
       if (!c.nameBelow) cf.push(`卡 ${c.nameTxt}：名字應在立繪下方`); if (!c.grad) cf.push(`卡 ${c.nameTxt}：沒有稀有度漸層底`); if (c.bw !== '2px') cf.push(`卡 ${c.nameTxt}：邊框 ${c.bw}`); borders.add(c.border);
-      if (!c.info || c.info.txt !== 'i' || !/資訊/.test(c.info.aria || '') || c.oldInfo) cf.push(`卡 ${c.nameTxt}：資訊入口應為右上小「i」(${c.info?.txt})`); else {
-        if (!c.info.vis || !c.info.hit) cf.push(`卡 ${c.nameTxt}：i 鈕被蓋住`); if (touch && (c.info.r.w < 43.5 || c.info.r.h < 43.5)) cf.push(`卡 ${c.nameTxt}：i 鈕熱區 ${Math.round(c.info.r.w)}×${Math.round(c.info.r.h)}<44`);
-        if (c.info.r.r < c.r.r - 4 || c.info.r.t > c.r.t + 4) cf.push(`卡 ${c.nameTxt}：i 鈕不在卡片右上角`); if (c.info.icon !== 'rgb(230, 180, 60)') cf.push(`卡 ${c.nameTxt}：i 不是金色 ${c.info.icon}`);
-      }
-      const seen = c.r.b <= C.cr.b + 1 && c.r.t >= C.cr.t - 1;   // 抽屜較矮時(例 360×640)第二排在捲動區下面,不算被蓋住
-      if (seen && (!c.loc || !c.loc.vis || !c.loc.hit)) cf.push(`卡 ${c.nameTxt}：定位鈕不見或被蓋住`); if (c.infoOverLoc) cf.push(`卡 ${c.nameTxt}：i 與定位鈕互蓋`);
+      // 2026-11-19 使用者:卡片本體就是入口(右上金色 i 徽章拿掉),整張卡可點、也可用鍵盤聚焦後 Enter/空白。
+      // 抽屜較矮時(例 360×640、844×390)第二排在捲動區下面,那裡量不到「被蓋住」也不算錯。
+      const seen = c.r.b <= C.cr.b + 1 && c.r.t >= C.cr.t - 1;
+      if (c.oldInfo) cf.push(`卡 ${c.nameTxt}：右上「i」徽章應已移除`);
+      if (c.act !== 'hunter') cf.push(`卡 ${c.nameTxt}：卡片本身應帶 data-action="hunter"(${c.act})`);
+      if (c.tabIndex !== '0') cf.push(`卡 ${c.nameTxt}：卡片應可鍵盤聚焦 tabindex="0"(${c.tabIndex})`);
+      if (seen && !c.hit) cf.push(`卡 ${c.nameTxt}：卡片中心被別的東西蓋住`);
+      if (touch && Math.min(c.r.w, c.r.h) < 43.5) cf.push(`卡 ${c.nameTxt}：卡片熱區 ${Math.round(c.r.w)}×${Math.round(c.r.h)}<44`);
+      if (seen && (!c.loc || !c.loc.vis || !c.loc.hit)) cf.push(`卡 ${c.nameTxt}：定位鈕不見或被蓋住`);
     }
     if (borders.size < 4) cf.push(`稀有度邊框顏色只有 ${borders.size} 種(5 種稀有度應各不同)`);
-    if (cf.length) for (const m of cf.slice(0, 8)) fix(`${label} 名冊：${m}`); else ok(`${label} 名冊：${C.n} 張卡、${C.cols} 欄、頂端稀有度字、稀有度邊框(${borders.size} 色)＋漸層底、名字在立繪下、右上金色 i(${touch ? '≥44 熱區、' : ''}不蓋定位鈕)、子頁籤 ${C.subtabs.join('｜')}`);
+    if (cf.length) for (const m of cf.slice(0, 8)) fix(`${label} 名冊：${m}`); else ok(`${label} 名冊：${C.n} 張卡、${C.cols} 欄、頂端稀有度字、稀有度邊框(${borders.size} 色)＋漸層底、名字在立繪下、整張卡可點(沒有「i」徽章)、定位鈕還在、子頁籤 ${C.subtabs.join('｜')}`);
     if (SHOTS) await page.screenshot({ path: `${SHOTS}/${name}-roster.png` });
-    // i → 開獵人卡;定位鈕
-    const C2 = await ev(page, async (P) => { const c = document.querySelector('#modal-content .hv-hcard'), id = c.dataset.id, out = {}; c.querySelector('.hc-info').click(); await P.wait(200); out.opened = document.querySelector('#modal').dataset.type === 'hunter' && document.querySelector('#modal-title').textContent === P.G().state.hunters.find(h => h.id === id).name; return out; });
-    if (!C2.opened) fix(`${label} 名冊：按 i 沒有打開該獵人的卡`); else ok(`${label} 名冊：按卡片右上 i 打開該獵人的獵人卡`);
+    // 點卡片本體 → 直接開獵人卡;關閉 → 回到名冊(使用者 2026-11-19)
+    const C2 = await ev(page, async (P) => {
+      const c = document.querySelector('#modal-content .hv-hcard'), id = c.dataset.id, out = {};
+      c.click(); await P.wait(250);
+      out.opened = document.querySelector('#modal').dataset.type === 'hunter' && document.querySelector('#modal-title').textContent === P.G().state.hunters.find(h => h.id === id).name;
+      const back = document.querySelector('#modal [data-action=close],#modal-foot [data-action=close]');
+      back?.click(); await P.wait(300);
+      out.backType = document.querySelector('#modal').dataset.type; out.backHidden = document.querySelector('#modal-backdrop').classList.contains('hidden');
+      out.focusBack = document.activeElement?.closest?.('.hv-hcard')?.dataset.id || '';
+      return out;
+    });
+    if (!C2.opened) fix(`${label} 名冊：點卡片沒有打開該獵人的卡`); else ok(`${label} 名冊：點卡片本體直接打開該獵人的獵人卡`);
+    if (C2.backType !== 'hunters' || C2.backHidden) fix(`${label} 名冊：關閉獵人卡後應留在名冊(${JSON.stringify(C2)})`); else ok(`${label} 名冊：關閉獵人卡後回到名冊、焦點回到原本那張卡`);
     await closeAll(page);
     // 招募子頁籤
     await L.act(page, 'hunters'); await settle(page, 300);

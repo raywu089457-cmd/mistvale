@@ -2765,13 +2765,8 @@ html body #modal-content .rd-stats .rd-crowd b{color:#e08a6a}
 html body #modal-content .hv-hcard .hc-art{position:relative}
 html body #modal-content .hv-hcard .hc-reb{position:absolute;top:4px;left:50%;transform:translateX(-50%);z-index:2;min-height:0;padding:2px 8px;border:2px solid #3a2a10;background:#e2b43c;color:#2a1c06;font:800 13px/1.2 var(--font-ui);letter-spacing:0;white-space:nowrap;cursor:pointer;box-shadow:0 2px 0 #000}
 
-/* 2026-11-18 右上角放回狩獵難度鈕:換皮後只剩左上徽章能開難度,看起來不像按鈕 */
-html body #topbar .hv-ico.hv-diff{width:auto!important;min-width:48px!important;padding:0 5px!important;margin-right:4px;display:flex!important;flex-direction:column;align-items:center;justify-content:center;gap:1px;box-sizing:border-box;border:2px solid #b8863a!important;background:#2a1c10!important;color:#f3e3bd;cursor:pointer;white-space:nowrap}
-html body #topbar .hv-diff small{font:700 12px/13px var(--font-ui);color:#d9c08c;letter-spacing:0}
-html body #topbar .hv-diff b{font:800 14px/16px var(--font-ui);color:#ffe9b0;letter-spacing:0}
-/* 手機:排在功能列左邊、不佔列寬,右邊的設定鈕才不會被擠出畫面(木材、礦石那兩列數字短,左邊有空位) */
-@media(max-width:480px){html body #topbar .hv-tr2{position:relative}html body #topbar .hv-ico.hv-diff{position:absolute!important;right:100%;top:0;z-index:3;margin-right:3px}}
-@media(max-width:375px){html body #topbar .hv-ico.hv-diff{min-width:44px!important;padding:0 2px!important;margin-right:2px}}
+/* 2026-11-19 使用者:把右上角「難度」鈕拿掉(換皮後左上徽記已經看得到難度,右上那顆重複又擠掉設定鈕)。
+   原本的 .hv-diff 規則一併移除;難度面板改從左上徽記或快捷鍵開。 */
 
 /* 2026-11-18 交易所:持續收購一鍵開關與狀態,材料卡排到最前面 */
 html body #modal-content .trade-bulk{display:flex;align-items:center;justify-content:space-between;gap:10px;margin:0 0 10px;padding:6px 10px;background:var(--hv-ink-deep);border:1px solid var(--hv-line)}

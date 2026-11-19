@@ -4,7 +4,7 @@
 //   B. 每個面板的模式:A 頁籤抽屜(建設、獵人、倉庫、製作、交易、地下城、競技場、派遣、招募)、C 置中視窗(獵人詳情、確認、離線戰報、委託、首領、設定、說明、世界地圖、區域詳情、難度、圖鑑、建築詳情)。
 //   C. A 抽屜幾何:貼在頁籤列上方、手機高 50%／桌機高 45%、桌機寬 960、遮罩透明(HUD 與場景不壓暗)、有圓形 X、地下城／倉庫有子頁籤。
 //   D. C 視窗幾何:遮罩 rgba(0,0,0,.55) 蓋到頁籤列、手機寬 85%、桌機寬 ≤560、高 ≤ min(100vh−頁籤列−32,760)、水平置中、沒有 X、底部按鈕列(只有關閉 130×42／兩顆 118×43 間距 14)、
-//      底部關閉鈕點得到、Esc 與點遮罩都能關(確認框例外:只能按鈕)、橫向高 = 100% − 24。
+//      底部關閉鈕點得到、Esc 與點遮罩都能關(確認框例外:只能按鈕;獵人卡例外:先回到名冊,再按一次才整個關)、橫向高 = 100% − 24。
 //   E. 建築詳情 #inspector 是同一套 C 視窗(遮罩、底部 升級＋關閉、移動位置在標題右上、點遮罩與 Esc 關閉、底緣離頁籤列 ≥ 16 吃 safe-area)。
 //   F. 按鈕顏色語意:紅 #8d3925＝關閉／取消、橄欖綠 #586810＝確認與視窗主動作、金棕 #906818＝清單列動作、灰 #505050(＋鎖頭)＝不能用。
 //   G. 舊入口都還到得了:data-action(build/hunters/trade/craft/dungeon/arena/quests/inventory…)、數字鍵 1–8、Ctrl+K 指令面板 14 項;競技場=地下城子頁籤、製作=倉庫子頁籤、頁籤高亮正確;委託徽章在右上圖示。
@@ -169,20 +169,38 @@ for (const name of only) {
       const cl = g.kids.find(k => k.a === 'close'); if (cl && cl.bg !== ROLE.red) fix(`${label}/F: ${t} 底部「關閉」要紅 #8d3925,實際 ${cl.bg}`);
       if (SHOTS && ['hunter', 'settings', 'confirm'].includes(t)) await page.screenshot({ path: `${SHOTS}/${name}-${t}.png` });
       // 關閉方式:Esc、點遮罩(確認框例外)、底部鈕
-      await page.keyboard.press('Escape'); await settle(page, 250);
-      let closed = await page.evaluate(() => document.querySelector('#modal-backdrop').classList.contains('hidden'));
-      if (t === 'confirm') { if (closed) fix(`${label}/D: 確認框不該被 Esc 關掉(只能按按鈕)`); } else if (!closed) fix(`${label}/D: ${t} 按 Esc 沒關掉`);
-      if (!closed) {
-        await page.mouse.click(Math.round(v.w / 2), t === 'confirm' ? 6 : 6); await settle(page, 250);
-        closed = await page.evaluate(() => document.querySelector('#modal-backdrop').classList.contains('hidden'));
-        if (t === 'confirm') { if (closed) fix(`${label}/D: 確認框不該被點遮罩關掉`); } else if (!closed) fix(`${label}/D: ${t} 點遮罩沒關掉`);
-      }
-      if (!closed) {
-        // 用底部鈕關(關閉 or 取消)
-        const btn = await page.evaluate(() => { const b = [...document.querySelectorAll('#modal-foot button')].find(e => /關閉|取消|收下/.test(e.textContent)); const r = b.getBoundingClientRect(); return { x: r.left + r.width / 2, y: r.top + r.height / 2 }; });
-        await page.mouse.click(btn.x, btn.y); await settle(page, 250);
-        closed = await page.evaluate(() => document.querySelector('#modal-backdrop').classList.contains('hidden'));
-        if (!closed) fix(`${label}/D: ${t} 底部關閉鈕點了沒關掉`);
+      // 2026-11-19 使用者:獵人卡(Esc／遮罩／關閉鈕)先回到名冊,名冊本身還在;再關一次才整個收起來。
+      //   src/pixel-ui.js closeModal(soft) —— 只有這三個「使用者自己收視窗」的入口傳 soft=true。
+      const backType = () => page.evaluate(() => ({ hidden: document.querySelector('#modal-backdrop').classList.contains('hidden'), type: document.querySelector('#modal').dataset.type || '' }));
+      let closed = false;
+      if (t === 'hunter') {
+        await page.keyboard.press('Escape'); await settle(page, 250);
+        const b1 = await backType();
+        if (b1.hidden) fix(`${label}/D: hunter 按 Esc 應先回到名冊,不是直接關掉`);
+        else if (b1.type !== 'hunters') fix(`${label}/D: hunter 按 Esc 應回到名冊,實際 ${b1.type}`);
+        else ok(`${label}/D: hunter 按 Esc 回到名冊`);
+        await page.keyboard.press('Escape'); await settle(page, 250);
+        closed = (await backType()).hidden;
+        if (!closed) fix(`${label}/D: hunter 回到名冊後再按 Esc 應關掉`);
+      } else {
+        await page.keyboard.press('Escape'); await settle(page, 250);
+        closed = (await backType()).hidden;
+        if (t === 'confirm') { if (closed) fix(`${label}/D: 確認框不該被 Esc 關掉(只能按按鈕)`); } else if (!closed) fix(`${label}/D: ${t} 按 Esc 沒關掉`);
+        if (!closed) {
+          await page.mouse.click(Math.round(v.w / 2), t === 'confirm' ? 6 : 6); await settle(page, 250);
+          closed = (await backType()).hidden;
+          if (t === 'confirm') { if (closed) fix(`${label}/D: 確認框不該被點遮罩關掉`); } else if (!closed) fix(`${label}/D: ${t} 點遮罩沒關掉`);
+        }
+        if (!closed) {
+          // 用底部鈕關(關閉 or 取消)
+          const btn = await page.evaluate(() => { const b = [...document.querySelectorAll('#modal-foot button')].find(e => /關閉|取消|收下/.test(e.textContent)); if (!b) return null; const r = b.getBoundingClientRect(); return { x: r.left + r.width / 2, y: r.top + r.height / 2 }; });
+          if (!btn) fix(`${label}/D: ${t} 找不到底部關閉鈕`);
+          else {
+            await page.mouse.click(btn.x, btn.y); await settle(page, 250);
+            closed = (await backType()).hidden;
+            if (!closed) fix(`${label}/D: ${t} 底部關閉鈕點了沒關掉`);
+          }
+        }
       }
     }
     await closeAll(page);
