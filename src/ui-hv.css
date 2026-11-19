@@ -760,7 +760,6 @@ html body #modal-content .hv-hcard[data-state=eat] .hc-status{color:#f0c08c}
 html body #modal-content .hv-hcard .hc-hp{height:6px!important;margin:0 1px!important}
 html body #modal-content .hv-hcard .hc-btns{display:flex;gap:4px;margin-top:2px}
 html body #modal-content .hv-hcard .hc-btns .hv-btn{min-height:32px!important;padding:0 6px!important;font-size:13px!important}
-html body #modal-content .hv-hcard .hc-info{flex:1 1 auto;min-width:0}
 html body #modal-content .hv-hcard .hc-loc{flex:0 0 32px;width:32px;padding:0!important;display:grid!important;place-items:center}
 html body .hv-loc{display:block;width:16px;height:16px}
 html body .hv-loc::before{content:"";display:block;width:16px;height:16px;image-rendering:pixelated;
@@ -1386,7 +1385,6 @@ html body #inspector .inspect-actions .inspect-done{flex:1 1 140px}
   html body #modal-content .hv-hcard .hc-art img{width:100%;max-width:72px;height:80px;object-fit:contain}
   html body #modal-content .hv-hcard .hc-status{grid-row:4}
   html body #modal-content .hv-hcard .hc-hp{grid-row:5}
-  html body #modal-content .hv-hcard .hc-info{grid-row:6;grid-column:1;width:100%;min-height:44px!important}
   /* 定位鈕：44px 熱區蓋在立繪右上角，只畫 26px 方塊（其餘是透明邊） */
   html body #modal-content .hv-hcard .hc-loc{grid-row:3;grid-column:1;justify-self:end;align-self:start;width:44px;height:44px;min-height:44px!important;flex:none;z-index:2;margin:0;
     border:9px solid transparent!important;background-clip:padding-box!important;box-shadow:none!important;padding:0!important;display:grid!important;place-items:center}
@@ -1814,7 +1812,7 @@ html body[data-z1-c]:not(.piloting) #toasts .toast .toast-ic :is(canvas,img,[dat
   html body #topbar .play-controls>button,html body #topbar .population{height:44px!important;min-width:44px!important}
   html body #topbar .play-controls>button{width:44px!important}
   html body #topbar .hv-ico{width:44px!important;height:44px!important;min-width:44px!important}
-  html body #modal-content :is(.hv-tool,.hc-info,.hc-loc),html body #modal .hv-tool{min-height:44px!important;min-width:44px!important}
+  html body #modal-content :is(.hv-tool,.hc-loc),html body #modal .hv-tool{min-height:44px!important;min-width:44px!important}
   html body #modal-content .hv-hcard .hc-loc{flex-basis:44px;width:44px;height:44px}
   html body #game-ui .view-tools button,html body .hv-actions .hv-act{min-width:44px;min-height:44px}
 }
@@ -1985,9 +1983,10 @@ html body #modal[data-type=hunters] #modal-content .hv-hgrid .hv-hcard{position:
 html body #modal[data-type=hunters] #modal-content .hv-hgrid .hv-hcard::before{content:"";position:absolute;inset:0;z-index:-1;pointer-events:none;background:linear-gradient(180deg,color-mix(in srgb,var(--rarity) 36%,#1b1714) 0,#1b1714 66%)}
 html body #modal[data-type=hunters] #modal-content .hv-hcard .hc-head{display:flex;align-items:flex-start;justify-content:flex-start;min-height:22px;padding:3px 0 0 5px;grid-column:1;grid-row:1}
 html body #modal[data-type=hunters] #modal-content .hv-hcard .hc-rar{font:italic 700 12px/1.3 var(--font-ui);color:var(--rarity);text-shadow:0 1px 0 #000;white-space:nowrap;max-width:calc(100% - 26px);overflow:hidden;text-overflow:ellipsis}
-html body #modal[data-type=hunters] #modal-content .hv-hcard .hc-info{position:absolute;grid-row:auto;grid-column:auto;top:0;right:0;z-index:3;display:grid!important;place-items:start end;width:44px!important;height:44px!important;min-width:44px!important;min-height:44px!important;margin:0!important;padding:2px!important;flex:none;background:none!important;border:0!important;box-shadow:none!important;clip-path:none}
-html body #modal[data-type=hunters] #modal-content .hv-hcard .hc-info>span{display:grid;place-items:center;width:22px;height:22px;background:var(--hv-gold);border:1px solid #000;border-radius:2px;color:#1a1208;font:700 13px/1 var(--font-num)}
-html body #modal[data-type=hunters] #modal-content .hv-hcard .hc-info:hover>span{background:#f2c95a}
+/* 2026-11-19 使用者:整張卡片自己就是入口,右上角金色「i」徽章拿掉(像素字體的 i 看起來像驚嘆號)。
+   卡片改成可聚焦(tabindex=0),這裡補鍵盤焦點框;滑鼠點擊不顯示(focus-visible),不影響外觀。 */
+html body #modal[data-type=hunters] #modal-content .hv-hcard:focus-visible{outline:2px solid var(--hv-gold);outline-offset:-2px;box-shadow:0 0 0 2px #000 inset}
+html body #modal[data-type=hunters] #modal-content .hv-hcard{cursor:pointer}
 html body #modal[data-type=hunters] #modal-content .hv-hcard .hc-art{grid-column:1;grid-row:2;height:88px;margin:0;background:none!important;display:grid;place-items:end center}
 html body #modal[data-type=hunters] #modal-content .hv-hcard .hc-art::before{display:none}
 html body #modal[data-type=hunters] #modal-content .hv-hcard .hc-art img{width:100%;max-width:72px;height:84px;object-fit:contain}
