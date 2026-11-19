@@ -79,6 +79,9 @@ for (const name of only) {
     if (!g.rects.every(r => Math.abs(r.t - g.rects[0].t) < 0.6)) fix(`${label}/A: 頁籤沒有齊平`);
     // 選中:點「建設」→ 該格背景 #948973、沒有上凸、標籤深色
     await L.act(page, 'build'); await settle(page, 800);
+    // 2026-11-19：box-shadow 有 0.12s 過場(unselected=none → inset 1px #f7f2d4)，
+    // headless 下偶爾 800ms 還沒跑完就量到 rgba(0,0,0,0)，所以先等到影子出現再量。
+    await page.waitForFunction(() => /247, 242, 212/.test(getComputedStyle(document.querySelector('#bottom-bar [data-action=build]')).boxShadow), null, { timeout: 2500 }).catch(() => {});
     const sel = await ev(page, P => { const b = document.querySelector('#bottom-bar [data-action=build]'), o = document.querySelector('#bottom-bar [data-action=trade]'); return { bg: P.bg(b), top: P.R(b).t, otherTop: P.R(o).t, h: P.R(b).h, otherH: P.R(o).h, text: getComputedStyle(b.querySelector('b')).color, tab: document.body.dataset.modalTab, shadow: getComputedStyle(b).boxShadow }; });
     if (sel.bg !== 'rgb(148, 137, 115)') fix(`${label}/A: 選中格要填 #948973,實際 ${sel.bg}`);
     if (Math.abs(sel.top - sel.otherTop) > 0.6 || Math.abs(sel.h - sel.otherH) > 0.6) fix(`${label}/A: 選中格要與列齊平(不上凸):top ${sel.top} vs ${sel.otherTop}`);
@@ -106,12 +109,22 @@ for (const name of only) {
     if (!g.shown) { fix(`${label}/B: ${t} 沒有打開`); continue; }
     if (g.mode !== wantMode || g.bmode !== wantMode || g.body !== wantMode) { fix(`${label}/B: ${t} 模式應為 ${wantMode},實際 modal=${g.mode}／backdrop=${g.bmode}／body=${g.body}`); continue; }
     if (wantMode === 'A') {
-      let want = landscape ? null : (portraitPhone ? 0.5 : 0.45) * v.h;
-      // Z2C:地下城／競技場抽屜在手機(寬 ≤760、高 >520)至少 372px(資訊卡＋底部固定列吃掉大半,選人列要看得到兩列),上限 100vh−220(ui-hv.css「地下城／競技場抽屜在矮手機」)
-      if (!landscape && v.w <= 760 && (t === 'dungeon' || t === 'arena')) want = Math.min(Math.max(want, 372), v.h - 220);
+      // 2026-11-19：抽屜高改成跟 ui-hv.css 同一條公式，不再寫死 45%／50%
+      //   src/ui-hv.css:1598  @media(min-width:761px){--hv-drawer-h:min(max(45vh,420px),100vh-220px)}   ← 2026-11-17 筆電 768 高時至少 420px
+      //   src/ui-hv.css:1599  @media(max-width:760px){--hv-drawer-h:50vh}
+      //   src/ui-hv.css:2762 @media(max-width:760px) and (min-height:700px){A 抽屜 70vh}（只有 hunters／inventory／craft／build／trade／recruit 在名單內）
+      //   src/ui-hv.css:2302 dungeon／arena：min(max(--hv-drawer-h,372px),100vh-220px)
+      const TALL_PHONE = ['hunters', 'inventory', 'craft', 'build', 'trade', 'recruit'];
+      const drawerWant = () => {
+        const base = v.w >= 761 ? Math.min(Math.max(0.45 * v.h, 420), v.h - 220) : 0.5 * v.h;
+        if (v.w >= 761) return base;
+        if ((t === 'dungeon' || t === 'arena')) return Math.min(Math.max(base, 372), v.h - 220);
+        return v.h >= 700 && TALL_PHONE.includes(t) ? 0.7 * v.h : base;
+      };
+      let want = landscape ? null : drawerWant();
       if (!landscape) {
         if (Math.abs(g.m.b - g.bar.t) > 1.5) fix(`${label}/C: ${t} 抽屜底 ${g.m.b.toFixed(1)} 應貼頁籤列頂 ${g.bar.t.toFixed(1)}`);
-        if (Math.abs(g.m.h - want) > 2.5) fix(`${label}/C: ${t} 抽屜高 ${g.m.h.toFixed(1)} 應約 ${portraitPhone ? '50' : '45'}% = ${want.toFixed(0)}`);
+        if (Math.abs(g.m.h - want) > 2.5) fix(`${label}/C: ${t} 抽屜高 ${g.m.h.toFixed(1)} 應約 ${want.toFixed(0)}（ui-hv.css --hv-drawer-h 公式）`);
         if (portraitPhone ? g.m.w < v.w - 1 : Math.abs(g.m.w - Math.min(960, v.w - 32)) > 2) fix(`${label}/C: ${t} 抽屜寬 ${g.m.w.toFixed(0)}(桌機 min(960,vw−32)、手機滿寬)`);
         if (!/rgba\(0, 0, 0, 0\)|transparent/.test(g.bgColor)) fix(`${label}/C: ${t} A 抽屜遮罩要透明(HUD 與場景不壓暗),實際 ${g.bgColor}`);
         if (g.coverBar) fix(`${label}/C: ${t} A 抽屜開著頁籤列不應被遮罩蓋住`);

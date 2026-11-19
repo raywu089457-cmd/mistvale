@@ -1905,7 +1905,7 @@ html body #modal[data-type=hunter] .z2-train{margin:8px 0 0;padding:6px 8px;font
 html body #modal[data-type=hunter] .z2-dismiss{display:flex;align-items:center;gap:8px;margin:10px 0 0;padding:6px 8px 0;border-top:1px dashed rgba(211,202,178,.18);opacity:.8}
 html body #modal[data-type=hunter] .z2-dismiss-btn{min-height:28px;padding:2px 12px;font-size:12px;flex:0 0 auto}
 html body #modal[data-type=hunter] .z2-dismiss-btn[disabled]{opacity:.5;cursor:not-allowed}
-html body #modal[data-type=hunter] .z2-dismiss-why{font:600 11px/1.4 var(--font-ui);color:var(--hv-text);opacity:.85}
+html body #modal[data-type=hunter] .z2-dismiss-why{font:600 12px/1.4 var(--font-ui);color:var(--hv-text);opacity:.85}
 html body #modal[data-type=hunter] .z2-dismiss-why .no{color:#d08080}
 /* 清單列(技能／裝備／轉世頁；規格 e：金棕動作鈕、停用灰＋鎖頭) */
 html body #modal[data-type=hunter] .z2-list{display:flex;flex-direction:column;gap:6px}
@@ -1945,8 +1945,25 @@ html body #modal[data-type=hunter] :is(#scroll-hint,#scroll-hint-up){display:non
   html body #modal[data-type=hunter] .z2-panel{padding:10px}
 }
 @media(max-width:760px) and (max-height:700px){html body #modal[data-type=hunter] .z2-val:nth-child(5){display:none}}
+/* 2026-11-19 窄又矮的手機(360×640)：資訊頁內容 324px 塞不進只有 167px 高的 .z2-panel,狀態條與數值會被切掉、
+   「送別」整列被捲到看不見(點不到)。這裡把它壓成「一屏看得到狀態條＋數值，底部固定送別列」：
+   - 狀態文字與「每秒攻擊力」小標在別處也看得到，小螢幕讓給狀態條
+   - 修煉提示夾成兩行
+   - 送別列 sticky 貼在 panel 底端(捲動時也固定看得到、點得到) */
+@media(max-width:760px) and (max-height:700px){
+  html body #modal[data-type=hunter] .z2-id{margin-bottom:4px}
+  html body #modal[data-type=hunter] .z2-st{display:none}
+  html body #modal[data-type=hunter] .z2-dps small{display:none}
+  html body #modal[data-type=hunter] :is(.z2-bars,.z2-vals){gap:4px}
+  html body #modal[data-type=hunter] .z2-train{display:-webkit-box;-webkit-box-orient:vertical;-webkit-line-clamp:2;overflow:hidden;margin:6px 0 0;padding:4px 8px}
+  html body #modal[data-type=hunter] .z2-dismiss{position:sticky;bottom:-8px;z-index:2;background:#181512;margin:6px 0 0;padding:6px 8px 0}
+}
 /* 橫向手機：左＝星級/金幣/裝備環/經驗條,右＝子頁籤＋內容 */
 @media(max-height:520px){
+  /* 2026-11-19 橫向手機(844×390)：右欄內容 329px 塞不進 199px 高的 .z2-panel，「送別」列被捲到點不到。
+     修煉提示夾兩行，送別列 sticky 貼 panel 底端。 */
+  html body #modal[data-type=hunter] .z2-train{display:-webkit-box;-webkit-box-orient:vertical;-webkit-line-clamp:2;overflow:hidden;margin:6px 0 0;padding:4px 8px}
+  html body #modal[data-type=hunter] .z2-dismiss{position:sticky;bottom:-8px;z-index:2;background:#181512;margin:6px 0 0;padding:6px 8px 0}
   html body #modal-backdrop[data-mode=C] #modal[data-type=hunter]{width:min(720px,94%)!important}
   html body #modal[data-type=hunter] #modal-content{padding:6px 10px!important}
   html body #modal[data-type=hunter] .z2-hc{flex-direction:row;gap:12px}
@@ -2456,6 +2473,11 @@ html body #toasts .toast .toast-tx{color:#f2c96a!important;text-shadow:0 1px 0 #
 html body #toasts .toast .toast-check{color:#1b1208!important;text-shadow:none!important}   /* 勾勾住在 --tk 色圓底上(不是暗帶)：金字疊綠圓只有 1.4:1，改深色字(FIX-B 缺口 11) */
 html body #toasts .toast.kind-error .toast-tx{color:#ff7d6b!important}
 html body #toasts .toast .toast-n{background:rgba(0,0,0,.6);color:#f2c96a}
+/* 2026-11-19 FIX-D:手機 toast 的可用寬度只有 235px 左右(扣除圖示與左右留白),34 字訊息用 14px 要 3 行 → 被 -webkit-line-clamp:2 截掉。
+   窄螢幕改成 13px/1.3,一行放得下 18 個字,34 字剛好兩行(22 字仍是一行)，字級仍 ≥12px。 */
+@media (max-width:760px),(max-height:520px){
+  html body #toasts .toast .toast-tx{font-size:13px!important;line-height:1.3!important}
+}
 /* A 抽屜開著：toast 貼在抽屜上緣上方(pixel-ui.js toastDodge 把「螢幕底到抽屜頂」的距離寫進 --z2d-dtop)，不蓋標題列的子頁籤與工具鈕(R13) */
 html body[data-z2d-a]:not(.piloting) #toasts{position:fixed!important;top:auto!important;bottom:calc(var(--z2d-dtop,0px) + 8px)!important;left:50%!important;right:auto!important;transform:translateX(-50%)!important;align-items:center!important;
   max-width:calc(100vw - 24px)!important;z-index:45!important}
@@ -2622,7 +2644,8 @@ html body #modal-content .gear-store-row .z2b-ic{flex-basis:44px}
 /* 倉庫「已穿全套」小圖條:七格各顯示該獵人身上那件裝備的縮圖,空位是淡字 */
 html body #modal-content .gear-set{margin:2px 0 10px;padding:8px;background:#17141a;border:1px solid #2e2926;border-radius:4px}
 html body #modal-content .gear-set-h{display:flex;align-items:center;justify-content:space-between;gap:8px;margin-bottom:6px;min-height:36px}
-html body #modal-content .gear-set-h small{opacity:.85;white-space:nowrap}
+/* 2026-11-19 Z2B/D：`.gear-set-h small`（「已穿 N／7」）沒有指定字級，會落到瀏覽器預設 10px（z2b-econ 的 D 段要求 ≥12px）*/
+html body #modal-content .gear-set-h small{opacity:.85;white-space:nowrap;font-size:12px!important}
 html body #modal-content .gear-set-who{min-height:36px;max-width:60%;background:#1e1b17;color:var(--hv-text);border:1px solid #4a4540;font:700 13px/1 var(--font-ui);padding:0 6px}
 html body #modal-content .gear-set-strip{display:flex;gap:6px;flex-wrap:wrap}
 html body #modal-content .gear-set-slot{display:grid;place-items:center;width:40px;height:40px;background:#1c1916;border:1px solid #3a342e;border-radius:4px}
@@ -2650,7 +2673,11 @@ html body #modal-content .z2c-foe-stat small.no{color:#ec8a7a}
 /* 2026-11-17 交易所:多的材料賣給行商 */
 .trade-row .tr-sell{display:flex;flex-direction:column;align-items:center;gap:1px;line-height:1.2}
 .trade-row .tr-sell small{display:block;font-size:var(--fs-tiny);color:#e5c47f}
-@media(max-width:760px){html body #modal-content .trade-row.z2b-cell .tr-step{grid-template-columns:1.25fr 1fr 1fr}}   /* 手機:數量框藏起來(數字在圖示角標),−10／−／＋ 排成一列,不要「＋」單獨掉到第二列 */
+/* 2026-11-19：每張交易卡在 390px 手機只有 113px 寬，三顆步進鈕擠一列時每顆只剩 29–36px（<44 觸控下限）。
+   改成兩列：−10／− 一列，＋ 獨占第二列滿寬。按鈕高仍是 44，寬度 49.5／103 都 ≥44。 */
+/* 2026-11-19：390px 手機每張交易卡只有 113px 寬，三顆步進鈕擠一列時每顆只剩 29–36px（<44 觸控下限）。
+   拆成兩列：−10／− 一列、＋ 自己一列，三顆都約 54px 寬（≥44）而「＋」不會變成滿寬主鈕（滿寬只有「收購 +10」與「持續收購」）。 */
+@media(max-width:760px){html body #modal-content .trade-row.z2b-cell .tr-step{grid-template-columns:repeat(2,minmax(0,1fr))}}
 .gear-store-row .gs-n{font-style:normal;margin-left:6px;color:#e5c47f;font-family:var(--font-num)}   /* 2026-11-17 倉庫同樣的裝備疊成一列 */
 @media(max-width:760px){html body #modal[data-type=difficulty] .difficulty-grid{grid-template-columns:repeat(2,minmax(0,1fr))!important}html body #modal[data-type=difficulty] .difficulty-card{padding:12px 6px!important}html body #modal[data-type=difficulty] .difficulty-card .diff-stats{font-size:var(--fs-tiny)}}   /* 2026-11-17 手機難度卡兩欄(原本一欄一張 293px,五張要滑很久) */
 @media(max-width:760px){html body #modal[data-type=hunter] .z2-row{grid-template-columns:40px minmax(0,1fr)}html body #modal[data-type=hunter] .z2-row>:is(button,.pixel-button){grid-column:1/-1;width:100%}}   /* 2026-11-18 手機:技能/強化列的按鈕換到下一行,說明欄才不會窄到「費/用」直排 */
@@ -2665,6 +2692,8 @@ html body .hv-btn.short-btn{flex-direction:column;align-items:center;justify-con
 html body .z2-id-l .z2-rar-row{display:flex;align-items:center;gap:8px;flex-wrap:wrap}
 html body .z2-id-l .z2-promo-chip{display:inline-flex!important;align-items:center;gap:3px;margin:0!important;padding:0 8px!important;height:26px!important;min-height:0!important;width:auto!important;border:1px solid #000;background:#3c6b2e;color:#e8f7d2;font:600 12px/1 var(--font-ui);vertical-align:middle;cursor:pointer}
 html body .z2-id-l .z2-promo-chip:hover{background:#4c8239}
+/* 2026-11-19：觸控裝置上這顆 chip 只有 26px 高（<44 熱區下限），放大到 44 但維持膠囊外觀 */
+@media(pointer:coarse){html body .z2-id-l .z2-promo-chip{height:44px!important;min-height:44px!important;padding:0 12px!important}}
 html body .z2-id-l .z2-promo-chip .inline-icon{width:14px;height:14px;min-width:14px;min-height:14px}
 
 /* 2026-11-18 世界地圖區域列:主要掉落 */
@@ -2742,7 +2771,7 @@ html body #topbar .hv-diff small{font:700 12px/13px var(--font-ui);color:#d9c08c
 html body #topbar .hv-diff b{font:800 14px/16px var(--font-ui);color:#ffe9b0;letter-spacing:0}
 /* 手機:排在功能列左邊、不佔列寬,右邊的設定鈕才不會被擠出畫面(木材、礦石那兩列數字短,左邊有空位) */
 @media(max-width:480px){html body #topbar .hv-tr2{position:relative}html body #topbar .hv-ico.hv-diff{position:absolute!important;right:100%;top:0;z-index:3;margin-right:3px}}
-@media(max-width:375px){html body #topbar .hv-ico.hv-diff{min-width:38px!important;padding:0 3px!important;margin-right:2px}}
+@media(max-width:375px){html body #topbar .hv-ico.hv-diff{min-width:44px!important;padding:0 2px!important;margin-right:2px}}
 
 /* 2026-11-18 交易所:持續收購一鍵開關與狀態,材料卡排到最前面 */
 html body #modal-content .trade-bulk{display:flex;align-items:center;justify-content:space-between;gap:10px;margin:0 0 10px;padding:6px 10px;background:var(--hv-ink-deep);border:1px solid var(--hv-line)}

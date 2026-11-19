@@ -96,7 +96,8 @@ for (const name of only) {
 
     // ───── A. 建築詳情 ─────
     await scene('A', async () => {
-      await setS(page, s => { s.buildings.hall = 4; s.buildings.forge = 2; s.gold = 5000; s.wood = 500; s.ore = 500; s.leather = 80; s.cloth = 80; s.gearStock.weapon = 0; });
+      // 2026-11-16 起 gearStock[slot] 是分階物件 {1..5}，寫成數字 0 會讓 craftGear 的 `gearStock[type][tier]++` 無效
+      await setS(page, s => { s.buildings.hall = 4; s.buildings.forge = 2; s.gold = 5000; s.wood = 500; s.ore = 500; s.leather = 80; s.cloth = 80; s.gearStock.weapon = { 1: 0, 2: 0, 3: 0, 4: 0, 5: 0 }; });
       await openInsp('forge');
       let r = await readInsp();
       if (!r.open || r.mode !== 'C') return fix(`${label}/A: 建築詳情沒開成 C 視窗(open=${r.open} mode=${r.mode})`);
@@ -122,9 +123,11 @@ for (const name of only) {
       await scan(page, `${label}/A 建築詳情`, '#inspector', v);
       await shot(page, `${name}-insp-up`);
       // 動作:鍛造(清單列金棕鈕)
-      const w0 = await getS(page, s => s.gearStock.weapon);
+      // 2026-11-16 起 gearStock.weapon 是分階物件 {1..5}，用 API 取總數才比得動
+      const wSum = () => getS(page, (s, g) => g.gearStockOf('weapon'));
+      const w0 = await wSum();
       await page.click('#inspector .z2b-row [data-action=craftGear]'); await settle(page, 300);
-      const w1 = await getS(page, s => s.gearStock.weapon);
+      const w1 = await wSum();
       w1 === w0 + 1 ? ok(`${label}/A: 清單列「鍛造」真的生效(武器庫存 ${w0}→${w1})`) : fix(`${label}/A: 清單列「鍛造」沒生效(${w0}→${w1})`);
       // 子頁籤:升級效果
       await page.click('#inspector .z2b-tabs [data-id=up]'); await settle(page, 260);
@@ -169,7 +172,9 @@ for (const name of only) {
       const r = await page.evaluate(() => {
         const cs = (e, p) => e ? getComputedStyle(e)[p] : null, z = e => e.currentCSSZoom || 1;
         return [...document.querySelectorAll('#modal-content .building-card')].map(c => ({
-          id: c.dataset.id, unbuilt: c.classList.contains('unbuilt'), use: c.querySelector('.bc-use')?.textContent.trim() || '', useF: c.querySelector('.bc-use') ? parseFloat(cs(c.querySelector('.bc-use'), 'fontSize')) * z(c.querySelector('.bc-use')) : 0,
+          id: c.dataset.id, unbuilt: c.classList.contains('unbuilt'),
+          // 2026-11-18 起已建造且可升級的卡會放「升級後多什麼」(.bc-use.bc-gain)，那不是用途說明，量測時排除
+          use: (c.querySelector('.bc-use:not(.bc-gain)')?.textContent.trim()) || '', useF: c.querySelector('.bc-use:not(.bc-gain)') ? parseFloat(cs(c.querySelector('.bc-use'), 'fontSize')) * z(c.querySelector('.bc-use')) : 0,
           btn: c.querySelector('.hv-btn')?.textContent.trim() || '', btnDis: !!c.querySelector('.hv-btn')?.disabled,
           costs: [...c.querySelectorAll('.hv-cost')].map(x => ({ short: x.classList.contains('short'), f: parseFloat(cs(x.querySelector('b'), 'fontSize')) * z(x), c: cs(x.querySelector('b'), 'color'), title: x.title })),
           i: (() => { const i = c.querySelector('.hv-i'); if (!i) return null; const r = i.getBoundingClientRect(), s = i.querySelector('span'); return { w: r.width, h: r.height, bg: cs(s, 'backgroundColor'), sw: s.getBoundingClientRect().width }; })(),
@@ -204,6 +209,9 @@ for (const name of only) {
     await scene('C', async () => {
       await setS(page, s => { s.gold = 5000; for (const k of Object.keys(s.tradeRequests)) s.tradeRequests[k] = 0; s.tradeRequests.wood = 30; });
       await closeAll(page); await L.act(page, 'trade'); await settle(page, 500);
+      // 2026-11-19：上一幕 page.click 留下的滑鼠可能正好壓在金棕主鈕上,:hover 會把底色換成 color-mix(gold,#fff)=color(srgb ...)，
+      // 字串比對 C.gold 就永遠失敗。量顏色前先把滑鼠移到角落。
+      await page.mouse.move(2, 2); await settle(page, 150);
       const r = await page.evaluate(() => {
         const cs = (e, p) => e ? getComputedStyle(e)[p] : null, rows = [...document.querySelectorAll('#modal-content .trade-row')];
         const info = document.querySelector('#modal-content .z2b-info');
@@ -251,7 +259,7 @@ for (const name of only) {
 
     // ───── E. 製作 ─────
     await scene('E', async () => {
-      await setS(page, s => { s.stocks.drink = 0; s.flour = 3; s.herb = 60; s.cloth = 60; s.leather = 50; s.ore = 120; s.wood = 160; s.gearStock.weapon = 0; });
+      await setS(page, s => { s.stocks.drink = 0; s.flour = 3; s.herb = 60; s.cloth = 60; s.leather = 50; s.ore = 120; s.wood = 160; s.gearStock.weapon = { 1: 0, 2: 0, 3: 0, 4: 0, 5: 0 }; });
       await closeAll(page); await L.act(page, 'craft'); await settle(page, 500);
       const r = await page.evaluate(() => {
         const cs = (e, p) => e ? getComputedStyle(e)[p] : null, rows = [...document.querySelectorAll('#modal-content .zc-row')];
@@ -263,7 +271,12 @@ for (const name of only) {
       const food = r.find(x => x.id === 'food'), drink = r.find(x => x.id === 'drink');
       const bed = r.find(x => x.id === 'bed');
       bed && bed.ic && bed.nmC === C.pink && bed.chips.length && bed.main && bed.main.bg === C.gold && !bed.main.dis && /製作/.test(bed.main.t) ? ok(`${label}/E: 列=圖示格＋粉名稱＋材料 ${bed.chips.map(c => c.t).join('、')}＋金棕「製作」`) : fix(`${label}/E: 製作列不符:${JSON.stringify(bed)}`);
-      food && food.chips[0].have === 3 && food.chips[0].need === 5 && food.chips[0].short && /材料不足/.test(food.meta) && food.main.dis && food.main.bg === C.gray && food.chips[0].col === C.no ? ok(`${label}/E: 材料不足:小麥粉 3/5 紅字＋「材料不足」＋灰色停用鈕`) : fix(`${label}/E: 小麥粉 3/5 的不足狀態不符:${JSON.stringify(food)}`);
+      // 2026-11-19：材料不足時主鈕不再只是灰掉——2026-11-16「補料」上線後會變成青綠「補料製作」
+      //（src/pixel-ui.js:278/:605 merchant-btn、:374-381），用村莊金幣自動補齊缺料再製作。
+      // 所以「不足」有兩種合法樣貌：灰停用「製作」或青綠「補料製作」。
+      const foodShort = food && food.chips[0].have === 3 && food.chips[0].need === 5 && food.chips[0].short && /材料不足/.test(food.meta) && food.chips[0].col === C.no;
+      const foodMain = food && ((food.main.dis && food.main.bg === C.gray) || /補料/.test(food.main.t));
+      foodShort && foodMain ? ok(`${label}/E: 材料不足:小麥粉 3/5 紅字＋「材料不足」＋${/補料/.test(food.main.t) ? '青綠「補料製作」' : '灰色停用鈕'}`) : fix(`${label}/E: 小麥粉 3/5 的不足狀態不符:${JSON.stringify(food)}`);
       drink && drink.out ? ok(`${label}/E: 庫存 0 的「莓果飲品」列標「賣完了」`) : fix(`${label}/E: 庫存 0 的商品要標「賣完了」`);
       const dm = r.find(x => x.id === 'drink');
       dm && dm.full && dm.full.b && dm.full.w >= (touch ? 43.5 : 28) && dm.full.h >= (touch ? 43.5 : 28) ? ok(`${label}/E: 「做滿」小鈕在(${dm.full.b} 批,${Math.round(dm.full.w)}×${Math.round(dm.full.h)})`) : fix(`${label}/E: 缺「做滿」小鈕或熱區不足:${JSON.stringify(dm?.full)}`);
@@ -282,8 +295,9 @@ for (const name of only) {
       const g = await page.evaluate(() => [...document.querySelectorAll('#modal-content .zc-row')].map(r => ({ id: r.dataset.id, btn: r.querySelector('.z2b-act .pixel-button')?.textContent.trim(), bg: getComputedStyle(r.querySelector('.z2b-act .pixel-button')).backgroundColor })));
       // 2026-11-13：裝備製作＝武器＋六件防具 7 列
       g.length === 7 && g.every(x => x.bg === C.gold) ? ok(`${label}/E: 裝備製作 ${g.length} 列(${g.map(x => x.btn.replace(/\s+/g, '')).join('、')})金棕鈕`) : fix(`${label}/E: 裝備製作列不符:${JSON.stringify(g)}`);
-      const w0 = await getS(page, s => s.gearStock.weapon); await page.click('#modal-content .zc-row[data-id=weapon] [data-action=craftGear]'); await settle(page, 300);
-      (await getS(page, s => s.gearStock.weapon)) === w0 + 1 ? ok(`${label}/E: 「鍛造」生效`) : fix(`${label}/E: 鍛造沒生效`);
+      const wSum2 = () => getS(page, (s, g) => g.gearStockOf('weapon'));
+      const w0 = await wSum2(); await page.click('#modal-content .zc-row[data-id=weapon] [data-action=craftGear]'); await settle(page, 300);
+      (await wSum2()) === w0 + 1 ? ok(`${label}/E: 「鍛造」生效`) : fix(`${label}/E: 鍛造沒生效`);
       await closeAll(page);
     });
 
@@ -302,7 +316,9 @@ for (const name of only) {
       cur && /^\d+\/\d+$/.test(cur.cap) && cur.rw && /獎勵/.test(cur.rw) && cur.h3 ? ok(`${label}/F: 目前列:標題「${cur.h3}」、進度膠囊「${cur.cap}」、${cur.rw}`) : fix(`${label}/F: 目前列缺標題/膠囊/獎勵:${JSON.stringify(cur)}`);
       cur && cur.claim && cur.claim.t === '領取' && cur.claim.bg === C.gold && !cur.claim.dis && (!touch || cur.claim.h >= 43.5) ? ok(`${label}/F: 可領取=金棕「領取」(${Math.round(cur.claim.h)}px)`) : fix(`${label}/F: 可領取的列要金棕「領取」:${JSON.stringify(cur?.claim)}`);
       done.length && done.every(d => d.bg === C.done && /已完成/.test(d.tag)) ? ok(`${label}/F: 領過的 ${done.length} 列壓暗 ${C.done}＋灰色「已完成」`) : fix(`${label}/F: 領過的列要壓暗:${JSON.stringify(done.slice(0, 1))}`);
-      locked.length && locked.every(d => /未解鎖/.test(d.tag)) ? ok(`${label}/F: 之後 ${locked.length} 列標「未解鎖」`) : fix(`${label}/F: 鎖住列不符`);
+      // 2026-11-19：2026-11-18 四個晚期委託（QUEST_REVISION 3）上線後，鎖住的列若條件已達成會標「已達成」（src/pixel-ui.js:686/:690、
+      // src/ui-hv.css:2730 `.zq-tag.locked.met`），不是只有「未解鎖」。
+      locked.length && locked.every(d => /未解鎖|已達成/.test(d.tag)) ? ok(`${label}/F: 之後 ${locked.length} 列標「未解鎖／已達成」`) : fix(`${label}/F: 鎖住列不符:${JSON.stringify(locked.map(d => d.tag))}`);
       r.seps.length >= 2 && r.seps.every(s => s.lines >= 2) ? ok(`${label}/F: 區段「${r.seps.map(s => s.t).join('｜')}」雙細線標籤`) : fix(`${label}/F: 章節分隔要有雙細線標籤:${JSON.stringify(r.seps)}`);
       await scan(page, `${label}/F 委託`, '#modal', v);
       await shot(page, `${name}-quests`);

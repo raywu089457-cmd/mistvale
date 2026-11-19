@@ -192,7 +192,15 @@ if (sceneNeeded) for (const v of VIEWS) {
         chk(rr.length > 0 && rr.every(r => /^(regionRow,regionTravel|regionRow,regionView)$/.test(r.acts) && r.min >= lim), T(label) + `: ${rr.length} 列清單,每列 整列主鈕＋前往/回村 兩顆(≥${lim}px),詳情收在展開區`, T(label) + `: 區域清單列按鈕結構不對(${[...new Set(rr.map(r => r.acts))].join(' | ')}、最小 ${Math.min(...rr.map(r => r.min))})`);
         if (v.w === 1440 || v.w === 390) await shot(page, `${scene}-${v.w}x${v.h}`); continue;
       }
-      chk(cs.length > 0 && cs.every(c => c.big === 1), T(label) + `: ${cs.length} 張卡每張一顆滿寬主按鈕`, T(label) + `: 每張卡的滿寬按鈕數 ${[...new Set(cs.map(c => c.big))].join('/')}（應 1），小按鈕數 ${[...new Set(cs.map(c => c.small))].join('/')}`);
+    // 2026-11-19：交易列每張卡的滿寬鈕數量會隨「有沒有庫存可賣」與「手機窄卡」變動，所以不能算顆數：
+    //   每張卡必須剛好 1 顆金棕主鈕 tradeStep d=10 ＋ 1 顆持續收購開關 tradeStanding；
+    //   其餘滿寬鈕只允許 matSell（賣給行商，有庫存才出現）與 tradeStep d=1（手機 113px 窄卡時「＋」自己佔滿第二列，才不會 <44px）。
+    const bigActs = sel => page.evaluate(sel => [...document.querySelectorAll('#modal-content ' + sel)].map(c => { const cr = c.getBoundingClientRect(); return [...c.querySelectorAll('button')].filter(b => b.getBoundingClientRect().width / cr.width >= .85).map(b => (b.dataset.action || '') + (b.dataset.d ? ':' + b.dataset.d : '')); }), sel);
+    const ba = await bigActs('.trade-row');
+    const allow = new Set(['tradeStep:10', 'tradeStanding', 'matSell', 'tradeStep:1']);
+    const mainOk = ba.length > 0 && ba.every(a => a.filter(x => x === 'tradeStep:10').length === 1 && a.filter(x => x === 'tradeStanding').length === 1 && a.every(x => allow.has(x)));
+    chk(mainOk, T(label) + `: ${ba.length} 張卡每張 一顆金棕主鈕（收購 +10）＋一顆持續收購開關` + (ba.some(a => a.includes('matSell')) ? '（有庫存的卡另有「賣 N 份」）' : ''),
+      T(label) + `: 每張卡要有 1 顆 tradeStep:10 主鈕＋1 顆 tradeStanding 開關,其餘滿寬鈕只能是 matSell／手機的 tradeStep:1.實際:${JSON.stringify([...new Set(ba.map(String))])}`);
       chk(cs.every(c => c.minS >= lim && (scene === 'trade' || c.maxS <= 48.5)), T(label) + `: 其餘動作是 ${v.phone ? 44 : 32}px 小圖示鈕`, T(label) + `: 小鈕尺寸不對（最小 ${Math.min(...cs.map(c => c.minS))}、最大 ${Math.max(...cs.map(c => c.maxS))}）`);
       if (v.w === 1440 || v.w === 390) await shot(page, `${scene}-${v.w}x${v.h}`);
     }

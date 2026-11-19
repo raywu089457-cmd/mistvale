@@ -132,11 +132,18 @@ for (const name of only) {
     const B = await ev(page, async (P) => {
       const g = P.G(), s = g.state, h = s.hunters[0], out = {}; const m = () => document.querySelector('#modal').dataset.type;
       const tab = id => { P.act('hunterTab', id); return P.wait(80); };
-      // 修煉
-      h.gold = 500; h.trainCooldown = 0; h.level = 3; h.xp = 0; h.hp = h.maxHp; h.task = null; const g0 = s.gold, hg0 = h.gold, lv0 = h.level;
+      // 修煉（2026-11-18 使用者要求拿掉冷卻，只靠學費限制；學費＝20＋等級×10，見 src/pixel-game.js:200）
+      h.gold = 500; h.level = 3; h.xp = 0; h.hp = h.maxHp; h.task = null; const g0 = s.gold, hg0 = h.gold, lv0 = h.level;
+      const wantCost = 20 + h.level * 10;
       P.act('hunter', h.id); await P.wait(150); const tb = document.querySelector('#modal-foot [data-action=train]'); out.trainEnabled = tb && tb.getAttribute('aria-disabled') !== 'true'; tb?.click(); await P.wait(150);
-      out.train = { level: h.level - lv0, hg: hg0 - h.gold, g: s.gold - g0, still: m() }; out.trainLocked = (() => { h.trainCooldown = 8; P.act('hunter', h.id); return null; })(); await P.wait(150);
-      const tb2 = document.querySelector('#modal-foot [data-action=train]'); out.trainCdLocked = tb2?.getAttribute('aria-disabled') === 'true'; const cdTxt = document.querySelector('.z2-train')?.textContent || ''; out.trainCdText = /冷卻/.test(cdTxt); const lvB = h.level; tb2?.click(); await P.wait(100); out.trainCdNoEffect = h.level === lvB; h.trainCooldown = 0;
+      out.train = { level: h.level - lv0, hg: hg0 - h.gold, g: s.gold - g0, still: m(), wantCost };
+      // 沒有冷卻了：連按第二次也要再生效一次（只受學費限制）
+      const lv1 = h.level; const tb2 = document.querySelector('#modal-foot [data-action=train]'); const hg1 = h.gold; tb2?.click(); await P.wait(150);
+      out.trainTwice = { level: h.level - lv1, hg: hg1 - h.gold, enabled: tb2 && tb2.getAttribute('aria-disabled') !== 'true' };
+      // 沒錢 → 灰＋寫出還差多少
+      const hgSave = h.gold; h.gold = 0; P.act('hunter', h.id); await P.wait(150);
+      const tb3 = document.querySelector('#modal-foot [data-action=train]'); out.trainPoor = { aria: tb3?.getAttribute('aria-disabled'), why: (document.querySelector('.z2-train')?.textContent || '') };
+      h.gold = hgSave;
       // 學習技能
       s.gold = 5000; s.ore = 5000; h.skillLevel = 0; P.act('hunter', h.id); await P.wait(120); await tab('skill'); const g1 = s.gold; const sb = document.querySelector('.z2-rowbtn[data-action=learnSkill]'); out.skillBtn = { aria: sb?.getAttribute('aria-disabled'), bg: sb && getComputedStyle(sb).backgroundColor }; sb?.click(); await P.wait(150);
       out.skill = { lv: h.skillLevel, dg: g1 - s.gold, tab: document.querySelector('.z2-tab.on')?.dataset.id, still: m() };
@@ -151,14 +158,17 @@ for (const name of only) {
       return out;
     });
     const bf = [];
-    if (!B.trainEnabled) bf.push('修煉鈕不該是灰的'); if (B.train.level < 1 || B.train.hg !== 20 || B.train.g !== 20 || B.train.still !== 'hunter') bf.push(`修煉沒生效/卡片被關 ${JSON.stringify(B.train)}`);
-    if (!B.trainCdLocked || !B.trainCdText || !B.trainCdNoEffect) bf.push(`修煉冷卻中應灰＋文字說明冷卻、點了不生效 ${JSON.stringify([B.trainCdLocked, B.trainCdText, B.trainCdNoEffect])}`);
+    // 2026-11-19 修煉沒有冷卻了（src/pixel-game.js:197）：只驗「按一次就生效、學費＝20＋等級×10 從個人金幣轉給村莊、連按第二次也生效、沒錢時灰＋寫出還差多少」
+    if (!B.trainEnabled) bf.push('修煉鈕不該是灰的');
+    if (B.train.level < 1 || B.train.hg !== B.train.wantCost || B.train.g !== B.train.wantCost || B.train.still !== 'hunter') bf.push(`修煉沒生效/卡片被關（應扣學費 ${B.train.wantCost} 個人金幣並轉給村莊）${JSON.stringify(B.train)}`);
+    if (!B.trainTwice.enabled || B.trainTwice.level < 1 || B.trainTwice.hg <= 0) bf.push(`修煉沒有冷卻，連按第二次應再生效一次 ${JSON.stringify(B.trainTwice)}`);
+    if (B.trainPoor.aria !== 'true' || !/還差/.test(B.trainPoor.why)) bf.push(`修煉沒錢時應為灰＋寫出還差多少金 ${JSON.stringify(B.trainPoor)}`);
     if (B.skillBtn.aria === 'true' || B.skillBtn.bg !== RGB.gold) bf.push(`學習技能(夠錢)應為金棕可按：${JSON.stringify(B.skillBtn)}`); if (B.skill.lv !== 1 || B.skill.dg !== 80 || B.skill.tab !== 'skill' || B.skill.still !== 'hunter') bf.push(`學習技能沒生效/沒留在技能頁 ${JSON.stringify(B.skill)}`);
     if (B.skillLocked.aria !== 'true' || B.skillLocked.bg !== RGB.gray || !B.skillLocked.lock || !B.skillLockedNoEffect || !/金幣/.test(B.skillLocked.why)) bf.push(`學習技能(缺錢)應為灰＋鎖頭＋寫出缺什麼、點了不生效 ${JSON.stringify(B.skillLocked)}`);
     if (B.enh0.aria === 'true' || B.enh0.bg !== RGB.gold) bf.push(`強化裝備(有武器夠錢)應為金棕可按：${JSON.stringify(B.enh0)}`); if (B.enh.lv !== 1 || B.enh.dg !== 60 || B.enh.tab !== 'gear' || B.enh.still !== 'hunter') bf.push(`強化裝備沒生效 ${JSON.stringify(B.enh)}`);
     if (B.rebLocked.aria !== 'true' || B.rebLocked.bg !== RGB.gray || !B.rebLocked.lock) bf.push(`Lv.99 轉世應為灰＋鎖頭 ${JSON.stringify(B.rebLocked)}`); if (B.rebReady.aria === 'true' || B.rebReady.bg !== RGB.gold) bf.push(`Lv.100 轉世應為金棕可按 ${JSON.stringify(B.rebReady)}`);
     if (B.reb.d !== 1 || B.reb.level !== 1 || B.reb.still !== 'hunter') bf.push(`轉世沒生效 ${JSON.stringify(B.reb)}`);
-    if (bf.length) for (const m of bf) fix(`${label} 動作：${m}`); else ok(`${label} 動作：修煉(扣 20、升級、冷卻時灰＋原因)、學習技能(−80)、強化裝備(−60)、轉世(Lv.100 才亮)都生效且留在原子頁籤;條件不足＝灰＋鎖頭、點了不生效`);
+    if (bf.length) for (const m of bf) fix(`${label} 動作：${m}`); else ok(`${label} 動作：修煉(扣學費 20＋等級×10、沒冷卻可連按、沒錢灰＋原因)、學習技能(−80)、強化裝備(−60)、轉世(Lv.100 才亮)都生效且留在原子頁籤;條件不足＝灰＋鎖頭、點了不生效`);
 
     // ═══ E. tooltip ═══
     await page.evaluate(() => { const g = globalThis.__mistvaleGame, h = g.state.hunters[0]; h.equipment.weapon = true; h.weaponLevel = 5; h.equipment.helm = false; h.equipment.chest = false; h.equipment.belt = false; h.equipment.legs = false; h.equipment.boots = false; h.equipment.gloves = false; });

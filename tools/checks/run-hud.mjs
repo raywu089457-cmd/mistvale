@@ -32,13 +32,17 @@ async function boot(viewport, dsr = 1) {
   return { ctx, page, errs };
 }
 
-const startDungeon = (page, frac = [0.25, 1, 1]) => page.evaluate(frac => {
+// 2026-11-19：出發血量門檻 DG_FIT_MIN_HP=0.35（src/pixel-game.js:2660）收緊後，
+//   小隊員 <35% 會被 startDungeon 擋下 → 先用 40% 出發，再把第一位打到 25% 驗證 .low 轉紅。
+const startDungeon = (page, frac = [0.4, 1, 1]) => page.evaluate(frac => {
   const g = globalThis.__mistvaleGame, s = g.state;
   s.buildings.dungeon = Math.max(1, s.buildings.dungeon || 0);
   const party = s.hunters.filter(h => h.hp > 0).slice(0, 3);
   party.forEach((h, i) => { h.hp = Math.round(h.maxHp * frac[i]); });
   const r = g.startDungeon(party.map(h => h.id));
   for (let i = 0; i < 30; i++) g.tick(0.1);
+  // 出發後再把第一位打到 25%：HUD 的 .low（<35% 轉紅）才有東西可驗；之後的畫面更新會自己跟上
+  party[0].hp = Math.round(party[0].maxHp * 0.25);
   return { ok: r.ok, msg: r.message, ids: party.map(h => h.id) };
 }, frac);
 
