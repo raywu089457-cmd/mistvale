@@ -335,6 +335,7 @@ export function createGame(saved = null) {
   // 材料不夠就停在那裡等材料(絕不賒帳)。跟「持續收購」同一個模式，只是方向相反:那邊補材料，這邊補成品。
   const CRAFT_TARGET_MAX = 999;
   const autoCraftMade = {};        // 這一輪累積自動做了幾份(回報用，不逐秒寫 log)
+  const autoCraftStalled = new Set();   // 目前停在「材料不足」的物資(只在一開頭提醒一次，恢復後解除)
   let autoCraftTimer = 0, autoCraftTicks = 0;
   function craftTargetOf(id) { const t = state.craftTargets?.[id]; return Number.isFinite(t) ? Math.max(0, Math.min(CRAFT_TARGET_MAX, Math.round(t))) : 0; }
   function runCraftTargets(dt) {
@@ -343,10 +344,14 @@ export function createGame(saved = null) {
     for (const id of PRODUCT_KEYS) {
       const target = craftTargetOf(id); if (!target) continue;
       const p = PRODUCTS[id]; if (!state.buildings[p.building]) continue;          // 設施沒蓋就不能做
-      const deficit = target - (state.stocks[id] || 0); if (deficit <= 0) continue;
+      const deficit = target - (state.stocks[id] || 0); if (deficit <= 0) { autoCraftStalled.delete(id); continue; }
       const batches = Math.ceil(deficit / p.amount); let done = 0;
       while (done < batches) { const cost = {}; for (const [k, a] of Object.entries(p.cost)) cost[k] = a; if (!canPay(cost)) break; pay(cost); done++; }
-      if (!done) continue;                                                          // 材料不足:停著等材料
+      if (!done) {   // 材料不足:停著等材料，只在剛停下來時提醒一次(不然每 20 秒重講一次)
+        if (!autoCraftStalled.has(id)) { autoCraftStalled.add(id); log(`${p.name}的持續製作暫停：材料不足，可到交易所發布收購。`, 'warning'); }
+        continue;
+      }
+      autoCraftStalled.delete(id);
       const amount = done * p.amount; state.stocks[id] += amount; state.counts.crafted += amount; if (id === 'food') state.counts.foodCrafted += amount;
       autoCraftMade[id] = (autoCraftMade[id] || 0) + amount; made += amount;
     }
@@ -2589,12 +2594,18 @@ export function createGame(saved = null) {
     // 持續製作:設定每種生活物資的目標庫存(0 = 關閉)。庫存低於目標時遊戲每秒自動用現有材料補到目標，
     // 材料不夠就暫停等材料;設施沒蓋、目標 0 都不會動作。
     craftTargetOf,
+    // 一次關掉所有持續製作(UI 的「全部關閉」)；回傳關掉幾項
+    clearCraftTargets() {
+      const ids = PRODUCT_KEYS.filter(id => craftTargetOf(id) > 0);
+      for (const id of ids) { state.craftTargets[id] = 0; autoCraftStalled.delete(id); }
+      return result(true, ids.length ? `已關閉 ${ids.length} 項持續製作。` : '目前沒有開啟中的持續製作。');
+    },
     setCraftTarget(productId, amount) {
       if (!own(PRODUCTS, productId)) return result(false, '找不到這項商品。');
       const n = Math.round(Number(amount));
       if (!Number.isFinite(n) || n < 0 || n > CRAFT_TARGET_MAX) return result(false, `目標數量必須是 0 至 ${CRAFT_TARGET_MAX} 份的整數。`);
       if (n && !state.buildings[PRODUCTS[productId].building]) return result(false, '請先建造對應的生產設施。');
-      state.craftTargets ??= {}; state.craftTargets[productId] = n;
+      state.craftTargets ??= {}; state.craftTargets[productId] = n; if (!n) autoCraftStalled.delete(productId);
       const name = PRODUCTS[productId].name;
       return result(true, n ? `${name}改為持續製作：庫存低於 ${n} 份就自動補到 ${n} 份。` : `${name}已停止持續製作。`);
     },

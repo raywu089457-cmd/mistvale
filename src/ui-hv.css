@@ -2797,3 +2797,8 @@ html body :is(#inspect-content,#modal-content) .zc-auto.paused .zc-auto-st{color
   html body :is(#inspect-content,#modal-content) .zc-auto{gap:6px}
   html body :is(#inspect-content,#modal-content) .zc-auto .pixel-button{min-width:44px;min-height:44px}
 }
+/* 2026-11-20 持續製作總覽:哪幾項自動補貨中＋一鍵全部關閉 */
+html body :is(#inspect-content,#modal-content) .craft-auto-sum{display:flex;align-items:center;gap:8px;flex-wrap:wrap;margin:0 0 8px;padding:6px 10px;border:1px solid #4a3a2a;border-radius:3px;background:#1d150ecc;font:600 12px/1.5 var(--font-ui);color:#b8a888}
+html body :is(#inspect-content,#modal-content) .craft-auto-sum.on{border-color:#8a6a34;color:#e8d6c0}
+html body :is(#inspect-content,#modal-content) .craft-auto-sum b{color:#efcd82}
+html body :is(#inspect-content,#modal-content) .craft-auto-sum .pixel-button{min-width:44px;min-height:44px;margin-left:auto;padding:0 10px!important;font:700 13px/1 var(--font-ui)!important}
