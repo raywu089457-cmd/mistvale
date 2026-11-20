@@ -872,10 +872,13 @@ export function createGame(saved = null) {
   // 離線外推跳過的天數不換(只在逐步模擬的換日時換);名冊滿了也照換,之後有名額就有新面孔。
   function newDayVisitor() {
     if (!state.visitors || state.visitors.length < 3) return;
-    state.visitors[state.day % 3] = newVisitor(); offerNewClass();
+    state.visitors[state.day % 3] = newVisitor(state.visitors.filter((_, i) => i !== state.day % 3).map(v => v.classId)); offerNewClass();
   }
-  function newVisitor() {
-    const c = CLASSES[Math.floor(random() * CLASSES.length)], roll = random();
+  // 2026-11-20 訪客職業不重複:同一批三張卡全是同一個職業就沒有選擇可言(截圖上三張一模一樣的刺客)。
+  // 傳入 exclude(其他兩格已有的職業)就只從剩下的職業抽;職業用完才會全部開放。
+  function newVisitor(exclude = []) {
+    const pool = CLASSES.filter(c => !exclude.includes(c.id)), use = pool.length ? pool : CLASSES;
+    const c = use[Math.floor(random() * use.length)], roll = random();
     const rarity = roll < 0.55 ? 'normal' : roll < 0.82 ? 'rare' : roll < 0.94 ? 'superior' : roll < 0.99 ? 'heroic' : 'legendary';
     return { id: id('v'), classId: c.id, rarity, trait: TRAITS[Math.floor(random() * TRAITS.length)].id, cost: Math.round(c.cost * RARITY[rarity].mult) };
   }
@@ -2109,7 +2112,7 @@ export function createGame(saved = null) {
     state.arena = { active: false, wins: 0, losses: 0, enemyHp: 0, enemyMaxHp: 0, time: 0, hunterIds: [], cooldown: 0, phase: '待命', attackTimer: 1, opponent: '暮林訓練隊', reward: 0 };
     // 2026-10-28:開局每個職業各一隻(職業數變動時自動跟著長)
     CLASSES.forEach((c, i) => newHunter(c.id, {x:CAMP.x+i*.55-1.6,z:CAMP.z+Math.sin(i)*.35}, i));
-    for (let i = 0; i < 3; i++) state.visitors.push(newVisitor());
+    for (let i = 0; i < 3; i++) state.visitors.push(newVisitor(state.visitors.map(v => v.classId)));
     offerNewClass();
     // 流浪英雄的職業由 newWanderer 從 CLASSES 擲骰(祭司已是正式職業,不再固定塞一位流浪祭司)。
     // 2026-10-28:流浪英雄也改成每個職業各一隻(沒指定職業時仍隨機)
@@ -2232,7 +2235,7 @@ export function createGame(saved = null) {
     state.counts.rebirths = Math.max(state.counts.rebirths, rebirths);
     if (Array.isArray(source.visitors)) {
       const visitors = source.visitors.filter(v => v && own(CLASS, v.classId) && own(RARITY, v.rarity)).slice(0, 3).map(v => ({ id: id('v'), classId: v.classId, rarity: v.rarity, trait: TRAITS.some(t => t.id === v.trait) ? v.trait : 'brave', cost: Math.round(CLASS[v.classId].cost * RARITY[v.rarity].mult) }));
-      while (visitors.length < 3) visitors.push(newVisitor()); state.visitors = visitors; offerNewClass();
+      while (visitors.length < 3) visitors.push(newVisitor(visitors.map(v => v.classId))); state.visitors = visitors; offerNewClass();
     }
     // 4 組派遣隊伍:舊存檔沒有就補上;名單裡已不存在的獵人自動剔除。
     state.dispatchTeams = normalizeTeams(source.dispatchTeams);
@@ -2320,7 +2323,7 @@ export function createGame(saved = null) {
       if (state.hunters.length >= state.capacity) return result(false, '獵人名額已滿，升級獵人小屋可以增加 2 個名額。');
       const cost = visitor?.cost ?? c.cost; if (state.gold < cost) return result(false, `招募需要 ${cost} 村莊金幣。`);
       state.gold -= cost; const h = newHunter(c.id, door('house')); state.recruited++;
-      if (visitor) { h.rarity = visitor.rarity; h.trait = visitor.trait; updateStats(h); h.hp = h.maxHp; state.visitors[visitorIndex] = newVisitor(); }
+      if (visitor) { h.rarity = visitor.rarity; h.trait = visitor.trait; updateStats(h); h.hp = h.maxHp; state.visitors[visitorIndex] = newVisitor(state.visitors.filter((_, i) => i !== visitorIndex).map(v => v.classId)); }
       log(`${RARITY[h.rarity].name}${c.name} ${h.name} 加入村莊，帶著 100 枚個人金幣。`, 'success'); refreshQuest(); return result(true, `${h.name} 已加入隊伍。`);
     },
     // T127：招募卡要預覽「請進來會是什麼體質」。重用 updateStats，不另外複製一份公式；
