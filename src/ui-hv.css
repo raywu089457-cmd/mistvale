@@ -2264,7 +2264,7 @@ html body #modal-content .z2c-info{display:flex;flex-wrap:wrap;align-items:cente
 html body #modal-content .z2c-info>.encounter-status{flex:1 1 auto;min-width:0}
 html body #modal-content .z2c-info>.z2c-rec{flex:0 0 auto}
 html body #modal-content .z2c-info>.encounter-facts{flex:1 0 100%}
-html body #modal-content .z2c-info .encounter-status{margin:0!important;padding:0!important;background:none!important;border:0!important;text-align:left!important;font:700 13px/1.4 var(--font-ui)!important}
+html body #modal-content .z2c-info .encounter-status{margin:0!important;padding:0!important;background:none!important;border:0!important;text-align:left!important;font:700 13px/1.4 var(--font-ui)!important;color:var(--hv-text)!important}
 html body #modal-content .z2c-info .encounter-facts{margin:0!important;padding:0!important}
 html body #modal-content .z2c-rec{display:flex;flex-wrap:wrap;align-items:center;gap:2px 12px;font:600 12px/1.5 var(--font-ui);color:var(--hv-text-dim)}
 html body #modal-content .z2c-rw{display:inline-flex;align-items:center;gap:4px}
