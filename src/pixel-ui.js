@@ -643,7 +643,7 @@ function modalHTML(type){const s=game.state;
    const other=h=>teams.findIndex((t2,i)=>i!==tab&&t2.ids.includes(h.id));
    const regions=REGIONS.filter(r=>r.id!=='village').sort((x,y)=>x.risk-y.risk);   // 2026-10-30:危險度由弱到強(最好打的排最上面,越往下越硬)
    return `<div class="dispatch-head"><div class="dispatch-tabs tabs" role="tablist" aria-label="派遣隊伍">${teams.map((t2,i)=>`<button class="${i===tab?'active':''}" role="tab" aria-selected="${i===tab}" data-action="dispatchTab" data-index="${i}"><span class="dt-name">${t2.name}</span>${t2.ids.length?`<span class="dt-n">（${t2.ids.length}）</span>`:''}</button>`).join('')}</div>
-   <div class="dispatch-quick"><span>已選 <b>${team.ids.length}</b> / ${alive.length}</span><button class="pixel-button" data-action="dispatchAll">全選</button><button class="pixel-button" data-action="dispatchNone" ${team.ids.length?'':'disabled'}>清空</button></div></div>
+   <div class="dispatch-quick"><span>已選 <b>${team.ids.length}</b> / ${alive.length}</span><button class="pixel-button quiet" data-action="dispatchAll">全選</button><button class="pixel-button quiet" data-action="dispatchNone" ${team.ids.length?'':'disabled'}>清空</button></div></div>
    <h4 class="dispatch-h">${iconHTML('hunter')}${team.name}的隊員</h4>
    <div class="party-grid dispatch-party">${s.hunters.map(h=>{const sel=team.ids.includes(h.id),o=other(h);
      return `${partyPick(h,'toggleDispatchHunter',sel,o>=0?'在'+teams[o].name:'')}`;}).join('')}</div>
