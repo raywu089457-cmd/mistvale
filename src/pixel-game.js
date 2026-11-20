@@ -330,6 +330,34 @@ export function createGame(saved = null) {
   })();
   const canPay = cost => Object.entries(cost).every(([key, amount]) => state[key] >= amount);
   const pay = cost => { for (const [key, amount] of Object.entries(cost)) state[key] -= amount; };
+  // ── 2026-11-19 持續製作(生活物資)──────────────────────────────────────────────
+  // 每種物資可以設一個目標庫存(0 = 關)。每秒結算一次:庫存低於目標就用現有材料補到目標，
+  // 材料不夠就停在那裡等材料(絕不賒帳)。跟「持續收購」同一個模式，只是方向相反:那邊補材料，這邊補成品。
+  const CRAFT_TARGET_MAX = 999;
+  const autoCraftMade = {};        // 這一輪累積自動做了幾份(回報用，不逐秒寫 log)
+  let autoCraftTimer = 0, autoCraftTicks = 0;
+  function craftTargetOf(id) { const t = state.craftTargets?.[id]; return Number.isFinite(t) ? Math.max(0, Math.min(CRAFT_TARGET_MAX, Math.round(t))) : 0; }
+  function runCraftTargets(dt) {
+    autoCraftTimer += dt; if (autoCraftTimer < 1) return; autoCraftTimer = 0;
+    let made = 0;
+    for (const id of PRODUCT_KEYS) {
+      const target = craftTargetOf(id); if (!target) continue;
+      const p = PRODUCTS[id]; if (!state.buildings[p.building]) continue;          // 設施沒蓋就不能做
+      const deficit = target - (state.stocks[id] || 0); if (deficit <= 0) continue;
+      const batches = Math.ceil(deficit / p.amount); let done = 0;
+      while (done < batches) { const cost = {}; for (const [k, a] of Object.entries(p.cost)) cost[k] = a; if (!canPay(cost)) break; pay(cost); done++; }
+      if (!done) continue;                                                          // 材料不足:停著等材料
+      const amount = done * p.amount; state.stocks[id] += amount; state.counts.crafted += amount; if (id === 'food') state.counts.foodCrafted += amount;
+      autoCraftMade[id] = (autoCraftMade[id] || 0) + amount; made += amount;
+    }
+    if (!made) return;
+    refreshQuest();
+    if (++autoCraftTicks < 20) return;                                             // 約每 20 秒記一行，避免每秒洗版
+    autoCraftTicks = 0;
+    const text = Object.entries(autoCraftMade).map(([id, n]) => `${PRODUCTS[id].name} ${n}`).join('、');
+    for (const k of Object.keys(autoCraftMade)) delete autoCraftMade[k];
+    if (text) log(`自動補貨：${text} 份。`, 'info');
+  }
   const buildingPoint = buildingId => state.layout[buildingId];
   // 環村道路是魔物進不去的安全走廊(2026-10-30 使用者:「路上的怪不會主動攻擊路上走路的英雄,踏出道路邊界才會」):
   // 魔物不在路上生、不走上路(閒晃、追擊、等空位、被推開都一樣);已經在路上的(舊存檔)只准往離開道路的方向走。
@@ -1760,6 +1788,7 @@ export function createGame(saved = null) {
     const prevDay = state.day; state.time += dt; state.day = Math.floor(state.time / 240) + 1;
     if (state.day > prevDay) newDayVisitor();
     state.healCooldown = Math.max(0, state.healCooldown - dt); state.expedition.cooldown = Math.max(0, state.expedition.cooldown - dt); state.dungeon.cooldown = Math.max(0, state.dungeon.cooldown - dt); state.arena.cooldown = Math.max(0, state.arena.cooldown - dt);
+    runCraftTargets(dt);   // 持續製作:每秒把低於目標庫存的物資用現有材料補齊
     // 定時生怪:每個狩獵區都有自己的族群。主狩獵區與其他區的上限、補怪間隔見 REGION_DENSITY。
     state.spawnTimer += dt;
     // 2026-10-30:上限與補怪間隔照各地區立牌設定的等級(REGION_DENSITY);預設第 2 級＝主狩獵區 28 隻/1.25 秒、其他區 12 隻/4 秒(2026-11-18 怪物量 ×2)。
@@ -2069,7 +2098,7 @@ export function createGame(saved = null) {
   function fresh() {
 
     for (const key of Object.keys(state)) delete state[key];
-    Object.assign(state, { version: 4, layoutRevision: 3, worldRevision: 5, region: 'meadow', visitedRegions:['village','meadow'], gold: 1500, wood: 160, ore: 120, herb: 60, cloth: 60, flour: 80, leather: 50, gems: 20, day: 1, time: 0, paused: false, speed: 1, difficulty: 0, kills: 0, totalKills: 0, bossKills: 0, codex: {}, recruited: 0, hunters: [], enemies: [], buildings: Object.fromEntries(BUILDINGS.map(b => [b.id, UNBUILT.has(b.id) ? 0 : 1])), layout: Object.fromEntries(BUILDINGS.map(b => [b.id, { x: b.x, z: b.z }])), stocks: { food: 30, drink: 30, bed: 30, bandage: 30 }, gearStock: emptyGearStock(), gearStorage: [], gearSeq: 1, tradeRequests: { wood: 30, ore: 40, herb: 30, cloth: 30, flour: 40, leather: 30 }, tradeStanding: Object.fromEntries(MATERIAL_KEYS.map(k => [k, false])), autoJunk: 'sell', counts: { crafted: 0, foodCrafted: 0, traded: 0, gearCrafted: 0, weaponsCrafted: 0, gearSold: 0, gearUpgrades: 0, gearIncome: 0, services: 0, basicServices: 0, serviceIncome: 0, dungeonWins: 0, rebirths: 0, deaths: 0, trained: 0, hunterGold: 0, hunterPay: 0, wanderGold: 0, wanderPay: 0 }, effects: [], log: [], quest: { index: 0, claimed: false }, questRevision: QUEST_REVISION, questFinalPaid: false, expedition: { active: false, bossHp: 0, bossMaxHp: 1150, cooldown: 0, elapsed: 0 }, dungeon: { active: false, floor: 1, bestFloor: 0, wave: 0, enemyHp: 0, enemyMaxHp: 0, time: 0, hunterIds: [], reward: {}, cooldown: 0, phase: '待命', attackTimer: 1, foes: [], events: [], auto: false, startFloor: 0, rest: 0 }, healCooldown: 0, capacity: Math.max(8, CLASSES.length + 2), spawnTimer: 0, seed: 918273, nextId: 0, rally: null, dispatchTeams: defaultDispatchTeams(), regionDensity: normalizeRegionDensity(null), settings: { ...DEFAULT_SETTINGS } });
+    Object.assign(state, { version: 4, layoutRevision: 3, worldRevision: 5, region: 'meadow', visitedRegions:['village','meadow'], gold: 1500, wood: 160, ore: 120, herb: 60, cloth: 60, flour: 80, leather: 50, gems: 20, day: 1, time: 0, paused: false, speed: 1, difficulty: 0, kills: 0, totalKills: 0, bossKills: 0, codex: {}, recruited: 0, hunters: [], enemies: [], buildings: Object.fromEntries(BUILDINGS.map(b => [b.id, UNBUILT.has(b.id) ? 0 : 1])), layout: Object.fromEntries(BUILDINGS.map(b => [b.id, { x: b.x, z: b.z }])), stocks: { food: 30, drink: 30, bed: 30, bandage: 30 }, craftTargets: Object.fromEntries(PRODUCT_KEYS.map(k => [k, 0])), gearStock: emptyGearStock(), gearStorage: [], gearSeq: 1, tradeRequests: { wood: 30, ore: 40, herb: 30, cloth: 30, flour: 40, leather: 30 }, tradeStanding: Object.fromEntries(MATERIAL_KEYS.map(k => [k, false])), autoJunk: 'sell', counts: { crafted: 0, foodCrafted: 0, traded: 0, gearCrafted: 0, weaponsCrafted: 0, gearSold: 0, gearUpgrades: 0, gearIncome: 0, services: 0, basicServices: 0, serviceIncome: 0, dungeonWins: 0, rebirths: 0, deaths: 0, trained: 0, hunterGold: 0, hunterPay: 0, wanderGold: 0, wanderPay: 0 }, effects: [], log: [], quest: { index: 0, claimed: false }, questRevision: QUEST_REVISION, questFinalPaid: false, expedition: { active: false, bossHp: 0, bossMaxHp: 1150, cooldown: 0, elapsed: 0 }, dungeon: { active: false, floor: 1, bestFloor: 0, wave: 0, enemyHp: 0, enemyMaxHp: 0, time: 0, hunterIds: [], reward: {}, cooldown: 0, phase: '待命', attackTimer: 1, foes: [], events: [], auto: false, startFloor: 0, rest: 0 }, healCooldown: 0, capacity: Math.max(8, CLASSES.length + 2), spawnTimer: 0, seed: 918273, nextId: 0, rally: null, dispatchTeams: defaultDispatchTeams(), regionDensity: normalizeRegionDensity(null), settings: { ...DEFAULT_SETTINGS } });
     rebuildNavigation();
     state.visitors = [];
     state.arena = { active: false, wins: 0, losses: 0, enemyHp: 0, enemyMaxHp: 0, time: 0, hunterIds: [], cooldown: 0, phase: '待命', attackTimer: 1, opponent: '暮林訓練隊', reward: 0 };
@@ -2138,6 +2167,10 @@ export function createGame(saved = null) {
     state.layout = layout;
     rebuildNavigation();
     for (const key of PRODUCT_KEYS) state.stocks[key] = integer(source.stocks?.[key], 30, 0, 1e5);
+    // 持續製作(2026-11-19 新增，不升版本):舊存檔沒有這個欄位 → 全部關閉，行為跟以前一樣
+    const craftTargets = source.craftTargets && typeof source.craftTargets === 'object' ? source.craftTargets : {};
+    state.craftTargets ??= {};
+    for (const key of PRODUCT_KEYS) state.craftTargets[key] = integer(craftTargets[key], 0, 0, CRAFT_TARGET_MAX);
     // 2026-11-16 起每格分階:舊存檔(v2/v3/v4 到 2026-11-16 為止)每格是一個數字 = 第 1 階的件數;新格式是 {1..5: 件數}。
     for (const key of EQUIP_SLOTS) state.gearStock[key] = normalizeTierStock(source.gearStock?.[key]);
     // v2 的 armor 庫存:那時 armor 就是胸甲,把數量併到 chest 第 1 階(不憑空多送五件,也不讓已造好的裝備消失)。
@@ -2552,6 +2585,18 @@ export function createGame(saved = null) {
       if (typeof on !== 'boolean') return result(false, '持續收購只能開或關。');
       state.tradeStanding[materialId] = on; const name = MATERIALS[materialId].name;
       return result(true, on ? (state.tradeRequests[materialId] ? `${name}改為持續收購：成交後自動補回 ${state.tradeRequests[materialId]} 份。` : `${name}改為持續收購，請設定收購數量。`) : `${name}改回一般收購：買滿就停。`);
+    },
+    // 持續製作:設定每種生活物資的目標庫存(0 = 關閉)。庫存低於目標時遊戲每秒自動用現有材料補到目標，
+    // 材料不夠就暫停等材料;設施沒蓋、目標 0 都不會動作。
+    craftTargetOf,
+    setCraftTarget(productId, amount) {
+      if (!own(PRODUCTS, productId)) return result(false, '找不到這項商品。');
+      const n = Math.round(Number(amount));
+      if (!Number.isFinite(n) || n < 0 || n > CRAFT_TARGET_MAX) return result(false, `目標數量必須是 0 至 ${CRAFT_TARGET_MAX} 份的整數。`);
+      if (n && !state.buildings[PRODUCTS[productId].building]) return result(false, '請先建造對應的生產設施。');
+      state.craftTargets ??= {}; state.craftTargets[productId] = n;
+      const name = PRODUCTS[productId].name;
+      return result(true, n ? `${name}改為持續製作：庫存低於 ${n} 份就自動補到 ${n} 份。` : `${name}已停止持續製作。`);
     },
     // 2026-11-16 交易所行商直購(pixel-data MERCHANT):補足某份成本(建築/升級/製作)缺的材料。
     // merchantQuote(cost) → { ok, short:{材料:缺幾份}, gold:補料要花的金幣, total:補料＋成本本身的金幣, unit:{材料:單價}, reason }

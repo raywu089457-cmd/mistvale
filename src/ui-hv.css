@@ -2784,3 +2784,16 @@ html body .hv-act .ha-l2.is-down{background:#8e2b20;color:#fff}
 html body #modal[data-type=difficulty] #modal-content .diff-downs{margin:0 0 8px;padding:5px 10px;border:1px solid #7a3a30;background:#3a1712cc;border-radius:3px;font:600 13px/1.6 var(--font-ui);color:#e8d6c0}
 html body #modal[data-type=difficulty] #modal-content .diff-downs b{color:#ff9d86}
 html body #modal[data-type=difficulty] #modal-content .diff-downs small{display:block;font:inherit;color:#d9c8a2}
+
+/* 2026-11-19 持續製作:每種生活物資可設目標庫存，庫存低於目標就自動補貨(與交易所的收購量同一組造型) */
+html body :is(#inspect-content,#modal-content) .zc-auto{display:flex;align-items:center;gap:4px;margin-top:6px;flex-wrap:wrap}
+html body :is(#inspect-content,#modal-content) .zc-auto .pixel-button{min-width:44px;min-height:44px;padding:0 6px!important;font:700 13px/1 var(--font-ui)!important}
+html body :is(#inspect-content,#modal-content) .zc-auto output{min-width:96px;height:44px;display:grid;place-items:center;padding:0 6px;border:1px solid #4a3a2a;border-radius:3px;background:#1d150ecc;font:700 13px/1 var(--font-num);color:#cbb99a}
+html body :is(#inspect-content,#modal-content) .zc-auto.on output{border-color:#8a6a34;color:#efcd82}
+html body :is(#inspect-content,#modal-content) .zc-auto.paused output{border-color:#7a3a30;color:#ff9d86}
+html body :is(#inspect-content,#modal-content) .zc-auto-st{font:600 12px/1.3 var(--font-ui);font-style:normal;color:#a8b894}
+html body :is(#inspect-content,#modal-content) .zc-auto.paused .zc-auto-st{color:#ff9d86}
+@media (max-width:640px){
+  html body :is(#inspect-content,#modal-content) .zc-auto{gap:6px}
+  html body :is(#inspect-content,#modal-content) .zc-auto .pixel-button{min-width:44px;min-height:44px}
+}
