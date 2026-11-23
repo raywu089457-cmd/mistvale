@@ -30,6 +30,9 @@ async function boot(viewport, opts = {}) {
   await page.goto(URL, { waitUntil: 'commit', timeout: 120000 });
   await page.waitForFunction(() => globalThis.__mistvaleGame && !document.querySelector('#loading'), null, { timeout: 180000 });
   await page.waitForTimeout(1500);
+  // 2026-11-19:圖鑑是「擊殺過才揭露」的快照,但狩獵是即時的 —— 面板開著的那兩秒獵人還在殺怪,
+  // state.codex 會多出幾種,「沒打過的不該揭露」「已記錄 N 種」就會隨機紅。開場先暫停模擬,比對同一份資料。
+  await page.evaluate(() => { globalThis.__mistvaleGame.state.paused = true; });
   return { ctx, page, errs };
 }
 

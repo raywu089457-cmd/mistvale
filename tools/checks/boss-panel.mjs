@@ -11,7 +11,11 @@ const { chromium } = require('playwright');
 const ROOT = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '../..');
 let server = null, URL = process.env.TARGET;
 if (!URL) {
-  const PORT = 5900 + Math.floor(Math.random() * 300);
+  // 2026-11-21:不要把臨時伺服器開在 Chrome 封鎖的 port(5900–6199 裡的 6000),
+  // 否則 page.goto 直接 ERR_UNSAFE_PORT，整支檢查就莫名紅掉。
+  const UNSAFE = new Set([6000, 6665, 6666, 6667, 6668, 6669, 6697]);
+  let PORT = 0;
+  do { PORT = 5900 + Math.floor(Math.random() * 300); } while (UNSAFE.has(PORT));
   server = spawn(process.execPath, ['server.mjs'], { cwd: ROOT, env: { ...process.env, PORT: String(PORT), HOST: '127.0.0.1' }, stdio: 'ignore' });
   URL = `http://127.0.0.1:${PORT}/?preview=1`;
   for (let i = 0; i < 50; i++) { try { if ((await fetch(URL.replace(/\?.*/, ''))).ok) break; } catch { } await new Promise(r => setTimeout(r, 200)); }

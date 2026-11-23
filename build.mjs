@@ -104,22 +104,17 @@ try{assetScript+=`window.PIXEL_ASSETS=window.PIXEL_ASSETS||{};window.PIXEL_ASSET
 {const dir=path.join(root,'assets/heroes');let files=[];try{files=await fs.readdir(dir);}catch{}
  const sheets={};for(const f of files.filter(f=>f.endsWith('.json')&&!f.endsWith('-fx.json')&&!f.includes('@'))){const id=f.slice(0,-5);
   sheets[id]={img:await media(path.join(dir,id+'.png'),`heroes/${id}.png`),meta:JSON.parse(await fs.readFile(path.join(dir,f),'utf8'))};
-  try{sheets[id].fx=await media(path.join(dir,id+'-fx.png'),`heroes/${id}-fx.png`);sheets[id].fxMeta=JSON.parse(await fs.readFile(path.join(dir,id+'-fx.json'),'utf8'));}catch{}
   // 高解析 LOD：<id>@2x.png/.json（原生 1:1）。執行時依縮放自動挑，低縮放用 1x（銳利）、放大用 2x（細節）。
   try{sheets[id].hi={img:await media(path.join(dir,id+'@2x.png'),`heroes/${id}@2x.png`),meta:JSON.parse(await fs.readFile(path.join(dir,id+'@2x.json'),'utf8'))};}catch{}}
  put('heroSheets',JSON.stringify(sheets));
- // pixelfx sprite sheets: every assets/vfx-sheets/<id>.png + <id>.json (Aseprite JSON with
- // frameSize / pivot / fps / columns) becomes PIXEL_ASSETS.vfxSheets[id] = { img, meta }.
- // pixel-world.js drawVfxSheet() plays any of them frame by frame; cinder-cyclone, fireball, hit-spark.
- try{
-  const dir=path.join(root,'assets/vfx-sheets'), shelf={};
-  for(const f of (await fs.readdir(dir)).filter(f=>f.endsWith('.json'))){
-    const id=f.slice(0,-5);
-    try{ shelf[id]={img:await media(path.join(dir,id+'.png'),`vfx-sheets/${id}.png`),meta:JSON.parse(await fs.readFile(path.join(dir,f),'utf8'))}; }
-    catch(e){ console.warn('missing vfx sheet png',id); }
-  }
-  assetScript+=`window.PIXEL_ASSETS.vfxSheets=${JSON.stringify(shelf)};`;
- }catch(e){console.warn('no vfx-sheets folder');}
+ // 舊預烘 vfx-sheets 與 hero *-fx 表已全數移除，改由實時 CQ pixelfx 引擎 (src/pixelfx-runtime.js) 繪製。
+ // 例外(2026-11-23 使用者:「把原本箭特效放回去」):弓箭手的箭仍用原本的 pixelfx 表 ——
+ // 飛行中的箭 arrow / 疾風箭雨 gale-arrow、命中火花 hit-spark-iso;只打包這三張(pixel-world.js drawShotArrows / drawArrowHit)。
+ {const dir=path.join(root,'assets/vfx-sheets'),shelf={};
+  for(const id of ['arrow','gale-arrow','hit-spark-iso']){
+   try{shelf[id]={img:await media(path.join(dir,id+'.png'),`vfx-sheets/${id}.png`),meta:JSON.parse(await fs.readFile(path.join(dir,id+'.json'),'utf8'))};}
+   catch(e){console.warn('missing vfx sheet',id);}}
+  put('vfxSheets',JSON.stringify(shelf));}
  // 2026-10-31:英雄不再戴配件 → 配件圖集(5 KB)不再打包,檔案留在 assets/heroes/ 當歷史
  // try{put('heroAccessories',...)}
  // 新規格魔物(assets/monsters3/<魔物>.png/.json)——執行時用到哪一種才載(見 pixel-world.js ensureMonsterSheet)
@@ -135,7 +130,7 @@ try{assetScript+=`window.PIXEL_ASSETS=window.PIXEL_ASSETS||{};window.PIXEL_ASSET
 
 // 2026-10-28:PixelLab 生的 UI 零件（assets/ui/,每個 0.3–0.8 KB → 直接內嵌成 data URI）
 {const ud=path.join(root,'assets/ui');let uf=[];try{uf=await fs.readdir(ud);}catch{}
- const ui={};for(const f of uf.filter(f=>f.endsWith('.png'))){const id=f.slice(0,-4);
+ const ui={};for(const f of uf.filter(f=>f.endsWith('.png')&&f!=='fx-mshots.png')){const id=f.slice(0,-4);
    ui[id]=await media(path.join(ud,f),`ui/${f}`);}
  assetScript+=`window.PIXEL_ASSETS.ui=${JSON.stringify(ui)};`;}
 // 2026-11-13 紙娃娃引擎第 1 期(docs/PAPERDOLL.md):assets/paperdoll/ 原樣複製到 media/paperdoll/(不內嵌、不轉 webp),

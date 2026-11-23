@@ -1604,11 +1604,8 @@ test('traveler (LPC sheet): art + 13 rows cover every direction the game asks fo
     assert.ok(a.frameTime > 0, `${k} frameTime`);
   }
   assert.ok(!meta.parts, 'the weapon is baked into the sheet; no parts overlay');
-  const cls = CLASSES.find(c => c.id === 'traveler');
-  assert.ok(cls, 'CLASSES has traveler');
-  assert.equal(cls.range, 1.2, 'melee reach like the other melee classes');
-  assert.equal(cls.speed, CLASSES.find(c => c.id === 'berserker').speed, 'every class walks at the same speed');
-  assert.ok(SKILLS.traveler && SKILLS.traveler.kind === 'aoe', 'SKILLS.traveler exists');
+  // traveler was removed from playable CLASSES on 2026-11-22 (migrates to berserker), while its LPC sheet asset remains intact.
+  assert.equal(CLASSES.some(c => c.id === 'traveler'), false, 'traveler removed from playable CLASSES');
 });
 
     test('Phase 6 G3/G4: effect types 2/3/4 wired where DV2 uses them (drawn only when the art ships); cry face (hurt fallback at 1x)', () => {

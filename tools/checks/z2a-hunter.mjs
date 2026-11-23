@@ -5,7 +5,7 @@
 //   B. 現有動作都還能做:修煉(底部橄欖綠,與紅色關閉並排)、學習技能／強化裝備／轉世(各在子頁籤清單列,金棕小鈕;條件不足＝灰＋鎖頭、點了不生效)。
 //   C. 名冊(A 抽屜):稀有度字在卡頂、稀有度邊框與漸層底、名字在立繪下方、整張卡本體可點(沒有右上「i」徽章、tabindex=0)、
 //      點卡片直接開獵人卡、關閉獵人卡後回到名冊(焦點回原卡)、定位鈕還在、手機 4 欄／桌機 6 欄;標題列子頁籤「名冊｜招募」,招募清單完整。
-//   D. 新獵人暗帶(D):旅人提示 → 「新的獵人！」斜體標題、最多 2 張稀有度立繪卡(選中的放大約 1.4 倍、點選切換)、一行說明、邀請(橄欖綠)＋稍後(紅);邀請真的加入獵人並扣款、稍後不再自動彈;
+//   D. 新獵人暗帶(D):旅人提示 → 「新的獵人」標題(2026-11-19 unslop:拿掉斜體與驚嘆號)、最多 2 張稀有度立繪卡(選中的放大約 1.4 倍、點選切換)、一行說明、邀請(橄欖綠)＋稍後(紅);邀請真的加入獵人並扣款、稍後不再自動彈;
 //      新旅人「到」的時候(閒著、付得起)自動彈出,面板開著時不彈;「看全部旅人」進名冊的招募清單。
 //   E. tooltip:點(觸控)／hover(滑鼠)／鍵盤焦點裝備格出現迷你視窗(品級色名稱、圖示格、數值列、藍／紅／金條列),點別處與 Esc 關閉(Esc 先關 tooltip 再關視窗);共用元件 __mistvaleTip 給任何 data-tip 元素用。
 //   F. 名字(UX #15):流浪英雄與村裡獵人不同名(開局、之後招募、之後多一位流浪英雄都一樣)。
@@ -289,7 +289,7 @@ for (const name of only) {
       const df = [];
       if (D.type !== 'visitors' || D.mode !== 'D' || D.bdMode !== 'D') df.push(`旅人提示應開 D 暗帶(type ${D.type} mode ${D.mode})`); if (D.advisor) df.push('還是舊的「旅人願意加入」對話框');
       if (D.has) {
-        if (D.title !== '新的獵人！' || D.italic !== 'italic') df.push(`標題「${D.title}」字體 ${D.italic}(應 斜體「新的獵人！」)`);
+        if (D.title !== '新的獵人' || D.italic !== 'normal') df.push(`標題「${D.title}」字體 ${D.italic}(應正體「新的獵人」)`);
         if (D.cards.length !== 2) df.push(`立繪卡 ${D.cards.length} 張(應最多 2 張)`);
         else { const on = D.cards.filter(c => c.on), off = D.cards.filter(c => !c.on); if (on.length !== 1 || on[0].pressed !== 'true') df.push('應有 1 張選中'); else { const ratio = on[0].r.w / off[0].r.w; if (ratio < 1.25 || ratio > 1.55) df.push(`選中卡寬是另一張的 ${ratio.toFixed(2)} 倍(應約 1.4)`); } for (const c of D.cards) { if (!c.grad || !c.rar || !c.name) df.push('立繪卡缺漸層底／稀有度字／名稱'); if (!c.hit) df.push('立繪卡被蓋住'); if (touch && (c.r.w < 43.5 || c.r.h < 43.5)) df.push(`立繪卡熱區 ${Math.round(c.r.w)}×${Math.round(c.r.h)}`); } if (D.cards[0].border === D.cards[1].border) df.push('兩張卡的稀有度邊框同色(測試資料是 稀有／傳說)'); }
         if (!D.p || D.p.length < 6) df.push('缺一行說明'); const bi = D.btns.find(b => b.a === 'recruitVisitor'), bl = D.btns.find(b => b.a === 'visitorLater');
@@ -297,7 +297,7 @@ for (const name of only) {
         if (Math.abs(D.mr.w - D.vw) > 2) df.push(`暗帶寬 ${Math.round(D.mr.w)} 應滿寬 ${D.vw}`); if (D.mr.t < 0 || D.mr.b > D.vh) df.push(`暗帶超出畫面 ${Math.round(D.mr.t)}–${Math.round(D.mr.b)}`); if (D.bdBg !== 'rgba(0, 0, 0, 0.56)') df.push(`遮罩 ${D.bdBg} 應為 rgba(0,0,0,.56)`); if (D.fs < 11.95) df.push(`暗帶字 ${D.fs}px <12`);
         if (!/全部旅人/.test(D.all)) df.push('缺「看全部旅人」(完整清單的入口)'); else if (touch && D.allR.h < 43.5) df.push('「看全部旅人」熱區 <44');
       }
-      if (df.length) for (const m of df) fix(`${label} 新獵人暗帶：${m}`); else ok(`${label} 新獵人暗帶：旅人提示直接開 D 暗帶(滿寬、遮罩 .56)、斜體「新的獵人！」、2 張稀有度立繪卡(選中約 1.4 倍)、一行說明、邀請(綠)＋稍後(紅)、看全部旅人`);
+      if (df.length) for (const m of df) fix(`${label} 新獵人暗帶：${m}`); else ok(`${label} 新獵人暗帶：旅人提示直接開 D 暗帶(滿寬、遮罩 .56)、「新的獵人」、2 張稀有度立繪卡(選中約 1.4 倍)、一行說明、邀請(綠)＋稍後(紅)、看全部旅人`);
       if (SHOTS) await page.screenshot({ path: `${SHOTS}/${name}-band.png` });
       // 點選切換
       const D2 = await ev(page, async (P) => { const off = [...document.querySelectorAll('.z2-vcard:not(.on)')][0], id = off.dataset.id; off.click(); await P.wait(200); const on = document.querySelector('.z2-vcard.on'); const btn = document.querySelector('[data-action=recruitVisitor]'); return { swapped: on?.dataset.id === id, btnOk: btn?.dataset.id === id, still: document.querySelector('#modal').dataset.type }; });

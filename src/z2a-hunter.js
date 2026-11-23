@@ -2,6 +2,7 @@
 // 只產生字串;狀態(游標位置、哪張子頁籤)放在這裡的 hc／vb,事件接線在 pixel-ui.js 的 doAction。
 import {tipAttr,tipGradeName} from './ui-tip.js';
 import {GEAR_SLOTS,EQUIP_SLOTS,MATERIALS,GEAR_TIER_MAX,GEAR_TIERS,gearItemView} from './pixel-data.js';
+import {specsOf,specOf,SPEC_SWITCH_LV,SCHOOL_COLORS,STATUS_DEFS,skillSlotMult,skillSlotCd} from './pixel-skills.js';
 let C=null;   // { esc, fmt, iconHTML, portrait, game:()=>game, RARITIES, CLASSES, TRAITS }
 export const initHunterUI=ctx=>{C=ctx;};
 
@@ -52,8 +53,8 @@ function barHTML(kind,icon,label,cur,max){const pct=max>0?Math.max(0,Math.min(10
  return `<div class="z2-bar ${kind}" role="img" aria-label="${label} ${Math.floor(cur)}/${Math.floor(max)}"><i class="z2-bar-ic" aria-hidden="true">${C.iconHTML(icon,true)}</i><span class="z2-bar-box"><span class="z2-bar-fill" style="width:${pct.toFixed(1)}%"></span><b>${label} ${Math.floor(cur)}/${Math.floor(max)}</b></span></div>`;}
 const valRow=(icon,label,v)=>`<div class="z2-val"><i aria-hidden="true">${C.iconHTML(icon,true)}</i><span>${label}</span><b>${v}</b></div>`;
 
-function infoPanel(h,cls,r){const dps=h.attack/attackInterval(h),tr=C.TRAITS.find(t=>t.id===h.trait);
- return `<div class="z2-id"><div class="z2-id-l"><span class="z2-rar-row"><em class="z2-rar" style="color:${r?.color}">${r?.name||''}</em>${promoteChip(h)}</span><span class="z2-cls">等級.${h.level} <b>${cls?.name||''}</b></span><small class="z2-st">${C.esc(h.status)}${tr?` · ${C.esc(tr.name)}`:''}</small></div><div class="z2-dps"><small>每秒攻擊力</small><b>${dps.toFixed(1)}</b></div></div>`
+function infoPanel(h,cls,r){const dps=h.attack/attackInterval(h),tr=C.TRAITS.find(t=>t.id===h.trait),sp=specOf(h);
+ return `<div class="z2-id"><div class="z2-id-l"><span class="z2-rar-row"><em class="z2-rar" style="color:${r?.color}">${r?.name||''}</em>${promoteChip(h)}</span><span class="z2-cls">等級.${h.level} <b>${cls?.name||''}</b></span><small class="z2-st">${C.esc(h.status)}${tr?` · ${C.esc(tr.name)}`:''}${sp?` · ${C.esc(sp.name)}`:''}</small></div><div class="z2-dps"><small>每秒攻擊力</small><b>${dps.toFixed(1)}</b></div></div>`
   +`<div class="z2-cols"><div class="z2-bars">${barHTML('hp','hp','生命',h.hp,h.maxHp)}${barHTML('satiety','satiety','飽食',h.satiety,100)}${barHTML('stamina','stamina','精力',h.stamina,100)}${barHTML('mood','mood','心情',h.mood,100)}</div>`
   +`<div class="z2-vals">${valRow('atk','攻擊力',h.attack)}${valRow('def','防禦力',h.defense)}${valRow('scroll','技能等級',`Lv.${h.skillLevel||0}`)}${valRow('anvil','武器強化',`+${h.weaponLevel||0}`)}${valRow('rebirth','轉世',`${h.rebirths}/20`)}</div></div>`
   +`<p class="z2-train z1-hint">${trainHint(h)}</p>`+dismissRow(h);}
@@ -76,11 +77,32 @@ function merchantRowBtn(action,id,label,cost){const g=C.game(),q=g.merchantQuote
 function rowBtn(action,id,label,ok){return `<button type="button" class="pixel-button z2-rowbtn${ok?'':' locked'}" data-action="${action}" data-id="${id}" data-zb="gold"${ok?'':' aria-disabled="true"'}>${ok?'':'<i class="hv-lock" aria-hidden="true"></i>'}<span>${label}</span></button>`;}
 
 function skillPanel(h){const s=C.game().state,lv=h.skillLevel||0,cost=C.game().skillCost?.(h.id)||{gold:80+lv*50,ore:8+lv*4};let reason='',ok=true,btn='學習';
- if(lv>=5){ok=false;btn='MAX';reason='<span class="ok">戰鬥技能已達 Lv.5</span>';}
+ if(lv>=5){ok=false;btn='MAX';reason='<span class="ok">戰鬥技能已達 Lv.5（全 4 招已解鎖）</span>';}
  else if(!s.buildings.academy){ok=false;reason='<span class="no">要先建造學院</span>';}
  else if(s.gold<cost.gold||s.ore<cost.ore){ok=false;reason=need('金幣',s.gold,cost.gold)+' '+need('鐵礦',s.ore,cost.ore);}
  const mBtn=!ok&&s.buildings.academy&&lv<5?merchantRowBtn('merchantSkill',h.id,'補料學習',cost):'';
- return `<div class="z2-list">`+rowHTML({icon:'scroll',name:`戰鬥技能 Lv.${lv}/5`,desc:'每級攻擊 +10%，在學院學習',cost:lv<5?`費用 ${C.iconHTML('gold',true)} ${C.fmt(cost.gold)} · 鐵礦 ${cost.ore}`:'',reason,btn:btn==='MAX'?'':(mBtn||rowBtn('learnSkill',h.id,btn,ok))})+`</div>`;}
+ const spList=specsOf(h.classId),curSp=specOf(h),canSwitch=!!s.buildings.academy&&lv>=SPEC_SWITCH_LV;
+ const switchHint=!s.buildings.academy?'<span class="no">建造學院並學至 Lv.1 後開放免費切換</span>':lv<SPEC_SWITCH_LV?`<span class="no">戰鬥技能 Lv.${SPEC_SWITCH_LV} 後可免費隨時切換流派</span>`:'<span class="ok">學院已開放 · 免費隨時切換</span>';
+ const specPills=spList.map(sp=>{const on=sp.id===curSp.id;
+  return `<button type="button" class="pixel-button z2-spec-btn${on?' on':''}${!on&&!canSwitch?' locked':''}" data-action="setHunterSpec" data-id="${h.id}" data-spec="${sp.id}" style="--spec:${sp.color}" aria-pressed="${on}"${!on&&!canSwitch?' aria-disabled="true"':''}>${!on&&!canSwitch?'<i class="hv-lock" aria-hidden="true"></i>':''}<i class="z2-spec-dot" aria-hidden="true"></i><span>${C.esc(sp.name)}</span></button>`;}).join('');
+ const skCards=curSp.skills.map(sk=>{
+  const unl=lv>=sk.unlockLv,cd=skillSlotCd(h,sk),col=SCHOOL_COLORS[sk.school]||curSp.color;
+  const stId=sk.status||sk.selfStatus,stDef=stId?STATUS_DEFS[stId]:null;
+  const awake=sk.slot===3&&(h.rebirths||0)>=1;
+  const multVal=sk.mult?Math.round(skillSlotMult(h,sk)*100)+'%':'';
+  return `<div class="z2-skcard${unl?'':' locked'}${sk.slot===3?' ult':''}" style="--sk:${col}">`
+   +`<div class="z2-skhead"><span class="z2-skslot">S${sk.slot+1}</span><b class="z2-skname">${C.esc(sk.name)}</b>`
+   +(sk.shapeTag?`<span class="z2-sktag">${C.esc(sk.shapeTag)}</span>`:'')
+   +(stDef?`<span class="z2-sktag st" style="--st:${stDef.color}">${C.esc(stDef.name)}</span>`:'')
+   +(awake?'<span class="z2-sktag awake">轉世覺醒</span>':'')
+   +`<span class="z2-skcd">${unl?`${cd}s${multVal?` · ${multVal}`:''}`:`Lv.${sk.unlockLv} 解鎖`}</span></div>`
+   +`<p class="z2-skdesc">${C.esc(sk.desc)}</p></div>`;
+ }).join('');
+ return `<div class="z2-list">`
+  +rowHTML({icon:'scroll',name:`戰鬥技能 Lv.${lv}/5`,desc:'每級攻擊 +10%；Lv.1 開放換流派，Lv.2／4／5 解鎖 S2–S4 技能',cost:lv<5?`費用 ${C.iconHTML('gold',true)} ${C.fmt(cost.gold)} · 鐵礦 ${cost.ore}`:'',reason,btn:btn==='MAX'?'':(mBtn||rowBtn('learnSkill',h.id,btn,ok))})
+  +`<div class="z2-specs" style="--spec:${curSp.color}"><div class="z2-specs-h"><b>專精流派</b><small class="z2-specs-hint">${switchHint}</small></div><div class="z2-spec-tabs" role="group" aria-label="專精流派">${specPills}</div><p class="z2-spec-meta"><b>${C.esc(curSp.tag)}</b> · ${C.esc(curSp.desc)}</p></div>`
+  +`<div class="z2-sklist">${skCards}</div>`
+  +`</div>`;}
 function gearBtn(action,id,slot,label,tone){return `<button type="button" class="pixel-button z2-rowbtn"${slot?` data-slot="${slot}"`:''} data-action="${action}" data-id="${id}" data-zb="${tone||'ghost'}"><span>${label}</span></button>`;}
 // 一格一列真實物品：有穿→名稱/數值/卸下·出售·分解(存倉跟卸下重複,2026-11-18 拿掉);沒穿→倉庫同位置候選直接穿上
 function gearRow(h,slot){const it=itemIn(h,slot),s=C.game().state,I=C.iconHTML,t=craftGrade(it);
@@ -143,12 +165,12 @@ export function bandVisitors(){const s=C.game().state,list=[...(s.visitors||[])]
  list.sort((a,b)=>((s.gold>=b.cost)-(s.gold>=a.cost))||(RANK[b.rarity]-RANK[a.rarity])||(a.cost-b.cost));return list.slice(0,2);}
 export function visitorBandHTML(){
  const s=C.game().state,list=bandVisitors(),all=(s.visitors||[]).length;
- if(!list.length)return `<div class="z2-band"><h3 class="z2-band-t">新的獵人！</h3><p class="z2-band-p">現在沒有旅人，等一下再來看看。</p><div class="z2-band-btns"><button type="button" class="pixel-button" data-action="close" data-zb="red">關閉</button></div></div>`;
+ if(!list.length)return `<div class="z2-band"><h3 class="z2-band-t">新的獵人</h3><p class="z2-band-p">現在沒有旅人，等一下再來看看。</p><div class="z2-band-btns"><button type="button" class="pixel-button" data-action="close" data-zb="red">關閉</button></div></div>`;
  let pick=list.find(v=>v.id===vb.pick);if(!pick){pick=list[0];vb.pick=pick.id;}
  const c=C.CLASSES.find(x=>x.id===pick.classId),r=C.RARITIES.find(x=>x.id===pick.rarity),t=C.TRAITS.find(x=>x.id===pick.trait),pv=C.game().visitorPreview(pick),afford=s.gold>=pick.cost,short=pick.cost-s.gold;
  const cards=list.map(v=>{const cc=C.CLASSES.find(x=>x.id===v.classId),rr=C.RARITIES.find(x=>x.id===v.rarity),on=v.id===pick.id;
   return `<button type="button" class="z2-vcard${on?' on':''}" data-action="visitorPick" data-id="${v.id}" data-rarity="${v.rarity}" aria-pressed="${on}" aria-label="${C.esc(cc?.name||'')}（${rr?.name||''}）" style="--rarity:${rr?.color}"><em class="z2-vr">${rr?.name||''}</em><img src="${C.portrait({id:v.id,classId:v.classId,rarity:v.rarity})}" alt=""><b class="z2-vn">${C.esc(cc?.name||'')}</b></button>`;}).join('');
- return `<div class="z2-band" role="group" aria-label="新的獵人到訪"><h3 class="z2-band-t">新的獵人！</h3><div class="z2-vcards">${cards}</div>`
+ return `<div class="z2-band" role="group" aria-label="新的獵人到訪"><h3 class="z2-band-t">新的獵人</h3><div class="z2-vcards">${cards}</div>`
   +`<p class="z2-band-p"><b style="color:${r?.color}">${r?.name||''}</b> ${C.esc(c?.name||'')} · ${C.esc(t?.name||'')}：${C.esc(t?.desc||'')}<br><span class="z2-band-s">攻擊 ${pv.attack} · 防禦 ${pv.defense} · 生命 ${pv.maxHp} · ${afford?`加入需要 ${C.fmt(pick.cost)} 金幣`:`<span class="no">還缺 ${C.fmt(short)} 金幣</span>`}</span></p>`
   +`<div class="z2-band-btns"><button type="button" class="pixel-button${afford?'':' locked'}" data-action="recruitVisitor" data-id="${pick.id}" data-zb="olive"${afford?'':' aria-disabled="true"'}>${afford?'':'<i class="hv-lock" aria-hidden="true"></i>'}邀請</button><button type="button" class="pixel-button" data-action="visitorLater" data-zb="red">稍後</button></div>`
   +(all>list.length||all>1?`<button type="button" class="z2-band-all" data-action="recruit">看全部旅人（${all}）</button>`:'')+`</div>`;
@@ -157,5 +179,5 @@ export function visitorBandHTML(){
 export function visitorArrival(busy){const s=C.game().state,vs=s.visitors||[];
  if(!vb.seen){vb.seen=new Set(vs.map(v=>v.id));return false;}
  const fresh=vs.filter(v=>!vb.seen.has(v.id));for(const v of vs)vb.seen.add(v.id);
- // 2026-11-16:獵人名額滿了就不彈「新的獵人！」(按邀請也招不進來);旅人照樣記成已看過,之後有名額也不會補彈舊的
+ // 2026-11-16:獵人名額滿了就不彈「新的獵人」(按邀請也招不進來);旅人照樣記成已看過,之後有名額也不會補彈舊的
  return !busy&&(s.hunters||[]).length<(s.capacity||0)&&fresh.some(v=>s.gold>=v.cost&&!vb.later.has(v.id));}

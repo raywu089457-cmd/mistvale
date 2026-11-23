@@ -91,13 +91,13 @@ test('palettes: 6 base colours, variant names/counts', () => {
 });
 
 /* ------------------------------------------------------------ 2. 職業 → 配方 */
-test('all 7 game classes have a heroloom look', () => {
-  // 遊戲職業是 berserker/paladin/sorcerer/archer/assassin/priest/traveler；darkknight+warrior 只是包裡的額外剪影。
-  assert.equal(CLASSES.length, 7);
+test('all 6 game classes have a heroloom look', () => {
+  // 遊戲核心 6 職業是 berserker/paladin/sorcerer/archer/assassin/priest；darkknight/warrior/traveler 只是包裡的額外剪影。
+  assert.equal(CLASSES.length, 6);
   const ids = CLASSES.map((c) => c.id);
   for (const c of ids) assert.ok(CLASS_LOOK[c], 'game class missing look: ' + c);
   for (const c of ids) assert.ok(HEROLOOM_CLASSES.includes(c), 'HEROLOOM_CLASSES missing ' + c);
-  assert.deepEqual(ids.slice().sort(), ['archer', 'assassin', 'berserker', 'paladin', 'priest', 'sorcerer', 'traveler']);
+  assert.deepEqual(ids.slice().sort(), ['archer', 'assassin', 'berserker', 'paladin', 'priest', 'sorcerer']);
 });
 
 test('every class recipe is valid: part ids exist, palette variants exist', () => {

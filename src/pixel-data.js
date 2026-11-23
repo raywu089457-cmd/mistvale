@@ -36,11 +36,6 @@ export const CLASSES = [
  // 所以改成遠程施法(原本的「紅斗篷短刃近戰」是舊素材的設定);pixel-world.js 早就把 priest 當遠程(後座/蓄力光)。
  // 數值:遠程化後下修生命/攻擊/防禦,定位在弓箭手與法師之間、以自療換輸出。
  {id:'priest',name:'祭司',tag:'遠程 / 恢復',color:'#b3434a',hp:104,attack:17,defense:3,speed:HERO_SPEED,range:RANGED_RANGE,cost:175,desc:'白袍金杖的祭司，從遠處擲出聖光球攻擊魔物，暗癒禱言會自動替射程內生命比例最低的隊友補血（先挑村裡招募的獵人）。'},
- // 2026-11-14 exp/lpc-hero 實驗:第 7 個職業「旅人」。素材來自 LPC(Universal-LPC-Spritesheet-Character-Generator,
- // 美術 CC-BY-SA 3.0 + GPL 3.0 雙授權;授權檔在 assets/heroes/traveler-LICENSE/)。
- // 圖集 assets/heroes/traveler.png + traveler.json 是 LPC 64px 格子轉成的 13 列動作表(idle/walk/attack 各有上/下/側,
- // 另有 hurt/death/victory/skill);4 向由 dir4 依 action 名取 row,左向自動鏡像,紙娃娃沒有這個職業的身體 → 直接畫圖集。
- {id:'traveler',name:'旅人',tag:'近戰 / 機動',color:'#9a7b4f',hp:118,attack:20,defense:3,speed:HERO_SPEED,range:1.2,cost:140,desc:'赤手空拳走遍山野的旅人，出拳比刀劍更快；震地掌可同時震開身邊的魔物。'},
 ];
 // 注意:CLASSES 的長度決定訪客與流浪英雄的擲骰映射(newVisitor / newWanderer),增減職業會讓決定性模擬整個重排。
 // 招牌技能(真的遊戲機制):戰鬥中冷卻好就放,放完 lock 秒內不普攻(播完技能動畫)。
@@ -54,8 +49,6 @@ export const SKILLS={
  archer:{name:'疾風箭雨',kind:'multi',cd:8,mult:1.3,targets:3,lock:.8,release:.32,fx:'gale'},
  assassin:{name:'暗影衝刺',kind:'single',cd:8,mult:2.4,lock:.6,fx:'slash'},
  priest:{name:'暗癒禱言',kind:'allyHeal',cd:10,heal:.28,lock:.7,fx:'holy',below:.9},   // 2026-10-30 使用者:牧師改成自動替範圍內 HP 最少的隊友補血,優先招募英雄
- // 旅人:震地掌,近身 AOE。沒有專屬 -fx 特效表,走 pixel-world 的通用分支(fx:'slash' → 命中當下畫白色衝擊弧)。
- traveler:{name:'震地掌',kind:'aoe',cd:9,mult:1.45,radius:2.2,lock:.7,fx:'slash'}
 };
 export const RARITIES=[{id:'normal',name:'普通',color:'#d3cab2',mult:1},{id:'rare',name:'稀有',color:'#6fbe8b',mult:1.08},{id:'superior',name:'超級稀有',color:'#6caeee',mult:1.18},{id:'heroic',name:'英雄',color:'#c184e1',mult:1.32},{id:'legendary',name:'傳說',color:'#efb955',mult:1.5}];
 // 2026-11-18 晉升:村莊金幣＋星晶把獵人的稀有度往上升一階(後期金幣、星晶的出口;只改 h.rarity,存檔格式不變)。
@@ -170,14 +163,6 @@ export const EQUIPMENT={
   assn_legs:{id:'assn_legs',name:'貼身長褲',slot:'legs',classId:'assassin',tier:'starter',price:24,sell:10,salvage:{cloth:2},stats:{atk:0,hp:0,def:0},look:{bottom:'pants'}},
   assn_sandals:{id:'assn_sandals',name:'無聲涼鞋',slot:'boots',classId:'assassin',tier:'starter',price:18,sell:7,salvage:{leather:2},stats:{atk:0,hp:0,def:0},look:{shoes:'sandals'}},
   assn_gloves:{id:'assn_gloves',name:'暗影手套',slot:'gloves',classId:'assassin',tier:'starter',price:18,sell:7,salvage:{cloth:1,leather:1},stats:{atk:0,hp:0,def:0},look:{}},
-  // 旅人:黃布上衣、空手(沒有武器外觀)
-  trav_wraps:{id:'trav_wraps',name:'旅人纏手',slot:'weapon',classId:'traveler',tier:'starter',price:8,sell:3,salvage:{cloth:1},stats:{atk:0,hp:0,def:0},look:{weapon:'none'}},
-  trav_hood:{id:'trav_hood',name:'旅行兜帽',slot:'helm',classId:'traveler',tier:'starter',price:20,sell:8,salvage:{cloth:2},stats:{atk:0,hp:0,def:0},look:{}},
-  trav_vest:{id:'trav_vest',name:'旅人上衣',slot:'chest',classId:'traveler',tier:'starter',price:30,sell:12,salvage:{cloth:2,leather:1},stats:{atk:0,hp:0,def:0},look:{top:'tunic'}},
-  trav_belt:{id:'trav_belt',name:'旅行腰帶',slot:'belt',classId:'traveler',tier:'starter',price:14,sell:6,salvage:{leather:1},stats:{atk:0,hp:0,def:0},look:{}},
-  trav_legs:{id:'trav_legs',name:'耐磨長褲',slot:'legs',classId:'traveler',tier:'starter',price:22,sell:9,salvage:{cloth:2},stats:{atk:0,hp:0,def:0},look:{bottom:'pants'}},
-  trav_boots:{id:'trav_boots',name:'旅行長靴',slot:'boots',classId:'traveler',tier:'starter',price:18,sell:7,salvage:{leather:2},stats:{atk:0,hp:0,def:0},look:{shoes:'boots'}},
-  trav_gloves:{id:'trav_gloves',name:'旅行手套',slot:'gloves',classId:'traveler',tier:'starter',price:16,sell:6,salvage:{cloth:1},stats:{atk:0,hp:0,def:0},look:{}},
 
   // 鐵匠鋪升級件(tier craft):數值沿用 RECIPES,外觀用通用鐵甲部件
   craft_weapon:{id:'craft_weapon',name:'精鐵武器',slot:'weapon',classId:null,tier:'craft',price:85,sell:38,salvage:{ore:6,wood:3},stats:{atk:7,hp:0,def:0},look:{}},
@@ -196,7 +181,6 @@ export const CLASS_STARTER={
   paladin:{weapon:'paladin_sword',helm:'paladin_helm',chest:'paladin_plate',belt:'paladin_belt',legs:'paladin_legs',boots:'paladin_boots',gloves:'paladin_gloves'},
   berserker:{weapon:'berserk_axe',helm:'berserk_helm',chest:'berserk_vest',belt:'berserk_belt',legs:'berserk_legs',boots:'berserk_boots',gloves:'berserk_gloves'},
   assassin:{weapon:'assn_dagger',helm:'assn_band',chest:'assn_vest',belt:'assn_belt',legs:'assn_legs',boots:'assn_sandals',gloves:'assn_gloves'},
-  traveler:{weapon:'trav_wraps',helm:'trav_hood',chest:'trav_vest',belt:'trav_belt',legs:'trav_legs',boots:'trav_boots',gloves:'trav_gloves'},
 };
 // mult = 魔物生命與獎勵的倍率;atk = 魔物攻擊的倍率;nerve = 獵人肯冒的險:舒適度 ≥ 威脅 × nerve 的區也算能去,撤退的預留秒數也 × nerve(沒有 nerve = 只去打得動的區、照原本時機撤退)。
 // 2026-11-18 分開,見 docs/BALANCE.md「難度的風險」。初級 atk 1、沒有 nerve,行為不變。

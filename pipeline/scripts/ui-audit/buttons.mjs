@@ -44,7 +44,7 @@ const SCREENS = [
   ['select-hunter', async () => { await closeAll(); await page.evaluate(() => { const g = globalThis.__mistvaleGame, h = g.state.hunters[0]; g.state.paused = true; globalThis.__mistvaleView?.lookAt(h.x, h.z, 2.2); }); await page.waitForTimeout(900); await page.evaluate(() => globalThis.__mistvaleSelect('hunter:' + globalThis.__mistvaleGame.state.hunters[0].id)); }, '#hv-sel'],
   ['dialog-welcome', async () => { await closeAll(); await act('welcomeReplay'); }, '#modal'],
 ];
-const SKIP = new Set(['reset', 'export']);
+const SKIP = new Set(['reset', 'export', 'importSave']);
 const sig = () => page.evaluate(() => { const s = globalThis.__mistvaleGame.state; return JSON.stringify([document.querySelector('#modal-backdrop')?.classList.contains('hidden') ? '' : document.querySelector('#modal-title')?.textContent, s.gold, s.paused, s.speed, s.region, s.difficulty, s.hunters.map(h => h.task + h.huntRegion).join(), document.querySelectorAll('#toasts > *').length]); });
 const shot = async () => crypto.createHash('md5').update(await page.screenshot()).digest('hex');
 const report = [];

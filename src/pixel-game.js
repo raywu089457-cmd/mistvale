@@ -4,6 +4,7 @@ import {WORLD,REGIONS,RING_ORDER,walkable,inVillage,regionAt,regionContains,regi
 import {VILLAGE_BOUNDS,EXITS,blockAt,BUILDING_NUDGE,BUILDING_SLOTS,blockCenter} from './village-grid.js';
 import {sfx} from './sfx.js';
 import { SKILLS, BUILDINGS, CLASSES, RARITIES, PROMOTE, TRAITS, MATERIALS, PRODUCTS, RECIPES, GEAR_SLOTS, EQUIP_SLOTS, GEAR_TIERS, GEAR_TIER_MAX, gearAt, DIFFICULTIES, CAMP, HUNT_ZONE, PILOT_ATTACK, PILOT_ORB, MERCHANT, TRADE_RESERVE, AI_ATTACK_LOCK, KITE, PROVOKE, MONSTER_RANGED, LEGACY_LAYOUT_V14, LEGACY_LAYOUT_V15, LEGACY_LAYOUT_V16, ART_LAYOUT_HISTORY, REGION_DENSITY, DEFAULT_REGION_DENSITY, MONSTER_POP, MONSTER_SPEED_MULT, MONSTER_ATTACK_RATE, EQUIPMENT, CLASS_STARTER, GEAR_DROP, gearItemView, gearGradeOf, dungeonGearGrade } from './pixel-data.js';
+import { SPECS, SPEC_BY_ID, STATUS_DEFS, SPEC_SWITCH_LV, SCHOOL_COLORS, defaultSpecOf, specsOf, specOf, unlockedSkills, skillSlotMult, skillSlotCd } from './pixel-skills.js';
 
 const mapById = list => Object.assign(Object.create(null), Object.fromEntries(list.map(item => [item.id, item])));
 const CLASS = mapById(CLASSES), BUILDING = mapById(BUILDINGS), RARITY = mapById(RARITIES), RECIPE = mapById(RECIPES);
@@ -52,15 +53,6 @@ function gearBonus(h) {
   }
   return { atk, hp, def, weapon };
 }
-// 操控模式的「測試特效」表:pixelfx 表名 → 世界單位/秒數/放在目標還是自己身上
-const PILOT_FX = {
-  'root-snare': { k: .52, dur: 2.7, at: 'line', dy: 0 },
-  thorns: { k: .52, dur: 2.4, at: 'target', dy: 0, sheet: 'thorn-row', rot: 'perp' },
-  bird: { k: .32, dur: 3.6, at: 'self', dy: 34 },
-  haste: { k: .80, dur: 3.2, at: 'self', dy: 32 },
-  'feather-burst': { k: .44, dur: 3.0, at: 'self', dy: 36 },
-  flare: { k: .36, dur: 5.0, at: 'target', dy: 0 },
-};
 const RESOURCE_KEYS = ['gold', 'wood', 'ore', 'herb', 'cloth', 'flour', 'leather', 'gems'];
 // 建築升級成本每級的倍率。2026-11-16:1.6 → 1.75(progression-sim 14 天:加了行商與服務漲價後,1.6 會在第 14 天就把全村升滿 70/70)。
 const UPGRADE_GROWTH = 2.1;   // 2026-11-16 第二輪:裝備階級讓獵人的錢全部流回村莊後,1.75 在 5 個 seed 裡有 3 個第 15 天就全滿
@@ -231,6 +223,70 @@ export function hunterGender(id) {
 export const isRideable = sp => typeof sp === 'string' && RIDEABLE.includes(sp) && own(ENEMIES, sp);
 
 const DEFAULT_SETTINGS = { quality: 'high', dpr: 'auto', fps: 30, shadows: true, night: true, shake: true, uiScale: 'auto' };
+// Additional dynamic counter keys written during gameplay that are not initialized in fresh().
+const EXTRA_COUNT_KEYS = ['autoJunk', 'autoJunkGold', 'gemsBought', 'gemsBoughtGold', 'matSold', 'matSoldGold', 'merchantBuys', 'promoted', 'skills', 'tradeGold', 'wandererPurchases'];
+// Legacy class IDs removed on 2026-10-24 (ranger/witchhunter -> archer) and 2026-11-22 (traveler -> berserker).
+const normalizeClassId = id => (id === 'ranger' || id === 'witchhunter') ? 'archer' : id === 'traveler' ? 'berserker' : id;
+// Validate a JSON string or object save payload and return a dry-run preview without touching live state.
+export function inspectSave(input) {
+  let source = input;
+  if (typeof source === 'string') {
+    const cleaned = source.replace(/^\uFEFF/, '').trim();
+    if (!cleaned) return { ok: false, error: '存檔內容是空的。' };
+    try { source = JSON.parse(cleaned); } catch { return { ok: false, error: 'JSON 格式錯誤，無法讀取存檔。' }; }
+  }
+  if (!source || typeof source !== 'object' || Array.isArray(source)) {
+    return { ok: false, error: '這不是有效的暮影村存檔檔案。' };
+  }
+  if (source.version === 1) {
+    return { ok: false, error: '這是舊版 3D 暮影村（v1）的存檔，無法匯入像素版。' };
+  }
+  if (source.version !== 2 && source.version !== 3 && source.version !== 4) {
+    return { ok: false, error: '不支援的存檔格式或版本，請選擇由暮影村匯出的 JSON 存檔。' };
+  }
+  const b = source.buildings;
+  if (!b || typeof b !== 'object' || Array.isArray(b) || typeof b.hall !== 'number' || !Number.isFinite(b.hall) || b.hall < 1 || b.hall > 5) {
+    return { ok: false, error: '存檔缺少有效的村莊建築資料，請確認是否為暮影村存檔。' };
+  }
+  if (!Array.isArray(source.hunters) || !source.hunters.some(h => h && own(CLASS, normalizeClassId(h.classId)))) {
+    return { ok: false, error: '存檔缺少有效的獵人資料，無法匯入。' };
+  }
+  const hasCoreNum = (typeof source.gold === 'number' && Number.isFinite(source.gold))
+    || (typeof source.time === 'number' && Number.isFinite(source.time))
+    || (typeof source.day === 'number' && Number.isFinite(source.day));
+  if (!hasCoreNum) {
+    return { ok: false, error: '存檔缺少基本資源或時間資料，無法匯入。' };
+  }
+  let cloned, preview;
+  try {
+    cloned = JSON.parse(JSON.stringify(source));
+    preview = createGame(cloned);
+  } catch {
+    return { ok: false, error: '存檔資料損毀或格式異常，無法載入。' };
+  }
+  const ps = preview.state;
+  if (!ps || !Array.isArray(ps.hunters) || !ps.hunters.length || !Number.isFinite(ps.gold) || !Number.isFinite(ps.time)) {
+    return { ok: false, error: '存檔資料異常，無法還原村莊狀態。' };
+  }
+  const savedAt = Number.isFinite(source.exportedAt) ? source.exportedAt : Number.isFinite(source.savedAt) ? source.savedAt : null;
+  return {
+    ok: true,
+    data: cloned,
+    summary: {
+      version: source.version,
+      migrated: source.version !== 4,
+      day: ps.day,
+      gold: ps.gold,
+      gems: ps.gems,
+      hunters: ps.hunters.length,
+      hall: ps.buildings.hall,
+      bestFloor: ps.dungeon.bestFloor,
+      difficulty: DIFFICULTIES[ps.difficulty]?.name || '初級',
+      totalKills: ps.totalKills,
+      savedAt,
+    },
+  };
+}
 // 設定面板的畫質/效能選項:只接受合法值,舊存檔缺欄位就補預設
 // 各地區的怪物數量等級(1-3):舊存檔沒有這個欄位就補預設,超出範圍夾回來,只認真的狩獵區。
 function normalizeRegionDensity(raw) {
@@ -279,12 +335,13 @@ export function createGame(saved = null) {
     // T95:重擊的鏡頭震動請求。只給畫面用,不動傷害數字與戰鬥時序;state.shake 不存檔(serialize 會清成 null)。
     // 振幅表(1440x900 DPR1 基準,世界端再乘 scale/baseScale):技能命中 3.5px/220ms、王打中獵人 4.5px/260ms、
     // 暴擊 2px/140ms、普通命中 1px/90ms。同一 tick 兩個事件取大的,不相加。
-    const amp = type === 'skillfx' && extra.skill && extra.value > 0 ? 3.5
+    const amp = extra.finisher ? 4.5
+      : type === 'livefx' && extra.skill && extra.value > 0 ? 3.5
       : type === 'hit' && extra.by === 'boss' ? 4.5
       : extra.crit ? 2
       : extra.value > 0 && ['hit', 'arrow', 'spell', 'slash', 'holy'].includes(type) ? 1 : 0;
     if (amp > 0) {
-      const ms = amp === 3.5 ? 220 : amp === 4.5 ? 260 : amp === 2 ? 140 : 90, prev = state.shake;
+      const ms = amp >= 4.5 ? 260 : amp === 3.5 ? 220 : amp === 2 ? 140 : 90, prev = state.shake;
       if (!(prev && prev.t === state.time && prev.amp >= amp)) state.shake = { amp, ms, seq: (prev?.seq || 0) + 1, t: state.time };
     }
     // T106:重擊的停格請求(hitstop)。和震動用同一張事件表:技能命中/王打中獵人 90ms、暴擊 60ms,普通命中不停。
@@ -293,20 +350,17 @@ export function createGame(saved = null) {
     if (hsMs > 0 && !(state.hitstop && state.hitstop.t === state.time)) state.hitstop = { ms: hsMs, seq: (state.hitstop?.seq || 0) + 1, t: state.time };
     // T105:命中音效。用和震動同一張事件表,只挑有份量的:(暴擊)>命中>技能>治療>金幣>升級>倒地。
     // 音效完全在畫面層(node 測試沒有 AudioContext 時 sfx 自己跳過),不動傷害與戰鬥時序。
-    if (extra.value > 0 || extra.crit || type === 'heal' || type === 'loot' || type === 'level' || type === 'death') {
-      if (type === 'skillfx' && extra.value > 0) sfx('aoe');
+    if (extra.value > 0 || extra.crit || extra.healSfx || type === 'heal' || type === 'loot' || type === 'level' || type === 'death') {
+      if (type === 'livefx' && extra.value > 0) sfx('aoe');
       else if (type === 'hit' && extra.crit) sfx('crit');
       else if (extra.crit) sfx('crit');
       else if (['hit', 'arrow', 'spell', 'slash', 'holy'].includes(type) && extra.value > 0) sfx('hit', { gain: extra.by === 'boss' ? 1.3 : 1 });
-      else if (type === 'heal') sfx('heal');
+      else if (type === 'heal' || extra.healSfx) sfx('heal');
       else if (type === 'loot') sfx('coin');
       else if (type === 'level') sfx('level');
       else if (type === 'death') sfx('place', { gain: 0.7 });
     }
   };
-  // iso 改寫版特效(pixelfx 的 *-iso 表):世界端 drawIso 依 ISO_FX 的 from/to 播,life = 實際會播幾秒 + 一點尾巴,
-  // 播完就回收(不靠 e.dur 的側視 0.6 倍速換算)。delay 讓特效對到命中那一刻。
-  const isoEffect = (sheet, p, life, extra = {}) => effect('vfxsheet', p, { sheet, life, value: 0, ...extra });
   // 魔物近戰的命中延遲 = sheet 的命中格時間(impact - release 格 × 每格秒數,跟 pixel-world 的 monsterSheetPose 同一組 meta)。
   // 以前寫死 0.1 秒;現在打在「出手後 impact-release 格」= 0.075 秒(22 隻魔物都是 release 4 / impact 5 / .075 秒)。
   // 出手節奏(attackTimer)完全不變,只有傷害結算/閃光/命中特效的時間點跟著命中格走;查不到 meta 才退回 0.1。
@@ -386,7 +440,7 @@ export function createGame(saved = null) {
     if (!p) return false;
     const dx = p.x - enemy.x, dz = p.z - enemy.z, len = Math.hypot(dx, dz);
     const l = lastStepOf.get(enemy);
-    if (l && len < 0.06) {
+    if (l && len < 0.12) {
       const ll = Math.hypot(l.x, l.z);
       if (ll > 1e-6 && (dx * l.x + dz * l.z) / (len * ll) < -0.5) return false;
     }
@@ -610,7 +664,7 @@ export function createGame(saved = null) {
     updateStats(h, true);
   }
   function giveStarterGear(h) {
-    const set = CLASS_STARTER[h.classId] || CLASS_STARTER.traveler;
+    const set = CLASS_STARTER[h.classId] || CLASS_STARTER.berserker;
     h.gear = {};
     for (const slot of EQUIP_SLOTS) h.gear[slot] = null;
     for (const [slot, itemId] of Object.entries(set)) if (EQUIP[itemId]) h.gear[slot] = newGearItem(itemId);
@@ -624,9 +678,12 @@ export function createGame(saved = null) {
   function restoreGear(h, raw) {
     if (raw && raw.gear && typeof raw.gear === 'object' && !Array.isArray(raw.gear)) {
       h.gear = {};
+      const migratedStarter = raw.classId === 'traveler' ? (CLASS_STARTER[h.classId] || CLASS_STARTER.berserker) : null;
       for (const slot of EQUIP_SLOTS) {
         const inst = raw.gear[slot], item = inst && typeof inst.itemId === 'string' ? EQUIP[inst.itemId] : null;
-        h.gear[slot] = item && item.slot === slot ? newGearItem(item.id, inst.grade) : null;
+        if (item && item.slot === slot) h.gear[slot] = newGearItem(item.id, inst.grade);
+        else if (migratedStarter && migratedStarter[slot] && EQUIP[migratedStarter[slot]]) h.gear[slot] = newGearItem(migratedStarter[slot]);
+        else h.gear[slot] = null;
       }
       syncGear(h); return;
     }
@@ -855,7 +912,7 @@ export function createGame(saved = null) {
   function newHunter(classId, position = CAMP, initialIndex = -1) {
     const roll = random(), rarity = initialIndex >= 0 ? ['normal', 'rare', 'normal', 'superior', 'rare'][initialIndex % 5] : roll < 0.55 ? 'normal' : roll < 0.82 ? 'rare' : roll < 0.94 ? 'superior' : roll < 0.99 ? 'heroic' : 'legendary';
     const p = onRoadPoint(safePoint(position));
-    const h = { id: id('h'), name: freeName(state.hunters.length), classId, rarity, trait: TRAITS[Math.floor(random() * TRAITS.length)].id, level: initialIndex >= 0 ? 3 + initialIndex % 3 : 1, xp: 0, rebirths: 0, skillLevel: 0, weaponLevel: 0, equipment: emptyEquipment(), gear: null, gold: 100, inventory: Object.fromEntries(MATERIAL_KEYS.map(key => [key, 0])), satiety: initialIndex >= 0 ? 70 + initialIndex * 4 : 90, mood: initialIndex >= 0 ? 88 - initialIndex * 4 : 90, stamina: initialIndex >= 0 ? 78 + initialIndex * 2 : 90, x: p.x, z: p.z, hp: CLASS[classId].hp, maxHp: CLASS[classId].hp, status: '待機', targetId: null, attackTimer: random() * 0.5, route: [], task: null, serviceProduct: null, actionTimer: 0, reviveTimer: 0, lastTownVisit: state.time, tradedVisit: false, shoppedVisit: false, servedVisit: [], inTown: true, huntRegion: null, mount: null };
+    const h = { id: id('h'), name: freeName(state.hunters.length), classId, spec: defaultSpecOf(classId), rarity, trait: TRAITS[Math.floor(random() * TRAITS.length)].id, level: initialIndex >= 0 ? 3 + initialIndex % 3 : 1, xp: 0, rebirths: 0, skillLevel: 0, weaponLevel: 0, equipment: emptyEquipment(), gear: null, gold: 100, inventory: Object.fromEntries(MATERIAL_KEYS.map(key => [key, 0])), satiety: initialIndex >= 0 ? 70 + initialIndex * 4 : 90, mood: initialIndex >= 0 ? 88 - initialIndex * 4 : 90, stamina: initialIndex >= 0 ? 78 + initialIndex * 2 : 90, x: p.x, z: p.z, hp: CLASS[classId].hp, maxHp: CLASS[classId].hp, status: '待機', targetId: null, attackTimer: random() * 0.5, skillCd: 3, _skillCdShadow: 3, skillCds: [3, 4, 5, 8], statuses: {}, buffs: {}, route: [], task: null, serviceProduct: null, actionTimer: 0, reviveTimer: 0, lastTownVisit: state.time, tradedVisit: false, shoppedVisit: false, servedVisit: [], inTown: true, huntRegion: null, mount: null };
     h.gender = nameGender(h.name) ?? hunterGender(h.id);   // 性別跟名字走(NAME_GENDER);自訂名才用 id 雜湊。不擲骰,隨機數序列不變
     giveStarterGear(h);  // 新獵人直接穿上該職業的初始七件套(0 數值,只有外觀;開局數值跟沒裝備時一樣)
     h.hp = h.maxHp; state.hunters.push(h); idleInTown(h); return h;
@@ -914,7 +971,6 @@ export function createGame(saved = null) {
     for (const [key, amount] of Object.entries(data.drops)) { const n = dropAmount(amount); w.inventory[key] += n; ledgerGot(w, key, n); }
     effect('death', enemy, { enemyType: enemy.type, flipHint: (enemy.hitFromX ?? enemy.x) - (enemy.hitFromZ ?? enemy.z) < enemy.x - enemy.z });
     effect('loot', enemy, { text: `+${gold}`, color: '#efcd82', delay: 0.35 });
-    isoEffect('soul-rise-iso', enemy, 3.6, { delay: .1 }); isoEffect('coin-drop-iso', enemy, 3.4, { delay: .45 });   // 流浪英雄打倒的魔物也一樣:魂升天 + 金幣落地
   }
 
   // 4 組派遣隊伍預設(存檔會記住):每組有自己的隊員名單與狩獵區。
@@ -1109,8 +1165,11 @@ export function createGame(saved = null) {
     effect('heal', h);
   }
 
-  // 走速:職業(或流浪英雄自己的)速度 × 騎乘倍率(MOUNT_SPEED_MULT,只有騎著坐騎的獵人)
-  const moveSpeed = u => (u.speed ?? CLASS[u.classId].speed) * (u.mount ? MOUNT_SPEED_MULT : 1);
+  // 走速:職業(或流浪英雄自己的)速度 × 騎乘倍率(MOUNT_SPEED_MULT,只有騎著坐騎的獵人) × 狀態倍率
+  const moveSpeed = u => {
+    if (unitStopped(u) || unitRooted(u)) return 0;
+    return (u.speed ?? CLASS[u.classId].speed) * (u.mount ? MOUNT_SPEED_MULT : 1) * unitSpeedMult(u);
+  };
   function walk(h, dt) {
     if (state.time < (h.lockUntil ?? 0)) return;   // 出手後的短僵直:站著收招,不移動(不影響攻擊節奏)
     let available = moveSpeed(h) * dt * (h.status === '返村中' ? 1.2 : 1);
@@ -1203,50 +1262,555 @@ export function createGame(saved = null) {
     ally.hp = Math.min(ally.maxHp, ally.hp + v);
     h.attackTimer = attackInterval(h); h.lockUntil = state.time + AI_ATTACK_LOCK;
     h.atkAt = state.time; h.atkX = ally.x; h.atkZ = ally.z;   // 讓出手動畫朝向隊友
-    effect('skillfx', ally, { cls: h.classId, fx: 'holy', sourceX: h.x, sourceZ: h.z, delay: .18, text: `+${v}`, color: '#9cf09a', self: ally === h });
-    effect('heal', ally, { delay: .18 });
+    effect('dot', ally, { delay: .18, text: `+${v}`, color: '#9cf09a', healSfx: true });
     return v;
   }
-  // 招牌技能:結算當下扣血(跟普攻一樣),畫面用 skillAt / effect 延遲對到放出格。
-  function castSkill(h, target, sk) {
-    const t = state.time, release = sk.release ?? .25, base = Math.max(1, Math.round(h.attack * (h.satiety < 15 || h.stamina < 15 ? 0.6 : 1)));
-    h.skillCd = sk.cd; h.attackTimer = sk.lock + .4; h.skillAt = t; h.skillName = sk.name; h.atkX = target.x; h.atkZ = target.z;
-    state.counts.skills = (state.counts.skills || 0) + 1;
-    effect('skillName', h, { text: sk.name, color: '#bdf4ff' });
-    // 特效:skillSelf = 英雄身上(旋風、聖盾、蓄力),skillfx = 打到目標(飛行物 → 命中);畫面依職業 sprite 特效表,沒有就退回舊特效(sk.fx)。
-    effect('skillSelf', h, { cls: h.classId, fx: sk.fx, delay: Math.max(0, release - .12), kind: sk.kind });
-    // 詠唱法陣(iso):法師施法時腳下鋪 magic-circle-cast-iso。表上 FLASH 在 1.52 s,世界端從 0.9 s 起播,
-    // 所以最亮的爆光對到 release(0.55 s);life 1.3 s 約等於技能 lock,不會壓到下一輪普攻。
-    if (h.classId === 'sorcerer') isoEffect('magic-circle-cast-iso', h, 1.3);
-    // 刺客暗影衝刺(iso):起點畫 warp-iso(暗紫殘影往衝刺方向拖,整張轉向目標),目標身上延遲 0.1 s 畫 dagger-flurry-iso(連刺)。
-    if (h.classId === 'assassin') {
-      const dx = target.x - h.x, dz = target.z - h.z, rot = Math.atan2(dx + dz, dx - dz);   // 等角投影下的螢幕方向角
-      isoEffect('warp-iso', h, 2.6, Number.isFinite(rot) ? { rot } : {});
-      isoEffect('dagger-flurry-iso', target, .8, { delay: release + .1 });
+  // ── 4 格技能冷卻 + 11 種異常狀態與增益系統 ──
+  function ensureCds(h) {
+    if (!Array.isArray(h.skillCds) || h.skillCds.length < 4) h.skillCds = [h.skillCd ?? 3, 4, 5, 8];
+    if (h._skillCdShadow !== undefined && h.skillCd !== h._skillCdShadow) {
+      h.skillCds[0] = Math.max(0, Number(h.skillCd) || 0);
+      h._skillCdShadow = h.skillCds[0];
     }
-    if (sk.kind === 'allyHeal') {   // 補到隊友身上:聖光球飛過去(畫面延遲 release),結算當下回血
-      const v = Math.round(target.maxHp * sk.heal); target.hp = Math.min(target.maxHp, target.hp + v); h.lockUntil = t + sk.lock;
-      effect('skillfx', target, { cls: h.classId, fx: sk.fx, sourceX: h.x, sourceZ: h.z, delay: release, text: `+${v}`, color: '#9cf09a', self: target === h, iso: 'heal-aoe' });   // 暗癒禱言:畫面換成 iso heal-aoe-iso
-      effect('heal', target, { delay: release }); return;
+    return h.skillCds;
+  }
+  function setSlotCd(h, slot, cd) {
+    const cds = ensureCds(h), idx = clamp(slot | 0, 0, 3);
+    cds[idx] = Math.max(0, cd);
+    if (idx === 0) { h.skillCd = cds[0]; h._skillCdShadow = cds[0]; }
+  }
+  function tickSlotCds(h, dt) {
+    const cds = ensureCds(h);
+    for (let i = 0; i < 4; i++) if (cds[i] > 0) cds[i] = Math.max(0, cds[i] - dt);
+    h.skillCd = cds[0]; h._skillCdShadow = cds[0];
+  }
+
+  function applyBuff(unit, key, val, dur) {
+    if (!unit || !(dur > 0)) return;
+    const b = (unit.buffs ||= {});
+    b[key] = { val, left: Math.max(b[key]?.left || 0, dur) };
+  }
+  function applyStatus(unit, statusId, dur, src = null, isBoss = false) {
+    if (!unit || !(dur > 0)) return false;
+    let id0 = statusId, def = STATUS_DEFS[id0];
+    if (!def) return false;
+    if (unit.statuses?.petrified && def.kind === 'cc') return false;
+    let d = dur;
+    if (isBoss) {
+      if (def.bossFallback) { id0 = def.bossFallback; def = STATUS_DEFS[id0]; d = Math.max(1.2, d * 0.7); }
+      else if (def.bossImmuneCd) {
+        if ((unit._stunImmuneUntil ?? -99) > state.time) return false;
+        d *= def.bossScale ?? 0.5;
+        unit._stunImmuneUntil = state.time + def.bossImmuneCd;
+      } else if (def.bossScale) {
+        d *= def.bossScale;
+      }
     }
-    if (sk.kind === 'heal') { const v = Math.round(h.maxHp * sk.heal); h.hp = Math.min(h.maxHp, h.hp + v); effect('skillfx', h, { cls: h.classId, fx: sk.fx, sourceX: h.x, sourceZ: h.z, delay: release, text: `+${v}`, color: '#9cf09a', self: true });
-      // 聖盾祈禱(iso):divine-shield-iso 的光罩罩在聖騎士身上,取代側視 atlas 盾格
-      if (h.classId === 'paladin') isoEffect('divine-shield-iso', h, 3.2);
-      return; }
+    if (d <= 0.05) return false;
+    const map = (unit.statuses ||= {}), cur = map[id0];
+    map[id0] = {
+      left: Math.max(cur?.left || 0, d),
+      stacks: Math.min(def.maxStacks || 1, (cur?.stacks || 0) + 1),
+      atk: Math.max(cur?.atk || 0, src?.attack || 0),
+      srcId: src?.id || cur?.srcId || null,
+      tick: cur?.tick || 0,
+      stamp: cur ? (cur.stamp ?? state.time) : state.time,
+    };
+    return true;
+  }
+  function clearDebuffs(unit) {
+    if (!unit?.statuses) return 0;
+    let n = 0;
+    for (const k of Object.keys(unit.statuses)) {
+      if (STATUS_DEFS[k]?.kind !== 'buff') { delete unit.statuses[k]; n++; }
+    }
+    if (unit.buffs?.rooted) { delete unit.buffs.rooted; n++; }
+    return n;
+  }
+  function hasDebuff(unit) {
+    if (!unit) return false;
+    if (unit.buffs?.rooted?.left > 0) return true;
+    const st = unit.statuses; if (!st) return false;
+    for (const k of Object.keys(st)) if (STATUS_DEFS[k]?.kind !== 'buff') return true;
+    return false;
+  }
+  function unitStopped(u) {
+    if (!u) return false;
+    if (u.buffs?.timeStop?.left > 0) return true;
+    const st = u.statuses; if (!st) return false;
+    if (st.frozen || st.stunned || st.sleep) return true;
+    if (st.charmed && u.type !== 'boss') return true;
+    return false;
+  }
+  const unitRooted = u => !!(u?.buffs?.rooted?.left > 0);
+  const unitSpeedMult = u => u?.statuses?.slowed ? (u.type === 'boss' ? 0.75 : 0.55) : 1;
+  const unitAtkCdMult = u => u?.statuses?.slowed ? (u.type === 'boss' ? 1.12 : 1.25) : 1;
+  const unitAtkMult = u => {
+    const st = u?.statuses; if (!st) return 1;
+    let m = 1;
+    if (st.cursed) m *= (u.type === 'boss' ? 0.88 : 0.8);
+    if (st.charmed && u.type === 'boss') m *= 0.75;
+    return m;
+  };
+  const unitDefMult = u => {
+    const st = u?.statuses; if (!st) return 1;
+    let m = 1;
+    if (st.cursed) m *= (u.type === 'boss' ? 0.88 : 0.8);
+    if (st.burning) m *= 0.9;
+    return m;
+  };
+  const unitVulnMult = u => 1 + (u?.buffs?.vuln?.val || 0);
+  const unitDrMult = (u, isRangedHit = false) => {
+    let m = 1;
+    if (u?.buffs?.shield?.left > 0) m *= Math.max(0.2, 1 - (u.buffs.shield.val || 0));
+    if (isRangedHit && u?.buffs?.rangedDr?.left > 0) m *= Math.max(0.2, 1 - (u.buffs.rangedDr.val || 0));
+    if (u?.statuses?.petrified) m *= 0.55;
+    return m;
+  };
+  const unitMisses = u => !!(u?.statuses?.confused && random() < (u.type === 'boss' ? 0.2 : 0.4));
+  function consumeWakeShatter(u, isHeavySkill = false) {
+    if (!u?.statuses) return 1;
+    if (u.statuses.sleep) { delete u.statuses.sleep; return 1.3; }
+    if (u.statuses.frozen && isHeavySkill) return 1.2;
+    return 1;
+  }
+  function tickUnitStatuses(unit, dt, isEnemy = false, isDungeonFoe = false) {
+    if (!unit || unit.hp <= 0) return;
+    if (unit.buffs) {
+      for (const k of Object.keys(unit.buffs)) {
+        unit.buffs[k].left -= dt;
+        if (unit.buffs[k].left <= 0) delete unit.buffs[k];
+      }
+    }
+    const st = unit.statuses; if (!st) return;
+    for (const k of Object.keys(st)) {
+      const s = st[k], def = STATUS_DEFS[k];
+      if (!def) { delete st[k]; continue; }
+      s.left -= dt;
+      if (def.kind === 'dot') {
+        s.tick = (s.tick || 0) + dt;
+        while (s.tick >= 1 && unit.hp > 0) {
+          s.tick -= 1;
+          let dmg = 1;
+          if (k === 'bleeding') dmg = isEnemy ? Math.max(1, Math.round((s.atk || 10) * 0.28 * (s.stacks || 1))) : Math.max(1, Math.round(Math.min(unit.maxHp * 0.02, (s.atk || 6) * 0.14)));
+          else if (k === 'burning') dmg = isEnemy ? Math.max(1, Math.round((s.atk || 10) * 0.32)) : Math.max(1, Math.round(unit.maxHp * 0.02));
+          else if (k === 'poisoned') {
+            if (isEnemy) dmg = Math.max(1, Math.min(Math.round((s.atk || 20) * 0.9), Math.round(unit.maxHp * (unit.type === 'boss' ? 0.006 : 0.025))));
+            else dmg = Math.max(1, Math.round(unit.maxHp * 0.015));
+          }
+          if (!isEnemy && state.difficulty === 0 && unit.hp - dmg <= 1) dmg = Math.max(0, unit.hp - 1);
+          if (dmg > 0) {
+            unit.hp = Math.max(0, unit.hp - dmg);
+            if (!isDungeonFoe) effect('dot', unit, { value: dmg, color: def.color });
+            if (unit.hp <= 0) {
+              if (isEnemy && !isDungeonFoe && !unit.rewarded) {
+                const src = state.hunters.find(q => q.id === s.srcId) || null;
+                rewardEnemy(unit, src);
+              } else if (!isEnemy) {
+                if (wandererOf(unit)) downWanderer(unit, { type: 'poison' });
+                else died(unit, 'poison');
+              }
+            }
+          }
+        }
+      }
+      if (s.left <= 0) delete st[k];
+    }
+  }
+
+  function bandContains(origin, dirX, dirZ, len, hw, pt) {
+    const l = Math.hypot(dirX, dirZ) || 1, ux = dirX / l, uz = dirZ / l;
+    const rx = pt.x - origin.x, rz = pt.z - origin.z;
+    const along = rx * ux + rz * uz, across = -rx * uz + rz * ux;
+    return along >= -0.3 && along <= len && Math.abs(across) <= hw;
+  }
+  function pushUnit(unit, vx, vz, dist) {
+    if (!unit || unit.type === 'boss' || !(dist > 0)) return;
+    const l = Math.hypot(vx, vz) || 1, ux = vx / l, uz = vz / l;
+    const steps = 4, step = dist / steps;
+    for (let i = 0; i < steps; i++) {
+      const q = { x: unit.x + ux * step, z: unit.z + uz * step };
+      if (blocked(q) || inVillage(q.x, q.z)) break;
+      if (unit.regionId && !regionContains(unit.regionId, q.x, q.z)) break;
+      if (!roadOk(unit, q)) break;
+      unit.x = q.x; unit.z = q.z;
+    }
+  }
+  function warpToward(h, target, maxDist) {
+    if (!target) return;
+    const d = distance(h, target);
+    if (d <= 1.7) return;
+    const travel = Math.min(maxDist, d - 1.25);
+    if (travel <= 0.2) return;
+    const ux = (target.x - h.x) / d, uz = (target.z - h.z) / d;
+    const q = { x: h.x + ux * travel, z: h.z + uz * travel };
+    if (!blocked(q) && !inVillage(q.x, q.z)) { h.x = q.x; h.z = q.z; }
+  }
+
+  // Effects anchored at the caster (vs anchored on the target ground).
+  // All 12 melee swings + caster-centered rings/waves/projectiles match sprites.html's anchor:"caster".
+  const CASTER_ANCHOR_FX = new Set([
+    'melee/sword-slash-iso', 'melee/whirlwind-iso', 'melee/heavy-cleave-iso', 'melee/thrust-iso',
+    'melee/claw-swipe-iso', 'melee/double-slash-iso', 'melee/uppercut-iso', 'melee/dagger-flurry-iso',
+    'melee/spear-sweep-iso', 'melee/whip-crack-iso', 'melee/hammer-smash-iso', 'melee/scythe-reap-iso',
+    'fire/fire-ring-iso', 'nature/quake-iso', 'holy/divine-shield-iso',
+    'scifi/force-field-iso', 'nature/thorns-iso', 'ice/ice-spikes-iso', 'ice/frost-nova-iso',
+    'lightning/charge-up-iso', 'lightning/chain-lightning-iso', 'projectiles/magic-missile-iso',
+    'arcane/arcane-missiles-iso', 'nature/leaf-storm-iso', 'nature/earth-spike-iso',
+    'scifi/warp-iso', 'arcane/magic-circle-cast-iso',
+  ]);
+  const IMPACT_FAMILY_FX = {
+    blade: 'impacts/blade-hit-iso',
+    nature: 'impacts/nature-hit-iso',
+    shadow: 'impacts/void-hit-iso',
+    arcane: 'impacts/void-hit-iso',
+  };
+  function woundFxFor(sk) {
+    if (sk.impact === 'slash' || sk.impact === 'pierce' || sk.impact === 'heavy') return 'impacts/blade-hit-iso';
+    if (sk.impact === 'leaf' || sk.impact === 'vine' || sk.impact === 'thorn' || sk.impact === 'acid' || sk.impact === 'spore' || sk.impact === 'toxic' || sk.impact === 'earth' || sk.impact === 'stone') return 'impacts/nature-hit-iso';
+    return IMPACT_FAMILY_FX[sk.school] || 'impacts/hit-spark-iso';
+  }
+
+  function downedAllyNear(h, maxDist) {
+    const ok = u => u && u !== h && u.hp <= 0 && u.task !== 'dungeon' && u.task !== 'arena' && distance(h, u) <= maxDist;
+    return state.hunters.find(ok) || (state.wanderers || []).find(ok) || null;
+  }
+  function pickSupportSkill(h) {
+    const cds = ensureCds(h), skills = unlockedSkills(h);
+    // 1. Revive downed ally
+    for (const sk of skills) {
+      if (sk.kind !== 'revive' || cds[sk.slot] > 0) continue;
+      const down = downedAllyNear(h, sk.radius || 4.5);
+      if (down) return { sk, target: down };
+    }
+    // 2. Cleanse debuffed ally or group heal
+    for (let i = skills.length - 1; i >= 0; i--) {
+      const sk = skills[i];
+      if (sk.kind !== 'allyHeal' || cds[sk.slot] > 0) continue;
+      if (sk.cleanse) {
+        const deb = state.hunters.find(u => u.hp > 0 && u.task !== 'dungeon' && u.task !== 'arena' && distance(h, u) <= healReach(h) && hasDebuff(u));
+        if (deb) return { sk, target: deb };
+      }
+      const low = healTarget(h, sk);
+      if (low) return { sk, target: low };
+    }
+    // 3. Fallback revive as big emergency group heal when ally < 55% HP
+    for (const sk of skills) {
+      if (sk.kind !== 'revive' || cds[sk.slot] > 0) continue;
+      const critLow = healTarget(h, { below: 0.55 });
+      if (critLow) return { sk, target: critLow };
+    }
+    return null;
+  }
+  function pickCombatSkill(h, target) {
+    const cds = ensureCds(h), skills = unlockedSkills(h);
     const alive = state.enemies.filter(e => e.hp > 0 && !e.rewarded);
-    const hitList = sk.kind === 'multi' ? alive.filter(e => distance(h, e) <= h.range + 1).sort((a, b) => distance(h, a) - distance(h, b)).slice(0, sk.targets)
-      : sk.kind === 'aoe' ? alive.filter(e => distance(e, target) <= sk.radius) : [target];
-    if (!hitList.includes(target)) hitList.unshift(target);
-    // 疾風箭雨(2026-11-05 使用者:「箭雨改成箭動畫命中怪物才判定真的命中」):不在這裡扣血,
-    // 改成射出真的箭(state.shots),飛行中碰到魔物那一刻才結算(stepShots);飛完沒碰到 = 落空。
-    if (sk.fx === 'gale') { galeVolley(h, hitList, target, sk, base); return; }
-    hitList.forEach((e, i) => {
-      const dmg = Math.max(1, Math.round(base * sk.mult)), delay = release + (sk.fx === 'arrow' ? .2 : .1);
-      e.hitAt = t + delay; e.hitFromX = h.x; e.hitFromZ = h.z; e.hp -= dmg;
-      effect('skillfx', e, { sourceX: h.x, sourceZ: h.z, value: dmg, targetId: e.id, delay, cls: h.classId, fx: sk.fx, kind: sk.kind, crit: true, skill: true });
-      if (h.classId === 'darkknight') h.hp = Math.min(h.maxHp, h.hp + dmg * 0.08);
-      if (e.hp <= 0) rewardEnemy(e, h);
+    const nearCount = alive.filter(e => distance(h, e) <= 3.6).length;
+    // Priority: emergency self-defense / shield / nearEnemy rings -> highest unlocked ready damage slot (S4 -> S1)
+    for (const sk of skills) {
+      if (cds[sk.slot] > 0) continue;
+      if (sk.kind === 'allyShield') {
+        if (h.hp < h.maxHp * 0.88 || nearCount >= 1) return sk;
+        continue;
+      }
+      if (sk.kind === 'selfBuff') {
+        if (sk.trigger === 'nearEnemy' && nearCount === 0) continue;
+        return sk;
+      }
+      if (sk.trigger === 'nearEnemy') {
+        if (nearCount > 0) return sk;
+        continue;
+      }
+    }
+    for (let i = skills.length - 1; i >= 0; i--) {
+      const sk = skills[i];
+      if (cds[sk.slot] > 0) continue;
+      if (sk.kind === 'allyHeal' || sk.kind === 'revive' || sk.kind === 'allyShield' || sk.kind === 'selfBuff') continue;
+      if (sk.trigger === 'nearEnemy' && nearCount === 0) continue;
+      return sk;
+    }
+    return null;
+  }
+
+  // 智慧瞄準:直線帶(band)挑貫穿最多敵人的方位、範圍/黑洞/時停(aoe/pull/timeStop)挑最密集聚落(首領優先,純計算不擲骰)
+  function bestAimForSkill(h, target, sk, alive) {
+    if (!alive.length) return target;
+    const maxR = Math.max(h.range || 1.75, 4.5) + 1.5;
+    const cands = alive.filter(e => distance(h, e) <= maxR);
+    if (cands.length <= 1) return target || cands[0];
+    let best = target || cands[0], bestScore = -1;
+    if (sk.kind === 'band') {
+      const [bLen, bHw] = sk.band || [5.0, 1.1];
+      for (const c of cands) {
+        const dx = c.x - h.x, dz = c.z - h.z;
+        let sc = 0;
+        for (const e of alive) if (bandContains(h, dx, dz, bLen, bHw, e)) sc += e.type === 'boss' ? 2.5 : 1;
+        if (c === target) sc += 0.05;
+        if (sc > bestScore) { bestScore = sc; best = c; }
+      }
+      return best;
+    }
+    if (sk.kind === 'aoe' || sk.kind === 'pull' || sk.kind === 'timeStop') {
+      const r = sk.radius || 2.5;
+      for (const c of cands) {
+        let sc = 0;
+        for (const e of alive) if (distance(e, c) <= r) sc += e.type === 'boss' ? 2.5 : 1;
+        if (c === target) sc += 0.05;
+        if (sc > bestScore) { bestScore = sc; best = c; }
+      }
+      return best;
+    }
+    return target;
+  }
+
+  // 招牌技能與 14 流派 4 招技能結算:結算當下扣血(跟普攻一樣),畫面以 livefx / 舊 iso 表同步演出。
+  function castSkill(h, target, sk, opts = {}) {
+    if (!sk) return false;
+    const t = state.time, release = sk.release ?? .25, slot = sk.slot ?? 0;
+    const cd = skillSlotCd(h, sk);
+    setSlotCd(h, slot, cd);
+    h.attackTimer = (sk.lock ?? .7) + .4; h.skillAt = t; h.skillName = sk.name;
+    let chosenTarget = target;
+    if (!opts.empty && opts.ai !== false && (sk.kind === 'band' || sk.kind === 'aoe' || sk.kind === 'pull' || sk.kind === 'timeStop')) {
+      const alive0 = state.enemies.filter(e => e.hp > 0 && !e.rewarded);
+      chosenTarget = bestAimForSkill(h, target, sk, alive0) || target;
+    }
+    const aimPt = chosenTarget || { x: h.x + 1, z: h.z };
+    target = chosenTarget;
+    h.atkX = aimPt.x; h.atkZ = aimPt.z;
+    state.counts.skills = (state.counts.skills || 0) + 1;
+    const nameColor = SCHOOL_COLORS[sk.school] || '#bdf4ff';
+    effect('skillName', h, { text: sk.name, color: nameColor });
+
+    // 詠唱法陣(livefx):讓魔法陣完整跑到 1.52s FLASH 峰值再於 2.6s 淡出
+    if (sk.castCircle) {
+      effect('livefx', h, { fxId: 'arcane/magic-circle-cast-iso', school: sk.school, sourceX: h.x, sourceZ: h.z, tx: aimPt.x, tz: aimPt.z, casterId: h.id, casterAnchored: true, delay: 0, life: 2.6, value: 0 });
+    }
+
+    // 刺客瞬移(warp):先算出實際落點再發射 warp-iso (傳入真實 to 落點與角色剪影)
+    if (sk.warp) {
+      const fromX = h.x, fromZ = h.z;
+      if (!opts.empty && target && target.hp > 0) warpToward(h, target, sk.warp);
+      const landX = (!opts.empty && target && target.hp > 0) ? h.x : aimPt.x;
+      const landZ = (!opts.empty && target && target.hp > 0) ? h.z : aimPt.z;
+      if (sk.warpFxId) {
+        effect('livefx', { x: fromX, z: fromZ }, { fxId: sk.warpFxId, school: sk.school, sourceX: fromX, sourceZ: fromZ, tx: landX, tz: landZ, casterId: h.id, actorId: h.id, casterAnchored: true, delay: 0, value: 0 });
+      }
+    }
+
+    // ── 1. 治療 / 淨化 (allyHeal) ──
+    if (sk.kind === 'allyHeal') {
+      h.lockUntil = t + (sk.lock ?? .7);
+      const center = target || h, rad = sk.radius || 3.4;
+      const mainAmt = Math.max(2, Math.round(center.maxHp * (sk.heal || .24)));
+      let healedAllies = [center];
+      if (sk.singleTarget) {
+        center.hp = Math.min(center.maxHp, center.hp + mainAmt);
+      } else {
+        const allies = [...state.hunters, ...(state.wanderers || [])].filter(u => u.hp > 0 && u.task !== 'dungeon' && u.task !== 'arena' && distance(u, center) <= rad);
+        if (center.hp > 0 && !allies.includes(center)) allies.unshift(center);
+        healedAllies = allies;
+        for (const u of allies) {
+          const ratio = u === center ? (sk.heal || .2) : (sk.heal || .2) * 0.7;
+          const v = Math.max(2, Math.round(u.maxHp * ratio));
+          u.hp = Math.min(u.maxHp, u.hp + v);
+          if (sk.cleanse) clearDebuffs(u);
+          if (u !== center) effect('dot', u, { delay: release, text: `+${v}`, color: '#9cf09a' });
+        }
+      }
+      const healTargets = healedAllies.map(u => ({ x: u.x, z: u.z, h: 28 }));
+      effect('livefx', center, { fxId: sk.fxId, school: sk.school, sourceX: h.x, sourceZ: h.z, tx: center.x, tz: center.z, targets: healTargets, casterId: h.id, actorId: center.id, delay: 0, text: `+${mainAmt}`, color: '#9cf09a', healSfx: true, value: 0 });
+      return true;
+    }
+
+    // ── 2. 戰場復活 / 全隊大補 (revive) ──
+    if (sk.kind === 'revive') {
+      h.lockUntil = t + (sk.lock ?? .95);
+      const down = (target && target.hp <= 0) ? target : downedAllyNear(h, sk.radius || 4.5);
+      if (down) {
+        down.hp = Math.max(1, Math.round(down.maxHp * (sk.reviveHp || 0.5)));
+        down.reviveTimer = 0; down.task = null; down.status = '待命'; down.route = [];
+        clearDebuffs(down);
+        effect('livefx', down, { fxId: sk.fxId, school: sk.school, sourceX: h.x, sourceZ: h.z, tx: down.x, tz: down.z, casterId: h.id, actorId: down.id, delay: 0, text: `復活 +${down.hp}`, color: '#9cf09a', healSfx: true, value: 0 });
+        log(`${h.name} 施展${sk.name}，當場復活了 ${down.name}！`, 'success');
+        return true;
+      }
+      const center = target && target.hp > 0 ? target : h;
+      const allies = [...state.hunters, ...(state.wanderers || [])].filter(u => u.hp > 0 && u.task !== 'dungeon' && u.task !== 'arena' && distance(u, center) <= (sk.radius || 4.5));
+      if (!allies.includes(h)) allies.unshift(h);
+      for (const u of allies) {
+        const v = Math.max(2, Math.round(u.maxHp * (sk.heal || .35)));
+        u.hp = Math.min(u.maxHp, u.hp + v);
+        if (sk.cleanse) clearDebuffs(u);
+        effect('dot', u, { delay: release, text: `+${v}`, color: '#9cf09a' });
+      }
+      effect('livefx', center, { fxId: sk.fxId, school: sk.school, sourceX: h.x, sourceZ: h.z, tx: center.x, tz: center.z, casterId: h.id, actorId: center.id, delay: 0, healSfx: true, value: 0 });
+      return true;
+    }
+
+    // ── 3. 自補 + 群盾 (allyShield / heal) ──
+    if (sk.kind === 'allyShield' || sk.kind === 'heal') {
+      const v = Math.max(2, Math.round(h.maxHp * (sk.heal || .22)));
+      h.hp = Math.min(h.maxHp, h.hp + v);
+      let shielded = [h];
+      if (sk.shieldDr && sk.shieldDur) {
+        const allies = [...state.hunters, ...(state.wanderers || [])].filter(u => u.hp > 0 && u.task !== 'dungeon' && u.task !== 'arena' && distance(u, h) <= (sk.radius || 4.0));
+        if (!allies.includes(h)) allies.unshift(h);
+        shielded = allies;
+        for (const u of allies) applyBuff(u, 'shield', sk.shieldDr, sk.shieldDur);
+      }
+      effect('livefx', h, { fxId: sk.fxId, school: sk.school, sourceX: h.x, sourceZ: h.z, tx: h.x, tz: h.z, casterId: h.id, actorId: h.id, casterAnchored: true, delay: 0, text: `+${v}`, color: '#9cf09a', healSfx: true, value: 0 });
+      // 每位套到聖盾的隊友也展開專屬聖盾光罩(最多 3 名最近隊友,微錯開進場)
+      for (const u of shielded.filter(u => u !== h).sort((a, b) => distance(h, a) - distance(h, b)).slice(0, 3)) {
+        effect('livefx', u, { fxId: sk.fxId, school: sk.school, sourceX: h.x, sourceZ: h.z, tx: u.x, tz: u.z, casterId: h.id, actorId: u.id, casterAnchored: true, delay: Math.min(0.35, distance(h, u) * 0.08), value: 0 });
+      }
+      return true;
+    }
+
+    // ── 4. 自身增益 (selfBuff: 折射力場 / 超載蓄電) ──
+    if (sk.kind === 'selfBuff') {
+      if (sk.rangedDr && sk.buffDur) applyBuff(h, 'rangedDr', sk.rangedDr, sk.buffDur);
+      if (sk.chargeBonus && sk.buffDur) applyBuff(h, 'charge', sk.chargeBonus, sk.buffDur);
+      let from = null;
+      if (sk.fxId === 'scifi/force-field-iso') {
+        const nearE = state.enemies.filter(e => e.hp > 0 && !e.rewarded).sort((a, b) => distance(h, a) - distance(h, b)).slice(0, 3);
+        if (nearE.length) from = nearE.map(e => Math.atan2((e.x - h.x) + (e.z - h.z), (e.x - h.x) - (e.z - h.z)));
+      }
+      effect('livefx', h, { fxId: sk.fxId, school: sk.school, sourceX: h.x, sourceZ: h.z, tx: aimPt.x, tz: aimPt.z, from, casterId: h.id, actorId: h.id, casterAnchored: true, delay: 0, life: sk.buffDur || 4, value: 0 });
+      return true;
+    }
+
+    // ── 5. 傷害 / 控場技能 ──
+    const tired = (h.satiety < 15 || h.stamina < 15) ? 0.6 : 1;
+    let chargeMult = 1, forceCrit = false;
+    if (h.buffs?.charge?.left > 0) { chargeMult = 1 + (h.buffs.charge.val || 0.5); forceCrit = true; delete h.buffs.charge; }
+    const base = Math.max(1, Math.round(h.attack * tired * unitAtkMult(h) * chargeMult));
+    let mult = skillSlotMult(h, sk);
+    if (sk.lowHpScale) {
+      const missingPct = Math.max(0, 1 - h.hp / Math.max(1, h.maxHp));
+      mult *= (1 + missingPct * sk.lowHpScale);
+    }
+    let useFxId = sk.fxId;
+    if (sk.nukeChance && sk.nukeFxId && (h.rebirths || 0) >= 1 && random() < sk.nukeChance) {
+      useFxId = sk.nukeFxId;
+      mult *= 1.25;
+    }
+
+    const alive = opts.empty ? [] : state.enemies.filter(e => e.hp > 0 && !e.rewarded);
+    let hitList = [];
+    if (!opts.empty) {
+      if (sk.kind === 'selfAoe') {
+        hitList = alive.filter(e => distance(e, h) <= (sk.radius || 3.0));
+      } else if (sk.kind === 'band') {
+        const [bLen, bHw] = sk.band || [5.0, 1.1];
+        const dx = aimPt.x - h.x, dz = aimPt.z - h.z;
+        hitList = alive.filter(e => bandContains(h, dx, dz, bLen, bHw, e));
+      } else if (sk.kind === 'chain') {
+        const maxT = sk.targets || 5, maxR = sk.radius || 5.5;
+        if (target && target.hp > 0) hitList.push(target);
+        let cur = target || h;
+        while (hitList.length < maxT) {
+          const next = alive.filter(e => !hitList.includes(e) && distance(cur, e) <= maxR).sort((a, b) => distance(cur, a) - distance(cur, b))[0];
+          if (!next) break;
+          hitList.push(next); cur = next;
+        }
+      } else if (sk.kind === 'multi') {
+        const maxR = Math.max(h.range + 1, sk.radius || 4);
+        hitList = alive.filter(e => distance(h, e) <= maxR).sort((a, b) => distance(h, a) - distance(h, b)).slice(0, sk.targets || 3);
+      } else if (sk.kind === 'aoe' || sk.kind === 'pull' || sk.kind === 'timeStop') {
+        hitList = alive.filter(e => distance(e, aimPt) <= (sk.radius || 2.5));
+      } else if (target && target.hp > 0) {
+        hitList = [target];
+      }
+      if (target && target.hp > 0 && !hitList.includes(target) && sk.kind !== 'selfAoe' && sk.kind !== 'band') hitList.unshift(target);
+    }
+
+    // 疾風箭雨:維持三支風箭判定 (state.shots) + 實時 CQ 落葉疾風 (livefx)
+    if (sk.galeShots) {
+      galeVolley(h, hitList, aimPt, { ...sk, mult }, base);
+      effect('livefx', h, { fxId: sk.fxId, school: sk.school, sourceX: h.x, sourceZ: h.z, tx: aimPt.x, tz: aimPt.z, casterId: h.id, actorId: h.id, casterAnchored: true, delay: 0, life: 1.5, value: 0 });
+      return true;
+    }
+
+    // 自身附帶霸體 / 荊棘反傷 / 嘲諷吸怪(真嘲諷 4 秒強制拉仇恨)
+    if (sk.selfStatus && sk.selfStatusDur) applyStatus(h, sk.selfStatus, sk.selfStatusDur, h, false);
+    if (sk.thornsPct && sk.thornsDur) applyBuff(h, 'thorns', sk.thornsPct, sk.thornsDur);
+    if (sk.tauntRadius) {
+      for (const e of alive) if (distance(e, aimPt) <= sk.tauntRadius) {
+        e.tauntBy = h.id; e.tauntUntil = t + 4.0; e.slotFor = h.id; e.engaged = true; e.hitAt = t;
+      }
+    }
+
+    // 主視覺特效 (全部走實時 CQ livefx)
+    const isCasterAnchored = CASTER_ANCHOR_FX.has(useFxId);
+    const fxAnchor = isCasterAnchored ? h : aimPt;
+    const needsTargets = (sk.kind === 'chain' || sk.id === 'arcane_missiles' || sk.id === 'magic_missile');
+    const fxTargets = needsTargets
+      ? (hitList.length ? hitList.map(e => ({ x: e.x, z: e.z, h: 18 })) : [{ x: aimPt.x, z: aimPt.z, h: 18 }])
+      : null;
+    effect('livefx', fxAnchor, {
+      fxId: useFxId, school: sk.school, sourceX: h.x, sourceZ: h.z, tx: aimPt.x, tz: aimPt.z,
+      targets: fxTargets, spread: sk.targets || undefined, casterId: h.id, actorId: isCasterAnchored ? h.id : (target?.id || null),
+      casterAnchored: isCasterAnchored, delay: 0, finisher: !!sk.finisher, value: 0,
     });
+    if (sk.secondaryFxId) {
+      const secCaster = CASTER_ANCHOR_FX.has(sk.secondaryFxId);
+      const secAnchor = secCaster ? h : aimPt;
+      effect('livefx', secAnchor, { fxId: sk.secondaryFxId, school: sk.school, sourceX: h.x, sourceZ: h.z, tx: aimPt.x, tz: aimPt.z, casterId: h.id, actorId: secCaster ? h.id : (target?.id || null), casterAnchored: secCaster, delay: Math.min(0.22, sk.delay ?? 0.12), value: 0 });
+    }
+    if (sk.finisher && sk.beat) {
+      effect('livefx', aimPt, { fxId: 'impacts/finisher-crash-iso', school: sk.school, sourceX: h.x, sourceZ: h.z, tx: aimPt.x, tz: aimPt.z, delay: sk.delay ?? 0.24, beat: sk.beat, finisher: true, value: 0 });
+    }
+
+    const delay = sk.delay ?? release;
+    let totalDmg = 0, killed = 0;
+    hitList.forEach((e, idx) => {
+      const isBoss = e.type === 'boss';
+      let m = mult;
+      if (sk.falloff && idx > 0) m *= Math.pow(sk.falloff, idx);
+      if (sk.execBelow && sk.execMult && e.hp / Math.max(1, e.maxHp) < sk.execBelow) {
+        m = skillSlotMult(h, { ...sk, mult: sk.execMult });
+      }
+      const wake = consumeWakeShatter(e, !!sk.finisher || m >= 1.8);
+      const vuln = unitVulnMult(e);
+      const defFactor = sk.armorPen ? (1 + sk.armorPen * 0.35) : 1;
+      const critBonus = forceCrit ? CRIT_MULT : 1;
+      const dmg = Math.max(1, Math.round(base * m * wake * vuln * defFactor * critBonus));
+      totalDmg += dmg;
+      e.hitAt = t + delay; e.hitFromX = h.x; e.hitFromZ = h.z; e.hp -= dmg;
+      effect('livefx', e, { fxId: idx < 2 ? woundFxFor(sk) : null, impact: sk.impact || null, spark: true, school: sk.school, sourceX: h.x, sourceZ: h.z, tx: e.x, tz: e.z, value: dmg, targetId: e.id, actorId: e.id, delay, crit: forceCrit || !!sk.finisher, skill: true, finisher: !!sk.finisher });
+      if (e.hp > 0) {
+        if (sk.status && sk.statusDur) applyStatus(e, sk.status, sk.statusDur, h, isBoss);
+        if (sk.rootDur) applyBuff(e, 'rooted', 1, isBoss ? sk.rootDur * 0.4 : sk.rootDur);
+        if (sk.kind === 'timeStop' && sk.stopDur) {
+          if (!isBoss) applyBuff(e, 'timeStop', 1, sk.stopDur);
+          if (sk.vulnBonus) applyBuff(e, 'vuln', sk.vulnBonus, sk.stopDur + 0.5);
+        }
+        if (sk.knockback) pushUnit(e, e.x - h.x, e.z - h.z, sk.knockback);
+        if (sk.kind === 'pull' && sk.pullStrength) pushUnit(e, aimPt.x - e.x, aimPt.z - e.z, Math.min(sk.pullStrength, Math.max(0, distance(e, aimPt) - 0.6)));
+      } else {
+        killed++;
+        if (sk.killFxId) effect('livefx', e, { fxId: sk.killFxId, school: sk.school, sourceX: h.x, sourceZ: h.z, tx: e.x, tz: e.z, actorId: e.id, bodyType: e.type, delay: delay + 0.08, value: 0 });
+        rewardEnemy(e, h);
+      }
+    });
+
+    if (sk.selfHealPct && hitList.length > 0) {
+      const v = Math.max(2, Math.round(h.maxHp * sk.selfHealPct));
+      h.hp = Math.min(h.maxHp, h.hp + v);
+      effect('heal', h, { delay: release, text: `+${v}`, color: '#9cf09a' });
+    }
+    if (sk.allyLifesteal && totalDmg > 0) {
+      const v = Math.max(2, Math.round(totalDmg * sk.allyLifesteal));
+      const low = healTarget(h, { below: 1.0 }) || h;
+      low.hp = Math.min(low.maxHp, low.hp + v);
+      effect('heal', low, { delay: release, text: `+${v}`, color: '#9cf09a' });
+    }
+    if (sk.killsReset && killed > 0) {
+      const cds = ensureCds(h);
+      setSlotCd(h, 0, cds[0] * (1 - sk.killsReset));
+    }
+    return true;
   }
   // 疾風箭雨的箭:每個目標一支,不足 3 支就補「側邊箭」(瞄主目標兩側 GALE.side 格,通常落空;真的碰到別的魔物照樣算)。
   // 箭先掛在 state.shots 裡等 wait(放出格 release + 每支錯開 stagger),到點才從弓手「當下」位置瞄準目標「當下」位置射出(launchShot)。
@@ -1291,7 +1855,7 @@ export function createGame(saved = null) {
   function downWanderer(w, by) {
     w.hp = 0; w.reviveTimer = 9; w.task = null; w.route = []; w.targetId = null; w.status = '倒下';
     w.mood = Math.max(0, w.mood - 10); state.wanderDowns = (state.wanderDowns || 0) + 1;
-    effect('warning', w); isoEffect('soul-rise-iso', w, 3.6, { delay: .2 });   // iso:倒下也讓魂升天,和魔物死亡同一個語言
+    effect('warning', w);
     log(`流浪英雄 ${w.name} 被${ENEMY_NAME[by?.type] || '魔物'}打倒，在野外倒地不起。`, 'warning');
   }
   // 最近倒下的紀錄(難度面板用):不進存檔,重開遊戲就清空;切換難度也清空,才看得出「這個難度」的風險
@@ -1300,7 +1864,7 @@ export function createGame(saved = null) {
   function died(h, by) {
     h.hp = 0; h.reviveTimer = 8; h.status = '復活中'; h.targetId = null; h.route = []; h.mount = null;   // 倒地自動下坐騎
     if (h.task !== 'dungeon' && h.task !== 'arena') h.task = 'revive';
-    h.mood = Math.max(0, h.mood - 12); effect('warning', h); isoEffect('soul-rise-iso', h, 3.6, { delay: .35 });   // iso:獵人陣亡的魂升天(復活聖所接引)
+    h.mood = Math.max(0, h.mood - 12); effect('warning', h);
     state.counts.deaths++;
     const place = regionAt(h.x, h.z)?.name, foe = ENEMY_NAME[by];
     recentDowns.push({ at: state.time, place, foe }); if (recentDowns.length > 60) recentDowns.shift();
@@ -1367,8 +1931,6 @@ export function createGame(saved = null) {
     for (const [key, amount] of Object.entries(data.drops)) { const n = Math.round(dropAmount(amount) * bossRk); hunter.inventory[key] += n; ledgerGot(hunter, key, n); }
     effect('death', enemy, { enemyType: enemy.type, flipHint: (enemy.hitFromX ?? enemy.x) - (enemy.hitFromZ ?? enemy.z) < enemy.x - enemy.z });  // 打的人在左邊 → 翻面朝左(面向打倒牠的人)
     effect('loot', enemy, { text: `+${gold}`, color: '#efcd82', delay: 0.35 });
-    // iso 擊殺:靈魂從屍體往上飄(soul-rise-iso)、金幣從身上彈出來在地上跳(coin-drop-iso)。純畫面,不影響掉落。
-    isoEffect('soul-rise-iso', enemy, 3.6, { delay: .1 }); isoEffect('coin-drop-iso', enemy, 3.4, { delay: .45 });
     for (const h of state.hunters) if (h.hp > 0 && h.task !== 'dungeon' && h.task !== 'arena' && (distance(h, enemy) < XP_SHARE_RANGE || h === hunter)) gainXp(h, Math.round(data.xp * Math.sqrt(multiplier) * zoneRk * FIELD_XP));
     if (enemy.type === 'boss') {
       state.bossKills++; state.gems += bossGems; Object.assign(state.expedition, { active: false, bossHp: 0, cooldown: 55, elapsed: 0 });
@@ -1452,27 +2014,39 @@ export function createGame(saved = null) {
   function dgShare(pool) { const sum = pool.reduce((n, h) => n + dgWeight(h), 0); return pool.map(h => dgWeight(h) / sum); }
   function dgPick(pool, r) { const sh = dgShare(pool); let acc = 0; for (let i = 0; i < pool.length; i++) { acc += sh[i]; if (r < acc) return pool[i]; } return pool[pool.length - 1]; }
   function dgForecast(party, floor, fromWave = 1, hpOf = h => h.hp) {
-    const up = party.filter(h => hpOf(h) > 0), healers = up.filter(h => SKILLS[h.classId]?.kind === 'allyHeal');
+    const up = party.filter(h => hpOf(h) > 0), healers = up.filter(h => specOf(h).skills[0]?.kind === 'allyHeal');
     const hitOf = h => h.attack * (h.satiety < 15 || h.stamina < 15 ? 0.6 : 1);
-    const dps = up.filter(h => !healers.includes(h)).reduce((n, h) => { const sk = SKILLS[h.classId];
-      return n + hitOf(h) / attackInterval(h) + (sk?.mult ? h.attack * sk.mult / sk.cd : 0); }, 0);
+    const skillDpsOf = h => unlockedSkills(h).reduce((sum, sk) => {
+      if (!sk.mult) return sum;
+      const dotBonus = (sk.status === 'bleeding' || sk.status === 'burning' || sk.status === 'poisoned') ? 0.12 : (sk.status === 'cursed' || sk.kind === 'timeStop') ? 0.08 : 0;
+      return sum + h.attack * (skillSlotMult(h, sk) + dotBonus) / skillSlotCd(h, sk);
+    }, 0);
+    const dps = up.filter(h => !healers.includes(h)).reduce((n, h) => n + hitOf(h) / attackInterval(h) + skillDpsOf(h), 0)
+      + healers.reduce((n, h) => n + skillDpsOf(h) * 0.6, 0);
     const healActs = healers.reduce((n, h) => n + 1 / attackInterval(h), 0), healerDps = healers.reduce((n, h) => n + hitOf(h) / attackInterval(h), 0);
     if (!up.length || dps + healerDps <= 0) return { risk: Infinity, secs: Infinity };
     const front = up.filter(h => !isRanged(h)), pool = front.length ? front : up;
-    const healRate = healers.reduce((n, h) => { const sk = SKILLS[h.classId]; return n + BASIC_HEAL / attackInterval(h) + sk.heal / sk.cd; }, 0) / pool.length;
+    const healRate = healers.reduce((n, h) => {
+      const skHeal = unlockedSkills(h).reduce((s, sk) => s + ((sk.kind === 'allyHeal' || sk.kind === 'revive') && sk.heal ? sk.heal / skillSlotCd(h, sk) : 0), 0);
+      return n + BASIC_HEAL / attackInterval(h) + skHeal;
+    }, 0) / pool.length;
+    // 聖騎士群盾減傷平均覆蓋率(保守乘 0.6)
+    const teamDr = Math.min(0.22, up.reduce((m, h) => m + unlockedSkills(h).reduce((s, sk) => s + (sk.shieldDr && sk.shieldDur ? sk.shieldDr * (sk.shieldDur / skillSlotCd(h, sk)) * 0.6 : 0), 0), 0));
     let secs = 0; const taken = pool.map(() => 0), share = dgShare(pool);
     for (let w = fromWave; w <= 3; w++) {
       const n = dgWaveTypes(floor, w).length, rate = (n + 1) / (2 * n) / DG_HIT_EVERY, atk = dgFoeAttack(floor, w);
       // 這一波每秒要補幾下(挨打的人平均),扣掉後祭司剩下的出手比例 × 祭司普攻輸出
-      const perHit = pool.reduce((s, h, i) => s + share[i] * Math.ceil(Math.max(2, atk - h.defense * 0.6) / Math.max(2, Math.round(h.maxHp * BASIC_HEAL))), 0);
+      const perHit = pool.reduce((s, h, i) => s + share[i] * Math.ceil(Math.max(2, (atk - h.defense * 0.6) * (1 - teamDr)) / Math.max(2, Math.round(h.maxHp * BASIC_HEAL))), 0);
       const waveDps = dps + (healActs > 0 ? healerDps * Math.max(0, 1 - rate * perHit / healActs) : 0);
       if (waveDps <= 0) return { risk: Infinity, secs: Infinity };
       const t = dungeonEnemyHp(floor, w) / waveDps, hits = Math.max(0, t - 1.5) * rate;
       secs += t;
-      pool.forEach((h, i) => { taken[i] += hits * Math.min(1, DG_UNLUCKY * share[i]) * Math.max(2, dgFoeAttack(floor, w) - h.defense * 0.6); });
+      pool.forEach((h, i) => { taken[i] += hits * Math.min(1, DG_UNLUCKY * share[i]) * Math.max(2, (dgFoeAttack(floor, w) - h.defense * 0.6) * (1 - teamDr)); });
     }
-    const risk = Math.max(...pool.map((h, i) => { const self = SKILLS[h.classId]?.kind === 'heal' ? SKILLS[h.classId].heal / SKILLS[h.classId].cd : 0;
-      return (taken[i] - (healRate + self) * DG_HEAL_EFF * secs * h.maxHp) / hpOf(h); }));
+    const risk = Math.max(...pool.map((h, i) => {
+      const self = unlockedSkills(h).reduce((s, sk) => s + ((sk.kind === 'allyShield' || sk.kind === 'heal') && sk.heal ? sk.heal / skillSlotCd(h, sk) : sk.selfHealPct ? sk.selfHealPct / skillSlotCd(h, sk) : 0), 0);
+      return (taken[i] - (healRate + self) * DG_HEAL_EFF * secs * h.maxHp) / hpOf(h);
+    }));
     return { risk, secs };
   }
   // 出發體檢(2026-11-17):以前只有「續戰下一層」跟「波間」會估,剛出發那層完全不估 → 冷卻一好就從最高紀錄 +1 層重新出發,
@@ -1563,17 +2137,71 @@ export function createGame(saved = null) {
     endDungeon(true);
   }
   function dgSkill(h, sk, live, party) {
-    if (sk.kind === 'allyHeal' || sk.kind === 'heal') {
-      const pool = sk.kind === 'heal' ? [h] : party.filter(u => u.hp > 0);
-      const tgt = pool.filter(u => u.hp < u.maxHp * (sk.below ?? 0.9)).sort((a, b) => a.hp / a.maxHp - b.hp / b.maxHp)[0];
+    const slot = sk.slot ?? 0, cd = skillSlotCd(h, sk);
+    if (sk.kind === 'allyHeal' || sk.kind === 'revive') {
+      const pool = party.filter(u => u.hp > 0);
+      const below = sk.kind === 'revive' ? 0.55 : (sk.below ?? 0.9);
+      const tgt = (sk.cleanse && pool.find(hasDebuff))
+        || pool.filter(u => u.hp < u.maxHp * below).sort((a, b) => a.hp / a.maxHp - b.hp / b.maxHp)[0];
       if (!tgt) return false;
-      const v = Math.round(tgt.maxHp * sk.heal); tgt.hp = Math.min(tgt.maxHp, tgt.hp + v);
-      h.skillCd = sk.cd; h.attackTimer = sk.lock + .4; dgEvent('heal', h.id, tgt.id, v); return true;
+      const recipients = sk.singleTarget ? [tgt] : pool;
+      for (const u of recipients) {
+        const ratio = u === tgt ? (sk.heal || .24) : (sk.heal || .24) * 0.6;
+        const v = Math.max(2, Math.round(u.maxHp * ratio));
+        u.hp = Math.min(u.maxHp, u.hp + v);
+        if (sk.cleanse) clearDebuffs(u);
+      }
+      const vMain = Math.max(2, Math.round(tgt.maxHp * (sk.heal || .24)));
+      setSlotCd(h, slot, cd); h.attackTimer = (sk.lock ?? .7) + .4; dgEvent('heal', h.id, tgt.id, vMain); return true;
     }
-    const dmg = Math.max(1, Math.round(h.attack * (sk.mult || 1)));
-    const hitList = sk.kind === 'aoe' ? live : sk.kind === 'multi' ? live.slice(0, sk.targets || 3) : [live[0]];
-    for (const f of hitList) { f.hp = Math.max(0, f.hp - dmg); dgEvent('skill', h.id, f.id, dmg, h.classId); }
-    h.skillCd = sk.cd; h.attackTimer = sk.lock + .4; state.counts.skills = (state.counts.skills || 0) + 1; return true;
+    if (sk.kind === 'allyShield' || sk.kind === 'heal') {
+      const v = Math.max(2, Math.round(h.maxHp * (sk.heal || .22)));
+      h.hp = Math.min(h.maxHp, h.hp + v);
+      if (sk.shieldDr && sk.shieldDur) for (const u of party) if (u.hp > 0) applyBuff(u, 'shield', sk.shieldDr, sk.shieldDur);
+      setSlotCd(h, slot, cd); h.attackTimer = (sk.lock ?? .7) + .4; dgEvent('heal', h.id, h.id, v); return true;
+    }
+    if (sk.kind === 'selfBuff') {
+      if (sk.rangedDr && sk.buffDur) applyBuff(h, 'rangedDr', sk.rangedDr, sk.buffDur);
+      if (sk.chargeBonus && sk.buffDur) applyBuff(h, 'charge', sk.chargeBonus, sk.buffDur);
+      setSlotCd(h, slot, cd); h.attackTimer = (sk.lock ?? .6) + .3; state.counts.skills = (state.counts.skills || 0) + 1; return true;
+    }
+    let chargeMult = 1, forceCrit = false;
+    if (h.buffs?.charge?.left > 0) { chargeMult = 1 + (h.buffs.charge.val || 0.5); forceCrit = true; delete h.buffs.charge; }
+    let mult = skillSlotMult(h, sk);
+    if (sk.lowHpScale) mult *= (1 + Math.max(0, 1 - h.hp / Math.max(1, h.maxHp)) * sk.lowHpScale);
+    if (sk.nukeChance && (h.rebirths || 0) >= 1 && random() < sk.nukeChance) mult *= 1.25;
+    if (sk.selfStatus && sk.selfStatusDur) applyStatus(h, sk.selfStatus, sk.selfStatusDur, h, false);
+    if (sk.thornsPct && sk.thornsDur) applyBuff(h, 'thorns', sk.thornsPct, sk.thornsDur);
+    const hitList = (sk.kind === 'aoe' || sk.kind === 'selfAoe' || sk.kind === 'band' || sk.kind === 'pull' || sk.kind === 'timeStop') ? live
+      : (sk.kind === 'multi' || sk.kind === 'chain') ? live.slice(0, sk.targets || 3) : [live[0]];
+    const defFactor = sk.armorPen ? (1 + sk.armorPen * 0.35) : 1;
+    const critBonus = forceCrit ? CRIT_MULT : 1;
+    let totalDmg = 0, killed = 0;
+    hitList.forEach((f, idx) => {
+      let m = mult;
+      if (sk.falloff && idx > 0) m *= Math.pow(sk.falloff, idx);
+      if (sk.execBelow && sk.execMult && f.hp / Math.max(1, f.maxHp) < sk.execBelow) m = skillSlotMult(h, { ...sk, mult: sk.execMult });
+      const wake = consumeWakeShatter(f, !!sk.finisher || m >= 1.8);
+      const dmg = Math.max(1, Math.round(h.attack * unitAtkMult(h) * chargeMult * m * wake * unitVulnMult(f) * defFactor * critBonus));
+      totalDmg += dmg;
+      f.hp = Math.max(0, f.hp - dmg); dgEvent('skill', h.id, f.id, dmg, h.classId);
+      if (f.hp > 0) {
+        if (sk.status && sk.statusDur) applyStatus(f, sk.status, sk.statusDur, h, !!f.big);
+        if (sk.kind === 'timeStop' && sk.stopDur) {
+          if (!f.big) applyBuff(f, 'timeStop', 1, sk.stopDur);
+          if (sk.vulnBonus) applyBuff(f, 'vuln', sk.vulnBonus, sk.stopDur + 0.5);
+        }
+      } else killed++;
+    });
+    if (sk.selfHealPct) h.hp = Math.min(h.maxHp, h.hp + Math.max(2, Math.round(h.maxHp * sk.selfHealPct)));
+    if (sk.allyLifesteal && totalDmg > 0) {
+      const low = party.filter(u => u.hp > 0).sort((a, b) => a.hp / a.maxHp - b.hp / b.maxHp)[0] || h;
+      const v = Math.max(2, Math.round(totalDmg * sk.allyLifesteal));
+      low.hp = Math.min(low.maxHp, low.hp + v); dgEvent('heal', h.id, low.id, v);
+    }
+    setSlotCd(h, slot, cd);
+    if (sk.killsReset && killed > 0) setSlotCd(h, 0, ensureCds(h)[0] * (1 - sk.killsReset));
+    h.attackTimer = (sk.lock ?? .7) + .4; state.counts.skills = (state.counts.skills || 0) + 1; return true;
   }
   function stepDungeon(dt) {
     const d = state.dungeon;
@@ -1593,19 +2221,26 @@ export function createGame(saved = null) {
     d.time += dt;
     if (d.time >= 180) { endDungeon(false); d.endKind = 'timeout'; return; }
     const live = () => d.foes.filter(f => f.hp > 0);
+    for (const f of live()) tickUnitStatuses(f, dt, true, true);
     for (const h of alive) {
-      h.skillCd = Math.max(0, (h.skillCd ?? 3) - dt);
-      if (h.attackTimer > 0) continue;
+      tickUnitStatuses(h, dt, false, true);
+      tickSlotCds(h, dt);
+      if (h.attackTimer > 0 || unitStopped(h)) continue;
       const foes = live(); if (!foes.length) break;
-      const sk = SKILLS[h.classId];
-      if (sk && h.skillCd === 0 && dgSkill(h, sk, foes, alive)) continue;
-      // 祭司在地下城也一樣:技能在轉時,普攻改成補最血的隊友
-      if (sk?.kind === 'allyHeal') {
+      const cds = ensureCds(h), skills = unlockedSkills(h);
+      let castDone = false;
+      for (let i = skills.length - 1; i >= 0; i--) {
+        const sk = skills[i];
+        if (cds[sk.slot] === 0 && dgSkill(h, sk, foes, alive)) { castDone = true; break; }
+      }
+      if (castDone) continue;
+      // 祭司在地下城也一樣:技能在轉時,普攻改成補最殘血的隊友
+      if (specOf(h).skills[0]?.kind === 'allyHeal') {
         const tgt = party.filter(u => u.hp > 0 && u.hp < u.maxHp * .98).sort((a, b) => a.hp / a.maxHp - b.hp / b.maxHp)[0];
         if (tgt) { const v = Math.max(2, Math.round(tgt.maxHp * BASIC_HEAL)); tgt.hp = Math.min(tgt.maxHp, tgt.hp + v); h.attackTimer = attackInterval(h); dgEvent('heal', h.id, tgt.id, v); continue; }
       }
-      h.attackTimer = attackInterval(h);
-      const f = foes[0], dmg = Math.max(1, Math.round(h.attack * (h.satiety < 15 || h.stamina < 15 ? 0.6 : 1)));
+      h.attackTimer = attackInterval(h) * unitAtkCdMult(h);
+      const f = foes[0], dmg = Math.max(1, Math.round(h.attack * unitAtkMult(h) * (h.satiety < 15 || h.stamina < 15 ? 0.6 : 1) * consumeWakeShatter(f, false) * unitVulnMult(f)));
       f.hp = Math.max(0, f.hp - dmg); dgEvent('hit', h.id, f.id, dmg, isRanged(h) ? h.classId : null);
     }
     if (!live().length) {
@@ -1616,15 +2251,17 @@ export function createGame(saved = null) {
       return;
     }
     for (const f of live()) {
-      f.timer = Math.max(0, f.timer - dt); if (f.timer > 0) continue; f.timer = f.every;
+      if (unitStopped(f)) continue;
+      f.timer = Math.max(0, f.timer - dt / unitAtkCdMult(f)); if (f.timer > 0) continue; f.timer = f.every;
+      if (unitMisses(f)) continue;
       const up = party.filter(h => h.hp > 0), front = up.filter(h => !isRanged(h)), pool = front.length ? front : up;
       const tg = pool.length ? dgPick(pool, random()) : null; if (!tg) break;
-      const dmg = Math.max(2, Math.round(f.attack - tg.defense * 0.6));
+      const rawDmg = Math.max(2, Math.round(f.attack * unitAtkMult(f) - tg.defense * unitDefMult(tg) * 0.6));
+      const dmg = Math.max(1, Math.round(rawDmg * unitDrMult(tg, !!f.ranged)));
       // 緊急撤退(2026-11-17):這一擊會打倒人 → 小隊在挨打前撤退(同 retreatDungeon:本層沒有獎勵、冷卻 10 秒、帳本不記)。
-      // 預估(dgForecast)把傷害當連續的、一波只有 1–2 擊時會少算一擊,補血也攤在整層;與其把預估調得更保守(實測樓層掉),不如在真的要倒的那一擊收手。
-      // 目標照舊先擲骰(random 次數不變),只有被挑中的那位撐不住才撤;14 天模擬 10 個種子只觸發 2 次,剛好是原本的 2 次地下城死亡。
       if (dmg >= tg.hp) { endDungeon(false, true, `${tg.name}快撐不住了，小隊從地下城第 ${d.floor} 層緊急撤退（本層沒有獎勵）。`); return; }
       tg.hp -= dmg;
+      if (!f.ranged && tg.buffs?.thorns?.left > 0) f.hp = Math.max(0, f.hp - Math.max(1, Math.round(dmg * tg.buffs.thorns.val)));
       dgEvent('hurt', f.id, tg.id, dmg, f.ranged ? f.type : null);
     }
     dgSync();
@@ -1668,11 +2305,78 @@ export function createGame(saved = null) {
     const party = state.hunters.filter(h => a.hunterIds.includes(h.id)), alive = party.filter(h => h.hp > 0);
     if (!alive.length || a.time >= 120) { endArena(false); return; }
     if (a.phase === '集結中') { if (alive.some(h => h.route.length)) return; a.phase = '對戰中'; for (const h of alive) h.status = '競技場模擬對戰'; }
-    for (const h of alive) if (h.attackTimer === 0) { h.attackTimer = arenaInterval(h); a.enemyHp = Math.max(0, a.enemyHp - h.attack); effect('slash', door('training'), { value: h.attack }); if (a.enemyHp <= 0) { endArena(true); return; } }
+    for (const h of alive) {
+      tickUnitStatuses(h, dt, false, true);
+      tickSlotCds(h, dt);
+      if (h.attackTimer !== 0) continue;
+      const cds = ensureCds(h), skills = unlockedSkills(h);
+      let usedSkill = false;
+      for (let i = skills.length - 1; i >= 0; i--) {
+        const sk = skills[i];
+        if (cds[sk.slot] > 0) continue;
+        if (sk.kind === 'allyHeal' || sk.kind === 'revive') {
+          const below = sk.kind === 'revive' ? 0.55 : (sk.below ?? 0.85);
+          const low = (sk.cleanse && alive.find(hasDebuff))
+            || alive.filter(u => u.hp < u.maxHp * below).sort((x, y) => x.hp / x.maxHp - y.hp / y.maxHp)[0];
+          if (!low) continue;
+          const v = Math.max(2, Math.round(low.maxHp * (sk.heal || .24)));
+          low.hp = Math.min(low.maxHp, low.hp + v);
+          if (sk.cleanse) clearDebuffs(low);
+          setSlotCd(h, sk.slot, skillSlotCd(h, sk)); h.attackTimer = arenaInterval(h);
+          effect('heal', low, { text: `+${v}`, color: '#9cf09a' }); usedSkill = true; break;
+        }
+        if (sk.kind === 'allyShield' || sk.kind === 'heal') {
+          const v = Math.max(2, Math.round(h.maxHp * (sk.heal || .2))); h.hp = Math.min(h.maxHp, h.hp + v);
+          if (sk.shieldDr && sk.shieldDur) for (const u of alive) applyBuff(u, 'shield', sk.shieldDr, sk.shieldDur);
+          setSlotCd(h, sk.slot, skillSlotCd(h, sk)); h.attackTimer = arenaInterval(h);
+          effect('heal', h, { text: `+${v}`, color: '#9cf09a' }); usedSkill = true; break;
+        }
+        if (sk.kind === 'selfBuff') {
+          if (sk.rangedDr && sk.buffDur) applyBuff(h, 'rangedDr', sk.rangedDr, sk.buffDur);
+          if (sk.chargeBonus && sk.buffDur) applyBuff(h, 'charge', sk.chargeBonus, sk.buffDur);
+          setSlotCd(h, sk.slot, skillSlotCd(h, sk)); h.attackTimer = arenaInterval(h); usedSkill = true; break;
+        }
+        if (sk.mult) {
+          let m = skillSlotMult(h, sk), forceCrit = false;
+          if (h.buffs?.charge?.left > 0) { m *= 1 + (h.buffs.charge.val || 0.5); forceCrit = true; delete h.buffs.charge; }
+          if (sk.lowHpScale) m *= (1 + Math.max(0, 1 - h.hp / Math.max(1, h.maxHp)) * sk.lowHpScale);
+          if (sk.execBelow && sk.execMult && a.enemyHp / Math.max(1, a.enemyMaxHp || 1) < sk.execBelow) m = skillSlotMult(h, { ...sk, mult: sk.execMult });
+          if (sk.nukeChance && (h.rebirths || 0) >= 1 && random() < sk.nukeChance) m *= 1.25;
+          if (sk.selfStatus && sk.selfStatusDur) applyStatus(h, sk.selfStatus, sk.selfStatusDur, h, false);
+          if (sk.thornsPct && sk.thornsDur) applyBuff(h, 'thorns', sk.thornsPct, sk.thornsDur);
+          const defFactor = sk.armorPen ? (1 + sk.armorPen * 0.35) : 1;
+          const critBonus = forceCrit ? CRIT_MULT : 1;
+          const dmg = Math.max(1, Math.round(h.attack * unitAtkMult(h) * m * defFactor * critBonus));
+          a.enemyHp = Math.max(0, a.enemyHp - dmg);
+          if (sk.selfHealPct) {
+            const hv = Math.max(2, Math.round(h.maxHp * sk.selfHealPct));
+            h.hp = Math.min(h.maxHp, h.hp + hv); effect('heal', h, { text: `+${hv}`, color: '#9cf09a' });
+          }
+          if (sk.allyLifesteal && dmg > 0) {
+            const low = alive.slice().sort((x, y) => x.hp / x.maxHp - y.hp / y.maxHp)[0] || h;
+            const hv = Math.max(2, Math.round(dmg * sk.allyLifesteal));
+            low.hp = Math.min(low.maxHp, low.hp + hv); effect('heal', low, { text: `+${hv}`, color: '#9cf09a' });
+          }
+          setSlotCd(h, sk.slot, skillSlotCd(h, sk)); h.attackTimer = arenaInterval(h);
+          effect('slash', door('training'), { value: dmg, crit: true });
+          if (a.enemyHp <= 0) { endArena(true); return; }
+          usedSkill = true; break;
+        }
+      }
+      if (usedSkill) continue;
+      h.attackTimer = arenaInterval(h); a.enemyHp = Math.max(0, a.enemyHp - h.attack); effect('slash', door('training'), { value: h.attack }); if (a.enemyHp <= 0) { endArena(true); return; }
+    }
     a.attackTimer = Math.max(0, a.attackTimer - dt);
     if (a.attackTimer === 0) {
       a.attackTimer = 1.1; const target = alive[Math.floor(random() * alive.length)];
-      const damage = Math.max(3, arenaFoeAtk(a.wins) - target.defense); target.hp = Math.max(0, target.hp - damage); effect('hit', target, { value: damage });
+      const raw = Math.max(3, arenaFoeAtk(a.wins) - target.defense);
+      const damage = Math.max(1, Math.round(raw * unitDrMult(target, false)));
+      target.hp = Math.max(0, target.hp - damage); effect('hit', target, { value: damage });
+      if (target.buffs?.thorns?.left > 0) {
+        const ref = Math.max(1, Math.round(damage * target.buffs.thorns.val));
+        a.enemyHp = Math.max(0, a.enemyHp - ref);
+        if (a.enemyHp <= 0) { endArena(true); return; }
+      }
       if (target.hp === 0) { target.status = '模擬對戰倒下'; target.route = []; }
     }
   }
@@ -1752,8 +2456,24 @@ export function createGame(saved = null) {
       const ph = pendingHits[i]; if (state.time < ph.at) continue; pendingHits.splice(i, 1);
       const t = state.hunters.find(h => h.id === ph.id) || (state.wanderers || []).find(w => w.id === ph.id);
       if (!t || t.hp <= 0 || t.task === 'dungeon' || t.task === 'arena') continue;
-      t.hitAt = state.time; t.hitFromX = ph.fromX; t.hitFromZ = ph.fromZ; t.hp = Math.max(0, t.hp - ph.damage);
+      const dmg = Math.max(1, Math.round(ph.damage * unitDrMult(t, !!ph.ranged)));
+      t.hitAt = state.time; t.hitFromX = ph.fromX; t.hitFromZ = ph.fromZ; t.hp = Math.max(0, t.hp - dmg);
+      if (!ph.ranged && t.buffs?.thorns?.left > 0 && ph.enemyId) {
+        const atkE = state.enemies.find(e => e.id === ph.enemyId && e.hp > 0 && !e.rewarded);
+        if (atkE) {
+          const ref = Math.max(1, Math.round(dmg * t.buffs.thorns.val));
+          atkE.hp -= ref; effect('dot', atkE, { value: ref, color: '#9be15d' });
+          if (atkE.hp <= 0) rewardEnemy(atkE, t);
+        }
+      }
       if (t.hp === 0) { if (wandererOf(t)) downWanderer(t, { type: ph.by }); else died(t, ph.by); }
+      else if (!wandererOf(t)) {
+        // Phase 4: monster counter-statuses so cleanse & petrified shine
+        if (ph.by === 'boss' && random() < 0.22) applyStatus(t, random() < 0.5 ? 'slowed' : 'poisoned', 2.5, { attack: ph.damage });
+        else if ((ph.by === 'yeti' || ph.by === 'snowman' || ph.by === 'icebeetle') && random() < 0.18) applyStatus(t, 'slowed', 1.8);
+        else if ((ph.by === 'scorpion' || ph.by === 'shroom' || ph.by === 'vine') && random() < 0.18) applyStatus(t, 'poisoned', 2.8, { attack: ph.damage });
+        else if ((ph.by === 'boar' || ph.by === 'wolfman') && random() < 0.15) applyStatus(t, 'bleeding', 2.4, { attack: ph.damage });
+      }
     }
   }
   function stepShots(dt) {
@@ -1779,8 +2499,8 @@ export function createGame(saved = null) {
   }
   function shotHit(s, e) {
     s.hit.push(e.id); e.hp -= s.dmg; e.hitAt = state.time; e.hitFromX = s.x; e.hitFromZ = s.z;
-    if (s.fx === 'gale') {   // 箭雨命中:技能命中特效 + 暴擊樣式數字,出在箭真正碰到的那一刻
-      effect('skillfx', e, { sourceX: s.x, sourceZ: s.z, value: s.dmg, targetId: e.id, delay: 0, cls: s.cls || 'archer', fx: 'gale', kind: 'multi', crit: true, skill: true });
+    if (s.fx === 'gale') {   // 疾風箭雨命中:實時 CQ 自然命中火花 + 暴擊數字
+      effect('livefx', e, { fxId: 'impacts/nature-hit-iso', impact: 'leaf', spark: true, school: 'nature', sourceX: s.x, sourceZ: s.z, tx: e.x, tz: e.z, actorId: e.id, value: s.dmg, targetId: e.id, delay: 0, cls: s.cls || 'archer', fx: 'gale', kind: 'multi', crit: true, skill: true });
       if (state.lastGale?.id === s.volley) state.lastGale.hits++;
     } else {
       const kind = s.kind === 'arrow' ? 'arrow' : 'spell';
@@ -1816,15 +2536,22 @@ export function createGame(saved = null) {
       h.satiety = Math.max(0, h.satiety - dt * 0.95 * consumption); h.stamina = Math.max(0, h.stamina - dt * 0.76 * consumption); h.mood = Math.max(0, h.mood - dt * 0.55 * consumption * (h.trait === 'cheerful' ? 0.5 : 1));
       // 手動操控:移動、出手都交給玩家(pilotStep),AI 不要再動這位獵人 —— 不然 AI 會照自己的路線／狩獵區
       // 把人拉走,搖桿推的方向就變成在和 AI 搶。需求消耗照常算,只跳過決策與走動。
-      if (h.task === 'pilot') { h.skillCd = Math.max(0, (h.skillCd ?? 0) - dt); continue; }   // 手動操控也要跑技能冷卻
-      // 祭司(allyHeal):不管在不在戰鬥,冷卻好、沒在出手就自動補血(戰鬥分支不再替它倒數冷卻)
-      { const sk = SKILLS[h.classId]; if (sk?.kind === 'allyHeal') { h.skillCd = Math.max(0, (h.skillCd ?? 3) - dt);
+      tickUnitStatuses(h, dt, false);
+      if (h.hp <= 0) continue;
+      if (h.task === 'pilot') { tickSlotCds(h, dt); continue; }   // 手動操控也要跑四格技能冷卻
+      if (unitStopped(h)) { continue; }
+      // 祭司(allyHeal / revive):不管在不在戰鬥,冷卻好、沒在出手就自動補血或復活
+      { const s0 = specOf(h).skills[0]; if (s0?.kind === 'allyHeal') { tickSlotCds(h, dt);
         if (h.attackTimer === 0 && state.time >= (h.lockUntil ?? 0)) {
-          const big = h.skillCd === 0 ? healTarget(h, sk) : null;
-          if (big) { castSkill(h, big, sk); continue; }
-          // 技能還在轉:普攻拿去補隊友(射程內有人受傷才補,滿血就照常打怪)
+          const sup = pickSupportSkill(h);
+          if (sup) { castSkill(h, sup.target, sup.sk); continue; }
+          // 隊友血量還算安全且有魔物在射程內、攻擊/控場技就緒時，讓祭司進戰鬥流程施放攻擊／控場技，不被普攻小補卡死
           const ally = attackHealTarget(h);
-          if (ally) { basicHeal(h, ally); continue; }
+          const combatSafeRatio = h.spec === 'priest_shadow' ? 0.6 : 0.78;
+          const nearFoe = (!ally || ally.hp / Math.max(1, ally.maxHp) >= combatSafeRatio)
+            && !h.task && !inVillage(h.x, h.z) && !onRingRoad(h.x, h.z)
+            && state.enemies.find(e => e.hp > 0 && !e.rewarded && distance(h, e) <= h.range && (wildAt(h.x, h.z) || distance(h, e) <= 1.9));
+          if (ally && !(nearFoe && pickCombatSkill(h, nearFoe))) { basicHeal(h, ally); continue; }
         }
         // 2026-10-31:以前祭司幾乎不補,是因為隊友常常在 17 格外(實測只有 9% 的時間在射程內)。
         // 現在有隊友受傷、身邊又沒有該打的魔物,就主動靠過去(24 格內傷得最重的那位)。
@@ -1898,14 +2625,17 @@ export function createGame(saved = null) {
       // 先走進戰鬥空地再開打(不在柵欄邊、出村口遠遠放箭),戰鬥才會在開闊處、看得清楚。
       if (target && !inVillage(h.x,h.z) && !onRoad && distance(h, target) <= h.range && (wildAt(h.x, h.z) || distance(h, target) <= 1.9)) {
         h.status = '戰鬥中'; h.route = [];
-        if (SKILLS[h.classId]?.kind !== 'allyHeal') h.skillCd = Math.max(0, (h.skillCd ?? 3) - dt);
+        if (specOf(h).skills[0]?.kind !== 'allyHeal') tickSlotCds(h, dt);
         // 遠程被近身 → 先拉開距離(只在目前所在的狩獵區裡走,不進村、不出區;近戰職業 kiteStep 直接 false)
         { const kr = inHuntRegion ? h.huntRegion : regionAt(h.x, h.z)?.id; if (kiteStep(h, dt, kr && kr !== 'village' ? kr : null)) { h.status = '後撤中'; continue; } }
-        const sk = SKILLS[h.classId];
-        if (sk && sk.kind !== 'allyHeal' && h.skillCd === 0 && h.attackTimer === 0) { castSkill(h, target, sk); continue; }
         if (h.attackTimer === 0) {
-          h.attackTimer = attackInterval(h);
-          const crit = rollCrit(), damage = Math.max(1, Math.round(h.attack * (h.satiety < 15 || h.stamina < 15 ? 0.6 : 1) * (crit ? CRIT_MULT : 1)));
+          const picked = pickCombatSkill(h, target);
+          if (picked) { castSkill(h, target, picked); continue; }
+        }
+        if (h.attackTimer === 0) {
+          h.attackTimer = attackInterval(h) * unitAtkCdMult(h);
+          const crit = rollCrit(), wake = consumeWakeShatter(target, false);
+          const damage = Math.max(1, Math.round(h.attack * unitAtkMult(h) * (h.satiety < 15 || h.stamina < 15 ? 0.6 : 1) * (crit ? CRIT_MULT : 1) * wake * unitVulnMult(target)));
           h.atkAt = state.time; h.atkX = target.x; h.atkZ = target.z;
           h.lockUntil = state.time + AI_ATTACK_LOCK;   // 收招僵直:這段時間站著不動(沒有 CD,下一擊照原本的 attackTimer)
           if (h.classId === 'archer') {   // 弓箭手:箭真的飛,碰到魔物才算命中、才扣血
@@ -1942,7 +2672,30 @@ export function createGame(saved = null) {
     for (let i = 0; i < prey.length; i++) { const q = prey[i]; preyOnRoad[i] = onRingRoad(q.x, q.z); preyRanged[i] = isRanged(q); }
     for (const enemy of state.enemies) {
       if (enemy.hp <= 0) continue;
-      enemy.age += dt; enemy.attackTimer = Math.max(0, enemy.attackTimer - dt);
+      enemy.age += dt;
+      tickUnitStatuses(enemy, dt, true);
+      if (enemy.hp <= 0) continue;
+      // 魅惑(非首領):停止攻擊獵人,附近有其他魔物時短暫內訌出手
+      if (enemy.statuses?.charmed && enemy.type !== 'boss') {
+        enemy.attackTimer = Math.max(0, enemy.attackTimer - dt);
+        if (enemy.attackTimer === 0) {
+          const foe = state.enemies.find(o => o !== enemy && o.hp > 0 && !o.rewarded && distance(enemy, o) <= 2.8);
+          if (foe) {
+            const dmg = Math.max(2, Math.round(enemy.attack * 0.8));
+            enemy.attackTimer = 1.6; enemy.atkAt = state.time; enemy.atkX = foe.x; enemy.atkZ = foe.z;
+            foe.hp -= dmg; foe.hitAt = state.time + 0.08; foe.hitFromX = enemy.x; foe.hitFromZ = enemy.z;
+            effect('dot', foe, { value: dmg, color: '#ff8cc8' });
+            if (foe.hp <= 0) {
+              const src = state.hunters.find(q => q.id === enemy.statuses.charmed?.srcId) || null;
+              if (src) rewardEnemy(foe, src);
+            }
+          }
+        }
+        continue;
+      }
+      if (unitStopped(enemy)) continue;
+      const spdMult = unitRooted(enemy) ? 0 : unitSpeedMult(enemy);
+      enemy.attackTimer = Math.max(0, enemy.attackTimer - dt / unitAtkCdMult(enemy));
       // 目標 = 自己「主動攻擊範圍」內的獵人 + 流浪英雄(以最近的為主)。
       // 超出範圍的敵人完全不追(以前是整區搜尋、看到 10 格外的敵人也會走過去),魔物只守在自己的地盤上。
       const rng = MONSTER_RANGED[enemy.type], aggro = Math.max(AGGRO[enemy.type] ?? 6, rng ? rng.range + 1 : 0);
@@ -1951,19 +2704,27 @@ export function createGame(saved = null) {
       // 走在環村道路上的獵物不算目標:出村趕路時不會被路邊的怪追(安全走廊)
       // 原本是 prey.filter(...).sort(...)[0]:取距離最近的獵物,同距離時取快照中較前面的(排序穩定)。
       // 下面這個單迴圈不配置陣列、距離只算一次,結果完全相同(strict < 讓第一個最小值勝出)。
-      let target = null, bestD = Infinity;
-      for (let i = 0; i < prey.length; i++) {
-        if (preyOnRoad[i]) continue;
-        const q = prey[i], d = distance(enemy, q);
-        if (d > (provoked && preyRanged[i] ? provokedReach : aggro)) continue;
-        if (d < bestD) { bestD = d; target = q; }
+      let target = null, bestD = Infinity, isTaunted = false;
+      if (enemy.tauntBy && state.time < (enemy.tauntUntil || 0)) {
+        const ti = prey.findIndex(q => q.id === enemy.tauntBy);
+        if (ti >= 0 && !preyOnRoad[ti] && regionContains(enemy.regionId || state.region, prey[ti].x, prey[ti].z)) {
+          target = prey[ti]; bestD = distance(enemy, target); isTaunted = true;
+        }
+      }
+      if (!target) {
+        for (let i = 0; i < prey.length; i++) {
+          if (preyOnRoad[i]) continue;
+          const q = prey[i], d = distance(enemy, q);
+          if (d > (provoked && preyRanged[i] ? provokedReach : aggro)) continue;
+          if (d < bestD) { bestD = d; target = q; }
+        }
       }
       if(!target || !regionContains(enemy.regionId||state.region,target.x,target.z)){enemy.engaged=false;
         // 閒晃:沒有獵人時在自己的狩獵區裡慢慢走到隨機一點、停一下再換點(不會只站在原地)。
         const rid=enemy.regionId;
         if(rid&&(enemy.wanderX==null||state.time>enemy.wanderUntil)){const w=randomRegionPoint(rid,random);enemy.wanderX=w.x;enemy.wanderZ=w.z;enemy.wanderUntil=state.time+5+random()*6;}
         const home={x:enemy.wanderX??enemy.homeX??enemy.x,z:enemy.wanderZ??enemy.homeZ??enemy.z},dd=distance(enemy,home);
-        if(dd>.3){const step=Math.min(ENEMIES[enemy.type].speed*MONSTER_SPEED_MULT*dt*.45,dd);
+        if(dd>.3 && spdMult > 0){const step=Math.min(ENEMIES[enemy.type].speed*MONSTER_SPEED_MULT*spdMult*dt*.45,dd);
           const moved=moveEnemy(enemy,home.x,home.z,step,q=>!blocked(q)&&lineClear(enemy,q)&&roadOk(enemy,q)&&(!rid||regionContains(rid,q.x,q.z)));
           if(!moved)enemy.wanderUntil=state.time+1.5;}   // 走不動:停 1.5 秒再換目標(以前是下一格立刻重抽,貼邊時會左右抖)
         continue;
@@ -1973,20 +2734,23 @@ export function createGame(saved = null) {
       if (rng) {   // 遠程魔物:不搶近身名額;射程外往前靠,進到射程就站定丟飛行物(打到才扣血,見 pendingHits)
         enemy.engaged = false;
         if (d > rng.range) {
-          const delta = Math.min(ENEMIES[enemy.type].speed * MONSTER_SPEED_MULT * dt, d - rng.range * 0.85);
-          // 目標在自己的狩獵區外(獵人站在隔壁區)就不要再沿邊界滑過去 —— 以前會貼著邊界左右來回。
-          if (regionContains(enemy.regionId || state.region, target.x, target.z))
-            moveEnemy(enemy, target.x, target.z, delta, q => q.x > WORLD.minX + 1 && q.x < WORLD.maxX - 1 && regionContains(enemy.regionId || state.region, q.x, q.z) && !blocked(q) && roadOk(enemy, q) && lineClear(enemy, q));
+          if (spdMult > 0) {
+            const delta = Math.min(ENEMIES[enemy.type].speed * MONSTER_SPEED_MULT * spdMult * dt, d - rng.range * 0.85);
+            // 目標在自己的狩獵區外(獵人站在隔壁區)就不要再沿邊界滑過去 —— 以前會貼著邊界左右來回。
+            if (regionContains(enemy.regionId || state.region, target.x, target.z))
+              moveEnemy(enemy, target.x, target.z, delta, q => q.x > WORLD.minX + 1 && q.x < WORLD.maxX - 1 && regionContains(enemy.regionId || state.region, q.x, q.z) && !blocked(q) && roadOk(enemy, q) && lineClear(enemy, q));
+          }
         } else if (enemy.attackTimer === 0) {
           enemy.attackTimer = rng.every / MONSTER_ATTACK_RATE;
-          const damage = Math.max(2, Math.round(enemy.attack - target.defense * 0.7)), land = rng.release + d / rng.speed;
+          if (unitMisses(enemy)) { effect('dot', enemy, { text: '落空', color: '#d89eff' }); continue; }
+          const damage = Math.max(2, Math.round(enemy.attack * unitAtkMult(enemy) - target.defense * unitDefMult(target) * 0.7)), land = rng.release + d / rng.speed;
           enemy.atkAt = state.time; enemy.atkX = target.x; enemy.atkZ = target.z;
-          pendingHits.push({ id: target.id, damage, at: state.time + land, by: enemy.type, fromX: enemy.x, fromZ: enemy.z });
+          pendingHits.push({ id: target.id, damage, at: state.time + land, by: enemy.type, enemyId: enemy.id, ranged: true, fromX: enemy.x, fromZ: enemy.z });
           effect('mshot', target, { sourceX: enemy.x, sourceZ: enemy.z, delay: land, release: rng.release, by: enemy.type, shot: rng.shot, value: damage, color: '#ff8a6e' });
         }
         continue;
       }
-      const mine = enemy.engaged && enemy.slotFor === target.id, free = mine || enemy.type === 'boss' || (slots.get(target.id) || 0) < 2;
+      const mine = enemy.engaged && enemy.slotFor === target.id, free = mine || isTaunted || enemy.type === 'boss' || (slots.get(target.id) || 0) < 2;
       if (!free) {
         // 等空位:站到「獵人往空地中心的方向」4 格外(戰鬥另一側、空地深處),不在獵人前面圍一圈擋住畫面。
         enemy.engaged = false; const ar = regionCenter(enemy.regionId || state.region) || target, vx = ar.x - target.x, vz = ar.z - target.z;
@@ -1995,23 +2759,26 @@ export function createGame(saved = null) {
         const base = Math.atan2(vz, vx), slot = ((enemy.id.charCodeAt(enemy.id.length - 1) + enemy.id.length) % 5) - 2;
         const ang = base + slot * (Math.PI / 5), wx = target.x + Math.cos(ang) * 4.2, wz = target.z + Math.sin(ang) * 4.2;
         const wd = Math.hypot(wx - enemy.x, wz - enemy.z);
-        if (wd > .3) { const st = Math.min(ENEMIES[enemy.type].speed * MONSTER_SPEED_MULT * .8 * dt, wd); moveEnemy(enemy, wx, wz, st, q => fieldOk({ ...q, regionId: enemy.regionId || state.region }) && roadOk(enemy, q) && lineClear(enemy, q)); }
+        if (wd > .3 && spdMult > 0) { const st = Math.min(ENEMIES[enemy.type].speed * MONSTER_SPEED_MULT * spdMult * .8 * dt, wd); moveEnemy(enemy, wx, wz, st, q => fieldOk({ ...q, regionId: enemy.regionId || state.region }) && roadOk(enemy, q) && lineClear(enemy, q)); }
         continue;
       }
       enemy.engaged = d <= reach; if (enemy.engaged && !mine) { enemy.slotFor = target.id; if (enemy.type !== 'boss') slots.set(target.id, (slots.get(target.id) || 0) + 1); }
       if (d > reach) {
-        const delta = Math.min(ENEMIES[enemy.type].speed * MONSTER_SPEED_MULT * dt, d - reach * 0.8);
-        // 魔物只在自己的狩獵區內追,出了區就不跟;也不追上環村道路。
-        // 目標在區外(獵人站在隔壁區邊界)就站著等,不要沿邊界滑來滑去(那就是「貼邊來回抖」)。
-        if (regionContains(enemy.regionId || state.region, target.x, target.z))
-          moveEnemy(enemy, target.x, target.z, delta, q => regionContains(enemy.regionId || state.region, q.x, q.z) && !blocked(q) && roadOk(enemy, q) && lineClear(enemy, q));
+        if (spdMult > 0) {
+          const delta = Math.min(ENEMIES[enemy.type].speed * MONSTER_SPEED_MULT * spdMult * dt, d - reach * 0.8);
+          // 魔物只在自己的狩獵區內追,出了區就不跟;也不追上環村道路。
+          // 目標在區外(獵人站在隔壁區邊界)就站著等,不要沿邊界滑來滑去(那就是「貼邊來回抖」)。
+          if (regionContains(enemy.regionId || state.region, target.x, target.z))
+            moveEnemy(enemy, target.x, target.z, delta, q => regionContains(enemy.regionId || state.region, q.x, q.z) && !blocked(q) && roadOk(enemy, q) && lineClear(enemy, q));
+        }
       } else if (enemy.attackTimer === 0) {
         enemy.attackTimer = (enemy.type === 'boss' ? 1.5 : 1.8) / MONSTER_ATTACK_RATE;
+        if (unitMisses(enemy)) { effect('dot', enemy, { text: '落空', color: '#d89eff' }); continue; }
         // 出手節奏不動(attackTimer 跟以前一樣);傷害結算改在「命中格」:delay = sheet 的 impact-release 格 ≈ 0.075 秒
         // (以前寫死 0.1 秒)。傷害/閃光/命中特效都跟畫面命中格對齊,走的是遠程魔物同一條 pendingHits 路線。
-        const damage = Math.max(2, Math.round(enemy.attack - target.defense * 0.7)), hitDelay = monsterHitDelay(enemy.type);
+        const damage = Math.max(2, Math.round(enemy.attack * unitAtkMult(enemy) - target.defense * unitDefMult(target) * 0.7)), hitDelay = monsterHitDelay(enemy.type);
         enemy.atkAt = state.time; enemy.atkX = target.x; enemy.atkZ = target.z;
-        pendingHits.push({ id: target.id, damage, at: state.time + hitDelay, by: enemy.type, fromX: enemy.x, fromZ: enemy.z });
+        pendingHits.push({ id: target.id, damage, at: state.time + hitDelay, by: enemy.type, enemyId: enemy.id, ranged: false, fromX: enemy.x, fromZ: enemy.z });
         effect('hit', target, { value: damage, sourceX: enemy.x, sourceZ: enemy.z, delay: hitDelay, by: enemy.type });
         // 首領:命中那一刻再加一次更大的鏡頭震動(地面重擊特效也對齊同一個 impact 格)。
         if (enemy.type === 'boss') state.shake = { amp: 5.5, ms: 320, seq: (state.shake?.seq || 0) + 1, t: state.time };
@@ -2099,12 +2866,11 @@ export function createGame(saved = null) {
     }
     stepDungeon(dt); stepArena(dt);
     for (const e of state.effects) e.age += dt;
-    // 火龍捲是 5.2 秒的整段技能表(法師第一招,iso 版 157 幀 @30fps),比一般特效活得久,播完才回收。它是 T66 的唯一例外,維持原本 1.0 倍速,所以存活時間是 6.0 秒。
-    state.effects = state.effects.filter(e => e.age < (e.type === 'victory' ? 3 : e.type === 'vfxsheet' ? (e.life || ((e.dur || 2) + .3) / .6) : e.type === 'skillfx' && e.fx === 'cinder' ? 6.0 : 2.7) + ((e.type === 'mshot' || e.type === 'vfxsheet') ? e.delay || 0 : 0));   // 魔物飛行物與延遲出現的 iso 表:延遲時間另計,數字/動畫才播得完 refreshQuest();
+    state.effects = state.effects.filter(e => e.age < (e.type === 'victory' ? 3 : 2.7) + (e.delay || 0));
   }
 
   function fresh() {
-
+    recentDowns.length = 0;
     for (const key of Object.keys(state)) delete state[key];
     Object.assign(state, { version: 4, layoutRevision: 3, worldRevision: 5, region: 'meadow', visitedRegions:['village','meadow'], gold: 1500, wood: 160, ore: 120, herb: 60, cloth: 60, flour: 80, leather: 50, gems: 20, day: 1, time: 0, paused: false, speed: 1, difficulty: 0, kills: 0, totalKills: 0, bossKills: 0, codex: {}, recruited: 0, hunters: [], enemies: [], buildings: Object.fromEntries(BUILDINGS.map(b => [b.id, UNBUILT.has(b.id) ? 0 : 1])), layout: Object.fromEntries(BUILDINGS.map(b => [b.id, { x: b.x, z: b.z }])), stocks: { food: 30, drink: 30, bed: 30, bandage: 30 }, craftTargets: Object.fromEntries(PRODUCT_KEYS.map(k => [k, 0])), gearStock: emptyGearStock(), gearStorage: [], gearSeq: 1, tradeRequests: { wood: 30, ore: 40, herb: 30, cloth: 30, flour: 40, leather: 30 }, tradeStanding: Object.fromEntries(MATERIAL_KEYS.map(k => [k, false])), autoJunk: 'sell', counts: { crafted: 0, foodCrafted: 0, traded: 0, gearCrafted: 0, weaponsCrafted: 0, gearSold: 0, gearUpgrades: 0, gearIncome: 0, services: 0, basicServices: 0, serviceIncome: 0, dungeonWins: 0, rebirths: 0, deaths: 0, trained: 0, hunterGold: 0, hunterPay: 0, wanderGold: 0, wanderPay: 0 }, effects: [], log: [], quest: { index: 0, claimed: false }, questRevision: QUEST_REVISION, questFinalPaid: false, expedition: { active: false, bossHp: 0, bossMaxHp: 1150, cooldown: 0, elapsed: 0 }, dungeon: { active: false, floor: 1, bestFloor: 0, wave: 0, enemyHp: 0, enemyMaxHp: 0, time: 0, hunterIds: [], reward: {}, cooldown: 0, phase: '待命', attackTimer: 1, foes: [], events: [], auto: false, startFloor: 0, rest: 0 }, healCooldown: 0, capacity: Math.max(8, CLASSES.length + 2), spawnTimer: 0, seed: 918273, nextId: 0, rally: null, dispatchTeams: defaultDispatchTeams(), regionDensity: normalizeRegionDensity(null), settings: { ...DEFAULT_SETTINGS } });
     rebuildNavigation();
@@ -2139,24 +2905,22 @@ export function createGame(saved = null) {
 
   function restore(input) {
     let source = input;
-    if (typeof source === 'string') { try { source = JSON.parse(source); } catch { return; } }
-    // 存檔版本:2 = 舊的 weapon+armor;3 = 六格裝備(2026-11-13)。v2 照樣載入,下面的 migration 會升級,
-    // 下一次 save() 就寫成 v3。v1 與未知版本仍然拒絕(格式差太多)。
-    if (!source || typeof source !== 'object' || Array.isArray(source) || (source.version !== 2 && source.version !== 3 && source.version !== 4)) return;
+    if (typeof source === 'string') { try { source = JSON.parse(source.replace(/^\uFEFF/, '')); } catch { return false; } }
+    // Save versions: 2 = legacy weapon+armor; 3 = 6-slot gear; 4 = item gear. Reject v1 and unknown versions.
+    if (!source || typeof source !== 'object' || Array.isArray(source) || (source.version !== 2 && source.version !== 3 && source.version !== 4)) return false;
     // 2026-10-19 起地圖縮小、村莊重排(worldRevision 4):舊存檔裡的座標(英雄、流浪英雄、魔物、集結點)和自訂建築位置在新地圖上沒有意義,
     // 所以建築回到新預設、英雄回營地、魔物與流浪英雄的位置重新來;進度、資源、等級都保留。
     // 2026-11-18 地圖擴張(worldRevision 5):村莊沒動、舊陸地全部還是陸地,所以 4 → 5 不重置任何座標與建築;
     // 只有區界跟著移動了,魔物要重新放回自己那一區(見下面還原 enemies 的地方)。
     const oldMap = source.worldRevision !== 4 && source.worldRevision !== 5;
     const regionsMoved = source.worldRevision === 4;
-    // 2026-10-24 遊俠併入弓箭手、移除獵魔人:舊存檔的 ranger／witchhunter 轉成 archer(等級、裝備、名字都保留),不然下面 own(CLASS) 會把他們整隻濾掉。
-    for (const list of [source.hunters, source.visitors, source.wanderers]) if (Array.isArray(list)) for (const x of list) if (x && (x.classId === 'ranger' || x.classId === 'witchhunter')) x.classId = 'archer';
     state.region=REGIONS.some(r=>r.id===source.region&&r.id!=='village')?source.region:'meadow';
     state.visitedRegions=[...new Set(['village','meadow',...(Array.isArray(source.visitedRegions)?source.visitedRegions.filter(id=>REGIONS.some(r=>r.id===id)):[])])];
     for (const key of RESOURCE_KEYS) state[key] = integer(source[key], state[key], 0, 1e7);
     state.time = number(source.time, 0, 0, 240 * 99999); state.day = Math.floor(state.time / 240) + 1;
     state.paused = source.paused === true; state.speed = integer(source.speed, 1, 1, 3); state.seed = integer(source.seed, 918273, 0, 4294967295); state.nextId = integer(source.nextId, state.nextId, state.nextId, 1e9);
-    for (const key of ['totalKills', 'bossKills', 'recruited']) state[key] = integer(source[key], 0, 0, 1e7);
+    for (const key of ['totalKills', 'bossKills', 'recruited', 'wanderKills']) state[key] = integer(source[key], 0, 0, 1e7);
+    if (source.wanderDowns != null) state.wanderDowns = integer(source.wanderDowns, 0, 0, 1e7);
     // T126:圖鑑擊殺紀錄（舊存檔沒有這個欄位）
     state.codex = source.codex && typeof source.codex === 'object'
       ? Object.fromEntries(Object.entries(source.codex).map(([k, v]) => [String(k), integer(v, 0, 0, 1e7)]).filter(([k, v]) => v > 0 && ENEMIES[k]))
@@ -2196,17 +2960,24 @@ export function createGame(saved = null) {
     // 自動整理舊裝備(2026-11-17 新增,不升版本):舊存檔沒有 → 關閉;只認 sell / salvage
     state.autoJunk = source.autoJunk === 'sell' || source.autoJunk === 'salvage' ? source.autoJunk : 'off';
     for (const key of Object.keys(state.counts)) state.counts[key] = integer(source.counts?.[key], 0, 0, 1e7);
+    // Preserve additional dynamic counters written during play if present in the save.
+    if (source.counts && typeof source.counts === 'object') {
+      for (const key of EXTRA_COUNT_KEYS) if (own(source.counts, key)) state.counts[key] = integer(source.counts[key], 0, 0, 1e7);
+    }
     state.healCooldown = number(source.healCooldown, 0, 0, 40); state.spawnTimer = number(source.spawnTimer, 0, 0, 4.5);
     if (!oldMap && source.rally && Number.isFinite(source.rally.x) && Number.isFinite(source.rally.z)) state.rally = safePoint({ x: clamp(source.rally.x,WORLD.minX+1,WORLD.maxX-1), z: clamp(source.rally.z,WORLD.minZ+1,WORLD.maxZ-1) });
-    if (Array.isArray(source.hunters) && source.hunters.some(h => h && own(CLASS, h.classId))) {
+    if (Array.isArray(source.hunters) && source.hunters.some(h => h && own(CLASS, normalizeClassId(h.classId)))) {
       state.hunters = []; const usedIds = new Set();
-      for (const raw of source.hunters.filter(h => h && own(CLASS, h.classId)).slice(0, state.capacity)) {
-        const h = newHunter(raw.classId, safePoint(oldMap ? { x: CAMP.x, z: CAMP.z } : { x: number(raw.x,CAMP.x,WORLD.minX+1,WORLD.maxX-1), z: number(raw.z,CAMP.z,WORLD.minZ+1,WORLD.maxZ-1) }));
+      for (const raw of source.hunters.filter(h => h && own(CLASS, normalizeClassId(h.classId))).slice(0, state.capacity)) {
+        const cid = normalizeClassId(raw.classId);
+        const h = newHunter(cid, safePoint(oldMap ? { x: CAMP.x, z: CAMP.z } : { x: number(raw.x,CAMP.x,WORLD.minX+1,WORLD.maxX-1), z: number(raw.z,CAMP.z,WORLD.minZ+1,WORLD.maxZ-1) }));
         if (typeof raw.id === 'string' && /^h\d{1,10}$/.test(raw.id) && !usedIds.has(raw.id)) { h.id = raw.id; state.nextId = Math.max(state.nextId, Number(raw.id.slice(1))); }
         usedIds.add(h.id);
         h.name = typeof raw.name === 'string' ? raw.name.replace(/[<>&"'`\x00-\x1f]/g, '').slice(0, 16) || h.name : h.name;
         h.rarity = own(RARITY, raw.rarity) ? raw.rarity : 'normal'; h.trait = TRAITS.some(t => t.id === raw.trait) ? raw.trait : h.trait;
         h.level = integer(raw.level, 1, 1, 100); h.xp = h.level === 100 ? 0 : number(raw.xp, 0, 0, xpNeeded(h.level) - 0.001); h.rebirths = integer(raw.rebirths, 0, 0, 20); h.skillLevel = integer(raw.skillLevel, 0, 0, 5);
+        h.spec = (typeof raw.spec === 'string' && SPEC_BY_ID[raw.spec]?.classId === h.classId) ? raw.spec : defaultSpecOf(h.classId);
+        h.skillCds = [3, 4, 5, 8]; h.skillCd = 3; h._skillCdShadow = 3; h.statuses = {}; h.buffs = {};
         // v4:逐格還原物品(含升級件階級 grade);v2/v3:布林值 → 鐵匠鋪同格升級件(v2 armor=true → 六件防具全穿),其餘格穿職業初始件;
         // 2026-11-16 的 v3 存檔另有 h.gearTier(每格階級)→ 升級件照那個階級發。見 restoreGear。
         restoreGear(h, raw);
@@ -2234,21 +3005,47 @@ export function createGame(saved = null) {
     state.difficulty = integer(source.difficulty, 0, 0, DIFFICULTIES.length - 1); if (DIFFICULTIES[state.difficulty].rebirths > rebirths) state.difficulty = 0;
     state.counts.rebirths = Math.max(state.counts.rebirths, rebirths);
     if (Array.isArray(source.visitors)) {
-      const visitors = source.visitors.filter(v => v && own(CLASS, v.classId) && own(RARITY, v.rarity)).slice(0, 3).map(v => ({ id: id('v'), classId: v.classId, rarity: v.rarity, trait: TRAITS.some(t => t.id === v.trait) ? v.trait : 'brave', cost: Math.round(CLASS[v.classId].cost * RARITY[v.rarity].mult) }));
+      const visitors = source.visitors.filter(v => v && own(CLASS, normalizeClassId(v.classId)) && own(RARITY, v.rarity)).slice(0, 3).map(v => { const cid = normalizeClassId(v.classId); return { id: id('v'), classId: cid, rarity: v.rarity, trait: TRAITS.some(t => t.id === v.trait) ? v.trait : 'brave', cost: Math.round(CLASS[cid].cost * RARITY[v.rarity].mult) }; });
       while (visitors.length < 3) visitors.push(newVisitor(visitors.map(v => v.classId))); state.visitors = visitors; offerNewClass();
     }
     // 4 組派遣隊伍:舊存檔沒有就補上;名單裡已不存在的獵人自動剔除。
     state.dispatchTeams = normalizeTeams(source.dispatchTeams);
-    // 流浪英雄:舊存檔沒有這個欄位就補上(不影響既有獵人與進度)。
-    state.wanderers = Array.isArray(source.wanderers) ? source.wanderers.filter(w => w && own(CLASS, w.classId)).map(w => {
-      // 射程跟速度一樣以職業表為準:舊存檔的固定流浪祭司存的是近戰射程 1.75,祭司改遠程後要跟著更新。
-      // kiting/kiteDir 是暫態(遠程後撤中),讀檔一律從「沒在後撤」開始。
-      const base = { ...newWanderer(), ...w, speed: CLASS[w.classId].speed, range: Math.max(CLASS[w.classId].range, 1.75), route: [], kiting: false, kiteDir: null };
-      if (oldMap) { const f = newWanderer(); Object.assign(base, { x: f.x, z: f.z, regionId: f.regionId, huntRegion: f.huntRegion, targetId: null, task: null, destination: null, inTown: false, serviceProduct: null, status: '遊蕩中' }); }
-      if (regionsMoved) Object.assign(base, { searchTo: null, searchUntil: 0, targetId: null });   // 舊的找怪目標點是照舊區界挑的;魔物的 id 下面也會重發
-      // 性別:名字認得就用名字;否則存檔值;舊存檔沒有 → id 雜湊(不用上面 newWanderer() 隨機取名的性別)
+    // Sanitize saved wanderers (cap count, clamp stats, prevent invalid rarity crashes and XSS in names).
+    const usedWIds = new Set();
+    state.wanderers = Array.isArray(source.wanderers) ? source.wanderers.filter(w => w && own(CLASS, normalizeClassId(w.classId))).slice(0, 20).map(w => {
+      const cid = normalizeClassId(w.classId), base = newWanderer();
+      if (typeof w.id === 'string' && /^w\d{1,10}$/.test(w.id) && !usedWIds.has(w.id)) { base.id = w.id; state.nextId = Math.max(state.nextId, Number(w.id.slice(1))); }
+      usedWIds.add(base.id);
+      base.name = typeof w.name === 'string' ? w.name.replace(/[<>&"'`\x00-\x1f]/g, '').slice(0, 16) || base.name : base.name;
+      base.classId = cid;
+      base.rarity = own(RARITY, w.rarity) ? w.rarity : base.rarity;
+      base.trait = TRAITS.some(t => t.id === w.trait) ? w.trait : 'brave';
+      base.level = integer(w.level, base.level, 1, 100);
+      base.xp = base.level === 100 ? 0 : number(w.xp, 0, 0, xpNeeded(base.level) - 0.001);
+      base.rebirths = integer(w.rebirths, 0, 0, 20);
+      base.skillLevel = integer(w.skillLevel, 0, 0, 5);
+      base.gold = integer(w.gold, WANDER_START_GOLD, 0, 1e7);
+      for (const key of MATERIAL_KEYS) base.inventory[key] = integer(w.inventory?.[key], 0, 0, 1e5);
+      for (const key of ['satiety', 'stamina', 'mood']) base[key] = number(w[key], 100, 0, 100);
+      if (!oldMap) {
+        const pt = safePoint({ x: number(w.x, base.x, WORLD.minX + 1, WORLD.maxX - 1), z: number(w.z, base.z, WORLD.minZ + 1, WORLD.maxZ - 1) });
+        base.x = pt.x; base.z = pt.z;
+        if (REGIONS.some(r => r.id === w.regionId && r.id !== 'village')) base.regionId = w.regionId;
+      }
+      base.route = []; base.kiting = false; base.kiteDir = null; base.targetId = null;
+      base.task = null; base.destination = null; base.inTown = false; base.serviceProduct = null; base.actionTimer = 0;
+      base.tradedVisit = false; base.shoppedVisit = false; base.servedVisit = []; base.status = '遊蕩中';
+      if (regionsMoved || oldMap) { base.searchTo = null; base.searchUntil = 0; }
       base.gender = nameGender(base.name) ?? (w.gender === 'f' || w.gender === 'm' ? w.gender : hunterGender(base.id));
-      restoreGear(base, w);   // 裝備物品化(v4):流浪英雄跟獵人同一套遷移;newWanderer() 是隨機職業,初始件要照存檔的職業重發
+      restoreGear(base, w);
+      base.weaponLevel = (w.gear || base.equipment.weapon) ? integer(w.weaponLevel, 0, 0, 10) : 0;
+      updateStats(base);
+      base.hp = number(w.hp, base.maxHp, 0, base.maxHp);
+      if (base.hp === 0) { base.reviveTimer = number(w.reviveTimer, 5, 0.1, 9); base.status = '倒下'; }
+      else base.reviveTimer = 0;
+      base.attackTimer = number(w.attackTimer, base.attackTimer, 0, 2);
+      base.lastTownVisit = number(w.lastTownVisit, state.time, 0, state.time);
+      base.huntRegion = !oldMap && REGIONS.some(r => r.id === w.huntRegion && r.id !== 'village') ? w.huntRegion : bestRegionFor(base).id;
       return base;
     }) : [];
     while (state.wanderers.length < 4) state.wanderers.push(newWanderer());
@@ -2269,8 +3066,9 @@ export function createGame(saved = null) {
     d.bestFloor = integer(rawDungeon?.bestFloor, 0, 0, 99); d.floor = d.bestFloor + 1; d.cooldown = number(rawDungeon?.cooldown, 0, 0, 20);
     d.auto = rawDungeon?.auto === true; d.startFloor = integer(rawDungeon?.startFloor, 0, 0, d.bestFloor + 1); d.events = [];
     const selected = Array.isArray(rawDungeon?.hunterIds) ? [...new Set(rawDungeon.hunterIds)].filter(hid => state.hunters.some(h => h.id === hid)).slice(0, 3) : [];
+    d.hunterIds = selected;
     if (rawDungeon?.active === true && state.buildings.dungeon && selected.length === 3) {
-      d.active = true; d.hunterIds = selected; d.phase = '集結中'; d.floor = integer(rawDungeon.floor, d.bestFloor + 1, 1, d.bestFloor + 1); d.wave = integer(rawDungeon.wave, 1, 1, 3); d.time = number(rawDungeon.time, 0, 0, 180);
+      d.active = true; d.phase = '集結中'; d.floor = integer(rawDungeon.floor, d.bestFloor + 1, 1, d.bestFloor + 1); d.wave = integer(rawDungeon.wave, 1, 1, 3); d.time = number(rawDungeon.time, 0, 0, 180);
       // 存檔裡的這一波魔物(型別要存在、血量合理才收);舊存檔沒有 foes → 照目前這一波重新排
       const foes = Array.isArray(rawDungeon.foes) ? rawDungeon.foes.filter(f => f && own(ENEMIES, f.type) && f.type !== 'boss' && Number.isFinite(f.maxHp) && f.maxHp > 0) : [];
       d.foes = foes.slice(0, 3).map(f => ({ id: id('dg'), type: f.type, maxHp: Math.round(number(f.maxHp, 1, 1, 1e7)), hp: Math.round(number(f.hp, f.maxHp, 0, f.maxHp)), attack: number(f.attack, 13 + d.floor * 4, 1, 1e5), timer: number(f.timer, 1.5, 0, 10), every: number(f.every, 2.8, 0.5, 10), ranged: !!MONSTER_RANGED[f.type], big: !!f.big }));
@@ -2281,11 +3079,31 @@ export function createGame(saved = null) {
     const a = state.arena, rawArena = source.arena;
     a.wins = integer(rawArena?.wins, 0, 0, 1e6); a.losses = integer(rawArena?.losses, 0, 0, 1e6); a.cooldown = number(rawArena?.cooldown, 0, 0, ARENA_COOLDOWN);   // 舊存檔最多 25 秒,照原值讀入
     const arenaIds = Array.isArray(rawArena?.hunterIds) ? [...new Set(rawArena.hunterIds)].filter(hid => state.hunters.some(h => h.id === hid && h.task !== 'dungeon')).slice(0, 3) : [];
+    a.hunterIds = arenaIds;
     if (rawArena?.active === true && state.buildings.training > 0 && arenaIds.length === 3) {
       Object.assign(a, { active: true, phase: '集結中', hunterIds: arenaIds, time: number(rawArena.time, 0, 0, 120), enemyMaxHp: arenaFoeHp(a.wins), attackTimer: number(rawArena.attackTimer, 1, 0, 2) }); a.enemyHp = number(rawArena.enemyHp, a.enemyMaxHp, 1, a.enemyMaxHp);
       for (const h of state.hunters.filter(h => arenaIds.includes(h.id))) { h.task = 'arena'; h.status = '競技場模擬集結'; h.destination = 'training'; route(h, [door('training', h)]); }
     }
+    // Restore display settings and per-region monster density inside restore() so JSON strings and loadSave() both preserve them.
+    state.settings = normalizeSettings(source.settings);
+    state.regionDensity = normalizeRegionDensity(source.regionDensity);
     state.effects = []; state.shots = []; state.log = []; log('存檔已載入。獵人重新整隊，村莊繼續運作。', 'success'); refreshQuest();
+    return true;
+  }
+
+  function serializeState() {
+    return JSON.parse(JSON.stringify({
+      ...state,
+      effects: [],
+      shots: [],
+      shake: null,
+      hitstop: null,
+      pilot: null,
+      log: [],
+      dungeon: { ...state.dungeon, events: [] },
+      hunters: state.hunters.map(({ route, skillCds, _skillCdShadow, statuses, buffs, ...h }) => ({ ...h, spec: specOf(h).id })),
+      wanderers: (state.wanderers || []).map(({ route, statuses, buffs, ...w }) => w),
+    }));
   }
 
   // 學院教學／武器強化的成本(2026-11-16 抽成單一來源:遊戲、獵人詳情、行商補料都讀這兩個)
@@ -2307,8 +3125,6 @@ export function createGame(saved = null) {
   }
 
   fresh(); restore(saved);
-  state.settings = normalizeSettings(saved && saved.settings);   // 畫質/效能設定(舊存檔沒這個欄位就用預設)
-  state.regionDensity = normalizeRegionDensity(saved && saved.regionDensity);   // 各地區立牌的怪物數量等級(舊存檔補第 2 級)
   return {
     state,
     villageNav: () => vnav,   // 測試用:村內可走格與路徑(鋪面、建築與障礙算好的那一份)
@@ -2519,6 +3335,18 @@ export function createGame(saved = null) {
       const cost = skillCostOf(h); if (!canPay(cost)) return result(false, `教學需要 ${cost.gold} 村莊金幣與 ${cost.ore} 鐵礦。`);
       pay(cost); h.skillLevel++; updateStats(h, true); effect('level', h); return result(true, `${h.name}的戰鬥技能提升至 Lv.${h.skillLevel}。`);
     },
+    setHunterSpec(hunterId, specId) {
+      const h = state.hunters.find(q => q.id === hunterId); if (!h) return result(false, '找不到這位獵人。');
+      if (!state.buildings.academy) return result(false, '請先建造學院。');
+      if ((h.skillLevel || 0) < SPEC_SWITCH_LV) return result(false, `戰鬥技能需達 Lv.${SPEC_SWITCH_LV} 才能切換流派。`);
+      const sp = SPEC_BY_ID[specId];
+      if (!sp || sp.classId !== h.classId) return result(false, '這個流派不屬於該獵人的職業。');
+      if (specOf(h).id === sp.id) return result(true, `${h.name}目前已是「${sp.name}」流派。`);
+      h.spec = sp.id;
+      h.skillCds = [0, 0, 0, 0]; h.skillCd = 0; h._skillCdShadow = 0;
+      effect('level', h);
+      return result(true, `${h.name}已免費切換為「${sp.name}」流派！`);
+    },
     reincarnate(hunterId) {
       const h = state.hunters.find(h => h.id === hunterId); if (!h) return result(false, '找不到這位獵人。');
       if (h.level < 100) return result(false, `轉世需要 Lv.100，${h.name}目前為 Lv.${h.level}。`);
@@ -2677,7 +3505,7 @@ export function createGame(saved = null) {
       const boss = spawn('boss', regionCenter(state.region) || REGIONS[1]); Object.assign(state.expedition, { active: true, bossHp: boss.hp, bossMaxHp: boss.maxHp, elapsed: 0 });
       for (const h of state.hunters) if (!h.task && h.hp > 0) h.targetId = boss.id;
       const leader = state.hunters.find(h => h.hp > 0 && h.targetId === boss.id) || state.hunters.find(h => h.hp > 0);
-      log('森林領主現身！村外獵人開始集結討伐。', 'warning'); effect('boss', boss); isoEffect('portal-iso', leader || boss, 4.7); return result(true, '森林領主已出現，獵人正前往討伐！');   // iso:出征的獵人腳下開一道傳送門(出發),不畫在怪物身上
+      log('森林領主現身！村外獵人開始集結討伐。', 'warning'); effect('boss', boss); return result(true, '森林領主已出現，獵人正前往討伐！');
     },
     // 2026-11-16 UI 用(唯讀、不呼叫 random):這三位從第 want 層出發時,實際會從第幾層開始(startDungeon 的 dgSafeStart 同一條規則)
     dungeonStartFloor(hunterIds, want) {
@@ -2722,7 +3550,6 @@ export function createGame(saved = null) {
       const floor = dgSafeStart(selected, want);   // 估不過想去的那層 → 改從估得過的最深一層出發(見 dgFitStart)
       if (floor < want) log(`估計這支小隊打不過第 ${want} 層，改從第 ${floor} 層出發。`, 'info');
       Object.assign(d, { active: true, floor, wave: 1, time: 0, hunterIds: selected.map(h => h.id), reward: {}, phase: '集結中', attackTimer: 1.5, foes: dgWave(floor, 1), events: [], rest: 0 }); dgSync();      for (const h of selected) { h.task = 'dungeon'; h.destination = 'dungeon'; h.status = '地下城集結'; h.targetId = null; h.serviceProduct = null; h.serviceStarted = false; route(h, [door('dungeon', h)]); }
-      isoEffect('portal-iso', door('dungeon', selected[0]), 4.7);   // iso:地下城入口開一道傳送門,提示小隊要進去了
       log(`${selected.map(h => h.name).join('、')}前往地下城第 ${d.floor} 層${d.auto ? '（自動續戰）' : ''}。`, 'info'); return result(true, '三位獵人已組成小隊，正在前往地下城入口。');
     },
     // 競技場下一場打贏的獎勵(UI 預覽用,跟 endArena 同一條公式)
@@ -3081,7 +3908,22 @@ export function createGame(saved = null) {
       if(!n)return result(false,'目前沒有正在出征的獵人。');
       log(`已召回 ${n} 位獵人回村待機。`,'success');return result(true,`${n} 位獵人回村待機。`);
     },
-    serialize() { return JSON.parse(JSON.stringify({ ...state, effects: [], shots: [], shake: null, hitstop: null, log: [], dungeon: { ...state.dungeon, events: [] }, hunters: state.hunters.map(({ route, ...h }) => h) })); },
+    serialize() { return serializeState(); },
+    // Validate and atomically restore a save into the live state object without breaking state references.
+    loadSave(input) {
+      const check = inspectSave(input);
+      if (!check.ok) return result(false, check.error);
+      const backup = serializeState();
+      try {
+        fresh();
+        if (!restore(check.data)) throw new Error('restore rejected');
+        return { ...result(true, `已匯入存檔（第 ${state.day} 天 · 獵人 ${state.hunters.length} 位）。`), summary: check.summary };
+      } catch {
+        fresh();
+        restore(backup);
+        return result(false, '匯入存檔時發生錯誤，已保留原本進度。');
+      }
+    },
     // 騎乘(docs/PAPERDOLL.md §20):讓獵人騎上某種魔物(ENEMIES 的鍵,boss 除外)或下坐騎(null)。
     // 只是能力/介面,沒有取得坐騎的玩法;倒地中不能騎。成功回 { ok, message, mount }。
     setMount(hunterId, species) {
@@ -3094,52 +3936,62 @@ export function createGame(saved = null) {
     pilotStart(hunterId) { const h = state.hunters.find(q => q.id === hunterId); if (!h) return result(false, '找不到這位獵人。'); if (h.hp <= 0) return result(false, '這位獵人倒下了。'); state.pilot = { id: h.id, dx: 0, dz: 0, atk: false, readyAt: 0, lockUntil: 0, faceX: 1, faceZ: 0 }; h.task = 'pilot'; h.status = '手動操控'; h.route = []; return result(true, `開始操控 ${h.name}。`); },
     pilotInput(dx, dz) { if (state.pilot) { state.pilot.dx = dx || 0; state.pilot.dz = dz || 0; } },
     pilotAttack() { if (state.pilot) state.pilot.atk = true; },
-    // 手動操控放技能(2026-11-03):最近的魔物在射程+技能半徑+2 內就正常結算;
-    // 沒有目標也照樣放,朝面向 4 格處播特效(不造成傷害),方便測試技能特效。
-    pilotSkill() {
+    // 手動操控四格技能狀態(給 HUD 快捷列繪製冷卻、鎖定、射程內提示)
+    pilotSkills() {
+      const p = state.pilot; if (!p) return null;
+      const h = state.hunters.find(q => q.id === p.id); if (!h) return null;
+      const sp = specOf(h), cds = ensureCds(h), lv = h.skillLevel || 0;
+      const alive = state.enemies.filter(e => e.hp > 0 && !e.rewarded);
+      return {
+        hunterId: h.id, classId: h.classId, specId: sp.id, specName: sp.name, specColor: sp.color,
+        slots: sp.skills.map(sk => {
+          const maxCd = skillSlotCd(h, sk), cd = Math.max(0, cds[sk.slot] || 0);
+          const selfKind = sk.kind === 'selfAoe' || sk.kind === 'selfBuff' || sk.kind === 'allyShield' || sk.kind === 'allyHeal' || sk.kind === 'revive';
+          const reach = (h.range || 1.75) + (sk.radius || 0) + 2;
+          const inRange = selfKind || alive.some(e => distance(h, e) <= reach);
+          return { id: sk.id, slot: sk.slot, name: sk.name, school: sk.school, color: SCHOOL_COLORS[sk.school] || sp.color, shapeTag: sk.shapeTag || '', kind: sk.kind, unlockLv: sk.unlockLv, unlocked: lv >= sk.unlockLv, cd: +cd.toFixed(2), maxCd, inRange, desc: sk.desc };
+        }),
+      };
+    },
+    // 手動操控施放指定格位技能 (0..3)
+    pilotCastSlot(slotIdx = 0) {
       const p = state.pilot; if (!p) return result(false, '目前沒有在操控角色。');
       const h = state.hunters.find(q => q.id === p.id); if (!h || h.hp <= 0) return result(false, '找不到可施法的獵人。');
-      const sk = SKILLS[h.classId]; if (!sk) return result(false, '這個職業還沒有技能。');
-      state.lastPilotSkill = { cls: h.classId, fx: sk.fx, cd: h.skillCd, t: +state.time.toFixed(2) };
-      if ((h.skillCd || 0) > 0) return result(false, `${sk.name} 冷卻中 ${Math.ceil(h.skillCd)} 秒。`);
-      const alive = state.enemies.filter(e => e.hp > 0 && !e.rewarded);
-      const reach = (h.range || 1) + (sk.radius || 0) + 2;
-      const tgt = alive.filter(e => distance(h, e) <= reach).sort((a, b) => distance(h, a) - distance(h, b))[0];
-      if (tgt) { castSkill(h, tgt, sk); state.pilot.lockUntil = state.time + (sk.lock || .6); return result(true, `${sk.name}！`); }
-      // 空放:只播畫面,不扣血。治療技改成補自己,跟正常施放一致。
-      const dx = p.faceX ?? 1, dz = p.faceZ ?? 0, at = { x: h.x + dx * 4, z: h.z + dz * 4 };
-      h.skillCd = sk.cd; h.attackTimer = (sk.lock || .6) + .4; h.skillAt = state.time; h.skillName = sk.name; h.atkX = at.x; h.atkZ = at.z; p.lockUntil = state.time + (sk.lock || .6);
-      state.counts.skills = (state.counts.skills || 0) + 1;
-      effect('skillName', h, { text: sk.name, color: '#bdf4ff' });
-      effect('skillSelf', h, { cls: h.classId, fx: sk.fx, delay: Math.max(0, (sk.release ?? .25) - .12), kind: sk.kind });
-      if (sk.kind === 'heal' || sk.kind === 'allyHeal') {
-        const v = Math.round(h.maxHp * (sk.heal || .2)); h.hp = Math.min(h.maxHp, h.hp + v);
-        effect('skillfx', h, { cls: h.classId, fx: sk.fx, sourceX: h.x, sourceZ: h.z, delay: sk.release ?? .25, text: `+${v}`, color: '#9cf09a', self: true });
+      const sp = specOf(h), sk = sp.skills[clamp(slotIdx | 0, 0, 3)];
+      if (!sk) return result(false, '找不到這個技能格。');
+      const lv = h.skillLevel || 0;
+      if (lv < sk.unlockLv) return result(false, `${sk.name} 需於學院升至 Lv.${sk.unlockLv} 解鎖。`);
+      const cds = ensureCds(h), curCd = cds[sk.slot] || 0;
+      state.lastPilotSkill = { cls: h.classId, spec: sp.id, slot: sk.slot, id: sk.id, fx: sk.fxId, cd: curCd, t: +state.time.toFixed(2) };
+      if (curCd > 0) return result(false, `${sk.name} 冷卻中 ${Math.ceil(curCd)} 秒。`);
+      const dx = p.faceX ?? 1, dz = p.faceZ ?? 0;
+      const aimAhead = { x: h.x + dx * 4, z: h.z + dz * 4 };
+      // 支援類技能(補血/群盾/復活/增益)直接施放
+      if (sk.kind === 'allyHeal' || sk.kind === 'revive') {
+        const deb = sk.cleanse && state.hunters.find(u => u.hp > 0 && u.task !== 'dungeon' && u.task !== 'arena' && distance(h, u) <= healReach(h) && hasDebuff(u));
+        const tgt = (sk.kind === 'revive' && downedAllyNear(h, sk.radius || 4.5)) || deb || healTarget(h, { below: 1 }) || h;
+        castSkill(h, tgt, sk); p.lockUntil = state.time + (sk.lock || .6);
         return result(true, `${sk.name}！`);
       }
-      // 疾風箭雨空放:照樣射出 3 支真的箭(朝面向 4 格處),外觀跟正常施放一樣;射程內本來就沒魔物,通常全部落空
-      if (sk.fx === 'gale') galeVolley(h, [], at, sk, Math.max(1, Math.round(h.attack * (h.satiety < 15 || h.stamina < 15 ? 0.6 : 1))));
-      else effect('skillfx', at, { sourceX: h.x, sourceZ: h.z, fx: sk.fx, cls: h.classId, kind: sk.kind, delay: sk.release ?? .25, value: 0, skill: true });
-      return result(true, `${sk.name}！（沒有目標，展示用）`);
-    },
-    pilotSkillCooldown() { const p = state.pilot; if (!p) return 0; const h = state.hunters.find(q => q.id === p.id); return h ? Math.max(0, h.skillCd || 0) : 0; },
-    // 操控模式的測試特效:播 pixelfx 表(root-snare / thorns / bird / haste / feather-burst / flare),不結算傷害
-    pilotTestFx(id) {
-      const p = state.pilot; if (!p) return result(false, '目前沒有在操控角色。');
-      const h = state.hunters.find(q => q.id === p.id); if (!h) return result(false, '找不到角色。');
-      const cfg = PILOT_FX[id]; if (!cfg) return result(false, '沒有這個測試特效。');
-      const faceX = p.faceX ?? 1, faceZ = p.faceZ ?? 0;
-      let at = { x: h.x, z: h.z };   // self:固定在角色正上方,跟面向無關
-      if (cfg.at === 'front') at = { x: h.x + faceX * 4, z: h.z + faceZ * 4 };
-      if (cfg.at === 'line') at = { x: h.x + faceX * (h.range || 7.5), z: h.z + faceZ * (h.range || 7.5) };   // 面向直線的終點
-      if (cfg.at === 'target') {
-        const t = state.enemies.filter(e => e.hp > 0).filter(e => distance(h, e) <= 7).sort((a, b) => distance(h, a) - distance(h, b))[0];
-        at = t ? { x: t.x, z: t.z } : { x: h.x + faceX * 4, z: h.z + faceZ * 4 };
+      if (sk.kind === 'allyShield' || sk.kind === 'heal' || sk.kind === 'selfBuff') {
+        castSkill(h, h, sk); p.lockUntil = state.time + (sk.lock || .6);
+        return result(true, `${sk.name}！`);
       }
-      const rot = cfg.rot === 'perp' ? Math.atan2(faceZ, faceX) + Math.PI / 2 : 0;   // 跟面向垂直
-      effect('vfxsheet', { x: at.x + (cfg.dx || 0), z: at.z }, { sheet: cfg.sheet || id, dur: cfg.dur, k: cfg.k, dy: cfg.dy || 0, rot, value: 0 });
-      state.lastTestFx = { id, at: cfg.at, t: +state.time.toFixed(2) };
-      return result(true, `${id}！`);
+      const alive = state.enemies.filter(e => e.hp > 0 && !e.rewarded);
+      const reach = (h.range || 1.75) + (sk.radius || 0) + 2;
+      const tgt = alive.filter(e => distance(h, e) <= reach).sort((a, b) => distance(h, a) - distance(h, b))[0];
+      if (tgt) {
+        castSkill(h, tgt, sk); p.lockUntil = state.time + (sk.lock || .6);
+        return result(true, `${sk.name}！`);
+      }
+      // 空放展示:朝面向 4 格處施展特效,方便在無怪區直接賞玩每個流派的實時特效
+      castSkill(h, aimAhead, sk, { empty: true }); p.lockUntil = state.time + (sk.lock || .6);
+      return { ...result(true, `${sk.name}！（射程內無目標，展示演出）`), empty: true };
+    },
+    pilotSkill() { return this.pilotCastSlot(0); },
+    pilotSkillCooldown() { const p = state.pilot; if (!p) return 0; const h = state.hunters.find(q => q.id === p.id); return h ? Math.max(0, ensureCds(h)[0] || 0) : 0; },
+    pilotTestFx() {
+      return result(false, '已移除舊版預烘測試特效，請改用技能欄施放實時特效。');
     },
     pilotCooldown() { const p = state.pilot; return p ? Math.max(0, (p.readyAt ?? 0) - state.time) : 0; },   // 還有幾秒才能再出手(UI 的 CD 遮罩用)
     pilotLockLeft() { const p = state.pilot; return p ? Math.max(0, (p.lockUntil ?? 0) - state.time) : 0; },   // 僵直還剩幾秒(不能走)

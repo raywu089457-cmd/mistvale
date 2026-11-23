@@ -71,7 +71,10 @@ async function runView(name, v) {
     let r = await m();
     if (r.none) { fix(`${tag} ${act}: 找不到底部固定列 .z2c-dock`); continue; }
     if (r.pos !== 'sticky') fix(`${tag} ${act}: 底部列不是 sticky(${r.pos})`);
-    if (r.dock.b > r.barTop + 1 && !(v.h <= 520)) fix(`${tag} ${act}: 底部列沒在頁籤列上方 dock.b=${r.dock.b} 頁籤列 ${r.barTop}`);
+    // 2026-11-19:量「按鈕」而不是 sticky 容器 —— .z1-sticky 本來就 bottom:-16px 出血蓋住抽屜底邊,
+    // 容器下緣固定會越過頁籤列 16–18px(設計如此),要看的是那顆按鈕有沒有被壓到。
+    // 容差只留 1px(邊框/取整)。按鈕底緣必須在頁籤列上緣之上,不接受「差 2px 也算過」。
+    if (r.btn.b > r.barTop + 1 && !(v.h <= 520)) fix(`${tag} ${act}: 底部按鈕壓到頁籤列 btn.b=${r.btn.b} 頁籤列 ${r.barTop}（dock ${r.dock.b}）`);
     if (r.dock.t < 0 || r.dock.b > v.h + 1) fix(`${tag} ${act}: 底部列超出視窗 ${JSON.stringify(r.dock)}`);
     if (!r.hit) fix(`${tag} ${act}: 出發鈕中心點被別的元素蓋住`);
     if (r.btn.h < min - .5) fix(`${tag} ${act}: 出發鈕高 ${r.btn.h}px < ${min}px`);
@@ -116,11 +119,18 @@ async function runView(name, v) {
       await page.evaluate(() => { globalThis.__mistvaleGame.setDungeonAuto?.(false); });
       if (!(await until(page, () => document.querySelector('#modal')?.dataset.type === 'result', 80))) fix(`${tag} dungeon: 通關後沒有跳結算視窗`);
       else { const rs = await resultInfo(page); chkResult(`${tag} 地下城勝利`, rs, /勝利/); if (rs.cells.every(c => c.nil)) fix(`${tag}: 勝利結算的獎勵格全是 0`); await tap(page, '#modal-foot [data-action=resultOk]', touch); }
-      // 結算 3:打不過 → 落敗
+      // 結算 3:戰力差太多 → 遊戲會在「會倒的那一擊」之前緊急撤退(pixel-game.js stepDungeon: dmg>=hp → endDungeon(false,true)),
+      //         所以這裡的結算標題本來就是「撤退」,不是落敗。
       await page.evaluate(() => { const g = globalThis.__mistvaleGame, d = g.state.dungeon; d.bestFloor = 60; d.startFloor = 61; d.cooldown = 0; for (const h of g.state.hunters) { h.attack = 1; h.hp = 30; h.maxHp = 30; } });
       await L.act(page, 'startDungeon'); await page.waitForTimeout(400);
-      if (!(await until(page, () => document.querySelector('#modal')?.dataset.type === 'result', 120))) fix(`${tag} dungeon: 失敗後沒有跳結算視窗`);
-      else { const rs = await resultInfo(page); chkResult(`${tag} 地下城落敗`, rs, /落敗/); await tap(page, '#modal-foot [data-action=resultOk]', touch); }
+      if (!(await until(page, () => document.querySelector('#modal')?.dataset.type === 'result', 120))) fix(`${tag} dungeon: 打不過時沒有跳結算視窗`);
+      else { const rs = await resultInfo(page); chkResult(`${tag} 地下城打不過(緊急撤退)`, rs, /撤退/); await tap(page, '#modal-foot [data-action=resultOk]', touch); }
+      // 結算 4:真的全滅(三人血量歸零)→ 標題要是「落敗」
+      await page.evaluate(() => { const g = globalThis.__mistvaleGame, d = g.state.dungeon; d.bestFloor = 3; d.startFloor = 0; d.cooldown = 0; g.cheat('heal'); });
+      await page.waitForTimeout(200); await L.act(page, 'startDungeon'); await page.waitForTimeout(500);
+      await page.evaluate(() => { const g = globalThis.__mistvaleGame, d = g.state.dungeon; for (const h of g.state.hunters) if (d.hunterIds.includes(h.id)) h.hp = 0; });
+      if (!(await until(page, () => document.querySelector('#modal')?.dataset.type === 'result', 60))) fix(`${tag} dungeon: 全滅後沒有跳結算視窗`);
+      else { const rs = await resultInfo(page); chkResult(`${tag} 地下城全滅`, rs, /落敗/); await tap(page, '#modal-foot [data-action=resultOk]', touch); }
       await page.evaluate(() => { const g = globalThis.__mistvaleGame; g.cheat('heal'); const d = g.state.dungeon; d.bestFloor = 3; d.startFloor = 0; d.cooldown = 0; d.hunterIds = []; g.state.arena.cooldown = 0; for (const h of g.state.hunters) { h.attack = 30; h.maxHp = Math.max(h.maxHp, 200); h.hp = h.maxHp; h.task = null; h.reviveTimer = 0; } });
     } else {
       // 競技場進行中:面板內有對手血條與三人血條
@@ -193,7 +203,7 @@ async function runView(name, v) {
   const wm = await L.ev(page, (L) => { const c = document.querySelector('#modal-content'), cv = c.querySelector('#world-map-canvas'), rows = c.querySelector('.z2c-rows'); if (!cv || !rows) return { none: true };
     const r0 = L.R(cv), cr = L.R(c); rows.scrollTop = 120; const r1 = L.R(cv);
     return { canvas: r0, moved: Math.abs(r1.t - r0.t) > .5, cw: cv.width, ch: cv.height, contentScroll: c.scrollHeight - c.clientHeight, contentTop: cr.t, rowN: rows.querySelectorAll('.z2c-row').length,
-      verdicts: [...rows.querySelectorAll('.z2c-row')].map(r => r.querySelector('.z2c-v')?.textContent), go: [...rows.querySelectorAll('.z2c-go')].map(b => ({ t: b.textContent.trim(), h: L.R(b).h, w: L.R(b).w, z: b.dataset.zbr })), over: c.scrollWidth > c.clientWidth + 2,
+      verdicts: [...rows.querySelectorAll('.z2c-row')].map(r => r.querySelector('.z2c-v')?.textContent), go: [...rows.querySelectorAll('.z2c-go')].map(b => ({ t: b.textContent.trim(), h: L.R(b).h, w: L.R(b).w, z: b.dataset.zbr, act: !!b.closest('.z2c-row')?.classList.contains('active') })), over: c.scrollWidth > c.clientWidth + 2,
       rowsRect: L.R(rows), modal: L.R(document.querySelector('#modal')) }; });
   if (wm.none) fix(`${tag}: 世界地圖沒有 #world-map-canvas／.z2c-rows`);
   else {
@@ -205,7 +215,8 @@ async function runView(name, v) {
     if (wm.rowN < 8) fix(`${tag}: 區域列只有 ${wm.rowN}`);
     if (wm.verdicts.filter(x => ['輕鬆', '可行', '危險'].includes(x)).length < 7) fix(`${tag}: 野外區域列缺判定標籤 ${wm.verdicts}`);
     if (wm.go.some(b => b.h < min - .5)) fix(`${tag}: 「前往」鈕高 ${wm.go.map(b => b.h)} < ${min}`);
-    if (wm.go.slice(1).some(b => b.z !== 'gold')) fix(`${tag}: 「前往」應為金棕 ${wm.go.map(b => b.z)}`);
+    // 2026-11-19 unslop:八列各一顆金棕等於八個強調 → 只有「目前所在區域」那一列是金棕,其餘 ghost
+    { const gold = wm.go.slice(1).filter(b => b.z === 'gold'); if (gold.length !== 1 || !gold[0].act) fix(`${tag}: 「前往」應只有目前區域一顆金棕(其餘 ghost) ${wm.go.map(b => b.z)}`); }
     if (wm.over) fix(`${tag}: 世界地圖水平溢出`);
     // 點行展開
     await page.evaluate(() => { document.querySelector('#modal-content .z2c-rows').scrollTop = 0; });

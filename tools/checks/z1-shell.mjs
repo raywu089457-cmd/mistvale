@@ -82,6 +82,8 @@ for (const name of only) {
     // 2026-11-19：box-shadow 有 0.12s 過場(unselected=none → inset 1px #f7f2d4)，
     // headless 下偶爾 800ms 還沒跑完就量到 rgba(0,0,0,0)，所以先等到影子出現再量。
     await page.waitForFunction(() => /247, 242, 212/.test(getComputedStyle(document.querySelector('#bottom-bar [data-action=build]')).boxShadow), null, { timeout: 2500 }).catch(() => {});
+    // 2026-11-21：下排按鈕多了 background-color .12s 過場，機器忙時 800ms 還量到 rgba(148,137,115,0.96)；等顏色真的到位再量
+    await page.waitForFunction(() => getComputedStyle(document.querySelector('#bottom-bar [data-action=build]')).backgroundColor === 'rgb(148, 137, 115)', null, { timeout: 3000 }).catch(() => {});
     const sel = await ev(page, P => { const b = document.querySelector('#bottom-bar [data-action=build]'), o = document.querySelector('#bottom-bar [data-action=trade]'); return { bg: P.bg(b), top: P.R(b).t, otherTop: P.R(o).t, h: P.R(b).h, otherH: P.R(o).h, text: getComputedStyle(b.querySelector('b')).color, tab: document.body.dataset.modalTab, shadow: getComputedStyle(b).boxShadow }; });
     if (sel.bg !== 'rgb(148, 137, 115)') fix(`${label}/A: 選中格要填 #948973,實際 ${sel.bg}`);
     if (Math.abs(sel.top - sel.otherTop) > 0.6 || Math.abs(sel.h - sel.otherH) > 0.6) fix(`${label}/A: 選中格要與列齊平(不上凸):top ${sel.top} vs ${sel.otherTop}`);

@@ -1,6 +1,6 @@
 import {getRoads,roadStyle,onRoad,PALISADE,villagePonds as pondsOf,doorFoot} from './landscape-layout.js';
 import {RING_ROAD,onRingRoad} from './overworld.js';
-import { BUILDINGS, CLASSES, RARITIES, MONSTER_RANGED, MSHOT_IMPACT, SKILLS } from './pixel-data.js';
+import { BUILDINGS, CLASSES, RARITIES, MONSTER_RANGED, SKILLS } from './pixel-data.js';
 import {dollActionTick,dollDirName,advanceNoSkip,hurtChain,trackAttackStamp,dollAttackVariant,dollVictoryAction,dollLifeAction,getSlot as dollSlot} from './paperdoll-hero.js';   // DV2 的出招對時/逐格播放 helper(動作時間點照舊);英雄美術本體已換成 HeroLoom
 import {createDollHero} from './heroloom-hero.js';   // 預設:HeroLoom 紙娃娃英雄(docs/HEROLOOM.md);?doll=0 回烘好的 sheet
 import {createDollHero as createDv2DollHero} from './paperdoll-hero.js';   // ?doll=dv2[:職業,…]:DV2 包(assets/paperdoll-dv2,docs/DV2-PHASE6.md)
@@ -14,6 +14,7 @@ import {pickHeroLine} from './hero-chatter.js';
 import {createGLRenderer,tagPattern} from './gl-renderer.js';
 import {layoutMapLabels} from './map-labels.js';
 import {vdir4,DIR_ACT,dirSuffix,leftRow,facingOk,VDIR_TO_DIR4} from './dir4.js';   // 4 方向(2026-11-13,docs/DV2-ADOPTION-PLAN.md Phase 2)
+import {createLiveFxPool,worldToFxRel,liveTuneOf} from './pixelfx-runtime.js';
 
 // All artwork is rendered to a small integer pixel buffer and enlarged without
 // interpolation. World coordinates are shared with the village simulation.
@@ -519,11 +520,11 @@ function unifyHeroTiming(meta){for(const [k,a] of Object.entries(meta?.actions||
   if(/^walk/.test(k)){a.frameTime=HERO_FT.walk;delete a.cycle;}else if(k==='death')a.frameTime=HERO_FT.death;}return meta;}
 function ensureHeroSheets(){const A=globalThis.PIXEL_ASSETS?.heroSheets||{};
   for(const [id,v] of Object.entries(A)){if(loadedAssetKeys.has('hs:'+id))continue;loadedAssetKeys.add('hs:'+id);
-    const meta=unifyHeroTiming(typeof v.meta==='string'?JSON.parse(v.meta):v.meta),im=trackImage(new Image()),fx=v.fx?trackImage(new Image()):null;
+    const meta=unifyHeroTiming(typeof v.meta==='string'?JSON.parse(v.meta):v.meta),im=trackImage(new Image());
     const hi=v.hi?(typeof v.hi.meta==='string'?{img:v.hi.img,meta:JSON.parse(v.hi.meta)}:v.hi):null;if(hi)unifyHeroTiming(hi.meta);
     // @2x(hi)只在 heroSheets[id] 建立時登記「來源」,真正下載由 hiWarm 觸發(放大到門檻才載)
-    im.onload=()=>{heroSheets[id]={...heroSheets[id],img:im,meta,fx,fxMeta:v.fxMeta?(typeof v.fxMeta==='string'?JSON.parse(v.fxMeta):v.fxMeta):null,...(hi?{hi:{meta:hi.meta,src:hi.img}}:{})};spriteCache.clear();globalThis.dispatchEvent(new CustomEvent('pixel-assets-ready'));};
-    im.onerror=()=>loadedAssetKeys.delete('hs:'+id);im.src=v.img;if(fx)fx.src=v.fx;
+    im.onload=()=>{heroSheets[id]={...heroSheets[id],img:im,meta,...(hi?{hi:{meta:hi.meta,src:hi.img}}:{})};spriteCache.clear();globalThis.dispatchEvent(new CustomEvent('pixel-assets-ready'));};
+    im.onerror=()=>loadedAssetKeys.delete('hs:'+id);im.src=v.img;
   }}
 // 模組化配件槽(Accessory/Head):assets/heroes/accessories.png,依稀有度戴在每格的頭頂錨點(meta.actions[act].head)。
 let heroAcc=null;function ensureHeroAcc(){return;}   // 2026-10-31:英雄不再戴配件,配件圖集也不用載入(省一張大圖的解碼)
@@ -536,10 +537,8 @@ function heroAccessory(){return null;}
 const monsterSheets={};let monsterReq=new Set();
 function ensureMonsterSheet(id){const A=globalThis.PIXEL_ASSETS?.monsterSheets||{};const v=A[id];if(!v||loadedAssetKeys.has('ms:'+id))return;
   loadedAssetKeys.add('ms:'+id);const im=trackImage(new Image());im.onload=()=>{monsterSheets[id]={img:im,meta:v.meta};globalThis.dispatchEvent(new CustomEvent('pixel-assets-ready'));};im.onerror=()=>{loadedAssetKeys.delete('ms:'+id);};im.src=v.img;}
-// 遠程魔物的飛行物(assets/ui/fx-mshots.png:8 格 32×32 橫排,l0veyou GPT Image 2 生)。開場就載(很小、內嵌)。
 // 2026-10-30:地區立牌的木牌素材(PixelLab generate-ui-v2 生的,pixel 精緻版)。
 let signImg=null;function regionSignArt(){if(!signImg){const src=globalThis.PIXEL_ASSETS?.ui?.['px-signpost'];if(!src)return null;signImg=trackImage(new Image());signImg.src=src;}return signImg.complete&&signImg.naturalWidth?signImg:null;}
-let mshotImg=null;function mshotSheet(){if(!mshotImg){const src=globalThis.PIXEL_ASSETS?.ui?.['fx-mshots'];if(!src)return null;mshotImg=trackImage(new Image());mshotImg.src=src;}return mshotImg.complete&&mshotImg.naturalWidth?mshotImg:null;}
 function ensureMonsterSheets(){for(const id of monsterReq)ensureMonsterSheet(id);}
 // HeroLoom 風格魔物實驗包(docs/HEROLOOM-MONSTERS.md;?lmob=1 才開,預設照舊 assets/monsters3):
 // 減少列數的 sheet(5 列 idle/walk/attack/hurt/death,160 px 格)由 src/heroloom-monsters.js 補成
@@ -674,7 +673,7 @@ function ensureAtlas() {
   ensureDetailAtlas();
   ensureTerrainAtlas();
   ensurePlazaTile();ensureConceptTextures();
-  ensureHeroAtlas();ensureHeroSheets();ensureHeroAcc();ensureMonsterSheets();mshotSheet();
+  ensureHeroAtlas();ensureHeroSheets();ensureHeroAcc();ensureMonsterSheets();
   const assets=globalThis.PIXEL_ASSETS||{};
   // 舊的硬切格圖集載入已由上面的 manifest 圖集取代(列切線原本是猜的)。
 
@@ -759,6 +758,110 @@ export function createWorld(canvas,{onSelect=()=>{},onPlace=()=>{},getState=()=>
   let width=800,height=500,scale=.9,elapsed=0,phase=.15,selected=null,placing=null,state={buildings:{},hunters:[],enemies:[],effects:[]},disposed=false,quality=true,baseScale=1.95;
   const coarsePointer=!!(globalThis.matchMedia?.('(pointer:coarse)')?.matches || (globalThis.navigator?.maxTouchPoints||0)>0 || /Mobi|Android|iPhone|iPad/i.test(globalThis.navigator?.userAgent||''));
   heroHiAllowed=!coarsePointer;lowMemDevice=coarsePointer;   // 手機/平板:不用 2x 英雄表(見 heroHiAllowed)、影子半解析度與較小的記憶體上限(見 lowMemDevice)
+  // 實時 pixelfx CQ 特效引擎(back/front 雙層、CQ 色盤重繪、實機剪影 actor、3 級上限淘汰、WebGL 材質失效同步)
+  const liveFx=createLiveFxPool({mobile:coarsePointer,onDirty:cvs=>{if(glr)glr.invalidate(cvs);},onRelease:cvs=>{if(glKeep)glKeep.release(cvs);}});
+  const unitActorCache=new Map();
+  function sampleSpriteActor(img,sx,sy,sw,sh,flip){
+    if(!img||!img.complete||!img.naturalWidth||!(sw>0&&sh>0))return null;
+    try{
+      const tmp=makeCanvas(36,42),tc=tmp.getContext('2d');tc.imageSmoothingEnabled=false;
+      const sc=Math.min(32/sw,34/sh),dw=Math.max(4,Math.round(sw*sc)),dh=Math.max(6,Math.round(sh*sc));
+      const ox=Math.floor((36-dw)/2),oy=42-dh;
+      tc.save();if(flip){tc.translate(36,0);tc.scale(-1,1);}
+      tc.drawImage(img,sx,sy,sw,sh,ox,oy,dw,dh);tc.restore();
+      const id=tc.getImageData(0,0,36,42),u32=new Uint32Array(id.data.buffer);
+      let x0=36,y0=42,x1=-1,y1=-1,cnt=0;
+      for(let y=0;y<42;y++)for(let x=0;x<36;x++){if((u32[y*36+x]>>>24)>=96){if(x<x0)x0=x;if(x>x1)x1=x;if(y<y0)y0=y;if(y>y1)y1=y;cnt++;}}
+      if(cnt<16||x1-x0<4||y1-y0<8)return null;
+      const w=x1-x0+1,h=y1-y0+1,pixels=new Uint32Array(w*h),mask=new Uint8Array(w*h);
+      for(let y=0;y<h;y++)for(let x=0;x<w;x++){
+        const v=u32[(y0+y)*36+(x0+x)];
+        if((v>>>24)>=96){pixels[y*w+x]=v;mask[y*w+x]=1;}
+      }
+      // Guarantee every row in [0..h-1] has at least one lit pixel so shape().rows never has [-1,-1].
+      for(let y=0;y<h;y++){
+        let any=false;for(let x=0;x<w;x++)if(mask[y*w+x]){any=true;break;}
+        if(!any){const mx=w>>1;mask[y*w+mx]=1;pixels[y*w+mx]=0xff78869a;}
+      }
+      return{x:-Math.round(w/2),y:-h,w,h,mask:{w,h,data:mask},pixels};
+    }catch{return null;}
+  }
+  function unitActorOf(u,fallbackType=null){
+    const isHero=!!u?.classId;
+    const type=isHero?u.classId:(u?.type||fallbackType);
+    if(!type)return null;
+    const flip=isHero?(drawnFacing.get(u.id)?.f<0):(drawnFacing.get('enemy:'+u?.id)?.f<0);
+    const key=(isHero?'h:':'m:')+type+':'+(flip?1:0);
+    if(unitActorCache.has(key))return unitActorCache.get(key);
+    let res=null;
+    if(isHero){
+      const hs=heroSheets[type],a=hs?.meta?.actions?.idle||Object.values(hs?.meta?.actions||{})[0];
+      if(hs?.img&&a)res=sampleSpriteActor(hs.img,0,a.y||0,a.cell||hs.meta.cell,a.cell||hs.meta.cell,flip);
+    }else{
+      const ms=MON_SHEET(type),a=ms?.meta?.actions?.idle||Object.values(ms?.meta?.actions||{})[0];
+      if(ms?.img&&a)res=sampleSpriteActor(ms.img,0,a.y||0,a.cell||ms.meta.cell,a.cell||ms.meta.cell,flip);
+    }
+    if(res)unitActorCache.set(key,res);
+    return res;
+  }
+  function findUnitById(uid){
+    if(!uid)return null;
+    return (state.hunters||[]).find(u=>u.id===uid)||(state.enemies||[]).find(u=>u.id===uid)||(state.wanderers||[]).find(u=>u.id===uid)||null;
+  }
+  function spawnLiveEffect(e){
+    if(!e||e._liveSpawned||!e.fxId)return;
+    e._liveSpawned=true;
+    const tune=liveTuneOf(e.fxId);
+    const sx=e.sourceX??e.x??0,sz=e.sourceZ??e.z??0,tx=e.tx??e.x??sx,tz=e.tz??e.z??sz;
+    const ax=e.x??sx,az=e.z??sz;
+    const rel=worldToFxRel(tx-sx,tz-sz,tune),fxOpts={aim:rel.aim,dir:rel.dir};
+    if(e.impact)fxOpts.kind=e.impact;
+    if(e.fxId==='scifi/warp-iso'){
+      const toRel=worldToFxRel(tx-ax,tz-az,tune);
+      fxOpts.to=[Math.max(-135,Math.min(135,toRel.x)),Math.max(-110,Math.min(110,toRel.z))];
+    }
+    if(Array.isArray(e.targets)&&e.targets.length){
+      fxOpts.targets=e.targets.map(q=>{const r=worldToFxRel((q.x??tx)-ax,(q.z??tz)-az,tune);return{x:r.x,z:r.z,h:q.h??18};});
+    }
+    if(e.fxId==='lightning/chain-lightning-iso'){fxOpts.hop=200;fxOpts.range=260;}
+    if(e.fxId==='projectiles/magic-missile-iso'){fxOpts.range=280;}
+    if(e.fxId==='arcane/arcane-missiles-iso'){fxOpts.range=280;fxOpts.spread=e.spread||3;}
+    if(Array.isArray(e.from)&&e.from.length)fxOpts.from=e.from;
+    if(e.beat){
+      if(e.beat.palette)fxOpts.palette=e.beat.palette;
+      if(e.beat.reach)fxOpts.reach=e.beat.reach;
+      if(e.beat.rings)fxOpts.rings=e.beat.rings;
+      if(e.beat.crackN)fxOpts.crackN=e.beat.crackN;
+      if(e.beat.dustN)fxOpts.dustN=e.beat.dustN;
+    }
+    const actorUnit=findUnitById(e.actorId||e.targetId||e.casterId);
+    const actor=unitActorOf(actorUnit,e.bodyType||null);
+    liveFx.spawn(e.fxId,ax,az,{
+      delay:e.delay||0,life:e.life||0,spark:!!e.spark,rank:e.spark?0:2,
+      casterAnchored:!!e.casterAnchored,actor,fxOpts,
+    });
+  }
+  function syncLiveFx(dt){
+    for(const e of state.effects||[])if(e.type==='livefx'&&!e._liveSpawned)spawnLiveEffect(e);
+    liveFx.beginStatusSync();
+    const syncList=(list,prefix)=>{
+      for(const u of list||[]){
+        if(!(u.hp>0)||!u.statuses)continue;
+        const p=screenPoint(u.x,u.z);
+        if(p.x<-80||p.x>width+80||p.y<-80||p.y>height+80)continue;
+        const actor=unitActorOf(u);
+        const unitH=u.type?ENEMY_SIZE(u.type):HERO_H;
+        const stTune=Math.max(1.85,Math.min(3.1,(unitH/HERO_H)*1.95));
+        for(const [stId,stObj] of Object.entries(u.statuses)){
+          liveFx.syncUnitStatus(prefix+u.id,stId,u.x,u.z,{actor,tune:stTune,stamp:stObj?.stamp||0});
+        }
+      }
+    };
+    syncList(state.hunters,'h:');
+    syncList(state.enemies,'e:');
+    liveFx.endStatusSync();
+    liveFx.step(dt);
+  }
 // 手機/平板:畫布解析度上限 1.5 倍。這些機器 fill/blit 的像素量直接決定溫度(2 倍 → 4 倍像素),
 // 1.5 倍的像素量只有原本的 56%,像素圖看起來幾乎一樣(最近鄰放大),但記憶體頻寬少快一半。
 const autoDpr=()=>Math.min(coarsePointer?1.5:2,globalThis.devicePixelRatio||1);   // 自動:手機/平板 1.5、其他 2
@@ -1588,27 +1691,6 @@ let renderDprMax=Math.max(1,dprCap||autoDpr());   // 畫布解析度上限(devic
   // 以腳底為軸剪切(前傾/後仰)與縮放;影子(cast)跟著位移但不跟著傾斜。
   function posed(p,pose,draw){const q={x:R(p.x+pose.ox*scale),y:R(p.y+pose.oy*scale)};g.save();g.translate(q.x,q.y);g.transform(pose.sx,0,-pose.lean,pose.sy,0,0);g.translate(-q.x,-q.y);
     if(pose.flash>0)flashNext={color:pose.flashColor,alpha:Math.min(1,pose.flash*.9)};try{return draw(q);}finally{flashNext=null;g.restore();}}
-  // 蓄力時武器/法杖上的光點:近戰一閃、法系聚光。
-  // T67:法師普攻一律用 spell-charge 表(不看畫質、不看 fxInSprite),自動狩獵與兩個繪製器都畫。
-  function chargeGlow(h,p,pose,facing){if(pose.pose!=='windup'||h.hp<=0)return;const s=scale;
-    if(h.classId==='sorcerer'&&heroSheets[h.classId]){const ck=(HERO_H/heroSheets[h.classId].meta.heroHeight)*s,wt=pose.wt??0;
-      // 2026-11:法師蓄力改吃 iso 版魔法陣(arcane/magic-circle-cast-iso),取代側視 spell-charge 循環表。
-      // 從表上 0.42 s(五芒星畫完、符文開始亮)起播,普攻蓄力看起來像「陣已經成形、符文在轉」;
-      // 法杖上再補一顆小光點(iso 陣貼在地上,不畫光點會看不出蓄力在手上)。
-      if(vfxSheet('magic-circle-cast-iso')){const t=.42+wt;
-        drawVfxSheet('magic-circle-cast-iso',t,p.x,p.y,ISO_PX*s*(ISO_FX['magic-circle-cast-iso'].tune||1),{});isoSeen.add('magic-circle-cast-iso');
-        const ox=p.x+facing*(2.2*s-15*ck),oy=p.y-(12.8*s-22*ck),a=Math.min(1,wt/.12);
-        g.save();g.globalAlpha=a*.5;g.fillStyle='#d9a8ff';g.beginPath();g.arc(ox,oy,Math.max(1.5,2.6*s),0,Math.PI*2);g.fill();
-        g.globalAlpha=a*.9;g.fillStyle='#fff6ff';g.beginPath();g.arc(ox,oy,Math.max(1,.9*s),0,Math.PI*2);g.fill();g.restore();
-        state.lastVfxDraw={sheet:'magic-circle-cast-iso',t:+t.toFixed(2),x:Math.round(p.x),y:Math.round(p.y),k:+(ISO_PX*s).toFixed(3),iso:true,ok:true,wt:+wt.toFixed(2)};
-        return;}
-      drawVfxSheet('spell-charge',wt,p.x+facing*(2.2*s-15*ck),p.y-(12.8*s-22*ck),ck,{alpha:Math.min(1,wt/.12),rate:2.4,flip:facing<0});return;}
-    if(!quality||heroSheets[h.classId]?.meta.actions.attack?.fxInSprite)return;const k=pose.k,caster=h.classId==='sorcerer'||h.classId==='priest';   // fxInSprite:蓄力的光已畫在攻擊列裡(PixelLab 手上的魔法球),不再疊固定位置的光點
-    const x=p.x+(pose.ox+facing*(caster?8:-6))*s,y=p.y+(pose.oy-(caster?17:19))*s,col=h.classId==='sorcerer'?'#d9a8ff':h.classId==='priest'?'#ffe9a0':h.classId==='archer'?'#e8f2c0':'#fff4c8';
-    g.save();g.globalAlpha=.25+.55*k;g.fillStyle=col;const r=(caster?2+3*k:1+2*k)*s;g.beginPath();g.arc(x,y,r,0,Math.PI*2);g.fill();
-    g.globalAlpha=.9*k;pixel(g,x-r*1.6,y-.5*s,r*3.2,Math.max(1,s),'#ffffff');pixel(g,x-.5*s,y-r*1.6,Math.max(1,s),r*3.2,'#ffffff');
-    if(caster)for(let i=0;i<4;i++){const an=i*1.57+elapsed*6,rr=(7-5*k)*s;pixel(g,x+Math.cos(an)*rr,y+Math.sin(an)*rr*.6,Math.max(1,s),Math.max(1,s),col);}
-    g.restore();}
 
   function ghostHunter(h){if(!(h.hp>0)||h.status!=='戰鬥中'||!Number.isFinite(h.x))return;const p=screenPoint(h.x,h.z);if(p.x<-40||p.x>width+40||p.y<-40||p.y>height+60)return;
     const target=h.targetId?(state.enemies||[]).find(e=>e.id===h.targetId&&e.hp>0):null,pose={...combatPose(h,false,target),flash:0},facing=previousPositions.get(h.id)?.facing||1;
@@ -1908,7 +1990,6 @@ let renderDprMax=Math.max(1,dprCap||autoDpr());   // 畫布解析度上限(devic
     const drawPose=pose.pose!=='idle'?combatPoseName:walking?walkFrame(elapsed,hash(h.id)):gettingUp?'getup':cheering?'victory':still&&servicePose?servicePose:breathe;
     drawnFacing.set(h.id,{f:facing,pose:drawPose,x:h.x,z:h.z,t:state.time});
     const sprite=heroSprite(h.classId,frame,facing,hash(h.id)%3,heroLodScale,drawPose),rect=posed(p,pose,q=>drawSprite(sprite,q,21*CHAR_SCALE*sprite.width/(sprite.baseH||sprite.height),21*CHAR_SCALE*sprite.height/(sprite.baseH||sprite.height),1.2,1,'char'));hits.push({id:`hunter:${h.id}`,...padHit(rect,14,18)});  // 圖變小,點擊範圍保底
-    {const tf=g.getTransform();deferTopVfx(()=>{g.save();g.setTransform(tf);chargeGlow(h,p,pose,facing);g.restore();});}
     const full=(h.hp??1)/(h.maxHp||1);if(full<.99||isSelected||h.status==='戰鬥中')bar(p.x-7*scale,p.y-24*scale,14*scale,full,full<.35?'#df795c':'#84bf6a');
     if(isSelected)textLabel(`${h.name||'獵人'} Lv.${h.level||1}`,p.x,p.y-31*scale,{color:RARITIES.find(r=>r.id===h.rarity)?.color||'#ffe19a'});
     if(!isSelected&&scale>.65){let symbol='';if(h.status?.includes('治療')||h.status?.includes('休養'))symbol='+';else if(h.status?.includes('休息')||h.status?.includes('旅館'))symbol='z';else if(h.status?.includes('用餐'))symbol='♥';else if(h.status?.includes('飲用'))symbol='♪';else if(h.status?.includes('訓練'))symbol='↑';else if(h.status?.includes('交易'))symbol='$';if(symbol)textLabel(symbol,p.x+6*scale,p.y-24*scale-Math.sin(elapsed*3)*1.3,{size:8,color:'#f7e1a0'});}
@@ -2012,12 +2093,6 @@ let renderDprMax=Math.max(1,dprCap||autoDpr());   // 畫布解析度上限(devic
       try{rect=drawSheetHero(h,mp?{x:p.x+mp.ox,y:p.y+mp.oy}:p,facing,sp,h.hp>0?1:.85,pose);}finally{casting=cw;}
       if(mp&&mp.depth<=0)mp.draw();}
     if(rect)hits.push({id:`hunter:${h.id}`,...padHit(rect,16,22)});
-    // 法師集氣(2026-11):蓄力段在手上跑 pixelfx 的 spell-charge(loop 表),取代原本的程式光點。
-    // 位置對到精靈自己的手心:身體中心往面向 2.2 單位、腳底往上 12.8 單位(量自 sorcerer@2x 攻擊列的球心);
-    // 表裡的球在 pivot 右上 (15,-22),所以 pivot 要往回補;表是 1.6 秒 loop,rate 2.4 再乘 VFX_SPEED(0.6)= 實際 1.44 倍,
-    // 0.6 秒的蓄力只播到 0.864 秒(約 54% 的 loop),蓄力結束時球還沒長到滿 —— 這是 T65 放慢後的預期樣子。
-    // T67:改由 chargeGlow 統一畫(普攻/自動狩獵都畫),仍延後到最上層才不會被魔物蓋住。
-    {const tf=g.getTransform();deferTopVfx(()=>{g.save();g.setTransform(tf);chargeGlow(h,p,pose,facing);g.restore();});}
     if(h.hp<=0){textLabel('✦',p.x,p.y-(top*.4)*scale,{color:'#e7d8ef',back:false});return;}
     const full=(h.hp??1)/(h.maxHp||1);if(full<.99||isSelected||h.status==='戰鬥中')bar(p.x-7*scale,p.y-(top+3)*scale,14*scale,full,full<.35?'#df795c':'#84bf6a');
     if(isSelected)textLabel(`${h.name||'獵人'} Lv.${h.level||1}`,p.x,p.y-(top+11)*scale,{color:RARITIES.find(r=>r.id===h.rarity)?.color||'#ffe19a'});}
@@ -2159,16 +2234,17 @@ let renderDprMax=Math.max(1,dprCap||autoDpr());   // 畫布解析度上限(devic
     let flipAt=old?.flipAt??-9;
     if(old&&flip!==old.flip){if(!hardSide&&!sideOnlyFlip&&nowT-flipAt<0.12)flip=old.flip;else flipAt=nowT;}
     previousPositions.set('enemy:'+e.id,{x:e.x,z:e.z,flip,vdir:vdirRaw,walkUntil,flipAt,trail,lpx,lpz,avdir,rowVdir:vdirRaw,rowAt:vdirRaw!==(old?.rowVdir??'side')?nowT:(old?.rowAt??-9)});
-    // 待機呼吸(史萊姆 Q 彈)、移動時跳步;攻擊/受擊的位移疊在上面。
-    const breathe=Math.sin(elapsed*(e.type==='slime'?5:3)+seed),amp=e.type==='slime'?.07:.025;pose.sy*=1+amp*breathe;pose.sx*=1-amp*.6*breathe;
+    // 待機呼吸(史萊姆 Q 彈)、移動時跳步;攻擊/受擊的位移疊在上面。冰凍或時間靜止時完全定格!
+    const timeStopped=!!(e.buffs?.timeStop?.left>0),frozenNow=!!e.statuses?.frozen||timeStopped;
+    const breathe=frozenNow?0:Math.sin(elapsed*(e.type==='slime'?5:3)+seed),amp=e.type==='slime'?.07:.025;pose.sy*=1+amp*breathe;pose.sx*=1-amp*.6*breathe;
     // 走路:狼/魔像/領主一直用側面走路圖(3),配步伐上下起伏;史萊姆是跳躍——著地時用壓扁圖(3),騰空時用圓圖(0)。
-    const stride=Math.sin(elapsed*(e.type==='wolf'?11:e.type==='slime'?6:7)+seed);
-    const walking=(moving||nowT<walkUntil);   // 停一格不算停(見 walkUntil);有動就播走路
+    const stride=frozenNow?0:Math.sin(elapsed*(e.type==='wolf'?11:e.type==='slime'?6:7)+seed);
+    const walking=!frozenNow&&(moving||nowT<walkUntil);   // 停一格不算停(見 walkUntil);有動就播走路
     if(walking&&pose.pose==='idle'){pose.oy-=Math.abs(stride)*(e.type==='slime'?4:e.type==='wolf'?1.8:1);if(e.type!=='slime'){pose.sy*=1-.03*Math.abs(stride);pose.lean+=(flip?-1:1)*.04;}}
     // 0 待機、1 蓄力、2 出手、3 走路、4 受擊(l0veyou monsteratk 圖集)
     // 0 待機/5 呼吸、1 蓄力、2 出手/7 收招、3·6 走路兩格(史萊姆:騰空 0、著地 3、壓扁 6)、4/8 受擊兩格(第四批 monsters 圖集 5–9)
     const has=i=>!!detailFrameFor(e.type+i);
-    const frame=pose.pose==='strike'?(pose.atk>.2&&has(7)?7:2):pose.pose==='windup'?1:pose.pose==='hurt'?(pose.hit>.16&&has(8)?8:4)
+    const frame=frozenNow?0:pose.pose==='strike'?(pose.atk>.2&&has(7)?7:2):pose.pose==='windup'?1:pose.pose==='hurt'?(pose.hit>.16&&has(8)?8:4)
       // 走路:四格循環 3 → 6 → 10 → 11(接地/經過/另一腳接地/經過;史萊姆是壓扁/伸長/騰空/落地),每種魔物自己的步頻
       :walking?(has(11)?[3,6,10,11][Math.floor(elapsed*({wolf:10,slime:6,golem:6,boss:5}[e.type]||7)+seed)%4]:e.type==='slime'?(Math.abs(stride)<.25?(has(6)?6:3):Math.abs(stride)<.5?3:0):(stride>0||!has(6)?3:6))
       :(Math.floor(elapsed*1.4+seed*.13)%2&&has(5)?5:0);
@@ -2179,98 +2255,27 @@ let renderDprMax=Math.max(1,dprCap||autoDpr());   // 畫布解析度上限(devic
     // 蓄力時影子收緊 1–2px(重擊怪最明顯):腳下接觸感變實 = 「要用力了」的預告;不是整隻放大縮小。
     const tighten=pose.pose==='windup'?Math.min(2,(HEAVY_SLAM.has(e.type)?2:1.2)*(pose.k??0)):0;
     contact(p,(boss?12:7)-tighten);
-    // 遠程魔物:射前集氣 —— 蓄力期間腳下亮起小魔法陣(沿用已匯出的 magic-circle-cast-iso,0.45 英雄尺度;沒有新美術)。
-    if(pose.pose==='windup'&&MONSTER_RANGED[e.type]){
-      const prog=Math.max(0,Math.min(1,pose.k??0));
-      drawIso('magic-circle-cast-iso',.05+prog*.55,p.x,p.y,{tune:.45,alpha:.8+.2*prog});
-    }
     drawnFacing.set('enemy:'+e.id,{f:flip?-1:1,frame,x:e.x,z:e.z,t:state.time});
     let rect;
     if(MON_SHEET(e.type)){   // 出手用「打的方位」那條攻擊列(4 方向);待機/走路照原本的方位列(0.25 秒列鎖已在上面套過)
-      const [act,i]=monsterSheetPose(e,pose,walking,vdir,avdir);
+      const [act0,i0]=monsterSheetPose(e,pose,walking,vdir,avdir);
+      const act=frozenNow?'idle':act0,i=frozenNow?0:i0;
       // 受擊閃光:普通命中維持純白剪影(原本的樣子);重擊第 2 幀起換成該種魔物的顏色(白 → 種類色 2 幀)。
+      // 時間靜止:疊上灰紫靜止色罩,讓玩家一眼看出目標已被時停定格。
       let sheetPose=pose;
       if(pose.flash>0){const heavy=monHeavyHit(e),tint=MON_TINT[e.type==='boss'?'treant':e.type]||'#ffffff';
         sheetPose={...pose,flashColor:(heavy&&pose.hit>=.067)?tint:'#ffffff'};}
+      else if(timeStopped){sheetPose={...pose,flash:.48,flashColor:'#9b96b8'};}
       const vis=monsterVis(e,pose);
       drawnFacing.set('enemy:'+e.id,{f:flip?-1:1,frame,act,i,dir:avdir,vd:vdir,x:e.x,z:e.z,t:state.time});   // vd = 想要的走路/待機列方向(check_facing 用來分辨「素材沒有這個方向的列」)
       rect=drawMonsterSheet(e.type,p,flip,act,i,1,sheetPose,vis);}   // sheet:位移/壓扁/後退由 vis 套(以前 sheet 只吃 flash)
     else rect=posed(p,pose,q=>drawAtlasMonster(e.type,frame,q,sz,flip));
+    if(timeStopped){const r=(boss?16:10)*scale;g.save();g.strokeStyle='rgba(196,144,255,.78)';g.lineWidth=Math.max(1.2,scale*.8);g.beginPath();g.ellipse(p.x,p.y+scale,r,r*.45,0,0,Math.PI*2);g.stroke();g.restore();}
     if(rect)hits.push({id:'foe:'+e.id,...padHit(rect,14,18)});  // T110:魔物也可以點開資訊卡
     if(!rect)procUse['enemy-missing:'+e.type]=(procUse['enemy-missing:'+e.type]||0)+1;  // 沒有程序繪製 fallback:sheet 缺了就只記數、不畫
     if(e.hp<e.maxHp||boss||targeted){bar(p.x-(boss?17:10)*scale,p.y-(sz+3)*scale,(boss?34:20)*scale,e.hp/(e.maxHp||1),boss?'#d27967':'#c68764');}}
 
-  // ── 戰鬥特效 ──────────────────────────────────────────────────────────
-  // 時間軸:effect 生出來就是「出手」;e.delay 秒後才「命中」(箭/法球飛行中),命中後才有斬痕、火花、數字。
-  // 圖集特效:l0veyou vfx(斬擊、法球、治療、星、命中、閃光)與 icons 的箭;粒子是程序像素(不算退回)。
-  const FX_SPRITE={slash:'fxSlash',heal:'fxHeal',level:'fxStar',victory:'fxStar',harvest:'fxStar',rally:'fxStar',recruit:'fxStar',purchase:'fxStar',upgrade:'fxSparkle',hit:'fxHit'};
-  function fxSprite(id,x,y,size,{rot=0,flip=false,alpha=1,sy=1}={}){const lod=detailFrameFor(id,size*scale>=40);if(!lod)return false;const c=lod.frames[id],k=size*scale/Math.max(c.w,c.h);
-    g.save();g.globalAlpha=alpha;g.translate(R(x),R(y));if(rot)g.rotate(rot);g.scale(flip?-1:1,sy);g.drawImage(lod.img,c.x,c.y,c.w,c.h,-c.w*k/2,-c.h*k/2,c.w*k,c.h*k);g.restore();
-    if(lod.scale===2)detailUse.draw2x++;else detailUse.draw1x++;return true;}
-  // 命中火花:幾顆像素往外噴、受重力落下。
-  // dir: 指定噴射方向(弧度,螢幕座標);不給就四面八方。spread: 扇形張角。
-  function sparks(x,y,age,seed,n,cols,speed=26,dir=null,spread=1.2){if(age>.45)return;const s=scale,r=rnd(seed);for(let i=0;i<n;i++){const an=dir==null?r()*Math.PI*2:dir+(r()-.5)*spread,v=(.5+r())*speed,px=x+Math.cos(an)*v*age*s,py=y+(Math.sin(an)*v*.6*age+60*age*age)*s,sz=Math.max(1,Math.round((r()<.3?2:1)*s));
-    g.globalAlpha=Math.max(0,1-age/.45);pixel(g,px,py,sz,sz,cols[i%cols.length]);}g.globalAlpha=1;}
-  // 投射物大小＝攻擊動畫裡的大小(2026-10-25 使用者:「取消改用原本的素材,縮小到跟攻擊動畫內的大小一樣」):
-  // 法師手上的魔法球直徑約 26 px(@2x 表,身高 132 px)＝4.1 單位 → fxOrb(球本體約佔圖寬 80–90%)畫 5(原本 11);
-  // 弓手拉滿弓的箭(箭尖到拉弦手)約 80 px(@2x 表,身高 134 px)＝12.5 單位 → arrowFx(箭沿圖的對角線,長＝邊長×1.29)畫 9.7(原本 13)。
-  // 球的程序光圈與拖尾跟著同比例縮。
-  const ORB_SIZE=5,ORB_K=ORB_SIZE/11,ARROW_SIZE=9.7,ARROW_K=ARROW_SIZE/13;
-  const ARROW_VFX_K=0.19;   // pixelfx arrow 表:普攻的箭也放大(原本 0.12)
-  function drawProjectile(e,u,p){const s=scale,a0=screenPoint(e.sourceX??e.x,e.sourceZ??e.z),gale=e.fx==='gale',lob=e.type==='arrow'?Math.sin(u*Math.PI)*5:Math.sin(u*Math.PI)*2;
-    // 疾風箭雨:起點抬高、偏左,三支箭從斜上方落下(普攻維持平飛)
-    const a=gale?{x:a0.x-26*s,y:a0.y-70*s}:a0;
-    const at=v=>({x:a.x+(p.x-a.x)*v,y:a.y+(p.y-a.y)*v-(12+(e.type==='arrow'?lob:lob))*s});const q=at(u);
-    if(e.type==='arrow'){const prev=at(Math.max(0,u-.18)),ang=Math.atan2(q.y-prev.y,q.x-prev.x);
-      // 殘影:沿飛行曲線取兩個早先的位置(越遠越淡),先畫再畫箭
-      for(const [du,alpha] of [[-.16,.15],[-.08,.3]]){const gu=u+du;if(gu<0)continue;const gp=at(gu);
-        drawVfxSheet('arrow',(e.age||0),gp.x,gp.y,ARROW_VFX_K*2.7*s,{rot:ang,alpha});}
-      // 箭體飛行動畫全部用 pixelfx 的 arrow 表(含它自己的風切線),不再另外畫白色流線;大小固定 2.7×
-      if(drawVfxSheet('arrow',(e.age||0),q.x,q.y,ARROW_VFX_K*2.7*s,{rot:ang})){arrowLast={u:+u.toFixed(2),x:Math.round(q.x),y:Math.round(q.y)};return;}
-      if(!fxSprite('arrowFx',q.x,q.y,ARROW_SIZE*2.7,{rot:ang+Math.PI/4})){line(g,q.x-Math.cos(ang)*6*ARROW_K*s,q.y-Math.sin(ang)*6*ARROW_K*s,q.x,q.y,'#513e2e',Math.max(1,2*ARROW_K*s));}return;}
-    if(e.type==='spell'){const prev=at(Math.max(0,u-.12)),ang=Math.atan2(q.y-prev.y,q.x-prev.x);
-      if(drawVfxSheet('fireball',(e.age||0)+.22/VFX_SPEED,q.x,q.y,FIRE_K*s,{rot:ang})){fireballDrawn++;fireballLast={u:+u.toFixed(2),x:Math.round(q.x),y:Math.round(q.y)};return;}   // 法師普攻:整張火球表沿飛行方向轉
-      for(let i=4;i>=1;i--){const t=at(Math.max(0,u-i*.06));g.globalAlpha=.12*(5-i);g.fillStyle='#c79cff';g.beginPath();g.arc(t.x,t.y,(2+(4-i)*.6)*ORB_K*s,0,Math.PI*2);g.fill();}g.globalAlpha=1;
-      g.save();g.globalAlpha=.35;g.fillStyle='#e7cfff';g.beginPath();g.arc(q.x,q.y,7*ORB_K*s,0,Math.PI*2);g.fill();g.restore();
-      if(!fxSprite('fxOrb',q.x,q.y,ORB_SIZE,{rot:elapsed*6})){const r=3*ORB_K*s;pixel(g,q.x-r,q.y-r,2*r,2*r,'#8a68b9');}return;}
-    if(e.type==='holy'){g.save();g.globalAlpha=.25+.5*u;g.fillStyle='#fff3c0';g.beginPath();g.ellipse(p.x,p.y,10*s*u,4*s*u,0,0,Math.PI*2);g.fill();g.restore();}
-  }
-  function drawSlash(e,age,p){const s=scale,src=screenPoint(e.sourceX??e.x,e.sourceZ??e.z),fromRight=src.x>p.x,r=rnd(hash(e.id)),tilt=(r()-.5)*.8;
-    const cx=p.x+(fromRight?3:-3)*s,cy=p.y-11*s,k=Math.min(1,age/.12),alpha=age<.12?1:Math.max(0,1-(age-.12)/.3);
-    // 斬痕:新月從攻擊方掃過目標(放大+淡出),中心白色閃光。
-    // fxSlash 圖(Xilurus)＝白色刀弧在左、橙色拖尾在右 → 原圖是「由右往左揮」;攻擊者在左邊(往右揮)才翻面。
-    // 特效尺寸跟角色同級(英雄 21 單位):原本斬痕 30 單位、命中白閃 20 單位會把攻擊者整隻蓋住,
-    // 縮到 20/11 單位、白閃快一點淡出,人才看得見自己在打什麼。
-    // 打擊方向:dir=+1 表示刀往右揮(攻擊者在左邊)。表往 +x 畫,刀往左時整張水平翻面。
-    if(drawMeleeSheet(e,age,p))return;   // 黑騎士/聖騎士:整張 pixelfx 表(MELEE_FX),表不在才走下面的舊特效
-    const berserk=e.cls==='berserker',dir=fromRight?-1:1,bk=.28*s;
-    if(berserk){const st=age*VFX_SPEED,fade=Math.max(0,Math.min(1,(1.05-st)/.25));
-      // 命中特效是 pixelfx 用 chain 串好的一張表(impacts/berserk-hit):
-      // 切痕噴濺(t 0)→ 星爆(t 0.16)→ 腳下塵環(t 0.16,+52 美術 px)。同一張表自己管時序和地板,
-      // 遊戲這邊只給打擊點(p.x, 胸口下方)和尺度,比之前兩張表各自對位乾淨。
-      // 表不存在時退回程式火花,方向也順著刀。
-      if(!drawVfxSheet('berserk-hit',age,p.x,cy-12*bk,bk,{alpha:fade,flip:dir<0}))sparks(p.x,cy,age,hash(e.id),22,['#fff7d0','#ffd56a','#ff9c4a','#ffefb0'],38,Math.atan2(p.y-src.y,p.x-src.x),1.5);}
-    else{
-      if(alpha>0)fxSprite('fxSlash',cx,cy,13+7*k,{rot:tilt+(fromRight?.3:-.3),flip:!fromRight,alpha:alpha*.92,sy:.85});
-      if(age<.12)fxSprite('fxHit',p.x,cy,7+age*34,{alpha:.85*(1-age/.12)});
-    }
-    // 其他職業維持原本四面八方的小火花;狂戰士的噴濺在上一段由 crit-spray 表負責(方向順著刀)。
-    if(!berserk)sparks(p.x,cy,age,hash(e.id),9,['#fff7d0','#ffd56a','#ff9c4a']);
-    if(e.cls==='paladin'&&age<.3){g.save();g.globalAlpha=.6*(1-age/.3);g.strokeStyle='#fff2b0';g.lineWidth=Math.max(1,s);g.beginPath();g.ellipse(p.x,p.y,(6+age*40)*s,(2.5+age*16)*s,0,0,Math.PI*2);g.stroke();g.restore();}}
-  // 遠程魔物的飛行物:離手(release)前不畫;飛行中沿直線或拋物線(lob)前進,圓的東西會轉、細長的順著方向;打到後放塵爆。
-  function mshotFrame(i,x,y,size,rot=0,alpha=1,flipY=false){const im=mshotSheet();if(!im)return false;const k=size*scale/32;
-    g.save();g.globalAlpha=alpha;g.translate(R(x),R(y));if(rot)g.rotate(rot);if(flipY)g.scale(1,-1);g.drawImage(im,i*32,0,32,32,-16*k,-16*k,32*k,32*k);g.restore();return true;}
-  let lastShot=null;globalThis.__mistvaleLastShot=()=>lastShot;
-  function drawMonsterShot(e,age0,delay,p){const cfg=MONSTER_RANGED[e.by]||{},rel=e.release||0,s=scale,size=cfg.size||10;if(age0<rel)return;
-    const a=screenPoint(e.sourceX??e.x,e.sourceZ??e.z),y0=a.y-9*s,y1=p.y-11*s,at=v=>({x:a.x+(p.x-a.x)*v,y:y0+(y1-y0)*v-Math.sin(v*Math.PI)*(cfg.lob||0)*s});
-    if(age0<delay){const u=Math.min(1,(age0-rel)/Math.max(.01,delay-rel)),q=at(u),q0=at(Math.max(0,u-.04)),ang=Math.atan2(q.y-q0.y,q.x-q0.x);
-      g.save();g.globalAlpha=.28;g.fillStyle='#000';g.beginPath();g.ellipse(a.x+(p.x-a.x)*u,a.y+(p.y-a.y)*u,size*.32*s,size*.12*s,0,0,Math.PI*2);g.fill();g.restore();   // 地上的影子:看得出拋物線
-      lastShot={x:q.x,y:q.y,ax:a.x,ay:a.y,bx:p.x,by:p.y,type:e.by,id:e.id};   // 驗收用(__mistvaleLastShot):最後一次畫飛行物的螢幕位置
-      if(!mshotFrame(e.shot??0,q.x,q.y,size,cfg.spin?age0*9:ang,1,!cfg.spin&&Math.cos(ang)<0)){g.fillStyle='#e9e0c8';g.fillRect(q.x-2*s,q.y-2*s,4*s,4*s);}return;}
-    const t=age0-delay;
-    // 命中:改用 iso 版火花(hit-spark-iso,紅),和近戰/箭矢命中同一個視覺語言;沒有 iso 表才退回側視 MSHOT_IMPACT。
-    if(vfxSheet('hit-spark-iso')){if(t<=ISO_FX['hit-spark-iso'].to)drawIso('hit-spark-iso',t,p.x,p.y,{tune:.85});return;}
-    if(t<.32)mshotFrame(MSHOT_IMPACT,p.x,y1,size*(1.1+t*3),0,1-t/.32);}
+  // ── 戰鬥特效：舊版預烘表、圖集粒子與程序特效已全數移除，僅保留實時 CQ pixelfx (liveFx) ──
   // ── 地下城橫條戰鬥畫面(2026-10-30 使用者:「地下城要做出來橫條戰鬥畫面,近戰前排遠程後排」) ──
   // 彈窗裡的 canvas:左邊英雄(近戰前排、遠程後排)面向右,右邊魔物(近戰在前、遠程在後)面向左;用遊戲本身的英雄/魔物 sheet。
   // 背景 = l0veyou(GPT Image 2)生的地下城走廊側面圖(assets/ui/dg-strip-bg),左右鏡像接成無縫,「前進中」時往左捲。
@@ -2281,7 +2286,6 @@ let renderDprMax=Math.max(1,dprCap||autoDpr());   // 畫布解析度上限(devic
   const DG_RANGED=new Set(['archer','sorcerer','priest']);
   const DG_HERO_SLOTS={front:[[.41,.76],[.33,.82],[.36,.69]],back:[[.25,.73],[.12,.80],[.185,.67]]};
   const DG_FOE_SLOTS={front:[[.63,.76],[.71,.82],[.68,.69]],back:[[.84,.73],[.91,.80],[.88,.67]]};
-  const DG_SHOT={archer:'#fff3c9',sorcerer:'#c79cff',priest:'#ffe58a'};
   function drawDungeonStrip(cv,st){
     const d=st?.dungeon;if(!cv||!d)return;
     const dpr=Math.min(2,globalThis.devicePixelRatio||1),cw=Math.round(cv.clientWidth*dpr),ch=Math.round(cv.clientHeight*dpr);if(!cw||!ch)return;
@@ -2307,13 +2311,9 @@ let renderDprMax=Math.max(1,dprCap||autoDpr());   // 畫布解析度上限(devic
       units.sort((a,b)=>a.y-b.y).forEach(u=>u.draw());
       // 2026-11-18 名字最後畫:原本跟著各自的圖畫,後排兩人疊在一起時下面那位會蓋掉上面那位的名字(弓手名字整個不見)
       for(const h of party){const p=pos.get(h.id);if(p&&heroSheets[h.classId]?.meta?.actions)dgText(h.name,p.x,p.y+5*scale,{size:Math.round(10*dpr),color:'#f6e3b0'});}
-      // 飛行物(英雄的箭/法球/聖光、遠程魔物的飛行物)與數字
-      for(const e of ev){const a=pos.get(e.a),b=pos.get(e.b),age=t-e.t;if(age<0||age>1.6)continue;
-        if(e.shot&&a&&b&&age<.3){const u=age/.3,ay=a.y-11*scale,by=b.y-11*scale,x=a.x+(b.x-a.x)*u,y=ay+(by-ay)*u-Math.sin(u*Math.PI)*(e.k==='hurt'?(MONSTER_RANGED[e.shot]?.lob||0)*scale*.6:2*scale);
-          if(e.k==='hurt'){const c=MONSTER_RANGED[e.shot];if(!c||!mshotFrame(c.shot,x,y,c.size*.9,c.spin?age*9:Math.atan2(by-ay,b.x-a.x),1,!c.spin&&b.x<a.x))ctx.fillRect(x-2,y-2,4,4);}
-          else{ctx.save();ctx.fillStyle=DG_SHOT[e.shot]||'#fff';ctx.shadowColor=ctx.fillStyle;ctx.shadowBlur=6*dpr;if(e.shot==='archer'){ctx.fillRect(x-7*dpr,y-1*dpr,14*dpr,2*dpr);}else{ctx.beginPath();ctx.arc(x,y,3.5*dpr,0,Math.PI*2);ctx.fill();}ctx.restore();}}
+      // 傷害與治療數字(不畫舊版飛行物／粒子特效)
+      for(const e of ev){const b=pos.get(e.b),age=t-e.t;if(age<0||age>1.6)continue;
         const la=t-land(e);if(la<0||la>1.1||!b)continue;
-        if(e.k==='heal'){ctx.save();ctx.globalAlpha=Math.max(0,1-la/.8);ctx.fillStyle='#b9f5a8';for(let i=0;i<6;i++){const r=(hash(e.t+':'+i)%100)/100,x=b.x+(r-.5)*16*scale,y=b.y-(6+la*30+i*3)*scale;ctx.fillRect(x,y,2*dpr,2*dpr);}ctx.restore();}
         const txt=(e.k==='heal'?'+':'')+e.v,col=e.k==='heal'?'#a6f59a':e.k==='hurt'?'#ff8a6e':e.k==='skill'?'#ffd75e':'#fff3d0',rise=Math.min(1,la/.7)*14*scale,pop=la<.12?1+.6*(1-la/.12):1;
         dgText(txt,b.x+((hash(e.t)%11)-5)*scale,b.y-(27*scale)-rise,{size:Math.round((e.k==='skill'?13:11)*dpr*pop),color:col,alpha:Math.max(0,1-Math.max(0,la-.7)/.4)});}
       // 上方資訊:層數/波數、狀態、自動續戰
@@ -2381,57 +2381,48 @@ let renderDprMax=Math.max(1,dprCap||autoDpr());   // 畫布解析度上限(devic
       const s0=scale;scale*=big;try{drawMonsterSheet(f.type,p,true,act,i,alpha,flash?{flash,flashColor:'#ffffff'}:null);}finally{scale=s0;}
       if(f.hp>0)hpBar(p.x,p.y-(30*big)*scale,16*scale*big,f.hp/f.maxHp,'#e0533f');}
   }
-  // 砸地類的重擊魔物(王 + 三隻大型怪):命中時畫 iso 的大地震擊,取代原本的爪痕。
+  // 砸地類的重擊魔物(王 + 三隻大型怪):供蓄力腳下影子收緊提示使用。
   const HEAVY_SLAM=new Set(['boulder','yeti','moss','boss']);
-  function drawImpact(e,age,p){const s=scale,cy=p.y-11*s;
-    if(e.type==='arrow'){// 箭矢命中:iso 版 hit-spark(胸口高度,地板火花環貼地)。暴擊同一張表放大 35% + 白光一閃
-      if(vfxSheet('hit-spark-iso')){const crit=e.crit&&!e.skill;drawIso('hit-spark-iso',age,p.x,p.y,{tune:crit?1.35:1});
-        if(age<.1)pixelFlash(p.x,cy,crit?7:4.5,(1-age/.1)*(crit?1:.7));return;}
-      if(e.crit&&drawVfxSheet('crit-hit',age,p.x,cy,CRIT_K*s)){sparks(p.x,cy,age,hash(e.id),10,['#fff4c8','#ffd98a']);return;}   // 暴擊:大金爆
-      if(drawVfxSheet('hit-spark',age,p.x,cy,SPARK_K*s*.85)){sparks(p.x,cy,age,hash(e.id),8,['#fff4c8','#ffd98a','#e8d090']);return;}   // 普攻命中:火花
-      if(age<.14)fxSprite('fxHit',p.x,cy,8+age*50,{alpha:1-age/.14});sparks(p.x,cy,age,hash(e.id),6,['#fff4c8','#e8d090']);return;}
-    if(e.type==='spell'){const st=age*VFX_SPEED,fade=st<.85?1:Math.max(0,1-(st-.85)/.3);
-      // 法師普攻命中:直接用法球術自己的爆炸素材(pixelfx fireball-blast＝small-explosion 前 1.2 秒),取代原本的火花表。
-      // T69:錨在特效快取的身體中心(見 drawEffect),擊殺後目標已不在 state.enemies 也不會掉回腳下。
-      // 尺寸要從「不透明範圍」算:表是 300×240、實際火球只佔約 174 px 寬,拿整個畫格換算會只剩約 0.58 倍。
-      // 可見寬度至少 1.2 倍魔物圖寬(ENEMY_SIZE＝sprite 寬),上限 2.2 倍中型怪(26),大 boss 才不會佔滿畫面。
-      const a=e.bodyAnchor,bw=(a?a.size:22)*s,bh=bw,tp=a?screenPoint(a.x,a.z):p,
-        BLAST_OPAQUE=174/300,want=Math.min(1.2*bw,2.2*26*s),bk=Math.max(.17*s,want/(300*BLAST_OPAQUE));
-      // 火球本體留著(球體側視沒問題),命中再加一層 iso 冰爆:0.35 s 起在腳下綻開,補上「紫系法師」的顏色。
-      if(vfxSheet('frost-nova-iso')){drawIso('frost-nova-iso',age,p.x,p.y);if(fade>0)drawVfxSheet('fireball-blast',age,tp.x,tp.y-bh/2,bk,{alpha:fade});return;}
-      if(fade>0&&drawVfxSheet('fireball-blast',age,tp.x,tp.y-bh/2,bk,{alpha:fade}))return;
-      if(drawVfxSheet('hit-spark',age,p.x,cy,SPARK_K*s)){sparks(p.x,cy,age,hash(e.id),8,['#fff3c8','#ffb04a','#e8584a']);return;}   // 表不在時的後備:火花表
-      const t=Math.min(1,age/.35);g.save();g.globalAlpha=.7*(1-t);g.strokeStyle='#b98aff';g.lineWidth=Math.max(1,2*s*(1-t));g.beginPath();g.ellipse(p.x,p.y,(4+16*t)*s,(1.8+7*t)*s,0,0,Math.PI*2);g.stroke();g.restore();
-      if(age<.3)fxSprite('fxSparkle',p.x,cy,14+age*40,{alpha:1-age/.3,rot:age*3});sparks(p.x,cy,age,hash(e.id),12,['#f1e0ff','#c79cff','#8f6ad8'],32);return;}
-    if(e.type==='holy'){// 牧師聖光命中:iso 版 smite-iso(光錘從天上砸下來 + 石屑),表不在才退回 holy-hit
-      if(vfxSheet('smite-iso')){drawIso('smite-iso',age,p.x,p.y);return;}
-      if(drawHolyHit(age,p))return;const t=Math.min(1,age/.4);g.save();g.globalAlpha=.55*(1-t);g.fillStyle='#fff3c0';g.fillRect(p.x-4*s*(1-t*.5),p.y-60*s,8*s*(1-t*.5),60*s);g.restore();if(age<.3)fxSprite('fxSparkle',p.x,cy,16,{alpha:1-age/.3});return;}
-    if(e.type==='hit'&&drawMeleeSheet(e,age,p))return;   // 刺客/聖騎/黑騎/狂戰普攻:pixelfx 表(MELEE_FX),魔物打英雄沒有 cls 不受影響
-    if(e.type==='hit'){const boss=e.by==='boss',src=screenPoint(e.sourceX??e.x,e.sourceZ??e.z),dir=src.x>p.x?-1:1;
-      // 魔物打英雄:iso 命中特效。大型怪/王 = 大地震擊(砸地、塵環),其餘 = hit-spark-iso(紅系火花)
-      if(vfxSheet('hit-spark-iso')){if(HEAVY_SLAM.has(e.by))drawIso('ground-slam-iso',age,p.x,p.y,{tune:boss?1.15:1});else drawIso('hit-spark-iso',age,p.x,p.y);
-        if(!HEAVY_SLAM.has(e.by)&&age<.09)pixelFlash(p.x,cy,4,1-age/.09);return;}
-      const t=Math.min(1,age/.08),a=age<.08?1:Math.max(0,1-(age-.08)/.3);
-      // 爪痕:三道斜線由打來的方向劃過,白芯紅邊
-      if(a>0){g.save();g.globalAlpha=a;for(let i=-1;i<=1;i++){const x0=p.x+(i*3-dir*5)*s,y0=cy-(6+i)*s,x1=x0+dir*10*t*s*(boss?1.5:1),y1=y0+9*t*s*(boss?1.5:1);line(g,x0,y0,x1,y1,'#c8322a',Math.max(2,2*s));line(g,x0,y0,x1,y1,'#fff0e0',Math.max(1,s*.8));}g.restore();}
-      if(age<.12)fxSprite('fxHit',p.x,cy,(boss?10:7)+age*30,{alpha:.85*(1-age/.12)});sparks(p.x,cy,age,hash(e.id),7,['#ffd0b8','#e8584a']);}
-  }
-  function drawDeath(e,age,p){if(pendingMon(e.enemyType||'sprout'))return;const type=e.enemyType||'sprout',sz=ENEMY_SIZE(type),s=scale,t=Math.max(0,(age-.1)/.6);
+  function drawDeath(e,age,p){if(pendingMon(e.enemyType||'sprout'))return;const type=e.enemyType||'sprout',sz=ENEMY_SIZE(type),t=Math.max(0,(age-.1)/.6);
     if(MON_SHEET(type)){const m=MON_SHEET(type).meta.actions.death,i=Math.floor(age/m.frameTime),fade=age<1.1?1:Math.max(0,1-(age-1.1)/.5);if(fade>0)drawMonsterSheet(type,p,!!e.flipHint,'death',i,fade,{flash:age<.1?1:0,flashColor:'#ffffff'});return;}
-    // 倒下:先第二受擊格(8)一下,再倒地屍體圖(9)躺著淡出;朝向沿用受擊時(面向打倒牠的獵人)。沒有 8/9 格才退回壓扁受擊圖。
     if(detailFrameFor(type+'9')){const fade=age<1.1?1:Math.max(0,1-(age-1.1)/.5),pose={pose:'hurt',ox:0,oy:0,lean:0,sx:1,sy:1,flash:age<.12?1:0,flashColor:'#ffffff'};
       if(fade>0)posed(p,pose,q=>drawAtlasMonster(type,age<.18?8:9,q,sz,!!e.flipHint,fade));}
     else if(t<1){const pose={pose:'hurt',ox:0,oy:0,lean:0,sx:1+.25*t,sy:Math.max(.08,1-ease(t)*.92),flash:age<.18?1:0,flashColor:'#ffffff'};
-      posed(p,pose,q=>drawAtlasMonster(type,4,q,sz,!!e.flipHint,1-t*t));}
-    // 煙塵往外擴、魂火往上飄
-    const r=rnd(hash(e.id)+7);for(let i=0;i<10;i++){const an=r()*Math.PI*2,d=(6+r()*10)*Math.min(1,age/.5),x=p.x+Math.cos(an)*d*s,y=p.y-2*s+Math.sin(an)*d*.4*s,a=Math.max(0,1-age/1.1);
-      g.globalAlpha=a*.7;const sz2=Math.max(2,Math.round((2+r()*2)*s));pixel(g,x-sz2/2,y-sz2/2,sz2,sz2,i%2?'#d8ccb4':'#a89c88');}
-    for(let i=0;i<5;i++){const x=p.x+(r()-.5)*12*s,y=p.y-(8+age*30+r()*8)*s,a=Math.max(0,1-age/1.2);g.globalAlpha=a;pixel(g,x,y,Math.max(1,2*s),Math.max(1,2*s),i%2?'#cfe8ff':'#9ad0ff');}
-    g.globalAlpha=1;if(age>.1&&age<.4)fxSprite('fxStar',p.x,p.y-sz*.4*s,14+(age-.1)*30,{alpha:1-(age-.1)/.3});}
+      posed(p,pose,q=>drawAtlasMonster(type,4,q,sz,!!e.flipHint,1-t*t));}}
   function damageText(e,age,p){const txt=e.text||String(e.value),hero=e.type==='hit',crit=e.crit,pop=age<.12?1+.7*(1-age/.12):1,rise=ease(Math.min(1,age/.7))*16;
     const col=e.color||(hero?'#ff8a6e':e.type==='heal'?'#c7ffbd':crit?'#ffe066':'#fff3d0'),size=Math.round((crit?10:hero?8:8.5)*pop);
     const hh=hash(e.id),dx=e.type==='loot'?0:((hh%13)-6)*1.6*scale,dy=e.type==='loot'?0:((hh>>5)%4)*3.5*scale;  // 同一目標連續挨打:數字錯開成一小片,不疊成一團
     textLabel(crit?txt+'!':txt,p.x+dx,p.y-(27+rise)*scale-dy,{color:col,size,back:false});}
+  // ── 弓箭手的箭(2026-11-23 使用者:「把原本箭特效放回去」)──────────────────────────────
+  // 其他舊版特效表都已換成實時 CQ pixelfx;只有箭照原本:pixelfx arrow / gale-arrow 表畫飛行,hit-spark-iso 畫命中。
+  // build.mjs 只打包這三張(PIXEL_ASSETS.vfxSheets)。程式與數值照 2026-11-20 版 pixel-world.js 原樣搬回。
+  const vfxSheetCache=new Map();
+  function vfxSheet(id){const v=globalThis.PIXEL_ASSETS?.vfxSheets?.[id];if(!v)return null;
+    let im=vfxSheetCache.get(id);if(!im){im=trackImage(new Image());im.src=v.img;vfxSheetCache.set(id,im);}
+    return im.complete&&im.naturalWidth?{img:im,meta:v.meta}:null;}
+  const VFX_SPEED=0.6;   // 側視箭表的播放倍率(調慢才看得清楚);iso 表一律 1.0
+  const vfxSpeed=id=>/-iso$/.test(id)?1:VFX_SPEED;
+  function drawVfxSheet(id,age,x,y,k,{rot=0,alpha=1,rate=1,flip=false}={}){const sh=vfxSheet(id);if(!sh)return false;
+    const px=sh.meta.meta.pixelfx,cw=px.frameSize[0],ch=px.frameSize[1],cols=px.columns;
+    const tt=age*rate*vfxSpeed(id);
+    const t=px.loop?tt%Math.max(.001,px.frames/px.fps):Math.max(0,tt);
+    const i=Math.max(0,Math.min(px.frames-1,Math.floor(t*px.fps)));
+    g.save();g.globalAlpha=alpha;g.translate(R(x),R(y));if(rot)g.rotate(rot);if(flip)g.scale(-1,1);
+    g.drawImage(sh.img,(i%cols)*cw,Math.floor(i/cols)*ch,cw,ch,-px.pivot[0]*k,-px.pivot[1]*k,cw*k,ch*k);
+    g.restore();return true;}
+  // iso 表:1 特效美術 px = 1 英雄美術 px(英雄 1x 表 67 px = 21 世界單位);火花最亮在 f0,命中當下從頭播,放大 1.6 倍才讀得出
+  const ISO_PX=21/67,HIT_SPARK={from:0,to:.47,tune:1.6};
+  function drawHitSpark(age,x,y,tune=1){const c=HIT_SPARK,t=c.from+age;if(t<0||t>c.to)return false;
+    const k=ISO_PX*scale*c.tune*tune,fade=t>c.to-.12?Math.max(0,(c.to-t)/.12):1;if(fade<=0)return false;
+    return drawVfxSheet('hit-spark-iso',t,x,y,k,{alpha:fade});}
+  // 暴擊的白光一閃(只給畫面,不動傷害)
+  function pixelFlash(x,y,r,a){if(a<=0)return;g.save();g.globalAlpha=Math.min(.9,.85*a);g.fillStyle='#fff';g.beginPath();g.arc(R(x),R(y),r*scale,0,Math.PI*2);g.fill();g.restore();}
+  // 箭矢命中:iso 版 hit-spark(胸口高度,地板火花環貼地)。暴擊同一張表放大 35% + 白光一閃
+  function drawArrowHit(e,age,p){if(age<0)return;const crit=e.crit&&!e.skill,cy=p.y-11*scale;
+    if(drawHitSpark(age,p.x,p.y,crit?1.35:1)&&age<.1)pixelFlash(p.x,cy,crit?7:4.5,(1-age/.1)*(crit?1:.7));}
+  const ARROW_VFX_K=0.19;   // pixelfx arrow 表:普攻的箭放大(原本 0.12)
+  let arrowLast=null;
+  globalThis.__mistvaleArrow=()=>({last:arrowLast});   // 驗收用:弓箭手箭矢的螢幕位置
   // 弓箭手的箭是 state.shots 裡的實體:畫在它真正的位置,碰到魔物才消失(命中/扣血由 stepShots 判定)
   function drawShotArrows(){const shots=state?.shots;if(!shots?.length)return;const s=scale;
     for(const sh of shots){if(sh.kind!=='arrow'||sh.wait>0)continue;   // 箭雨:還沒到放出格的箭不畫
@@ -2444,197 +2435,30 @@ let renderDprMax=Math.max(1,dprCap||autoDpr());   // 畫布解析度上限(devic
       const sid=sh.fx==='gale'?'gale-arrow':'arrow';
       const dl=Math.hypot(sh.dx,sh.dz)||1,ux=sh.dx/dl,uz=sh.dz/dl;
       const ghosts=sh.fx==='gale'?{n:3,gap:.35,a:[.45,.28,.14]}:{n:2,gap:.3,a:[.3,.15]};
-      const hx=p.x, hy=p.y-12*s-drop*s;
+      const hx=p.x, hy=p.y-12*s-drop*s, age=state.time+(sh.big?.15:0), k=ARROW_VFX_K*2.7*s;
       // 殘影:沿飛行方向往後取早先的點(越遠越淡),高度用該點的 travel 算;還沒離弦(<0)的不畫
       for(let i=ghosts.n;i>=1;i--){const back=i*ghosts.gap,earlier=travel-back;if(earlier<0)continue;
-        const gp=screenPoint(sh.x-ux*back,sh.z-uz*back),gdrop=(sh.drop||0)*Math.max(0,1-earlier/span),gx=gp.x,gy=gp.y-12*s-gdrop*s;   // gx/gy 是螢幕座標
-        const age=state.time+(sh.big?.15:0),k=ARROW_VFX_K*2.7*s,a=ghosts.a[i-1];
+        const gp=screenPoint(sh.x-ux*back,sh.z-uz*back),gdrop=(sh.drop||0)*Math.max(0,1-earlier/span),gx=gp.x,gy=gp.y-12*s-gdrop*s,a=ghosts.a[i-1];
         if(!drawVfxSheet(sid,age,gx,gy,k,{rot:ang,alpha:a})&&sid==='gale-arrow')drawVfxSheet('arrow',age,gx,gy,k,{rot:ang,alpha:a});}
-      if(!drawVfxSheet(sid,state.time+(sh.big?.15:0),hx,hy,ARROW_VFX_K*2.7*s,{rot:ang})&&sid==='gale-arrow')
-        drawVfxSheet('arrow',state.time+(sh.big?.15:0),hx,hy,ARROW_VFX_K*2.7*s,{rot:ang});
+      if(drawVfxSheet(sid,age,hx,hy,k,{rot:ang})||(sid==='gale-arrow'&&drawVfxSheet('arrow',age,hx,hy,k,{rot:ang})))
+        arrowLast={x:Math.round(hx),y:Math.round(hy),fx:sh.fx||null,t:+state.time.toFixed(2)};
     }}
+  // 實時 CQ pixelfx (livefx)、魔物倒下動畫(death)、技能名與浮動數值;箭矢命中另外畫原本的 hit-spark(見上)。
   function drawEffect(e){const age0=e.age||0,delay=e.delay||0,age=age0-delay,p=screenPoint(e.x||0,e.z||0);
-    // T69:法師普攻的爆炸把目標身體錨點記在特效上 —— 擊殺那一幀 step() 已經把 hp=0 的魔物移出
-    // state.enemies(在同一次 tick、第一次繪製之前),所以不能只靠還活著的目標:建立特效時
-    // pixel-game.js 的 effect() 會一起寫入 bodyType,目標不見了就退回它,位置用特效本身的 x/z。
-    if(e.type==='spell'){const tgt=(state.enemies||[]).find(o=>o.id===e.targetId),bt=tgt?tgt.type:e.bodyType;
-      if(bt)e.bodyAnchor={type:bt,x:tgt?tgt.x:e.x,z:tgt?tgt.z:e.z,size:ENEMY_SIZE(bt)};}
-    if(e.type==='skillName'){if(age<1.1){const a=Math.min(1,(1.1-age)*3);g.globalAlpha=a;textLabel(e.text,p.x,p.y-(30+age*10)*scale,{size:11,color:e.color||'#bdf4ff'});g.globalAlpha=1;}return;}
-    if(e.type==='skillSelf'){drawSkillSelf(e,age0,p);return;}
-    if(e.type==='skillfx'||e.type==='gale'){drawSkillFx(e,age0,delay,p);if(age>=0&&(e.value||e.text))damageText(e,age,p);g.globalAlpha=1;return;}
-    if(e.type==='mshot'){drawMonsterShot(e,age0,delay,p);if(age>=0&&e.value)damageText(e,age,p);g.globalAlpha=1;return;}
-    if(e.type==='vfxsheet'){const t=(e.age||0)-(e.delay||0);if(t<0)return;
-      // iso 表:自己的時間軸(from/to)、1:1 尺度、tune 由呼叫端微調(不傳就用表上的預設)
-      if(ISO_FX[e.sheet]){drawIso(e.sheet,t,p.x,p.y,{rot:e.rot||0,alpha:e.alpha??1,flip:!!e.flip,tune:e.tune||1,dy:e.dy||0});return;}
-      const speed=vfxSpeed(e.sheet),st=t*speed,dur=e.dur||2;const fade=st>dur-.35?Math.max(0,(dur-st)/.35):1;
-      const ok=drawVfxSheet(e.sheet,t,p.x,p.y-(e.dy||0)*scale,(e.k||.1)*scale,{alpha:fade,rot:e.rot||0,flip:!!e.flip});state.lastVfxDraw={sheet:e.sheet,t:+t.toFixed(2),x:Math.round(p.x),y:Math.round(p.y-(e.dy||0)*scale),ok};return;}
-    if(age<0){if(e.type==='holy'&&drawHolyHit(age,p))return;if((e.type==='slash'||e.type==='hit')&&drawMeleeSheet(e,age,p))return;if(e.type==='arrow'||e.type==='spell'||e.type==='holy')drawProjectile(e,Math.min(1,age0/Math.max(.01,delay)),p);return;}
-    if(e.noImpact)return;   // 只負責飛行畫面(手動操控法師的魔法球飛完射程就消失;命中特效由打到的那一刻另外出)
-    // 只有畫 pixelfx 表的命中/法術/箭/近戰特效才跟著放慢收尾;victory/heal/level/upgrade 等 atlas/程序特效
-    // 維持原本 1.5 秒淡出(REVIEW T65 high:非表的特效不能被拉長到 2.5 秒)。
-    const slowEnd=e.type==='holy'||e.type==='spell'||e.type==='arrow'||e.type==='hit'||e.type==='slash';
-    const fade=Math.max(0,1-age*(slowEnd?VFX_SPEED:1)/1.5);if(!fade)return;
-    if(e.type==='death'){drawDeath(e,age,p);return;}
-    if(e.type==='slash')drawSlash(e,age,p);
-    else if(e.type==='arrow'||e.type==='spell'||e.type==='holy'||e.type==='hit')drawImpact(e,age,p);
-    else if(!drawAtlasEffect(e,age,p,fade))drawProcEffect(e,age,p,fade);
-    if((e.value||e.text)&&age<1.5)damageText(e,age,p);   // 傷害數字維持原本 1.5 秒,不跟著特效放慢拉長(T65 review)
+    if(e.type==='livefx'){if(!e._liveSpawned)spawnLiveEffect(e);if(age>=0&&age<1.5&&(e.value||e.text))damageText(e,age,p);g.globalAlpha=1;return;}
+    if(e.type==='death'){if(age>=0)drawDeath(e,age,p);g.globalAlpha=1;return;}
+    if(e.type==='arrow'&&!e.noImpact)drawArrowHit(e,age,p);
+    if(e.type==='skillName'){if(age>=0&&age<1.1){const a=Math.min(1,(1.1-age)*3);g.globalAlpha=a;textLabel(e.text,p.x,p.y-(30+age*10)*scale,{size:11,color:e.color||'#bdf4ff'});g.globalAlpha=1;}return;}
+    if(age>=0&&age<1.5&&(e.value||e.text)&&!e.noImpact)damageText(e,age,p);
     g.globalAlpha=1;
   }
-  // 疾風箭雨:放出格(0.32 秒)前不畫;飛行中用弓箭手特效表第 0–1 格(青色風箭+拖尾),命中後 3–5 格(星爆→衝擊環→散光)。
-  function fxFrame(cls,i,x,y,size,{flip=false,rot=0,alpha=1}={}){const hs=heroSheets[cls];if(!hs?.fx||!hs.fxMeta)return false;const c=hs.fxMeta.cell,k=size*scale/c;
-    g.save();g.globalAlpha=alpha;g.translate(R(x),R(y));if(rot)g.rotate(rot);if(flip)g.scale(-1,1);g.drawImage(hs.fx,i*c,0,c,c,-c*k/2,-c*k/2,c*k,c*k);g.restore();return true;}
-  // 各職業技能特效格(<職業>-fx 表,8 格):fly = 飛行物格、hit = 命中格、self = 英雄身上的格(旋風/聖盾/蓄力)。順序對 make_heroes_v3.py 的 fx_frames。
-  // selfY:身上特效的高度(蓄力漩渦在腳邊 2、旋風/聖盾在身體中間 10);selfA:身上特效透明度(聖盾半透明,不蓋掉角色)
-  const SKILL_FX={archer:{fly:[0,1],hit:[3,4,5],self:[6,7],size:14,selfY:2,selfA:.9},sorcerer:{fly:[1,2],hit:[3,4,5],self:[6,7],size:18,selfY:2,selfA:.9},
-    berserker:{fly:[],hit:[5,6,7],self:[0,1,2,3,4],size:30,selfY:10,selfA:.9},paladin:{fly:[],hit:[6,7],self:[0,1,2,3,4,5],size:28,selfY:10,selfA:.55}};
-  function drawSkillSelf(e,age0,p){const cfg=SKILL_FX[e.cls],t=age0-(e.delay||0);
-    // 疾風箭雨:弓手身上捲起落葉風場(pixelfx leaf-storm),跟著施法淡出
-    if(e.cls==='archer'&&e.fx==='gale'){const st=t*VFX_SPEED;if(st>=0&&st<1.45){const fade=st<1.1?1:Math.max(0,(1.45-st)/.35);drawVfxSheet('leaf-storm',t,p.x,p.y,LEAF_K*scale,{alpha:fade});}return;}
-    // 狂戰士旋風斬:iso 版整張 whirlwind-iso 繞著英雄轉(取代側視 self fx 格),以腳下為圓心
-    if(e.cls==='berserker'&&e.fx==='slash'){drawIso('whirlwind-iso',Math.max(0,t),p.x,p.y);return;}
-    // 聖騎士聖盾祈禱:iso 版 divine-shield-iso 由 pixel-game 另外開 vfxsheet 效果(要跟著被治療的獵人),這裡不再畫 atlas 盾
-    if(e.cls==='paladin'&&e.fx==='holy')return;
-    if(!cfg||!heroSheets[e.cls]?.fx)return;const len=cfg.self.length*.09;if(t<-.25||t>len)return;
-    const i=cfg.self[Math.max(0,Math.min(cfg.self.length-1,Math.floor((t+.25)/(len+.25)*cfg.self.length)))];fxFrame(e.cls,i,p.x,p.y-cfg.selfY*scale,cfg.selfY<5?cfg.size*.9:cfg.size,{alpha:cfg.selfA*(t>len-.1?Math.max(0,(len-t)/.1):1)});}
-  // 法師第一招「火龍捲」:pixelfx 匯出的整張技能表(iso 版 240×400、157 幀、30fps),
-  // 依 JSON 的 pivot 對齊目標腳下,逐幀 drawImage(每幀都用到,不是抽格)。
-  // 所有 pixelfx 技能表(assets/vfx-sheets, build 嵌成 PIXEL_ASSETS.vfxSheets)。
-  const vfxSheetCache=new Map();
-  function vfxSheet(id){const v=globalThis.PIXEL_ASSETS?.vfxSheets?.[id];if(!v)return null;
-    let im=vfxSheetCache.get(id);if(!im){im=trackImage(new Image());im.src=v.img;vfxSheetCache.set(id,im);}
-    return im.complete&&im.naturalWidth?{img:im,meta:v.meta}:null;}
-  // 驗收用:把指定的表先解碼好(vfxSheet() 在圖片解碼完成前回 null,第一幀會畫不出來)。
-  globalThis.__mistvaleVfxWarm=(ids=[])=>Promise.all(ids.map(id=>{const v=globalThis.PIXEL_ASSETS?.vfxSheets?.[id];if(!v)return null;
-    let im=vfxSheetCache.get(id);if(!im){im=trackImage(new Image());im.src=v.img;vfxSheetCache.set(id,im);}
-    return im.complete&&im.naturalWidth?null:(im.decode?im.decode().catch(()=>{}):Promise.resolve());}));
-  // 以美術像素為單位畫一格;k = 螢幕 px / 美術 px。rot 轉向;looping 表依 meta.loop 取餘數。
-  const VFX_SPEED=0.6;   // T65:所有 pixelfx 表(含蓄力/箭/火球的循環動畫)統一的播放倍率,調慢才看得清楚;命中格另外除以它對齊。
-  // T66:每個表可以有自己的倍率;火龍捲(iso 版)維持原本 1.0 倍速(和 dd3d616 之前一樣),其他表照 VFX_SPEED。
-  // iso 改寫的表(*-iso)一律 1.0 倍速:它們是照「1 特效 px = 1 英雄 px」重畫的,0.6 的慢速是給側視舊表看的。
-  // 這裡把每一張接上的 iso 表都明列 1.0,不靠 /-iso$/ 的後備規則(驗收時一眼看得出誰是 1.0)。
-  const VFX_SPEED_BY_SHEET={'cinder-cyclone-iso':1.0,'hit-spark-iso':1.0,'blade-hit-iso':1.0,'blade-hit-heavy-iso':1.0,
-    'whirlwind-iso':1.0,'great-slash-iso':1.0,'dagger-flurry-iso':1.0,'warp-iso':1.0,'divine-shield-iso':1.0,
-    'heal-aoe-iso':1.0,'magic-circle-cast-iso':1.0,'soul-rise-iso':1.0,'coin-drop-iso':1.0,'portal-iso':1.0,
-    'smite-iso':1.0,'frost-nova-iso':1.0,'ground-slam-iso':1.0};
-  const vfxSpeed=id=>VFX_SPEED_BY_SHEET[id]??(/-iso$/.test(id)?1:VFX_SPEED);
-  function drawVfxSheet(id,age,x,y,k,{rot=0,alpha=1,rate=1,flip=false}={}){const sh=vfxSheet(id);if(!sh)return false;
-    const px=sh.meta.meta.pixelfx,cw=px.frameSize[0],ch=px.frameSize[1],cols=px.columns;
-    const tt=age*rate*vfxSpeed(id);
-    const t=px.loop?tt%Math.max(.001,px.frames/px.fps):Math.max(0,tt);
-    const i=Math.max(0,Math.min(px.frames-1,Math.floor(t*px.fps)));
-    g.save();g.globalAlpha=alpha;g.translate(R(x),R(y));if(rot)g.rotate(rot);if(flip)g.scale(-1,1);
-    g.drawImage(sh.img,(i%cols)*cw,Math.floor(i/cols)*ch,cw,ch,-px.pivot[0]*k,-px.pivot[1]*k,cw*k,ch*k);
-    g.restore();return true;}
-  // ── iso 改寫版特效(pixelfx 的 src/fx/**/*-iso)──────────────────────────────
-  // 作者文件 docs/AUTHORING.md「The game's camera」:1 特效美術 px = 1 英雄美術 px、地板是 2:1 橢圓、整張圖不縮放。
-  // 英雄 1x 表 67 px 高 = 21 世界單位,所以 1 美術 px = 21/67 世界單位;每張表的 tune 是「看得清楚」的讀圖微調
-  // (命中/刀光那種一小撮白火花在草地上太細,放大 1.3–1.55 倍才讀得出來;範圍/地面類維持 1.0–1.35)。
-  // from/to = 這張表實際要播的時間軸(秒):from 對到「打擊真的落下」那一刻(age 0 = 命中瞬間),to 截掉過長的尾巴。
-  // 每張表選 from/to/tune 的理由寫在 output/vfx-iso/README.md 的對照表。
-  const ISO_PX=21/67;
-  const ISO_FX={
-    'hit-spark-iso':{from:0,to:.47,tune:1.6},            // 火花最亮在 f0,所以命中當下就從頭播;1:1 時白芯只有 ~7 px,放大到讀得出「被打到」
-    'blade-hit-iso':{from:0,to:.53,tune:1.65},           // 暴擊那一刀:比普攻大一點
-    'blade-hit-heavy-iso':{from:0,to:.53,tune:1.55},     // 重砍(狂戰普攻):放大到約英雄身高 2/3 才讀得出重量
-    'whirlwind-iso':{from:0,to:.8,tune:1.35},            // 旋風半徑 ~32 世界單位(約 1.5 個英雄高)
-    'great-slash-iso':{from:.02,to:.8,tune:1.55},        // 聖騎大斬:弧長要跨過目標身體,1:1 時只有細線
-    'dagger-flurry-iso':{from:.25,to:.7,tune:1.55},      // 前 .25 s 只有零星刀光,打擊在中段;連刺要包住目標
-    'warp-iso':{from:.3,to:2.6,tune:1.15},
-    'divine-shield-iso':{from:.05,to:3.0,tune:1.15},
-    'heal-aoe-iso':{from:.55,to:2.3,tune:1.15},          // 綻放在 ~1.03 s,回血數字跳出時剛好開花
-    'magic-circle-cast-iso':{from:.9,to:2.0,tune:1.2},   // 法陣 FLASH(1.52)對到火龍捲 release(.55)
-    'soul-rise-iso':{from:.1,to:3.4,tune:1.35},          // 靈魂輪廓很細,放大才看得出是「離體的魂」
-    'coin-drop-iso':{from:0,to:3.2,tune:1.3},
-    'portal-iso':{from:0,to:4.5,tune:1.25},
-    'smite-iso':{from:.4,to:1.9,tune:1.45},              // 光錘 0.57 s 落地 → 命中後 .17 s 砸到
-    'frost-nova-iso':{from:.35,to:1.6,tune:.75},         // 法師普攻命中的第二層冰爆:小尺寸,不搶火球爆炸的戲
-    'ground-slam-iso':{from:.25,to:2.5,tune:1.1},        // 大地震擊 0.6 s 落地 → 命中後 .35 s 砸到
-  };
-  let isoDrawn=0,isoLast=null,isoSeen=new Set(),isoLasts={};
-  globalThis.__mistvaleIso=()=>({drawn:isoDrawn,last:isoLast,seen:[...isoSeen],lasts:isoLasts});   // 驗收用:最後一次畫出的 iso 特效 + 這一輪畫過哪些表
-  globalThis.__mistvaleIsoClear=()=>{isoSeen.clear();isoDrawn=0;isoLast=null;isoLasts={};};   // 驗收用:清掉 drawn/seen 再跑一次情境
-  globalThis.__mistvaleIsoTable=()=>({px:ISO_PX,sheets:JSON.parse(JSON.stringify(ISO_FX))});   // 驗收用:iso 表的 from/to/tune 與 1:1 尺度
-  // 畫一張 iso 表。age = 從「命中/事件那一刻」起算的秒數(和 drawVfxSheet 的 age 同義),
-  // pivot 就是地板接觸點,所以直接給目標腳下的螢幕座標;播到 to 就停,不會停在最後一格。
-  function drawIso(id,age,x,y,{rot=0,alpha=1,flip=false,tune=1,dy=0}={}){
-    const c=ISO_FX[id];if(!c)return false;
-    const t=c.from+age;if(t<0||t>c.to)return false;
-    const k=ISO_PX*scale*(c.tune||1)*tune,fade=t>c.to-.12?Math.max(0,(c.to-t)/.12):1;
-    if(fade<=0)return false;
-    const ok=drawVfxSheet(id,t,x,y-dy*scale,k,{alpha:alpha*fade,rot,flip});
-    if(ok){isoDrawn++;isoSeen.add(id);isoLast={sheet:id,age:+age.toFixed(2),t:+t.toFixed(2),x:Math.round(x),y:Math.round(y-dy*scale),k:+k.toFixed(3),iso:true,ok};isoLasts[id]=isoLast;state.lastVfxDraw=isoLast;}
-    return ok;
-  }
-  // 暴擊的白光一閃:iso 表沒有側視 crit-hit 的金爆,補一顆很短的白芯(只給畫面,不動傷害)
-  function pixelFlash(x,y,r,a){if(a<=0)return;g.save();g.globalAlpha=Math.min(.9,.85*a);g.fillStyle='#fff';g.beginPath();g.arc(R(x),R(y),r*scale,0,Math.PI*2);g.fill();g.restore();}
-  const CINDER_TUNE=1.05, FIRE_K=0.19, SPARK_K=0.13, CRIT_K=0.06, LEAF_K=0.3;   // 美術像素 → 世界單位(英雄 66px = 21 單位);火龍捲 iso 表和英雄同為 1:1,只留 ±15% 微調(T94:量到 5.4 個英雄高,乘 1.05 進目標 5.5–6.5)
-  // 牧師普攻:pixelfx impacts/holy-hit(= holy/smite 前 1.3 秒)。表在 0.54 秒時光錘落地,所以用 HOLY_LAND+age 對齊:
-  // 飛行段(age<0,0.16 秒)就開始畫,看得到目標上的光點和落下的光錘,命中那一刻剛好砸到;腳下原點,最後一段淡出。
-  const HOLY_LAND=.54,HOLY_K=.14,HEAL_K=.55,HEAL_LEAD=.17;
-  function drawHolyHit(age,p){const t=HOLY_LAND/VFX_SPEED+age;if(t<0)return false;const st=age*VFX_SPEED,fade=st<.5?1:Math.max(0,1-(st-.5)/.26);
-    return fade<=0?!!vfxSheet('holy-hit'):drawVfxSheet('holy-hit',t,p.x,p.y,HOLY_K*scale,{alpha:fade});}
-  // 近戰職業普攻命中(pixelfx 表,原點都是表裡替身的腳下):t0 = 命中那一刻(age 0)對到表的第幾秒,dx = 表裡打擊點在替身前方幾美術 px。
-  // 把表往攻擊方退 dx,打擊點就落在目標身上;表往 +x 揮,攻擊者在右邊(往左打)整張水平翻面。命中前(age<0)也畫,看得到刀落下。
-  // 2026-11:這裡全部改吃 iso 改寫版(1 特效 px = 1 英雄 px,尺度由 ISO_FX 管),側視原表只當後備:
-  //   黑騎士 heavy-cleave → impacts/blade-hit-iso(heavy):短促的重砍,取代暗紫色盤
-  //   狂戰士 berserk-hit → impacts/blade-hit-iso(heavy):同一張重砍,取代側視噴濺
-  //   聖騎士 parry → melee/great-slash-iso:完整一道大斬弧(parry 是正上方爆開,iso 版有地平面方向)
-  //   刺客 double-slash → melee/dagger-flurry-iso:連刺刀光(表在 pivot 右側 6~41 px,往攻擊方退 12 px 讓刀光包住目標)
-  const MELEE_FX={darkknight:{sheet:'blade-hit-heavy-iso',dx:0,iso:true},berserker:{sheet:'blade-hit-heavy-iso',dx:0,iso:true},
-    paladin:{sheet:'great-slash-iso',dx:12,iso:true},assassin:{sheet:'dagger-flurry-iso',dx:12,iso:true}};
-  function drawMeleeSheet(e,age,p){const c=MELEE_FX[e.cls];if(!c)return false;
-    const src=screenPoint(e.sourceX??e.x,e.sourceZ??e.z),dir=src.x>p.x?-1:1;
-    // 暴擊/重擊:職業那一刀之外再補一道 impacts/blade-hit-iso 的白色傷口(放大 20%),讀得出「這下特別重」;
-    // 側視的 crit-hit 金爆只留給箭矢(iso 版沒有對應的爆閃,箭矢用 hit-spark 放大 + 白光代替)。
-    if(c.iso&&e.crit){drawIso('blade-hit-iso',age,p.x-dir*c.dx*ISO_PX*scale,p.y,{flip:dir<0,tune:1.2});
-      if(age<.1)pixelFlash(p.x-dir*c.dx*ISO_PX*scale,p.y-11*scale,6,1-age/.1);}
-    if(c.iso)return drawIso(c.sheet,age,p.x-dir*c.dx*ISO_PX*scale,p.y,{flip:dir<0});
-    const t=c.t0/VFX_SPEED+age;if(t<0)return false;
-    const k=c.k*scale,st=age*VFX_SPEED,fade=st<c.fadeAt?1:Math.max(0,1-(st-c.fadeAt)/c.fadeLen);
-    return fade<=0?!!vfxSheet(c.sheet):drawVfxSheet(c.sheet,t,p.x-dir*c.dx*k,p.y,k,{alpha:fade,flip:dir<0});}
-  // 牧師補血:pixelfx holy/priest-heal(holy/heal 前 1.4 秒、不含替身)。提前 HEAL_LEAD 秒開始,回血數字跳出時花瓣剛好綻開。
-  function drawPriestHeal(t0,p){const t=HEAL_LEAD/VFX_SPEED+t0;if(t<0)return false;const st=t*VFX_SPEED,fade=st<1.1?1:Math.max(0,(1.4-st)/.3);
-    return fade<=0?!!vfxSheet('priest-heal'):drawVfxSheet('priest-heal',t,p.x,p.y,HEAL_K*scale,{alpha:fade});}
-  let cinderDrawn=0,cinderLast=null;
-  globalThis.__mistvaleCinder=()=>({drawn:cinderDrawn,last:cinderLast});   // 驗收用:最後一次畫出來的火龍捲(幀/位置)
-  let fireballDrawn=0,fireballLast=null;
-  globalThis.__mistvaleFireball=()=>({drawn:fireballDrawn,last:fireballLast});   // 驗收用:法師普攻火球(飛行位置)
-  let arrowLast=null;
-  globalThis.__mistvaleArrow=()=>({last:arrowLast});   // 驗收用:弓箭手箭矢的螢幕位置
+  globalThis.__mistvaleLiveFx=()=>liveFx.stats();
+  globalThis.__mistvaleLiveFxClear=()=>{liveFx.clear();liveFx.clearStats();};
   globalThis.__mistvaleShots=()=>(state.shots||[]).map(s=>({x:+s.x.toFixed(2),z:+s.z.toFixed(2),kind:s.kind||'spell',left:+s.left.toFixed(2),dmg:s.dmg,big:!!s.big,wait:+(s.wait||0).toFixed(2),fx:s.fx||null}));   // 驗收用:飛行中的箭/法球
   globalThis.__mistvalePilot=()=>{const p=state.pilot;if(!p)return null;const h=state.hunters.find(q=>q.id===p.id);return h?{id:h.id,cls:h.classId,x:+h.x.toFixed(1),z:+h.z.toFixed(1),t:+state.time.toFixed(2)}:null;};   // 驗收用:目前操控的角色
   globalThis.__mistvaleGale=()=>state.lastGale||null;   // 驗收用:上一次疾風箭雨開了幾支箭
-  globalThis.__mistvaleTestFx=()=>state.lastTestFx||null;   // 驗收用:最後一次按的測試特效
-  globalThis.__mistvaleVfxDraw=()=>state.lastVfxDraw||null;   // 驗收用:最後一次 vfxsheet 實際繪製
   globalThis.__mistvalePilotSkill=()=>state.lastPilotSkill||null;   // 驗收用:手動放技能時職業/技能
   globalThis.__mistvaleEnemies=()=>(state.enemies||[]).filter(e=>e.hp>0).map(e=>({id:e.id,type:e.type,hp:e.hp,x:+e.x.toFixed(1),z:+e.z.toFixed(1)}));   // 驗收用:場上魔物血量/位置
-  function drawCinder(age,p){if(age<0)return true;const sh=vfxSheet('cinder-cyclone-iso');if(!sh)return false;
-    const px=sh.meta.meta.pixelfx;cinderDrawn++;cinderLast={age:+age.toFixed(2),i:Math.min(px.frames-1,Math.floor(age*vfxSpeed('cinder-cyclone-iso')*px.fps)),x:Math.round(p.x),y:Math.round(p.y)};
-    return drawVfxSheet('cinder-cyclone-iso',age,p.x,p.y,heroArt('sorcerer')*CINDER_TUNE*scale);}
-  function drawSkillFx(e,age0,delay,p){const cls=e.cls||'archer',cfg=SKILL_FX[cls];
-    if(cls==='priest'&&e.fx==='holy'){// 暗癒禱言(iso 版 heal-aoe-iso:地上光環綻放→隊友腳下纏繞)取代側視 priest-heal;
-      if(e.iso==='heal-aoe'&&vfxSheet('heal-aoe-iso')){drawIso('heal-aoe-iso',age0-delay,p.x,p.y);return;}   // 表不在才退回下面那張
-      if(drawPriestHeal(age0-delay,p))return;if(age0<delay)return;}   // 牧師普攻補血:隊友腳下 pixelfx 聖光(花瓣→光環上升→小愛心)
-    if(e.fx==='cinder'&&!e.self){drawCinder(age0-delay,p);return;}
-    if(!cfg||!heroSheets[cls]?.fx){const age=age0-delay,o={...e,type:e.fx==='gale'?'arrow':e.fx};if(age<0){if(o.type!=='slash')drawProjectile(o,Math.min(1,age0/Math.max(.01,delay)),p);return;}if(o.type==='slash')drawSlash(o,age,p);else drawImpact(o,age,p);return;}
-    const fly=cfg.fly.length&&!e.self?.18:0,start=delay-fly;if(age0<start)return;const a=screenPoint(e.sourceX??e.x,e.sourceZ??e.z);
-    if(age0<delay){const u=(age0-start)/fly,x=a.x+(p.x-a.x)*u,y=a.y-12*scale+(p.y-11*scale-(a.y-12*scale))*u,ang=Math.atan2(p.y-11*scale-(a.y-12*scale),p.x-a.x);
-      if(!fxFrame(cls,cfg.fly[Math.min(cfg.fly.length-1,Math.floor(u*cfg.fly.length))],x,y,cfg.size,{rot:ang}))line(g,x-6*scale,y,x,y,'#5fd8ff',2*scale);return;}
-    const t=age0-delay,len=cfg.hit.length*.12;if(t>len)return;const fr=cfg.hit[Math.min(cfg.hit.length-1,Math.floor(t/.12))];
-    fxFrame(cls,fr,p.x,p.y-11*scale,cfg.size*(e.self?1:.9)+t*20,{alpha:1-t/len*.4});}
-  function drawAtlasEffect(e,age,p,fade){
-    const id=FX_SPRITE[e.type];if(!id)return !!(e.value||e.text);  // 純數字飄字沒有圖,不算退回
-    // 升級/收穫等事件光效:頭頂上方、小、半透明,不蓋住正在打的人。
-    const w=(e.type==='victory'?18:11)*(.8+Math.min(1,age*2)*.3);
-    return !!drawAtlasDetail(id,{x:p.x,y:p.y-(24+age*12)*scale},w,w,0,fade*.75);
-  }
-  function drawProcEffect(e,age,p,fade){
-    procUse['fx:'+e.type]=(procUse['fx:'+e.type]||0)+1;
-    g.globalAlpha=fade;const s=scale;
-    if(['heal','level','upgrade','victory','harvest','rally','recruit','purchase'].includes(e.type)){const color=e.type==='heal'?'#b9e5b6':e.type==='upgrade'||e.type==='level'?'#fff0a2':'#d6e9bf';for(let i=0;i<6;i++){const a=i*Math.PI/3+age,x=p.x+Math.cos(a)*(10+age*8)*s,y=p.y-10*s+Math.sin(a)*7*s-age*18*s;pixel(g,x-s,y-3*s,2*s,6*s,color);pixel(g,x-3*s,y-s,6*s,2*s,color);}}
-    g.globalAlpha=1;
-  }
   // 把錄製時記下的點擊框、標籤、覆蓋層補回這一幀(順序和逐一繪製時相同)
   const pushSide=s=>{for(const x of s.h)hits.push(x);for(const x of s.u)uiLabels.push(x);for(const x of s.t)screenTexts.push(x);for(const x of s.o)overlays.push(x);};
   // 錄製靜態層:只畫不會動的物件到 fsc,同時錄下靜態影子(ssc)與每個裝飾的繪製範圍。
@@ -2710,6 +2534,7 @@ let renderDprMax=Math.max(1,dprCap||autoDpr());   // 畫布解析度上限(devic
     }finally{g=prev;}
     if(rec)bgKey=vk;}
     if(glr&&shadowsOn)glr.composite(SHADOW_ALPHA);   // GL:影子 FBO(物件那一輪才畫進去,present 時先算好)壓在地面上、物件底下
+    if(glr&&liveFx.hasBack())liveFx.drawBack(g,screenPoint,scale);
     const all=[];
     // 會動的單位跟建築的前後:單一 x+z 排序鍵對「點 vs 長方形佔地」會錯(站在建築西南側、已經在南牆前面的人被屋子蓋住)。
     // 正確判定:從單位往鏡頭方向(+x,+z 對角)射出,射線穿過佔地 → 在建築後面;否則在前面。只調整畫面上可能重疊的建築。
@@ -2778,7 +2603,7 @@ let renderDprMax=Math.max(1,dprCap||autoDpr());   // 畫布解析度上限(devic
         const TW=Math.ceil(canvas.width/16),TH=Math.ceil(canvas.height/16);if(tileMark.length<TW*TH)tileMark=new Uint8Array(TW*TH);tileMark.fill(0,0,TW*TH);let tiles=0;
         for(let i=0;i<compRects.length;i+=4){const tx0=Math.max(0,compRects[i]>>4),ty0=Math.max(0,compRects[i+1]>>4),tx1=Math.min(TW,(compRects[i]+compRects[i+2]+15)>>4),ty1=Math.min(TH,(compRects[i+1]+compRects[i+3]+15)>>4);
           for(let ty=ty0;ty<ty1;ty++)for(let tx=tx0;tx<tx1;tx++){const k=ty*TW+tx;if(!tileMark[k]){tileMark[k]=1;tiles++;}}}
-        compMode=tiles<.4*TW*TH?'region':'direct';}
+        compMode=(tiles<.4*TW*TH&&!liveFx.hasBack())?'region':'direct';}
     }else{
       spgGen=sgGen=-1;   // 整張重畫後,兩層就不再對應任何快取版本
       if(!glr){sg.clearRect(0,0,width,height);spg.clearRect(0,0,width,height);}   // GL 的清單每幀 begin() 就清空(spg 跟地面同一條清單,不能清)
@@ -2792,7 +2617,9 @@ let renderDprMax=Math.max(1,dprCap||autoDpr());   // 畫布解析度上限(devic
     if(compMode==='gl'){}   // GL:影子與物件已經依序排在主清單裡
     else if(compMode==='direct'){
       if(staticKey===vk)copyLayer(g,bgCache);   // 走快取但範圍太大:背景還沒畫到螢幕上,這裡補上
-      g.save();g.setTransform(1,0,0,1,0,0);if(shadowsOn){g.globalAlpha=SHADOW_ALPHA;g.drawImage(shadowLayer,0,0);g.globalAlpha=1;}g.drawImage(spriteLayer,0,0);g.restore();
+      g.save();g.setTransform(1,0,0,1,0,0);if(shadowsOn){g.globalAlpha=SHADOW_ALPHA;g.drawImage(shadowLayer,0,0);g.globalAlpha=1;}
+      if(liveFx.hasBack()){g.save();g.setTransform(DPRK,0,0,DPRK,0,0);liveFx.drawBack(g,screenPoint,scale);g.restore();}
+      g.drawImage(spriteLayer,0,0);g.restore();
       compValid=false;   // comp 已經不是這一幀的畫面,下一幀要整張重做
     }else{
       // 原版做法:三層先合成到 comp(只重算動過的範圍),再把 comp 整張貼到螢幕。
@@ -2808,8 +2635,9 @@ let renderDprMax=Math.max(1,dprCap||autoDpr());   // 畫布解析度上限(devic
     flushTopVfx();
     if(document.body.dataset.artReview==='1')uiLabels.length=0;
     drawShotArrows();
-    // T69:死亡特效先畫、其餘特效後畫 —— 同一個 frame 裡爆炸才會蓋在正在倒下的魔物上。
+    // T69:死亡動畫先畫、實時特效後畫 —— 確保技能演出蓋在倒下的魔物上。
     {const fxList=state.effects||[];for(const e of fxList)if(e.type==='death')drawEffect(e);for(const e of fxList)if(e.type!=='death')drawEffect(e);}
+    if(liveFx.hasAny())liveFx.drawFront(g,screenPoint,scale);
     drawChatter();
     // 動作實驗室預覽:直接把那一格畫在畫面中央(純預覽,不影響模擬)
     if(posePreview){
@@ -2986,6 +2814,7 @@ let renderDprMax=Math.max(1,dprCap||autoDpr());   // 畫布解析度上限(devic
     // T95:新的震動請求(seq 變了才啟動;讀檔/第一次拿到 state 時只記 seq,不會突然震)
     if(state.shake&&state.shake.seq!==lastShakeSeq){lastShakeSeq=state.shake.seq;shake(state.shake.amp,state.shake.ms);}
     stepShake(Math.min(dt||0,.1));
+    syncLiveFx(Math.min(dt||1/30,.05));
     render();
     hitStopPainted=hitStopSeq;}
   function setTime(p){phase=typeof p==='number'?((p%1)+1)%1:.15;}
@@ -3003,7 +2832,7 @@ let renderDprMax=Math.max(1,dprCap||autoDpr());   // 畫布解析度上限(devic
     for(const im of list.slice(0,8)){warmDone.add(im);createImageBitmap(im).then(b=>b.close()).catch(()=>{});}   // L2(載入加速):一次 8 張(解碼在工作執行緒,主執行緒只發請求),讀取畫面不必等好幾十幀
     return false;
   }
-  function dispose(){disposed=true;for(const[type,fn]of[['pointerdown',down],['pointermove',move],['pointerup',up],['pointercancel',up],['wheel',wheel],['pointerdown',stopHomeFraming]])canvas.removeEventListener(type,fn);spriteCache.clear();glCanvas?.remove();if(texRelease&&glKeep)texRelease=null;}
+  function dispose(){disposed=true;liveFx.clear();for(const[type,fn]of[['pointerdown',down],['pointermove',move],['pointerup',up],['pointercancel',up],['wheel',wheel],['pointerdown',stopHomeFraming]])canvas.removeEventListener(type,fn);spriteCache.clear();glCanvas?.remove();if(texRelease&&glKeep)texRelease=null;}
   const responsiveResize=()=>{resize();if(homeFraming)focusHome();render();};
   function stopHomeFraming(){homeFraming=false;}
   canvas.addEventListener('pointerdown',stopHomeFraming);

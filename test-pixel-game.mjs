@@ -1,7 +1,7 @@
 import { vdir4, dirSuffix, leftRow, rows4, fromScreen, toScreen, quantize4, quantize4Stable, facingOk, screenAngle, DIR4_CENTER_DEG, QUADRANT_OFFSET_DEG, FACING_HYSTERESIS_DEG } from './src/dir4.js';
 import fs from 'node:fs';
 import assert from 'node:assert/strict';
-import { createGame, OFFLINE, AUTO_TRAIN, ENEMIES, MOUNT_SPEED_MULT, isRideable, hunterGender, GENDERS, nameGender, NAME_GENDER } from './src/pixel-game.js';
+import { createGame, inspectSave, OFFLINE, AUTO_TRAIN, ENEMIES, MOUNT_SPEED_MULT, isRideable, hunterGender, GENDERS, nameGender, NAME_GENDER } from './src/pixel-game.js';
 import { doorStand, buildingSolid } from './src/landscape-layout.js';
 import { blockCenter, VILLAGE_BOUNDS } from './src/village-grid.js';
 import { BUILDINGS, CLASSES, MATERIALS, MERCHANT, PROMOTE, PRODUCTS, RECIPES, RARITIES, PILOT_ATTACK, AI_ATTACK_LOCK, KITE, GEAR_TIER_MAX, gearAt, EQUIPMENT, CLASS_STARTER, EQUIP_SLOTS, GEAR_SLOTS, gearItemView, dungeonGearGrade, GEAR_DROP } from './src/pixel-data.js';
@@ -1128,7 +1128,7 @@ turn.pilotStop();
     for (let i = 0; i < 16; i++) { hold(g, [m], spots); g.tick(0.05); }
     assert.equal(m.hp, 5000 - dmg(a), 'the aimed arrow hits once for base × mult; side arrows miss');
     assert.deepEqual([g.state.lastGale.hits, g.state.lastGale.misses], [1, 2], 'lastGale records 1 hit / 2 misses');
-    assert.ok(g.state.effects.some(e => e.type === 'skillfx' && e.fx === 'gale' && e.targetId === m.id && e.value === dmg(a)), 'hit effect + damage number appear on impact');
+    assert.ok(g.state.effects.some(e => e.type === 'livefx' && e.fx === 'gale' && e.targetId === m.id && e.value === dmg(a)), 'hit effect + damage number appear on impact');
     assert.equal(g.state.shots.length, 0, 'all gale arrows are gone after the volley');
     g.pilotStop();
   }
@@ -2359,4 +2359,303 @@ console.log(`PASS: ${CLASSES.length} hunters / ${CLASSES.length} classes, seeded
   g.state.time += 241; assert.equal(g.downReport().count, 0, 'report only covers the last game day');
   const f = createGame(), v = f.state.hunters[0]; v.hp = 0; f.tick(0.1); v.rebirths = 10; assert.equal(f.setDifficulty(1).ok, true); assert.equal(f.downReport().count, 0, 'changing difficulty starts a fresh report');
   const src = fs.readFileSync(new URL('./src/pixel-game.js', import.meta.url), 'utf8'); assert.ok(src.includes('else died(t, ph.by);'), 'monster hits pass the attacker to died()');
+}
+
+// Save export / import validation, round-trip fidelity, legacy migration, and wanderer sanitization.
+{
+  const g = createGame(), s = g.state;
+  s.gold = 45678; s.gems = 321; s.wood = 987; s.ore = 654; s.time = 240 * 11 + 65; s.day = 12;
+  s.speed = 3; s.region = 'snow'; s.visitedRegions = ['village', 'meadow', 'forest', 'snow'];
+  s.buildings.hall = 4; s.buildings.forge = 4; s.buildings.house = 3; s.buildings.dungeon = 2; s.buildings.training = 2; s.buildings.academy = 2; s.buildings.enhancement = 2;
+  s.stocks.food = 77; s.stocks.drink = 66;
+  g.setCraftTarget('food', 40); g.setCraftTarget('bandage', 25);
+  g.setTradeRequest('ore', 120); g.setTradeStanding('ore', true);
+  g.setAutoJunk('salvage');
+  g.setRegionDensity('meadow', 1); g.setRegionDensity('snow', 3);
+  g.setSetting('quality', 'low'); g.setSetting('dpr', '1'); g.setSetting('fps', 60); g.setSetting('shadows', false); g.setSetting('night', false); g.setSetting('shake', false); g.setSetting('uiScale', 1.15);
+  s.gearStock.weapon[3] = 2; s.gearStock.chest[4] = 1;
+  s.gearStorage.push({ uid: 'custom1', itemId: 'craft_chest', grade: 4 }, { uid: 'custom2', itemId: 'craft_weapon', grade: 3 });
+  s.codex = { sprout: 42, yeti: 9 };
+  s.wanderKills = 135; s.wanderDowns = 7;
+  s.counts.autoJunk = 19; s.counts.autoJunkGold = 840; s.counts.promoted = 3; s.counts.matSold = 5; s.counts.gemsBought = 2; s.counts.tradeGold = 2500; s.counts.wandererPurchases = 41; s.counts.skills = 88;
+  s.hunters[0].name = '自訂勇者'; s.hunters[0].gender = 'f'; s.hunters[0].level = 42; s.hunters[0].rebirths = 5; s.hunters[0].skillLevel = 4; s.hunters[0].weaponLevel = 6; s.hunters[0].gold = 3456;
+  s.hunters[0].gear.weapon = { uid: 'gw1', itemId: 'craft_weapon', grade: 4 };
+  s.hunters[0].gear.helm = null;
+  s.difficulty = 2;
+  s.dungeon.bestFloor = 14; s.dungeon.startFloor = 10; s.dungeon.auto = true;
+  const dgParty = s.hunters.slice(0, 3).map(h => h.id);
+  const arParty = s.hunters.slice(2, 5).map(h => h.id);
+  s.dungeon.hunterIds = [...dgParty];
+  s.arena.wins = 17; s.arena.losses = 4; s.arena.hunterIds = [...arParty];
+  g.setDispatchTeam(1, { ids: [s.hunters[0].id, s.hunters[1].id], region: 'snow' });
+  g.pilotStart(s.hunters[0].id);
+
+  // Export payload strips transient pilot & wanderer routes, and round-trips cleanly via JSON string (even with UTF-8 BOM).
+  const exported = g.serialize();
+  assert.equal(exported.pilot, null, 'serialize strips active pilot');
+  assert.ok(exported.wanderers.every(w => !('route' in w)), 'serialize strips wanderer routes');
+  exported.savedAt = 1795130000000; exported.exportedAt = 1795130000000;
+  const bomJson = '\uFEFF' + JSON.stringify(exported);
+
+  const info = inspectSave(bomJson);
+  assert.equal(info.ok, true, 'inspectSave accepts exported JSON with BOM');
+  assert.equal(info.summary.version, 4); assert.equal(info.summary.migrated, false);
+  assert.equal(info.summary.day, 12); assert.equal(info.summary.gold, 45678); assert.equal(info.summary.gems, 321);
+  assert.equal(info.summary.hall, 4); assert.equal(info.summary.bestFloor, 14); assert.equal(info.summary.hunters, s.hunters.length);
+  assert.equal(info.summary.savedAt, 1795130000000);
+
+  // createGame(JSON string) must restore settings & regionDensity too.
+  const fromStr = createGame(bomJson);
+  assert.deepEqual(fromStr.state.settings, s.settings, 'createGame(jsonString) restores settings');
+  assert.deepEqual(fromStr.state.regionDensity, s.regionDensity, 'createGame(jsonString) restores regionDensity');
+
+  // Invalid save must NOT leak settings/regionDensity in createGame().
+  const rejected = createGame({ version: 99, settings: { quality: 'low', fps: 60 }, regionDensity: { meadow: 3 } });
+  assert.equal(rejected.state.settings.quality, 'high', 'rejected save does not leak settings');
+  assert.equal(rejected.state.regionDensity.meadow, 2, 'rejected save does not leak regionDensity');
+
+  // loadSave keeps state object identity and restores every single field cleanly.
+  const target = createGame(), sameRef = target.state;
+  const loaded = target.loadSave(bomJson);
+  assert.equal(loaded.ok, true, 'loadSave succeeds on valid exported JSON');
+  assert.equal(target.state, sameRef, 'loadSave preserves game.state object identity');
+  const ts = target.state;
+  assert.equal(ts.gold, 45678); assert.equal(ts.gems, 321); assert.equal(ts.day, 12); assert.equal(ts.speed, 3); assert.equal(ts.region, 'snow');
+  assert.equal(ts.buildings.hall, 4); assert.equal(ts.buildings.forge, 4); assert.equal(ts.buildings.dungeon, 2);
+  assert.equal(ts.stocks.food, 77); assert.equal(ts.craftTargets.food, 40); assert.equal(ts.craftTargets.bandage, 25);
+  assert.equal(ts.tradeRequests.ore, 120); assert.equal(ts.tradeStanding.ore, true); assert.equal(ts.autoJunk, 'salvage');
+  assert.deepEqual(ts.regionDensity, s.regionDensity, 'loadSave restores regionDensity');
+  assert.deepEqual(ts.settings, s.settings, 'loadSave restores settings');
+  assert.equal(ts.gearStock.weapon[3], 2); assert.equal(ts.gearStock.chest[4], 1);
+  assert.deepEqual(ts.gearStorage.map(x => [x.itemId, x.grade || 1]), [['craft_chest', 4], ['craft_weapon', 3]]);
+  assert.deepEqual(ts.codex, { sprout: 42, yeti: 9 });
+  assert.equal(ts.wanderKills, 135, 'wanderKills survives export/import');
+  assert.equal(ts.wanderDowns, 7, 'wanderDowns survives export/import');
+  for (const [k, v] of [['autoJunk', 19], ['autoJunkGold', 840], ['promoted', 3], ['matSold', 5], ['gemsBought', 2], ['tradeGold', 2500], ['wandererPurchases', 41], ['skills', 88]]) {
+    assert.equal(ts.counts[k], v, `dynamic count ${k} survives export/import`);
+  }
+  assert.equal(ts.hunters[0].name, '自訂勇者'); assert.equal(ts.hunters[0].gender, 'f'); assert.equal(ts.hunters[0].level, 42);
+  assert.equal(ts.hunters[0].rebirths, 5); assert.equal(ts.hunters[0].gear.weapon.grade, 4); assert.equal(ts.hunters[0].gear.helm, null);
+  assert.equal(ts.difficulty, 2);
+  assert.equal(ts.dungeon.bestFloor, 14); assert.equal(ts.dungeon.startFloor, 10); assert.equal(ts.dungeon.auto, true);
+  assert.deepEqual(ts.dungeon.hunterIds, dgParty, 'inactive dungeon party survives export/import');
+  assert.equal(ts.arena.wins, 17); assert.equal(ts.arena.losses, 4);
+  assert.deepEqual(ts.arena.hunterIds, arParty, 'inactive arena party survives export/import');
+  assert.deepEqual(ts.dispatchTeams[1].ids, [s.hunters[0].id, s.hunters[1].id]); assert.equal(ts.dispatchTeams[1].region, 'snow');
+  assert.equal(ts.pilot, undefined, 'imported save does not enter pilot mode');
+  run(target, 30, false, assertFiniteEconomy);
+
+  // Invalid inputs are strictly rejected without mutating live game state.
+  const snapBefore = JSON.stringify(target.serialize());
+  for (const [label, badIn] of [
+    ['empty string', ''],
+    ['bad json', '{not json'],
+    ['array', '[1,2,3]'],
+    ['v1 3D save', { version: 1, gold: 999, buildings: { hall: 1 }, hunters: [{ classId: 'paladin' }] }],
+    ['unknown version', { version: 99, gold: 999, buildings: { hall: 1 }, hunters: [{ classId: 'paladin' }] }],
+    ['unrelated v4 object', { version: 4, name: 'some-config' }],
+    ['missing hall', { version: 4, gold: 999, buildings: {}, hunters: [{ classId: 'paladin' }] }],
+    ['empty hunters', { version: 4, gold: 999, buildings: { hall: 1 }, hunters: [] }],
+    ['only unknown hunter class', { version: 4, gold: 999, buildings: { hall: 1 }, hunters: [{ classId: 'ghost' }] }],
+    ['missing core numbers', { version: 4, buildings: { hall: 1 }, hunters: [{ classId: 'paladin' }] }],
+  ]) {
+    assert.equal(inspectSave(badIn).ok, false, `inspectSave rejects ${label}`);
+    assert.equal(target.loadSave(badIn).ok, false, `loadSave rejects ${label}`);
+  }
+  assert.match(inspectSave({ version: 1 }).error, /v1/, 'v1 save gives clear incompatibility message');
+  assert.equal(JSON.stringify(target.serialize()), snapBefore, 'failed loadSave leaves live state untouched');
+
+  // Legacy v2 & v3 saves import cleanly through loadSave (and caller object with ranger/witchhunter is not mutated).
+  const v2 = createGame().serialize();
+  v2.version = 2; v2.gold = 8888; v2.hunters[0].classId = 'ranger'; v2.hunters[0].equipment = { weapon: true, armor: true }; delete v2.hunters[0].gear;
+  const v2Info = inspectSave(v2);
+  assert.equal(v2Info.ok, true); assert.equal(v2Info.summary.migrated, true); assert.equal(v2Info.summary.version, 2);
+  assert.equal(v2.hunters[0].classId, 'ranger', 'inspectSave does not mutate caller input');
+  const v2Game = createGame(); assert.equal(v2Game.loadSave(v2).ok, true);
+  assert.equal(v2Game.state.version, 4); assert.equal(v2Game.state.gold, 8888); assert.equal(v2Game.state.hunters[0].classId, 'archer');
+  assert.equal(v2.hunters[0].classId, 'ranger', 'loadSave does not mutate caller input');
+
+  // Corrupted wanderers (invalid rarity, XSS name, NaN stats) never crash restore or loadSave.
+  const hostileW = createGame().serialize();
+  hostileW.wanderers = [{ id: 'w99', classId: 'paladin', name: '<img src=x>', rarity: 'invalid_rarity', level: NaN, hp: -50, gold: -10, x: Infinity, z: NaN, inventory: null }];
+  const hwGame = createGame();
+  assert.equal(hwGame.loadSave(hostileW).ok, true, 'loadSave sanitizes corrupted wanderers instead of crashing');
+  assert.ok(!hwGame.state.wanderers[0].name.includes('<'), 'wanderer name is sanitized');
+  assert.ok(Number.isFinite(hwGame.state.wanderers[0].hp) && Number.isFinite(hwGame.state.wanderers[0].maxHp) && hwGame.state.wanderers[0].gold >= 0);
+  run(hwGame, 10, false, assertFiniteEconomy);
+}
+
+// ── 6 Classes × 14 Archetypes × 4 Skills + 11 Statuses + traveler migration (2026-11-22) ──
+{
+  const { SPECS, SPEC_BY_ID, STATUS_DEFS, specsOf, specOf, unlockedSkills, skillSlotMult, skillSlotCd } = await import('./src/pixel-skills.js');
+  const { LIVE_FX_IDS, hasLiveFx } = await import('./src/pixelfx-runtime.js');
+
+  assert.equal(CLASSES.length, 6, '6 core classes (traveler removed)');
+  assert.equal(CLASSES.some(c => c.id === 'traveler'), false, 'traveler is not in CLASSES');
+  assert.equal(SPECS.length, 14, '14 Academy archetypes');
+  assert.equal(Object.keys(STATUS_DEFS).length, 11, '11 status effects defined');
+  assert.ok(LIVE_FX_IDS.length >= 78, `live pixelfx registry loaded (${LIVE_FX_IDS.length} effects)`);
+
+  // Every archetype skill fxId/secondaryFxId/warpFxId/killFxId/nukeFxId & status fxId exists in LIVE_FX_IDS
+  for (const sp of SPECS) {
+    assert.equal(sp.skills.length, 4, `${sp.id} has 4 skills`);
+    for (let i = 0; i < 4; i++) {
+      const sk = sp.skills[i];
+      assert.equal(sk.slot, i, `${sk.id} slot index matches`);
+      assert.ok(hasLiveFx(sk.fxId), `${sk.id} fxId ${sk.fxId} exists in live runtime`);
+      if (sk.secondaryFxId) assert.ok(hasLiveFx(sk.secondaryFxId), `${sk.id} secondaryFxId ${sk.secondaryFxId} exists`);
+      if (sk.warpFxId) assert.ok(hasLiveFx(sk.warpFxId), `${sk.id} warpFxId ${sk.warpFxId} exists`);
+      if (sk.killFxId) assert.ok(hasLiveFx(sk.killFxId), `${sk.id} killFxId ${sk.killFxId} exists`);
+      if (sk.nukeFxId) assert.ok(hasLiveFx(sk.nukeFxId), `${sk.id} nukeFxId ${sk.nukeFxId} exists`);
+      if (sk.status) assert.ok(STATUS_DEFS[sk.status], `${sk.id} status ${sk.status} exists`);
+      if (sk.selfStatus) assert.ok(STATUS_DEFS[sk.selfStatus], `${sk.id} selfStatus ${sk.selfStatus} exists`);
+    }
+  }
+  for (const st of Object.values(STATUS_DEFS)) {
+    assert.ok(hasLiveFx(st.fxId), `status ${st.id} fxId ${st.fxId} exists in live runtime`);
+  }
+
+  // Legacy traveler save migrates cleanly to berserker with starter gear
+  const leg = createGame().serialize();
+  leg.hunters[0].classId = 'traveler';
+  leg.hunters[0].gear = { weapon: null, helm: { uid: 'g99', itemId: 'trav_helm' }, chest: { uid: 'g98', itemId: 'trav_chest' } };
+  const mig = createGame(leg);
+  assert.equal(mig.state.hunters[0].classId, 'berserker', 'legacy traveler migrates to berserker');
+  assert.equal(specOf(mig.state.hunters[0]).id, 'berserker_fury', 'migrated hunter gets berserker default spec');
+  assert.ok(mig.state.hunters[0].gear.weapon, 'migrated hunter receives starter weapon');
+
+  // Spec switching gating, free switch, unlock milestones, rebirth awakening & save persistence
+  const g = createGame();
+  const mage = g.state.hunters.find(h => h.classId === 'sorcerer');
+  assert.equal(specsOf('sorcerer').length, 4, 'sorcerer has 4 elemental archetypes');
+  assert.equal(specOf(mage).id, 'sorcerer_fire', 'sorcerer starts in Fire spec');
+  assert.equal(unlockedSkills(mage).length, 1, 'Lv.0 unlocks only S1');
+  assert.equal(g.setHunterSpec(mage.id, 'sorcerer_frost').ok, false, 'blocked before Academy built');
+  g.state.gold += 5000; g.state.ore += 500;
+  assert.equal(g.construct('academy').ok, true);
+  assert.equal(g.setHunterSpec(mage.id, 'sorcerer_frost').ok, false, 'blocked before skillLevel >= 1');
+  assert.equal(g.learnSkill(mage.id).ok, true);
+  assert.equal(mage.skillLevel, 1);
+  const goldBeforeSwitch = g.state.gold;
+  assert.equal(g.setHunterSpec(mage.id, 'sorcerer_frost').ok, true, 'free switch once Academy + Lv.1');
+  assert.equal(g.state.gold, goldBeforeSwitch, 'switching archetype costs 0 gold');
+  assert.equal(g.setHunterSpec(mage.id, 'berserker_fury').ok, false, 'cross-class archetype rejected');
+  // Unlock milestones: Lv.0->1, Lv.2->2, Lv.4->3, Lv.5->4
+  mage.skillLevel = 2; assert.equal(unlockedSkills(mage).length, 2, 'Lv.2 unlocks S1-S2');
+  mage.skillLevel = 4; assert.equal(unlockedSkills(mage).length, 3, 'Lv.4 unlocks S1-S3');
+  mage.skillLevel = 5; assert.equal(unlockedSkills(mage).length, 4, 'Lv.5 unlocks S1-S4');
+  // Rebirth >= 1 boosts S4 mult and shortens S4 CD
+  const s4 = specOf(mage).skills[3];
+  const m0 = skillSlotMult(mage, s4), c0 = skillSlotCd(mage, s4);
+  mage.rebirths = 1;
+  assert.ok(skillSlotMult(mage, s4) > m0, 'Rebirth boosts S4 multiplier');
+  assert.ok(skillSlotCd(mage, s4) < c0, 'Rebirth reduces S4 cooldown');
+  // Save round-trip preserves spec
+  const reloaded = createGame(g.serialize());
+  const mage2 = reloaded.state.hunters.find(h => h.id === mage.id);
+  assert.equal(mage2.spec, 'sorcerer_frost', 'hunter archetype persists across save/load');
+
+  // Combat mechanics: band hit (ice_spikes), freeze, cleanse, revive, black hole pull, time stop, execute, kill-CD-reset
+  const C = regionCenter('meadow');
+  const gc = createGame();
+  gc.state.buildings.academy = 1;
+  gc.state.enemies = []; gc.state.spawnTimer = -999; gc.state.regionSpawn = {};
+  const protoE = createGame().state.enemies.find(e => e.regionId === 'meadow');
+  const mkFoe = (id, x, z, hp = 500) => ({ ...protoE, id, x, z, hp, maxHp: hp, attack: 10, attackTimer: 1, rewarded: false, statuses: {}, buffs: {} });
+
+  // 1) Frost Mage pilot S2 (band ice_spikes) + S3 (frost_nova freeze)
+  const fm = gc.state.hunters.find(h => h.classId === 'sorcerer');
+  fm.skillLevel = 5; fm.spec = 'sorcerer_frost'; fm.x = C.x; fm.z = C.z; fm.hp = fm.maxHp; fm.attack = 40;
+  const f1 = mkFoe('f1', C.x + 2, C.z, 500), f2 = mkFoe('f2', C.x + 4.5, C.z, 500), fSide = mkFoe('f3', C.x + 2, C.z + 3, 500);
+  gc.state.enemies = [f1, f2, fSide];
+  gc.pilotStart(fm.id);
+  fm.skillCds = [0, 0, 0, 0];
+  const psInfo = gc.pilotSkills();
+  assert.equal(psInfo.slots.length, 4, 'pilotSkills reports all 4 slots');
+  assert.equal(psInfo.slots.every(s => s.unlocked), true, 'Lv.5 pilot has all 4 slots unlocked');
+  assert.equal(gc.pilotCastSlot(1).ok, true, 'pilot casts S2 ice_spikes band');
+  assert.ok(f1.hp < 500 && f2.hp < 500, 'ice_spikes band hits aligned enemies up to 6 units');
+  assert.equal(fSide.hp, 500, 'ice_spikes band skips off-axis enemy');
+  assert.ok(f1.statuses.slowed, 'ice_spikes applies slowed');
+  assert.ok(gc.state.effects.some(e => e.type === 'livefx' && e.fxId === 'ice/ice-spikes-iso'), 'ice_spikes emits livefx');
+  fm.skillCds = [0, 0, 0, 0];
+  assert.equal(gc.pilotCastSlot(2).ok, true, 'pilot casts S3 frost_nova');
+  assert.ok(f1.statuses.frozen, 'frost_nova freezes nearby enemies');
+
+  // 2) Priest Light S2 (healing_bloom cleanse) + S4 (resurrection)
+  const pr = gc.state.hunters.find(h => h.classId === 'priest');
+  const ally = gc.state.hunters.find(h => h.classId === 'berserker');
+  pr.skillLevel = 5; pr.spec = 'priest_light'; pr.x = C.x; pr.z = C.z; pr.hp = pr.maxHp;
+  ally.x = C.x + 1.5; ally.z = C.z; ally.hp = Math.round(ally.maxHp * 0.5); ally.statuses = { poisoned: { left: 5, stacks: 1, atk: 10, tick: 0 } };
+  gc.pilotStart(pr.id);
+  pr.skillCds = [0, 0, 0, 0];
+  assert.equal(gc.pilotCastSlot(1).ok, true, 'priest casts healing_bloom');
+  assert.equal(ally.statuses.poisoned, undefined, 'healing_bloom cleanses debuffs');
+  ally.hp = 0; ally.task = 'revive'; ally.reviveTimer = 8;
+  pr.skillCds = [0, 0, 0, 0];
+  assert.equal(gc.pilotCastSlot(3).ok, true, 'priest casts resurrection');
+  assert.ok(ally.hp > 0 && ally.task !== 'revive', 'resurrection revives downed ally in radius');
+
+  // 3) Shadow Priest S4 (black_hole pull)
+  assert.equal(gc.setHunterSpec(pr.id, 'priest_shadow').ok, true);
+  const fPull = mkFoe('fp', C.x + 3.0, C.z + 2.5, 600);
+  const fCenter = mkFoe('fc', C.x + 1.5, C.z, 600);
+  gc.state.enemies = [fCenter, fPull];
+  const distBefore = Math.hypot(fPull.x - fCenter.x, fPull.z - fCenter.z);
+  pr.skillCds = [0, 0, 0, 0];
+  assert.equal(gc.pilotCastSlot(3).ok, true, 'shadow priest casts black_hole');
+  assert.ok(Math.hypot(fPull.x - fCenter.x, fPull.z - fCenter.z) < distBefore, 'black_hole pulls nearby enemies toward center');
+
+  // 4) Void Assassin S4 execute (<40% HP) + Reaper Assassin S4 kill-CD-reset
+  const as = gc.state.hunters.find(h => h.classId === 'assassin');
+  as.skillLevel = 5; as.x = C.x; as.z = C.z; as.hp = as.maxHp; as.attack = 50;
+  assert.equal(gc.setHunterSpec(as.id, 'assassin_void').ok, true);
+  const fHigh = mkFoe('fh', C.x + 1.2, C.z, 1000), fLow = mkFoe('fl', C.x + 1.4, C.z, 1000);
+  fLow.hp = 350;   // 35% < 40% execute threshold
+  gc.state.enemies = [fHigh, fLow];
+  gc.pilotStart(as.id);
+  as.skillCds = [0, 0, 0, 0];
+  assert.equal(gc.pilotCastSlot(3).ok, true, 'void assassin casts eclipse_exec');
+  assert.ok((350 - fLow.hp) > (1000 - fHigh.hp), 'eclipse_exec deals higher execute damage below 40% HP');
+
+  assert.equal(gc.setHunterSpec(as.id, 'assassin_reaper').ok, true);
+  const fWeak = mkFoe('fw', C.x + 1.2, C.z, 20);
+  gc.state.enemies = [fWeak];
+  as.skillCds = [8, 0, 0, 0]; as.skillCd = 8; as._skillCdShadow = 8;
+  assert.equal(gc.pilotCastSlot(3).ok, true, 'reaper assassin casts scythe_reap');
+  assert.ok(as.skillCds[0] <= 4.1, `scythe_reap kill refunds 50% of S1 CD (got ${as.skillCds[0]})`);
+  gc.pilotStop();
+
+  // 5) Smart AI band aiming (prefers line hitting 2 monsters over 1) + charmed infighting + dgForecast multi-skill sync
+  const aiG = createGame();
+  aiG.state.buildings.academy = 1; aiG.state.spawnTimer = -999; aiG.state.regionSpawn = {};
+  const aimMage = aiG.state.hunters.find(h => h.classId === 'sorcerer');
+  aimMage.skillLevel = 5; aimMage.spec = 'sorcerer_frost'; aimMage.x = C.x; aimMage.z = C.z; aimMage.hp = aimMage.maxHp; aimMage.attack = 40;
+  aimMage.huntRegion = 'meadow'; aimMage.inTown = false; aimMage.task = null; aimMage.route = [];
+  aimMage.attackTimer = 0; aimMage.skillCds = [9, 0, 9, 9]; aimMage.skillCd = 9; aimMage._skillCdShadow = 9;
+  const soloE = mkFoe('solo', C.x - 2.0, C.z, 500);
+  const lineA = mkFoe('lineA', C.x + 2.2, C.z, 500), lineB = mkFoe('lineB', C.x + 4.4, C.z, 500);
+  aimMage.targetId = soloE.id;
+  aiG.state.enemies = [soloE, lineA, lineB];
+  aiG.tick(0.05);
+  assert.ok(lineA.hp < 500 && lineB.hp < 500, 'AI smart-aims ice_spikes band through the 2-enemy line instead of the single target');
+
+  // Charmed non-boss monster attacks a nearby monster instead of hunters
+  const chA = mkFoe('chA', C.x + 2.0, C.z + 2.0, 300), chB = mkFoe('chB', C.x + 3.2, C.z + 2.0, 300);
+  chA.statuses = { charmed: { left: 3, stacks: 1, atk: 10, srcId: aimMage.id, tick: 0 } };
+  chA.attack = 30; chA.attackTimer = 0;
+  aiG.state.enemies = [chA, chB];
+  aiG.state.hunters = []; aiG.state.wanderers = [];
+  aiG.tick(0.1);
+  assert.ok(chB.hp < 300, `charmed monster infights nearby monster (${chB.hp}/300)`);
+
+  // dgForecast sync: Lv.5 party with unlocked S1-S4 projects higher clear safety/reach than Lv.0 party
+  const dgA = createGame(), dgB = createGame();
+  dgA.state.buildings.dungeon = 1; dgB.state.buildings.dungeon = 1;
+  dgA.state.buildings.academy = 1; dgB.state.buildings.academy = 1;
+  dgA.state.dungeon.bestFloor = 25; dgB.state.dungeon.bestFloor = 25;
+  for (const h of dgA.state.hunters) { h.level = 20; h.skillLevel = 0; h.hp = h.maxHp; }
+  for (const h of dgB.state.hunters) { h.level = 20; h.skillLevel = 5; h.hp = h.maxHp; }
+  const rec0 = dgA.recommendDungeonParty(10), rec5 = dgB.recommendDungeonParty(10);
+  assert.ok(rec5.ok && rec0.ok && rec5.floor > rec0.floor, `dgForecast credits unlocked S1-S4 (Lv.5 floor ${rec5.floor} > Lv.0 floor ${rec0.floor})`);
 }

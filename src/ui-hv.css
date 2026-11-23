@@ -9,7 +9,7 @@
   --hv-panel:#1f1b18; --hv-panel-2:#2a2521;
   --hv-line:#4a4138; --hv-line-hi:#6b5e50;
   --hv-text:#f4ecd6; --hv-text-dim:#b3a78f;
-  --hv-gold:#e6b43c; --hv-quest:#f0a08c; --hv-ok:#8fd16a; --hv-warn:#e0604a;
+  --hv-gold:#e6b43c; --hv-quest:#eccf9a; --hv-ok:#8fd16a; --hv-warn:#e0604a;   /* unslop: --hv-quest 由鮭魚紅改為金沙(同一金色系),chrome 只留金色一個強調 */
   --hv-btn-primary:#9a3324; --hv-btn-primary-hi:#b23f2c; --hv-btn-primary-lo:#7c281c;
   --hv-btn-secondary:#8a6420; --hv-btn-secondary-hi:#a2772a; --hv-btn-secondary-lo:#6f5019;
   --hv-btn-disabled:#3a3632; --hv-btn-disabled-text:#8a8377;
@@ -126,7 +126,7 @@ html body #topbar .hv-crest{display:flex!important;flex-direction:column!importa
 html body #topbar .hv-crest>i[data-icon]{display:grid!important;place-items:center;width:52px!important;height:48px!important;margin:0!important;
   background-color:var(--hv-ink-a)!important;background-size:36px 36px!important;background-repeat:no-repeat!important;background-position:center!important;border:1px solid var(--hv-line)!important;border-bottom:0!important;box-sizing:border-box}
 html body #topbar .hv-crest #difficulty-name{display:block!important;height:18px;line-height:18px!important;font:700 12px/18px var(--font-ui)!important;text-align:center;
-  color:#fff!important;background:var(--hv-btn-primary)!important;border:1px solid #000!important;text-shadow:0 1px 0 #000!important;white-space:nowrap;letter-spacing:.06em}
+  color:var(--hv-text)!important;background:var(--hv-btn-secondary)!important;border:1px solid #000!important;text-shadow:0 1px 0 #000!important;white-space:nowrap;letter-spacing:0}   /* unslop: 難度色帶是資訊不是危險 → 主色紅改黃銅 */
 html body #topbar .hv-crest>small{display:none!important}
 html body #topbar .hv-crest:hover{background:none!important}
 html body #topbar .hv-crest:hover>i[data-icon]{background:rgba(42,37,33,.92)!important}
@@ -137,7 +137,7 @@ html body #topbar .treasury{display:flex!important;flex-direction:column!importa
 html body #topbar .treasury .res-row{display:flex;align-items:center;gap:6px;height:21px;position:relative;white-space:nowrap}
 html body #topbar .treasury [data-icon]{display:grid!important;place-items:center;width:18px!important;height:18px!important;flex:0 0 18px!important;margin:0!important;border:0!important;background-color:transparent!important;background-size:contain!important;background-repeat:no-repeat!important;background-position:center!important}
 html body #topbar .treasury [data-icon] :is(canvas,img){width:18px!important;height:18px!important}
-html body #topbar .treasury b{font:700 13px/1 var(--font-num)!important;color:#fff!important;text-shadow:var(--hv-outline)!important;letter-spacing:.02em;min-width:0!important;white-space:nowrap}
+html body #topbar .treasury b{font:700 13px/1 var(--font-num)!important;color:var(--hv-text)!important;text-shadow:var(--hv-outline)!important;letter-spacing:.02em;min-width:0!important;white-space:nowrap}
 html body #topbar .treasury b.res-tick{display:inline-block}
 html body .res-float{font:700 12px/1 var(--font-num)!important;text-shadow:var(--hv-outline)!important;left:auto!important;right:-4px;transform:none}
 html body .res-float.up{color:var(--hv-ok)!important}html body .res-float.down{color:var(--hv-warn)!important}
@@ -152,8 +152,8 @@ html body #topbar .play-controls{display:flex!important;flex-direction:row!impor
 html body #topbar .play-controls>button{width:32px!important;height:32px!important;min-width:32px!important;display:grid!important;place-items:center;
   font:700 14px/1 var(--font-num)!important}
 /* 2026-11-16 UX:暫停／速度原本是浮在地圖上的裸字(Ⅱ、1×),看起來不像能按 → 加深色底＋黃銅細框的小方塊,跟右側圖示鈕同一個語彙 */
-html body #topbar .play-controls>button{background:rgba(24,18,12,.72)!important;border:1px solid rgba(196,160,92,.55)!important;border-radius:6px!important;
-  box-shadow:inset 0 1px 0 rgba(255,255,255,.08),0 2px 0 rgba(0,0,0,.55)!important;color:#f3e6c4!important;text-shadow:0 1px 0 #000!important}
+html body #topbar .play-controls>button{background:rgba(24,18,12,.72)!important;border:1px solid rgba(196,160,92,.55)!important;border-radius:2px!important;
+  box-shadow:inset 0 1px 0 rgba(255,255,255,.08),0 2px 0 rgba(0,0,0,.55)!important;color:var(--hv-text)!important;text-shadow:0 1px 0 #000!important}
 html body #topbar .play-controls>button:active{transform:translateY(1px)!important;box-shadow:inset 0 1px 0 rgba(0,0,0,.3)!important}
 html body #topbar #pause[aria-pressed="true"]{background:rgba(160,60,40,.88)!important;border-color:#e0a060!important}
 html body #topbar #speed[aria-pressed="true"]{background:rgba(150,110,30,.88)!important;border-color:#f0c860!important;color:#fff!important}
@@ -199,11 +199,11 @@ html body #hv-left::before{content:"";position:absolute;z-index:-1;inset:-14px -
 html body .hv-quest{display:flex!important;flex-direction:column!important;align-items:flex-start!important;gap:4px!important;width:100%!important;min-height:44px!important;
   padding:4px 6px 4px 4px!important;text-align:left!important;cursor:pointer;position:relative}
 html body .hv-quest .hq-head{display:flex;align-items:center;gap:10px;flex-wrap:wrap}
-html body .hv-quest .hq-title{font:700 13px/1.25 var(--font-ui);color:var(--hv-quest);text-shadow:var(--hv-outline)}
-html body .hv-quest .hq-reward{display:inline-flex;align-items:center;gap:4px;font:700 13px/1 var(--font-num);color:#fff;text-shadow:var(--hv-outline)}
+html body .hv-quest .hq-title{font:700 13px/1.25 var(--font-ui);color:var(--hv-text);text-shadow:var(--hv-outline)}
+html body .hv-quest .hq-reward{display:inline-flex;align-items:center;gap:4px;font:700 13px/1 var(--font-num);color:var(--hv-gold);text-shadow:var(--hv-outline)}
 html body .hv-quest .hq-reward [data-icon]{display:inline-grid;width:16px;height:16px}
 html body .hv-quest .hq-reward [data-icon] :is(canvas,img){width:16px;height:16px;filter:var(--hv-icon-outline)}
-html body .hv-quest .hq-goal{font:600 12px/1.4 var(--font-ui);color:#fff;text-shadow:var(--hv-outline);padding-left:6px}
+html body .hv-quest .hq-goal{font:600 12px/1.4 var(--font-ui);color:var(--hv-text);text-shadow:var(--hv-outline);padding-left:6px}
 html body .hv-quest.ready .hq-goal{color:var(--hv-ok)}
 html body .hv-quest.ready .hq-head::before{content:"";display:inline-block;width:8px;height:8px;margin-right:-4px;background:var(--hv-warn);box-shadow:0 0 0 1px #000;border-radius:1px;flex:0 0 8px}
 body.hud-modal :is(#hv-left,.hv-actions,#game-ui .view-tools,#game-ui .map-hint){visibility:hidden!important}
@@ -218,7 +218,7 @@ html body #hv-advisor .next-step{position:static!important;inset:auto!important;
 html body #hv-advisor .next-step .ns-ic{grid-row:1/3;display:grid!important;place-items:center;width:36px!important;height:36px!important;background:var(--hv-ink-a)!important;border:1px solid var(--hv-line)!important;border-radius:2px;margin:0!important}
 html body #hv-advisor .next-step .ns-ic [data-icon],html body #hv-advisor .next-step .ns-ic :is(canvas,img){width:24px!important;height:24px!important;filter:none!important}
 html body #hv-advisor .next-step .ns-tx{font:600 12px/1.35 var(--font-ui)!important;color:#fff!important;text-shadow:var(--hv-outline)!important;white-space:normal!important;overflow:visible!important}
-html body #hv-advisor .next-step .ns-go{font:700 12px/1.2 var(--font-ui)!important;color:var(--hv-quest)!important;text-shadow:var(--hv-outline)!important;background:none!important;border:0!important;padding:0!important;margin:0!important;box-shadow:none!important}
+html body #hv-advisor .next-step .ns-go{font:700 12px/1.2 var(--font-ui)!important;color:var(--hv-gold)!important;text-shadow:var(--hv-outline)!important;background:none!important;border:0!important;padding:0!important;margin:0!important;box-shadow:none!important}
 html body #hv-advisor .next-step .ns-go::before{content:"→ "}
 
 html body #notice-feed{position:static!important;inset:auto!important;transform:none!important;width:100%!important;max-width:none!important;margin:0!important;padding:0 0 0 4px!important;
@@ -234,11 +234,11 @@ html body .hv-actions .hv-act{display:flex!important;flex-direction:column!impor
   width:68px!important;min-height:64px!important;padding:2px 0 4px!important}
 html body .hv-actions .hv-act [data-icon]{display:grid!important;place-items:center;width:32px!important;height:32px!important;margin:0 0 2px!important;background-color:transparent!important;background-size:contain!important;background-repeat:no-repeat!important;background-position:center!important;border:0!important}
 html body .hv-actions .hv-act [data-icon] :is(canvas,img){width:32px!important;height:32px!important}
-html body .hv-actions .hv-act :is(.ha-l1,.ha-l2){display:block;font:700 12px/1.2 var(--font-ui);color:var(--hv-quest);text-shadow:var(--hv-outline);white-space:nowrap}
-html body .hv-actions .hv-act .ha-l2{color:#fff}
+html body .hv-actions .hv-act :is(.ha-l1,.ha-l2){display:block;font:700 12px/1.2 var(--font-ui);color:var(--hv-text);text-shadow:var(--hv-outline);white-space:nowrap}
+html body .hv-actions .hv-act .ha-l2{color:var(--hv-text-dim)}
 /* 標籤壓在地圖怪物上看不清:加一片淡淡的深色底 */
-html body .hv-actions .hv-act :is(.ha-l1,.ha-l2){width:max-content;max-width:76px;margin:0 auto;padding:0 4px;background:rgba(14,10,20,.55);border-radius:3px}
-html body .hv-actions .hv-act .ha-l1:has(+.ha-l2:not(:empty)){border-radius:3px 3px 0 0}
+html body .hv-actions .hv-act :is(.ha-l1,.ha-l2){width:max-content;max-width:76px;margin:0 auto;padding:0 4px;background:rgba(14,10,20,.55);border-radius:2px}
+html body .hv-actions .hv-act .ha-l1:has(+.ha-l2:not(:empty)){border-radius:2px 3px 0 0}
 html body .hv-actions .hv-act .ha-l1+.ha-l2{border-radius:0 0 3px 3px}
 html body .hv-actions .hv-act .ha-l2:empty{display:none}
 html body .hv-actions .hv-act.cooling :is(.ha-l1,.ha-l2){color:var(--hv-text-dim)}
@@ -248,7 +248,7 @@ html body .hv-actions .hv-act.cooling [data-icon]{opacity:.6}
 html body #game-ui .view-tools{position:fixed!important;right:var(--hv-gut)!important;left:auto!important;top:auto!important;bottom:calc(var(--hv-tab-h) + env(safe-area-inset-bottom,0px) + 12px)!important;
   display:flex!important;flex-direction:column!important;align-items:center;gap:4px!important;z-index:8;background:none!important;border:0!important;box-shadow:none!important;padding:0!important;margin:0!important;transform:none!important;width:auto!important}
 html body #game-ui .view-tools>button{width:var(--hv-hit)!important;height:var(--hv-hit)!important;min-width:var(--hv-hit)!important;min-height:var(--hv-hit)!important;display:grid!important;place-items:center!important;
-  background:rgba(20,17,15,.45)!important;border:1px solid rgba(74,65,56,.8)!important;border-radius:2px!important;font:700 18px/1 var(--font-num)!important;color:#fff!important;text-shadow:var(--hv-outline)!important;position:relative}
+  background:rgba(20,17,15,.45)!important;border:1px solid rgba(74,65,56,.8)!important;border-radius:2px!important;font:700 18px/1 var(--font-num)!important;color:var(--hv-text)!important;text-shadow:var(--hv-outline)!important;position:relative}
 html body #game-ui .view-tools>button:hover{background:rgba(42,37,33,.85)!important}
 html body #game-ui .view-tools>button.hidden{display:none!important}
 html body #game-ui .view-tools>button [data-icon],html body #game-ui .view-tools>button>:is(canvas,img){display:grid!important;place-items:center;width:24px!important;height:24px!important;margin:0!important;background-color:transparent!important;background-size:contain!important;background-repeat:no-repeat!important;background-position:center!important;border:0!important}
@@ -340,7 +340,7 @@ html body #modal{
   width:min(960px,calc((100vw - 32px) / max(1,var(--ui-scale,1))))!important;max-width:none!important;min-width:0!important;
   max-height:calc((100vh - max(var(--hud-top,96px),96px) - var(--hud-bottom,72px) - 4px) / max(1,var(--ui-scale,1)))!important;height:auto!important;
   margin:0!important;padding:0!important;background:var(--hv-ink)!important;border:1px solid var(--hv-line)!important;border-bottom:0!important;border-image:none!important;
-  border-radius:3px 3px 0 0!important;box-shadow:0 -2px 0 #000!important;overflow:hidden!important;color:var(--hv-text)}
+  border-radius:2px 3px 0 0!important;box-shadow:0 -2px 0 #000!important;overflow:hidden!important;color:var(--hv-text)}
 html body #modal::before{content:none!important}
 html body #modal>*{z-index:auto}
 @keyframes hvDrawerIn{from{opacity:0;transform:translateY(18px)}to{opacity:1;transform:none}}
@@ -357,7 +357,7 @@ html body #modal .modal-title #modal-icon{order:0;display:grid!important;place-i
   padding:0 0 0 12px;position:relative;z-index:2;background:none!important;border:0!important;box-sizing:content-box}
 html body #modal .modal-title #modal-icon :is(canvas,img){width:18px!important;height:18px!important;image-rendering:pixelated}
 html body #modal .modal-title h2{order:0;display:flex!important;align-items:center;height:36px!important;margin:0 0 -1px!important;padding:0 16px 0 40px!important;
-  background:var(--hv-ink)!important;border:1px solid var(--hv-line)!important;border-bottom:1px solid var(--hv-ink)!important;border-radius:3px 3px 0 0!important;
+  background:var(--hv-ink)!important;border:1px solid var(--hv-line)!important;border-bottom:1px solid var(--hv-ink)!important;border-radius:2px 3px 0 0!important;
   font:700 14px/1 var(--font-ui)!important;color:#fff!important;text-shadow:none!important;letter-spacing:.06em;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;max-width:calc(100% - 64px);flex:0 1 auto}
 html body #modal .modal-title [data-action=close]{margin:0 0 0 auto!important;align-self:center!important;width:32px!important;height:32px!important;min-width:32px!important;min-height:32px!important;padding:0!important;
   border-radius:50%!important;background:var(--hv-panel-2) var(--hv-x) center/12px 12px no-repeat!important;border:2px solid var(--hv-line-hi)!important;border-image:none!important;
@@ -436,7 +436,7 @@ html body #modal-content .rarity{background-color:transparent!important;border:1
 /* 子頁籤（製作等面板內的分頁）：選中與面板同色，未選較暗 */
 html body #modal-content .tabs{display:flex!important;gap:4px!important;border:0!important;border-bottom:1px solid var(--hv-line)!important;padding:0 0 0 2px!important;margin:0 0 12px!important;background:none!important}
 html body #modal-content .tabs>button{min-height:36px;padding:0 16px!important;margin:0 0 -1px!important;background:var(--hv-ink-deep)!important;border:1px solid var(--hv-line)!important;border-bottom-color:var(--hv-line)!important;
-  border-radius:3px 3px 0 0!important;color:var(--hv-text-dim)!important;font:700 13px/1 var(--font-ui)!important;box-shadow:none!important;text-shadow:none!important}
+  border-radius:2px 3px 0 0!important;color:var(--hv-text-dim)!important;font:700 13px/1 var(--font-ui)!important;box-shadow:none!important;text-shadow:none!important}
 html body #modal-content .tabs>button.active{background:var(--hv-ink)!important;color:#fff!important;border-bottom-color:var(--hv-ink)!important}
 @media(max-width:760px),(max-height:520px){html body #modal-content .tabs>button{min-height:44px}}
 /* 進度條：凹槽＋實色條（無漸層） */
@@ -612,7 +612,7 @@ html body #topbar .hv-crest{width:76px!important}
 html body #topbar .hv-crest>i[data-icon]{width:76px!important;height:48px!important}
 html body #topbar .hv-crest>i[data-icon] :is(canvas,img){width:32px!important;height:32px!important}
 html body #topbar .hv-crest .hv-crest-band{display:flex!important;flex-direction:column;align-items:stretch;border:1px solid #000;border-top:0;background:var(--hv-ink-a)}
-html body #topbar .hv-crest #hv-town{display:block;font:700 12px/16px var(--font-ui)!important;color:#fff!important;text-shadow:0 1px 0 #000!important;text-align:center;white-space:nowrap;padding:1px 2px 0;letter-spacing:0}
+html body #topbar .hv-crest #hv-town{display:block;font:700 12px/16px var(--font-ui)!important;color:var(--hv-text)!important;text-shadow:0 1px 0 #000!important;text-align:center;white-space:nowrap;padding:1px 2px 0;letter-spacing:0}
 html body #topbar .hv-crest #difficulty-name{border:0!important;border-top:1px solid #000!important;height:16px!important;line-height:16px!important}
 
 /* ── A1 桌機(≥1024 寬、不是矮視窗):HUD 與頁籤列加大加厚 ── */
@@ -740,7 +740,7 @@ html body #modal-content .hv-hcard .hc-art{--st-a:#3a3430;--st-b:#1a1714;display
   background:linear-gradient(180deg,var(--st-a) 0%,var(--st-b) 100%)!important;border:1px solid #000;border-radius:1px;box-shadow:inset 0 1px 0 rgba(255,255,255,.08)}
 html body #modal-content .hv-hcard .hc-art img{display:block;width:84px;height:96px;image-rendering:pixelated;margin:0;filter:drop-shadow(0 1px 0 rgba(0,0,0,.6))}
 html body #modal-content .hv-hcard .hc-art{position:relative}
-html body #modal-content .hv-hcard .hc-needs{position:absolute;left:3px;bottom:3px;display:flex;gap:2px;padding:2px 3px;background:rgba(236,224,204,.92);z-index:3;border:1px solid #b5533c;border-radius:3px;animation:hc-need-pulse 1.6s ease-in-out infinite}
+html body #modal-content .hv-hcard .hc-needs{position:absolute;left:3px;bottom:3px;display:flex;gap:2px;padding:2px 3px;background:rgba(236,224,204,.92);z-index:3;border:1px solid #b5533c;border-radius:2px}   /* unslop:拿掉 1.6s 無限呼吸邊框(靜態資訊不該一直動) */
 html body #modal-content .hv-hcard .hc-needs :is(.inline-icon,canvas,img){width:16px!important;height:16px!important}
 @keyframes hc-need-pulse{50%{border-color:#f0a070}}
 @media (prefers-reduced-motion:reduce){html body #modal-content .hv-hcard .hc-needs{animation:none}}
@@ -810,13 +810,13 @@ body.piloting #hv-sel{display:none!important}
 html body #modal-backdrop:has(#modal[data-kind=dialog]){background:rgba(8,6,5,.22)!important}
 html body #modal[data-kind=dialog]{width:min(820px,calc(100vw - 24px))!important;height:auto!important;max-height:calc(100vh - var(--hud-top,96px) - var(--hud-bottom,72px) - 24px)!important;
   margin:0 0 12px!important;overflow:visible!important;background:var(--hv-dialog)!important;color:var(--hv-dialog-text)!important;
-  border:2px solid #000!important;border-radius:3px!important;box-shadow:inset 0 0 0 2px #f7f5ee,inset 0 -3px 0 2px #c9c6b9,0 3px 0 #000!important}
+  border:2px solid #000!important;border-radius:2px!important;box-shadow:inset 0 0 0 2px #f7f5ee,inset 0 -3px 0 2px #c9c6b9,0 3px 0 #000!important}
 html body #modal[data-kind=dialog] .modal-title{position:absolute!important;left:14px;top:-15px;height:auto!important;padding:0!important;background:none!important;border:0!important;z-index:3}
 html body #modal[data-kind=dialog] .modal-title #modal-icon{display:none!important}
 html body #modal[data-kind=dialog] .modal-title h2{height:26px!important;padding:0 14px!important;margin:0!important;background:var(--hv-ink)!important;border:2px solid #000!important;border-radius:2px!important;
   color:#fff!important;font:700 13px/1 var(--font-ui)!important;letter-spacing:.1em;max-width:none}
 html body #modal[data-kind=dialog] .modal-title [data-action=close]{display:none!important}
-html body #modal[data-kind=dialog] #modal-content{background:transparent!important;color:var(--hv-dialog-text)!important;padding:20px 16px 14px!important;border-radius:3px}
+html body #modal[data-kind=dialog] #modal-content{background:transparent!important;color:var(--hv-dialog-text)!important;padding:20px 16px 14px!important;border-radius:2px}
 html body #modal[data-kind=dialog] #modal-content :is(p,small,h4,strong,em,span){text-shadow:none!important}
 html body #modal[data-kind=dialog] :is(#scroll-hint,#scroll-hint-up){display:none!important}
 html body #modal-content .hv-dlg{display:grid;grid-template-columns:96px 1fr;gap:14px;align-items:start}
@@ -841,7 +841,7 @@ html body #modal-content .hv-dlg-acts .hv-btn [data-icon],html body #modal-conte
 html body #modal[data-kind=dialog] #modal-content .hv-dlg-acts .hv-btn span{color:inherit!important}
 html body #modal[data-kind=dialog] #modal-content .hv-btn.cancel{background:#5a544d!important;color:#fff!important}
 @media(max-width:760px),(max-height:520px){
-  html body #modal[data-kind=dialog]{width:calc(100vw - 16px)!important;height:auto!important;max-height:calc(100vh - var(--hud-top,96px) - var(--hud-bottom,60px) - 24px)!important;border-left:2px solid #000!important;border-right:2px solid #000!important;border-radius:3px!important;overflow:visible!important}
+  html body #modal[data-kind=dialog]{width:calc(100vw - 16px)!important;height:auto!important;max-height:calc(100vh - var(--hud-top,96px) - var(--hud-bottom,60px) - 24px)!important;border-left:2px solid #000!important;border-right:2px solid #000!important;border-radius:2px!important;overflow:visible!important}
   html body #modal-backdrop:has(#modal[data-kind=dialog]){padding-left:8px!important;padding-right:8px!important}
   html body #modal[data-kind=dialog] #modal-content{overflow:auto!important;padding:20px 10px 10px!important}
   html body #modal-content .hv-dlg{grid-template-columns:64px 1fr;gap:10px}
@@ -860,7 +860,7 @@ html body #modal[data-kind=dialog] #modal-content .hv-btn.cancel{background:#5a5
 html body #modal-content .hv-say{display:grid;grid-template-columns:64px 1fr;gap:10px;align-items:end;margin:8px 0 14px}
 html body #modal-content .hv-say-face{width:64px;height:72px;display:grid;place-items:end center;background:linear-gradient(180deg,#cfcabb,#b8b2a0)!important;border:2px solid #000;border-radius:2px;overflow:hidden}
 html body #modal-content .hv-say-face .hv-face{width:63px;height:72px;image-rendering:pixelated}
-html body #modal-content .hv-say-box{position:relative;padding:14px 12px 10px;background:var(--hv-dialog)!important;border:2px solid #000;border-radius:3px;box-shadow:inset 0 -2px 0 #c9c6b9}
+html body #modal-content .hv-say-box{position:relative;padding:14px 12px 10px;background:var(--hv-dialog)!important;border:2px solid #000;border-radius:2px;box-shadow:inset 0 -2px 0 #c9c6b9}
 html body #modal-content .hv-say-name{position:absolute;left:10px;top:-12px;padding:2px 10px;background:var(--hv-ink)!important;border:2px solid #000;border-radius:2px;color:#fff!important;font:700 12px/16px var(--font-ui)!important;letter-spacing:.1em}
 html body #modal-content .hv-say-box p{margin:0!important;font:600 13px/1.6 var(--font-ui)!important;color:var(--hv-dialog-text)!important}
 /* 顧問頭像(HUD 左側)用同一張村長立繪 */
@@ -1048,8 +1048,8 @@ html body #modal-content .dispatch-go{background:var(--hv-ink)!important;border-
 @media(max-width:760px),(max-height:520px){html body #modal-content .dispatch-go{margin-left:-10px!important;margin-right:-10px!important;padding:8px 10px!important}}
 
 /* ── E 指令面板 #cmdk、手動操控 #pilotlab:炭黑面板 ── */
-html body #cmdk .cmdk-box{border-radius:3px!important}
-html body #pilotlab{background:var(--hv-ink)!important;border:1px solid var(--hv-line)!important;border-image:none!important;border-radius:3px!important;box-shadow:0 2px 0 #000!important;color:var(--hv-text)!important;background-image:none!important}
+html body #cmdk .cmdk-box{border-radius:2px!important}
+html body #pilotlab{background:var(--hv-ink)!important;border:1px solid var(--hv-line)!important;border-image:none!important;border-radius:2px!important;box-shadow:0 2px 0 #000!important;color:var(--hv-text)!important;background-image:none!important}
 html body #pilotlab *{border-image:none!important}
 html body #pilotlab :is(h2,h3,b,strong){color:#fff!important;text-shadow:none!important}
 html body #pilotlab :is(p,small){color:var(--hv-text-dim)!important;text-shadow:none!important}
@@ -1337,7 +1337,7 @@ html body #left-panel:not(.hidden)~#hv-left :is(#hv-advisor,#notice-feed){displa
 html body #inspector{position:fixed!important;left:50%!important;right:auto!important;top:auto!important;bottom:var(--hv-tab-h)!important;transform:translateX(-50%)!important;
   width:min(960px,calc(100vw - 32px))!important;max-width:none!important;min-width:0!important;margin:0!important;
   max-height:calc((100vh - max(var(--hud-top,96px),96px) - var(--hv-tab-h) - 4px) / max(1,var(--ui-scale,1)))!important;
-  border:1px solid var(--hv-line)!important;border-bottom:0!important;border-radius:3px 3px 0 0!important;box-shadow:0 -2px 0 #000!important;display:flex!important;flex-direction:column!important;overflow:hidden!important}
+  border:1px solid var(--hv-line)!important;border-bottom:0!important;border-radius:2px 3px 0 0!important;box-shadow:0 -2px 0 #000!important;display:flex!important;flex-direction:column!important;overflow:hidden!important}
 html body #inspector.hidden{display:none!important}
 html body #inspector .panel-title{flex:0 0 auto;display:flex!important;align-items:center;justify-content:space-between;min-height:44px;padding:0 6px 0 12px!important}
 html body #inspector .panel-title>[data-action=closeInspector]{width:32px!important;height:32px!important;min-width:32px!important;min-height:32px!important;padding:0!important;flex:0 0 auto}
@@ -1600,15 +1600,18 @@ html body #modal-content .quest-step.locked .qs-tag{color:#c4b99f!important}
 /* ═══ Z1-1 底部頁籤列：5 格(建設、地下城、獵人、倉庫、交易)，規格 b ═══ */
 html body #bottom-bar{background:#1f1b10!important;border-top:2px solid #58544b!important;box-shadow:none!important;height:var(--z1-tabbar)!important;padding-bottom:var(--z1-sab)!important}
 html body #bottom-bar>button{flex:1 1 0!important;max-width:150px!important;gap:3px!important;padding:5px 2px 4px!important;position:relative!important;top:0!important;margin:0!important;
-  height:calc(var(--hv-tab-h) - 2px)!important;background:transparent!important;color:#c2bba3!important;overflow:visible}
+  height:calc(var(--hv-tab-h) - 2px)!important;background:transparent!important;color:var(--hv-text)!important;overflow:visible}
 @media(max-width:760px){html body #bottom-bar>button{max-width:none!important}}
 /* 分隔線：2px 淺沙色，上下兩端淡出 */
 html body #bottom-bar>button+button::before{content:""!important;position:absolute!important;left:-1px!important;top:6px!important;bottom:6px!important;width:2px!important;height:auto!important;display:block!important;
   background:linear-gradient(180deg,transparent 0,#c9bd9a 24%,#c9bd9a 76%,transparent 100%)!important;opacity:.42;border:0!important;box-shadow:none!important;padding:0!important;margin:0!important}
 html body #bottom-bar>button [data-icon]{width:40px!important;height:40px!important}
 html body #bottom-bar>button [data-icon] :is(canvas,img){width:40px!important;height:40px!important}
-html body #bottom-bar>button b{font:700 13px/1 var(--font-ui)!important;color:#c2bba3!important;text-shadow:var(--hv-outline)!important;letter-spacing:.04em!important}
-html body #bottom-bar>button kbd{font:600 12px/1 var(--font-num)!important;color:#c2bba3!important;top:5px!important;left:8px!important}
+html body #bottom-bar>button b{font:700 13px/1 var(--font-ui)!important;color:var(--hv-text)!important;text-shadow:var(--hv-outline)!important;letter-spacing:0!important}
+/* unslop: 頁籤數字改成真正的鍵帽(細框小方塊),不再是浮在格子角落的裸數字 */
+html body #bottom-bar>button kbd{font:700 12px/1 var(--font-num)!important;top:6px!important;left:6px!important;
+  box-sizing:border-box!important;min-width:16px!important;height:16px!important;display:grid!important;place-items:center!important;padding:0 2px!important;
+  border:1px solid var(--hv-line-hi)!important;border-radius:2px!important;background:none!important;text-shadow:none!important}
 html body #bottom-bar>button:hover{background:#2a2518!important}
 @media(max-width:760px){
   html body #bottom-bar>button{padding:4px 0 3px!important}
@@ -1654,7 +1657,8 @@ html body :is(#modal,#inspector,#left-panel,#placement,#unit-card,#run-hud) butt
 html body :is(#modal,#inspector,#left-panel,#placement,#unit-card,#run-hud) button.zb[data-zbr]:not(#z1):active:not(:disabled){transform:translateY(1px)!important;border-bottom-width:2px!important;background:color-mix(in srgb,var(--c) 90%,#000)!important}
 html body :is(#modal,#inspector,#left-panel,#placement,#unit-card,#run-hud) button.zb[data-zbr]:not(#z1):focus-visible{clip-path:none;outline:2px solid #ffe48f!important;outline-offset:2px}
 /* 灰＝不能用 */
-html body :is(#modal,#inspector,#left-panel,#placement,#unit-card,#run-hud) button.zb[data-zbr]:not(#z1):is(:disabled,[aria-disabled=true],.locked){
+/* 例外:目前的難度/數量牌(data-zb-cur)不算「不能用」,綠色語意見檔尾 section 2 */
+html body :is(#modal,#inspector,#left-panel,#placement,#unit-card,#run-hud) button.zb[data-zbr]:not(#z1):not([data-zb-cur]):is(:disabled,[aria-disabled=true],.locked){
   --c:var(--zb-gray);--h:var(--zb-gray-hi);--l:var(--zb-gray-lip);background:var(--zb-gray)!important;color:#a3a3a3!important;text-shadow:none!important;cursor:not-allowed;opacity:1!important;transform:none!important}
 html body :is(#modal,#inspector,#left-panel,#placement,#unit-card,#run-hud) button.zb.zb-lock[data-zbr]:not(#z1):is(:disabled,[aria-disabled=true]):not(:has(.hv-lock))::before{content:"";display:inline-block;width:10px;height:12px;margin-right:6px;vertical-align:-1px;flex:0 0 auto;background:var(--hv-lock) center/10px 12px no-repeat;image-rendering:pixelated}
 /* 清單格(建設卡)裡的鈕：沿用卡片的滿寬排版，只換顏色語意 */
@@ -1687,7 +1691,7 @@ html body #modal-backdrop[data-mode=D] .modal-title{display:none!important}
 /* ═══ Z1-4 A 模式：頁籤抽屜(貼在頁籤列上方、HUD 與場景不壓暗；手機約 50%、桌機寬 960 高上限約 45%) ═══ */
 @media(min-height:521px){
   html body #modal-backdrop[data-mode=A]{background:transparent!important;padding:0 0 var(--hud-bottom,var(--z1-tabbar))!important;align-items:flex-end!important;justify-content:center!important}
-  html body #modal-backdrop[data-mode=A] #modal{width:min(960px,calc(100vw - 32px))!important;height:var(--hv-drawer-h)!important;max-height:var(--hv-drawer-h)!important;border-radius:3px 3px 0 0!important}
+  html body #modal-backdrop[data-mode=A] #modal{width:min(960px,calc(100vw - 32px))!important;height:var(--hv-drawer-h)!important;max-height:var(--hv-drawer-h)!important;border-radius:2px 3px 0 0!important}
   /* HUD 不壓暗：抽屜上方露出來的任務追蹤與行動徽章保持可見(它們被 JS inert，只是看) */
   html body.hud-modal:has(#modal-backdrop[data-mode=A]:not(.hidden)) :is(#hv-left,.hv-actions){visibility:visible!important}
 }
@@ -1697,7 +1701,7 @@ html body #modal-backdrop[data-mode=D] .modal-title{display:none!important}
 /* A 子頁籤：和標題頁籤同一排(圖示型頁籤：選中的較寬並顯示標題) */
 html body #modal[data-mode=A] #modal-subtabs{position:absolute;left:8px;top:0;height:44px;align-items:flex-end;gap:3px;z-index:4;max-width:calc(100% - 64px)}
 html body #modal[data-mode=A][data-subtabs] .modal-title :is(h2,#modal-icon){display:none!important}
-html body #modal[data-mode=A] .z1-subtab{display:flex;align-items:center;justify-content:center;height:36px;padding:0 16px;margin:0;background:#1b1716;color:var(--hv-text-dim);border:1px solid var(--hv-line);border-bottom:1px solid var(--hv-line);border-radius:3px 3px 0 0;
+html body #modal[data-mode=A] .z1-subtab{display:flex;align-items:center;justify-content:center;height:36px;padding:0 16px;margin:0;background:#1b1716;color:var(--hv-text-dim);border:1px solid var(--hv-line);border-bottom:1px solid var(--hv-line);border-radius:2px 3px 0 0;
   font:700 14px/1 var(--font-ui);letter-spacing:.06em;cursor:pointer;white-space:nowrap}
 html body #modal[data-mode=A] .z1-subtab.on{background:var(--hv-ink);color:#fff;border-bottom-color:var(--hv-ink);margin-bottom:-1px;height:37px}
 html body #modal[data-mode=A] .z1-subtab:not(.on):hover{background:#262120;color:var(--hv-text)}
@@ -1705,9 +1709,9 @@ html body #modal[data-mode=A] .z1-subtab:not(.on):hover{background:#262120;color
 @media(max-height:520px){html body #modal[data-mode=A] #modal-subtabs{height:44px}html body #modal[data-mode=A] .z1-subtab{height:36px}html body #modal[data-mode=A] .z1-subtab.on{height:37px}}
 @media(max-height:520px) and (pointer:coarse){html body #modal[data-mode=A] .z1-subtab,html body #modal[data-mode=A] .z1-subtab.on{height:44px;min-width:44px}}
 /* 抽屜底部固定動作列(R5)：出發／開始／招募確認這類主要動作不必捲到底 */
-html body #modal-content .z1-sticky{position:sticky!important;bottom:-16px;z-index:3;margin:12px -12px -16px!important;padding:10px 12px!important;background:var(--hv-ink)!important;border-top:1px solid var(--hv-line)!important;display:flex;gap:8px;justify-content:center}
-@media(max-width:760px),(max-height:520px){html body #modal-content .z1-sticky{bottom:-18px;margin:12px -10px -18px!important;padding:10px!important}}
-@media(max-height:520px){html body #modal-content .z1-sticky{bottom:-12px;margin:8px -10px -12px!important;padding:6px 10px!important}}
+html body #modal-content .z1-sticky{position:sticky!important;bottom:-16px;z-index:3;margin:12px -12px -16px!important;padding:10px 12px 18px!important;   /* unslop:下緣留得比出血量多 2px,按鈕底緣才落在頁籤列上緣之上 */background:var(--hv-ink)!important;border-top:1px solid var(--hv-line)!important;display:flex;gap:8px;justify-content:center}
+@media(max-width:760px),(max-height:520px){html body #modal-content .z1-sticky{bottom:-18px;margin:12px -10px -18px!important;padding:10px 10px 18px!important}}
+@media(max-height:520px){html body #modal-content .z1-sticky{bottom:-12px;margin:8px -10px -12px!important;padding:6px 10px 12px!important}}
 html body #modal-content .z1-sticky>button{min-width:0!important;width:min(100%,420px);flex:1 1 auto}
 /* 固定動作列(.z1-sticky／.z2c-dock，約 66–71px，橫向 57px)浮在清單最下面：scrollIntoView／鍵盤 Tab 把最後幾列捲到容器邊緣時會停在它底下。
    scroll-padding-bottom 讓「捲到可見」把列停在動作列上方(捲到底時動作列本來就在內容後面，所以不加 padding-bottom；同 pixel-style.css 的 .dispatch-go) */
@@ -1841,7 +1845,7 @@ html body #modal[data-type=hunter] .z2-stars{display:flex;gap:4px}
 html body #modal[data-type=hunter] .z2-stars i{display:block;width:15px;height:15px;background:#3b3731;clip-path:polygon(50% 0,62% 38%,100% 50%,62% 62%,50% 100%,38% 62%,0 50%,38% 38%)}
 html body #modal[data-type=hunter] .z2-stars i.on{background:var(--z2-star)}
 html body #modal[data-type=hunter] .z2-rb{font:700 12px/1.2 var(--font-ui);color:var(--z2-star);text-shadow:none!important}
-html body #modal[data-type=hunter] .z2-gold{display:flex;align-items:center;gap:6px;min-width:132px;padding:4px 10px;background:#161311;border:1px solid #938b79;border-radius:3px}
+html body #modal[data-type=hunter] .z2-gold{display:flex;align-items:center;gap:6px;min-width:132px;padding:4px 10px;background:#161311;border:1px solid #938b79;border-radius:2px}
 html body #modal[data-type=hunter] .z2-gold small{font:600 12px/1 var(--font-ui);color:var(--hv-text-dim);text-shadow:none!important}
 html body #modal[data-type=hunter] .z2-gold b{margin-left:auto;font:700 14px/1 var(--font-num);color:#fff}
 html body #modal[data-type=hunter] .z2-gold .inline-icon{width:16px;height:16px}
@@ -1850,7 +1854,7 @@ html body #modal[data-type=hunter] .z2-ring{position:relative;flex:0 0 auto;widt
 html body #modal[data-type=hunter] .z2-spot::before{content:"";position:absolute;left:50%;top:50%;width:200px;height:190px;transform:translate(-50%,-50%);pointer-events:none;
   background:radial-gradient(closest-side,color-mix(in srgb,var(--rarity) 38%,transparent) 0,color-mix(in srgb,var(--rarity) 14%,transparent) 55%,transparent 100%)}
 html body #modal[data-type=hunter] .z2-fig{position:absolute;left:50%;top:50%;width:80px;height:92px;transform:translate(-50%,-46%);object-fit:contain;image-rendering:pixelated;z-index:1;filter:drop-shadow(0 2px 0 rgba(0,0,0,.55))}
-html body #modal[data-type=hunter] .z2-slot{position:absolute;box-sizing:border-box;width:48px;height:48px;display:grid;place-items:center;padding:0;background:#35312e;border:1px solid #57514a;border-radius:3px;color:inherit;z-index:2}
+html body #modal[data-type=hunter] .z2-slot{position:absolute;box-sizing:border-box;width:48px;height:48px;display:grid;place-items:center;padding:0;background:#35312e;border:1px solid #57514a;border-radius:2px;color:inherit;z-index:2}
 html body #modal[data-type=hunter] .z2-slot .inline-icon{width:28px;height:28px}
 html body #modal[data-type=hunter] .z2-slot.open{background:#1f1925;border-color:#e4c0ee;cursor:pointer}html body #modal[data-type=hunter] .z2-slot.open .inline-icon{opacity:.5}
 html body #modal[data-type=hunter] .z2-slot.eq{background:#2d2a26;border-color:#8a8372;cursor:pointer}
@@ -2004,7 +2008,7 @@ html body #modal[data-mode=A] .z1-subtab[data-badge]::after{content:attr(data-ba
 html body #modal-backdrop[data-mode=D] #modal #modal-content{background:none!important;border:0!important;margin:0!important;padding:14px 12px 16px!important;overflow:visible!important;max-height:none!important}
 html body #modal-backdrop[data-mode=D] #modal :is(#modal-foot,#scroll-hint,#scroll-hint-up){display:none!important}
 html body .z2-band{display:flex;flex-direction:column;align-items:center;gap:8px;max-width:520px;margin:0 auto;color:var(--hv-text)}
-html body .z2-band-t{margin:0!important;font:italic 700 22px/1.2 var(--font-ui)!important;letter-spacing:.06em;color:#fff!important;text-shadow:0 2px 0 #000!important}
+html body .z2-band-t{margin:0!important;font:700 22px/1.2 var(--font-ui)!important;letter-spacing:0;color:var(--hv-text)!important;text-shadow:0 2px 0 #000!important}
 html body .z2-vcards{display:flex;align-items:flex-end;justify-content:center;gap:12px;min-height:158px}
 html body .z2-vcard{position:relative;display:flex;flex-direction:column;align-items:center;gap:2px;width:84px;padding:0 0 4px;overflow:hidden;isolation:isolate;cursor:pointer;color:#fff;
   background:#1b1714;border:2px solid color-mix(in srgb,var(--rarity) 70%,#000);border-radius:2px;font:inherit}
@@ -2443,6 +2447,9 @@ html body #modal-content .region-pick .rp-body>.z2c-v{margin-left:auto}
 html body #topbar .treasury b{font:700 17px/1 var(--font-num)!important}
 html body #topbar .treasury .res-row{height:22px}
 html body #topbar .treasury .res-row:has(.res-plus){min-width:104px}
+/* unslop: 四列資源同寬,數字與「＋」各自成一欄 —— 原本 ＋ 跟著數字長度跑,兩顆不在同一條線上 */
+html body #topbar .treasury .res-row{display:grid!important;grid-template-columns:18px 1fr 30px!important;column-gap:6px!important;align-items:center!important;width:104px!important;height:20px}
+html body #topbar .treasury .res-row>b{text-align:left!important}
 html body #topbar .treasury .res-plus{flex:0 0 30px;width:30px;height:22px;margin-left:auto;position:relative;display:block;cursor:pointer}
 html body #topbar .treasury .res-plus::before{content:"";position:absolute;right:2px;top:3px;width:16px;height:16px;box-sizing:border-box;border:1px solid #aca99a;background:
   linear-gradient(#f2c96a,#f2c96a) center/8px 2px no-repeat,linear-gradient(#f2c96a,#f2c96a) center/2px 8px no-repeat,rgba(20,17,15,.82);box-shadow:0 0 0 1px #000,inset 0 1px 0 rgba(255,255,255,.14);image-rendering:pixelated}
@@ -2653,10 +2660,10 @@ html body #modal-content .gear-set-gl{font:700 14px/1 var(--font-ui);color:#cbbf
 html body #modal-content .gear-set-slot .gico{width:32px;height:32px}
 @media(pointer:coarse){html body #modal-content .gear-set-who{min-height:44px;font-size:14px}}
 /* 2026-11-16 倉庫一鍵整理列:舊階裝備數量＋全部賣出(金)／全部分解(灰) */
-html body #modal-content .gear-bulk{display:flex;flex-wrap:wrap;align-items:center;gap:6px;margin:4px 0 8px;padding:6px 8px;background:rgba(0,0,0,.25);border:1px solid var(--hv-line,#3b342d);border-radius:3px}
+html body #modal-content .gear-bulk{display:flex;flex-wrap:wrap;align-items:center;gap:6px;margin:4px 0 8px;padding:6px 8px;background:rgba(0,0,0,.25);border:1px solid var(--hv-line,#3b342d);border-radius:2px}
 html body #modal-content .gear-bulk-tx{flex:1 1 100%;font:600 12px/1.4 var(--font-ui);color:var(--hv-text-dim,#cdbfa6)}
 html body #modal-content .gear-bulk .pixel-button small{display:inline-flex;align-items:center;gap:2px;margin-left:4px;font-size:11px}
-html body #modal-content .gear-auto{display:flex;flex-wrap:wrap;align-items:center;gap:6px;margin:4px 0 6px;padding:6px 8px;background:rgba(0,0,0,.18);border:1px dashed var(--hv-line,#3b342d);border-radius:3px}
+html body #modal-content .gear-auto{display:flex;flex-wrap:wrap;align-items:center;gap:6px;margin:4px 0 6px;padding:6px 8px;background:rgba(0,0,0,.18);border:1px dashed var(--hv-line,#3b342d);border-radius:2px}
 html body #modal-content .gear-auto .gear-bulk-tx small{margin-left:4px;font-weight:400}
 html body #modal-content .gear-auto .pixel-button[aria-checked="true"]{outline:2px solid var(--hv-gold,#e4c97b);outline-offset:-2px}
 /* ── 地下城選人列上方:標題＋「推薦隊伍」(2026-11-17,game.recommendDungeonParty) */
@@ -2781,7 +2788,7 @@ html body #modal-content .trade-info{margin-top:10px}
 
 /* 2026-11-18 獵人倒下的回報:快捷鈕轉紅、難度面板列出最近傷亡 */
 html body .hv-act .ha-l2.is-down{background:#8e2b20;color:#fff}
-html body #modal[data-type=difficulty] #modal-content .diff-downs{margin:0 0 8px;padding:5px 10px;border:1px solid #7a3a30;background:#3a1712cc;border-radius:3px;font:600 13px/1.6 var(--font-ui);color:#e8d6c0}
+html body #modal[data-type=difficulty] #modal-content .diff-downs{margin:0 0 8px;padding:5px 10px;border:1px solid #7a3a30;background:#3a1712cc;border-radius:2px;font:600 13px/1.6 var(--font-ui);color:#e8d6c0}
 html body #modal[data-type=difficulty] #modal-content .diff-downs b{color:#ff9d86}
 html body #modal[data-type=difficulty] #modal-content .diff-downs small{display:block;font:inherit;color:#d9c8a2}
 
@@ -2791,7 +2798,7 @@ html body :is(#inspect-content,#modal-content) .zc-auto .zc-auto-set{width:auto!
 html body :is(#inspect-content,#modal-content) .zc-auto .zc-auto-off{margin-left:auto}
 html body :is(#inspect-content,#modal-content) .zc-auto .zc-auto-st.done{color:#a8b894}
 html body :is(#inspect-content,#modal-content) .zc-auto .pixel-button{min-width:44px;min-height:44px;padding:0 6px!important;font:700 13px/1 var(--font-ui)!important}
-html body :is(#inspect-content,#modal-content) .zc-auto output{min-width:96px;height:44px;display:grid;place-items:center;padding:0 6px;border:1px solid #4a3a2a;border-radius:3px;background:#1d150ecc;font:700 13px/1 var(--font-num);color:#cbb99a}
+html body :is(#inspect-content,#modal-content) .zc-auto output{min-width:96px;height:44px;display:grid;place-items:center;padding:0 6px;border:1px solid #4a3a2a;border-radius:2px;background:#1d150ecc;font:700 13px/1 var(--font-num);color:#cbb99a}
 html body :is(#inspect-content,#modal-content) .zc-auto.on output{border-color:#8a6a34;color:#efcd82}
 html body :is(#inspect-content,#modal-content) .zc-auto.paused output{border-color:#7a3a30;color:#ff9d86}
 html body :is(#inspect-content,#modal-content) .zc-auto-st{font:600 12px/1.3 var(--font-ui);font-style:normal;color:#a8b894}
@@ -2801,7 +2808,313 @@ html body :is(#inspect-content,#modal-content) .zc-auto.paused .zc-auto-st{color
   html body :is(#inspect-content,#modal-content) .zc-auto .pixel-button{min-width:44px;min-height:44px}
 }
 /* 2026-11-20 持續製作總覽:哪幾項自動補貨中＋一鍵全部關閉 */
-html body :is(#inspect-content,#modal-content) .craft-auto-sum{display:flex;align-items:center;gap:8px;flex-wrap:wrap;margin:0 0 8px;padding:6px 10px;border:1px solid #4a3a2a;border-radius:3px;background:#1d150ecc;font:600 12px/1.5 var(--font-ui);color:#b8a888}
+html body :is(#inspect-content,#modal-content) .craft-auto-sum{display:flex;align-items:center;gap:8px;flex-wrap:wrap;margin:0 0 8px;padding:6px 10px;border:1px solid #4a3a2a;border-radius:2px;background:#1d150ecc;font:600 12px/1.5 var(--font-ui);color:#b8a888}
 html body :is(#inspect-content,#modal-content) .craft-auto-sum.on{border-color:#8a6a34;color:#e8d6c0}
 html body :is(#inspect-content,#modal-content) .craft-auto-sum b{color:#efcd82}
 html body :is(#inspect-content,#modal-content) .craft-auto-sum .pixel-button{min-width:44px;min-height:44px;margin-left:auto;padding:0 10px!important;font:700 13px/1 var(--font-ui)!important}
+
+/* ===== AAA UI/UX Polish ===== */
+
+/* ── 1. Worldmap Desktop Atlas: fix inherited align-items:start void + 2-column region atlas ── */
+html body #modal[data-type=worldmap] .z2c-wm{align-items:stretch!important;width:100%}
+html body #modal[data-type=worldmap] #world-map-canvas{border:0!important}
+@media(min-width:761px) and (min-height:521px){
+  :root{--z2c-map-h:268px}
+  html body #modal[data-type=worldmap] .wm-top{width:100%;align-items:stretch;gap:12px}
+  html body #modal[data-type=worldmap] .wm-crop{border:1px solid #aca99a!important;box-shadow:0 0 0 1px #000,0 3px 0 rgba(0,0,0,.45)!important}
+  html body #modal[data-type=worldmap] .wm-tools{padding:12px!important;background:#161211!important;border:1px solid #3b3731!important;box-shadow:inset 0 1px 0 rgba(255,244,214,.05)!important;gap:8px;justify-content:flex-start}
+  html body #modal[data-type=worldmap] .wm-tools .wm-count{padding-bottom:6px;border-bottom:1px solid #2c2824;font-size:14px;letter-spacing:.06em;color:#f4ecd6}
+  html body #modal[data-type=worldmap] .wm-tools .pixel-button{min-height:38px;font-size:13px!important;text-align:center}
+  html body #modal[data-type=worldmap] .wm-tools .wm-boss{margin-top:auto;padding-top:8px;border-top:1px solid #2c2824;color:#d6c8a8}
+  html body #modal[data-type=worldmap] .z2c-rows{grid-template-columns:repeat(2,minmax(0,1fr))!important;gap:6px 8px}
+  html body #modal[data-type=worldmap] .z2c-row{transition:border-color .14s ease,background-color .14s ease}
+  html body #modal[data-type=worldmap] .z2c-row.active{box-shadow:inset 0 0 0 1px rgba(230,180,60,.45)!important}
+}
+
+/* ── 2. Difficulty & Density: zero text overflow, horizontal tier banners on desktop, active current plate without padlock ── */
+/* data-zb-cur = 「目前」牌:不是不能用,所以不吃 --zb-gray(gray 那條已用 :not([data-zb-cur]) 排除),:not(#z1) 只是把特異度拉到跟 --zb-gold 那條同 id 數、再靠 class 數嬴 */
+html body #modal button.zb[data-zb-cur="1"]:disabled:not(#z1),html body #inspector button.zb[data-zb-cur="1"]:disabled:not(#z1){
+  --c:#2d3b1e;--h:#3b4d28;--l:#192210;
+  background:#2d3b1e!important;color:#cde49c!important;border-bottom-color:#192210!important;
+  box-shadow:inset 0 1px 0 #536b38!important;text-shadow:0 1px 0 rgba(0,0,0,.6)!important;
+  cursor:default!important;opacity:1!important;filter:none!important;transform:none!important}
+html body :is(#modal,#inspector) button.zb[data-zb-cur="1"]:disabled::before{content:none!important;display:none!important}
+html body #modal[data-type=difficulty] .diff-summary{display:flex;align-items:center;justify-content:center;gap:8px;padding:7px 12px;margin:0 0 10px;background:#161211!important;border:1px solid #3b3731!important;font:600 13px/1.4 var(--font-ui);color:#d8ceb6}
+html body #modal[data-type=difficulty] .diff-summary b{color:#f2c96a}
+@media(min-width:761px) and (min-height:521px){
+  html body #modal[data-type=difficulty] #modal-content .hv-note{margin:0 2px 5px!important;line-height:1.38!important}
+  html body #modal[data-type=difficulty] .diff-summary{padding:4px 10px!important;margin:0 0 5px!important}
+  html body #modal[data-type=difficulty] .difficulty-grid{display:grid!important;grid-template-columns:1fr!important;gap:4px!important}
+  html body #modal[data-type=difficulty] .difficulty-card{display:grid!important;grid-template-columns:40px minmax(0,1fr) 92px;grid-template-rows:auto auto auto;column-gap:10px;row-gap:1px;align-items:center;padding:5px 10px!important;text-align:left!important;transition:border-color .14s ease}
+  html body #modal[data-type=difficulty] .difficulty-card>i{grid-column:1;grid-row:1/4;display:grid;place-items:center;width:40px;height:40px;background:#14110f;border:1px solid #3b3731;box-shadow:inset 0 0 0 1px #0a0807}
+  html body #modal[data-type=difficulty] .difficulty-card>i [data-icon]{width:28px;height:28px}
+  html body #modal[data-type=difficulty] .difficulty-card>h3{grid-column:2;grid-row:1;margin:0!important;display:flex;align-items:center;gap:6px;font:700 14px/1.18 var(--font-ui)!important;color:#fff!important}
+  html body #modal[data-type=difficulty] .difficulty-card .diff-now{margin-left:0;padding:1px 6px;background:#2d3b1e;border:1px solid #6b8844;color:#d6f0a2;font:700 12px/1.2 var(--font-ui)!important;font-style:normal}
+  html body #modal[data-type=difficulty] .difficulty-card .diff-stats{grid-column:2;grid-row:2;display:grid!important;grid-template-columns:repeat(2,minmax(0,1fr));gap:1px 14px;margin:1px 0!important;padding:2px 8px!important;background:#161211;border:1px solid #2c2824}
+  html body #modal[data-type=difficulty] .difficulty-card .diff-stats>div{display:flex;justify-content:space-between;align-items:baseline;gap:6px;font:600 12px/1.3 var(--font-num)!important}
+  html body #modal[data-type=difficulty] .difficulty-card .diff-stats dt{color:#b9b19c}
+  html body #modal[data-type=difficulty] .difficulty-card .diff-stats dd{color:#f5e7c2;font-weight:700}
+  html body #modal[data-type=difficulty] .difficulty-card .diff-gate{grid-column:2;grid-row:3;margin:0!important;font:600 12px/1.25 var(--font-ui)!important}
+  html body #modal[data-type=difficulty] .difficulty-card>.pixel-button{grid-column:3;grid-row:1/4;width:100%;min-height:36px!important;padding:0 6px!important;white-space:nowrap!important;font-size:13px!important;display:inline-flex;align-items:center;justify-content:center}
+  html body #modal[data-type=difficulty] .difficulty-card.current{border-color:#c9a85c!important;box-shadow:inset 0 0 0 1px rgba(230,180,60,.38)!important}
+}
+@media(max-width:760px) and (min-height:521px){
+  html body #modal[data-type=difficulty] .difficulty-card{display:flex!important;flex-direction:column;align-items:center;padding:10px 8px!important;gap:4px}
+  html body #modal[data-type=difficulty] .difficulty-card:last-child:nth-child(odd){grid-column:1/-1}
+  html body #modal[data-type=difficulty] .difficulty-card>.pixel-button{margin-top:auto!important;width:100%;white-space:nowrap!important}
+}
+
+/* ── 3. Trade Stepper: symmetric controls across desktop (1 row), tablet/land touch (2 symmetric rows >=44px), and phone (full-width readout) ── */
+@media(min-width:761px) and (pointer:fine){
+  html body #modal-content .trade-row.z2b-cell .tr-step{grid-template-columns:repeat(5,minmax(0,1fr))!important;gap:3px!important}
+  html body #modal-content .trade-row.z2b-cell .tr-step .pixel-button{min-height:36px!important;font-size:13px!important}
+  html body #modal-content .trade-row.z2b-cell .tr-step output{height:36px!important;font-size:14px!important}
+}
+@media(pointer:coarse) and (min-width:761px){
+  /* 觸控平板/橫向手機：兩列對稱排法（上列 −／數量／＋，下列 −10／＋10），零孤立鍵且每顆熱區 >=70×44px */
+  html body #modal-content .trade-row.z2b-cell .tr-step{grid-template-columns:repeat(6,minmax(0,1fr))!important;gap:4px!important}
+  html body #modal-content .trade-row.z2b-cell .tr-step .pixel-button{min-height:44px!important}
+  html body #modal-content .trade-row.z2b-cell .tr-step output{height:44px!important;grid-column:3/5;grid-row:1}
+  html body #modal-content .trade-row.z2b-cell .tr-step [data-d="-1"]{grid-column:1/3;grid-row:1}
+  html body #modal-content .trade-row.z2b-cell .tr-step [data-d="1"]{grid-column:5/7;grid-row:1}
+  html body #modal-content .trade-row.z2b-cell .tr-step [data-d="-10"]{grid-column:1/4;grid-row:2}
+  html body #modal-content .trade-row.z2b-cell .tr-step [data-d="10"]{grid-column:4/7;grid-row:2}
+}
+@media(max-width:760px){
+  html body #modal-content .trade-row.z2b-cell .tr-step output{grid-column:1/-1;height:34px!important;font-size:14px!important}
+}
+
+/* ── 4. Boss Panel Desktop: full-width briefing + uncramped 2-column party cards (no class truncation) ── */
+@media(min-width:761px) and (min-height:521px){
+  html body #modal-content .hv-boss{grid-template-columns:1fr!important;gap:10px}
+  html body #modal-content .hv-boss-l{gap:8px}
+  html body #modal-content .hv-boss-r{order:-1;gap:8px}
+  html body #modal-content .hv-boss .bs-party{grid-template-columns:repeat(2,minmax(0,1fr))!important;gap:6px 8px!important}
+  html body #modal-content .hv-boss .bs-hunter{padding:6px 8px!important;gap:8px!important}
+  html body #modal-content .hv-boss .bs-info small{white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+  html body #modal-content .hv-boss-r .boss-loot{padding:8px 12px!important;gap:6px}
+  html body #modal-content .hv-boss-r .boss-loot .cost{justify-content:center}
+  html body #modal-content .hv-boss-r .boss-loot>span{text-align:center}
+}
+
+/* ── 5. Recruit Drawer Desktop: crisp above-the-fold cards + rarity spotlight aura ── */
+@media(min-width:761px) and (min-height:521px){
+  html body #modal[data-type=recruit] #modal-content .hv-note{margin:0 2px 8px!important}
+  html body #modal[data-type=recruit] #modal-content .visitor-grid{gap:10px!important}
+  html body #modal[data-type=recruit] #modal-content .visitor-card{display:flex!important;flex-direction:column!important;align-items:center!important;gap:4px!important;padding:8px 10px 8px!important}
+  html body #modal[data-type=recruit] #modal-content .visitor-card .visitor-art{position:relative;display:grid;place-items:end center;width:100%;height:74px!important;margin:0!important;overflow:hidden}
+  html body #modal[data-type=recruit] #modal-content .visitor-card .visitor-art::before{content:"";position:absolute;left:50%;top:54%;width:120px;height:100px;transform:translate(-50%,-50%);pointer-events:none;background:radial-gradient(closest-side,color-mix(in srgb,var(--rarity,#aca99a) 30%,transparent),transparent 100%)}
+  html body #modal[data-type=recruit] #modal-content .visitor-card .visitor-art img{position:relative;z-index:1;height:70px!important;width:auto!important;object-fit:contain;image-rendering:pixelated;filter:drop-shadow(0 2px 0 rgba(0,0,0,.6))}
+  html body #modal[data-type=recruit] #modal-content .visitor-card h3{margin:0!important;font-size:14px!important;line-height:1.25!important}
+  html body #modal[data-type=recruit] #modal-content .visitor-card .rarity{margin:0!important;padding:1px 8px!important;font-size:12px!important}
+  html body #modal[data-type=recruit] #modal-content .visitor-card .trait{margin:2px 0 0!important;padding:3px 6px!important;width:100%;box-sizing:border-box;text-align:center;font-size:12px!important}
+  html body #modal[data-type=recruit] #modal-content .visitor-card .visitor-stats{margin:2px 0 0!important;padding:4px 6px!important;width:100%;box-sizing:border-box;justify-content:center;gap:3px 8px}
+  html body #modal[data-type=recruit] #modal-content .visitor-card>p{margin:2px 0 4px!important;font-size:12px!important;line-height:1.45!important;display:-webkit-box;-webkit-line-clamp:2;-webkit-box-orient:vertical;overflow:hidden;text-align:center}
+  html body #modal[data-type=recruit] #modal-content .visitor-card .pixel-button{margin-top:auto!important;min-height:38px!important}
+}
+@media(pointer:coarse) and (min-width:761px) and (min-height:521px){
+  html body #modal[data-type=recruit] #modal-content .visitor-card .pixel-button{min-height:44px!important}
+}
+
+/* ── 6. Help Panel: single-row 6-chip nav + clean 2x2 core-loop grid on desktop, symmetrical 3x2 nav on phone ── */
+@media(min-width:761px) and (min-height:521px){
+  html body #modal[data-type=help] #modal-content .help-nav{display:grid!important;grid-template-columns:repeat(6,minmax(0,1fr))!important;gap:4px!important;padding:6px 0 8px!important}
+  html body #modal[data-type=help] #modal-content .help-nav-chip{padding:0 4px!important;text-align:center;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+  html body #modal[data-type=help] #modal-content .hl-steps{display:grid!important;grid-template-columns:repeat(2,minmax(0,1fr))!important;gap:8px!important}
+  html body #modal[data-type=help] #modal-content .hl-arrow{display:none!important}
+  html body #modal[data-type=help] #modal-content .hl-step{padding:8px 10px!important}
+  html body #modal[data-type=help] #modal-content .hl-body strong{white-space:nowrap}
+}
+@media(max-width:760px){
+  html body #modal[data-type=help] #modal-content .help-nav{display:grid!important;grid-template-columns:repeat(3,minmax(0,1fr))!important;gap:4px!important;padding:3px 0 4px!important}
+  html body #modal[data-type=help] #modal-content .help-nav-chip{padding:0 4px!important;text-align:center;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+}
+
+/* ── 7. Monster Codex: full-width balanced bestiary rows + completion progress bar ── */
+html body #modal[data-type=codex] #modal-content .cx-list{grid-template-columns:1fr!important;gap:6px!important}
+html body #modal[data-type=codex] #modal-content .cx-card{align-items:center;padding:8px 10px!important}
+html body #modal[data-type=codex] #modal-content .cx-card.boss{border-color:#9a5232!important;box-shadow:inset 0 0 0 1px rgba(230,140,80,.28)!important}
+html body #modal[data-type=codex] #modal-content .cx-summary{gap:5px 16px!important}
+html body #modal[data-type=codex] #modal-content .cx-prog{flex:1 0 100%;display:block;height:4px;background:#12100e;border:1px solid #3b3731;overflow:hidden}
+html body #modal[data-type=codex] #modal-content .cx-prog>i{display:block;height:100%;background:#e6b43c;transition:width .24s ease-out}
+
+/* ── 8. Craft Gear Tiers Strip + Real Pixel Gear Icons ── */
+html body #modal-content .gear-tiers{display:flex;align-items:center;flex-wrap:wrap;gap:6px;margin:0 0 10px!important;padding:6px 10px;background:#161211;border:1px solid #2c2824}
+html body #modal-content .gear-tiers-lbl{font:700 12px/1 var(--font-ui);color:#b9b19c;letter-spacing:.06em;margin-right:4px;white-space:nowrap}
+html body #modal-content .gear-tiers .pixel-button{min-width:44px;min-height:32px;padding:0 10px!important;font:700 13px/1 var(--font-num)!important}
+@media(pointer:coarse),(max-width:760px),(max-height:520px){
+  html body #modal-content .gear-tiers .pixel-button{min-height:44px!important}
+}
+@media(max-width:760px){
+  html body #modal-content .gear-tiers{gap:5px;padding:6px 8px}
+  html body #modal-content .gear-tiers-lbl{flex:1 0 100%;margin:0 0 2px}
+  html body #modal-content .gear-tiers .pixel-button{flex:1 1 0;min-width:44px;padding:0 4px!important}
+}
+html body :is(#inspect-content,#modal-content) .gico-wrap{display:grid!important;place-items:center;width:32px!important;height:32px!important}
+html body :is(#inspect-content,#modal-content) .gico-wrap>img.gico{display:block!important;width:32px!important;height:32px!important;margin:0!important;object-fit:contain;image-rendering:pixelated}
+
+/* ── 9. Hunter Detail Quick-Cycle Prev/Next Navigation ── */
+html body #modal[data-type=hunter] .modal-title h2{max-width:calc(100% - 120px)!important}
+html body #modal[data-type=hunter] #modal-ghost.z2-hnav{position:absolute!important;left:14px!important;right:14px!important;top:0!important;bottom:0!important;transform:none!important;display:flex!important;align-items:center!important;justify-content:space-between!important;pointer-events:none;z-index:4;gap:0}
+html body #modal[data-type=hunter] .z2-hnav-btn{pointer-events:auto;width:36px;height:36px;min-width:36px;min-height:36px;padding:0;margin:0;display:grid;place-items:center;
+  background:#24201c!important;border:1px solid #5e5549!important;border-radius:0!important;box-shadow:inset 0 1px 0 rgba(255,244,214,.12),0 1px 0 #000!important;
+  color:#f4ecd6!important;font:700 20px/1 var(--font-num)!important;text-shadow:0 1px 0 #000!important;cursor:pointer;transition:background-color .12s ease,border-color .12s ease,color .12s ease}
+html body #modal[data-type=hunter] .z2-hnav-btn:hover{background:#342e27!important;border-color:#e6b43c!important;color:#ffe69b!important}
+html body #modal[data-type=hunter] .z2-hnav-btn:active{background:#1b1815!important}
+@media(pointer:coarse),(max-width:760px),(max-height:520px){
+  html body #modal[data-type=hunter] #modal-ghost.z2-hnav{left:12px!important;right:12px!important}
+  html body #modal[data-type=hunter] .z2-hnav-btn{width:44px;height:44px;min-width:44px;min-height:44px}
+}
+@media(max-height:520px){
+  html body #modal-backdrop[data-mode=C] #modal[data-type=hunter] .modal-title{height:44px!important;min-height:44px!important}
+  /* 橫向獵人卡：sticky 送別列改成實底不透字，並收緊資訊頁垂直間距避免蓋住狀態條 */
+  html body #modal[data-type=hunter] .z2-id{margin-bottom:4px!important}
+  html body #modal[data-type=hunter] :is(.z2-bars,.z2-vals){gap:3px!important}
+  html body #modal[data-type=hunter] .z2-dismiss{opacity:1!important;background:#181512!important;border-top:1px solid #352e27!important;padding:5px 8px 4px!important;margin:6px 0 0!important}
+  html body #modal[data-type=hunter] .z2-dismiss-why{color:#a89f8b!important;opacity:1!important}
+}
+@media(max-width:760px) and (max-height:700px){
+  html body #modal[data-type=hunter] .z2-dismiss{opacity:1!important;background:#181512!important;border-top:1px solid #352e27!important;padding:5px 8px 4px!important}
+  html body #modal[data-type=hunter] .z2-dismiss-why{color:#a89f8b!important;opacity:1!important}
+}
+
+/* ── 10. Command Palette (#cmdk): Mistvale Signature Frame + Pixel Corner Brackets ── */
+html body #cmdk .cmdk-box{position:relative;background:#151110!important;border:1px solid #aca99a!important;border-left-color:#7c7764!important;border-right-color:#7c7764!important;border-radius:0!important;box-shadow:0 0 0 1px #000,0 8px 0 rgba(0,0,0,.5)!important}
+html body #cmdk .cmdk-box::before{content:"";position:absolute;inset:3px;pointer-events:none;z-index:4;background:var(--z1-brackets);background-repeat:no-repeat;background-size:10px 10px}
+html body #cmdk .cmdk-head{padding:10px 12px!important;border-bottom:1px solid #3b3731!important}
+html body #cmdk input{padding:0 8px!important;background:#1d1916!important;border-color:#5a5247!important}
+html body #cmdk input:focus{border-color:#e6b43c!important}
+html body #cmdk .cmdk-row{padding:8px 12px!important;border-left:3px solid transparent!important;transition:background-color .1s ease,border-color .1s ease}
+html body #cmdk .cmdk-row.sel{background:#28221d!important;border-left-color:#e6b43c!important;box-shadow:inset 0 1px 0 rgba(255,244,214,.06)!important;color:#fff!important}
+html body #cmdk .cmdk-foot{border-top:1px solid #3b3731!important;background:#120f0e!important;letter-spacing:.06em}
+
+/* ── 11. Main HUD Legibility & Atmosphere ── */
+html body #game-ui .map-hint{background:rgba(16,13,11,.76)!important;border:1px solid rgba(107,94,80,.55)!important;border-radius:2px!important;padding:4px 10px!important;color:#ebe1c6!important;box-shadow:0 2px 0 rgba(0,0,0,.45)!important}
+/* 2026-11-21:深色底板不吃版面高度——用 inset 描邊與水平 padding,不加垂直 padding/border,否則 #topbar 會長 12px,出征 HUD 與手機任務欄就跟它撞在一起 */
+html body #topbar #region-badge{background:rgba(16,13,11,.72)!important;border:0!important;border-radius:2px!important;padding:0 8px!important;color:var(--hv-text)!important;box-shadow:inset 0 0 0 1px rgba(107,94,80,.52),0 1px 0 rgba(0,0,0,.45)!important}
+html body #topbar #day-clock{background:rgba(16,13,11,.68)!important;border:0!important;border-radius:2px!important;padding:0 7px!important;box-shadow:inset 0 0 0 1px rgba(107,94,80,.46)!important}
+html body #topbar #day-clock .dc-bar{box-shadow:0 0 0 1px #000,inset 0 1px 0 rgba(255,255,255,.08)!important}
+html body #topbar #day-clock .dc-bar>i{transition:width .35s linear,background-color .35s ease}
+html body #topbar .hv-crest{box-shadow:0 2px 0 rgba(0,0,0,.55)!important}
+html body #notice-feed .nf-item{padding-left:7px!important;border-left:2px solid rgba(172,169,154,.45)!important}
+html body #notice-feed .nf-item.tone-success{border-left-color:#8fd16a!important}
+html body #notice-feed .nf-item.tone-danger,html body #notice-feed .nf-item.tone-warn{border-left-color:#e0604a!important}
+html body #notice-feed>*:nth-child(2){opacity:.84}
+html body #notice-feed>*:nth-child(3){opacity:.66}
+html body #bottom-bar>button{transition:background-color .12s ease,color .12s ease}
+
+/* ── 12. Global Tactile Depth, Progress Polish & Title Brackets ── */
+html body #modal-content .qs-banner{display:flex!important;flex-direction:column;align-items:stretch!important;gap:6px!important}
+html body #modal-content .qs-prog{width:100%;height:4px;background:#12100e;border:1px solid #3b3731;overflow:hidden}
+html body #modal-content .qs-prog>i{display:block;height:100%;background:#b0c040;transition:width .24s ease-out}
+html body #modal-content .zq-row.ready{border-color:#c9a24b!important;box-shadow:inset 0 0 0 2px #906818,inset 0 1px 0 rgba(255,230,150,.18)!important}
+html body #modal-content .of-tile{border-top:2px solid #8a7e64!important}
+html body #modal-content .of-tile:nth-child(2){border-top-color:#c86858!important}
+html body #modal-content .of-tile:nth-child(3){border-top-color:#e6b43c!important}
+html body #modal[data-type=hunters] #modal-content .hv-hcard{transition:border-color .12s ease,box-shadow .12s ease}
+html body #modal[data-type=hunters] #modal-content .hv-hcard:hover{border-color:var(--rarity)!important;box-shadow:inset 0 0 0 1px color-mix(in srgb,var(--rarity) 55%,transparent)!important}
+html body #modal-content .hv-card.building-card{transition:border-color .12s ease}
+html body #modal-content .hv-card.building-card:hover{border-color:#7c7060!important}
+html body #modal-content .z2b-row{transition:border-color .12s ease}
+html body #modal-content .z2b-row:hover{border-color:#4b443b!important}
+html body #title-screen .ts-inner{position:relative;border-color:#aca99a!important}
+html body #title-screen .ts-inner::before{content:"";position:absolute;inset:3px;pointer-events:none;background:var(--z1-brackets);background-repeat:no-repeat;background-size:10px 10px}
+html body #title-screen .ts-title{letter-spacing:.14em;text-shadow:0 2px 0 #000!important}   /* unslop:拿掉標題的金色光暈 */
+html body :is(.z2-bar-fill,.z2-xp-fill,.zq-cap>span,.z2c-bar>span,#boss-fill,.uc-bar>span,.rh-bar>span,.progress>span){transition:width .22s ease-out}
+@media(prefers-reduced-motion:reduce){
+  html body :is(.z2-bar-fill,.z2-xp-fill,.zq-cap>span,.z2c-bar>span,#boss-fill,.uc-bar>span,.rh-bar>span,.progress>span,#day-clock .dc-bar>i,.cx-prog>i,.qs-prog>i){transition:none!important}
+}
+/* ===== AAA UI/UX Polish end ===== */
+
+/* ═══════════════════════════════════════════════════════════════════════════
+   UNSLOP 2026-11-19:文字角色、任務欄底、字重
+   1) chrome 只留三種文字角色:主要 var(--hv-text)、次要 var(--hv-text-dim)、強調 var(--hv-gold)。
+      純白與 #f3e6c4／#efe5ca／#c2bba3 這些近色殘留收掉,同一個角色只用一個值。
+   2) 任務欄壓在地圖上:底板透明度拉高、尾端才淡出,長句最後幾個字不再直接坐在亮草地上。
+   3) <b> 在 weight 700 的父層會被瀏覽器算成 900(bolder):HUD 內統一壓回 700,層級用大小做,不用字重。
+   ═══════════════════════════════════════════════════════════════════════════ */
+html body #topbar #population{color:var(--hv-text)!important}
+html body #hv-advisor .next-step .ns-tx{color:var(--hv-text)!important}
+html body #notice-feed>*{color:var(--hv-text)!important}
+html body :is(#hv-left,#topbar,.hv-actions,#bottom-bar,.view-tools) :is(b,strong){font-weight:700!important}
+html body #hv-left::before{background:linear-gradient(90deg,rgba(14,10,20,.82),rgba(14,10,20,.6) 55%,rgba(14,10,20,.34) 82%,rgba(14,10,20,0))!important}
+@media(max-width:760px),(max-height:520px){
+  html body #hv-left::before{background:linear-gradient(90deg,rgba(14,10,20,.88),rgba(14,10,20,.68) 58%,rgba(14,10,20,.4) 84%,rgba(14,10,20,0))!important}
+}
+
+/* unslop 3(2026-11-19):載入畫面原本是全黑畫布上一張小卡。把世界地圖(純資料繪製)畫成背景,
+   壓暗、降低飽和,讓第一秒就有遊戲自己的東西,小卡仍然是最亮的那一塊。 */
+html body #loading{position:fixed!important;inset:0!important;background:var(--hv-ink)!important}
+html body #loading>#loading-map{position:absolute!important;left:50%!important;top:50%!important;transform:translate(-50%,-50%)!important;
+  max-width:100%!important;max-height:100%!important;display:block!important;
+  image-rendering:pixelated;opacity:.38;filter:saturate(.7) brightness(.75);pointer-events:none}
+html body #loading::after{content:""!important;position:absolute!important;inset:0!important;pointer-events:none;
+  background:radial-gradient(ellipse at 50% 45%,rgba(13,11,10,.35),rgba(13,11,10,.86) 72%)}
+html body #loading>.loading-plate{position:relative!important;z-index:1}
+
+/* ===== 2026-11-22 六職業 14 流派技能頁 & 手動操控 4 格技能列 ===== */
+html body #modal[data-type=hunter] .z2-specs{display:flex;flex-direction:column;gap:5px;padding:7px 8px;background:#1e1b17;border:1px solid #35302a;border-left:3px solid var(--spec,#d4b26a)}
+html body #modal[data-type=hunter] .z2-specs-h{display:flex;align-items:center;justify-content:space-between;gap:6px;flex-wrap:wrap}
+html body #modal[data-type=hunter] .z2-specs-h>b{font:700 13px/1.3 var(--font-ui);color:#f3e6c4}
+html body #modal[data-type=hunter] .z2-specs-hint{font:600 12px/1.3 var(--font-ui)}
+html body #modal[data-type=hunter] .z2-specs-hint .ok{color:#b0c040}
+html body #modal[data-type=hunter] .z2-specs-hint .no{color:#d08080}
+html body #modal[data-type=hunter] .z2-spec-tabs{display:flex;flex-wrap:wrap;gap:6px}
+html body #modal[data-type=hunter] .z2-spec-btn{display:inline-flex!important;align-items:center;justify-content:center;gap:6px;min-height:34px!important;min-width:0!important;padding:4px 10px!important;background:#26221e!important;border:1px solid #49423a!important;color:#dfd6c2!important;font:700 13px/1.2 var(--font-ui)!important;box-shadow:none!important}
+html body #modal[data-type=hunter] .z2-spec-btn.on{background:#2d2720!important;border-color:var(--spec,#e4c97b)!important;color:#fff!important;box-shadow:inset 0 0 0 1px var(--spec,#e4c97b)!important}
+html body #modal[data-type=hunter] .z2-spec-btn.locked{background:#2a2826!important;color:#9b958b!important;opacity:.75}
+html body #modal[data-type=hunter] .z2-spec-dot{width:8px;height:8px;flex:none;background:var(--spec,#d4b26a);border:1px solid rgba(0,0,0,.7)}
+html body #modal[data-type=hunter] .z2-spec-meta{margin:0;font:600 12px/1.45 var(--font-ui);color:#d7ceb9}
+html body #modal[data-type=hunter] .z2-spec-meta>b{color:var(--spec,#e4c97b);font-weight:700}
+
+html body #modal[data-type=hunter] .z2-sklist{display:flex;flex-direction:column;gap:6px}
+html body #modal[data-type=hunter] .z2-skcard{display:flex;flex-direction:column;gap:4px;padding:7px 8px;background:#1b1815;border:1px solid #2f2a25;border-left:3px solid var(--sk,#b8a074)}
+html body #modal[data-type=hunter] .z2-skcard.ult{background:linear-gradient(90deg,rgba(232,190,82,.10),#1b1815 42%);border-color:#5b4a26;border-left-color:var(--sk,#f0c65a)}
+html body #modal[data-type=hunter] .z2-skcard.locked{opacity:.66}
+html body #modal[data-type=hunter] .z2-skhead{display:flex;align-items:center;gap:5px;flex-wrap:wrap;min-width:0}
+html body #modal[data-type=hunter] .z2-skslot{display:inline-flex;align-items:center;justify-content:center;min-width:24px;padding:1px 5px;background:rgba(0,0,0,.45);border:1px solid var(--sk,#9b8d75);color:var(--sk,#f0d89a);font:700 12px/1.2 var(--font-num)}
+html body #modal[data-type=hunter] .z2-skname{font:700 13px/1.3 var(--font-ui);color:#fff}
+html body #modal[data-type=hunter] .z2-sktag{padding:1px 6px;background:#2b2621;border:1px solid #484038;color:#e6dcc6;font:600 12px/1.2 var(--font-ui)}
+html body #modal[data-type=hunter] .z2-sktag.st{border-color:var(--st,#8ce0c8);color:var(--st,#8ce0c8);background:rgba(0,0,0,.35)}
+html body #modal[data-type=hunter] .z2-sktag.awake{border-color:#e5be54;color:#ffe598;background:rgba(160,112,24,.32)}
+html body #modal[data-type=hunter] .z2-skcd{margin-left:auto;font:700 12px/1.2 var(--font-num);color:#fcde8a;white-space:nowrap}
+html body #modal[data-type=hunter] .z2-skcard.locked .z2-skcd{color:#c98a7c}
+html body #modal[data-type=hunter] .z2-skdesc{margin:0;font:600 12px/1.45 var(--font-ui);color:#d7ceb9;overflow-wrap:anywhere}
+@media(pointer:coarse){
+  html body #modal[data-type=hunter] .z2-spec-btn{min-height:44px!important;padding:6px 12px!important}
+}
+
+/* 手動操控 4 格流派技能列 + 手機右下拇指弧形鍵盤 + 無目標空放脈衝 + toast 避讓 */
+html body #pilotlab #pilot-lv{white-space:nowrap}
+html body #pilotlab .pl-skills{display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:6px;width:100%}
+html body #pilotlab .pl-sk{position:relative;overflow:hidden;display:flex!important;flex-direction:column;align-items:flex-start;justify-content:center;gap:2px;min-height:44px!important;padding:5px 7px!important;background:#1d1916!important;border:1px solid var(--sk,#7a6f5d)!important;text-align:left;box-shadow:none!important}
+html body #pilotlab .pl-sk.locked{opacity:.52;border-color:#444!important}
+html body #pilotlab .pl-sk.cool{opacity:.82}
+html body #pilotlab .pl-sk.far:not(.locked):not(.cool){border-style:dashed!important}
+html body #pilotlab .pl-sk.miss,html body #pilot-hud .ph-sk.miss{outline:2px solid #f0b860;outline-offset:-1px}
+html body #pilotlab .pl-sk.miss::after{content:"空放";position:absolute;inset:0;display:grid;place-items:center;background:rgba(16,12,18,.78);color:#ffd88a;font:700 12px/1 var(--font-ui);z-index:4}
+html body #pilotlab .pl-sk-cd{position:absolute;left:0;right:0;bottom:0;background:rgba(10,8,14,.68);pointer-events:none;z-index:1;transition:height .12s linear}
+html body #pilotlab .pl-sk-k{position:absolute;top:2px;right:4px;font:700 12px/1 var(--font-num);color:var(--sk,#e4c97b);opacity:.9;z-index:2}
+html body #pilotlab .pl-sk-n{position:relative;z-index:2;font:700 12px/1.2 var(--font-ui);color:#fff!important;max-width:calc(100% - 14px);overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+html body #pilotlab .pl-sk-s{position:relative;z-index:2;font:600 12px/1.1 var(--font-num);color:var(--sk,#d8ceb8)!important}
+html body.piloting #toasts{top:calc(156px + env(safe-area-inset-top))!important}
+/* 桌機隱藏手機弧形鈕;手機/窄屏把頂部列收成單行並啟用右下拇指弧形 4 鍵 */
+html body #pilot-hud .ph-arc{display:none}
+@media(max-width:760px){
+  html body.piloting #pilotlab .pl-skills,html body.piloting #pilotlab .pl-tip{display:none!important}
+  html body.piloting #toasts{top:calc(74px + env(safe-area-inset-top))!important}
+  html body #pilot-hud .ph-actions{width:190px;height:196px;align-items:flex-end;justify-content:flex-end}
+  html body #pilot-hud #pilot-skill,html body #pilot-hud .ph-btn.ghost{display:none!important}
+  html body #pilot-hud .ph-arc{display:block;position:absolute;inset:0;pointer-events:none}
+  html body #pilot-hud .ph-sk{position:absolute;pointer-events:auto;touch-action:none;overflow:hidden;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:1px;width:50px;height:50px;padding:0;border-radius:50%;background:radial-gradient(circle at 50% 28%,#322b26,#1a1614 72%);border:2px solid var(--sk,#b8a074);box-shadow:0 3px 0 #120d08;color:#fff;font-family:var(--font-ui)}
+  html body #pilot-hud .ph-sk.s0{right:112px;bottom:8px}
+  html body #pilot-hud .ph-sk.s1{right:118px;bottom:66px}
+  html body #pilot-hud .ph-sk.s2{right:68px;bottom:120px}
+  html body #pilot-hud .ph-sk.s3{right:4px;bottom:130px;border-width:2.5px}
+  html body #pilot-hud .ph-sk.locked{opacity:.48;border-color:#555}
+  html body #pilot-hud .ph-sk.cool{opacity:.84}
+  html body #pilot-hud .ph-sk.far:not(.locked):not(.cool){border-style:dashed}
+  html body #pilot-hud .ph-sk-cd{position:absolute;left:0;right:0;bottom:0;background:rgba(8,6,12,.72);pointer-events:none;z-index:1;transition:height .12s linear}
+  html body #pilot-hud .ph-sk-k{position:relative;z-index:2;font:700 12px/1 var(--font-num);color:var(--sk,#f0d89a)}
+  html body #pilot-hud .ph-sk-s{position:relative;z-index:2;font:700 12px/1 var(--font-ui);color:#fff}
+}

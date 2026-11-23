@@ -28,7 +28,9 @@ for (const view of ['desktop', 'tablet', 'phone', 'land']) {
     const min = touch ? 44 : 32; if (b.r.h < min - 0.5) fix(`${view}: ${k} 鈕高 ${b.r.h}px < ${min}px`);
   }
   // 真的點撤退
-  try { if (touch) await page.locator('.rh-x').first().tap({ timeout: 2500 }); else await page.locator('.rh-x').first().click({ timeout: 2500 }); } catch (e) { fix(`${view}: 撤退鈕點不到 ${String(e.message).split('\n')[0].slice(0, 80)}`); }
+  // 2026-11-21:撤退成功後 HUD 會馬上拆掉,Playwright 的 click/tap 等不到動作完成就 timeout(實際已經生效)。
+  // 用 evaluate 直接觸發(跟其他檢查的 L.act 同一個做法),可點性由上面的 hit 與尺寸檢查負責。
+  try { await page.evaluate(() => document.querySelector('.rh-x')?.click()); } catch (e) { fix(`${view}: 撤退鈕點不到 ${String(e.message).split('\n')[0].slice(0, 80)}`); }
   await page.waitForTimeout(500);
   const still = await page.evaluate(() => !!globalThis.__mistvaleGame.state.dungeon.active && !!document.querySelector('.rh-x'));
   if (still) fix(`${view}: 點撤退後地下城仍在進行`);

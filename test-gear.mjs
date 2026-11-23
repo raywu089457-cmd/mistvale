@@ -121,8 +121,6 @@ for (const h of gFresh.state.hunters) {
   const look = heroloomLook({ ...h, gender: 'm' });   // 5024 性別跟名字走:女性會把短髮換長髮,預設比對用男性頭
   for (const slot of Object.keys(preset.parts)) eq(look.parts[slot], preset.parts[slot], `${h.classId} preset part ${slot} is reproduced by its starter gear`);
 }
-const traveler = gFresh.state.hunters.find(h => h.classId === 'traveler');
-ok(!heroloomLook(traveler).parts.weapon, 'traveler starter kit is unarmed (no weapon part)');
 const legacy = heroloomLook({ classId: 'archer', equipment: { weapon: true, armor: true } });
 eq(legacy.parts.top, 'armor', 'hunters without h.gear still use the legacy equipment booleans');
 
@@ -211,7 +209,7 @@ eq(g4.state.gearStorage.at(-1).itemId, 'paladin_plate', 'the replaced starter ch
   // 取得管道:pools 的 id 都存在、分級正確;任務指定件存在;掉落機率合理
   eq(GEAR_CRAFT_POOL.length, 7, 'seven crafted pieces in the craft pool');
   ok(GEAR_CRAFT_POOL.every(id => EQUIPMENT[id] && EQUIPMENT[id].tier === 'craft'), 'craft pool only holds crafted items');
-  eq(GEAR_STARTER_POOL.length, 49, 'starter pool has every starter piece');
+  eq(GEAR_STARTER_POOL.length, Object.keys(CLASS_STARTER).length * 7, 'starter pool has every starter piece');
   ok(GEAR_STARTER_POOL.every(id => EQUIPMENT[id] && EQUIPMENT[id].tier === 'starter'), 'starter pool only holds starter items');
   for (const [kind, rule] of Object.entries(GEAR_DROP)) {
     if (rule.pool) ok(rule.pool.every(id => EQUIPMENT[id]), `${kind} drop pool ids all exist`);

@@ -48,7 +48,7 @@ const setup = (page, kind) => page.evaluate(async kind => {
   if (kind === 'quest') s.quest = { index: 0, claimed: false, complete: true };
   if (kind === 'visitor') {
     s.gold = 900;
-    // Z2A:閒著時「新」旅人到會自動彈出「新的獵人！」暗帶 → 先開著面板把旅人換上去(算已見過、不彈),再關掉,留下的就是左側的顧問提示
+    // Z2A:閒著時「新」旅人到會自動彈出「新的獵人」暗帶 → 先開著面板把旅人換上去(算已見過、不彈),再關掉,留下的就是左側的顧問提示
     { const b = document.createElement('button'); b.dataset.action = 'settings'; b.style.display = 'none'; document.body.append(b); b.click(); b.remove(); }
     s.visitors = [{ id: 'nv1', classId: 'archer', rarity: 'rare', trait: 'swift', cost: 120 }];
     await new Promise(r => setTimeout(r, 150));
@@ -128,8 +128,8 @@ const readPill = page => page.evaluate(() => {
     await page.evaluate(() => document.querySelector('#next-step').click());
     await page.waitForTimeout(500);
     const dlg = await page.evaluate(() => ({ type: document.querySelector('#modal')?.dataset.type || '', say: document.querySelector('#modal .hv-dlg-say')?.textContent || '', go: document.querySelector('#modal [data-action="nextStepGo"]')?.dataset.act || '' }));
-    if (kind === 'visitor') {   // Z2A:旅人提示直接開「新的獵人！」D 暗帶(邀請／稍後)，不再先出對話框再接長清單
-      if (dlg.type !== 'visitors') fix(`情境 ${kind}：點旅人提示開的是 ${dlg.type || '(沒有)'}，應為 visitors(新的獵人！暗帶)`);
+    if (kind === 'visitor') {   // Z2A:旅人提示直接開「新的獵人」D 暗帶(邀請／稍後)，不再先出對話框再接長清單
+      if (dlg.type !== 'visitors') fix(`情境 ${kind}：點旅人提示開的是 ${dlg.type || '(沒有)'}，應為 visitors(新的獵人暗帶)`);
       const band = await page.evaluate(() => ({ mode: document.querySelector('#modal')?.dataset.mode, btns: [...document.querySelectorAll('.z2-band-btns button')].map(b => b.textContent.trim()).join('|') }));
       if (band.mode !== 'D' || band.btns !== '邀請|稍後') fix(`情境 ${kind}：暗帶模式 ${band.mode}／按鈕 ${band.btns}（應 D／邀請|稍後）`);
     } else if (dlg.type !== 'advisor') fix(`情境 ${kind}：點顧問提示開的是 ${dlg.type || '(沒有)'}，應先展開 advisor 對話框`);
