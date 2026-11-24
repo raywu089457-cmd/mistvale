@@ -2331,10 +2331,20 @@ let renderDprMax=Math.max(1,dprCap||autoDpr());   // 畫布解析度上限(devic
       // 2026-11-18 名字最後畫:原本跟著各自的圖畫,後排兩人疊在一起時下面那位會蓋掉上面那位的名字(弓手名字整個不見)
       for(const h of party){const p=pos.get(h.id);if(p&&heroSheets[h.classId]?.meta?.actions)dgText(h.name,p.x,p.y+5*scale,{size:Math.round(10*dpr),color:'#f6e3b0'});}
       // 傷害與治療數字(不畫舊版飛行物／粒子特效)
+      // 2026-11-24 C6b:同時跳出的數字互相錯開(不相黏成「2119」),也避開左上層數與右上階段文字
+      const placed=[{x:10*dpr+60*dpr,y:Math.round(15*dpr),w:120*dpr,h:14*dpr},{x:W-10*dpr-50*dpr,y:Math.round(15*dpr),w:100*dpr,h:14*dpr}];
       for(const e of ev){const b=pos.get(e.b),age=t-e.t;if(age<0||age>1.6)continue;
         const la=t-land(e);if(la<0||la>1.1||!b)continue;
-        const blk=e.k==='block',txt=blk?`減免 ${e.v}`:(e.k==='heal'?'+':'')+e.v,col=blk?'#ffe08a':e.k==='heal'?'#a6f59a':e.k==='hurt'?'#ff8a6e':e.k==='skill'?'#ffd75e':'#fff3d0',rise=Math.min(1,la/.7)*14*scale,pop=la<.12?1+.6*(1-la/.12):1;
-        dgText(txt,b.x+((hash(e.t)%11)-5)*scale,b.y-((blk?37:27)*scale)-rise,{size:Math.round((e.k==='skill'?13:11)*dpr*pop),color:col,alpha:Math.max(0,1-Math.max(0,la-.7)/.4)});}
+        // 2026-11-24 C6:浮字原本從 27 單位高起飄,正好穿過血條(英雄 26、魔物 30×大小)→ 870 這種傷害被誤讀成血量。
+        //   改成從血條上緣再往上 8 單位起飄;上面放不下(大型魔物站在較高的位置)就改飄在血條右側。
+        const fo=foes.find(u=>u.id===e.b),fbig=fo?(fo.big?1.3:1):1,barTop=(fo?30*fbig:26)+4,upU=barTop+6+(e.k==='block'?6:0);
+        const blk=e.k==='block',txt=blk?`減免 ${e.v}`:(e.k==='heal'?'+':'')+e.v,col=blk?'#ffe08a':e.k==='heal'?'#a6f59a':e.k==='hurt'?'#ff8a6e':e.k==='skill'?'#ffd75e':'#fff3d0',rise=Math.min(1,la/.7)*5*scale,pop=la<.12?1+.6*(1-la/.12):1,fitUp=b.y-upU*scale-rise>=3*scale,sideDir=b.x>W/2?-1:1;
+        const fsz=Math.round((e.k==='skill'?13:11)*dpr*pop);ctx.font=textFont(fsz);const fw=ctx.measureText(txt).width+12*dpr,fh=fsz*1.15;
+        let fx=b.x+((hash(e.t)%11)-5)*scale+(fo?-8*scale:0)+(fitUp?0:sideDir*(8*fbig+12)*scale),fy=fitUp?b.y-upU*scale-rise:b.y-((blk?37:27)*scale)-rise;
+        const hit=()=>placed.find(r=>Math.abs(r.x-fx)<(r.w+fw)/2&&Math.abs(r.y-fy)<(r.h+fh)/2);
+        for(let k=0,r;k<8&&(r=hit());k++){if(r.y>=20*dpr&&fy-fh>=fsz*.6)fy-=fh;else fx+=(r.y<20*dpr?(r.x>W/2?-1:1):(fx>=r.x?1:-1))*((r.w+fw)/2-Math.abs(fx-r.x)+2);}   // 撞到別的浮字先往上疊一行;上面沒空間、或撞到頁首文字就橫移
+        fx=Math.max(fw/2+2,Math.min(W-fw/2-2,fx));placed.push({x:fx,y:fy,w:fw,h:fh});
+        dgText(txt,fx,fy,{size:fsz,color:col,alpha:Math.max(0,1-Math.max(0,la-.7)/.4)});}
       // 上方資訊:層數/波數、狀態、自動續戰
       const top=Math.round(15*dpr);
       dgText(`第 ${d.floor} 層 · 第 ${Math.max(1,d.wave||1)}/3 波`,10*dpr,top,{size:Math.round(13*dpr),color:'#f6e3b0',align:'left'});
@@ -2408,10 +2418,16 @@ let renderDprMax=Math.max(1,dprCap||autoDpr());   // 畫布解析度上限(devic
       if(fade>0)posed(p,pose,q=>drawAtlasMonster(type,age<.18?8:9,q,sz,!!e.flipHint,fade));}
     else if(t<1){const pose={pose:'hurt',ox:0,oy:0,lean:0,sx:1+.25*t,sy:Math.max(.08,1-ease(t)*.92),flash:age<.18?1:0,flashColor:'#ffffff'};
       posed(p,pose,q=>drawAtlasMonster(type,4,q,sz,!!e.flipHint,1-t*t));}}
+  const dmgPlaced=[];   // 本幀已放的浮字矩形(每幀在畫特效前清空)
   function damageText(e,age,p){const txt=e.text||String(e.value),hero=e.type==='hit',crit=e.crit,pop=age<.12?1+.7*(1-age/.12):1,rise=ease(Math.min(1,age/.7))*16;
     const col=e.color||(hero?'#ff8a6e':e.type==='heal'?'#c7ffbd':crit?'#ffe066':'#fff3d0'),size=Math.round((crit?10:hero?8:8.5)*pop);
     const hh=hash(e.id),dx=e.type==='loot'?0:((hh%13)-6)*1.6*scale,dy=e.type==='loot'?0:((hh>>5)%4)*3.5*scale;  // 同一目標連續挨打:數字錯開成一小片,不疊成一團
-    textLabel(crit?txt+'!':txt,p.x+dx,p.y-(27+rise+(e.lift||0))*scale-dy,{color:col,size,back:false});}
+    const barUp=e.bodyType&&(e.bodyType==='boss'||monsterSheets[e.bodyType])?ENEMY_SIZE(e.bodyType)+10:27;   // 2026-11-24 C6:打在魔物身上的數字從血條(身高+3、厚 4)上方起飄,不穿過血條
+    // 2026-11-24 C6b:同一幀同時跳出的數字不能相黏(「21」「19」讀成「2119」)→ 跟本幀已放的浮字比對,碰到就往上疊一行,最多 4 行
+    const label=crit?txt+'!':txt,fw=label.length*size*.62+size*.9,fh=size*1.15;let fx=p.x+dx,fy=p.y-(Math.max(27,barUp)+rise+(e.lift||0))*scale-dy;
+    for(let k=0;k<4&&dmgPlaced.some(r=>Math.abs(r.x-fx)<(r.w+fw)/2&&Math.abs(r.y-fy)<(r.h+fh)/2);k++)fy-=fh;
+    dmgPlaced.push({x:fx,y:fy,w:fw,h:fh});
+    textLabel(label,fx,fy,{color:col,size,back:false});}
   // ── 弓箭手的箭(2026-11-23 使用者:「把原本箭特效放回去」)──────────────────────────────
   // 其他舊版特效表都已換成實時 CQ pixelfx;只有箭照原本:pixelfx arrow-bare / gale-arrow-bare 表畫飛行(去掉風切線的版本),hit-spark-iso 畫命中。
   // build.mjs 只打包這三張(PIXEL_ASSETS.vfxSheets)。程式與數值照 2026-11-20 版 pixel-world.js 原樣搬回。
@@ -2657,7 +2673,7 @@ let renderDprMax=Math.max(1,dprCap||autoDpr());   // 畫布解析度上限(devic
     if(document.body.dataset.artReview==='1')uiLabels.length=0;
     drawShotArrows();
     // T69:死亡動畫先畫、實時特效後畫 —— 確保技能演出蓋在倒下的魔物上。
-    {const fxList=state.effects||[];for(const e of fxList)if(e.type==='death')drawEffect(e);for(const e of fxList)if(e.type!=='death')drawEffect(e);}
+    {const fxList=state.effects||[];dmgPlaced.length=0;for(const e of fxList)if(e.type==='death')drawEffect(e);for(const e of fxList)if(e.type!=='death')drawEffect(e);}
     if(liveFx.hasAny())liveFx.drawFront(g,screenPoint,scale);
     drawChatter();
     // 動作實驗室預覽:直接把那一格畫在畫面中央(純預覽,不影響模擬)

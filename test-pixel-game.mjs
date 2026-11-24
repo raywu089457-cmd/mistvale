@@ -118,16 +118,24 @@ run(trading, 4, true); assert.equal(merchant.inventory.ore, 10); assert.equal(tr
 assert.equal(trading.state.gold, 1470); assert.equal(merchant.gold, 130); assert.equal(totalMoney(trading), tradeTotal); assert.equal(trading.state.counts.traded, 10);
 const poorTown = createGame(), seller = isolate(poorTown); poorTown.state.time = 100; poorTown.state.gold = 4; Object.assign(seller,marketDoor); seller.inventory.ore = 20;
 run(poorTown, 4, true); assert.equal(poorTown.state.gold, 1); assert.equal(seller.inventory.ore, 19); assert.equal(seller.gold, 103);
-{ // 2026-11-17 持續收購:成交後收購量不扣(一直維持設定量);一般收購照舊買滿就停;金幣永遠不會變負
+{ // 2026-11-24 持續收購 = 維持庫存 N(B1):庫存低於 N 才收、一次最多收到剛好 N、不扣設定值;一般收購照舊買滿就停;金幣永遠不會變負
   const g = createGame(), h = isolate(g); g.state.time = 100; Object.assign(h, marketDoor); h.inventory.ore = 30;
   assert.deepEqual(Object.values(g.state.tradeStanding), MATERIAL_KEYS_T.map(() => false), 'new villages start with standing orders off');
   assert.equal(g.setTradeStanding('ore', 'yes').ok, false); assert.equal(g.setTradeStanding('__proto__', true).ok, false);
-  assert.equal(g.setTradeRequest('ore', 10).ok, true); assert.equal(g.setTradeStanding('ore', true).ok, true); const money0 = totalMoney(g), ore0 = g.state.ore;
-  // 背包 ≥14 份且收購還開著 → 獵人賣完一輪會再去交易所;持續收購每輪都補回 10 份,直到背包剩 10(<14)才停
-  run(g, 6, true); assert.equal(h.inventory.ore, 10); assert.equal(g.state.ore, ore0 + 20); assert.equal(g.state.tradeRequests.ore, 10, 'standing order refills after each trade');
-  assert.equal(g.state.counts.traded, 20); assert.equal(totalMoney(g), money0, 'trading only moves gold between village and hunter');
-  assert.equal(g.setTradeStanding('ore', false).ok, true); h.inventory.ore = 30; run(g, 6, true);
-  assert.equal(g.state.tradeRequests.ore, 0, 'turned off → runs down again'); assert.equal(h.inventory.ore, 20);
+  g.state.ore = 5; assert.equal(g.setTradeStanding('ore', true).ok, true); const msg = g.setTradeRequest('ore', 20); assert.ok(msg.ok && msg.message.includes('維持庫存 20 份'), msg.message);
+  const money0 = totalMoney(g), N = 20, notAbove = st => assert.ok(st.ore <= N, `standing buys never push stock above N (${st.ore})`);
+  run(g, 6, true, notAbove); assert.equal(g.state.ore, N, 'buys exactly up to N'); assert.equal(h.inventory.ore, 15); assert.equal(g.state.counts.traded, 15);
+  assert.equal(g.state.tradeRequests.ore, N, 'the setting is the stock to keep, not consumed'); assert.equal(totalMoney(g), money0, 'trading only moves gold between village and hunter');
+  run(g, 6, true, notAbove); assert.equal(g.state.counts.traded, 15, 'stock at N → no more buying'); assert.equal(h.inventory.ore, 15);
+  { const x = createGame(), y = isolate(x); x.state.time = 100; Object.assign(y, marketDoor); y.inventory.ore = 15; x.state.ore = 12;   // 用掉一些(製作/建設)→ 下一位回村的賣家補回 N
+    x.setTradeStanding('ore', true); x.setTradeRequest('ore', N); run(x, 6, true, notAbove);
+    assert.equal(x.state.ore, N, 'used stock is topped back up to N'); assert.equal(x.state.counts.traded, 8); assert.equal(y.inventory.ore, 7); }
+  // 庫存本來就高於 N(例如舊版買太多):持續收購完全不買,庫存不會被往下動
+  { const x = createGame(), y = isolate(x); x.state.time = 100; Object.assign(y, marketDoor); y.inventory.wood = 40; x.state.wood = 900;
+    x.setTradeStanding('wood', true); x.setTradeRequest('wood', 50); run(x, 6, true); assert.equal(x.state.counts.traded, 0); assert.equal(x.state.wood, 900); assert.equal(y.inventory.wood, 40); }
+  assert.equal(g.setTradeStanding('ore', false).ok, true); assert.equal(g.state.tradeRequests.ore, N, 'turning standing off keeps the number');
+  { const x = createGame(), y = isolate(x); x.state.time = 100; Object.assign(y, marketDoor); y.inventory.ore = 30; x.setTradeStanding('ore', true); x.setTradeRequest('ore', 10); x.setTradeStanding('ore', false);
+    run(x, 6, true); assert.equal(x.state.tradeRequests.ore, 0, 'standing off → one-off order runs down again'); assert.equal(y.inventory.ore, 20); }
   // 金庫保留額:持續收購只花「金庫 − 保留額」。保留額固定 500(2026-11-18);金庫比保留額多 7 → 只買 2 份(單價 3),停在保留額＋1,不再往下買
   const p = createGame(), s = isolate(p); p.state.time = 100; const R = p.tradeReserve(); assert.equal(R, 500, 'hall Lv.1 keeps 500 gold');
   p.state.buildings.hall = 5; assert.equal(p.tradeReserve(), 500, 'the reserve no longer grows with the hall, so standing orders keep working late game'); p.state.buildings.hall = 1;
@@ -156,15 +164,15 @@ run(poorTown, 4, true); assert.equal(poorTown.state.gold, 1); assert.equal(selle
   const snap = g.offlineSnapshot(); g.simulate(OFFLINE.sample); assert.equal(g.state.tradeRequests.ore, 0); assert.equal(g.state.counts.traded - snap.counts.traded, 10);
   g.offlineFinish(snap, 3 * 3600); assert.equal(g.state.counts.traded - snap.counts.traded, 10, 'finished one-shot order is not extrapolated');
   assert.equal(g.state.tradeRequests.ore, 0); assertFiniteEconomy(g.state);
-  // 持續收購:取樣期買 200 份(600 金)後金庫還比保留額多 300 → 外推最多再花 300 金,停在保留額(不是 0)
-  const s = createGame(), b = isolate(s); s.state.time = 100; s.state.wanderers = []; Object.assign(b, marketDoor); b.inventory.ore = 200; const R = s.tradeReserve(); s.state.gold = R + 900;
-  for (const k of MATERIAL_KEYS_T) s.state.tradeRequests[k] = 0; s.setTradeRequest('ore', 200); s.setTradeStanding('ore', true);
-  const sn = s.offlineSnapshot(); s.simulate(OFFLINE.sample); assert.equal(s.state.counts.traded - sn.counts.traded, 200);
+  // 2026-11-24 持續收購 = 維持庫存 N(B1):離線外推也以「N − 庫存」為上限,而且不低於保留額
+  //   村莊鐵礦 0、N = 300、賣家背包 200 → 取樣期收 200 份(庫存 200);外推最多再收 100 份補到 300,金庫最多再花 300 金(剛好到保留額)
+  const s = createGame(), b = isolate(s); s.state.time = 100; s.state.wanderers = []; Object.assign(b, marketDoor); b.inventory.ore = 200; const R = s.tradeReserve(); s.state.gold = R + 900; s.state.ore = 0;
+  for (const k of MATERIAL_KEYS_T) s.state.tradeRequests[k] = 0; s.setTradeStanding('ore', true); s.setTradeRequest('ore', 300);
+  const sn = s.offlineSnapshot(); s.simulate(OFFLINE.sample); assert.equal(s.state.counts.traded - sn.counts.traded, 200); assert.equal(s.state.ore, 200);
   s.offlineFinish(sn, 3 * 3600); const extra = s.state.counts.traded - sn.counts.traded - 200;
-  // (外推期間獵人付給村莊的服務費也進金庫,所以能多買的不只 300 金;重點是最後停在保留額)
-  assert.ok(extra > 0, 'standing order keeps buying offline'); assert.ok(extra < 200 * (3 * 3600 / OFFLINE.sample - 1), `capped by village gold (${extra})`);
-  assert.ok(s.state.gold >= R && s.state.gold < R + MATERIALS.ore.price, `village spends down to the reserve, not to 0 (${s.state.gold})`);
-  assert.equal(s.state.tradeRequests.ore, 200); assertFiniteEconomy(s.state);
+  assert.ok(extra > 0, 'standing order keeps buying offline while stock is below N'); assert.ok(extra <= 100, `offline buys at most N − stock (${extra})`);
+  assert.ok(s.state.ore <= 300, `offline stock never exceeds N (${s.state.ore})`); assert.ok(s.state.gold >= R, `village never spends below the reserve (${s.state.gold})`);
+  assert.equal(s.state.tradeRequests.ore, 300); assertFiniteEconomy(s.state);
   // 一般委託離線不受保留額影響:取樣期買 20 份後金庫已低於保留額,外推照樣把剩下的 40 份買完,金幣不變負
   const o = createGame(), c = isolate(o); o.state.time = 100; o.state.wanderers = []; Object.assign(c, marketDoor); c.inventory.ore = 20; o.state.gold = 200;
   for (const k of MATERIAL_KEYS_T) o.state.tradeRequests[k] = 0; o.setTradeRequest('ore', 60);
@@ -185,7 +193,7 @@ run(poorTown, 4, true); assert.equal(poorTown.state.gold, 1); assert.equal(selle
 }
 { // 2026-11-17 倒楣的取樣:金庫比保留額低 2000 → 取樣期金庫一直低於保留額,持續收購 0 份成交;
   // 但外推期間的收入會把金庫推過保留額 → 照「取樣期撿到的材料」估收購量,花到保留額為止(以前整整 8 小時 0 份材料、金庫堆到 14 萬)
-  // A/B/C 是同一個(確定性)村莊:B 外推前把收購量歸 0(不買),C 收購量改成每趟 1 份(每趟上限)
+  // A/B/C 是同一個(確定性)村莊:B 外推前把收購量歸 0(不買),C 的維持庫存只比現有多 5 份(2026-11-24 起持續收購 = 維持庫存 N)
   // 2026-11-18:離線服務收入以庫存為上限 → 這裡備足庫存(玩家離線前做了大量商品),外推期間才有持續的服務收入;
   //   取樣拉長到 240 秒 → 金庫從保留額 − 2000 起算,取樣期才不會被服務費推過保留額(2026-11-18 保留額固定 500,所以起點是 −1500,只用來重現這個情境)
   const make = () => { const g = createGame(); g.state.buildings.hall = 5; for (const h of g.state.hunters) h.huntRegion = 'meadow'; for (const k of MATERIAL_KEYS_T) g.state.tradeStanding[k] = true; run(g, 20);
@@ -195,17 +203,25 @@ run(poorTown, 4, true); assert.equal(poorTown.state.gold, 1); assert.equal(selle
   const A = make(), B = make(), C = make();
   assert.equal(money(A.g), money(B.g), 'same deterministic sample'); assert.equal(mats(A.g), mats(B.g));
   assert.equal(traded(A), 0, 'unlucky sample: no standing trade at all'); assert.ok(A.g.state.gold < A.g.tradeReserve(), `sample stays below the reserve (${A.g.state.gold})`);
-  for (const k of MATERIAL_KEYS_T) { B.g.state.tradeRequests[k] = 0; C.g.state.tradeRequests[k] = 1; }
+  const ROOM = 400, N = {};
+  for (const k of MATERIAL_KEYS_T) { N[k] = Math.floor(A.g.state[k]) + ROOM; A.g.state.tradeRequests[k] = N[k]; B.g.state.tradeRequests[k] = 0; C.g.state.tradeRequests[k] = Math.floor(C.g.state[k]) + 5; }
   for (const x of [A, B, C]) x.g.offlineFinish(x.snap, OFFLINE.max);
   assert.equal(traded(B), 0); assert.ok(B.g.state.gold > 20 * B.g.tradeReserve(), `offline income lifts gold far above the reserve (${B.g.state.gold})`);
   const bought = traded(A), priceSum = MATERIAL_KEYS_T.reduce((n, k) => n + MATERIALS[k].price, 0);
-  assert.ok(bought > 10000, `standing orders buy materials over 8 h offline (${bought})`);
+  assert.ok(bought > 0, `standing orders still buy over 8 h offline after an unlucky sample (${bought})`);
+  assert.ok(bought <= ROOM * MATERIAL_KEYS_T.length, `but never more than N − stock (${bought})`);
+  for (const k of MATERIAL_KEYS_T) assert.ok(A.g.state[k] <= N[k], `${k} stock stays at or below N (${A.g.state[k]} ≤ ${N[k]})`);
   assert.equal(mats(A.g) - mats(B.g), bought, 'every bought unit lands in the village');
   assert.equal(money(A.g), money(B.g), 'buying only moves gold from the village to the sellers (no gold from nothing)');
-  assert.ok(A.g.state.gold >= A.g.tradeReserve() && A.g.state.gold < A.g.tradeReserve() + priceSum, `spends down to the reserve, never below (${A.g.state.gold})`);
-  assert.ok(traded(C) > 0 && traded(C) < bought, `request size caps what one return trip can sell (${traded(C)} < ${bought})`);
-  assert.ok(C.g.state.gold > C.g.tradeReserve() + priceSum, 'a small request leaves gold unspent');
+  assert.ok(A.g.state.gold >= A.g.tradeReserve(), `never below the reserve (${A.g.state.gold})`);
+  assert.ok(traded(C) > 0 && traded(C) <= 5 * MATERIAL_KEYS_T.length && traded(C) < bought, `a small N caps what is bought (${traded(C)} < ${bought})`);
+  assert.ok(C.g.state.gold > C.g.tradeReserve() + priceSum, 'a small N leaves gold unspent');
   for (const x of [A, B, C]) assertFiniteEconomy(x.g.state);
+  // 回歸(報告 B1):以前木材持續收購 50 份、離線 8 小時淨扣約 29,000 金;現在最多花「補到 50 份」的錢
+  { const E = make(); for (const k of MATERIAL_KEYS_T) E.g.state.tradeRequests[k] = 0; E.g.state.tradeRequests.wood = 50; const wood0 = E.g.state.wood, room = Math.max(0, 50 - Math.floor(wood0));
+    E.g.offlineFinish(E.snap, OFFLINE.max); assert.ok(traded(E) <= room, `wood 50 offline buys at most ${room} (${traded(E)})`);
+    assert.ok(E.g.state.wood <= Math.max(wood0, 50) + 1e-9 || traded(E) === 0, 'standing wood never pushes stock above 50');
+    assert.ok(E.g.state.gold >= B.g.state.gold - room * MATERIALS.wood.price, `village gold drops by at most ${room * MATERIALS.wood.price} vs no buying (${E.g.state.gold} vs ${B.g.state.gold})`); }
   // 沒有交易所:撿到再多也沒人收購
   const D = make(); D.g.state.buildings.trading = 0; D.g.offlineFinish(D.snap, OFFLINE.max); assert.equal(traded(D), 0, 'no trading post, no offline purchases');
 }
@@ -349,7 +365,7 @@ function wear(g, h, slot, grade = 1) {
   const g = createGame(), h = isolate(g), forge = BUILDINGS.find(b => b.id === 'forge'); g.state.time = 100; g.state.buildings.forge = 2;
   Object.assign(g.state, { ore: 999, leather: 999 }); wear(g, h, 'chest', 1); assert.equal(g.craftEquipment('chest').ok, true);
   // 賣礦 → 取樣期非裝備的錢包流量為正。2026-11-17 起收購另外外推(一般委託買滿就停)→ 這裡用持續收購＋村莊金幣充足,讓收購照速率外推
-  h.gold = 2000; h.inventory.ore = 200; g.state.tradeRequests.ore = 200; g.state.tradeStanding.ore = true; g.state.gold = 1e6; Object.assign(h, doorStand(forge, forge)); g.state.wanderers = [];
+  h.gold = 2000; h.inventory.ore = 200; g.state.ore = 100; g.state.tradeRequests.ore = 999; g.state.tradeStanding.ore = true; g.state.gold = 1e6; Object.assign(h, doorStand(forge, forge)); g.state.wanderers = [];   // 2026-11-24 持續收購 = 維持庫存 N:庫存 100、N 999 → 收得下 200 份
   // 2026-11-18:商品庫存清空 → 獵人只用免費的基本服務,錢包的外推只剩打怪收入＋收購款,下面可以精確對帳
   for (const key of Object.keys(g.state.stocks)) g.state.stocks[key] = 0;
   const snap = g.offlineSnapshot(), v0 = g.state.gold; g.simulate(OFFLINE.sample);
@@ -826,11 +842,13 @@ assert.equal(arena.startDungeon(arena.state.arena.hunterIds).ok, false); run(are
   const ranged = runDg('archer'), melee = runDg('assassin');
   assert.ok(melee >= ranged - 1, `melee DPS keeps up with ranged at Lv.30 (assassin ${melee} vs archer ${ranged})`);
 }
-{ // 2026-11-17 競技場天梯:前 40 勝對手公式不變;之後對手繼續變強(生命 ×1.08、攻擊 ×1.05 每勝),獎勵封頂 → 不會永遠穩贏最高獎勵
+{ // 2026-11-17 競技場天梯:前 40 勝對手公式不變;之後對手繼續變強(2026-11-24 B2:生命 ×1.03、攻擊 ×1.02 每勝,原本 1.08／1.05),獎勵封頂 → 不會永遠穩贏最高獎勵
   const g = createGame(), a = g.state.arena, foe = w => { a.wins = w; return g.arenaFoe(); };
   assert.deepEqual(foe(0), { hp: 720, atk: 21 }); assert.deepEqual(foe(40), { hp: 720 + 750 * 40 + 40 * 40 * 40, atk: Math.round(21 + 5.4 * 40 + 0.047 * 1600) }, 'curve at the cap (2026-11-18 quadratic curve)');
   assert.ok(foe(20).hp > foe(10).hp * 2.5 && foe(30).atk > foe(15).atk * 1.8, 'opponent grows faster than linearly (party DPS grows with level squared)');
-  assert.equal(foe(41).hp, Math.round(94720 * 1.08)); assert.ok(foe(60).hp > foe(40).hp * 4 && foe(60).atk > foe(40).atk * 2.5, 'opponent keeps growing past 40 wins');
+  assert.equal(foe(41).hp, Math.round(94720 * 1.03)); assert.equal(foe(41).atk, Math.round(312 * 1.02));
+  assert.ok(foe(60).hp > foe(40).hp * 1.7 && foe(60).atk > foe(40).atk * 1.4, 'opponent keeps growing past 40 wins');
+  assert.ok(foe(60).hp < foe(40).hp * 2 && foe(60).atk < foe(40).atk * 1.6, 'but gently (2026-11-24: no cliff after the reward cap)');
   assert.equal(g.construct('training').ok, true); a.wins = 50; assert.equal(g.startArena().ok, true); assert.equal(a.enemyMaxHp, g.arenaFoe().hp, 'match uses the same formula');
 }
 { // 2026-11-18 開賽前勝算:只讀不改狀態、結果固定,打不贏是 0、碾壓是 100,不是三人回 null
@@ -1431,7 +1449,16 @@ run(manual, 30, false, assertFiniteEconomy);
     assert.equal(d.active, false, 'a worn-out party does not auto-continue'); assert.equal(d.phase, '勝利', 'coming home is a win');
     assert.equal(d.bestFloor, 1); assert.ok(d.reward.gold > 0, 'the floor reward is kept'); assert.equal(d.floor, 2, 'next run starts at the next floor');
     assert.ok(party.every(h => h.hp > 0 && h.task !== 'dungeon' && h.task !== 'revive'), 'nobody dies, everyone walks home');
-    assert.ok(g.state.log.some(l => l.text.includes('小隊體力不足，帶著戰利品返村休整')), 'the log explains why the party came home'); }
+    assert.ok(g.state.log.some(l => /的生命偏低（休整後仍不到 35%），小隊帶著戰利品返村休整/.test(l.text)), 'the log says a member is low on HP (2026-11-24: split from the forecast message)');
+    assert.ok(!g.state.log.some(l => l.text.includes('小隊體力不足')), 'the old mixed message is gone'); }
+  // 2026-11-24(B9):血量都夠、但預估打不過下一層 → 另一句話(不再寫成「體力不足」)
+  { const g = createGame(); g.construct('dungeon'); g.setDungeonAuto(true); const d = g.state.dungeon; d.bestFloor = 39;
+    const party = ['paladin', 'archer', 'sorcerer'].map(c => g.state.hunters.find(h => h.classId === c));
+    assert.equal(g.startDungeon(party.map(h => h.id), 40).ok, true); assert.equal(d.floor, 40, 'the chosen floor is used'); for (const h of party) h.route = []; g.tick(0.1);
+    clearWave(g, d, 3);
+    assert.equal(d.active, false); assert.equal(d.phase, '勝利');
+    assert.ok(g.state.log.some(l => l.text.includes('預估打不過第 41 層，小隊帶著戰利品返村休整')), 'a forecast-based return says so');
+    assert.ok(!g.state.log.some(l => l.text.includes('生命偏低')), 'healthy party is not blamed for low HP'); }
   // 健康又夠強:續戰下一層
   { const { g, party, d } = setup(['paladin', 'archer', 'priest'], p => { for (const h of p) { h.attack = 400; h.maxHp = h.hp = 5000; } });
     clearWave(g, d, 3);
@@ -1493,27 +1520,39 @@ run(manual, 30, false, assertFiniteEconomy);
   assert.equal(clearFloor(2).first, true, 'a new record floor pays in full again'); assert.equal(d.bestFloor, 2);
 }
 {
-  // 出發體檢(2026-11-17):剛出發那層也要估 → 估不過最高紀錄 +1 層就往下找估得過的最深一層;強隊照常挑戰新層;第 1 層是底線
+  // 出發層(2026-11-24,B9 使用者選 b):玩家選的隊伍照選的層出發,不再強制降層;風險改由 dungeonAssess 提示(面板即時重算)。
+  //   只有遊戲自己挑隊(startDungeon(null),模擬器/自動流程)才照舊從估得過的最深一層出發(dgSafeStart),第 1 層是底線。
   const fresh = (prep, classes = ['paladin', 'archer', 'priest']) => { const g = createGame(); g.construct('dungeon');
     const party = classes.map(c => g.state.hunters.find(h => h.classId === c)); prep?.(party, g.state.dungeon); return { g, party, d: g.state.dungeon }; };
-  // 剛起步的小隊、紀錄卻在第 30 層(例如強隊在復活中,只剩弱隊能派)→ 不去第 31 層送死
+  // 剛起步的小隊、紀錄卻在第 30 層:手動派出 → 照選的第 31 層出發;面板評估寫「危險」並建議較淺的層
   { const { g, party, d } = fresh((p, d) => { d.bestFloor = 30; });
-    assert.equal(g.startDungeon(party.map(h => h.id)).ok, true);
-    assert.ok(d.floor >= 1 && d.floor < 31, `a weak party is not sent to floor 31 (went to ${d.floor})`);
-    assert.ok(g.state.log.some(l => l.text.includes(`打不過第 31 層，改從第 ${d.floor} 層出發`)), 'the log says why the party starts lower');
-    const deaths0 = g.state.counts.deaths; for (const h of party) h.route = [];
-    run(g, 150, true); assert.equal(d.active, false);
-    assert.equal(g.state.counts.deaths, deaths0, 'the stepped-down run costs no lives'); assert.equal(d.bestFloor, 30, 'clearing a lower floor does not move the record'); }
-  // 指定起始層也一樣保護(UI 的起始層 −/+ 選到太深的層)
+    const ids = party.map(h => h.id), as = g.dungeonAssess(ids);
+    assert.equal(as.floor, 31); assert.equal(as.verdict, 'danger', 'a weak party at floor 31 is flagged'); assert.ok(as.safeFloor >= 1 && as.safeFloor < 31, `suggests a shallower floor (${as.safeFloor})`);
+    assert.equal(as.timeLimit, 180); assert.deepEqual(as.tired, []); assert.equal(as.penalty, 0.6);
+    assert.equal(g.dungeonStartFloor(ids, 31), 31, 'UI start floor = the chosen floor');
+    assert.equal(g.startDungeon(ids).ok, true); assert.equal(d.floor, 31, 'manual launch uses the chosen floor (no forced step-down)');
+    assert.ok(!g.state.log.some(l => l.text.includes('改從第')), 'no step-down message for a manual launch'); }
   { const { g, party, d } = fresh((p, d) => { d.bestFloor = 30; });
-    assert.equal(g.startDungeon(party.map(h => h.id), 25).ok, true); assert.ok(d.floor < 25, 'an explicit start floor the party cannot survive is stepped down too'); }
-  // 強隊:照常從最高紀錄 +1 出發,也不多一行訊息
+    assert.equal(g.startDungeon(party.map(h => h.id), 25).ok, true); assert.equal(d.floor, 25, 'an explicit start floor is honoured'); }
+  // 遊戲自己挑隊(null):照舊降到估得過的層,並寫日誌
+  { const { g, d } = fresh((p, d) => { d.bestFloor = 30; });
+    assert.equal(g.startDungeon().ok, true); assert.ok(d.floor >= 1 && d.floor < 31, `auto-pick still starts at a survivable floor (${d.floor})`);
+    assert.ok(g.state.log.some(l => l.text.includes(`打不過第 31 層，改從第 ${d.floor} 層出發`)), 'the log says why the auto run starts lower'); }
+  // 強隊:評估「安全」、照常從最高紀錄 +1 出發
   { const { g, party, d } = fresh((p, d) => { d.bestFloor = 5; for (const h of p) { h.attack = 400; h.maxHp = h.hp = 5000; } });
-    assert.equal(g.startDungeon(party.map(h => h.id)).ok, true); assert.equal(d.floor, 6, 'a strong party still pushes the newest floor');
-    assert.ok(!g.state.log.some(l => l.text.includes('改從第')), 'no step-down message when the floor is fine'); }
-  // 估什麼都估不過(沒有補師、攻擊力 1 → 打不完)→ 還是第 1 層,不會變成第 0 層或出不了發
-  { const { g, party, d } = fresh((p, d) => { d.bestFloor = 8; for (const h of p) h.attack = 1; }, ['paladin', 'archer', 'sorcerer']);
-    assert.equal(g.startDungeon(party.map(h => h.id)).ok, true); assert.equal(d.floor, 1, 'floor 1 is the lowest start'); }
+    const as = g.dungeonAssess(party.map(h => h.id)); assert.equal(as.verdict, 'safe'); assert.equal(as.safeFloor, 6);
+    assert.equal(g.startDungeon(party.map(h => h.id)).ok, true); assert.equal(d.floor, 6, 'a strong party still pushes the newest floor'); }
+  // 評估跟著「現在」的生命與飽食重算(B5:以前面板是開啟時的快照):扣血 → 判定變差;餓了 → 列在 tired(普攻 ×0.6)
+  { const { g, party } = fresh((p, d) => { d.bestFloor = 5; for (const h of p) { h.attack = 60; h.maxHp = h.hp = 600; } }, ['paladin', 'archer', 'sorcerer']);
+    const ids = party.map(h => h.id), a0 = g.dungeonAssess(ids, 3);
+    party[0].hp = Math.round(party[0].maxHp * 0.2); const a1 = g.dungeonAssess(ids, 3);
+    assert.ok(a1.risk > a0.risk, `risk rises when HP drops (${a0.risk} → ${a1.risk})`); assert.deepEqual(a1.weak, [party[0].name]); assert.notEqual(a1.verdict, 'safe');
+    party[0].hp = party[0].maxHp; party[1].satiety = 5; const a2 = g.dungeonAssess(ids, 3);
+    assert.deepEqual(a2.tired, [party[1].name], 'hunger shows up in the assessment'); assert.ok(a2.secs >= a0.secs, 'and the ×0.6 penalty slows the forecast'); }
+  // 估什麼都估不過(沒有補師、攻擊力 1 → 打不完)→ 自動挑隊還是第 1 層,不會變成第 0 層或出不了發
+  { const { g, d } = fresh((p, d) => { d.bestFloor = 8;  }, ['paladin', 'archer', 'sorcerer']);
+    for (const h of g.state.hunters) h.attack = 1;
+    assert.equal(g.startDungeon().ok, true); assert.equal(d.floor, 1, 'floor 1 is the lowest start'); }
 }
 {
   // 地下城保命(2026-11-17):出發時每人至少 35% 生命;波中魔物這一擊會打倒人 → 緊急撤退(沒有本層獎勵、沒有人倒下、帳本不記)
@@ -1615,7 +1654,7 @@ run(manual, 30, false, assertFiniteEconomy);
   //   → 流到流浪英雄(村莊＋獵人這池以外)的收購款跟線性外推不同。正確的守恆式:
   //   池子(村莊＋獵人)期末 = 線性外推「不含收購的淨流量」 − 外推期付給流浪英雄的收購款(實際從流浪英雄錢包量)
   //   twS = 取樣期流浪英雄收到的收購款 = 錢包變化 − 打怪收入(wanderGold) + 付給村莊的錢(wanderPay);offlineFinish 只會因收購付款動到流浪英雄錢包
-  const idle = createGame(); for (const k of MATERIAL_KEYS_T) idle.state.tradeStanding[k] = true; run(idle, 5);
+  const idle = createGame(); for (const k of MATERIAL_KEYS_T) { idle.state.tradeStanding[k] = true; idle.state.tradeRequests[k] = Math.min(999, Math.floor(idle.state[k]) + 500); } run(idle, 5);   // 2026-11-24 持續收購 = 維持庫存 N → N 設得比庫存高,外推期才有得收
   const W = () => idle.state.hunters.reduce((n, h) => n + h.gold, 0), WW = () => idle.state.wanderers.reduce((n, w) => n + w.gold, 0), C = k => idle.state.counts[k] || 0;
   const wIds = () => idle.state.wanderers.map(w => w.id).join();
   const s2 = idle.offlineSnapshot(), v0 = idle.state.gold, w0 = W(), ww0 = WW(), wg0 = C('wanderGold'), wp0 = C('wanderPay'), ids0 = wIds(); idle.simulate(OFFLINE.sample);
@@ -2026,6 +2065,69 @@ run(manual, 30, false, assertFiniteEconomy);
   assert.equal(g.exploreRegion('mountain').ok, true); const gems0 = g.state.gems;
   assert.equal(g.expedition().ok, true); run(g, 200, false, () => {});
   assert.ok(g.state.bossKills >= 1, 'boss defeated in mountain'); assert.equal(g.state.gems - gems0, b.gems * g.state.bossKills, 'village gems match the preview');
+}
+{ // 2026-11-24 B4:競技場勝算跟實戰跑同一支 arenaFight(技能、狀態、聖盾減傷、出手時序)→ 預估 ≈ 實戰;同一局面同一個數字;生命變了就重算
+  const make = (cls = ['paladin', 'berserker', 'priest']) => { const g0 = createGame(), s0 = g0.state; s0.buildings.training = 1; s0.hunters = cls.map(c => s0.hunters.find(h => h.classId === c)); s0.wanderers = [];
+    for (const h of s0.hunters) Object.assign(h, { level: 100, skillLevel: 5, rebirths: 1, rarity: 'rare', trait: 'none', xp: 0 });
+    const g = createGame(JSON.parse(JSON.stringify(g0.serialize()))); g.state.wanderers = []; g.state.buildings.training = 1;
+    for (const h of g.state.hunters) { h.hp = h.maxHp; h.statuses = {}; h.buffs = {}; h.skillCds = [0, 0, 0, 0]; h.skillCd = 0; h._skillCdShadow = 0; } return g; };
+  const reset = (g, w, seed) => { const s = g.state; s.seed = seed >>> 0; s.enemies = []; s.expedition.active = false; Object.assign(s.arena, { wins: w, cooldown: 0, active: false, phase: '待命' });
+    for (const h of s.hunters) Object.assign(h, { hp: h.maxHp, task: null, route: [], attackTimer: 0, statuses: {}, buffs: {}, skillCds: [0, 0, 0, 0], skillCd: 0, _skillCdShadow: 0 }); };
+  const g = make(), s = g.state, ids = s.hunters.map(h => h.id), W = 31; reset(g, W, 1);
+  const before = JSON.stringify(g.serialize()), o = g.arenaOdds(ids);
+  assert.equal(JSON.stringify(g.serialize()), before, 'arenaOdds does not touch the game state or the game RNG');
+  assert.deepEqual(g.arenaOdds(ids), o, 'same state → same number (cached)'); const g2 = make(); reset(g2, W, 99); assert.deepEqual(g2.arenaOdds(g2.state.hunters.map(h => h.id)), o, 'deterministic across games, independent of the game seed');
+  assert.ok(o.win > 10 && o.win < 90, `a contested match (${o.win}%)`);
+  let won = 0; const N = 24;
+  for (let k = 0; k < N; k++) { reset(g, W, 1000 + k * 7919); assert.equal(g.startArena(ids).ok, true); for (let i = 0; i < 4000 && s.arena.active; i++) { s.enemies = []; g.tick(0.1); } if (s.arena.wins > W) won++; }
+  const act = Math.round(won / N * 100); assert.ok(Math.abs(act - o.win) <= 25, `prediction ${o.win}% ≈ actual ${act}% (${won}/${N})`);
+  // 跟以前「不算技能」的預估相比:技能隊在打得贏的勝場不會被估成 0%
+  reset(g, W - 4, 1); assert.ok(g.arenaOdds(ids).win >= 90, `skills/shields count (w=${W - 4}: ${g.arenaOdds(ids).win}%)`);
+  // 從開打時的生命起算、生命變了就重算(B4:以前停在開面板那一刻)
+  reset(g, W, 1); const full = g.arenaOdds(ids).win; for (const h of s.hunters) h.hp = Math.round(h.maxHp * 0.4); const hurt = g.arenaOdds(ids).win;
+  assert.ok(hurt < full, `lower HP → lower odds (${full}% → ${hurt}%)`);
+  // 限時從開打起算(集結的走路時間不算):轉入「對戰中」時 time 歸零
+  reset(g, 0, 1); assert.equal(g.startArena(ids).ok, true); for (let i = 0; i < 2000 && s.arena.phase === '集結中'; i++) g.tick(0.1);
+  assert.equal(s.arena.phase, '對戰中'); assert.ok(s.arena.time < 0.2, `fight clock starts at 0 (${s.arena.time})`);
+}
+{ // 2026-11-24:競技場／地下城裡被持續傷害打倒 = 一般倒下(不記死亡、不扣心情、不送復活聖所)
+  const poison = () => ({ poisoned: { left: 5, stacks: 1, atk: 10, srcId: null, tick: 0.95, stamp: 0 } });
+  { const g = createGame(), s = g.state; g.construct('training'); s.difficulty = 1; assert.equal(g.startArena().ok, true); const party = s.hunters.filter(h => s.arena.hunterIds.includes(h.id));
+    for (const h of party) h.route = []; g.tick(0.1); g.tick(0.1); assert.equal(s.arena.phase, '對戰中');
+    const v = party[0], deaths0 = s.counts.deaths, mood0 = v.mood; v.hp = 1; v.statuses = poison(); g.tick(0.1);
+    assert.equal(v.hp, 0, 'the DoT knocks the hunter down'); assert.equal(v.status, '模擬對戰倒下'); assert.equal(v.task, 'arena');
+    assert.equal(s.counts.deaths, deaths0, 'arena DoT KO is not a death'); assert.ok(v.mood >= mood0 - 1, 'no −12 mood');
+    assert.ok(!s.log.some(l => l.text.includes(v.name) && l.text.includes('送回復活聖所')), 'not sent to the sanctuary');
+    for (let i = 0; i < 1500 && s.arena.active; i++) { s.enemies = []; g.tick(0.1); } assert.equal(v.hp, v.maxHp, 'back at full HP after the match like any arena KO'); assert.equal(s.counts.deaths, deaths0); }
+  { const g = createGame(), s = g.state; g.construct('dungeon'); s.difficulty = 1; const party = ['paladin', 'archer', 'priest'].map(c => s.hunters.find(h => h.classId === c));
+    assert.equal(g.startDungeon(party.map(h => h.id), 1).ok, true); for (const h of party) h.route = []; g.tick(0.1); assert.equal(s.dungeon.phase, '戰鬥中');
+    const v = party[1], deaths0 = s.counts.deaths, mood0 = v.mood; v.hp = 1; v.statuses = poison(); g.tick(0.1);
+    assert.equal(v.hp, 0); assert.equal(v.status, '地下城倒下'); assert.equal(s.counts.deaths, deaths0, 'dungeon DoT KO is not a death'); assert.ok(v.mood >= mood0 - 1);
+    assert.equal(g.retreatDungeon().ok, true); assert.equal(v.task, 'revive', 'endDungeon sends the downed member to revive like any dungeon KO');
+    run(g, 12, true); assert.ok(v.hp > 0, 'revived'); assert.equal(s.counts.deaths, deaths0, 'still no death recorded'); }
+  // 野外照舊是真的死亡
+  { const g = createGame(), s = g.state, h = isolate(g); s.difficulty = 1; const deaths0 = s.counts.deaths; h.hp = 1; h.statuses = poison(); g.tick(0.1);
+    assert.equal(s.counts.deaths, deaths0 + 1, 'a field DoT KO is still a death'); }
+}
+{ // 2026-11-24 B10:委託進度每 0.5 秒自己刷新 → 不必做別的動作,進度與「可領取」就會更新
+  const g = createGame(), s = g.state; run(g, 1, true);
+  s.quest = { index: 5, claimed: false }; run(g, 1, true); assert.equal(s.quest.title, '討伐森林領主'); assert.equal(s.quest.progress, 0); assert.equal(s.quest.complete, false);
+  s.bossKills = 1; run(g, 1, true); assert.equal(s.quest.progress, 1, 'progress updates with no other action'); assert.equal(s.quest.complete, true, 'claimable without a reload');
+  s.quest = { index: 15, claimed: false }; s.bossKills = 4; run(g, 1, true); assert.equal(s.quest.progress, 4); s.bossKills = 8; run(g, 0.6, true); assert.equal(s.quest.progress, 8, 'a running count keeps updating');
+  assert.equal(g.claimQuest().ok, false); s.bossKills = 30; run(g, 0.6, true); assert.equal(s.quest.complete, true); assert.equal(g.claimQuest().ok, true);
+}
+{ // 2026-11-24 C5:舊存檔(11/12 前名字池 16 個)流浪英雄與名冊獵人同名 → 讀檔只改流浪英雄的名字
+  const g = createGame(), clean = g.serialize(), names = clean.hunters.map(h => h.name);
+  const re = createGame(JSON.parse(JSON.stringify(clean)));
+  assert.deepEqual(re.state.wanderers.map(w => w.name), g.state.wanderers.map(w => w.name), 'a save without clashes loads unchanged');
+  const dup = JSON.parse(JSON.stringify(clean)); dup.wanderers[0].name = names[0]; dup.wanderers[0].gender = nameGender(names[0]); dup.wanderers[2].name = dup.wanderers[1].name;
+  const L = createGame(dup), all = [...L.state.hunters, ...L.state.wanderers].map(a => a.name);
+  assert.deepEqual(L.state.hunters.map(h => h.name), names, 'roster hunters keep their names');
+  assert.equal(new Set(all).size, all.length, `no duplicate names after load (${all.join(',')})`);
+  assert.notEqual(L.state.wanderers[0].name, names[0]); assert.equal(L.state.wanderers[0].gender, nameGender(names[0]), 'renamed to a name of the same gender (same look)');
+  assert.equal(L.state.wanderers[1].name, dup.wanderers[1].name, 'the first holder of a wanderer name keeps it');
+  assert.equal(L.state.seed, createGame(JSON.parse(JSON.stringify(clean))).state.seed, 'renaming does not consume random numbers');
+  const L2 = createGame(L.serialize()); assert.deepEqual(L2.state.wanderers.map(w => w.name), L.state.wanderers.map(w => w.name), 'stable on the next load');
 }
 console.log(`PASS: ${CLASSES.length} hunters / ${CLASSES.length} classes, seeded visitors, conservation of personal and village gold, paid and emergency services, bounded trading, crafting and gear purchases, upgrades, training, skills, rebirth, difficulty gates, hunting, field boss, death/revival, dungeon combat and save continuation, NPC arena, navigation, malformed saves, pause, deterministic simulation, all ${questChain.length} quests and legacy (rev 1, rev 2) quest-save migration. Natural 60s: ${combat.state.totalKills} total kills; ${combat.state.counts.services} services.`);
 
@@ -2924,4 +3026,27 @@ console.log(`PASS: ${CLASSES.length} hunters / ${CLASSES.length} classes, seeded
     assert.equal(pal.gear.weapon.itemId, 'craft_hammer', 'paladin buys the 精鐵戰錘'); assert.equal(s.gearStock.hammer[1], 0); assert.equal(s.gearStock.sword[1], 1, 'swords stay in stock for berserkers');
   }
   console.log('PASS: paladin skills — shield mitigation on field/DoT/dungeon paths, prevented amount, expiry, follow visuals, thorn aegis, judgment hammer centre/radius, weapon types (paladin 震地掃 / berserker 弧光斬), class weapon limits, typed craft weapons and their save migration.');
+}
+
+// 2026-11-24 C3:學院等級給技能傷害真效果 —— ×(1 + 5% × (等級 − 1)),Lv.1 不變、流浪英雄不算
+{
+  const { academySkillMult } = await import('./src/pixel-data.js');
+  assert.equal(academySkillMult(0), 1, 'no academy: no bonus'); assert.equal(academySkillMult(1), 1, 'Lv.1 keeps the old damage');
+  assert.ok(Math.abs(academySkillMult(3) - 1.1) < 1e-9 && Math.abs(academySkillMult(5) - 1.2) < 1e-9, 'Lv.3 = +10%, Lv.5 = +20%');
+  const { regionCenter } = await import('./src/overworld.js');
+  const C0 = regionCenter('meadow');
+  const dmgAt = lv => {
+    const g = createGame(); g.state.buildings.academy = lv;
+    g.state.enemies = []; g.state.spawnTimer = -999; g.state.regionSpawn = {};
+    const proto = createGame().state.enemies.find(e => e.regionId === 'meadow');
+    const foe = { ...proto, id: 'acadfoe', x: C0.x + 2, z: C0.z, hp: 1e7, maxHp: 1e7, attack: 0, attackTimer: 99, rewarded: false, statuses: {}, buffs: {} };
+    const h = g.state.hunters.find(v => v.classId === 'sorcerer'); h.skillLevel = 5; h.spec = 'sorcerer_fire'; h.x = C0.x; h.z = C0.z; h.hp = h.maxHp; h.attack = 100;
+    g.state.enemies = [foe]; g.pilotStart(h.id); h.skillCds = [0, 0, 0, 0];
+    assert.equal(g.pilotCastSlot(0).ok, true, 'pilot casts slot 0');
+    return 1e7 - foe.hp;
+  };
+  const d1 = dmgAt(1), d5 = dmgAt(5);
+  assert.ok(d1 > 0, 'skill deals damage');
+  assert.ok(Math.abs(d5 / d1 - 1.2) < 0.02, `academy Lv.5 skill damage is ~1.2x Lv.1 (got ${(d5 / d1).toFixed(3)})`);
+  console.log('PASS: academy level scales hunter skill damage (+5% per level above 1).');
 }

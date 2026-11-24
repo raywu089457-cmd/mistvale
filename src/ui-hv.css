@@ -3118,3 +3118,9 @@ html body #pilot-hud .ph-arc{display:none}
   html body #pilot-hud .ph-sk-k{position:relative;z-index:2;font:700 12px/1 var(--font-num);color:var(--sk,#f0d89a)}
   html body #pilot-hud .ph-sk-s{position:relative;z-index:2;font:700 12px/1 var(--font-ui);color:#fff}
 }
+
+/* 2026-11-24 C1:交易所底部動作列(全部停收)釘在視窗底部,不用捲到最底才按得到(跟 .z1-sticky 同一套出血量) */
+html body #modal-content .trade-footer{position:sticky!important;bottom:-16px;z-index:3;margin:12px -12px -16px!important;padding:10px 12px 18px!important;background:var(--hv-ink)!important;border-top:1px solid var(--hv-line)!important}
+@media(max-width:760px),(max-height:520px){html body #modal-content .trade-footer{bottom:-18px;margin:12px -10px -18px!important;padding:10px 10px 18px!important}}
+@media(max-height:520px){html body #modal-content .trade-footer{bottom:-12px;margin:8px -10px -12px!important;padding:6px 10px 12px!important}}
+html body #modal-content:has(.trade-footer){scroll-padding-bottom:84px}

@@ -3,8 +3,8 @@ import {createVillageNav} from './village-nav.js';
 import {WORLD,REGIONS,RING_ORDER,walkable,inVillage,regionAt,regionContains,regionEdge,regionCenter,randomRegionPoint,wildAt,nearestRingRoad,ringRoadPath,ringPointAt,onRingRoad,ringRoadDistance,ringRoadFar,RING_ROAD_HALF,RING_ROAD} from './overworld.js';
 import {VILLAGE_BOUNDS,EXITS,blockAt,BUILDING_NUDGE,BUILDING_SLOTS,blockCenter} from './village-grid.js';
 import {sfx} from './sfx.js';
-import { SKILLS, BUILDINGS, CLASSES, RARITIES, PROMOTE, TRAITS, MATERIALS, PRODUCTS, RECIPES, GEAR_SLOTS, EQUIP_SLOTS, GEAR_TIERS, GEAR_TIER_MAX, gearAt, DIFFICULTIES, CAMP, HUNT_ZONE, PILOT_ATTACK, PILOT_ORB, MERCHANT, TRADE_RESERVE, AI_ATTACK_LOCK, KITE, PROVOKE, MONSTER_RANGED, LEGACY_LAYOUT_V14, LEGACY_LAYOUT_V15, LEGACY_LAYOUT_V16, ART_LAYOUT_HISTORY, REGION_DENSITY, DEFAULT_REGION_DENSITY, MONSTER_POP, MONSTER_SPEED_MULT, MONSTER_ATTACK_RATE, EQUIPMENT, CLASS_STARTER, GEAR_DROP, gearItemView, gearGradeOf, dungeonGearGrade, recipeItemId, recipesForSlot, canWield, migrateGearId, craftWeaponFor, LEGACY_CRAFT_WEAPON, CRAFT_WEAPON_ITEMS, CLASS_WEAPON_TYPES, WEAPON_TYPES } from './pixel-data.js';
-import { SPECS, SPEC_BY_ID, STATUS_DEFS, SPEC_SWITCH_LV, SCHOOL_COLORS, defaultSpecOf, specsOf, specOf, unlockedSkills, heroSkills, skillSlotMult, skillSlotCd } from './pixel-skills.js';
+import { SKILLS, BUILDINGS, CLASSES, RARITIES, PROMOTE, TRAITS, MATERIALS, PRODUCTS, RECIPES, GEAR_SLOTS, EQUIP_SLOTS, GEAR_TIERS, GEAR_TIER_MAX, gearAt, DIFFICULTIES, CAMP, HUNT_ZONE, PILOT_ATTACK, PILOT_ORB, MERCHANT, TRADE_RESERVE, AI_ATTACK_LOCK, KITE, PROVOKE, MONSTER_RANGED, LEGACY_LAYOUT_V14, LEGACY_LAYOUT_V15, LEGACY_LAYOUT_V16, ART_LAYOUT_HISTORY, REGION_DENSITY, DEFAULT_REGION_DENSITY, MONSTER_POP, MONSTER_SPEED_MULT, MONSTER_ATTACK_RATE, EQUIPMENT, CLASS_STARTER, GEAR_DROP, gearItemView, gearGradeOf, dungeonGearGrade, recipeItemId, recipesForSlot, canWield, migrateGearId, craftWeaponFor, LEGACY_CRAFT_WEAPON, CRAFT_WEAPON_ITEMS, CLASS_WEAPON_TYPES, WEAPON_TYPES, academySkillMult } from './pixel-data.js';
+import { SPECS, SPEC_BY_ID, STATUS_DEFS, SPEC_SWITCH_LV, SCHOOL_COLORS, defaultSpecOf, specsOf, specOf, unlockedSkills, heroSkills, skillSlotMult as skillSlotMultBase, skillSlotCd, heroWeaponType } from './pixel-skills.js';
 
 const mapById = list => Object.assign(Object.create(null), Object.fromEntries(list.map(item => [item.id, item])));
 const CLASS = mapById(CLASSES), BUILDING = mapById(BUILDINGS), RARITY = mapById(RARITIES), RECIPE = mapById(RECIPES);
@@ -311,6 +311,8 @@ function normalizeSettings(raw) {
 }
 export function createGame(saved = null) {
   const state = {};
+  // 2026-11-24 學院等級加成(C3):所有技能傷害倍率都經過這一個入口(地圖、地下城、競技場、預估共用);流浪英雄不算。
+  const skillSlotMult = (h, sk) => skillSlotMultBase(h, sk) * ((state.wanderers || []).includes(h) ? 1 : academySkillMult(state.buildings?.academy));
   let rects = [], roads = [], ponds = [], nav = { nodes: [], edges: [], thru: null }, vnav = null;
   const id = prefix => `${prefix}${++state.nextId}`;
   const random = () => { state.seed = (Math.imul(state.seed, 1664525) + 1013904223) >>> 0; return state.seed / 4294967296; };
@@ -321,7 +323,7 @@ export function createGame(saved = null) {
   function tradeLog(h, quantity, coins) {
     if (tradeAgg && state.log[0] === tradeAgg.entry && state.time - tradeAgg.t < 20) {
       tradeAgg.n++; tradeAgg.qty += quantity; tradeAgg.coins += coins; tradeAgg.t = state.time;
-      tradeAgg.entry.text = `交易所收購 ${tradeAgg.n} 位獵人共 ${tradeAgg.qty} 份材料，支付 ${tradeAgg.coins} 金幣。`; return;
+      tradeAgg.entry.text = `交易所成交 ${tradeAgg.n} 趟，共收購 ${tradeAgg.qty} 份材料，支付 ${tradeAgg.coins} 金幣。`; return;
     }
     log(`交易所收購 ${h.name} 的 ${quantity} 份材料，支付 ${coins} 金幣。`, 'loot');
     tradeAgg = { entry: state.log[0], n: 1, qty: quantity, coins, t: state.time };
@@ -1025,6 +1027,22 @@ export function createGame(saved = null) {
     }
     return teams;
   };
+  // 2026-11-24(C5)讀檔去重:11/12 以前名字池只有 16 個,舊存檔裡流浪英雄可能跟名冊獵人(或別的流浪英雄)同名 →
+  //   日誌把名冊獵人寫成「流浪英雄」。只改流浪英雄的名字,名冊獵人一律不動;新名字照 NAMES 順序挑第一個沒人用、性別相同的
+  //   (外觀跟名字的性別走,換名不換臉),同性別都用完才挑任何沒人用的,全滿才在原名後加「二、三…」。不擲骰 → 亂數序列不變;沒撞名的存檔完全不變。
+  function dedupeWandererNames() {
+    const taken = new Set(state.hunters.map(h => h.name));
+    for (const w of state.wanderers || []) {
+      if (taken.has(w.name)) {
+        const old = w.name;
+        const pick = NAMES.find(n => !taken.has(n) && nameGender(n) === w.gender) || NAMES.find(n => !taken.has(n));
+        if (pick) w.name = pick;
+        else { let k = 2; while (taken.has(`${old}${'二三四五六七八九十'[k - 2] || k}`)) k++; w.name = `${old}${'二三四五六七八九十'[k - 2] || k}`.slice(0, 16); }
+        w.gender = nameGender(w.name) ?? w.gender;
+      }
+      taken.add(w.name);
+    }
+  }
   function newWanderer(classId = null) {
     const c = CLASSES.find(v => v.id === classId) || CLASSES[Math.floor(random() * CLASSES.length)], roll = random();
     const rarity = roll < 0.6 ? 'normal' : roll < 0.9 ? 'rare' : 'superior';
@@ -1058,7 +1076,12 @@ export function createGame(saved = null) {
   function tradeReserve() { return TRADE_RESERVE.base + TRADE_RESERVE.perHall * Math.max(0, (state.buildings.hall || 1) - 1); }
   // 這項材料現在村莊可以花多少金幣收購:持續收購只能花保留額以上的部分
   function tradeBudget(key) { return Math.max(0, state.gold - (state.tradeStanding?.[key] ? tradeReserve() : 0)); }
-  function tradeAvailable(h) { return state.buildings.trading > 0 && MATERIAL_KEYS.some(key => h.inventory[key] > 0 && state.tradeRequests[key] > 0 && tradeBudget(key) >= MATERIALS[key].price); }
+  // 2026-11-24 持續收購改成「維持庫存 N」(B1,使用者選 a):持續收購的材料 tradeRequests[k] = 村莊要維持的庫存 N,
+  //   庫存低於 N 才收、一次最多收到剛好 N(不會超過);一般收購照舊 = 還要收幾份(成交就扣,收滿就停)。
+  //   以前持續收購是「每位賣家每趟最多收 N 份、永不扣量」,跟庫存無關,只靠金庫保留額擋 → 線上一直買、離線外推 8 小時可以花掉數萬金。
+  //   舊存檔:存的數字直接當 N(同一欄位、不改結構);玩家原本設的 30–50 份 → 維持 30–50 份庫存,只會比以前少花錢。
+  function tradeRoom(key) { const n = state.tradeRequests[key] || 0; return state.tradeStanding?.[key] ? Math.max(0, n - Math.floor(state[key] || 0)) : n; }
+  function tradeAvailable(h) { return state.buildings.trading > 0 && MATERIAL_KEYS.some(key => h.inventory[key] > 0 && tradeRoom(key) > 0 && tradeBudget(key) >= MATERIALS[key].price); }
   // 這一格現在能買到的最好裝備:庫存裡比身上高階、買得起的最高階(身上已有升級件時要留 GEAR_RESERVE 付吃住);沒有 → null
   // 身上是初始件(0 數值)或空格 = 第 0 階,任何一階都算升級。
   // 2026-11-24 武器配方分類型:獵人只買自己職業能拿的類型(聖騎士只買戰錘、狂戰士只買長劍…),庫存看這份配方自己的。
@@ -1129,10 +1152,10 @@ export function createGame(saved = null) {
   function trade(h) {
     let quantity = 0, coins = 0;
     for (const key of MATERIAL_KEYS) {
-      const amount = Math.min(h.inventory[key], state.tradeRequests[key], Math.floor(tradeBudget(key) / MATERIALS[key].price));
+      const amount = Math.min(h.inventory[key], tradeRoom(key), Math.floor(tradeBudget(key) / MATERIALS[key].price));
       if (!amount) continue;
       const price = amount * MATERIALS[key].price;
-      // 2026-11-17 持續收購(tradeStanding):開著的材料成交後收購量不扣 → 一直維持玩家設定的數量;只花金庫保留額以上的部分(tradeBudget),一般委託照舊以全部金庫為上限
+      // 持續收購(tradeStanding):成交不扣設定值(它是要維持的庫存 N,tradeRoom 已把這次限在 N − 庫存);只花金庫保留額以上的部分(tradeBudget),一般委託照舊以全部金庫為上限
       h.inventory[key] -= amount; if (!state.tradeStanding?.[key]) state.tradeRequests[key] -= amount; state[key] += amount; state.gold -= price; h.gold += price; state.counts.tradeGold = (state.counts.tradeGold || 0) + price; quantity += amount; coins += price;
       // 離線取樣期:記下收購量與付給誰,offlineFinish 另外依「剩餘收購量/持續收購/村莊金幣」外推,不照速率無上限地乘
       if (dgLedger) for (const T of tradeBooks()) { T.qty[key] = (T.qty[key] || 0) + amount; T.cost += price; T.gold[h.id] = (T.gold[h.id] || 0) + price; if (!wandererOf(h)) T.hunterCost += price; }
@@ -1472,7 +1495,11 @@ export function createGame(saved = null) {
                 const src = state.hunters.find(q => q.id === s.srcId) || null;
                 rewardEnemy(unit, src);
               } else if (!isEnemy) {
-                if (wandererOf(unit)) downWanderer(unit, { type: 'poison' });
+                // 2026-11-24:競技場／地下城裡被持續傷害打倒 = 跟一般被打倒一樣(模擬戰倒下／地下城倒下,由 endArena / endDungeon 收尾),
+                //   不是真的死亡:不記死亡次數、不扣心情、不送復活聖所(以前走 died(),三樣都記了)
+                if (unit.task === 'arena') { unit.status = '模擬對戰倒下'; unit.route = []; }
+                else if (unit.task === 'dungeon') { unit.status = '地下城倒下'; unit.route = []; }
+                else if (wandererOf(unit)) downWanderer(unit, { type: 'poison' });
                 else died(unit, 'poison');
               }
             }
@@ -2034,6 +2061,7 @@ export function createGame(saved = null) {
 
   // 舊版存檔已領過轉世獎勵(state.questFinalPaid,見 migrateQuest)→ 新最終章顯示與發放的獎勵都是空的,不重複發。
   const questReward = i => (i === QUESTS.length - 1 && state.questFinalPaid ? {} : { ...QUESTS[i].reward });
+  const QUEST_REFRESH = 0.5; let questClock = 0;
   function refreshQuest() {
     const q = QUESTS[state.quest.index];
     Object.assign(state.quest, { title: q.title, description: q.description, target: q.target, reward: questReward(state.quest.index), progress: Math.min(q.target, q.metric(state)) });
@@ -2053,6 +2081,8 @@ export function createGame(saved = null) {
   // d.startFloor = 下次出發從第幾層開始(0 = 最新一層 = 最高紀錄 +1)。d.events = 給畫面播動畫/數字的最近事件(不存檔)。
   const DG_TIERS = ['meadow', 'birch', 'forest', 'taiga', 'desert', 'snow', 'mountain'];
   const DG_HIT_EVERY = 1.4, DG_TIME_LIMIT = 180, DG_REST_HEAL = 0.2;
+  // 地下城裡飽食或體力低於 DG_TIRED_BELOW → 普攻傷害 ×DG_TIRED_MULT(2026-11-24 抽成常數,面板與預估共用同一條)
+  const DG_TIRED_BELOW = 15, DG_TIRED_MULT = 0.6, dgTired = h => h.satiety < DG_TIRED_BELOW || h.stamina < DG_TIRED_BELOW;
   // 自動續戰門檻(dgForecast):休整後每人至少 DG_FIT_MIN_HP 生命、預估承傷 ≤ DG_FIT_RISK × 現有生命、預估時間 ≤ DG_FIT_TIME × 時限;
   // 波間撤退:預估承傷 > DG_RETREAT_RISK × 現有生命(估計有人撐不到這層打完;補血已打折、亂數目標已抓倒楣份,所以門檻就用 1)。數值用 tools/dungeon-balance.mjs 與 tools/progression-sim.mjs 調過。
   const DG_FIT_MIN_HP = 0.35, DG_FIT_RISK = 0.6, DG_FIT_TIME = 1.2, DG_RETREAT_RISK = 1, DG_HEAL_EFF = 0.6, DG_UNLUCKY = 1.5;
@@ -2106,7 +2136,7 @@ export function createGame(saved = null) {
   function dgPick(pool, r) { const sh = dgShare(pool); let acc = 0; for (let i = 0; i < pool.length; i++) { acc += sh[i]; if (r < acc) return pool[i]; } return pool[pool.length - 1]; }
   function dgForecast(party, floor, fromWave = 1, hpOf = h => h.hp) {
     const up = party.filter(h => hpOf(h) > 0), healers = up.filter(h => specOf(h).skills[0]?.kind === 'allyHeal');
-    const hitOf = h => h.attack * (h.satiety < 15 || h.stamina < 15 ? 0.6 : 1);
+    const hitOf = h => h.attack * (dgTired(h) ? DG_TIRED_MULT : 1);
     const skillDpsOf = h => unlockedSkills(h).reduce((sum, sk) => {
       if (!sk.mult) return sum;
       const dotBonus = (sk.status === 'bleeding' || sk.status === 'burning' || sk.status === 'poisoned') ? 0.12 : (sk.status === 'cursed' || sk.kind === 'timeStop') ? 0.08 : 0;
@@ -2223,7 +2253,11 @@ export function createGame(saved = null) {
         for (const h of party) { shopRemote(h); autoTrain(h, true); }
         return;
       }
-      log(fit ? `第 ${floor + 1} 層的魔物太耐打，小隊帶著戰利品返村休整。` : '小隊體力不足，帶著戰利品返村休整。', 'info');
+      // 2026-11-24(B9):原本「小隊體力不足」把兩種原因混在一起 → 拆開寫:有人生命偏低(休整後仍不到出發門檻)/預估打不過下一層/打得太久
+      const low = party.find(h => rested(h) < h.maxHp * DG_FIT_MIN_HP);
+      log(low ? `${low.name}的生命偏低（休整後仍不到 ${Math.round(DG_FIT_MIN_HP * 100)}%），小隊帶著戰利品返村休整。`
+        : !fit ? `預估打不過第 ${floor + 1} 層，小隊帶著戰利品返村休整。`
+        : `第 ${floor + 1} 層的魔物太耐打，小隊帶著戰利品返村休整。`, 'info');
     }
     endDungeon(true);
   }
@@ -2311,7 +2345,7 @@ export function createGame(saved = null) {
       d.phase = '戰鬥中'; if (!d.foes?.length) d.foes = dgWave(d.floor, d.wave); dgSync(); return;
     }
     d.time += dt;
-    if (d.time >= 180) { endDungeon(false); d.endKind = 'timeout'; return; }
+    if (d.time >= DG_TIME_LIMIT) { endDungeon(false); d.endKind = 'timeout'; return; }
     const live = () => d.foes.filter(f => f.hp > 0);
     for (const f of live()) tickUnitStatuses(f, dt, true, true);
     for (const h of alive) {
@@ -2332,13 +2366,13 @@ export function createGame(saved = null) {
         if (tgt) { const v = Math.max(2, Math.round(tgt.maxHp * BASIC_HEAL)); tgt.hp = Math.min(tgt.maxHp, tgt.hp + v); h.attackTimer = attackInterval(h); dgEvent('heal', h.id, tgt.id, v); continue; }
       }
       h.attackTimer = attackInterval(h) * unitAtkCdMult(h);
-      const f = foes[0], dmg = Math.max(1, Math.round(h.attack * unitAtkMult(h) * (h.satiety < 15 || h.stamina < 15 ? 0.6 : 1) * consumeWakeShatter(f, false) * unitVulnMult(f)));
+      const f = foes[0], dmg = Math.max(1, Math.round(h.attack * unitAtkMult(h) * (dgTired(h) ? DG_TIRED_MULT : 1) * consumeWakeShatter(f, false) * unitVulnMult(f)));
       f.hp = Math.max(0, f.hp - dmg); dgEvent('hit', h.id, f.id, dmg, isRanged(h) ? h.classId : null);
     }
     if (!live().length) {
       dgSync();
       if (d.wave >= 3) floorCleared();
-      else if (dgForecast(alive, d.floor, d.wave + 1).risk > DG_RETREAT_RISK) endDungeon(false, true, `小隊體力不支，從地下城第 ${d.floor} 層半途撤退（本層沒有獎勵）。`);
+      else if (dgForecast(alive, d.floor, d.wave + 1).risk > DG_RETREAT_RISK) endDungeon(false, true, `預估撐不過第 ${d.floor} 層剩下的魔物，小隊半途撤退（本層沒有獎勵）。`);
       else { d.wave++; d.foes = []; d.phase = '前進中'; d.rest = 1.6; }
       return;
     }
@@ -2375,54 +2409,72 @@ export function createGame(saved = null) {
   //   (也試過「回到開賽時的生命」,要多存一個欄位,10 seed 結果沒有比較好,見 BALANCE.md)
   //   只有用到競技場時才會走到這幾條規則 → 不打競技場的局逐位元不變。
   const ARENA_COOLDOWN = 120;
+  // 2026-11-24 限時:開打後 ARENA_FIGHT_LIMIT 秒沒打倒對手算落敗(原本 120 秒含集結,從遠處走回來的隊伍少打十幾秒、勝算也算不準);集結超過 ARENA_GATHER_LIMIT 秒也算落敗(走不到)
+  const ARENA_FIGHT_LIMIT = 120, ARENA_GATHER_LIMIT = 120;
   // 2026-11-17:對手強度不再停在第 40 勝(獎勵仍封頂在第 40 勝)→ 舊版 40 勝後對手不變強,模擬 30 天 158 勝 0 敗、每場穩拿最高獎勵;
-  //   前 40 勝照舊;之後對手生命每勝 ×1.08、攻擊 ×1.05,隊伍爬到自己的極限就會輸,要更強(轉世、換裝)才能繼續贏
+  //   前 40 勝照舊;之後對手生命每勝 ×ARENA_HP_GROWTH、攻擊 ×ARENA_ATK_GROWTH(2026-11-24 起 1.03／1.02,原本 1.08／1.05),隊伍爬到自己的極限就會輸,要更強(轉世、換裝)才能繼續贏
   // 2026-11-18 對手曲線(docs/BALANCE.md「競技場對手曲線」):原本每勝生命 +130、攻擊 +3 是直線,隊伍每秒傷害卻跟等級平方一起長 →
   //   第 11 天起每場 2 秒打完、三人幾乎沒掉血,30 天 48 勝 0 敗。改成二次曲線,第 w 勝約是「Lv.3w 的三人打 20–30 秒、打完剩一點血」:
   //   3 seed 第 15 天 21–23 勝(跟原本差不多),第 20–23 天開始會輸,第 30 天卡在 38–39 勝,要轉世/換裝才爬得上去。第 0 勝不變。 一場變長,最強三人少打一段野外 → 參賽經驗 80+15w 改 80+30w 補回來(第 15 天最高等級 82.8 → 82.5)。
-  const arenaFoeHp = w => { const c = Math.min(ARENA_CAP, w); return Math.round((720 + 750 * c + 40 * c * c) * 1.08 ** Math.max(0, w - ARENA_CAP)); }, arenaFoeAtk = w => { const c = Math.min(ARENA_CAP, w); return Math.round((21 + 5.4 * c + 0.047 * c * c) * 1.05 ** Math.max(0, w - ARENA_CAP)); };
+  // 2026-11-24(B2,使用者選 a:放緩 40 勝後的對手成長):原本每勝 生命 ×1.08、攻擊 ×1.05 → 對手綜合強度每勝 ×1.13,從「勝算 90%」到「10%」只隔 1 勝(懸崖),
+  //   轉世一次只多爬 3–4 勝。改成 ×1.03／×1.02(每勝 ×1.05,略低於第 40 勝前的二次曲線斜率):同一隊從 90% 掉到 10% 要 3–4 勝,轉世一次多爬約 10 勝。
+  //   模擬(共用對戰核心 arenaFight,docs/BALANCE.md「競技場 40 勝後的對手成長」):報告隊(轉 1)勝算 <50% 從第 50 勝 → 第 65 勝;再轉世 3 次 第 59 → 88 勝。
+  const ARENA_HP_GROWTH = 1.03, ARENA_ATK_GROWTH = 1.02;
+  const arenaFoeHp = w => { const c = Math.min(ARENA_CAP, w); return Math.round((720 + 750 * c + 40 * c * c) * ARENA_HP_GROWTH ** Math.max(0, w - ARENA_CAP)); }, arenaFoeAtk = w => { const c = Math.min(ARENA_CAP, w); return Math.round((21 + 5.4 * c + 0.047 * c * c) * ARENA_ATK_GROWTH ** Math.max(0, w - ARENA_CAP)); };
   function endArena(won) {
     const a = state.arena; a.active = false; a.cooldown = ARENA_COOLDOWN; a.phase = won ? '勝利' : '落敗'; a.reward = won ? 90 + Math.min(ARENA_CAP, a.wins) * 25 : 0; const gems = won && (a.wins + 1) % 5 === 0 ? 2 + Math.floor(Math.min(ARENA_CAP, a.wins) / 10) : 0;
     if (won) { a.wins++; state.gold += a.reward; state.gems += gems; } else a.losses++;
+    a.xpEach = 0;   // 2026-11-24 結算卡顯示實際發出去的經驗(隊伍裡最多的一位;Lv.100 不拿經驗 → 0),不要在 UI 重算
     for (const h of state.hunters.filter(h => a.hunterIds.includes(h.id))) {
-      h.task = null; h.hp = h.maxHp; if (won) { h.gold += 25; gainXp(h, 80 + Math.min(ARENA_CAP, a.wins) * 30); } returnToTown(h);   // 模擬戰的傷不帶出場:賽後回滿生命(見 ARENA_COOLDOWN)
+      h.task = null; h.hp = h.maxHp; if (won) { h.gold += 25; const xp = h.level >= 100 ? 0 : 80 + Math.min(ARENA_CAP, a.wins) * 30; a.xpEach = Math.max(a.xpEach, xp); gainXp(h, xp); } returnToTown(h);   // 模擬戰的傷不帶出場:賽後回滿生命(見 ARENA_COOLDOWN)
     }
     log(`競技場模擬對戰${won ? `獲勝（第 ${a.wins} 勝），村莊獲得 ${a.reward} 金幣${gems ? `與 ${gems} 星晶` : ''}` : '落敗，隊伍已安全撤回'}。`, won ? 'success' : 'warning');
   }
 
   // 競技場每位獵人的出手間隔(秒):對戰與推薦隊伍共用同一條規則
   function arenaInterval(h) { return (h.classId === 'sorcerer' ? 1.6 : h.classId === 'priest' ? 1.4 : 1.1) * (h.trait === 'swift' ? 0.9 : 1); }
-  function stepArena(dt) {
-    const a = state.arena; if (!a.active) return;
+  // 2026-11-24 技能傷害單一入口(競技場實戰、競技場勝算預估、地下城共用):攻擊 × 狀態(詛咒)× 技能倍率 × 其他加成。
+  //   學院等級加成(C3)已在 createGame 開頭的 skillSlotMult 包裝裡乘上(地圖、地下城、競技場實戰與預估都經過它),這裡不要再乘一次。
+  function skillHitDmg(h, m, extra = 1) { return Math.max(1, Math.round(h.attack * unitAtkMult(h) * m * extra)); }
+  // 2026-11-24 競技場對戰核心(B4):實戰 stepArena 與勝算預估 arenaOdds 跑同一支,技能/狀態/聖盾減傷/荊棘/傷害/出手時序全部一樣。
+  //   a = 對戰狀態 { enemyHp, enemyMaxHp, attackTimer, wins, time }(實戰傳 state.arena;預估傳一份複本);
+  //   party = 三位參賽者(實戰是真的獵人;預估是 arenaClone 複本);rnd = 亂數(實戰 random;預估用固定種子的獨立亂數,不動遊戲亂數);
+  //   fx = 要不要出特效(預估一律 false → 不發 id、不碰 state.effects)。
+  //   呼叫前:每位參賽者的 attackTimer 已扣過這一步的 dt(實戰在 step() 的獵人迴圈扣,預估在 arenaOdds 迴圈裡扣,順序相同)。
+  //   回傳 true = 打贏、false = 落敗(全倒或超過 ARENA_FIGHT_LIMIT)、null = 還在打。
+  function arenaFight(a, party, dt, rnd, fx) {
     a.time += dt;
-    const party = state.hunters.filter(h => a.hunterIds.includes(h.id)), alive = party.filter(h => h.hp > 0);
-    if (!alive.length || a.time >= 120) { endArena(false); return; }
-    if (a.phase === '集結中') { if (alive.some(h => h.route.length)) return; a.phase = '對戰中'; for (const h of alive) h.status = '競技場模擬對戰'; }
+    const alive = party.filter(h => h.hp > 0);
+    if (!alive.length || a.time >= ARENA_FIGHT_LIMIT) return false;
+    const hp0 = () => Math.max(1, a.enemyMaxHp || 1);
     for (const h of alive) {
       tickUnitStatuses(h, dt, false, true);
+      if (h.hp <= 0) continue;   // 持續傷害剛打倒(見 tickUnitStatuses 的競技場/地下城分支):這一步不再出手
       tickSlotCds(h, dt);
       if (h.attackTimer !== 0) continue;
-      const cds = ensureCds(h), skills = unlockedSkills(h);
+      const cds = ensureCds(h), skills = unlockedSkills(h), up = alive.filter(u => u.hp > 0);
       let usedSkill = false;
       for (let i = skills.length - 1; i >= 0; i--) {
         const sk = skills[i];
         if (cds[sk.slot] > 0) continue;
         if (sk.kind === 'allyHeal' || sk.kind === 'revive') {
           const below = sk.kind === 'revive' ? 0.55 : (sk.below ?? 0.85);
-          const low = (sk.cleanse && alive.find(hasDebuff))
-            || alive.filter(u => u.hp < u.maxHp * below).sort((x, y) => x.hp / x.maxHp - y.hp / y.maxHp)[0];
+          const low = (sk.cleanse && up.find(hasDebuff))
+            || up.filter(u => u.hp < u.maxHp * below).sort((x, y) => x.hp / x.maxHp - y.hp / y.maxHp)[0];
           if (!low) continue;
           const v = Math.max(2, Math.round(low.maxHp * (sk.heal || .24)));
           low.hp = Math.min(low.maxHp, low.hp + v);
           if (sk.cleanse) clearDebuffs(low);
           setSlotCd(h, sk.slot, skillSlotCd(h, sk)); h.attackTimer = arenaInterval(h);
-          effect('heal', low, { text: `+${v}`, color: '#9cf09a' }); usedSkill = true; break;
+          if (fx) effect('heal', low, { text: `+${v}`, color: '#9cf09a' });
+          usedSkill = true; break;
         }
         if (sk.kind === 'allyShield' || sk.kind === 'heal') {
           const v = Math.max(2, Math.round(h.maxHp * (sk.heal || .2))); h.hp = Math.min(h.maxHp, h.hp + v);
-          if (sk.shieldDr && sk.shieldDur) for (const u of alive) applyBuff(u, 'shield', sk.shieldDr, sk.shieldDur);
+          if (sk.shieldDr && sk.shieldDur) for (const u of up) applyBuff(u, 'shield', sk.shieldDr, sk.shieldDur);
           setSlotCd(h, sk.slot, skillSlotCd(h, sk)); h.attackTimer = arenaInterval(h);
-          effect('heal', h, { text: `+${v}`, color: '#9cf09a' }); usedSkill = true; break;
+          if (fx) effect('heal', h, { text: `+${v}`, color: '#9cf09a' });
+          usedSkill = true; break;
         }
         if (sk.kind === 'selfBuff') {
           if (sk.rangedDr && sk.buffDur) applyBuff(h, 'rangedDr', sk.rangedDr, sk.buffDur);
@@ -2433,46 +2485,107 @@ export function createGame(saved = null) {
           let m = skillSlotMult(h, sk), forceCrit = false;
           if (h.buffs?.charge?.left > 0) { m *= 1 + (h.buffs.charge.val || 0.5); forceCrit = true; delete h.buffs.charge; }
           if (sk.lowHpScale) m *= (1 + Math.max(0, 1 - h.hp / Math.max(1, h.maxHp)) * sk.lowHpScale);
-          if (sk.execBelow && sk.execMult && a.enemyHp / Math.max(1, a.enemyMaxHp || 1) < sk.execBelow) m = skillSlotMult(h, { ...sk, mult: sk.execMult });
-          if (sk.nukeChance && (h.rebirths || 0) >= 1 && random() < sk.nukeChance) m *= 1.25;
+          if (sk.execBelow && sk.execMult && a.enemyHp / hp0() < sk.execBelow) m = skillSlotMult(h, { ...sk, mult: sk.execMult });
+          if (sk.nukeChance && (h.rebirths || 0) >= 1 && rnd() < sk.nukeChance) m *= 1.25;
           if (sk.selfStatus && sk.selfStatusDur) applyStatus(h, sk.selfStatus, sk.selfStatusDur, h, false);
           if (sk.thornsPct && sk.thornsDur) applyBuff(h, 'thorns', sk.thornsPct, sk.thornsDur);
           const defFactor = sk.armorPen ? (1 + sk.armorPen * 0.35) : 1;
-          const critBonus = forceCrit ? CRIT_MULT : 1;
-          const dmg = Math.max(1, Math.round(h.attack * unitAtkMult(h) * m * defFactor * critBonus));
+          const dmg = skillHitDmg(h, m, defFactor * (forceCrit ? CRIT_MULT : 1));
           a.enemyHp = Math.max(0, a.enemyHp - dmg);
           if (sk.selfHealPct) {
             const hv = Math.max(2, Math.round(h.maxHp * sk.selfHealPct));
-            h.hp = Math.min(h.maxHp, h.hp + hv); effect('heal', h, { text: `+${hv}`, color: '#9cf09a' });
+            h.hp = Math.min(h.maxHp, h.hp + hv); if (fx) effect('heal', h, { text: `+${hv}`, color: '#9cf09a' });
           }
           if (sk.allyLifesteal && dmg > 0) {
-            const low = alive.slice().sort((x, y) => x.hp / x.maxHp - y.hp / y.maxHp)[0] || h;
+            const low = up.slice().sort((x, y) => x.hp / x.maxHp - y.hp / y.maxHp)[0] || h;
             const hv = Math.max(2, Math.round(dmg * sk.allyLifesteal));
-            low.hp = Math.min(low.maxHp, low.hp + hv); effect('heal', low, { text: `+${hv}`, color: '#9cf09a' });
+            low.hp = Math.min(low.maxHp, low.hp + hv); if (fx) effect('heal', low, { text: `+${hv}`, color: '#9cf09a' });
           }
           setSlotCd(h, sk.slot, skillSlotCd(h, sk)); h.attackTimer = arenaInterval(h);
-          effect('slash', door('training'), { value: dmg, crit: true });
-          if (a.enemyHp <= 0) { endArena(true); return; }
+          if (fx) effect('slash', door('training'), { value: dmg, crit: true });
+          if (a.enemyHp <= 0) return true;
           usedSkill = true; break;
         }
       }
       if (usedSkill) continue;
-      h.attackTimer = arenaInterval(h); a.enemyHp = Math.max(0, a.enemyHp - h.attack); effect('slash', door('training'), { value: h.attack }); if (a.enemyHp <= 0) { endArena(true); return; }
+      h.attackTimer = arenaInterval(h); a.enemyHp = Math.max(0, a.enemyHp - h.attack); if (fx) effect('slash', door('training'), { value: h.attack });
+      if (a.enemyHp <= 0) return true;
     }
     a.attackTimer = Math.max(0, a.attackTimer - dt);
     if (a.attackTimer === 0) {
-      a.attackTimer = 1.1; const target = alive[Math.floor(random() * alive.length)];
+      a.attackTimer = 1.1;
+      const up = party.filter(h => h.hp > 0); if (!up.length) return false;
+      const target = up[Math.floor(rnd() * up.length)];
       const raw = Math.max(3, arenaFoeAtk(a.wins) - target.defense);
       const { dmg: damage, prevented } = mitigate(target, raw, false);
-      target.hp = Math.max(0, target.hp - damage); effect('hit', target, { value: damage });
-      recordShield(target, prevented);
+      target.hp = Math.max(0, target.hp - damage); if (fx) effect('hit', target, { value: damage });
+      recordShield(target, prevented, { show: fx });
       if (target.buffs?.thorns?.left > 0) {
         const ref = Math.max(1, Math.round(damage * target.buffs.thorns.val));
         a.enemyHp = Math.max(0, a.enemyHp - ref);
-        if (a.enemyHp <= 0) { endArena(true); return; }
+        if (a.enemyHp <= 0) return true;
       }
       if (target.hp === 0) { target.status = '模擬對戰倒下'; target.route = []; }
     }
+    return null;
+  }
+  function stepArena(dt) {
+    const a = state.arena; if (!a.active) return;
+    const party = state.hunters.filter(h => a.hunterIds.includes(h.id));
+    if (a.phase === '集結中') {
+      a.time += dt;
+      if (!party.some(h => h.hp > 0) || a.time >= ARENA_GATHER_LIMIT) { endArena(false); return; }
+      if (party.some(h => h.hp > 0 && h.route.length)) return;
+      // 2026-11-24:限時從「開打」才起算(跟地下城一樣)→ 從遠處狩獵區走回來的隊伍不會少打幾秒,勝算預估也才算得準
+      a.phase = '對戰中'; a.time = 0; for (const h of party) if (h.hp > 0) h.status = '競技場模擬對戰';
+      return;
+    }
+    const r = arenaFight(a, party, dt, random, true);
+    if (r !== null) endArena(r);
+  }
+  // ── 競技場勝算預估(2026-11-24,B4):見 API arenaOdds ──
+  // 參賽者的「預估用快照」:只取會影響對戰的欄位,技能冷卻／增益／異常狀態的剩餘秒數取整秒(往上),
+  //   快取鍵與試打用的是同一份快照 → 數字只隨快照改變,不會因為冷卻每幀在跑就跳動。
+  const ceilS = v => Math.ceil(Math.max(0, Number(v) || 0));
+  function arenaSnap(h) {
+    const cds = Array.isArray(h.skillCds) && h.skillCds.length >= 4 ? h.skillCds : [h.skillCd ?? 3, 4, 5, 8];
+    const cd0 = h._skillCdShadow !== undefined && h.skillCd !== h._skillCdShadow ? Math.max(0, Number(h.skillCd) || 0) : cds[0];
+    const buffs = {}, statuses = {};
+    for (const [k, b] of Object.entries(h.buffs || {})) if (b?.left > 0) buffs[k] = { val: b.val, left: ceilS(b.left), at: 0, prevented: 0 };
+    for (const [k, st] of Object.entries(h.statuses || {})) if (STATUS_DEFS[k] && st?.left > 0) statuses[k] = { left: ceilS(st.left), stacks: st.stacks || 1, atk: st.atk || 0, srcId: null, tick: 0, stamp: 0 };
+    return { id: h.id, hp: Math.max(0, h.hp), maxHp: h.maxHp, attack: h.attack, defense: h.defense, classId: h.classId, spec: h.spec, trait: h.trait, level: h.level,
+      skillLevel: h.skillLevel, rebirths: h.rebirths || 0, wt: heroWeaponType(h), cds: [ceilS(cd0), ceilS(cds[1]), ceilS(cds[2]), ceilS(cds[3])], buffs, statuses };
+  }
+  // 試打用的分身:原獵人的淺複本(裝備、流派等唯讀欄位照用)+ 快照裡會被對戰改到的欄位(各自一份,不寫回原獵人)
+  function arenaClone(h, sn) {
+    const c = { ...h, hp: sn.hp, task: 'arena', route: [], attackTimer: 0, skillCds: [...sn.cds], buffs: {}, statuses: {} };
+    c.skillCd = c.skillCds[0]; c._skillCdShadow = c.skillCds[0];
+    for (const [k, b] of Object.entries(sn.buffs)) c.buffs[k] = { ...b };
+    for (const [k, st] of Object.entries(sn.statuses)) c.statuses[k] = { ...st };
+    return c;
+  }
+  const ARENA_ODDS_TRIALS = 60, ARENA_ODDS_DT = 0.1, ARENA_ODDS_SEED = 20261118;
+  let arenaOddsCache = { key: '', value: null };
+  // 一場試打:跟實戰一樣每步先扣出手計時(step() 的獵人迴圈),再跑 arenaFight。開打時出手計時當 0(集結至少走好幾步,計時早就歸零)。
+  function arenaTrial(party, snaps, wins, rnd) {
+    const team = party.map((h, i) => arenaClone(h, snaps[i])), max = arenaFoeHp(wins);
+    const a = { enemyHp: max, enemyMaxHp: max, attackTimer: 1.5, wins, time: 0 };
+    for (;;) {
+      for (const u of team) u.attackTimer = Math.max(0, u.attackTimer - ARENA_ODDS_DT);
+      const r = arenaFight(a, team, ARENA_ODDS_DT, rnd, false);
+      if (r !== null) return { won: r, time: a.time };
+    }
+  }
+  function arenaPredict(party, wins = state.arena.wins, trials = ARENA_ODDS_TRIALS) {
+    const snaps = party.map(arenaSnap);
+    const key = JSON.stringify([wins, trials, state.difficulty, state.buildings, snaps]);
+    if (arenaOddsCache.key === key) return { ...arenaOddsCache.value };
+    let seed = ARENA_ODDS_SEED, won = 0, winTime = 0;
+    const rnd = () => { seed = (seed + 0x6D2B79F5) | 0; let t = Math.imul(seed ^ (seed >>> 15), 1 | seed); t = (t + Math.imul(t ^ (t >>> 7), 61 | t)) ^ t; return ((t ^ (t >>> 14)) >>> 0) / 4294967296; };
+    for (let n = 0; n < trials; n++) { const r = arenaTrial(party, snaps, wins, rnd); if (r.won) { won++; winTime += r.time; } }
+    const value = { win: Math.round(won / trials * 100), sec: won ? Math.ceil(winTime / won) : 0 };
+    arenaOddsCache = { key, value };
+    return { ...value };
   }
 
   // ── 手動操控(設定 → 手動操控):玩家直接操縱一位獵人在野外走動、打怪 ──
@@ -2964,6 +3077,9 @@ export function createGame(saved = null) {
       }
     }
     stepDungeon(dt); stepArena(dt);
+    // 2026-11-24(B10):委託進度每 QUEST_REFRESH 秒刷新一次 → 擊倒領主、升級、推進地下城…不必再做別的動作或重新載入,追蹤列與「可領取」就會更新
+    //   (10/30 起每幀刷新那一行被註解吃掉、後來整段移除)。refreshQuest 只讀一個計數,不擲骰、不動遊戲數值
+    questClock += dt; if (questClock >= QUEST_REFRESH) { questClock = 0; refreshQuest(); }
     for (const e of state.effects) e.age += dt;
     state.effects = state.effects.filter(e => e.age < (e.type === 'victory' ? 3 : 2.7) + (e.delay || 0));
   }
@@ -3151,6 +3267,7 @@ export function createGame(saved = null) {
       return base;
     }) : [];
     while (state.wanderers.length < 4) state.wanderers.push(newWanderer());
+    dedupeWandererNames();
     // 委託:章節表改過版,舊存檔的 index 要對照到新表(規則見 migrateQuest)。
     { const q = migrateQuest(source); state.quest = { index: q.index, claimed: q.claimed }; state.questRevision = QUEST_REVISION; state.questFinalPaid = q.finalPaid; }
     state.enemies = [];
@@ -3183,7 +3300,7 @@ export function createGame(saved = null) {
     const arenaIds = Array.isArray(rawArena?.hunterIds) ? [...new Set(rawArena.hunterIds)].filter(hid => state.hunters.some(h => h.id === hid && h.task !== 'dungeon')).slice(0, 3) : [];
     a.hunterIds = arenaIds;
     if (rawArena?.active === true && state.buildings.training > 0 && arenaIds.length === 3) {
-      Object.assign(a, { active: true, phase: '集結中', hunterIds: arenaIds, time: number(rawArena.time, 0, 0, 120), enemyMaxHp: arenaFoeHp(a.wins), attackTimer: number(rawArena.attackTimer, 1, 0, 2) }); a.enemyHp = number(rawArena.enemyHp, a.enemyMaxHp, 1, a.enemyMaxHp);
+      Object.assign(a, { active: true, phase: '集結中', hunterIds: arenaIds, time: 0, enemyMaxHp: arenaFoeHp(a.wins), attackTimer: number(rawArena.attackTimer, 1, 0, 2) }); a.enemyHp = number(rawArena.enemyHp, a.enemyMaxHp, 1, a.enemyMaxHp);
       for (const h of state.hunters.filter(h => arenaIds.includes(h.id))) { h.task = 'arena'; h.status = '競技場模擬集結'; h.destination = 'training'; route(h, [door('training', h)]); }
     }
     // Restore display settings and per-region monster density inside restore() so JSON strings and loadSave() both preserve them.
@@ -3520,15 +3637,17 @@ export function createGame(saved = null) {
     setTradeRequest(materialId, amount) {
       if (!own(MATERIALS, materialId)) return result(false, '找不到這項材料。');
       if (!Number.isInteger(amount) || amount < 0 || amount > 999) return result(false, '收購數量必須是 0 至 999 的整數。');
-      state.tradeRequests[materialId] = amount; return result(true, amount ? `已委託收購 ${amount} 份${MATERIALS[materialId].name}，單價 ${MATERIALS[materialId].price} 金幣。` : `已停止收購${MATERIALS[materialId].name}。`);
+      state.tradeRequests[materialId] = amount; const nm = MATERIALS[materialId].name;
+      if (state.tradeStanding?.[materialId]) return result(true, amount ? `${nm}持續收購：維持庫存 ${amount} 份（目前 ${Math.floor(state[materialId] || 0)} 份），單價 ${MATERIALS[materialId].price} 金幣。` : `已停止收購${nm}。`);
+      return result(true, amount ? `已委託收購 ${amount} 份${nm}，單價 ${MATERIALS[materialId].price} 金幣。` : `已停止收購${nm}。`);
     },
-    // 持續收購:開著時成交不扣收購量,一直維持在設定的數量;金庫低於保留額(tradeReserve)就暫停,不會把金庫買空
+    // 持續收購 = 維持庫存 N(2026-11-24,見 tradeRoom):庫存低於 N 才收、最多收到 N;金庫低於保留額(tradeReserve)就暫停,不會把金庫買空
     tradeReserve,
     setTradeStanding(materialId, on) {
       if (!own(MATERIALS, materialId)) return result(false, '找不到這項材料。');
       if (typeof on !== 'boolean') return result(false, '持續收購只能開或關。');
       state.tradeStanding[materialId] = on; const name = MATERIALS[materialId].name;
-      return result(true, on ? (state.tradeRequests[materialId] ? `${name}改為持續收購：成交後自動補回 ${state.tradeRequests[materialId]} 份。` : `${name}改為持續收購，請設定收購數量。`) : `${name}改回一般收購：買滿就停。`);
+      return result(true, on ? (state.tradeRequests[materialId] ? `${name}改為持續收購：庫存低於 ${state.tradeRequests[materialId]} 份就收購，最多補到 ${state.tradeRequests[materialId]} 份。` : `${name}改為持續收購，請設定要維持的庫存。`) : `${name}改回一般收購：買滿就停。`);
     },
     // 持續製作:設定每種生活物資的目標庫存(0 = 關閉)。庫存低於目標時遊戲每秒自動用現有材料補到目標，
     // 材料不夠就暫停等材料;設施沒蓋、目標 0 都不會動作。
@@ -3615,12 +3734,25 @@ export function createGame(saved = null) {
       const leader = state.hunters.find(h => h.hp > 0 && h.targetId === boss.id) || state.hunters.find(h => h.hp > 0);
       log('森林領主現身！村外獵人開始集結討伐。', 'warning'); effect('boss', boss); return result(true, '森林領主已出現，獵人正前往討伐！');
     },
-    // 2026-11-16 UI 用(唯讀、不呼叫 random):這三位從第 want 層出發時,實際會從第幾層開始(startDungeon 的 dgSafeStart 同一條規則)
+    // 這三位從第 want 層出發時實際從第幾層開始(唯讀)。2026-11-24 起玩家選的隊伍不再降層 → 就是選的那層(clamp 到 1 ~ 最高紀錄 +1);建議層看 dungeonAssess().safeFloor
     dungeonStartFloor(hunterIds, want) {
-      const d = state.dungeon, party = (hunterIds || []).map(hid => state.hunters.find(h => h.id === hid)).filter(h => h && h.hp > 0);
-      const w = clamp(Math.floor(number(want, d.startFloor || d.bestFloor + 1, 1, 100)), 1, d.bestFloor + 1);
-      return party.length === 3 ? dgSafeStart(party, w) : w;
+      const d = state.dungeon;
+      return clamp(Math.floor(number(want, d.startFloor || d.bestFloor + 1, 1, 100)), 1, d.bestFloor + 1);
     },
+    // 2026-11-24(B9/B5)地下城出發前的風險評估(唯讀、不擲骰、不改 state;面板每 0.25 秒用「現在」的生命與飽食重算):
+    //   跟自動續戰／出發體檢同一套 dgForecast 與門檻(DG_FIT_RISK、DG_FIT_TIME、DG_FIT_MIN_HP)。
+    //   → { floor, verdict: 'safe'|'risky'|'danger', risk, secs, timeLimit, safeFloor(估得過的最深一層,1 是底線), weak:[生命不到出發門檻的人], tired:[飢餓或疲勞 → 普攻 ×0.6 的人], penalty }
+    dungeonAssess(hunterIds, want) {
+      const d = state.dungeon, floor = clamp(Math.floor(number(want, d.startFloor || d.bestFloor + 1, 1, 100)), 1, d.bestFloor + 1);
+      const party = (hunterIds || []).map(hid => state.hunters.find(h => h.id === hid)).filter(Boolean);
+      const tired = party.filter(dgTired).map(h => h.name), weak = party.filter(h => h.hp < h.maxHp * DG_FIT_MIN_HP).map(h => h.name);
+      if (party.length !== 3 || party.some(h => h.hp <= 0)) return { floor, verdict: null, risk: Infinity, secs: Infinity, timeLimit: DG_TIME_LIMIT, safeFloor: floor, weak, tired, penalty: DG_TIRED_MULT };
+      const f = dgForecast(party, floor), fit = f.risk <= DG_FIT_RISK && f.secs <= DG_TIME_LIMIT * DG_FIT_TIME;
+      const verdict = fit && !weak.length ? 'safe' : f.risk <= DG_RETREAT_RISK && f.secs <= DG_TIME_LIMIT && !weak.length ? 'risky' : 'danger';
+      return { floor, verdict, risk: Number.isFinite(f.risk) ? Math.round(f.risk * 100) / 100 : Infinity, secs: Number.isFinite(f.secs) ? Math.round(f.secs) : Infinity, timeLimit: DG_TIME_LIMIT,
+        safeFloor: dgSafeStart(party, floor), weak, tired, penalty: DG_TIRED_MULT };
+    },
+    dungeonTimeLimit: DG_TIME_LIMIT,
     // 2026-11-17 推薦隊伍(唯讀、不呼叫 random、不改 state;見 dgRecommend):startFloor 省略 = 下次出發的層(d.startFloor 或最高紀錄 +1)
     // → { ok, ids, floor(估計能安全推進到第幾層,0 = 連第 1 層都有風險), start(實際出發層), risk, message }
     recommendDungeonParty(startFloor = null) {
@@ -3655,7 +3787,9 @@ export function createGame(saved = null) {
       const weak = selected.find(h => h.hp < h.maxHp * DG_FIT_MIN_HP);
       if (weak) return result(false, `${weak.name}的生命不到 ${Math.round(DG_FIT_MIN_HP * 100)}%，先休養再進地下城。`);
       const want = clamp(Math.floor(number(startFloor, d.startFloor || d.bestFloor + 1, 1, 100)), 1, d.bestFloor + 1);   // 從第幾層開始:1 ~ 最高紀錄 +1
-      const floor = dgSafeStart(selected, want);   // 估不過想去的那層 → 改從估得過的最深一層出發(見 dgFitStart)
+      // 2026-11-24(B9,使用者選 b):玩家自己選的隊伍與起始層照選的出發,不再強制降層;風險只在面板上提示(dungeonAssess)。
+      //   只有「遊戲自己挑隊」(hunterIds = null,模擬器/自動流程)才照舊從估得過的最深一層出發(dgSafeStart),並寫一行日誌說明。
+      const floor = hunterIds === null ? dgSafeStart(selected, want) : want;
       if (floor < want) log(`估計這支小隊打不過第 ${want} 層，改從第 ${floor} 層出發。`, 'info');
       Object.assign(d, { active: true, floor, wave: 1, time: 0, hunterIds: selected.map(h => h.id), reward: {}, phase: '集結中', attackTimer: 1.5, foes: dgWave(floor, 1), events: [], rest: 0 }); dgSync();      for (const h of selected) { h.task = 'dungeon'; h.destination = 'dungeon'; h.status = '地下城集結'; h.targetId = null; h.serviceProduct = null; h.serviceStarted = false; route(h, [door('dungeon', h)]); }
       log(`${selected.map(h => h.name).join('、')}前往地下城第 ${d.floor} 層${d.auto ? '（自動續戰）' : ''}。`, 'info'); return result(true, '三位獵人已組成小隊，正在前往地下城入口。');
@@ -3674,26 +3808,14 @@ export function createGame(saved = null) {
     },
     bossPreview() { const region = REGIONS.find(r => r.id === state.region) || REGIONS[1], risk = bossRiskOf(region.id), m = DIFFICULTIES[state.difficulty]?.mult ?? 1; return { region: region.name, risk, hp: Math.round(ENEMIES.boss.hp * (m * (region.risk || 1))), attack: scaledFoeAttack(ENEMIES.boss.attack, region.risk || 1), ...bossLoot(risk) }; },
     arenaFoe() { const w = state.arena?.wins || 0; return { hp: arenaFoeHp(w), atk: arenaFoeAtk(w) }; },
-    // 2026-11-18 開賽前的勝算(面板顯示用):照 stepArena 的規則用獨立亂數試打 80 場,不動遊戲狀態與亂數。
-    //   原本只看「幾秒打倒對手」,對手變強後常常顯示綠字、實際上隊伍先被打倒。
+    // 2026-11-24 開賽前的勝算(B4 重寫):跟實戰跑同一支 arenaFight(技能、狀態、聖盾減傷、荊棘、出手時序都一樣),
+    //   用固定種子的獨立亂數試打 ARENA_ODDS_TRIALS 場 → 同一個局面永遠算出同一個數字;不動遊戲狀態與遊戲亂數。
+    //   起始生命 = 現在的生命(集結時不扣血也不回血,實戰就是從這個生命開打);技能冷卻、增益、異常狀態也照現在的(集結時不會倒數)。
+    //   輸入(生命、隊伍、裝備、等級、技能冷卻取整秒、對手勝場、建築)沒變就直接回快取,面板可以每 0.25 秒問一次。
     arenaOdds(ids) {
       const party = (ids || []).map(id => state.hunters.find(h => h.id === id)).filter(Boolean);
       if (party.length !== 3 || party.every(h => h.hp <= 0)) return null;
-      const w = state.arena.wins, foeMax = arenaFoeHp(w), foeAtk = arenaFoeAtk(w), TRIALS = 80, LIMIT = 110;   // 限時 120 秒扣掉集結約 10 秒
-      let seed = 20261118, wins = 0, winTime = 0;
-      const rnd = () => { seed = (seed + 0x6D2B79F5) | 0; let t = Math.imul(seed ^ (seed >>> 15), 1 | seed); t = (t + Math.imul(t ^ (t >>> 7), 61 | t)) ^ t; return ((t ^ (t >>> 14)) >>> 0) / 4294967296; };
-      for (let n = 0; n < TRIALS; n++) {
-        const hp = party.map(h => h.hp), next = party.map(h => arenaInterval(h) * rnd()); let foe = foeMax, foeNext = 1.5, t = 0, won = false;
-        for (;;) {
-          const up = hp.map((v, i) => v > 0 ? i : -1).filter(i => i >= 0); if (!up.length) break;
-          t = Math.min(foeNext, ...up.map(i => next[i])); if (t >= LIMIT) break;
-          for (const i of up) if (next[i] <= t) { foe -= party[i].attack; next[i] += arenaInterval(party[i]); }
-          if (foe <= 0) { won = true; break; }
-          if (foeNext <= t) { foeNext += 1.1; const i = up[Math.floor(rnd() * up.length)]; hp[i] = Math.max(0, hp[i] - Math.max(3, foeAtk - party[i].defense)); }
-        }
-        if (won) { wins++; winTime += t; }
-      }
-      return { win: Math.round(wins / TRIALS * 100), sec: wins ? Math.ceil(winTime / wins) : 0 };
+      return arenaPredict(party);
     },
     recommendArenaParty() {
       const ok = state.hunters.filter(h => h.hp > 0 && h.task !== 'dungeon' && h.task !== 'revive' && h.hp >= h.maxHp * 0.35);
@@ -3831,13 +3953,14 @@ export function createGame(saved = null) {
             const n = Math.max(0, Math.min(Math.round((T.qty[k] || 0) * f), state.tradeRequests[k], Math.floor(state.gold / MATERIALS[k].price)));
             if (n) buy(k, n, false);
           }
-          // 再結持續收購:想買的量 = max(取樣期真的成交 × 倍率, 取樣期撿到 × 倍率 但每趟最多收購量);
+          // 再結持續收購:想買的量 = max(取樣期真的成交 × 倍率, 取樣期撿到 × 倍率),再以「維持庫存 N − 現在庫存」為上限(2026-11-24,B1:跟線上 tradeRoom 同一條規則;
+          //   以前沒有總量上限,木材 50 份離線 8 小時約淨扣 29,000 金);
           //   後者讓「取樣期剛好沒人回村賣」或「金庫一開始低於保留額、之後收入才把它推過保留額」時不會整段 0 份。
           //   回村趟數 = max(取樣期交易所來訪次數, 撿到的總份數 ÷ TRADE_BAG)(背包裝滿 TRADE_BAG 份才回村賣)。
           // 只花「外推完的金庫 − 保留額」(外推期間的收入已經算進金庫);不夠時各材料照比例縮減(不讓排在前面的材料先把錢花光)
           //   沒有交易所(trading 0 級)就沒人能賣 → 只剩取樣期真的成交的部分(那時也是 0)
           const trips = state.buildings.trading > 0 ? Math.max(T.visits || 0, gotTotal / TRADE_BAG) * f : 0;
-          const want = Object.fromEntries(MATERIAL_KEYS.filter(k => state.tradeStanding?.[k]).map(k => [k, Math.max(0, Math.round(Math.max((T.qty[k] || 0) * f, Math.min((T.got[k] || 0) * f, (state.tradeRequests[k] || 0) * trips))))]));
+          const want = Object.fromEntries(MATERIAL_KEYS.filter(k => state.tradeStanding?.[k]).map(k => [k, Math.min(tradeRoom(k), Math.max(0, Math.round(Math.max((T.qty[k] || 0) * f, trips > 0 ? (T.got[k] || 0) * f : 0))))]));
           const wantCost = Object.entries(want).reduce((n, [k, q]) => n + q * MATERIALS[k].price, 0), room = Math.max(0, state.gold - tradeReserve());
           const scale = wantCost > room ? room / wantCost : 1;
           for (const [k, q] of Object.entries(want)) { const n = Math.floor(q * scale + 1e-9); if (n) buy(k, n, true); }   // +1e-9:room/wantCost 剛好整除時浮點誤差會少買 1 份

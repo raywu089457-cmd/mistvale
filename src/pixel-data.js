@@ -1,6 +1,10 @@
 import {BUILDING_SLOTS,GRID,blockCenter} from './village-grid.js';
 // 地下城入口固定在公園街區(1,1):蓋起來之後原本的池塘就讓給它。
 const DUNGEON_SPOT=blockCenter(1,1);
+// 2026-11-24 學院等級的真效果(C3):獵人技能傷害 ×(1 + 每級 5% × (學院等級 − 1));Lv.1 = ×1(跟以前一樣),Lv.5 = ×1.20。
+//   只乘技能的直接傷害倍率(pixel-game 的 skillSlotMult 包一層),普攻、治療、DoT 不受影響;流浪英雄不算。
+export const ACADEMY_SKILL_PER_LV = 0.05;
+export const academySkillMult = lv => 1 + ACADEMY_SKILL_PER_LV * Math.max(0, (lv || 0) - 1);
 export const BUILDINGS = [
  {id:'hall',name:'城鎮大廳',x:-16.5,z:-6.5,w:4.4,d:3.6,type:'hall',roof:'#b9543e',cost:{gold:350,wood:45,ore:25},desc:'村莊的中心。升級後開放更高等級的設施。',effect:'其他建築的等級上限'},
  {id:'trading',name:'交易所',x:-21.7,z:3.9,w:4,d:3.5,type:'trading',roof:'#427dc7',cost:{gold:160,wood:30,ore:10},desc:'發布收購委託，用村莊金幣向獵人購買戰利品，補充生產材料。',effect:'獵人出售材料 → 村莊收購'},
@@ -9,7 +13,7 @@ export const BUILDINGS = [
  {id:'tavern',name:'酒館',x:-4.6,z:18.1,w:4,d:3.4,type:'tavern',roof:'#9767bb',cost:{gold:160,wood:25,ore:10},desc:'製作飲品，讓戰鬥中情緒低落的獵人重新振作。',effect:'飲品恢復心情',product:'drink'},
  {id:'clinic',name:'治療所',x:-23,z:20,w:4,d:3.4,type:'clinic',roof:'#b85c62',cost:{gold:150,wood:20,ore:15},desc:'準備繃帶，治療負傷的獵人。傷者會自動返村接受治療。',effect:'繃帶恢復生命',product:'bandage'},
  {id:'forge',name:'鐵匠鋪',x:-9.6,z:-13.1,w:4,d:3.3,type:'forge',roof:'#626d98',cost:{gold:220,wood:25,ore:30},desc:'用戰利品製造裝備；獵人購買後，村莊會收到貨款。',effect:'製作、販售武器與護甲'},
- {id:'academy',name:'學院',x:-2.5,z:-10.5,w:3.5,d:3.2,type:'academy',roof:'#6555ad',cost:{gold:240,wood:30,ore:25},desc:'教授戰鬥技能與轉世特性。每位獵人都可以走出不同的成長路線。',effect:'技能提高攻擊力'},
+ {id:'academy',name:'學院',x:-2.5,z:-10.5,w:3.5,d:3.2,type:'academy',roof:'#6555ad',cost:{gold:240,wood:30,ore:25},desc:'教授戰鬥技能與轉世特性。每位獵人都可以走出不同的成長路線。',effect:'技能傷害隨等級提高（每級 +5%）'},
  {id:'training',name:'修煉地',x:-25.6,z:-4.6,w:4,d:3.5,type:'training',roof:'#91704b',cost:{gold:220,wood:35,ore:15},desc:'支付訓練費用，讓指定獵人快速獲得經驗。',effect:'獵人訓練獲得經驗'},
  {id:'sanctuary',name:'復活聖所',x:5,z:-18,w:3.4,d:3.2,type:'sanctuary',roof:'#a7b4cc',cost:{gold:260,wood:20,ore:35},desc:'復活倒下的獵人，也見證滿百級獵人的轉世。',effect:'死亡復活／100 級轉世'},
  {id:'house',name:'獵人小屋',x:4.6,z:0.6,w:3.6,d:3.2,type:'house',roof:'#438eba',cost:{gold:180,wood:40,ore:10},desc:'為前來村莊的冒險者提供居所。升級可增加獵人上限。',effect:'每級增加 2 位獵人名額'},

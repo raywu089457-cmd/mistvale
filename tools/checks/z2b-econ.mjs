@@ -51,7 +51,7 @@ const SCAN = (root, minHit) => {
     if (minHit && Math.min(q0.width, q0.height) < minHit - 0.5) tiny.push((b.dataset.action || b.className || 'btn') + ':' + (b.textContent || '').trim().slice(0, 6) + '=' + Math.round(q0.width) + '×' + Math.round(q0.height));
   }
   for (let i = 0; i < rects.length; i++) for (let j = i + 1; j < rects.length; j++) {
-    const a = rects[i], b = rects[j]; if (a.b.contains(b.b) || b.b.contains(a.b)) continue;
+    const a = rects[i], b = rects[j]; if (a.b.contains(b.b) || b.b.contains(a.b)) continue; if (!!a.b.closest('.trade-footer') !== !!b.b.closest('.trade-footer')) continue;   /* 2026-11-24 C1:交易所底部動作列是 sticky 疊層,捲動中的列表按鈕從它底下穿過不算互蓋 */
     const w = Math.min(a.q.right, b.q.right) - Math.max(a.q.left, b.q.left), h = Math.min(a.q.bottom, b.q.bottom) - Math.max(a.q.top, b.q.top);
     if (w > 2 && h > 2) over.push((a.b.textContent || a.b.dataset.action).trim().slice(0, 5) + '×' + (b.b.textContent || b.b.dataset.action).trim().slice(0, 5));
   }
