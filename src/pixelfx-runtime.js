@@ -40,7 +40,22 @@ const LIVE_TUNE = Object.freeze({
   'arcane/magic-circle-cast-iso': 1.15,
   'fire/cinder-cyclone-iso': 1.05,
   'spawn/soul-rise-iso': 1.3,
+  // Mistvale-local modules (src/pixelfx-local)
+  'holy/divine-shield-aura-iso': 1.15,      // same size as the one-shot divine shield
+  'nature/thorn-aegis-iso': 1.15,
+  'nature/thorn-aegis-burst-iso': 1.25,
+  'melee/judgment-hammer-iso': 2.5,         // 審判巨錘:hammer-smash 的 1.25 × 2(2026-11-23 使用者:「特效整體大小放大一倍」)
+  'melee/holy-arc-iso': 1.4,
+  'melee/iron-sweep-iso': 1.4,
+  'melee/steel-arc-iso': 1.4,               // 同 holy-arc(同一個模組換色)
 });
+
+// One world unit across the floor is this many effect px at tune 1 (|worldToFxRel(1, 0)|): used to turn a skill's
+// radius (world units) into a module's `reach` (px) so the drawn area IS the hit area.
+export const FX_PX_PER_WORLD = 9 * Math.SQRT2 / ISO_PX;
+export function worldToFxPx(d, tune = 1) {
+  return d * FX_PX_PER_WORLD / (tune || 1);
+}
 
 export function liveTuneOf(fxId) {
   return LIVE_TUNE[fxId] || 1;
@@ -62,6 +77,7 @@ export function worldToFxRel(dx, dz, tune = 1) {
 // the impact ADV/REACH px ahead of its own origin. Shifting the blit origin backward by this amount
 // lands the visual impact dead-center on the target at ANY cast range!
 const AHEAD_PX = Object.freeze({
+  'melee/judgment-hammer-iso': 24,   // the hammer head lands REACH (24 px) ahead of its origin → land it on the target
   'nature/boulder-iso': 92,
   'shadow/life-steal-iso': 64,
   'shadow/dark-explosion-iso': 54,
@@ -105,7 +121,7 @@ const LOOK_RAW  = Object.freeze({ style: false });
 const NEEDS_ACTOR = new Set([
   'scifi/warp-iso', 'ice/freeze-iso', 'holy/divine-shield-iso', 'holy/holy-pillar-iso', 'holy/smite-iso',
   'holy/resurrection-iso', 'spawn/soul-rise-iso', 'lightning/charge-up-iso', 'nature/healing-bloom-iso',
-  'nature/leaf-storm-iso', 'nature/root-snare-iso',
+  'nature/leaf-storm-iso', 'nature/root-snare-iso', 'holy/divine-shield-aura-iso', 'nature/thorn-aegis-iso',
   'status/bleeding', 'status/burning', 'status/charmed', 'status/confused', 'status/cursed',
   'status/frozen', 'status/petrified', 'status/poisoned', 'status/sleep', 'status/slowed', 'status/stunned',
 ]);
@@ -126,6 +142,8 @@ export function hasLiveFx(id) {
 export function createLiveFxPool({ mobile = false, onDirty = null, onRelease = null } = {}) {
   const blasts = [];
   const statusAnchors = new Map();   // unitKey -> { b, fxId, seenTick, stamp, doneOnce }
+  const buffAnchors = new Map();     // unitKey:buff -> { b, fxId, seenTick, stamp }  (effects that follow a unit for a buff's life)
+  const BUFF_CAP = mobile ? 4 : 8;   // rank 3: never trimmed by the other caps; a new one is simply not spawned past this
   const BLAST_CAP = mobile ? 8 : 12;
   const SPARK_CAP = mobile ? 3 : 5;
   const STATUS_CAP = mobile ? 6 : 10;
@@ -149,6 +167,7 @@ export function createLiveFxPool({ mobile = false, onDirty = null, onRelease = n
         else statusAnchors.delete(rem.unitKey);
       }
     }
+    if (rem.buffKey && buffAnchors.get(rem.buffKey)?.b === rem) buffAnchors.delete(rem.buffKey);
     if (onRelease) { onRelease(rem.cvB); onRelease(rem.cvF); }
     return rem;
   };
@@ -169,7 +188,7 @@ export function createLiveFxPool({ mobile = false, onDirty = null, onRelease = n
       const i = blasts.findIndex(b => b.isStatus); if (i < 0) break;
       dropAt(i); st--;
     }
-    while (blasts.length > BLAST_CAP + STATUS_CAP) {
+    while (blasts.filter(b => rankOf(b) < 3).length > BLAST_CAP + STATUS_CAP) {
       const i = blasts.findIndex(b => rankOf(b) < 2); if (i < 0) break;
       dropAt(i);
     }
@@ -225,6 +244,33 @@ export function createLiveFxPool({ mobile = false, onDirty = null, onRelease = n
     return b;
   }
 
+  // Buff effects that follow a unit (2026-11-23: 聖盾祈禱 / 荊棘聖甲). One looping effect per unit+buff, moved with the
+  // unit every frame; `stamp` changing (the buff was cast again) re-strikes it through its `pulse` option; when the
+  // unit stops reporting it (buff over, unit down or off screen) it is RELEASED: the module plays its own ending
+  // (meta.release seconds, e.g. the bubble bursting) and is then stopped. Rank 3, capped separately (BUFF_CAP).
+  function syncUnitBuff(unitKey, fxId, x, z, opts = {}) {
+    const mod = LIVE_FX_MODS[fxId];
+    if (!mod) return null;
+    const key = `${unitKey}>${fxId}`, stamp = opts.stamp ?? 0;
+    const e = buffAnchors.get(key);
+    if (e && e.b && blasts.includes(e.b) && !e.b.fx.options.release) {
+      e.b.x = x; e.b.z = z; e.seenTick = syncTick;
+      if (e.stamp !== stamp) { e.stamp = stamp; e.b.fx.options.pulse = (e.b.fx.options.pulse || 0) + 1; }
+      return e.b;
+    }
+    if (blasts.filter(q => q.rank === 3).length >= BUFF_CAP) return null;
+    const b = spawn(fxId, x, z, { rank: 3, life: Infinity, tune: opts.tune || 1, dy: opts.dy || 0, actor: opts.actor, casterAnchored: true, fxOpts: { release: false, pulse: 0, ...(opts.fxOpts || {}) } });
+    if (b) { b.buffKey = key; buffAnchors.set(key, { b, fxId, seenTick: syncTick, stamp }); }
+    return b;
+  }
+  function releaseBuff(entry) {
+    const b = entry.b;
+    if (!b || !blasts.includes(b) || b.fx.options.release) return;
+    b.fx.options.release = true;
+    const tail = LIVE_FX_MODS[b.id]?.meta?.release ?? 0.15;
+    b.until = Math.min(b.until, b.fx.t + tail);
+  }
+
   // Keep status/* marks synced on active units without respawning every frame.
   // Non-looping statuses (e.g. status/petrified) play once per `stamp` and do not restart mid-buff.
   let syncTick = 0;
@@ -265,6 +311,9 @@ export function createLiveFxPool({ mobile = false, onDirty = null, onRelease = n
         }
         statusAnchors.delete(key);
       }
+    }
+    for (const [key, entry] of buffAnchors) {
+      if (entry.seenTick !== syncTick) { releaseBuff(entry); buffAnchors.delete(key); }
     }
   }
 
@@ -370,11 +419,13 @@ export function createLiveFxPool({ mobile = false, onDirty = null, onRelease = n
   function clear() {
     while (blasts.length) dropAt(blasts.length - 1);
     statusAnchors.clear();
+    buffAnchors.clear();
   }
 
   return {
     spawn, step, drawBack, drawFront, clear,
-    beginStatusSync, syncUnitStatus, endStatusSync,
+    beginStatusSync, syncUnitStatus, syncUnitBuff, endStatusSync,
+    buffs: () => [...buffAnchors.entries()].map(([key, e]) => ({ key, id: e.fxId, x: e.b?.x, z: e.b?.z, t: e.b ? +e.b.fx.t.toFixed(2) : null, released: !!e.b?.fx.options.release })),
     hasBack: () => blasts.some(b => b.delay <= 0 && b.bbB),
     hasAny: () => blasts.length > 0,
     setLook(on) { lookOn = !!on; },

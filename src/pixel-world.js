@@ -14,7 +14,7 @@ import {pickHeroLine} from './hero-chatter.js';
 import {createGLRenderer,tagPattern} from './gl-renderer.js';
 import {layoutMapLabels} from './map-labels.js';
 import {vdir4,DIR_ACT,dirSuffix,leftRow,facingOk,VDIR_TO_DIR4} from './dir4.js';   // 4 方向(2026-11-13,docs/DV2-ADOPTION-PLAN.md Phase 2)
-import {createLiveFxPool,worldToFxRel,liveTuneOf} from './pixelfx-runtime.js';
+import {createLiveFxPool,worldToFxRel,liveTuneOf,worldToFxPx} from './pixelfx-runtime.js';
 
 // All artwork is rendered to a small integer pixel buffer and enlarged without
 // interpolation. World coordinates are shared with the village simulation.
@@ -811,7 +811,8 @@ export function createWorld(canvas,{onSelect=()=>{},onPlace=()=>{},getState=()=>
   function spawnLiveEffect(e){
     if(!e||e._liveSpawned||!e.fxId)return;
     e._liveSpawned=true;
-    const tune=liveTuneOf(e.fxId);
+    if(e.followBuff)return;   // 聖盾祈禱:光罩由 syncLiveFx 依 buffs.shield 掛在每位單位身上跟著走,這裡不在施放點另生一個
+    const tune=liveTuneOf(e.fxId)*(e.fxScale||1);
     const sx=e.sourceX??e.x??0,sz=e.sourceZ??e.z??0,tx=e.tx??e.x??sx,tz=e.tz??e.z??sz;
     const ax=e.x??sx,az=e.z??sz;
     const rel=worldToFxRel(tx-sx,tz-sz,tune),fxOpts={aim:rel.aim,dir:rel.dir};
@@ -827,6 +828,8 @@ export function createWorld(canvas,{onSelect=()=>{},onPlace=()=>{},getState=()=>
     if(e.fxId==='projectiles/magic-missile-iso'){fxOpts.range=280;}
     if(e.fxId==='arcane/arcane-missiles-iso'){fxOpts.range=280;fxOpts.spread=e.spread||3;}
     if(Array.isArray(e.from)&&e.from.length)fxOpts.from=e.from;
+    if(e.reachWorld>0)fxOpts.reach=worldToFxPx(e.reachWorld,tune);
+    if(e.arcDeg>0)fxOpts.span=e.arcDeg;   // 技能判定半徑(世界單位)→ 特效像素:畫出來的範圍 = 打到的範圍
     if(e.beat){
       if(e.beat.palette)fxOpts.palette=e.beat.palette;
       if(e.beat.reach)fxOpts.reach=e.beat.reach;
@@ -838,9 +841,12 @@ export function createWorld(canvas,{onSelect=()=>{},onPlace=()=>{},getState=()=>
     const actor=unitActorOf(actorUnit,e.bodyType||null);
     liveFx.spawn(e.fxId,ax,az,{
       delay:e.delay||0,life:e.life||0,spark:!!e.spark,rank:e.spark?0:2,
-      casterAnchored:!!e.casterAnchored,actor,fxOpts,
+      casterAnchored:!!e.casterAnchored,actor,fxOpts,tune:e.fxScale||1,
     });
   }
+  // 2026-11-23 跟著單位走的增益特效:buff 還在就每格同步位置,buff 結束/倒下/離開畫面 → 特效自己破掉收尾(pixelfx-runtime syncUnitBuff)。
+  //   聖盾祈禱 buffs.shield → 聖盾光罩;荊棘聖甲 buffs.thorns → 聖盾為底的荊棘甲。stamp = buff.at(再次施放時光罩閃一下,不重生)。
+  const BUFF_FX=[['shield','holy/divine-shield-aura-iso'],['thorns','nature/thorn-aegis-iso']];
   function syncLiveFx(dt){
     for(const e of state.effects||[])if(e.type==='livefx'&&!e._liveSpawned)spawnLiveEffect(e);
     liveFx.beginStatusSync();
@@ -859,6 +865,17 @@ export function createWorld(canvas,{onSelect=()=>{},onPlace=()=>{},getState=()=>
     };
     syncList(state.hunters,'h:');
     syncList(state.enemies,'e:');
+    const syncBuffs=(list,prefix)=>{
+      for(const u of list||[]){
+        if(!(u.hp>0)||!u.buffs||u.task==='dungeon'||u.task==='arena')continue;
+        const p=screenPoint(u.x,u.z);
+        if(p.x<-160||p.x>width+160||p.y<-160||p.y>height+200)continue;
+        for(const [k,fxId] of BUFF_FX){const b=u.buffs[k];if(!(b?.left>0))continue;
+          liveFx.syncUnitBuff(prefix+u.id,fxId,u.x,u.z,{actor:unitActorOf(u),stamp:b.at||0});}
+      }
+    };
+    syncBuffs(state.hunters,'h:');
+    syncBuffs(state.wanderers,'w:');
     liveFx.endStatusSync();
     liveFx.step(dt);
   }
@@ -1111,6 +1128,8 @@ let renderDprMax=Math.max(1,dprCap||autoDpr());   // 畫布解析度上限(devic
   // T106:重擊停格(hitstop)。世界端只做一件事:這段毫秒數內整幀不重畫,canvas 停在「打下去」那一格。
   // elapsed、鏡頭 lerp、戰鬥結算都不推進(重畫才推進),恢復後不會補跳;跟震動同一個開關與 reduced-motion。
   let hitStopUntil=0,hitStopSeq=-1,hitStopCount=0,hitStopSkipped=0,hitStopPainted=-1;
+  // 2026-11-24:請求可帶 delay(秒,遊戲時間):技能砸地那一刻才震/停格(pixel-game impactFeel)。暫停時不倒數。
+  let pendingShake=null,pendingStop=null;
   const hitStopAllowed=()=>state.settings?.shake!==false&&!reduceMotion;
   const shakeAmpNow=()=>shakeMs>0?shakeBase*Math.pow(1-Math.min(1,shakeT/shakeMs),2):0;   // 目前的震幅(px,純量;不是 hypot)
   function shake(amp,ms){
@@ -2314,8 +2333,8 @@ let renderDprMax=Math.max(1,dprCap||autoDpr());   // 畫布解析度上限(devic
       // 傷害與治療數字(不畫舊版飛行物／粒子特效)
       for(const e of ev){const b=pos.get(e.b),age=t-e.t;if(age<0||age>1.6)continue;
         const la=t-land(e);if(la<0||la>1.1||!b)continue;
-        const txt=(e.k==='heal'?'+':'')+e.v,col=e.k==='heal'?'#a6f59a':e.k==='hurt'?'#ff8a6e':e.k==='skill'?'#ffd75e':'#fff3d0',rise=Math.min(1,la/.7)*14*scale,pop=la<.12?1+.6*(1-la/.12):1;
-        dgText(txt,b.x+((hash(e.t)%11)-5)*scale,b.y-(27*scale)-rise,{size:Math.round((e.k==='skill'?13:11)*dpr*pop),color:col,alpha:Math.max(0,1-Math.max(0,la-.7)/.4)});}
+        const blk=e.k==='block',txt=blk?`減免 ${e.v}`:(e.k==='heal'?'+':'')+e.v,col=blk?'#ffe08a':e.k==='heal'?'#a6f59a':e.k==='hurt'?'#ff8a6e':e.k==='skill'?'#ffd75e':'#fff3d0',rise=Math.min(1,la/.7)*14*scale,pop=la<.12?1+.6*(1-la/.12):1;
+        dgText(txt,b.x+((hash(e.t)%11)-5)*scale,b.y-((blk?37:27)*scale)-rise,{size:Math.round((e.k==='skill'?13:11)*dpr*pop),color:col,alpha:Math.max(0,1-Math.max(0,la-.7)/.4)});}
       // 上方資訊:層數/波數、狀態、自動續戰
       const top=Math.round(15*dpr);
       dgText(`第 ${d.floor} 層 · 第 ${Math.max(1,d.wave||1)}/3 波`,10*dpr,top,{size:Math.round(13*dpr),color:'#f6e3b0',align:'left'});
@@ -2392,9 +2411,9 @@ let renderDprMax=Math.max(1,dprCap||autoDpr());   // 畫布解析度上限(devic
   function damageText(e,age,p){const txt=e.text||String(e.value),hero=e.type==='hit',crit=e.crit,pop=age<.12?1+.7*(1-age/.12):1,rise=ease(Math.min(1,age/.7))*16;
     const col=e.color||(hero?'#ff8a6e':e.type==='heal'?'#c7ffbd':crit?'#ffe066':'#fff3d0'),size=Math.round((crit?10:hero?8:8.5)*pop);
     const hh=hash(e.id),dx=e.type==='loot'?0:((hh%13)-6)*1.6*scale,dy=e.type==='loot'?0:((hh>>5)%4)*3.5*scale;  // 同一目標連續挨打:數字錯開成一小片,不疊成一團
-    textLabel(crit?txt+'!':txt,p.x+dx,p.y-(27+rise)*scale-dy,{color:col,size,back:false});}
+    textLabel(crit?txt+'!':txt,p.x+dx,p.y-(27+rise+(e.lift||0))*scale-dy,{color:col,size,back:false});}
   // ── 弓箭手的箭(2026-11-23 使用者:「把原本箭特效放回去」)──────────────────────────────
-  // 其他舊版特效表都已換成實時 CQ pixelfx;只有箭照原本:pixelfx arrow / gale-arrow 表畫飛行,hit-spark-iso 畫命中。
+  // 其他舊版特效表都已換成實時 CQ pixelfx;只有箭照原本:pixelfx arrow-bare / gale-arrow-bare 表畫飛行(去掉風切線的版本),hit-spark-iso 畫命中。
   // build.mjs 只打包這三張(PIXEL_ASSETS.vfxSheets)。程式與數值照 2026-11-20 版 pixel-world.js 原樣搬回。
   const vfxSheetCache=new Map();
   function vfxSheet(id){const v=globalThis.PIXEL_ASSETS?.vfxSheets?.[id];if(!v)return null;
@@ -2431,16 +2450,17 @@ let renderDprMax=Math.max(1,dprCap||autoDpr());   // 畫布解析度上限(devic
       const span=sh.span||7, travel=sh.range0?Math.max(0,sh.range0-sh.left):Math.max(0,launchLeft-sh.left), drop=(sh.drop||0)*Math.max(0,1-travel/span), fall=drop>0?(sh.drop||0)*.6/span:0;
       const p=screenPoint(sh.x,sh.z),q=screenPoint(sh.x+sh.dx*.6,sh.z+sh.dz*.6);
       const ang=Math.atan2(q.y-p.y+fall*s,q.x-p.x);
-      // 整段飛行只用 pixelfx 的箭表(風切線已畫在素材裡),大小 2.7×;疾風箭雨的箭用綠色 gale-arrow 表
-      const sid=sh.fx==='gale'?'gale-arrow':'arrow';
+      // 整段飛行只用 pixelfx 的箭表,大小 2.7×;疾風箭雨的箭用綠色 gale-arrow 表
+      // 2026-11-23 使用者:「箭體飛行特效去掉空氣特效」→ 用 *-bare 表(只剩箭身,風切線/亮點/暗暈已剝掉)
+      const sid=sh.fx==='gale'?'gale-arrow-bare':'arrow-bare';
       const dl=Math.hypot(sh.dx,sh.dz)||1,ux=sh.dx/dl,uz=sh.dz/dl;
       const ghosts=sh.fx==='gale'?{n:3,gap:.35,a:[.45,.28,.14]}:{n:2,gap:.3,a:[.3,.15]};
       const hx=p.x, hy=p.y-12*s-drop*s, age=state.time+(sh.big?.15:0), k=ARROW_VFX_K*2.7*s;
       // 殘影:沿飛行方向往後取早先的點(越遠越淡),高度用該點的 travel 算;還沒離弦(<0)的不畫
       for(let i=ghosts.n;i>=1;i--){const back=i*ghosts.gap,earlier=travel-back;if(earlier<0)continue;
         const gp=screenPoint(sh.x-ux*back,sh.z-uz*back),gdrop=(sh.drop||0)*Math.max(0,1-earlier/span),gx=gp.x,gy=gp.y-12*s-gdrop*s,a=ghosts.a[i-1];
-        if(!drawVfxSheet(sid,age,gx,gy,k,{rot:ang,alpha:a})&&sid==='gale-arrow')drawVfxSheet('arrow',age,gx,gy,k,{rot:ang,alpha:a});}
-      if(drawVfxSheet(sid,age,hx,hy,k,{rot:ang})||(sid==='gale-arrow'&&drawVfxSheet('arrow',age,hx,hy,k,{rot:ang})))
+        if(!drawVfxSheet(sid,age,gx,gy,k,{rot:ang,alpha:a})&&sid==='gale-arrow-bare')drawVfxSheet('arrow-bare',age,gx,gy,k,{rot:ang,alpha:a});}
+      if(drawVfxSheet(sid,age,hx,hy,k,{rot:ang})||(sid==='gale-arrow-bare'&&drawVfxSheet('arrow-bare',age,hx,hy,k,{rot:ang})))
         arrowLast={x:Math.round(hx),y:Math.round(hy),fx:sh.fx||null,t:+state.time.toFixed(2)};
     }}
   // 實時 CQ pixelfx (livefx)、魔物倒下動畫(death)、技能名與浮動數值;箭矢命中另外畫原本的 hit-spark(見上)。
@@ -2453,6 +2473,7 @@ let renderDprMax=Math.max(1,dprCap||autoDpr());   // 畫布解析度上限(devic
     g.globalAlpha=1;
   }
   globalThis.__mistvaleLiveFx=()=>liveFx.stats();
+  globalThis.__mistvaleLiveFxBuffs=()=>liveFx.buffs();   // 驗收用:跟著單位走的增益特效(聖盾/荊棘甲)目前掛在誰身上、位置、是否已破掉
   globalThis.__mistvaleLiveFxClear=()=>{liveFx.clear();liveFx.clearStats();};
   globalThis.__mistvaleShots=()=>(state.shots||[]).map(s=>({x:+s.x.toFixed(2),z:+s.z.toFixed(2),kind:s.kind||'spell',left:+s.left.toFixed(2),dmg:s.dmg,big:!!s.big,wait:+(s.wait||0).toFixed(2),fx:s.fx||null}));   // 驗收用:飛行中的箭/法球
   globalThis.__mistvalePilot=()=>{const p=state.pilot;if(!p)return null;const h=state.hunters.find(q=>q.id===p.id);return h?{id:h.id,cls:h.classId,x:+h.x.toFixed(1),z:+h.z.toFixed(1),t:+state.time.toFixed(2)}:null;};   // 驗收用:目前操控的角色
@@ -2808,11 +2829,13 @@ let renderDprMax=Math.max(1,dprCap||autoDpr());   // 畫布解析度上限(devic
     if(inertia&&!followFn){const f=Math.pow(.86,Math.max(1,dt*1000)/16.7);inertia.vx*=f;inertia.vy*=f;if(Math.abs(inertia.vx)<.006&&Math.abs(inertia.vy)<.006){inertia=null;}else{target.x-=inertia.vx*dt*1000/scale;target.y-=inertia.vy*dt*1000/scale;cam={...target};clampCam();}}if(disposed)return;
     if(followFn){const fp=followFn();if(fp){homeFraming=false;target=followTarget(fp);if(followOpts.snap){cam.x=target.x;cam.y=target.y;}}}if(nextState){const first=state!==nextState;state=nextState;if(first)lastShakeSeq=state.shake?.seq??0;const key=BUILDINGS.map(b=>`${b.id}:${state.buildings?.[b.id]>0}:${state.layout?.[b.id]?.x??b.x}:${state.layout?.[b.id]?.z??b.z}`).join('|');if(!terrainLoadsPending&&(key!==landscapeKey||terrainPatternRev!==lastPatternRev)){lastPatternRev=terrainPatternRev;landscapeKey=key;generateGround();}}
     // T106:停格。命中那一幀照畫(凍住的要是「打下去」的畫面),之後到 hitStopUntil 前整幀跳過。
-    if(state.hitstop&&state.hitstop.seq!==hitStopSeq){hitStopSeq=state.hitstop.seq;if(hitStopAllowed()&&state.hitstop.ms>0){hitStopUntil=performance.now()+state.hitstop.ms;hitStopPainted=-2;hitStopCount++;}}
+    if(state.hitstop&&state.hitstop.seq!==hitStopSeq){hitStopSeq=state.hitstop.seq;if(hitStopAllowed()&&state.hitstop.ms>0){if(state.hitstop.delay>0)pendingStop={left:state.hitstop.delay,ms:state.hitstop.ms};else{hitStopUntil=performance.now()+state.hitstop.ms;hitStopPainted=-2;hitStopCount++;}}}
+    if(pendingStop){pendingStop.left-=Math.min(dt||0,.1);if(pendingStop.left<=0){hitStopUntil=performance.now()+pendingStop.ms;hitStopPainted=-2;hitStopCount++;pendingStop=null;}}
     if(performance.now()<hitStopUntil&&hitStopPainted===hitStopSeq){hitStopSkipped++;return;}
     elapsed+=Math.min(dt||0,.1);heroLodScale=scale*DPRK;if((++atlasTick%10)===0)ensureAtlas();   /* 素材載入只發生在前幾秒:每 10 幀檢查一次就夠 */const t=1-Math.exp(-Math.max(.016,dt||.016)*7);cam.x+=(target.x-cam.x)*t;cam.y+=(target.y-cam.y)*t;variantNew=0;   /* 每幀新換色格的額度歸零(variantCell) */if(hiQueue.length&&!interacting())pumpHi();
     // T95:新的震動請求(seq 變了才啟動;讀檔/第一次拿到 state 時只記 seq,不會突然震)
-    if(state.shake&&state.shake.seq!==lastShakeSeq){lastShakeSeq=state.shake.seq;shake(state.shake.amp,state.shake.ms);}
+    if(state.shake&&state.shake.seq!==lastShakeSeq){lastShakeSeq=state.shake.seq;if(state.shake.delay>0)pendingShake={left:state.shake.delay,amp:state.shake.amp,ms:state.shake.ms};else shake(state.shake.amp,state.shake.ms);}
+    if(pendingShake){pendingShake.left-=Math.min(dt||0,.1);if(pendingShake.left<=0){shake(pendingShake.amp,pendingShake.ms);pendingShake=null;}}
     stepShake(Math.min(dt||0,.1));
     syncLiveFx(Math.min(dt||1/30,.05));
     render();

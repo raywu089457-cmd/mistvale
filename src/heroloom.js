@@ -91,7 +91,7 @@ export const HEROLOOM_SLOTS = Object.freeze({
   shield: { color: 'cloth', parts: { buckler: ['main'] } },
   bottom: { color: 'cloth', parts: { pants: ['main'], skirt: ['main'] } },
   shoes: { color: 'leather', parts: { boots: ['main'], sandals: ['main'] } },
-  weapon: { color: null, parts: { sword: ['main', 'back'], staff: ['main', 'back'], dagger: ['main', 'back'], bow: ['main', 'back'] } },
+  weapon: { color: null, parts: { sword: ['main', 'back'], staff: ['main', 'back'], dagger: ['main', 'back'], bow: ['main', 'back'], hammer: ['main', 'back'] } },   // hammer 2026-11-24(聖騎士戰錘)
   face: { color: 'eye', required: true, parts: { eyes: ['main'] } },
   acc: { color: 'cloth', parts: { glasses: ['main'], beard: ['main'] }, colorFrom: { beard: 'hair' } },
 });
@@ -129,7 +129,7 @@ export const CLASS_LOOK = Object.freeze({
     colors: { skin: 'light', hair: 'blonde', cloth: 'white', leather: 'white', eye: 'blue' },
   },
   paladin: {
-    parts: { hair: 'short', hat: 'helmet', top: 'armor', bottom: 'pants', shoes: 'boots', shield: 'buckler', cape: 'cape', weapon: 'sword' },
+    parts: { hair: 'short', hat: 'helmet', top: 'armor', bottom: 'pants', shoes: 'boots', shield: 'buckler', cape: 'cape', weapon: 'hammer' },   // 2026-11-24 聖騎士只用錘
     colors: { skin: 'light', hair: 'blonde', cloth: 'blue', leather: 'white', eye: 'blue' },
   },
   berserker: {
@@ -167,6 +167,8 @@ const WEAPON_KIND = {
   axe: { part: 'sword', type: 'axe' },
   sword: { part: 'sword', type: 'sword' },
   spear: { part: 'sword', type: 'sword' },
+  hammer: { part: 'hammer', type: 'hammer' },
+  mace: { part: 'hammer', type: 'hammer' },
 };
 
 /** Class kit: weapon type drives which heroloom action plays for strike / skill (same idea as DV2 CLASS_KIT). */
@@ -174,7 +176,7 @@ const CLASS_WEAPON = Object.freeze({
   archer: 'bow',
   sorcerer: 'staff',
   priest: 'holystaff',
-  paladin: 'sword',
+  paladin: 'hammer',   // 2026-11-24 聖騎士只用錘(戰錘);錘的圖沒載到時 heroloom-hero 退回劍圖(PART_FALLBACK)
   berserker: 'axe',
   assassin: 'dagger',
   traveler: null, // 赤手空拳: DV2 CLASS_KIT has no weapon for the traveler either
@@ -182,7 +184,7 @@ const CLASS_WEAPON = Object.freeze({
   warrior: 'sword',
 });
 
-const WEAPON_PART_FOR = { bow: 'bow', staff: 'staff', holystaff: 'staff', sword: 'sword', axe: 'sword', dagger: 'dagger' };
+const WEAPON_PART_FOR = { bow: 'bow', staff: 'staff', holystaff: 'staff', sword: 'sword', axe: 'sword', dagger: 'dagger', hammer: 'hammer' };
 
 const eqOf = (h) => (h && h.equipment) || {};
 
@@ -333,6 +335,7 @@ function buildFacadeActions() {
     attack: { ...attack },
     'attack.sword': { ...attack },
     'attack.axe': { ...attack },
+    'attack.hammer': { ...attack },   // 錘沿用劍的揮擊列
     'attack.holystaff': { ...attack },
     'attack.staff': { ...attack },
     'attack.bow': { ...shoot },
@@ -342,6 +345,7 @@ function buildFacadeActions() {
     'skill.holystaff': { ...cast },
     'skill.sword': { ...attack },
     'skill.axe': { ...attack },
+    'skill.hammer': { ...attack },
     'skill.bow': { ...shoot },
     'skill.dagger': { ...thrust },
     victory: mk('jump', { loop: true }),

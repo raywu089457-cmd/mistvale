@@ -73,6 +73,16 @@ function weapon(ctx, look, col) {
     line(8, 24, 22, 10, STEEL.main); line(9, 25, 23, 11, STEEL.light);
     line(9, 25, 23, 11, INK);
     line(8, 20, 14, 26, [120, 90, 60]);
+  } else if (w === 'hammer') {
+    // 2026-11-24 war hammer (paladin 戰錘 / 精鐵戰錘): wooden haft down-left, a steel head across its top, class-colour band
+    line(8, 27, 19, 16, WOOD.dark); line(9, 27, 20, 16, WOOD.main); line(9, 26, 19, 16, WOOD.light);
+    for (let i = -6; i <= 6; i++) for (let j = -2; j <= 2; j++) {
+      const x = 21 + Math.round((i + j) * 0.7071), y = 13 + Math.round((i - j) * 0.7071);
+      px(x, y, j <= -1 ? STEEL.light : j >= 2 ? STEEL.dark : STEEL.main);
+      px(x + 1, y, j <= -1 ? STEEL.light : j >= 2 ? STEEL.dark : STEEL.main);
+    }
+    line(19, 15, 22, 12, col.trim);   // band where haft meets head
+    px(17, 9, [255, 255, 255]);
   } else if (w === 'none') {
     // cloth wraps around a fist
     rect(10, 12, 21, 22, col.dark);

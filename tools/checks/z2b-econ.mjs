@@ -97,7 +97,7 @@ for (const name of only) {
     // ───── A. 建築詳情 ─────
     await scene('A', async () => {
       // 2026-11-16 起 gearStock[slot] 是分階物件 {1..5}，寫成數字 0 會讓 craftGear 的 `gearStock[type][tier]++` 無效
-      await setS(page, s => { s.buildings.hall = 4; s.buildings.forge = 2; s.gold = 5000; s.wood = 500; s.ore = 500; s.leather = 80; s.cloth = 80; s.gearStock.weapon = { 1: 0, 2: 0, 3: 0, 4: 0, 5: 0 }; });
+      await setS(page, s => { s.buildings.hall = 4; s.buildings.forge = 2; s.gold = 5000; s.wood = 500; s.ore = 500; s.leather = 80; s.cloth = 80; s.gearStock.sword = { 1: 0, 2: 0, 3: 0, 4: 0, 5: 0 }; });
       await openInsp('forge');
       let r = await readInsp();
       if (!r.open || r.mode !== 'C') return fix(`${label}/A: 建築詳情沒開成 C 視窗(open=${r.open} mode=${r.mode})`);
@@ -107,7 +107,8 @@ for (const name of only) {
       r.tabs.length === 2 && r.tabs[0].t === '生產' && r.tabs[1].t === '升級效果' && r.tabs[0].on && r.tabs[0].bg === 'rgb(171, 152, 146)' && r.tabs[1].bg === 'rgb(73, 65, 62)' ? ok(`${label}/A: 文字型子頁籤 生產｜升級效果(選中 #ab9892、未選 #49413e)`) : fix(`${label}/A: 有生產的建築要有文字子頁籤:${JSON.stringify(r.tabs)}`);
       r.sep && r.sepLines >= 2 ? ok(`${label}/A: 區段標籤夾雙細線`) : fix(`${label}/A: 區段標籤要有雙細線(線寬和 ${r.sepLines})`);
       // 2026-11-13：六部位裝備上線後 RECIPES 是 7 筆（武器＋頭盔／胸甲／腰帶／腿甲／靴子／手套）
-      if (r.rows.length !== 7) fix(`${label}/A: 鐵匠鋪生產清單應 7 列(武器＋六件防具),實際 ${r.rows.length}`);
+      // 2026-11-24：武器分五種類型(精鐵長劍／戰錘／長弓／法杖／匕首)各一份配方 → 11 筆
+      if (r.rows.length !== 11) fix(`${label}/A: 鐵匠鋪生產清單應 11 列(五種武器＋六件防具),實際 ${r.rows.length}`);
       else {
         const w = r.rows[0], bad = [];
         if (w.nmC !== C.pink) bad.push('名稱不是粉色 ' + w.nmC); if (w.dsC !== C.cream) bad.push('說明不是米白 ' + w.dsC); if (!w.blue.length || w.blue.some(c => c !== C.blue)) bad.push('關鍵數字不是藍色 ' + w.blue.join('/')); if (!w.ic) bad.push('沒有圖示格');
@@ -245,7 +246,8 @@ for (const name of only) {
           tip: cells[0]?.querySelector('.sq-btn')?.dataset.tipUse != null };
       });
       // 2026-11-13：倉庫＝素材 6 ＋ 產品 4 ＋ 七種裝備(武器＋六件防具)＝17 格
-      r.n === 17 && r.cols >= 3 && r.ic && r.q && r.nmF >= 11.9 && r.nmC === C.white ? ok(`${label}/D: 倉庫 ${r.n} 格方格、${r.cols} 欄、圖示框＋數量＋白名稱(${r.nmF}px)`) : fix(`${label}/D: 倉庫方格不符:${JSON.stringify(r)}`);
+      // 2026-11-24：武器分五種類型(精鐵長劍／戰錘／長弓／法杖／匕首)→ 素材 6 ＋ 產品 4 ＋ 11 份配方＝21 格
+      r.n === 21 && r.cols >= 3 && r.ic && r.q && r.nmF >= 11.9 && r.nmC === C.white ? ok(`${label}/D: 倉庫 ${r.n} 格方格、${r.cols} 欄、圖示框＋數量＋白名稱(${r.nmF}px)`) : fix(`${label}/D: 倉庫方格不符:${JSON.stringify(r)}`);
       r.tip ? ok(`${label}/D: 格子留有 data-tip-* 接點(Z2A 共用 tooltip)`) : fix(`${label}/D: 格子缺 data-tip-* 接點`);
       await page.click('#modal-content .hv-sq[data-id=flour] .sq-btn'); await settle(page, 350);
       const d = await page.evaluate(() => { const b = document.querySelector('#modal-content .z2b-detail'); return b ? { id: b.dataset.id, use: b.querySelector('.si-use')?.textContent || '', src: b.querySelector('.si-src')?.textContent || '', num: b.querySelector('.si-num')?.textContent || '', go: b.querySelector('[data-action]')?.textContent.trim(), bg: getComputedStyle(b).backgroundColor, sel: !!document.querySelector('.hv-sq.sel[data-id=flour]') } : null; });
@@ -259,7 +261,7 @@ for (const name of only) {
 
     // ───── E. 製作 ─────
     await scene('E', async () => {
-      await setS(page, s => { s.stocks.drink = 0; s.flour = 3; s.herb = 60; s.cloth = 60; s.leather = 50; s.ore = 120; s.wood = 160; s.gearStock.weapon = { 1: 0, 2: 0, 3: 0, 4: 0, 5: 0 }; });
+      await setS(page, s => { s.stocks.drink = 0; s.flour = 3; s.herb = 60; s.cloth = 60; s.leather = 50; s.ore = 120; s.wood = 160; s.gearStock.sword = { 1: 0, 2: 0, 3: 0, 4: 0, 5: 0 }; });
       await closeAll(page); await L.act(page, 'craft'); await settle(page, 500);
       const r = await page.evaluate(() => {
         const cs = (e, p) => e ? getComputedStyle(e)[p] : null, rows = [...document.querySelectorAll('#modal-content .zc-row')];
@@ -293,10 +295,10 @@ for (const name of only) {
       if (hasFull) { await page.click('#modal-content .zc-row[data-id=drink] .hv-max'); await settle(page, 350); const b2 = await getS(page, s => s.stocks.drink); b2 > b1 + 10 ? ok(`${label}/E: 「做滿」一次做多批(${b1}→${b2})`) : fix(`${label}/E: 做滿沒多做:${b1}→${b2}`); } else fix(`${label}/E: 藥草 60 時應有做滿鈕`);
       await page.click('#modal-content [data-action=craftTab][data-id=gear]'); await settle(page, 350);
       const g = await page.evaluate(() => [...document.querySelectorAll('#modal-content .zc-row')].map(r => ({ id: r.dataset.id, btn: r.querySelector('.z2b-act .pixel-button')?.textContent.trim(), bg: getComputedStyle(r.querySelector('.z2b-act .pixel-button')).backgroundColor })));
-      // 2026-11-13：裝備製作＝武器＋六件防具 7 列
-      g.length === 7 && g.every(x => x.bg === C.gold) ? ok(`${label}/E: 裝備製作 ${g.length} 列(${g.map(x => x.btn.replace(/\s+/g, '')).join('、')})金棕鈕`) : fix(`${label}/E: 裝備製作列不符:${JSON.stringify(g)}`);
+      // 2026-11-13：裝備製作＝武器＋六件防具 7 列；2026-11-24 武器分五種類型 → 11 列
+      g.length === 11 && g.every(x => x.bg === C.gold) ? ok(`${label}/E: 裝備製作 ${g.length} 列(${g.map(x => x.btn.replace(/\s+/g, '')).join('、')})金棕鈕`) : fix(`${label}/E: 裝備製作列不符:${JSON.stringify(g)}`);
       const wSum2 = () => getS(page, (s, g) => g.gearStockOf('weapon'));
-      const w0 = await wSum2(); await page.click('#modal-content .zc-row[data-id=weapon] [data-action=craftGear]'); await settle(page, 300);
+      const w0 = await wSum2(); await page.click('#modal-content .zc-row[data-id=sword] [data-action=craftGear]'); await settle(page, 300);
       (await wSum2()) === w0 + 1 ? ok(`${label}/E: 「鍛造」生效`) : fix(`${label}/E: 鍛造沒生效`);
       await closeAll(page);
     });

@@ -7,7 +7,7 @@
 import * as L from './fix-a-lib.mjs';
 import fs from 'node:fs';
 import * as path from 'node:path';
-import { RECIPES, GEAR_SLOTS, EQUIP_SLOTS, BUILDINGS } from '../../src/pixel-data.js';
+import { RECIPES, GEAR_SLOTS, EQUIP_SLOTS, BUILDINGS, canWield } from '../../src/pixel-data.js';
 import { doorStand } from '../../src/landscape-layout.js';
 import { createGame } from '../../src/pixel-game.js';
 
@@ -20,12 +20,14 @@ const tot = st => typeof st === 'number' ? st : Object.values(st || {}).reduce((
 
 // ═══ A. 純資料 ═══
 const byId = Object.fromEntries(RECIPES.map(r => [r.id, r]));
-if (RECIPES.length !== 7) fix(`A1 RECIPES 應 7 條(武器＋六件防具),實際 ${RECIPES.length}`);
-else if (new Set(RECIPES.map(r => r.type)).size !== 7) fix('A1 RECIPES 的 type/格位重複');
+// 2026-11-24 武器分五種類型(精鐵長劍／戰錘／長弓／法杖／匕首),各一份配方,數值與售價都等於原本的「精鐵武器」
+const WEAPON_RECIPES = { sword: '精鐵長劍', hammer: '精鐵戰錘', bow: '精鐵長弓', staff: '精鐵法杖', dagger: '精鐵匕首' };
+if (RECIPES.length !== 11) fix(`A1 RECIPES 應 11 條(五種武器＋六件防具),實際 ${RECIPES.length}`);
+else if (new Set(RECIPES.map(r => r.id)).size !== 11 || new Set(RECIPES.map(r => r.type)).size !== 7) fix('A1 RECIPES 的 id 重複,或沒有剛好涵蓋七個格位');
 if (JSON.stringify(EQUIP_SLOTS) !== JSON.stringify(['weapon', 'helm', 'chest', 'belt', 'legs', 'boots', 'gloves'])) fix(`A2 EQUIP_SLOTS 順序不對: ${JSON.stringify(EQUIP_SLOTS)}`);
 if (JSON.stringify(GEAR_SLOTS) !== JSON.stringify(['helm', 'chest', 'belt', 'legs', 'boots', 'gloves'])) fix(`A2 GEAR_SLOTS 不對: ${JSON.stringify(GEAR_SLOTS)}`);
 const DOC = {
-  weapon: { name: '精鐵武器', slot: '武器', price: 85, cost: { ore: 12, wood: 6 }, bonus: 7, hp: 0, def: 0 },
+  ...Object.fromEntries(Object.entries(WEAPON_RECIPES).map(([id, name]) => [id, { name, slot: '武器', type: 'weapon', price: 85, cost: { ore: 12, wood: 6 }, bonus: 7, hp: 0, def: 0 }])),
   helm: { name: '頭盔', slot: '頭盔', price: 90, cost: { cloth: 4, ore: 6 }, bonus: 2, hp: 6, def: 2 },
   chest: { name: '胸甲', slot: '胸甲', price: 140, cost: { ore: 10, leather: 6 }, bonus: 3, hp: 22, def: 3 },
   belt: { name: '腰帶', slot: '腰帶', price: 70, cost: { leather: 4 }, bonus: 1, hp: 4, def: 1 },
@@ -34,9 +36,9 @@ const DOC = {
   gloves: { name: '手套', slot: '手套', price: 60, cost: { cloth: 3, leather: 2 }, bonus: 1, hp: 4, def: 1 },
 };
 for (const [slot, want] of Object.entries(DOC)) {
-  const r = byId[slot];
+  const r = byId[slot], type = want.type || slot;
   if (!r) { fix(`A3 缺少 ${slot} 的配方`); continue; }
-  if (r.id !== slot || r.type !== slot || r.name !== want.name || r.slotName !== want.slot) fix(`A3 ${slot}: id/type/name/slotName(=${r.id}/${r.type}/${r.name}/${r.slotName})應為 ${slot}/${slot}/${want.name}/${want.slot}`);
+  if (r.id !== slot || r.type !== type || r.name !== want.name || r.slotName !== want.slot) fix(`A3 ${slot}: id/type/name/slotName(=${r.id}/${r.type}/${r.name}/${r.slotName})應為 ${slot}/${type}/${want.name}/${want.slot}`);
   if (r.price !== want.price) fix(`A4 ${want.name}: 售價 ${r.price} 應 ${want.price}`);
   if (JSON.stringify(r.cost) !== JSON.stringify(want.cost)) fix(`A4 ${want.name}: 材料 ${JSON.stringify(r.cost)} 應 ${JSON.stringify(want.cost)}`);
   if (r.bonus !== want.bonus || (r.hp || 0) !== want.hp || (r.def || 0) !== want.def) fix(`A5 ${want.name}: bonus/hp/def(=${r.bonus}/${r.hp || 0}/${r.def || 0})應 ${want.bonus}/${want.hp}/${want.def}`);
@@ -45,7 +47,7 @@ for (const [slot, want] of Object.entries(DOC)) {
   const gear = GEAR_SLOTS.map(s => byId[s]).filter(Boolean);
   const hp = gear.reduce((n, r) => n + (r.hp || 0), 0), def = gear.reduce((n, r) => n + (r.def || 0), 0), price = gear.reduce((n, r) => n + r.price, 0);
   if (hp !== 50 || def !== 10 || price !== 540) fix(`A6 六件合計 生命+${hp} 防禦+${def} 售價 ${price}，應 +50／+10／540`);
-  else if (!fails.length) ok(`A. 純資料：${RECIPES.length} 條配方(武器＋六件防具)、格位唯一、價格／材料／數值符合 docs/PAPERDOLL-EQUIPMENT-6.md(六件合計 生命+${hp} 防禦+${def}、總價 ${price})`);
+  else if (!fails.length) ok(`A. 純資料：${RECIPES.length} 條配方(五種武器＋六件防具)、格位唯一、價格／材料／數值符合 docs/PAPERDOLL-EQUIPMENT-6.md(六件合計 生命+${hp} 防禦+${def}、總價 ${price})`);
 }
 
 // ═══ B. 存檔與純邏輯 ═══
@@ -56,7 +58,7 @@ const asOld = (s, v) => { s.version = v; for (const x of [...s.hunters, ...(s.wa
 {
   const h = fresh.state.hunters[0], eq = h.equipment;
   if (!eq || Object.keys(eq).length !== 7 || EQUIP_SLOTS.some(s => eq[s] !== false)) fix(`B2 新獵人 equipment 應七格全 false: ${JSON.stringify(eq)}`);
-  if (!fresh.state.gearStock || EQUIP_SLOTS.some(s => tot(fresh.state.gearStock[s]) !== 0)) fix(`B2 新存檔 gearStock 應七格歸零: ${JSON.stringify(fresh.state.gearStock)}`);
+  if (!fresh.state.gearStock || RECIPES.some(r => tot(fresh.state.gearStock[r.id]) !== 0)) fix(`B2 新存檔 gearStock 應每份配方歸零: ${JSON.stringify(fresh.state.gearStock)}`);
 }
 { // 舊 v2 存檔:{weapon:true,armor:true} → 六格全穿,強化等級保留
   const old = asOld(createGame().serialize(), 2);
@@ -69,7 +71,7 @@ const asOld = (s, v) => { s.version = v; for (const x of [...s.hunters, ...(s.wa
   if (EQUIP_SLOTS.some(s => createGame(bare).state.hunters[0].equipment[s])) fix('B3 舊存檔 armor:false 不該穿上任何防具');
   const stock = asOld(createGame().serialize(), 2); stock.gearStock = { weapon: 0, armor: 2 };
   const rs = createGame(stock);
-  if (rs.state.gearStock.chest?.[1] !== 2 || tot(rs.state.gearStock.weapon) !== 0 || 'armor' in rs.state.gearStock) fix(`B3 舊 gearStock.armor 應併到胸甲: ${JSON.stringify(rs.state.gearStock)}`);
+  if (rs.state.gearStock.chest?.[1] !== 2 || tot(rs.state.gearStock.sword) !== 0 || 'weapon' in rs.state.gearStock || 'armor' in rs.state.gearStock) fix(`B3 舊 gearStock.armor 應併到胸甲: ${JSON.stringify(rs.state.gearStock)}`);
 }
 { // 六件裝備的數值真的加進 updateStats:同一份存檔,全穿 vs 全空
   const gain = createGame(); const h = gain.state.hunters[0];
@@ -102,8 +104,8 @@ try {
     return { results: out, stock: { ...g.state.gearStock }, counts: { ...g.state.counts } };
   }, RECIPES.map(r => r.id));
   for (const r of RECIPES) if (!crafted.results[r.id]?.ok) fix(`C1 鍛造 ${r.name} 失敗: ${crafted.results[r.id]?.message}`);
-  for (const s of EQUIP_SLOTS) if (tot(crafted.stock[s]) !== 1) fix(`C1 鍛造後 gearStock.${s} 應 1，實際 ${JSON.stringify(crafted.stock[s])}`);
-  if (crafted.counts.gearCrafted !== 7) fix(`C1 counts.gearCrafted 應 7，實際 ${crafted.counts.gearCrafted}`);
+  for (const r of RECIPES) if (tot(crafted.stock[r.id]) !== 1) fix(`C1 鍛造後 gearStock.${r.id} 應 1，實際 ${JSON.stringify(crafted.stock[r.id])}`);
+  if (crafted.counts.gearCrafted !== RECIPES.length) fix(`C1 counts.gearCrafted 應 ${RECIPES.length}，實際 ${crafted.counts.gearCrafted}`);
 
   // 只留第一位獵人有錢買(其他人把金幣歸零並標記逛過，避免搶庫存)
   const before = await page.evaluate(({ door }) => {
@@ -112,7 +114,7 @@ try {
     h.gold = 2000; h.inTown = true; h.shoppedVisit = false; h.task = null; h.lastTownVisit = 0; h.x = door.x; h.z = door.z;
     g.state.time = Math.max(g.state.time, 100);   // 回村購物分支要 state.time - lastTownVisit > 60
     g.state.paused = false;
-    return { hp: h.maxHp, def: h.defense, atk: h.attack, gold: h.gold, sold: g.state.counts.gearSold, id: h.id };
+    return { hp: h.maxHp, def: h.defense, atk: h.attack, gold: h.gold, sold: g.state.counts.gearSold, id: h.id, classId: h.classId };
   }, { door });
   await L.adv(page, 8);
   const after = await page.evaluate((id) => {
@@ -123,7 +125,9 @@ try {
   const missed = EQUIP_SLOTS.filter(s => after.eq[s] !== true);
   if (missed.length) fix(`C2 獵人回村自動購買沒買齊，缺 ${missed.join('、')}(equipment=${JSON.stringify(after.eq)})`);
   if (after.sold !== before.sold + 7) fix(`C2 counts.gearSold 應 +7(${before.sold}→${after.sold})`);
-  if (EQUIP_SLOTS.some(s => tot(after.stock[s]) !== 0)) fix(`C2 買完 gearStock 應歸零: ${JSON.stringify(after.stock)}`);
+  // 只買自己職業能拿的那一種武器;另外四種留在庫存
+  const own = RECIPES.filter(r => r.type !== 'weapon' || canWield(r.item, before.classId)).map(r => r.id);
+  if (own.length !== 7 || own.some(id => tot(after.stock[id]) !== 0) || RECIPES.filter(r => !own.includes(r.id)).some(r => tot(after.stock[r.id]) !== 1)) fix(`C2 買完:自己能用的七份應歸零、別職業的武器應留 1: ${JSON.stringify(after.stock)}`);
   if (!(after.hp > before.hp && after.def > before.def && after.atk > before.atk)) fix(`C2 買完數值應上升(生命 ${before.hp}→${after.hp}・防禦 ${before.def}→${after.def}・攻擊 ${before.atk}→${after.atk})`);
   else ok(`C. 現場：鍛造七件入庫 → 獵人回村自動買齊七格(生命 ${before.hp}→${after.hp}・防禦 ${before.def}→${after.def}・攻擊 ${before.atk}→${after.atk})、gearStock 歸零、gearSold +${after.sold - before.sold}、金幣 ${before.gold}→${after.gold}`);
 
@@ -135,7 +139,7 @@ try {
     return { n: rows.length, ids: rows.map(r => r.dataset.id), text: rows.map(r => r.textContent.replace(/\s+/g, ' ')) };
   });
   const craftMissing = RECIPES.filter(r => !craftUI.ids.includes(r.id)).map(r => r.name);
-  if (craftUI.n !== 7 || craftMissing.length) fix(`C3 製作頁裝備列應 7 列(${RECIPES.map(r => r.name).join('、')})，實際 ${craftUI.n} 列、缺 ${craftMissing.join('、')}`);
+  if (craftUI.n !== RECIPES.length || craftMissing.length) fix(`C3 製作頁裝備列應 ${RECIPES.length} 列(${RECIPES.map(r => r.name).join('、')})，實際 ${craftUI.n} 列、缺 ${craftMissing.join('、')}`);
   else {
     const texts = craftUI.ids.map((id, i) => [byId[id], craftUI.text[i]]);
     const bad = texts.filter(([r, t]) => !t.includes(r.slotName) || !(r.hp ? (t.includes(`生命 +${r.hp}`) && t.includes(`防禦 +${r.def}`)) : t.includes(`攻擊 +${r.bonus}`)) || !t.includes(`售價 ${r.price} 金`));

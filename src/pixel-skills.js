@@ -2,6 +2,8 @@
 // Geometry (radius, band, impact delay, finisher crash beats, school colors) comes directly from
 // pixelfx's Mistvale 2:1 isometric playground (sprites.html#playground).
 
+import { weaponTypeOf } from './pixel-data.js';
+
 export const SKILL_UNLOCK_LVS = Object.freeze([0, 2, 4, 5]);
 export const SPEC_SWITCH_LV = 1;
 
@@ -52,7 +54,10 @@ export const SPECS = Object.freeze([
     id: 'berserker_quake', classId: 'berserker', name: '熔岩震地', school: 'fire', color: '#ff7a45',
     tag: '範圍震暈・烈焰破甲', desc: '以大地猛擊與烈焰火環撕裂怪群，大範圍震波破防助全隊輸出。',
     skills: [
-      { id: 'whirlwind_q', slot: 0, unlockLv: 0, name: '旋風斬', school: 'blade', fxId: 'melee/whirlwind-iso', kind: 'selfAoe', cd: 9, mult: 1.5, radius: 2.4, delay: 0.1, lock: 0.7, release: 0.22, impact: 'slash', shapeTag: '周身', desc: '橫掃周圍敵人造成 150% 傷害。' },
+      // 2026-11-24 使用者:「劍類是給狂戰士」+ 弧光斬給狂戰士 → 熔岩震地第 1 招(原旋風斬)換成弧光斬。id 沿用 whirlwind_q(存檔/冷卻/解鎖不用遷移),
+      //   cd 9、Lv.0 解鎖照舊。數值對照旋風斬(周身 360°、2.4 格、150%):弧 150°、2.6 格只蓋到約一半面積,但 AI 會對準怪最密的方向揮,
+      //   所以倍率拉到 170% 並加輕擊退 0.6(比聖騎士版 1.0 輕,狂戰士要貼身)。特效 steel-arc-iso = holy-arc 的鋼白＋紅橘版。
+      { id: 'whirlwind_q', slot: 0, unlockLv: 0, name: '弧光斬', school: 'blade', fxId: 'melee/steel-arc-iso', fxReach: true, kind: 'arc', arcDeg: 150, cd: 9, mult: 1.7, radius: 2.6, delay: 0.1, lock: 0.6, release: 0.16, impact: 'slash', knockback: 0.6, shapeTag: '擊退', desc: '向前揮出 150° 鋼刃弧光，2.6 格內造成 170% 傷害並輕微擊退。' },
       { id: 'ground_slam', slot: 1, unlockLv: 2, name: '大地猛擊', school: 'blade', fxId: 'impacts/ground-slam-iso', kind: 'aoe', cd: 12, mult: 1.75, radius: 3.25, delay: 0.14, lock: 0.8, release: 0.24, impact: 'heavy', finisher: true, beat: BEAT_EARTH, status: 'stunned', statusDur: 1.2, shapeTag: '終結技', desc: '重砸地面震裂 3.25 格內敵人造成 175% 傷害並暈眩 1.2 秒。' },
       { id: 'berserk_fire_ring', slot: 2, unlockLv: 4, name: '烈焰戰環', school: 'fire', fxId: 'fire/fire-ring-iso', kind: 'selfAoe', cd: 14, mult: 1.4, radius: 4.3, delay: 0.16, lock: 0.75, release: 0.2, status: 'burning', statusDur: 4, trigger: 'nearEnemy', shapeTag: '周身', desc: '自腳下炸開 4.3 格烈焰環，造成 140% 傷害並全體灼燒 4 秒。' },
       { id: 'quake', slot: 3, unlockLv: 5, name: '破滅大地震', school: 'nature', fxId: 'nature/quake-iso', kind: 'selfAoe', cd: 22, mult: 2.6, radius: 4.7, delay: 0.3, lock: 0.95, release: 0.25, impact: 'earth', finisher: true, beat: BEAT_EARTH, status: 'cursed', statusDur: 5, shapeTag: '大範圍', desc: '震裂 4.7 格內所有魔物造成 260% 傷害，並削弱攻防 5 秒。' },
@@ -75,9 +80,20 @@ export const SPECS = Object.freeze([
     tag: '荊棘反傷・重錘群暈', desc: '兼具坦度與前排破陣力，靠荊棘聖甲反傷流血、審判巨錘砸暈全場。',
     skills: [
       { id: 'divine_shield_c', slot: 0, unlockLv: 0, name: '聖盾祈禱', school: 'holy', fxId: 'holy/divine-shield-iso', kind: 'allyShield', cd: 12, heal: 0.2, shieldDr: 0.25, shieldDur: 4, radius: 4.0, delay: 0.1, lock: 0.7, release: 0.2, shapeTag: '群盾', desc: '回復自身 20% 生命，替 4 格內友軍套上 4 秒減傷 25% 聖盾。' },
-      { id: 'spear_sweep', slot: 1, unlockLv: 2, name: '長槍橫掃', school: 'blade', fxId: 'melee/spear-sweep-iso', kind: 'aoe', cd: 9, mult: 1.6, radius: 2.0, delay: 0.08, lock: 0.65, release: 0.18, impact: 'slash', knockback: 1.0, shapeTag: '擊退', desc: '大弧度橫掃 160% 傷害並擊退逼近後排的敵人。' },
-      { id: 'thorns_armor', slot: 2, unlockLv: 4, name: '荊棘聖甲', school: 'nature', fxId: 'nature/thorns-iso', kind: 'selfAoe', cd: 14, mult: 1.25, radius: 3.6, delay: 0.25, lock: 0.7, release: 0.2, impact: 'thorn', thornsPct: 0.3, thornsDur: 5, status: 'bleeding', statusDur: 3, shapeTag: '反傷', desc: '3.6 格荊棘爆發 125% 傷害並附加流血，5 秒內反彈 30% 近戰傷害。' },
-      { id: 'hammer_smash', slot: 3, unlockLv: 5, name: '審判巨錘', school: 'blade', fxId: 'melee/hammer-smash-iso', kind: 'aoe', cd: 21, mult: 2.9, radius: 3.3, delay: 0.3, lock: 0.95, release: 0.28, impact: 'heavy', finisher: true, beat: BEAT_EARTH, status: 'stunned', statusDur: 1.5, tauntRadius: 4.0, shapeTag: '終結技', desc: '巨錘砸落造成 290% 傷害、範圍暈眩 1.5 秒並強制吸怪。' },
+      // 2026-11-23/24 長槍橫掃依「武器類型」換招(類型見 pixel-data WEAPON_TYPES / weaponTypeOf;技能 id/格位/冷卻不變,存檔不用遷移)。
+      //   2026-11-24 使用者:「聖騎士只能裝備錘 劍類是給狂戰士」→ 聖騎士只會拿錘,這一格只剩震地掃:基底就是震地掃,
+      //   byWeaponType 只留 blunt(機制保留,之後聖騎士若多一種武器類型再加一行);沒裝武器/不認得的類型 → 基底 = 也是震地掃。
+      //   原本的弧光斬(劍)移到狂戰士(熔岩震地第 1 招);melee/holy-arc-iso 檔案保留(steel-arc-iso 換色沿用它)。
+      //   impactFeel:命中那一刻(延遲 = delay)的鏡頭震動 px / 毫秒與停格毫秒(只給畫面用,不影響時序)。
+      { id: 'spear_sweep', slot: 1, unlockLv: 2, name: '震地掃', school: 'blade', fxId: 'melee/iron-sweep-iso', fxReach: true, kind: 'selfAoe', cd: 9, mult: 1.55, radius: 1.9, delay: 0.24, lock: 0.8, release: 0.22, impact: 'heavy', impactFeel: { amp: 3, ms: 200, stop: 70 }, status: 'stunned', statusDur: 0.6, breakVuln: 0.15, breakDur: 3, shapeTag: '破甲', desc: '沉重橫掃一圈後砸地，震波掃過周身 1.9 格，造成 155% 傷害、暈眩 0.6 秒並破甲（受到傷害 +15%，3 秒）。',
+        byWeaponType: { blunt: {} } },
+      // 2026-11-23:特效改成「聖盾為底＋荊棘」:施放時 nature/thorn-aegis-burst-iso(荊棘從聖盾炸出、刺到 3.6 格),
+      //   之後 thornsDur 秒內畫面端依 buffs.thorns 掛 nature/thorn-aegis-iso 跟著聖騎士走(見 pixel-world syncLiveFx)。
+      { id: 'thorns_armor', slot: 2, unlockLv: 4, name: '荊棘聖甲', school: 'nature', fxId: 'nature/thorn-aegis-burst-iso', fxReach: true, kind: 'selfAoe', cd: 14, mult: 1.25, radius: 3.6, delay: 0.25, lock: 0.7, release: 0.2, impact: 'thorn', thornsPct: 0.3, thornsDur: 5, status: 'bleeding', statusDur: 3, shapeTag: '反傷', desc: '3.6 格荊棘爆發 125% 傷害並附加流血，5 秒內反彈 30% 近戰傷害。' },
+      // 2026-11-23 審判巨錘:錘頭砸在瞄準的目標身上(anchor:'target';傷害/暈眩/嘲諷圓心都是同一個 aimPt),
+      //   delay 0.39 = 錘頭落地格(hammer-smash RAISE 0.26 + SWING 0.13);範圍 3.3 → 4.5、嘲諷 4.0 → 4.5(跟判定同圈);
+      //   特效 judgment-hammer-iso = 原錘擊 ×2 大小 + 一圈跟判定半徑一樣大的震波(fxReach)。
+      { id: 'hammer_smash', slot: 3, unlockLv: 5, name: '審判巨錘', school: 'blade', fxId: 'melee/judgment-hammer-iso', anchor: 'target', fxReach: true, kind: 'aoe', cd: 21, mult: 2.9, radius: 4.5, delay: 0.39, lock: 0.95, release: 0.28, impact: 'heavy', finisher: true, beat: BEAT_EARTH, beatScale: 2, status: 'stunned', statusDur: 1.5, tauntRadius: 4.5, shapeTag: '終結技', desc: '巨錘砸在目標身上，4.5 格內造成 290% 傷害、暈眩 1.5 秒並強制吸怪。' },
     ],
   },
 
@@ -192,6 +208,34 @@ export const SPECS = Object.freeze([
 
 export const SPEC_BY_ID = Object.freeze(Object.fromEntries(SPECS.map(sp => [sp.id, sp])));
 
+// ── 依武器類型換招(2026-11-23,2026-11-24 改成看類型)──
+// 技能可帶 byWeaponType:{ <武器類型>: { 要覆蓋的欄位 } }(類型 = pixel-data WEAPON_TYPES 的 key)。覆蓋後的技能物件在這裡一次算好、凍結,
+// id / slot / unlockLv / cd 一律保留基底的 → 冷卻、解鎖、存檔都跟武器無關。沒有 byWeaponType、沒裝武器、或類型不在表上 → 基底。
+const VARIANT_CACHE = new Map();
+for (const sp of SPECS) for (const sk of sp.skills) {
+  if (!sk.byWeaponType) continue;
+  const m = new Map();
+  for (const [wtype, over] of Object.entries(sk.byWeaponType)) {
+    const merged = { ...sk, ...over, id: sk.id, slot: sk.slot, unlockLv: sk.unlockLv, cd: sk.cd, weaponType: wtype };
+    for (const k of Object.keys(merged)) if (merged[k] === undefined) delete merged[k];
+    delete merged.byWeaponType;
+    m.set(wtype, Object.freeze(merged));
+  }
+  VARIANT_CACHE.set(sk, m);
+}
+/** 獵人武器格的物品 id(沒裝 → null)。 */
+export const weaponItemOf = h => h?.gear?.weapon?.itemId || null;
+/** 獵人武器格那把武器的類型(pixel-data WEAPON_TYPES 的 key;沒裝或不認得 → null)。 */
+export const heroWeaponType = h => weaponTypeOf(weaponItemOf(h), h?.classId);
+/** 這位獵人「現在」用這招會是哪一套(依武器類型)。 */
+export function skillFor(h, sk) {
+  const m = sk && VARIANT_CACHE.get(sk);
+  if (!m) return sk;
+  return m.get(heroWeaponType(h)) || sk;
+}
+/** 目前流派的 4 招(已套用武器類型變招),介面與施放都用這個。 */
+export const heroSkills = h => specOf(h).skills.map(sk => skillFor(h, sk));
+
 export const CLASS_SPECS = Object.freeze(
   SPECS.reduce((acc, sp) => { (acc[sp.classId] ||= []).push(sp); return acc; }, {})
 );
@@ -210,8 +254,8 @@ export function specOf(h) {
 }
 
 export function unlockedSkills(h) {
-  const sp = specOf(h), lv = Math.max(0, Math.floor(h?.skillLevel || 0));
-  return sp.skills.filter(sk => lv >= sk.unlockLv);
+  const lv = Math.max(0, Math.floor(h?.skillLevel || 0));
+  return heroSkills(h).filter(sk => lv >= sk.unlockLv);
 }
 
 export function skillSlotMult(h, sk) {

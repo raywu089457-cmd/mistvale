@@ -48,6 +48,9 @@ import {
   heroloomAf,
   heroloomData,
 } from './heroloom.js';
+// 2026-11-24 parts that may be absent or fail to load, and what to draw instead (holder-specific art lands
+// later than the code that asks for it). The chain is followed until a loaded part is found.
+const PART_FALLBACK = Object.freeze({ weapon: Object.freeze({ hammer: 'sword' }) });
 import {
   OUTFIT_ACTIONS,
   OUTFIT_ACTION_NAMES,
@@ -131,6 +134,7 @@ export function createDollHero(opts = {}) {
   let classes = HEROLOOM_CLASSES.slice();
 
   const images = new Map();       // url -> Image (all part layers)
+  const missingParts = new Set(); // 'slot.id' of optional parts whose image failed to load (drawn via PART_FALLBACK)
   const cellCache = new Map();    // url|variant|cellKey -> tinted 64×56 cell canvas
   const tintCache = new Map();    // url|ramp|variant -> full tinted image (bakeRecipe only)
   const cropCache = new Map();    // recipeSig|action|frame|mirror -> {cv, footX, footY, parts}
@@ -203,19 +207,43 @@ export function createDollHero(opts = {}) {
 
   /** Collect every part layer file of the pack and load it once. */
   async function preloadImages(timeoutMs) {
-    const urls = new Set();
-    for (const def of Object.values(spec.slots || {})) {
-      for (const part of Object.values(def.parts || {})) {
-        for (const rel of Object.values(part.layers || {})) if (rel) urls.add(base() + rel);
+    const urls = new Set(), optional = new Map();   // optional: url → "slot.id" (a part that has a fallback, see PART_FALLBACK)
+    for (const [slot, def] of Object.entries(spec.slots || {})) {
+      for (const [id, part] of Object.entries(def.parts || {})) {
+        const soft = !!(PART_FALLBACK[slot] && PART_FALLBACK[slot][id]);
+        for (const rel of Object.values(part.layers || {})) if (rel) { urls.add(base() + rel); if (soft) optional.set(base() + rel, slot + '.' + id); }
       }
     }
     const list = [...urls];
     if (!list.length) throw new Error('heroloom: no part images in character.json');
+    missingParts.clear();
     await Promise.all(list.map(async (u) => {
       if (images.has(u)) return;
-      const img = await loadImageUrl(u, opts.loadImage, timeoutMs, opts.trackImage);
-      images.set(u, img);
+      try {
+        // optional parts are not tracked: a missing hammer.png must not trip the game's asset-failure boot gate
+        const img = await loadImageUrl(u, opts.loadImage, timeoutMs, optional.has(u) ? undefined : opts.trackImage);
+        images.set(u, img);
+      } catch (e) {
+        // 2026-11-24 a part with a fallback (hammer → sword) must not take the whole pack down
+        if (!optional.has(u)) throw e;
+        missingParts.add(optional.get(u));
+      }
     }));
+  }
+  /**
+   * Part definition actually drawn for slot/id. A part that is missing from character.json, or whose
+   * image failed to load, falls back along PART_FALLBACK (weapon hammer → sword) so the hero never
+   * goes blank and nothing throws.
+   */
+  function partOf(slot, id) {
+    const def = spec.slots[slot];
+    if (!def || !id) return null;
+    for (let cur = id, hops = 0; cur && hops < 4; hops++) {
+      const part = def.parts[cur];
+      if (part && !missingParts.has(slot + '.' + cur)) return part;
+      cur = PART_FALLBACK[slot] && PART_FALLBACK[slot][cur];
+    }
+    return null;
   }
 
   /** Compose the idle frame of every class once so the first visible frame is warm (cheap: one 64×56 cell each). */
@@ -319,8 +347,7 @@ export function createDollHero(opts = {}) {
     const out = makeCanvas(cw, ch);
     const ctx = out.getContext('2d');
     for (const { slot, layer } of HEROLOOM_LAYERS) {
-      const def = spec.slots[slot], id = chosen[slot];
-      const part = def && id && def.parts[id];
+      const part = partOf(slot, chosen[slot]);
       if (!part) continue;
       const rel = part.layers[covered && slot === 'hair' && layer === 'main' ? 'under' : layer];
       if (!rel) continue;
@@ -653,8 +680,7 @@ export function createDollHero(opts = {}) {
     const hat = chosen.hat && spec.slots.hat && spec.slots.hat.parts[chosen.hat];
     const covered = !!(hat && hat.coversHair);
     for (const { slot, layer } of HEROLOOM_LAYERS) {
-      const def = spec.slots[slot], id = chosen[slot];
-      const part = def && id && def.parts[id];
+      const part = partOf(slot, chosen[slot]);
       if (!part) continue;
       const rel = part.layers[covered && slot === 'hair' && layer === 'main' ? 'under' : layer];
       if (!rel) continue;
@@ -702,6 +728,7 @@ export function createDollHero(opts = {}) {
       readyAt,
       source: 'heroloom',
       outfit: outfitSnapshot(),
+      missingParts: [...missingParts],   // optional parts drawn through PART_FALLBACK (e.g. 'weapon.hammer' → sword)
     };
   }
 

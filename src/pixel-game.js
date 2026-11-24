@@ -3,8 +3,8 @@ import {createVillageNav} from './village-nav.js';
 import {WORLD,REGIONS,RING_ORDER,walkable,inVillage,regionAt,regionContains,regionEdge,regionCenter,randomRegionPoint,wildAt,nearestRingRoad,ringRoadPath,ringPointAt,onRingRoad,ringRoadDistance,ringRoadFar,RING_ROAD_HALF,RING_ROAD} from './overworld.js';
 import {VILLAGE_BOUNDS,EXITS,blockAt,BUILDING_NUDGE,BUILDING_SLOTS,blockCenter} from './village-grid.js';
 import {sfx} from './sfx.js';
-import { SKILLS, BUILDINGS, CLASSES, RARITIES, PROMOTE, TRAITS, MATERIALS, PRODUCTS, RECIPES, GEAR_SLOTS, EQUIP_SLOTS, GEAR_TIERS, GEAR_TIER_MAX, gearAt, DIFFICULTIES, CAMP, HUNT_ZONE, PILOT_ATTACK, PILOT_ORB, MERCHANT, TRADE_RESERVE, AI_ATTACK_LOCK, KITE, PROVOKE, MONSTER_RANGED, LEGACY_LAYOUT_V14, LEGACY_LAYOUT_V15, LEGACY_LAYOUT_V16, ART_LAYOUT_HISTORY, REGION_DENSITY, DEFAULT_REGION_DENSITY, MONSTER_POP, MONSTER_SPEED_MULT, MONSTER_ATTACK_RATE, EQUIPMENT, CLASS_STARTER, GEAR_DROP, gearItemView, gearGradeOf, dungeonGearGrade } from './pixel-data.js';
-import { SPECS, SPEC_BY_ID, STATUS_DEFS, SPEC_SWITCH_LV, SCHOOL_COLORS, defaultSpecOf, specsOf, specOf, unlockedSkills, skillSlotMult, skillSlotCd } from './pixel-skills.js';
+import { SKILLS, BUILDINGS, CLASSES, RARITIES, PROMOTE, TRAITS, MATERIALS, PRODUCTS, RECIPES, GEAR_SLOTS, EQUIP_SLOTS, GEAR_TIERS, GEAR_TIER_MAX, gearAt, DIFFICULTIES, CAMP, HUNT_ZONE, PILOT_ATTACK, PILOT_ORB, MERCHANT, TRADE_RESERVE, AI_ATTACK_LOCK, KITE, PROVOKE, MONSTER_RANGED, LEGACY_LAYOUT_V14, LEGACY_LAYOUT_V15, LEGACY_LAYOUT_V16, ART_LAYOUT_HISTORY, REGION_DENSITY, DEFAULT_REGION_DENSITY, MONSTER_POP, MONSTER_SPEED_MULT, MONSTER_ATTACK_RATE, EQUIPMENT, CLASS_STARTER, GEAR_DROP, gearItemView, gearGradeOf, dungeonGearGrade, recipeItemId, recipesForSlot, canWield, migrateGearId, craftWeaponFor, LEGACY_CRAFT_WEAPON, CRAFT_WEAPON_ITEMS, CLASS_WEAPON_TYPES, WEAPON_TYPES } from './pixel-data.js';
+import { SPECS, SPEC_BY_ID, STATUS_DEFS, SPEC_SWITCH_LV, SCHOOL_COLORS, defaultSpecOf, specsOf, specOf, unlockedSkills, heroSkills, skillSlotMult, skillSlotCd } from './pixel-skills.js';
 
 const mapById = list => Object.assign(Object.create(null), Object.fromEntries(list.map(item => [item.id, item])));
 const CLASS = mapById(CLASSES), BUILDING = mapById(BUILDINGS), RARITY = mapById(RARITIES), RECIPE = mapById(RECIPES);
@@ -12,7 +12,9 @@ const CLASS = mapById(CLASSES), BUILDING = mapById(BUILDINGS), RARITY = mapById(
 const emptyEquipment = () => Object.fromEntries(EQUIP_SLOTS.map(slot => [slot, false]));
 // 2026-11-16 裝備階級:鍛造庫存是「每格 × 每階」→ gearStock[slot] = { 1: n, 2: n, ..., 5: n }(舊存檔的數字 = 第 1 階的件數,見 restore)。
 const emptyTierStock = () => Object.fromEntries(GEAR_TIERS.map(t => [t.tier, 0]));
-const emptyGearStock = () => Object.fromEntries(EQUIP_SLOTS.map(slot => [slot, emptyTierStock()]));
+// 2026-11-24 鍛造庫存改成「每份配方 × 每階」:防具的配方 id = 格名(helm/chest…),武器格有五份(sword/hammer/bow/staff/dagger,
+// 類型打造時就決定)。舊存檔的 gearStock.weapon(沒有類型)讀檔時併到 sword(長劍),見 restore。
+const emptyGearStock = () => Object.fromEntries(RECIPES.map(r => [r.id, emptyTierStock()]));
 const clampTier = v => Math.min(GEAR_TIER_MAX, Math.max(1, Math.floor(Number(v)) || 1));
 // 庫存:數字(v2/v3/v4 舊格式)= 第 1 階;物件 = 各階件數
 function normalizeTierStock(raw) {
@@ -48,7 +50,7 @@ function gearBonus(h) {
     weapon = gearItemOf(g.weapon)?.tier === 'craft';
   } else {
     const eq = (h && h.equipment) || {}, legacyArmor = eq.armor === true;
-    if (eq.weapon === true) { atk += RECIPE.weapon.bonus; weapon = true; }
+    if (eq.weapon === true) { atk += RECIPE.sword.bonus; weapon = true; }   // 五種精鐵武器的攻擊相同
     for (const slot of GEAR_SLOTS) if (eq[slot] === true || legacyArmor) { hp += RECIPE[slot].hp || 0; def += RECIPE[slot].def || 0; }
   }
   return { atk, hp, def, weapon };
@@ -118,7 +120,7 @@ const QUESTS = [
   { title: '餐廳的第一爐麵包', description: '在餐廳累計製作 20 份餐點', target: 20, reward: { gold: 200, herb: 30, cloth: 30 }, metric: s => s.counts.foodCrafted },
   { title: '建立戰利品循環', description: '透過交易所向獵人收購 10 份材料', target: 10, reward: { gold: 250, ore: 25 }, metric: s => s.counts.traded },
   { title: '鐵匠爐火', description: '把鐵匠鋪升至 2 級', target: 2, reward: { gold: 300, ore: 40 }, metric: s => s.buildings.forge },
-  { title: '獵人的新武器', description: '製造 1 件精鐵武器，等待獵人返村選購', target: 1, reward: { gold: 150, gems: 3 }, metric: s => s.counts.weaponsCrafted },
+  { title: '獵人的新武器', description: '製造 1 把精鐵武器（任一類型），等待獵人返村選購', target: 1, reward: { gold: 150, gems: 3 }, metric: s => s.counts.weaponsCrafted },
   { title: '討伐森林領主', description: '召集獵人，擊敗 1 位森林領主', target: 1, reward: { gold: 500, gems: 10 }, metric: s => s.bossKills },
   { title: '地下城的門後', description: '建造地下城入口，完成 1 層三人探險', target: 1, reward: { gold: 500, leather: 40, flour: 100 }, metric: s => s.counts.dungeonWins },
   // ── 中期委託(2026-11-16,QUEST_REVISION 2):第 7 章打完到 Lv.100 轉世之間原本空好幾天,
@@ -331,7 +333,14 @@ export function createGame(saved = null) {
   // 補上真正的骰子:15% 機率 1.5 倍傷害(平均輸出 +7.5%)。
   const CRIT_CHANCE = 0.15, CRIT_MULT = 1.5;
   const rollCrit = () => random() < CRIT_CHANCE;
-  const effect = (type, p, extra = {}) => { state.effects.push({ id: id('fx'), type, x: p.x, z: p.z, age: 0, ...(p.type && extra.targetId != null ? { bodyType: p.type } : {}), ...extra }); if (state.effects.length > 100) state.effects.splice(0, state.effects.length - 100);
+  // 2026-11-24:技能自帶的打擊感(sk.impactFeel = { amp: 震動 px, ms: 震動毫秒, stop: 停格毫秒 }),排在命中那一刻(delay 秒後,世界端倒數)。
+  // 只給畫面用(state.shake / state.hitstop 不存檔),不動傷害與時序。同一 tick 已有更大的震動/停格就不蓋掉。
+  function impactFeel(f, delay = 0) {
+    const d = Math.max(0, delay || 0), prev = state.shake, hs = state.hitstop;
+    if (f.amp > 0 && f.ms > 0 && !(prev && prev.t === state.time && prev.amp > f.amp)) state.shake = { amp: f.amp, ms: f.ms, seq: (prev?.seq || 0) + 1, t: state.time, delay: d };
+    if (f.stop > 0 && !(hs && hs.t === state.time && hs.ms > f.stop)) state.hitstop = { ms: f.stop, seq: (hs?.seq || 0) + 1, t: state.time, delay: d };
+  }
+  const effect = (type, p, extra = {}) => { const fxObj = { id: id('fx'), type, x: p.x, z: p.z, age: 0, ...(p.type && extra.targetId != null ? { bodyType: p.type } : {}), ...extra }; state.effects.push(fxObj); if (state.effects.length > 100) state.effects.splice(0, state.effects.length - 100);
     // T95:重擊的鏡頭震動請求。只給畫面用,不動傷害數字與戰鬥時序;state.shake 不存檔(serialize 會清成 null)。
     // 振幅表(1440x900 DPR1 基準,世界端再乘 scale/baseScale):技能命中 3.5px/220ms、王打中獵人 4.5px/260ms、
     // 暴擊 2px/140ms、普通命中 1px/90ms。同一 tick 兩個事件取大的,不相加。
@@ -342,7 +351,8 @@ export function createGame(saved = null) {
       : extra.value > 0 && ['hit', 'arrow', 'spell', 'slash', 'holy'].includes(type) ? 1 : 0;
     if (amp > 0) {
       const ms = amp >= 4.5 ? 260 : amp === 3.5 ? 220 : amp === 2 ? 140 : 90, prev = state.shake;
-      if (!(prev && prev.t === state.time && prev.amp >= amp)) state.shake = { amp, ms, seq: (prev?.seq || 0) + 1, t: state.time };
+      // 同一 tick 已排了技能自帶的延遲打擊感(impactFeel,delay > 0)→ 那一下才是這招的震動,不被施放當下的通用震動蓋掉
+      if (!(prev && prev.t === state.time && (prev.amp >= amp || prev.delay > 0))) state.shake = { amp, ms, seq: (prev?.seq || 0) + 1, t: state.time };
     }
     // T106:重擊的停格請求(hitstop)。和震動用同一張事件表:技能命中/王打中獵人 90ms、暴擊 60ms,普通命中不停。
     // 只給畫面用——世界端只是「這幾毫秒不重畫」,state.time 與傷害結算照常,戰鬥時序與平衡不變。
@@ -360,6 +370,7 @@ export function createGame(saved = null) {
       else if (type === 'level') sfx('level');
       else if (type === 'death') sfx('place', { gain: 0.7 });
     }
+    return fxObj;   // 2026-11-23:回傳特效物件 → 魔物命中延遲落地時(landHits)把顯示的傷害改成聖盾減免後的實際值
   };
   // 魔物近戰的命中延遲 = sheet 的命中格時間(impact - release 格 × 每格秒數,跟 pixel-world 的 monsterSheetPose 同一組 meta)。
   // 以前寫死 0.1 秒;現在打在「出手後 impact-release 格」= 0.075 秒(22 隻魔物都是 release 4 / impact 5 / .075 秒)。
@@ -680,11 +691,13 @@ export function createGame(saved = null) {
       h.gear = {};
       const migratedStarter = raw.classId === 'traveler' ? (CLASS_STARTER[h.classId] || CLASS_STARTER.berserker) : null;
       for (const slot of EQUIP_SLOTS) {
-        const inst = raw.gear[slot], item = inst && typeof inst.itemId === 'string' ? EQUIP[inst.itemId] : null;
+        // 2026-11-24 退役/拆分的物品 id 先換新(聖騎士劍 → 戰錘;舊精鐵武器 → 這位職業的類型),階級照帶
+        const inst = raw.gear[slot], id = inst && typeof inst.itemId === 'string' ? migrateGearId(inst.itemId, h.classId) : null, item = id ? EQUIP[id] : null;
         if (item && item.slot === slot) h.gear[slot] = newGearItem(item.id, inst.grade);
         else if (migratedStarter && migratedStarter[slot] && EQUIP[migratedStarter[slot]]) h.gear[slot] = newGearItem(migratedStarter[slot]);
         else h.gear[slot] = null;
       }
+      evictUnwieldable(h);
       syncGear(h); return;
     }
     const eq = (raw && raw.equipment) || {}, legacyArmor = eq.armor === true, tiers = raw && raw.gearTier && typeof raw.gearTier === 'object' ? raw.gearTier : {};
@@ -693,9 +706,20 @@ export function createGame(saved = null) {
     for (const slot of EQUIP_SLOTS) {
       const v = eq[slot], owned = v === true || (typeof v === 'number' && v >= 1) || (slot !== 'weapon' && legacyArmor);
       if (!owned) continue;
-      h.gear[slot] = newGearItem('craft_' + slot, typeof v === 'number' ? v : tiers[slot] || 1); upgraded = true;
+      h.gear[slot] = newGearItem(craftItemFor(slot, h.classId), typeof v === 'number' ? v : tiers[slot] || 1); upgraded = true;
     }
     if (upgraded) syncGear(h);
+  }
+  // 某一格的鐵匠鋪升級件物品 id:武器 = 這個職業能拿的精鐵武器類型,防具 = craft_<格>
+  function craftItemFor(slot, classId) { return slot === 'weapon' ? craftWeaponFor(classId) : 'craft_' + slot; }
+  // 2026-11-24 職業武器限制:讀檔時手上拿著職業不能用的武器(舊存檔可能從倉庫給聖騎士穿過劍)→ 原物放回村莊倉庫(階級照帶),
+  // 換上職業初始武器(0 數值,外觀不會變空手)。只在讀檔時呼叫:state.gearStorage 那時已經還原好了。
+  function evictUnwieldable(h) {
+    const inst = h.gear && h.gear.weapon;
+    if (!inst || canWield(inst.itemId, h.classId)) return;
+    state.gearStorage.push(inst);
+    const starter = (CLASS_STARTER[h.classId] || {}).weapon;
+    h.gear.weapon = starter && EQUIP[starter] ? newGearItem(starter) : null;
   }
 
 
@@ -703,6 +727,7 @@ export function createGame(saved = null) {
   // junkable(2026-11-18):野外掉落(每隻 2.5% 的初始件)與首領寶箱(第 Ⅰ 階)若是舊裝備,照「自動整理」直接賣出/分解,不再塞滿倉庫(30 天約 200 件);
   //   地下城寶箱(依層數給階級)與委託獎勵不套用。自動整理掉的不寫日誌(野外掉落很頻繁)。
   function grantGear(itemId, sourceLabel = '戰利品', grade, junkable = false) {
+    if (itemId === LEGACY_CRAFT_WEAPON) itemId = questWeaponItem();
     if (!EQUIP[itemId]) return null;
     const inst = newGearItem(itemId, grade), item = gearItemOf(inst);
     if (junkable && (state.autoJunk === 'sell' || state.autoJunk === 'salvage') && isOldGear(inst)) { stashReplaced(inst); return inst; }
@@ -714,7 +739,19 @@ export function createGame(saved = null) {
     const rule = GEAR_DROP[kind];
     if (!rule || !rule.pool || !rule.pool.length) return null;
     if (rule.chance != null && random() >= rule.chance) return null;
-    return rule.pool[Math.floor(random() * rule.pool.length)];
+    // 2026-11-24 'craft_weapon' 是「某一把精鐵武器」的記號:用同一個亂數的小數部分挑類型(不多抽亂數 → 其他掉落結果不變)
+    const r = random() * rule.pool.length, id = rule.pool[Math.floor(r)];
+    if (id !== LEGACY_CRAFT_WEAPON) return id;
+    const types = Object.values(CRAFT_WEAPON_ITEMS);
+    return types[Math.min(types.length - 1, Math.floor((r - Math.floor(r)) * types.length))];
+  }
+  // 委託獎勵的「某一把精鐵武器」:給村裡獵人最多人能拿的類型(同數 → RECIPES 順序在前的;沒有獵人 → 長劍)
+  function questWeaponItem() {
+    const n = {};
+    for (const h of state.hunters || []) { const id = craftWeaponFor(h.classId); n[id] = (n[id] || 0) + 1; }
+    let best = CRAFT_WEAPON_ITEMS.sword, top = 0;
+    for (const id of Object.values(CRAFT_WEAPON_ITEMS)) if ((n[id] || 0) > top) { best = id; top = n[id]; }
+    return best;
   }
 
   // 修煉報價:學費(個人金幣)與這次會得到的經驗;經驗＝目前等級往上「levels 級份」(小數部分照比例),到 Lv.100 為止
@@ -1024,8 +1061,10 @@ export function createGame(saved = null) {
   function tradeAvailable(h) { return state.buildings.trading > 0 && MATERIAL_KEYS.some(key => h.inventory[key] > 0 && state.tradeRequests[key] > 0 && tradeBudget(key) >= MATERIALS[key].price); }
   // 這一格現在能買到的最好裝備:庫存裡比身上高階、買得起的最高階(身上已有升級件時要留 GEAR_RESERVE 付吃住);沒有 → null
   // 身上是初始件(0 數值)或空格 = 第 0 階,任何一階都算升級。
+  // 2026-11-24 武器配方分類型:獵人只買自己職業能拿的類型(聖騎士只買戰錘、狂戰士只買長劍…),庫存看這份配方自己的。
   function gearOffer(h, recipe) {
-    const own = gearTierOf(h, recipe.type), stock = state.gearStock[recipe.type];
+    if (recipe.type === 'weapon' && !canWield(recipeItemId(recipe), h.classId)) return null;
+    const own = gearTierOf(h, recipe.type), stock = state.gearStock[recipe.id];
     for (let t = GEAR_TIER_MAX; t > own; t--) { if (!(stock?.[t] > 0)) continue; const g = gearAt(recipe, t); if (h.gold >= g.price + (own ? GEAR_RESERVE : 0)) return g; }
     return null;
   }
@@ -1122,10 +1161,10 @@ export function createGame(saved = null) {
     for (const recipe of RECIPES) {
       const g = gearOffer(h, recipe); if (!g) continue;
       const slot = recipe.type, previous = h.gear[slot], upgrade = gearTierOf(h, slot) > 0;
-      h.gold -= g.price; state.gold += g.price; payLedger(h, g.price); state.gearStock[slot][g.tier]--;
+      h.gold -= g.price; state.gold += g.price; payLedger(h, g.price); state.gearStock[recipe.id][g.tier]--;
       // 換下來的舊件(初始件或低階升級件)進村莊倉庫,不是消失:玩家可以拿去賣、拆,或給別的獵人穿
       if (previous) stashReplaced(previous);
-      h.gear[slot] = newGearItem('craft_' + slot, g.tier);
+      h.gear[slot] = newGearItem(recipeItemId(recipe), g.tier);
       syncGear(h); state.counts.gearSold++; state.counts.gearIncome += g.price; if (upgrade) state.counts.gearUpgrades++;
       // 離線外推:裝備是一次性的(庫存離線不會補),取樣期買的不能乘上倍率重複算(見 offlineFinish)
       if (dgLedger) { const w = !!wandererOf(h); dgLedger.gearPay[w ? 'wanderPay' : 'hunterPay'] += g.price; if (w) dgLedger.gearWander += g.price; else dgLedger.gear[h.id] = (dgLedger.gear[h.id] || 0) + g.price; }
@@ -1285,10 +1324,12 @@ export function createGame(saved = null) {
     h.skillCd = cds[0]; h._skillCdShadow = cds[0];
   }
 
+  // buff:{ val, left, at, prevented }。at = 這次「套上」的時刻(續上同一個還沒結束的 buff 也會更新 → 畫面再閃一下);
+  // prevented = 聖盾這一段(從套上到結束,中途續上不歸零)實際擋掉的傷害總和。buffs 不存檔(serialize 會丟掉),舊存檔不受影響。
   function applyBuff(unit, key, val, dur) {
     if (!unit || !(dur > 0)) return;
-    const b = (unit.buffs ||= {});
-    b[key] = { val, left: Math.max(b[key]?.left || 0, dur) };
+    const b = (unit.buffs ||= {}), cur = b[key]?.left > 0 ? b[key] : null;
+    b[key] = { val, left: Math.max(cur?.left || 0, dur), at: state.time, prevented: cur?.prevented || 0 };
   }
   function applyStatus(unit, statusId, dur, src = null, isBoss = false) {
     if (!unit || !(dur > 0)) return false;
@@ -1360,13 +1401,31 @@ export function createGame(saved = null) {
     return m;
   };
   const unitVulnMult = u => 1 + (u?.buffs?.vuln?.val || 0);
-  const unitDrMult = (u, isRangedHit = false) => {
-    let m = 1;
-    if (u?.buffs?.shield?.left > 0) m *= Math.max(0.2, 1 - (u.buffs.shield.val || 0));
+  // 獵人／流浪英雄受到的減傷倍率(乘在「魔物攻擊 − 防禦」之後):聖盾 × 折射力場(只擋遠程) × 霸體。
+  // withShield=false → 同一擊「沒有聖盾」時的倍率,用來算聖盾實際擋掉多少(mitigate)。
+  const shieldMult = u => (u?.buffs?.shield?.left > 0 ? Math.max(0.2, 1 - (u.buffs.shield.val || 0)) : 1);
+  const unitDrMult = (u, isRangedHit = false, withShield = true) => {
+    let m = withShield ? shieldMult(u) : 1;
     if (isRangedHit && u?.buffs?.rangedDr?.left > 0) m *= Math.max(0.2, 1 - (u.buffs.rangedDr.val || 0));
     if (u?.statuses?.petrified) m *= 0.55;
     return m;
   };
+  // 2026-11-23 聖盾祈禱「確實計算減免」:所有打到獵人／流浪英雄的傷害都走這裡(野外近戰/遠程 landHits、地下城、競技場、持續傷害)。
+  //   dmg = 有聖盾的實際傷害;bare = 同一擊沒有聖盾時的傷害(其他減傷照算);prevented = bare − dmg = 聖盾擋掉的量。
+  //   聖盾只乘一次(unitDrMult 內),呼叫端不要再自己乘 → 不會重複減免。純計算:扣血成功後再呼叫 recordShield 記帳。
+  function mitigate(u, raw, isRangedHit = false) {
+    const dmg = Math.max(1, Math.round(raw * unitDrMult(u, isRangedHit)));
+    if (!(u?.buffs?.shield?.left > 0)) return { dmg, prevented: 0 };
+    const bare = Math.max(1, Math.round(raw * unitDrMult(u, isRangedHit, false)));
+    return { dmg, prevented: Math.max(0, bare - dmg) };
+  }
+  // 把聖盾擋掉的量記在 buff 上,並在受擊者身上浮出「減免 N」(跟傷害數字同一套 damageText;不出音效、不震鏡頭)。
+  function recordShield(u, prevented, { show = true, delay = 0 } = {}) {
+    const sh = u?.buffs?.shield;
+    if (!(prevented > 0) || !sh) return;
+    sh.prevented = (sh.prevented || 0) + prevented;
+    if (show) effect('block', u, { text: `減免 ${prevented}`, color: '#ffe08a', lift: 9, delay });
+  }
   const unitMisses = u => !!(u?.statuses?.confused && random() < (u.type === 'boss' ? 0.2 : 0.4));
   function consumeWakeShatter(u, isHeavySkill = false) {
     if (!u?.statuses) return 1;
@@ -1374,14 +1433,16 @@ export function createGame(saved = null) {
     if (u.statuses.frozen && isHeavySkill) return 1.2;
     return 1;
   }
+  function tickBuffs(unit, dt) {
+    if (!unit?.buffs) return;
+    for (const k of Object.keys(unit.buffs)) {
+      unit.buffs[k].left -= dt;
+      if (unit.buffs[k].left <= 0) delete unit.buffs[k];
+    }
+  }
   function tickUnitStatuses(unit, dt, isEnemy = false, isDungeonFoe = false) {
     if (!unit || unit.hp <= 0) return;
-    if (unit.buffs) {
-      for (const k of Object.keys(unit.buffs)) {
-        unit.buffs[k].left -= dt;
-        if (unit.buffs[k].left <= 0) delete unit.buffs[k];
-      }
-    }
+    tickBuffs(unit, dt);
     const st = unit.statuses; if (!st) return;
     for (const k of Object.keys(st)) {
       const s = st[k], def = STATUS_DEFS[k];
@@ -1398,9 +1459,13 @@ export function createGame(saved = null) {
             if (isEnemy) dmg = Math.max(1, Math.min(Math.round((s.atk || 20) * 0.9), Math.round(unit.maxHp * (unit.type === 'boss' ? 0.006 : 0.025))));
             else dmg = Math.max(1, Math.round(unit.maxHp * 0.015));
           }
+          // 2026-11-23:獵人身上的持續傷害(流血/灼燒/中毒)也吃聖盾與霸體減傷(以前完全不減);折射力場只擋遠程,這裡不算。
+          let prevented = 0;
+          if (!isEnemy) ({ dmg, prevented } = mitigate(unit, dmg, false));
           if (!isEnemy && state.difficulty === 0 && unit.hp - dmg <= 1) dmg = Math.max(0, unit.hp - 1);
           if (dmg > 0) {
             unit.hp = Math.max(0, unit.hp - dmg);
+            if (prevented > 0) recordShield(unit, prevented, { show: !isDungeonFoe });
             if (!isDungeonFoe) effect('dot', unit, { value: dmg, color: def.color });
             if (unit.hp <= 0) {
               if (isEnemy && !isDungeonFoe && !unit.rewarded) {
@@ -1454,10 +1519,10 @@ export function createGame(saved = null) {
     'melee/claw-swipe-iso', 'melee/double-slash-iso', 'melee/uppercut-iso', 'melee/dagger-flurry-iso',
     'melee/spear-sweep-iso', 'melee/whip-crack-iso', 'melee/hammer-smash-iso', 'melee/scythe-reap-iso',
     'fire/fire-ring-iso', 'nature/quake-iso', 'holy/divine-shield-iso',
-    'scifi/force-field-iso', 'nature/thorns-iso', 'ice/ice-spikes-iso', 'ice/frost-nova-iso',
+    'scifi/force-field-iso', 'nature/thorns-iso', 'nature/thorn-aegis-burst-iso', 'ice/ice-spikes-iso', 'ice/frost-nova-iso',
     'lightning/charge-up-iso', 'lightning/chain-lightning-iso', 'projectiles/magic-missile-iso',
     'arcane/arcane-missiles-iso', 'nature/leaf-storm-iso', 'nature/earth-spike-iso',
-    'scifi/warp-iso', 'arcane/magic-circle-cast-iso',
+    'scifi/warp-iso', 'arcane/magic-circle-cast-iso', 'melee/holy-arc-iso', 'melee/iron-sweep-iso', 'melee/steel-arc-iso',
   ]);
   const IMPACT_FAMILY_FX = {
     blade: 'impacts/blade-hit-iso',
@@ -1533,6 +1598,13 @@ export function createGame(saved = null) {
   }
 
   // 智慧瞄準:直線帶(band)挑貫穿最多敵人的方位、範圍/黑洞/時停(aoe/pull/timeStop)挑最密集聚落(首領優先,純計算不擲骰)
+  // 前方扇形(弧光斬)判定:施放者為圓心、朝 (ax, az) ± arcDeg/2、半徑 sk.radius;貼身(< 0.6 格)或沒有方向的一律算進去。
+  // castSkill 結算與 AI 瞄準(bestAimForSkill)共用,畫面上的弧就是判定的弧。
+  function arcContains(h, ax, az, sk, e) {
+    const d = distance(e, h); if (d > (sk.radius || 2.5)) return false; if (d < 0.6 || (ax === 0 && az === 0)) return true;
+    let da = Math.atan2(e.z - h.z, e.x - h.x) - Math.atan2(az, ax); da = Math.atan2(Math.sin(da), Math.cos(da));
+    return Math.abs(da) <= (sk.arcDeg || 150) * Math.PI / 360;
+  }
   function bestAimForSkill(h, target, sk, alive) {
     if (!alive.length) return target;
     const maxR = Math.max(h.range || 1.75, 4.5) + 1.5;
@@ -1545,6 +1617,17 @@ export function createGame(saved = null) {
         const dx = c.x - h.x, dz = c.z - h.z;
         let sc = 0;
         for (const e of alive) if (bandContains(h, dx, dz, bLen, bHw, e)) sc += e.type === 'boss' ? 2.5 : 1;
+        if (c === target) sc += 0.05;
+        if (sc > bestScore) { bestScore = sc; best = c; }
+      }
+      return best;
+    }
+    // 2026-11-24 弧光斬(arc):朝每一隻候選揮一次,算弧裡有幾隻(首領 2.5)→ 朝怪最密的方向揮
+    if (sk.kind === 'arc') {
+      for (const c of cands) {
+        const dx = c.x - h.x, dz = c.z - h.z;
+        let sc = 0;
+        for (const e of alive) if (arcContains(h, dx, dz, sk, e)) sc += e.type === 'boss' ? 2.5 : 1;
         if (c === target) sc += 0.05;
         if (sc > bestScore) { bestScore = sc; best = c; }
       }
@@ -1571,7 +1654,7 @@ export function createGame(saved = null) {
     setSlotCd(h, slot, cd);
     h.attackTimer = (sk.lock ?? .7) + .4; h.skillAt = t; h.skillName = sk.name;
     let chosenTarget = target;
-    if (!opts.empty && opts.ai !== false && (sk.kind === 'band' || sk.kind === 'aoe' || sk.kind === 'pull' || sk.kind === 'timeStop')) {
+    if (!opts.empty && opts.ai !== false && (sk.kind === 'band' || sk.kind === 'arc' || sk.kind === 'aoe' || sk.kind === 'pull' || sk.kind === 'timeStop')) {
       const alive0 = state.enemies.filter(e => e.hp > 0 && !e.rewarded);
       chosenTarget = bestAimForSkill(h, target, sk, alive0) || target;
     }
@@ -1659,11 +1742,9 @@ export function createGame(saved = null) {
         shielded = allies;
         for (const u of allies) applyBuff(u, 'shield', sk.shieldDr, sk.shieldDur);
       }
-      effect('livefx', h, { fxId: sk.fxId, school: sk.school, sourceX: h.x, sourceZ: h.z, tx: h.x, tz: h.z, casterId: h.id, actorId: h.id, casterAnchored: true, delay: 0, text: `+${v}`, color: '#9cf09a', healSfx: true, value: 0 });
-      // 每位套到聖盾的隊友也展開專屬聖盾光罩(最多 3 名最近隊友,微錯開進場)
-      for (const u of shielded.filter(u => u !== h).sort((a, b) => distance(h, a) - distance(h, b)).slice(0, 3)) {
-        effect('livefx', u, { fxId: sk.fxId, school: sk.school, sourceX: h.x, sourceZ: h.z, tx: u.x, tz: u.z, casterId: h.id, actorId: u.id, casterAnchored: true, delay: Math.min(0.35, distance(h, u) * 0.08), value: 0 });
-      }
+      // 2026-11-23 聖盾跟著人走:光罩不再在施放點播一次就留在原地 —— 畫面端(pixel-world syncLiveFx)依每位單位身上的
+      //   buffs.shield 掛一個跟隨光罩,聖盾到期或倒下就破掉。這裡的 livefx 只帶回血數字與音效(followBuff → 畫面不另外生一個)。
+      effect('livefx', h, { fxId: sk.fxId, followBuff: 'shield', school: sk.school, sourceX: h.x, sourceZ: h.z, tx: h.x, tz: h.z, casterId: h.id, actorId: h.id, casterAnchored: true, delay: 0, text: `+${v}`, color: '#9cf09a', healSfx: true, value: 0, shielded: shielded.map(u => u.id) });
       return true;
     }
 
@@ -1701,6 +1782,10 @@ export function createGame(saved = null) {
     if (!opts.empty) {
       if (sk.kind === 'selfAoe') {
         hitList = alive.filter(e => distance(e, h) <= (sk.radius || 3.0));
+      } else if (sk.kind === 'arc') {
+        // 前方扇形(弧光斬):施放者為圓心、朝瞄準點 ± arcDeg/2;貼身(< 0.6 格)的一律算進去
+        const ax = aimPt.x - h.x, az = aimPt.z - h.z;
+        hitList = alive.filter(e => arcContains(h, ax, az, sk, e));
       } else if (sk.kind === 'band') {
         const [bLen, bHw] = sk.band || [5.0, 1.1];
         const dx = aimPt.x - h.x, dz = aimPt.z - h.z;
@@ -1722,7 +1807,7 @@ export function createGame(saved = null) {
       } else if (target && target.hp > 0) {
         hitList = [target];
       }
-      if (target && target.hp > 0 && !hitList.includes(target) && sk.kind !== 'selfAoe' && sk.kind !== 'band') hitList.unshift(target);
+      if (target && target.hp > 0 && !hitList.includes(target) && sk.kind !== 'selfAoe' && sk.kind !== 'band' && sk.kind !== 'arc') hitList.unshift(target);
     }
 
     // 疾風箭雨:維持三支風箭判定 (state.shots) + 實時 CQ 落葉疾風 (livefx)
@@ -1742,7 +1827,8 @@ export function createGame(saved = null) {
     }
 
     // 主視覺特效 (全部走實時 CQ livefx)
-    const isCasterAnchored = CASTER_ANCHOR_FX.has(useFxId);
+    // anchor:'target' = 技能自己指定落在瞄準點(審判巨錘:錘頭真的砸在目標身上,傷害/暈眩/嘲諷圓心 = 同一個 aimPt)
+    const isCasterAnchored = sk.anchor === 'target' ? false : CASTER_ANCHOR_FX.has(useFxId);
     const fxAnchor = isCasterAnchored ? h : aimPt;
     const needsTargets = (sk.kind === 'chain' || sk.id === 'arcane_missiles' || sk.id === 'magic_missile');
     const fxTargets = needsTargets
@@ -1752,14 +1838,17 @@ export function createGame(saved = null) {
       fxId: useFxId, school: sk.school, sourceX: h.x, sourceZ: h.z, tx: aimPt.x, tz: aimPt.z,
       targets: fxTargets, spread: sk.targets || undefined, casterId: h.id, actorId: isCasterAnchored ? h.id : (target?.id || null),
       casterAnchored: isCasterAnchored, delay: 0, finisher: !!sk.finisher, value: 0,
+      ...(sk.fxReach ? { reachWorld: sk.radius } : {}),
+      ...(sk.arcDeg ? { arcDeg: sk.arcDeg } : {}),   // 震波半徑 = 技能判定半徑(畫面換算成特效像素,見 pixel-world spawnLiveEffect)
     });
     if (sk.secondaryFxId) {
       const secCaster = CASTER_ANCHOR_FX.has(sk.secondaryFxId);
       const secAnchor = secCaster ? h : aimPt;
       effect('livefx', secAnchor, { fxId: sk.secondaryFxId, school: sk.school, sourceX: h.x, sourceZ: h.z, tx: aimPt.x, tz: aimPt.z, casterId: h.id, actorId: secCaster ? h.id : (target?.id || null), casterAnchored: secCaster, delay: Math.min(0.22, sk.delay ?? 0.12), value: 0 });
     }
+    if (sk.impactFeel) impactFeel(sk.impactFeel, sk.delay ?? release);   // 砸地那一刻的震動＋停格(震地掃)
     if (sk.finisher && sk.beat) {
-      effect('livefx', aimPt, { fxId: 'impacts/finisher-crash-iso', school: sk.school, sourceX: h.x, sourceZ: h.z, tx: aimPt.x, tz: aimPt.z, delay: sk.delay ?? 0.24, beat: sk.beat, finisher: true, value: 0 });
+      effect('livefx', aimPt, { fxId: 'impacts/finisher-crash-iso', school: sk.school, sourceX: h.x, sourceZ: h.z, tx: aimPt.x, tz: aimPt.z, delay: sk.delay ?? 0.24, beat: sk.beat, finisher: true, value: 0, ...(sk.beatScale ? { fxScale: sk.beatScale } : {}) });
     }
 
     const delay = sk.delay ?? release;
@@ -1786,6 +1875,7 @@ export function createGame(saved = null) {
           if (!isBoss) applyBuff(e, 'timeStop', 1, sk.stopDur);
           if (sk.vulnBonus) applyBuff(e, 'vuln', sk.vulnBonus, sk.stopDur + 0.5);
         }
+        if (sk.breakVuln && sk.breakDur) applyBuff(e, 'vuln', Math.max(e.buffs?.vuln?.left > 0 ? e.buffs.vuln.val : 0, sk.breakVuln), sk.breakDur);   // 破甲:受到傷害 +N%
         if (sk.knockback) pushUnit(e, e.x - h.x, e.z - h.z, sk.knockback);
         if (sk.kind === 'pull' && sk.pullStrength) pushUnit(e, aimPt.x - e.x, aimPt.z - e.z, Math.min(sk.pullStrength, Math.max(0, distance(e, aimPt) - 0.6)));
       } else {
@@ -1853,7 +1943,7 @@ export function createGame(saved = null) {
     kobold: '礦穴地精', boulder: '岩塊怪', goat: '鐵角羊', mummy: '木乃伊', cactus: '仙人掌怪', scorpion: '沙蠍',
     floraspirit: '花妖精', birchling: '白樺樹精', stag: '白樺雄鹿' };
   function downWanderer(w, by) {
-    w.hp = 0; w.reviveTimer = 9; w.task = null; w.route = []; w.targetId = null; w.status = '倒下';
+    w.hp = 0; w.reviveTimer = 9; w.task = null; w.route = []; w.targetId = null; w.status = '倒下'; w.buffs = {};
     w.mood = Math.max(0, w.mood - 10); state.wanderDowns = (state.wanderDowns || 0) + 1;
     effect('warning', w);
     log(`流浪英雄 ${w.name} 被${ENEMY_NAME[by?.type] || '魔物'}打倒，在野外倒地不起。`, 'warning');
@@ -1863,6 +1953,7 @@ export function createGame(saved = null) {
   const recentDowns = [];
   function died(h, by) {
     h.hp = 0; h.reviveTimer = 8; h.status = '復活中'; h.targetId = null; h.route = []; h.mount = null;   // 倒地自動下坐騎
+    h.buffs = {};   // 2026-11-23:倒下就失去聖盾/荊棘等增益(以前 buff 停在倒下那一刻,復活後還在)
     if (h.task !== 'dungeon' && h.task !== 'arena') h.task = 'revive';
     h.mood = Math.max(0, h.mood - 12); effect('warning', h);
     state.counts.deaths++;
@@ -2172,7 +2263,7 @@ export function createGame(saved = null) {
     if (sk.nukeChance && (h.rebirths || 0) >= 1 && random() < sk.nukeChance) mult *= 1.25;
     if (sk.selfStatus && sk.selfStatusDur) applyStatus(h, sk.selfStatus, sk.selfStatusDur, h, false);
     if (sk.thornsPct && sk.thornsDur) applyBuff(h, 'thorns', sk.thornsPct, sk.thornsDur);
-    const hitList = (sk.kind === 'aoe' || sk.kind === 'selfAoe' || sk.kind === 'band' || sk.kind === 'pull' || sk.kind === 'timeStop') ? live
+    const hitList = (sk.kind === 'aoe' || sk.kind === 'selfAoe' || sk.kind === 'arc' || sk.kind === 'band' || sk.kind === 'pull' || sk.kind === 'timeStop') ? live
       : (sk.kind === 'multi' || sk.kind === 'chain') ? live.slice(0, sk.targets || 3) : [live[0]];
     const defFactor = sk.armorPen ? (1 + sk.armorPen * 0.35) : 1;
     const critBonus = forceCrit ? CRIT_MULT : 1;
@@ -2187,6 +2278,7 @@ export function createGame(saved = null) {
       f.hp = Math.max(0, f.hp - dmg); dgEvent('skill', h.id, f.id, dmg, h.classId);
       if (f.hp > 0) {
         if (sk.status && sk.statusDur) applyStatus(f, sk.status, sk.statusDur, h, !!f.big);
+        if (sk.breakVuln && sk.breakDur) applyBuff(f, 'vuln', Math.max(f.buffs?.vuln?.left > 0 ? f.buffs.vuln.val : 0, sk.breakVuln), sk.breakDur);
         if (sk.kind === 'timeStop' && sk.stopDur) {
           if (!f.big) applyBuff(f, 'timeStop', 1, sk.stopDur);
           if (sk.vulnBonus) applyBuff(f, 'vuln', sk.vulnBonus, sk.stopDur + 0.5);
@@ -2257,10 +2349,11 @@ export function createGame(saved = null) {
       const up = party.filter(h => h.hp > 0), front = up.filter(h => !isRanged(h)), pool = front.length ? front : up;
       const tg = pool.length ? dgPick(pool, random()) : null; if (!tg) break;
       const rawDmg = Math.max(2, Math.round(f.attack * unitAtkMult(f) - tg.defense * unitDefMult(tg) * 0.6));
-      const dmg = Math.max(1, Math.round(rawDmg * unitDrMult(tg, !!f.ranged)));
+      const { dmg, prevented } = mitigate(tg, rawDmg, !!f.ranged);
       // 緊急撤退(2026-11-17):這一擊會打倒人 → 小隊在挨打前撤退(同 retreatDungeon:本層沒有獎勵、冷卻 10 秒、帳本不記)。
       if (dmg >= tg.hp) { endDungeon(false, true, `${tg.name}快撐不住了，小隊從地下城第 ${d.floor} 層緊急撤退（本層沒有獎勵）。`); return; }
       tg.hp -= dmg;
+      if (prevented > 0) { recordShield(tg, prevented, { show: false }); dgEvent('block', f.id, tg.id, prevented, f.ranged ? f.type : null); }   // 地下城條上浮「減免 N」
       if (!f.ranged && tg.buffs?.thorns?.left > 0) f.hp = Math.max(0, f.hp - Math.max(1, Math.round(dmg * tg.buffs.thorns.val)));
       dgEvent('hurt', f.id, tg.id, dmg, f.ranged ? f.type : null);
     }
@@ -2370,8 +2463,9 @@ export function createGame(saved = null) {
     if (a.attackTimer === 0) {
       a.attackTimer = 1.1; const target = alive[Math.floor(random() * alive.length)];
       const raw = Math.max(3, arenaFoeAtk(a.wins) - target.defense);
-      const damage = Math.max(1, Math.round(raw * unitDrMult(target, false)));
+      const { dmg: damage, prevented } = mitigate(target, raw, false);
       target.hp = Math.max(0, target.hp - damage); effect('hit', target, { value: damage });
+      recordShield(target, prevented);
       if (target.buffs?.thorns?.left > 0) {
         const ref = Math.max(1, Math.round(damage * target.buffs.thorns.val));
         a.enemyHp = Math.max(0, a.enemyHp - ref);
@@ -2456,8 +2550,10 @@ export function createGame(saved = null) {
       const ph = pendingHits[i]; if (state.time < ph.at) continue; pendingHits.splice(i, 1);
       const t = state.hunters.find(h => h.id === ph.id) || (state.wanderers || []).find(w => w.id === ph.id);
       if (!t || t.hp <= 0 || t.task === 'dungeon' || t.task === 'arena') continue;
-      const dmg = Math.max(1, Math.round(ph.damage * unitDrMult(t, !!ph.ranged)));
+      const { dmg, prevented } = mitigate(t, ph.damage, !!ph.ranged);
       t.hitAt = state.time; t.hitFromX = ph.fromX; t.hitFromZ = ph.fromZ; t.hp = Math.max(0, t.hp - dmg);
+      if (ph.fx) ph.fx.value = dmg;   // 出手時排的傷害數字(延遲顯示)改成落地這一刻的實際傷害(聖盾/力場/霸體減免後)
+      recordShield(t, prevented);
       if (!ph.ranged && t.buffs?.thorns?.left > 0 && ph.enemyId) {
         const atkE = state.enemies.find(e => e.id === ph.enemyId && e.hp > 0 && !e.rewarded);
         if (atkE) {
@@ -2745,8 +2841,8 @@ export function createGame(saved = null) {
           if (unitMisses(enemy)) { effect('dot', enemy, { text: '落空', color: '#d89eff' }); continue; }
           const damage = Math.max(2, Math.round(enemy.attack * unitAtkMult(enemy) - target.defense * unitDefMult(target) * 0.7)), land = rng.release + d / rng.speed;
           enemy.atkAt = state.time; enemy.atkX = target.x; enemy.atkZ = target.z;
-          pendingHits.push({ id: target.id, damage, at: state.time + land, by: enemy.type, enemyId: enemy.id, ranged: true, fromX: enemy.x, fromZ: enemy.z });
-          effect('mshot', target, { sourceX: enemy.x, sourceZ: enemy.z, delay: land, release: rng.release, by: enemy.type, shot: rng.shot, value: damage, color: '#ff8a6e' });
+          const shotFx = effect('mshot', target, { sourceX: enemy.x, sourceZ: enemy.z, delay: land, release: rng.release, by: enemy.type, shot: rng.shot, value: damage, color: '#ff8a6e' });
+          pendingHits.push({ id: target.id, damage, at: state.time + land, by: enemy.type, enemyId: enemy.id, ranged: true, fromX: enemy.x, fromZ: enemy.z, fx: shotFx });
         }
         continue;
       }
@@ -2778,8 +2874,8 @@ export function createGame(saved = null) {
         // (以前寫死 0.1 秒)。傷害/閃光/命中特效都跟畫面命中格對齊,走的是遠程魔物同一條 pendingHits 路線。
         const damage = Math.max(2, Math.round(enemy.attack * unitAtkMult(enemy) - target.defense * unitDefMult(target) * 0.7)), hitDelay = monsterHitDelay(enemy.type);
         enemy.atkAt = state.time; enemy.atkX = target.x; enemy.atkZ = target.z;
-        pendingHits.push({ id: target.id, damage, at: state.time + hitDelay, by: enemy.type, enemyId: enemy.id, ranged: false, fromX: enemy.x, fromZ: enemy.z });
-        effect('hit', target, { value: damage, sourceX: enemy.x, sourceZ: enemy.z, delay: hitDelay, by: enemy.type });
+        const hitFx = effect('hit', target, { value: damage, sourceX: enemy.x, sourceZ: enemy.z, delay: hitDelay, by: enemy.type });
+        pendingHits.push({ id: target.id, damage, at: state.time + hitDelay, by: enemy.type, enemyId: enemy.id, ranged: false, fromX: enemy.x, fromZ: enemy.z, fx: hitFx });
         // 首領:命中那一刻再加一次更大的鏡頭震動(地面重擊特效也對齊同一個 impact 格)。
         if (enemy.type === 'boss') state.shake = { amp: 5.5, ms: 320, seq: (state.shake?.seq || 0) + 1, t: state.time };
       }
@@ -2804,6 +2900,9 @@ export function createGame(saved = null) {
         continue;
       }
       w.attackTimer = Math.max(0, w.attackTimer - dt);
+      // 2026-11-23:流浪英雄也會被聖騎士套上聖盾(castSkill 的 allies 含流浪英雄),但以前這裡從不倒數 buff → 聖盾永久有效。
+      // 只倒數 buff;流浪英雄的異常狀態照舊不在這裡結算(行為不變,不屬於這次改動)。
+      tickBuffs(w, dt);
       const consumption = (w.task ? 0.3 : 1) * (w.trait === 'frugal' ? 0.85 : 1);
       w.satiety = Math.max(0, w.satiety - dt * WANDER_CONSUME.satiety * consumption);
       w.stamina = Math.max(0, w.stamina - dt * WANDER_CONSUME.stamina * consumption);
@@ -2944,14 +3043,17 @@ export function createGame(saved = null) {
     state.craftTargets ??= {};
     for (const key of PRODUCT_KEYS) state.craftTargets[key] = integer(craftTargets[key], 0, 0, CRAFT_TARGET_MAX);
     // 2026-11-16 起每格分階:舊存檔(v2/v3/v4 到 2026-11-16 為止)每格是一個數字 = 第 1 階的件數;新格式是 {1..5: 件數}。
-    for (const key of EQUIP_SLOTS) state.gearStock[key] = normalizeTierStock(source.gearStock?.[key]);
+    for (const r of RECIPES) state.gearStock[r.id] = normalizeTierStock(source.gearStock?.[r.id]);
+    // 2026-11-24 舊存檔的武器庫存(gearStock.weapon,沒有類型)= 沒有主人的精鐵武器 → 併到長劍(sword),各階件數照搬
+    if (source.gearStock && own(source.gearStock, 'weapon')) { const w = normalizeTierStock(source.gearStock.weapon); for (const t of GEAR_TIERS) state.gearStock.sword[t.tier] = Math.min(1e4, state.gearStock.sword[t.tier] + w[t.tier]); }
+    delete state.gearStock.weapon;
     // v2 的 armor 庫存:那時 armor 就是胸甲,把數量併到 chest 第 1 階(不憑空多送五件,也不讓已造好的裝備消失)。
     state.gearStock.chest[1] = Math.min(1e4, state.gearStock.chest[1] + integer(source.gearStock?.armor, 0, 0, 1e4));
     // 村莊倉庫裡的裝備物品(v4;v2/v3 沒有這個欄位 → 空倉庫)。uid 一律重新配號;計數器不低於開局已用掉的號碼。
     // 升級件的階級(grade)跟著物品走。上限 2000 件(裝備階級上線後,換下來的舊件也進倉庫)。
     state.gearSeq = Math.max(state.gearSeq || 1, integer(source.gearSeq, 1, 1, 1e9));
     state.gearStorage = Array.isArray(source.gearStorage)
-      ? source.gearStorage.filter(g => g && typeof g.itemId === 'string' && EQUIP[g.itemId]).slice(0, GEAR_STORAGE_MAX).map(g => newGearItem(g.itemId, g.grade))
+      ? source.gearStorage.filter(g => g && typeof g.itemId === 'string' && EQUIP[migrateGearId(g.itemId)]).slice(0, GEAR_STORAGE_MAX).map(g => newGearItem(migrateGearId(g.itemId), g.grade))   // 倉庫的舊精鐵武器沒有主人 → 長劍
       : [];
     for (const key of MATERIAL_KEYS) state.tradeRequests[key] = integer(source.tradeRequests?.[key], state.tradeRequests[key], 0, 999);
     // 持續收購(2026-11-17 新增,不升版本):舊存檔沒有這個欄位 → 全部關閉,行為跟以前一樣;只認 true,其他值一律當關閉
@@ -3227,12 +3329,16 @@ export function createGame(saved = null) {
       if (t > max) return result(false, `鐵匠鋪升到 Lv.${t} 才能鍛造第 ${GEAR_TIERS[t - 1].numeral} 階裝備。`);
       const recipe = gearAt(base, t);
       if (!canPay(recipe.cost)) return result(false, '裝備材料不足，請先收購所需戰利品。');
-      pay(recipe.cost); state.gearStock[recipe.type][t]++; state.counts.gearCrafted++; if (recipe.type === 'weapon') state.counts.weaponsCrafted++;
+      pay(recipe.cost); state.gearStock[recipe.id][t]++; state.counts.gearCrafted++; if (recipe.type === 'weapon') state.counts.weaponsCrafted++;
       effect('upgrade', buildingPoint('forge')); log(`${recipe.name}已上架；獵人返村後會用個人金幣購買或換新。`, 'success'); refreshQuest(); return result(true, `${recipe.name}已製作，售價 ${recipe.price} 金幣。`);
     },
     forgeTier,            // 鐵匠鋪目前能鍛造的最高裝備階級(0 = 還沒蓋)
     gearTierOf,           // 獵人某一格的裝備階級(0 = 沒有)
-    gearStockOf: (slot, tier = null) => tier == null ? tierStockTotal(state.gearStock[slot]) : (state.gearStock[slot]?.[tier] || 0),   // UI:某格某階(或全部)的庫存
+    // UI:某份配方(或某一格 = 該格所有配方合計,例如 'weapon' = 五種武器)某階(或全部)的庫存
+    gearStockOf: (key, tier = null) => {
+      const ids = RECIPE[key] ? [key] : recipesForSlot(key).map(r => r.id);
+      return ids.reduce((n, id) => n + (tier == null ? tierStockTotal(state.gearStock[id]) : (state.gearStock[id]?.[tier] || 0)), 0);
+    },
     enhance(hunterId) {
       const h = state.hunters.find(h => h.id === hunterId); if (!h) return result(false, '找不到這位獵人。');
       if (!state.buildings.enhancement) return result(false, '請先建造強化精煉所。');
@@ -3279,6 +3385,8 @@ export function createGame(saved = null) {
       const index = state.gearStorage.findIndex(g => g.uid === uid); if (index < 0) return result(false, '倉庫裡找不到這件裝備。');
       const inst = state.gearStorage[index], item = gearItemOf(inst);
       if (!item) return result(false, '這件裝備的資料有問題。');
+      // 2026-11-24 職業武器限制(CLASS_WEAPON_TYPES):聖騎士只拿錘、狂戰士只拿劍…;UI 也只列能拿的,這裡是最後一道
+      if (!canWield(inst.itemId, h.classId)) return result(false, `${CLASS[h.classId]?.name || '這個職業'}只能使用${(CLASS_WEAPON_TYPES[h.classId] || []).map(t => WEAPON_TYPES[t]).join('、')}類武器。`);
       const previous = h.gear[item.slot];
       h.gear[item.slot] = inst; state.gearStorage.splice(index, 1);
       if (previous) state.gearStorage.push(previous);
@@ -3940,11 +4048,11 @@ export function createGame(saved = null) {
     pilotSkills() {
       const p = state.pilot; if (!p) return null;
       const h = state.hunters.find(q => q.id === p.id); if (!h) return null;
-      const sp = specOf(h), cds = ensureCds(h), lv = h.skillLevel || 0;
+      const sp = specOf(h), cds = ensureCds(h), lv = h.skillLevel || 0, skList = heroSkills(h);
       const alive = state.enemies.filter(e => e.hp > 0 && !e.rewarded);
       return {
         hunterId: h.id, classId: h.classId, specId: sp.id, specName: sp.name, specColor: sp.color,
-        slots: sp.skills.map(sk => {
+        slots: skList.map(sk => {
           const maxCd = skillSlotCd(h, sk), cd = Math.max(0, cds[sk.slot] || 0);
           const selfKind = sk.kind === 'selfAoe' || sk.kind === 'selfBuff' || sk.kind === 'allyShield' || sk.kind === 'allyHeal' || sk.kind === 'revive';
           const reach = (h.range || 1.75) + (sk.radius || 0) + 2;
@@ -3957,7 +4065,7 @@ export function createGame(saved = null) {
     pilotCastSlot(slotIdx = 0) {
       const p = state.pilot; if (!p) return result(false, '目前沒有在操控角色。');
       const h = state.hunters.find(q => q.id === p.id); if (!h || h.hp <= 0) return result(false, '找不到可施法的獵人。');
-      const sp = specOf(h), sk = sp.skills[clamp(slotIdx | 0, 0, 3)];
+      const sp = specOf(h), sk = heroSkills(h)[clamp(slotIdx | 0, 0, 3)];   // 依武器類型的變招(長槍橫掃)
       if (!sk) return result(false, '找不到這個技能格。');
       const lv = h.skillLevel || 0;
       if (lv < sk.unlockLv) return result(false, `${sk.name} 需於學院升至 Lv.${sk.unlockLv} 解鎖。`);

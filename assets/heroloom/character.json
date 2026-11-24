@@ -342,6 +342,12 @@
       "main": "parts/weapon/bow.png",
       "back": "parts/weapon/bow.back.png"
      }
+    },
+    "hammer": {
+     "layers": {
+      "main": "parts/weapon/hammer.png",
+      "back": "parts/weapon/hammer.back.png"
+     }
     }
    }
   },

@@ -7,7 +7,7 @@
 //   --summary  print only one compact line for the final day (for multi-seed tables)
 // Nothing under src/ is touched; this only drives the public game API.
 import { createGame } from '../src/pixel-game.js';
-import { BUILDINGS, PRODUCTS, MATERIALS, DIFFICULTIES, EQUIPMENT, MERCHANT } from '../src/pixel-data.js';
+import { BUILDINGS, PRODUCTS, MATERIALS, DIFFICULTIES, EQUIPMENT, MERCHANT, RECIPES, craftWeaponFor } from '../src/pixel-data.js';
 import { writeFileSync } from 'node:fs';
 
 const DAYS = Number(process.argv[2]) || 20;
@@ -50,7 +50,9 @@ function policy() {
   }
   // forge gear when ingredients allow
   // gear tiers (2026-11-16): keep 2 of the best tier the forge can make (older builds: flat numeric stock)
-  if (s.buildings.forge) { const top = g.forgeTier ? g.forgeTier() : 1; for (const t of ['weapon', 'chest', 'helm', 'legs', 'boots', 'gloves', 'belt']) if ((g.gearStockOf ? g.gearStockOf(t, top) : (s.gearStock[t] || 0)) < 2) g.craftEquipment(t); }
+  if (s.buildings.forge) { const top = g.forgeTier ? g.forgeTier() : 1; // 2026-11-24 weapons come in five types: keep stock only of the types the roster can wield (older builds: one 'weapon' recipe)
+    const wTypes = RECIPES && RECIPES.some(r => r.id === 'sword') ? [...new Set(s.hunters.map(h => RECIPES.find(r => r.item === craftWeaponFor(h.classId))?.id).filter(Boolean))] : ['weapon'];
+    for (const t of [...wTypes, 'chest', 'helm', 'legs', 'boots', 'gloves', 'belt']) if ((g.gearStockOf ? g.gearStockOf(t, top) : (s.gearStock[t] || 0)) < 2) g.craftEquipment(t); }
   // upgrade: hall first when it gates, then cheapest
   const ups = BUILDINGS.map(b => b.id).filter(id => s.buildings[id] && s.buildings[id] < 5)
     .map(id => ({ id, cost: g.getUpgradeCost(id) })).sort((a, b) => (a.id === 'hall' ? -1 : 0) - (b.id === 'hall' ? -1 : 0) || (a.cost.gold || 0) - (b.cost.gold || 0));

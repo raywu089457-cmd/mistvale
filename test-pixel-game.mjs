@@ -4,7 +4,9 @@ import assert from 'node:assert/strict';
 import { createGame, inspectSave, OFFLINE, AUTO_TRAIN, ENEMIES, MOUNT_SPEED_MULT, isRideable, hunterGender, GENDERS, nameGender, NAME_GENDER } from './src/pixel-game.js';
 import { doorStand, buildingSolid } from './src/landscape-layout.js';
 import { blockCenter, VILLAGE_BOUNDS } from './src/village-grid.js';
-import { BUILDINGS, CLASSES, MATERIALS, MERCHANT, PROMOTE, PRODUCTS, RECIPES, RARITIES, PILOT_ATTACK, AI_ATTACK_LOCK, KITE, GEAR_TIER_MAX, gearAt, EQUIPMENT, CLASS_STARTER, EQUIP_SLOTS, GEAR_SLOTS, gearItemView, dungeonGearGrade, GEAR_DROP } from './src/pixel-data.js';
+import { BUILDINGS, CLASSES, MATERIALS, MERCHANT, PROMOTE, PRODUCTS, RECIPES, RARITIES, PILOT_ATTACK, AI_ATTACK_LOCK, KITE, GEAR_TIER_MAX, gearAt, EQUIPMENT, CLASS_STARTER, EQUIP_SLOTS, GEAR_SLOTS, gearItemView, dungeonGearGrade, GEAR_DROP, craftWeaponFor, recipeItemId } from './src/pixel-data.js';
+// 2026-11-24 鍛造武器分類型:某職業能買/能拿的武器配方 id(sword/hammer/bow/staff/dagger)
+const wRecipe = classId => RECIPES.find(r => r.item === craftWeaponFor(classId)).id;
 import { WORLD, regionAt, regionEdge, regionCenter, regionContains, walkable, RING_ROAD, onRingRoad, inVillage, randomRegionPoint } from './src/overworld.js';
 import { MONSTER_RANGED, MONSTER_SPEED_MULT, MONSTER_ATTACK_RATE, REGION_DENSITY, DIFFICULTIES } from './src/pixel-data.js';
 import { pickHeroLine, CHATTER_LINES } from './src/hero-chatter.js';
@@ -208,13 +210,17 @@ run(poorTown, 4, true); assert.equal(poorTown.state.gold, 1); assert.equal(selle
   const D = make(); D.g.state.buildings.trading = 0; D.g.offlineFinish(D.snap, OFFLINE.max); assert.equal(traded(D), 0, 'no trading post, no offline purchases');
 }
 
-const gear = createGame(), buyer = isolate(gear),forge=BUILDINGS.find(b=>b.id==='forge'); gear.state.autoJunk = 'off'; gear.state.time = 100; Object.assign(buyer, doorStand(forge,forge)); buyer.gold = 1000;   // 金幣守恆測試:autoJunk off → 換下的舊件進倉庫(自動賣出會另外多出售價)
-const gearIds = RECIPES.map(r => r.id);
-for (const id of gearIds) assert.equal(gear.craftEquipment(id).ok, true, `craft ${id}`);
+const gear = createGame(), buyer = isolate(gear),forge=BUILDINGS.find(b=>b.id==='forge'); gear.state.autoJunk = 'off'; gear.state.time = 100; Object.assign(buyer, doorStand(forge,forge)); buyer.gold = 1000;
+   // 金幣守恆測試:autoJunk off → 換下的舊件進倉庫(自動賣出會另外多出售價)
+const gearIds = RECIPES.map(r => r.id), boughtIds = RECIPES.filter(r => r.type !== 'weapon' || r.id === wRecipe(buyer.classId)).map(r => r.id);
+// 只鍛造這位獵人用得到的七份(另外四種武器類型留給第 11 節測:別職業的類型不會被買走;多鍛造會吃掉後面強化要用的鐵礦)
+for (const id of boughtIds) assert.equal(gear.craftEquipment(id).ok, true, `craft ${id}`);
 const gearMoney = totalMoney(gear), attackBefore = buyer.attack, hpBefore = buyer.maxHp; run(gear, 5, true);
-assert.ok(gearIds.every(id => buyer.equipment[id] === true), 'auto-buy buys every missing slot'); assert.ok(gearIds.every(id => gear.state.gearStock[id][1] === 0));
-assert.ok(gearIds.every(id => gear.gearTierOf(buyer, id) === 1), 'forge Lv.1 gear is tier Ⅰ');
-assert.equal(gear.state.counts.gearSold, gearIds.length); assert.equal(totalMoney(gear), gearMoney); assert.ok(buyer.attack > attackBefore && buyer.maxHp > hpBefore);
+assert.ok(EQUIP_SLOTS.every(slot => buyer.equipment[slot] === true), 'auto-buy buys every missing slot'); assert.ok(boughtIds.every(id => gear.state.gearStock[id][1] === 0));
+assert.ok(gearIds.filter(id => !boughtIds.includes(id)).every(id => gear.state.gearStock[id][1] === 0), 'other weapon types were not crafted');
+assert.equal(buyer.gear.weapon.itemId, craftWeaponFor(buyer.classId), 'the hunter buys the weapon type of their class');
+assert.ok(EQUIP_SLOTS.every(slot => gear.gearTierOf(buyer, slot) === 1), 'forge Lv.1 gear is tier Ⅰ');
+assert.equal(gear.state.counts.gearSold, EQUIP_SLOTS.length); assert.equal(totalMoney(gear), gearMoney); assert.ok(buyer.attack > attackBefore && buyer.maxHp > hpBefore);
 { // 舊存檔(v2)只有 {weapon,armor}:armor 視為六件全穿(舊玩家不掉戰力),沒賣掉的 armor 庫存併到胸甲
   // 真正的 v2/v3 存檔沒有物品欄位(h.gear / gearStorage / gearSeq):從 v4 存檔模擬舊檔時要拿掉
   const asOld = (s, v) => { s.version = v; for (const x of [...s.hunters, ...(s.wanderers || [])]) delete x.gear; delete s.gearStorage; delete s.gearSeq; return s; };
@@ -226,14 +232,14 @@ assert.equal(gear.state.counts.gearSold, gearIds.length); assert.equal(totalMone
   const bare = asOld(createGame().serialize(), 2); bare.hunters[0].equipment = { weapon: false, armor: false };
   assert.ok(Object.values(createGame(bare).state.hunters[0].equipment).every(v => v === false));
   const stock = asOld(createGame().serialize(), 2); stock.gearStock = { weapon: 0, armor: 2 };
-  const restocked = createGame(stock); assert.equal(restocked.state.gearStock.chest[1], 2); assert.equal(restocked.state.gearStock.weapon[1], 0); assert.equal(restocked.state.gearStock.armor, undefined);
+  const restocked = createGame(stock); assert.equal(restocked.state.gearStock.chest[1], 2); assert.equal(restocked.state.gearStock.sword[1], 0); assert.equal(restocked.state.gearStock.armor, undefined); assert.equal(restocked.state.gearStock.weapon, undefined);
   assert.ok(restocked.state.gearStock.chest[2] === 0 && restocked.gearStockOf('chest') === 2);
   assert.ok(EQUIP_SLOTS.every(s => re.gearTierOf(rh, s) === 1), 'v2 armor:true → all six armour slots + weapon at tier Ⅰ');
 }
 // 測試用:把一件鐵匠鋪升級件(指定階級)放進倉庫再穿上(走正式的 equipFromStorage,身上原本那件會進倉庫)
 let wearSeq = 0;
 function wear(g, h, slot, grade = 1) {
-  const uid = 'gt' + (++wearSeq); g.state.gearStorage.push({ uid, itemId: 'craft_' + slot, ...(grade > 1 ? { grade } : {}) });
+  const uid = 'gt' + (++wearSeq); g.state.gearStorage.push({ uid, itemId: slot === 'weapon' ? craftWeaponFor(h.classId) : 'craft_' + slot, ...(grade > 1 ? { grade } : {}) });
   assert.equal(g.equipFromStorage(h.id, uid).ok, true, `wear craft_${slot} ${grade}`);
 }
 { // 2026-11-16 裝備階級:舊 v3 存檔(布林裝備、數字庫存、沒有 gearTier)載入不掉裝備也不變強;新格式來回存讀不變
@@ -247,7 +253,7 @@ function wear(g, h, slot, grade = 1) {
   assert.deepEqual(rh.equipment, { weapon: true, helm: false, chest: true, belt: false, legs: false, boots: true, gloves: false }, 'boolean equipment survives');
   assert.deepEqual(EQUIP_SLOTS.map(s => re.gearTierOf(rh, s)), [1, 0, 1, 0, 0, 1, 0], 'owned slots load as tier Ⅰ, empty (starter) as 0');
   assert.ok(EQUIP_SLOTS.every(s => !('grade' in rh.gear[s])), 'tier Ⅰ / starter instances keep the plain v4 shape {uid,itemId}');
-  assert.equal(re.state.gearStock.weapon[1], 3); assert.equal(re.state.gearStock.gloves[1], 2); assert.equal(re.state.gearStock.chest[1], 1);
+  assert.equal(re.state.gearStock.sword[1], 3, 'legacy weapon stock (no type) → 精鐵長劍'); assert.equal(re.state.gearStock.weapon, undefined); assert.equal(re.state.gearStock.gloves[1], 2); assert.equal(re.state.gearStock.chest[1], 1);
   assert.ok(Object.values(re.state.gearStock).every(st => [2, 3, 4, 5].every(t => st[t] === 0)), 'legacy numeric stock is tier Ⅰ only');
   const rar = RARITIES.find(x => x.id === rh.rarity).mult; assert.equal(rh.rebirths + rh.skillLevel + rh.weaponLevel, 0);
   assert.equal(rh.attack, Math.round((c.attack + 7) * (1 + (rh.level - 1) * 0.065) * rar * (rh.trait === 'brave' ? 1.1 : 1)), 'tier Ⅰ weapon = the old +7');
@@ -270,13 +276,13 @@ function wear(g, h, slot, grade = 1) {
   // 壞資料:階級超界夾到 1..5、庫存負數/非數字歸零
   const bad = JSON.parse(JSON.stringify(old)); bad.hunters[0].gearTier = { weapon: 99, chest: -4 }; bad.gearStock = { weapon: { 1: -3, 2: 'x', 5: 7 }, chest: 'zz' };
   const rb = createGame(bad), bh = rb.state.hunters[0]; assert.equal(rb.gearTierOf(bh, 'weapon'), GEAR_TIER_MAX); assert.equal(rb.gearTierOf(bh, 'chest'), 1);
-  assert.deepEqual(rb.state.gearStock.weapon, { 1: 0, 2: 0, 3: 0, 4: 0, 5: 7 }); assert.equal(rb.gearStockOf('chest'), 0);
+  assert.deepEqual(rb.state.gearStock.sword, { 1: 0, 2: 0, 3: 0, 4: 0, 5: 7 }); assert.equal(rb.gearStockOf('chest'), 0);
   const badV4 = re.serialize(); badV4.hunters[0].gear.chest.grade = 99; badV4.hunters[0].gear.helm = { uid: 'g1', itemId: 'craft_helm', grade: 'x' };
   const rv = createGame(badV4), vh = rv.state.hunters[0]; assert.equal(rv.gearTierOf(vh, 'chest'), GEAR_TIER_MAX); assert.equal(rv.gearTierOf(vh, 'helm'), 1);
 }
 { // 階級物品資料(gearItemView):第 1 階 = EQUIPMENT 原值;高階照 gearAt;售價/分解照 craft 公式(材料價值 × 0.8、材料一半進位)
   for (const r of RECIPES) {
-    const base = EQUIPMENT['craft_' + r.id], v1 = gearItemView({ itemId: base.id });
+    const base = EQUIPMENT[recipeItemId(r)], v1 = gearItemView({ itemId: base.id });
     assert.deepEqual([v1.stats, v1.sell, v1.salvage, v1.name, v1.grade], [base.stats, base.sell, base.salvage, base.name, 1], `${base.id} tier Ⅰ unchanged`);
     for (let t = 2; t <= GEAR_TIER_MAX; t++) {
       const v = gearItemView({ itemId: base.id, grade: t }), a = gearAt(r.id, t), value = Object.entries(a.cost).reduce((n, [k, q]) => n + q * MATERIALS[k].price, 0);
@@ -299,15 +305,15 @@ function wear(g, h, slot, grade = 1) {
   const ore0 = g.state.ore; assert.equal(g.craftEquipment('chest').ok, true); assert.equal(g.state.gearStock.chest[3], 1, 'default craft = best tier');
   assert.equal(ore0 - g.state.ore, gearAt('chest', 3).cost.ore); assert.ok(gearAt('chest', 3).cost.ore > RECIPES.find(r => r.id === 'chest').cost.ore);
   assert.equal(g.craftEquipment('chest', 4).ok, false, 'forge Lv.3 cannot make tier Ⅳ'); assert.equal(g.craftEquipment('helm', 1).ok, true); assert.equal(g.state.gearStock.helm[1], 1);
-  g.state.buildings.forge = 5; assert.equal(g.forgeTier(), GEAR_TIER_MAX); assert.equal(g.craftEquipment('weapon', 6).ok, false);
+  g.state.buildings.forge = 5; assert.equal(g.forgeTier(), GEAR_TIER_MAX); assert.equal(g.craftEquipment('sword', 6).ok, false); assert.equal(g.craftEquipment('weapon', 1).ok, false, 'no untyped weapon recipe any more');
   for (let t = 2; t <= GEAR_TIER_MAX; t++) { const a = gearAt('chest', t - 1), b = gearAt('chest', t); assert.ok(b.price > a.price && b.hp > a.hp && b.def >= a.def, `tier ${t} beats tier ${t - 1}`); }
-  assert.equal(gearAt('weapon', 1).bonus, 7); assert.equal(gearAt('chest', 1).price, 140); assert.equal(gearAt('chest', 2).name, '胸甲 Ⅱ');
+  assert.equal(gearAt('sword', 1).bonus, 7); assert.ok(RECIPES.filter(r => r.type === 'weapon').every(r => gearAt(r, 1).bonus === 7 && gearAt(r, 5).cost.ore === 72 && gearAt(r, 5).cost.wood === 36 && gearAt(r, 5).price === 808), 'five weapon types share cost and stats (V: ore 72 / wood 36 / 808 gold)'); assert.equal(gearAt('chest', 1).price, 140); assert.equal(gearAt('chest', 2).name, '胸甲 Ⅱ');
 }
 { // 換更高階:獵人付錢給村莊(總金幣守恆)、身上換成高階(舊件進倉庫)、低階不重買;留 40 金付吃住;沒有更高階就不買
   const g = createGame(), h = isolate(g), forge = BUILDINGS.find(b => b.id === 'forge'); g.state.time = 100; g.state.buildings.forge = 3; g.state.autoJunk = 'off';
   Object.assign(g.state, { ore: 9999, wood: 9999, leather: 9999, cloth: 9999 });
   wear(g, h, 'chest', 1); wear(g, h, 'weapon', 3); const oldChest = h.gear.chest.uid;
-  assert.equal(g.craftEquipment('chest', 1).ok, true); assert.equal(g.craftEquipment('chest', 3).ok, true); assert.equal(g.craftEquipment('weapon', 2).ok, true);
+  assert.equal(g.craftEquipment('chest', 1).ok, true); assert.equal(g.craftEquipment('chest', 3).ok, true); assert.equal(g.craftEquipment(wRecipe(h.classId), 2).ok, true);
   const price = gearAt('chest', 3).price; h.gold = price + 40 + 5; Object.assign(h, doorStand(forge, forge));
   const money = totalMoney(g), village = g.state.gold, hp0 = h.maxHp, def0 = h.defense, sold0 = g.state.counts.gearSold;
   run(g, 5, true);
@@ -316,7 +322,7 @@ function wear(g, h, slot, grade = 1) {
   assert.ok(h.maxHp > hp0 && h.defense > def0, 'stats rise with the tier');
   assert.ok(g.state.gearStorage.some(x => x.uid === oldChest), 'the replaced tier Ⅰ chest goes to the warehouse');
   assert.equal(g.state.gearStock.chest[3], 0); assert.equal(g.state.gearStock.chest[1], 1, 'lower tier is not bought when already owned');
-  assert.equal(g.state.gearStock.weapon[2], 1, 'tier Ⅱ weapon is not a downgrade for a tier Ⅲ owner'); assert.equal(g.gearTierOf(h, 'weapon'), 3);
+  assert.equal(g.state.gearStock[wRecipe(h.classId)][2], 1, 'tier Ⅱ weapon is not a downgrade for a tier Ⅲ owner'); assert.equal(g.gearTierOf(h, 'weapon'), 3);
   // 留錢:剛好付得起但會吃光生活費 → 不換
   const g2 = createGame(), h2 = isolate(g2); g2.state.time = 100; g2.state.buildings.forge = 2; Object.assign(g2.state, { ore: 999, leather: 999 });
   wear(g2, h2, 'chest', 1); assert.equal(g2.craftEquipment('chest').ok, true);
@@ -887,7 +893,7 @@ const deterministicA = createGame(), deterministicB = createGame(); run(determin
 const sameObject = loaded.state; loaded.reset(); assert.equal(loaded.state, sameObject); assert.equal(loaded.state.gold, 1500); assert.equal(loaded.state.hunters.length, CLASSES.length);
 
 const quests = createGame(); quests.recruit(CLASSES[0].id); assert.equal(quests.claimQuest().ok, true); quests.craft('food', 2); assert.equal(quests.claimQuest().ok, true);
-quests.state.counts.traded = 10; assert.equal(quests.claimQuest().ok, true); quests.upgrade('forge'); assert.equal(quests.claimQuest().ok, true); quests.craftEquipment('weapon'); assert.equal(quests.claimQuest().ok, true);
+quests.state.counts.traded = 10; assert.equal(quests.claimQuest().ok, true); quests.upgrade('forge'); assert.equal(quests.claimQuest().ok, true); quests.craftEquipment('sword'); assert.equal(quests.claimQuest().ok, true);
 quests.state.bossKills = 1; assert.equal(quests.claimQuest().ok, true); quests.state.counts.dungeonWins = 1; assert.equal(quests.claimQuest().ok, true);
 // ── 中期委託(2026-11-16):第 7 章之後插入 10 章;後期委託(2026-11-18)再插 4 章;最後一章仍是轉世 ──
 const questChain = quests.questList(), LAST_Q = questChain.length - 1;
@@ -1853,7 +1859,7 @@ run(manual, 30, false, assertFiniteEconomy);
   const pick = h => ({ maxHp: h.maxHp, attack: h.attack, defense: h.defense });
   const none = Object.fromEntries(EQUIP_SLOTS.map(s => [s, false]));
   // 鐵匠鋪升級件數值 = RECIPES(單一來源)
-  for (const r of RECIPES) { const it = EQUIPMENT['craft_' + r.id]; assert.ok(it && it.slot === r.type && it.tier === 'craft', `craft_${r.id} exists`);
+  for (const r of RECIPES) { const it = EQUIPMENT[recipeItemId(r)]; assert.ok(it && it.slot === r.type && it.tier === 'craft', `craft_${r.id} exists`);
     assert.deepEqual(it.stats, r.type === 'weapon' ? { atk: r.bonus, hp: 0, def: 0 } : { atk: 0, hp: r.hp, def: r.def }, `craft_${r.id} stats = recipe`); }
   // 開局:每位獵人穿職業初始七件套,數值 = v3 沒裝備
   const g = createGame();
@@ -1865,9 +1871,10 @@ run(manual, 30, false, assertFiniteEconomy);
   // 七份配方全做 → 獵人回村逐格買下 → 身上七件 craft_*,初始件進倉庫,庫存歸零,uid 不重複
   const f = createGame(), buyer = isolate(f), forge = BUILDINGS.find(b => b.id === 'forge'); f.state.time = 100; f.state.autoJunk = 'off'; Object.assign(buyer, doorStand(forge, forge)); buyer.gold = 2000;
   for (const r of RECIPES) assert.equal(f.craftEquipment(r.id).ok, true, `craft ${r.id}`);
-  assert.ok(EQUIP_SLOTS.every(s => f.state.gearStock[s][1] === 1));
+  assert.ok(RECIPES.every(r => f.state.gearStock[r.id][1] === 1));
   run(f, 5, true);
-  for (const s of EQUIP_SLOTS) { assert.equal(buyer.gear[s].itemId, 'craft_' + s, `bought craft ${s}`); assert.equal(buyer.equipment[s], true); assert.equal(f.state.gearStock[s][1], 0); }
+  const craftOf = (s, c) => s === 'weapon' ? craftWeaponFor(c) : 'craft_' + s, stockKey = (s, c) => s === 'weapon' ? wRecipe(c) : s;
+  for (const s of EQUIP_SLOTS) { assert.equal(buyer.gear[s].itemId, craftOf(s, buyer.classId), `bought craft ${s}`); assert.equal(buyer.equipment[s], true); assert.equal(f.state.gearStock[stockKey(s, buyer.classId)][1], 0); }
   assert.deepEqual(f.state.gearStorage.map(x => x.itemId).sort(), Object.values(CLASS_STARTER[buyer.classId]).sort(), 'replaced starter pieces go to the warehouse');
   assert.deepEqual(pick(buyer), v3Stats(buyer, Object.fromEntries(EQUIP_SLOTS.map(s => [s, true]))), 'full craft set = v3 full-gear stats');
   run(f, 5, true); assert.equal(f.state.counts.gearSold, EQUIP_SLOTS.length, 'no double purchase once every slot is craft');
@@ -1896,12 +1903,12 @@ run(manual, 30, false, assertFiniteEconomy);
   const l2 = createGame(v2);
   l2.state.hunters.forEach((h, i) => {
     const eqb = Object.fromEntries(EQUIP_SLOTS.map(s => [s, s === 'weapon' ? i === 0 || i === 2 : i <= 1]));
-    for (const s of EQUIP_SLOTS) assert.equal(h.gear[s].itemId, eqb[s] ? 'craft_' + s : CLASS_STARTER[h.classId][s], `v2 hunter ${i} ${s}`);
+    for (const s of EQUIP_SLOTS) assert.equal(h.gear[s].itemId, eqb[s] ? craftOf(s, h.classId) : CLASS_STARTER[h.classId][s], `v2 hunter ${i} ${s}`);
     assert.deepEqual(pick(h), v3Stats(h, eqb), `v2 hunter ${i} stats equal the v3 migration`);
   });
   assert.equal(l2.state.hunters[0].weaponLevel, 3);
-  const w0 = l2.state.wanderers[0]; assert.ok(EQUIP_SLOTS.every(s => w0.gear[s].itemId === 'craft_' + s), 'v2 wanderer armor/weapon → craft items');
-  assert.deepEqual(Object.fromEntries(EQUIP_SLOTS.map(s => [s, l2.state.gearStock[s][1]])), { weapon: 2, helm: 0, chest: 3, belt: 0, legs: 0, boots: 0, gloves: 0 }, 'v2 stock: armor → chest (tier Ⅰ)');
+  const w0 = l2.state.wanderers[0]; assert.ok(EQUIP_SLOTS.every(s => w0.gear[s].itemId === craftOf(s, w0.classId)), 'v2 wanderer armor/weapon → craft items (weapon = the class type)');
+  assert.deepEqual(Object.fromEntries(EQUIP_SLOTS.map(s => [s, l2.state.gearStock[stockKey(s, 'berserker')][1]])), { weapon: 2, helm: 0, chest: 3, belt: 0, legs: 0, boots: 0, gloves: 0 }, 'v2 stock: armor → chest, weapon → 長劍 (tier Ⅰ)');
   assert.deepEqual(l2.state.gearStorage, [], 'v2 save starts with an empty warehouse');
   // v3 存檔(六格布林 + 每格庫存)
   const v3 = asOld(createGame().serialize(), 3);
@@ -1909,18 +1916,18 @@ run(manual, 30, false, assertFiniteEconomy);
   v3.hunters[0].equipment = { ...mix }; v3.hunters[0].weaponLevel = 2; v3.hunters[1].equipment = { ...none }; v3.hunters[1].weaponLevel = 5;
   v3.wanderers[1].equipment = { ...none, chest: true }; v3.gearStock = { weapon: 1, helm: 2, chest: 3, belt: 4, legs: 5, boots: 6, gloves: 7 };
   const l3 = createGame(v3), h30 = l3.state.hunters[0], h31 = l3.state.hunters[1];
-  for (const s of EQUIP_SLOTS) assert.equal(h30.gear[s].itemId, mix[s] ? 'craft_' + s : CLASS_STARTER[h30.classId][s], `v3 ${s}`);
+  for (const s of EQUIP_SLOTS) assert.equal(h30.gear[s].itemId, mix[s] ? craftOf(s, h30.classId) : CLASS_STARTER[h30.classId][s], `v3 ${s}`);
   assert.deepEqual(h30.equipment, mix); assert.deepEqual(pick(h30), v3Stats(h30, mix), 'v3 mixed slots: stats unchanged');
   assert.equal(h31.weaponLevel, 0, 'v3: no weapon → weaponLevel 0 (as before)'); assert.deepEqual(pick(h31), v3Stats(h31, none));
   assert.equal(l3.state.wanderers[1].gear.chest.itemId, 'craft_chest', 'v3 wanderer chest → craft_chest');
-  assert.deepEqual(Object.fromEntries(EQUIP_SLOTS.map(s => [s, l3.state.gearStock[s][1]])), v3.gearStock, 'v3 per-slot stock kept (tier Ⅰ)');
+  assert.deepEqual(Object.fromEntries(EQUIP_SLOTS.map(s => [s, l3.state.gearStock[stockKey(s, 'berserker')][1]])), v3.gearStock, 'v3 per-slot stock kept (tier Ⅰ; weapon → 長劍)');
   // v1 / 未知版本照舊拒絕
   for (const v of [1, 5, '4', undefined]) { const bad = createGame().serialize(); bad.version = v; bad.gold = 7; assert.equal(createGame(bad).state.gold, 1500, `version ${String(v)} rejected`); }
 }
 // 2026-11-16 倉庫一鍵整理:只賣／分解「鍛造裝備且階級低於鐵匠鋪目前最高階」,其他(目前最高階、非鍛造掉落)都保留
 {
   const g = createGame(), s = g.state; s.buildings.forge = 3;
-  s.gearStorage = [{ uid: 'b1', itemId: 'craft_chest', grade: 1 }, { uid: 'b2', itemId: 'craft_helm', grade: 2 }, { uid: 'b3', itemId: 'craft_weapon', grade: 3 }, { uid: 'b5', itemId: 'archer_bow' }];
+  s.gearStorage = [{ uid: 'b1', itemId: 'craft_chest', grade: 1 }, { uid: 'b2', itemId: 'craft_helm', grade: 2 }, { uid: 'b3', itemId: 'craft_sword', grade: 3 }, { uid: 'b5', itemId: 'archer_bow' }];
   const pre = g.bulkStoredGear('sell', true);
   assert.equal(pre.count, 3, 'tier 1, tier 2 and the starter bow are old gear'); assert.ok(pre.gold > 0); assert.equal(s.gearStorage.length, 4, 'dry run changes nothing');
   const gold0 = s.gold, r = g.bulkStoredGear('sell');
@@ -2032,7 +2039,8 @@ console.log(`PASS: ${CLASSES.length} hunters / ${CLASSES.length} classes, seeded
 }
 
 { // 2026-11-18 地下城小隊的裝備(docs/BALANCE.md「地下城小隊的裝備」):自動續戰的小隊在層與層的休整時買鍛造屋的升級件,規則跟回村逛鍛造屋完全一樣
-  const weapon = RECIPES.find(r => r.type === 'weapon'), price = t => gearAt(weapon, t).price, floorGold = createGame().dungeonReward(1).gold;
+  const weapon = RECIPES.find(r => r.id === 'staff'),   // 買家 = 祭司(只能拿杖)
+    price = t => gearAt(weapon, t).price, floorGold = createGame().dungeonReward(1).gold;
   const make = (prep, auto = true) => {
     const base = createGame(); base.construct('dungeon'); const raw = base.serialize(), src = raw.hunters;
     raw.hunters = ['paladin', 'archer', 'priest'].map((c, i) => ({ ...JSON.parse(JSON.stringify(src.find(x => x.classId === c))), id: 'dp' + i, level: 60, xp: 0, gold: 0 }));
@@ -2046,16 +2054,16 @@ console.log(`PASS: ${CLASSES.length} hunters / ${CLASSES.length} classes, seeded
     return { g, s, d: s.dungeon, party, buyer };
   };
   const clearFloor = (g, d) => { d.wave = 3; for (const f of d.foes) f.hp = 0; g.tick(0.1); };
-  const rich = (s, b) => { b.gold = 1000; s.gearStock.weapon[1] = 1; };
+  const rich = (s, b) => { b.gold = 1000; s.gearStock.staff[1] = 1; };
 
   { // 休整時買到:庫存、錢包、村莊金幣、統計、換下的舊件、數值都照一般購買;休整時間不變
     const { g, s, d, buyer } = make(rich), twin = make((s, b) => { b.gold = 1000; });
     const starter = buyer.gear.weapon.itemId, rw = g.dungeonReward(1), gold0 = s.gold, c0 = { ...s.counts };
     clearFloor(g, d); clearFloor(twin.g, twin.d);
     assert.equal(d.active, true); assert.equal(d.phase, '休整中'); assert.equal(d.floor, 2); assert.equal(d.rest, 3, 'the rest between floors is not longer');
-    assert.equal(buyer.gear.weapon.itemId, 'craft_weapon'); assert.equal(buyer.equipment.weapon, true);
+    assert.equal(buyer.gear.weapon.itemId, 'craft_staff'); assert.equal(buyer.equipment.weapon, true);
     assert.ok(buyer.attack > twin.buyer.attack, 'stats refresh right away');
-    assert.equal(s.gearStock.weapon[1], 0, 'stock goes down');
+    assert.equal(s.gearStock.staff[1], 0, 'stock goes down');
     assert.equal(buyer.gold, 1000 + rw.gold - price(1), 'wallet pays the normal price');
     assert.equal(s.gold, gold0 + rw.village.gold + price(1), 'the village receives the price');
     assert.equal(s.counts.gearSold, c0.gearSold + 1); assert.equal(s.counts.gearIncome, c0.gearIncome + price(1)); assert.equal(s.counts.hunterPay, (c0.hunterPay || 0) + price(1));
@@ -2069,50 +2077,50 @@ console.log(`PASS: ${CLASSES.length} hunters / ${CLASSES.length} classes, seeded
     assert.equal(s.gearStorage.length, 0); assert.equal(s.counts.autoJunk, junk0 + 1); assert.equal(s.gold, gold0 + rw.village.gold + price(1) + sell);
   }
   { // 庫存有限:一件只賣給一位
-    const { g, s, d, party } = make((s, b, p) => { for (const h of p) h.gold = 1000; s.gearStock.weapon[1] = 1; });
+    const { g, s, d, party } = make((s, b, p) => { for (const h of p) h.gold = 1000; s.gearStock.staff[1] = 1; });
     clearFloor(g, d);
-    assert.equal(party.filter(h => h.gear.weapon.itemId === 'craft_weapon').length, 1); assert.equal(s.gearStock.weapon[1], 0); assert.equal(s.counts.gearSold, 1);
+    assert.equal(party.filter(h => h.gear.weapon.itemId === 'craft_staff').length, 1); assert.equal(s.gearStock.staff[1], 0); assert.equal(s.counts.gearSold, 1);
   }
   { // GEAR_RESERVE:身上已有升級件要多留 40 金;初始件可以花到 0
-    const upgrade = wallet => { const t = make((s, b) => { b.gear.weapon = { uid: 'old', itemId: 'craft_weapon' }; s.gearStock.weapon[2] = 1; b.gold = wallet - floorGold; }); clearFloor(t.g, t.d); return t; };
+    const upgrade = wallet => { const t = make((s, b) => { b.gear.weapon = { uid: 'old', itemId: 'craft_staff' }; s.gearStock.staff[2] = 1; b.gold = wallet - floorGold; }); clearFloor(t.g, t.d); return t; };
     const short = upgrade(price(2) + 39);
-    assert.equal(short.buyer.gear.weapon.uid, 'old', 'one coin short of the reserve: no purchase'); assert.equal(short.s.gearStock.weapon[2], 1); assert.equal(short.buyer.gold, price(2) + 39);
+    assert.equal(short.buyer.gear.weapon.uid, 'old', 'one coin short of the reserve: no purchase'); assert.equal(short.s.gearStock.staff[2], 1); assert.equal(short.buyer.gold, price(2) + 39);
     const enough = upgrade(price(2) + 40);
-    assert.equal(enough.buyer.gear.weapon.grade, 2); assert.equal(enough.buyer.gold, 40, 'keeps exactly the reserve'); assert.equal(enough.s.gearStock.weapon[2], 0);
-    const first = make((s, b) => { s.gearStock.weapon[1] = 1; b.gold = price(1) - floorGold; }); clearFloor(first.g, first.d);
-    assert.equal(first.buyer.gear.weapon.itemId, 'craft_weapon'); assert.equal(first.buyer.gold, 0, 'starter gear has no reserve, same as the forge');
+    assert.equal(enough.buyer.gear.weapon.grade, 2); assert.equal(enough.buyer.gold, 40, 'keeps exactly the reserve'); assert.equal(enough.s.gearStock.staff[2], 0);
+    const first = make((s, b) => { s.gearStock.staff[1] = 1; b.gold = price(1) - floorGold; }); clearFloor(first.g, first.d);
+    assert.equal(first.buyer.gear.weapon.itemId, 'craft_staff'); assert.equal(first.buyer.gold, 0, 'starter gear has no reserve, same as the forge');
   }
   { // 戰鬥中、波與波之間都不買,打完這層才買
     const { g, s, d, buyer } = make(rich), starter = buyer.gear.weapon.itemId;
-    for (let i = 0; i < 5; i++) { g.tick(0.1); assert.equal(s.gearStock.weapon[1], 1, 'no purchase during the fight'); }
+    for (let i = 0; i < 5; i++) { g.tick(0.1); assert.equal(s.gearStock.staff[1], 1, 'no purchase during the fight'); }
     d.wave = 1; for (const f of d.foes) f.hp = 0; g.tick(0.1);
     assert.equal(d.phase, '前進中'); assert.equal(d.wave, 2);
-    assert.equal(buyer.gear.weapon.itemId, starter, 'no purchase between waves'); assert.equal(buyer.gold, 1000); assert.equal(s.gearStock.weapon[1], 1);
+    assert.equal(buyer.gear.weapon.itemId, starter, 'no purchase between waves'); assert.equal(buyer.gold, 1000); assert.equal(s.gearStock.staff[1], 1);
   }
   { // 沒有續戰的路線照舊:關掉自動續戰、殘血回村 → 這一刻不買,走回村裡的鍛造屋
     const off = make(rich, false), starter = off.buyer.gear.weapon.itemId; clearFloor(off.g, off.d);
-    assert.equal(off.d.active, false); assert.equal(off.buyer.gear.weapon.itemId, starter, 'auto-continue off: nothing bought remotely'); assert.equal(off.s.gearStock.weapon[1], 1);
+    assert.equal(off.d.active, false); assert.equal(off.buyer.gear.weapon.itemId, starter, 'auto-continue off: nothing bought remotely'); assert.equal(off.s.gearStock.staff[1], 1);
     const worn = make(rich); for (const h of worn.party) h.hp = Math.max(1, Math.round(h.maxHp * 0.05)); clearFloor(worn.g, worn.d);
-    assert.equal(worn.d.active, false); assert.equal(worn.s.gearStock.weapon[1], 1, 'a party heading home shops in town instead');
+    assert.equal(worn.d.active, false); assert.equal(worn.s.gearStock.staff[1], 1, 'a party heading home shops in town instead');
   }
   { // 沒有鍛造屋:什麼都不發生
     const { g, s, d, buyer } = make((s, b) => { rich(s, b); s.buildings.forge = 0; }), starter = buyer.gear.weapon.itemId, c0 = s.counts.gearSold, rw = g.dungeonReward(1).gold;
     clearFloor(g, d);
-    assert.equal(d.phase, '休整中'); assert.equal(buyer.gear.weapon.itemId, starter); assert.equal(buyer.gold, 1000 + rw, 'only the floor reward'); assert.equal(s.gearStock.weapon[1], 1); assert.equal(s.counts.gearSold, c0);
+    assert.equal(d.phase, '休整中'); assert.equal(buyer.gear.weapon.itemId, starter); assert.equal(buyer.gold, 1000 + rw, 'only the floor reward'); assert.equal(s.gearStock.staff[1], 1); assert.equal(s.counts.gearSold, c0);
   }
   { // 離線 ②(取樣之後照實打完的地下城):休整時一樣會買;外推不到一天,所以不是「每人逛一次鍛造屋」買的
     const { g, s, d, party } = make((s, b) => { b.gold = 5000; });
     const snap = g.offlineSnapshot(); g.simulate(OFFLINE.sample);
     assert.equal(d.active, true, 'the party is still in the dungeon when sampling ends');
-    s.gearStock.weapon[1] = 1; const sold0 = s.counts.gearSold;
+    s.gearStock.staff[1] = 1; const sold0 = s.counts.gearSold;
     g.offlineFinish(snap, OFFLINE.sample + 120);
-    assert.equal(s.gearStock.weapon[1], 0); assert.equal(s.counts.gearSold, sold0 + 1); assert.equal(party.filter(h => h.gear.weapon.itemId === 'craft_weapon').length, 1);
+    assert.equal(s.gearStock.staff[1], 0); assert.equal(s.counts.gearSold, sold0 + 1); assert.equal(party.filter(h => h.gear.weapon.itemId === 'craft_staff').length, 1);
     assertFiniteEconomy(s);
   }
   { // 離線取樣期買的是一次性的:外推 3 小時不會把這筆裝備收入乘上倍率
     const { g, s, d, buyer } = make((s, b) => { b.gold = 5000; });
     const snap = g.offlineSnapshot(); g.simulate(OFFLINE.warm + 10);
-    s.gearStock.weapon[1] = 1; const sold0 = s.counts.gearSold, income0 = s.counts.gearIncome;
+    s.gearStock.staff[1] = 1; const sold0 = s.counts.gearSold, income0 = s.counts.gearIncome;
     clearFloor(g, d); assert.equal(s.counts.gearSold, sold0 + 1, 'bought during the rate window');
     const paid = s.counts.gearIncome - income0; assert.equal(paid, price(1));
     g.simulate(OFFLINE.sample - OFFLINE.warm - 10); g.offlineFinish(snap, 3 * 3600);
@@ -2373,13 +2381,13 @@ console.log(`PASS: ${CLASSES.length} hunters / ${CLASSES.length} classes, seeded
   g.setAutoJunk('salvage');
   g.setRegionDensity('meadow', 1); g.setRegionDensity('snow', 3);
   g.setSetting('quality', 'low'); g.setSetting('dpr', '1'); g.setSetting('fps', 60); g.setSetting('shadows', false); g.setSetting('night', false); g.setSetting('shake', false); g.setSetting('uiScale', 1.15);
-  s.gearStock.weapon[3] = 2; s.gearStock.chest[4] = 1;
-  s.gearStorage.push({ uid: 'custom1', itemId: 'craft_chest', grade: 4 }, { uid: 'custom2', itemId: 'craft_weapon', grade: 3 });
+  s.gearStock.sword[3] = 2; s.gearStock.chest[4] = 1;
+  s.gearStorage.push({ uid: 'custom1', itemId: 'craft_chest', grade: 4 }, { uid: 'custom2', itemId: 'craft_sword', grade: 3 });
   s.codex = { sprout: 42, yeti: 9 };
   s.wanderKills = 135; s.wanderDowns = 7;
   s.counts.autoJunk = 19; s.counts.autoJunkGold = 840; s.counts.promoted = 3; s.counts.matSold = 5; s.counts.gemsBought = 2; s.counts.tradeGold = 2500; s.counts.wandererPurchases = 41; s.counts.skills = 88;
   s.hunters[0].name = '自訂勇者'; s.hunters[0].gender = 'f'; s.hunters[0].level = 42; s.hunters[0].rebirths = 5; s.hunters[0].skillLevel = 4; s.hunters[0].weaponLevel = 6; s.hunters[0].gold = 3456;
-  s.hunters[0].gear.weapon = { uid: 'gw1', itemId: 'craft_weapon', grade: 4 };
+  s.hunters[0].gear.weapon = { uid: 'gw1', itemId: craftWeaponFor(s.hunters[0].classId), grade: 4 };
   s.hunters[0].gear.helm = null;
   s.difficulty = 2;
   s.dungeon.bestFloor = 14; s.dungeon.startFloor = 10; s.dungeon.auto = true;
@@ -2426,8 +2434,8 @@ console.log(`PASS: ${CLASSES.length} hunters / ${CLASSES.length} classes, seeded
   assert.equal(ts.tradeRequests.ore, 120); assert.equal(ts.tradeStanding.ore, true); assert.equal(ts.autoJunk, 'salvage');
   assert.deepEqual(ts.regionDensity, s.regionDensity, 'loadSave restores regionDensity');
   assert.deepEqual(ts.settings, s.settings, 'loadSave restores settings');
-  assert.equal(ts.gearStock.weapon[3], 2); assert.equal(ts.gearStock.chest[4], 1);
-  assert.deepEqual(ts.gearStorage.map(x => [x.itemId, x.grade || 1]), [['craft_chest', 4], ['craft_weapon', 3]]);
+  assert.equal(ts.gearStock.sword[3], 2); assert.equal(ts.gearStock.chest[4], 1);
+  assert.deepEqual(ts.gearStorage.map(x => [x.itemId, x.grade || 1]), [['craft_chest', 4], ['craft_sword', 3]]);
   assert.deepEqual(ts.codex, { sprout: 42, yeti: 9 });
   assert.equal(ts.wanderKills, 135, 'wanderKills survives export/import');
   assert.equal(ts.wanderDowns, 7, 'wanderDowns survives export/import');
@@ -2658,4 +2666,262 @@ console.log(`PASS: ${CLASSES.length} hunters / ${CLASSES.length} classes, seeded
   for (const h of dgB.state.hunters) { h.level = 20; h.skillLevel = 5; h.hp = h.maxHp; }
   const rec0 = dgA.recommendDungeonParty(10), rec5 = dgB.recommendDungeonParty(10);
   assert.ok(rec5.ok && rec0.ok && rec5.floor > rec0.floor, `dgForecast credits unlocked S1-S4 (Lv.5 floor ${rec5.floor} > Lv.0 floor ${rec0.floor})`);
+}
+
+// ── 2026-11-23 聖騎士技能:聖盾減免確實計算、聖盾跟著人走、荊棘聖甲、審判巨錘落點與範圍、長槍橫掃依武器換招 ──
+{
+  const { heroSkills, skillFor, weaponItemOf, heroWeaponType, SPEC_BY_ID, SPECS } = await import('./src/pixel-skills.js');
+  const { WEAPON_TYPES, weaponTypeOf, CLASS_WEAPON_TYPES, canWield, CRAFT_WEAPON_ITEMS } = await import('./src/pixel-data.js');
+  const { hasLiveFx } = await import('./src/pixelfx-runtime.js');
+  const C = regionCenter('meadow');
+  const protoE = createGame().state.enemies.find(e => e.regionId === 'meadow');
+  const mkFoe = (id, x, z, hp = 5000, atk = 60) => ({ ...protoE, id, x, z, hp, maxHp: hp, attack: atk, attackTimer: 0, rewarded: false, statuses: {}, buffs: {}, engaged: false, slotFor: null, tauntBy: null });
+  // 一位手動操控中的聖騎士(AI 不動他),身邊一隻會打人的魔物;回傳第一下打中時扣的血
+  const arena1 = (spec = 'paladin_aegis') => {
+    const g = createGame(); g.state.spawnTimer = -999; g.state.regionSpawn = {}; g.state.wanderers = [];
+    const pal = g.state.hunters.find(h => h.classId === 'paladin');
+    g.state.hunters = [pal];
+    Object.assign(pal, { x: C.x, z: C.z, hp: pal.maxHp, satiety: 100, stamina: 100, mood: 100, task: null, route: [], inTown: false, skillLevel: 5, spec, statuses: {}, buffs: {} });
+    assert.equal(g.pilotStart(pal.id).ok, true);
+    return { g, pal };
+  };
+  const firstHit = (g, pal, foe) => {
+    g.state.enemies = [foe]; const hp0 = pal.hp;
+    for (let i = 0; i < 40 && pal.hp === hp0; i++) g.tick(0.02);
+    return hp0 - pal.hp;
+  };
+  // 1) 野外近戰:有聖盾 = (1 − dr) × 沒聖盾,擋掉的量記在 buff 上、浮出「減免 N」,傷害數字顯示實際值
+  const base = (() => { const { g, pal } = arena1(); return firstHit(g, pal, mkFoe('m0', C.x + 1.2, C.z)); })();
+  assert.ok(base > 10, `unshielded field hit lands (${base})`);
+  {
+    const { g, pal } = arena1(); pal.buffs.shield = { val: 0.3, left: 4, at: 0, prevented: 0 };
+    const dmg = firstHit(g, pal, mkFoe('m0', C.x + 1.2, C.z));
+    assert.equal(dmg, Math.max(1, Math.round(base * 0.7)), `field melee with 30% shield = round(0.7 × ${base}) (got ${dmg})`);
+    assert.equal(pal.buffs.shield.prevented, base - dmg, 'prevented amount recorded on the shield buff');
+    assert.ok(g.state.effects.some(e => e.type === 'block' && e.text === `減免 ${base - dmg}`), 'floating 減免 N text shown on the shielded hunter');
+    assert.equal(g.state.effects.filter(e => e.type === 'hit').at(-1).value, dmg, 'the delayed hit number shows the reduced (real) damage');
+  }
+  // 2) 聖盾到期後就不再減免(buff 會倒數消失)
+  {
+    const { g, pal } = arena1(); pal.buffs.shield = { val: 0.3, left: 0.15, at: 0, prevented: 0 };
+    g.state.enemies = []; for (let i = 0; i < 10; i++) g.tick(0.02);
+    assert.equal(pal.buffs.shield, undefined, 'shield buff expires');
+    assert.equal(firstHit(g, pal, mkFoe('m0', C.x + 1.2, C.z)), base, 'after expiry the hit is full damage again');
+  }
+  // 3) 持續傷害(流血)也吃聖盾
+  {
+    const tickDot = (shield) => { const { g, pal } = arena1(); g.state.enemies = [];
+      if (shield) pal.buffs.shield = { val: 0.3, left: 9, at: 0, prevented: 0 };
+      pal.statuses.bleeding = { left: 5, stacks: 1, atk: 1000, tick: 0.99, stamp: 0 }; const hp0 = pal.hp; g.tick(0.02); return { d: hp0 - pal.hp, pal }; };
+    const a = tickDot(false), b = tickDot(true);
+    assert.ok(a.d > 1, `bleed tick lands (${a.d})`);
+    assert.equal(b.d, Math.max(1, Math.round(a.d * 0.7)), `bleed tick with shield = round(0.7 × ${a.d}) (got ${b.d})`);
+    assert.equal(b.pal.buffs.shield.prevented, a.d - b.d);
+  }
+  // 4) 施放聖盾祈禱:範圍內隊友＋流浪英雄都套上;光罩改由畫面跟隨(followBuff),流浪英雄的聖盾也會到期
+  {
+    const { g, pal } = arena1(); const w = createGame().state.wanderers[0];
+    Object.assign(w, { x: C.x + 2, z: C.z, hp: w.maxHp, task: null, route: [], buffs: {}, statuses: {} }); g.state.wanderers = [w]; g.state.enemies = [];
+    pal.skillCds = [0, 0, 0, 0];
+    assert.equal(g.pilotCastSlot(0).ok, true);
+    assert.equal(pal.buffs.shield?.val, 0.3); assert.equal(w.buffs.shield?.val, 0.3, 'wanderer in radius gets the shield');
+    const fx = g.state.effects.find(e => e.type === 'livefx' && e.fxId === 'holy/divine-shield-iso');
+    assert.ok(fx && fx.followBuff === 'shield' && fx.shielded.includes(w.id), 'cast effect hands the visual to the follow-sync');
+    for (let i = 0; i < 45; i++) g.tick(0.1);
+    assert.equal(pal.buffs.shield, undefined); assert.equal(w.buffs.shield, undefined, 'wanderer shield expires too (was permanent before)');
+  }
+  // 5) 地下城:同一套減免,事件帶「block」
+  {
+    const g = createGame(); g.state.buildings.dungeon = 1; g.state.dungeon.cooldown = 0;
+    const party = ['paladin', 'archer', 'priest'].map(c => g.state.hunters.find(h => h.classId === c));
+    for (const h of party) Object.assign(h, { hp: h.maxHp, satiety: 100, stamina: 100, mood: 100, task: null, route: [], level: 10 });
+    const run = (shield) => {
+      const gg = createGame(g.serialize()); gg.state.dungeon.cooldown = 0;
+      const ps = party.map(h => gg.state.hunters.find(q => q.id === h.id));
+      assert.equal(gg.startDungeon(ps.map(h => h.id)).ok, true); for (const h of ps) h.route = [];
+      gg.tick(0.1); for (const h of ps) { h.skillCd = 99; h.attackTimer = 99; h.skillCds = [99, 99, 99, 99]; }
+      const d = gg.state.dungeon; for (const f of d.foes) { f.hp = f.maxHp = 1e6; f.timer = 99; f.attack = Math.round(ps[0].maxHp * 0.3 + ps[0].defense); f.ranged = false; } d.foes[0].timer = 0.05;
+      assert.equal(d.phase, '戰鬥中');
+      if (shield) ps[0].buffs = { shield: { val: 0.25, left: 9, at: 0, prevented: 0 } };
+      const hp0 = ps[0].hp; gg.tick(0.1);
+      return { lost: hp0 - ps[0].hp, ev: d.events.filter(e => e.k === 'block'), pal: ps[0] };
+    };
+    const a = run(false), b = run(true);
+    assert.ok(a.lost > 10, `dungeon hit on the paladin lands (${a.lost})`);
+    assert.equal(b.lost, Math.max(1, Math.round(a.lost * 0.75)), `dungeon hit with 25% shield = round(0.75 × ${a.lost}) (got ${b.lost})`);
+    assert.equal(b.ev.at(-1)?.v, a.lost - b.lost, 'dungeon strip gets a block event with the prevented amount');
+    assert.equal(b.pal.buffs.shield.prevented, a.lost - b.lost);
+  }
+  // 6) 荊棘聖甲:施放爆發特效在施法者、範圍 3.6;buff 期間畫面掛跟隨特效
+  {
+    const { g, pal } = arena1('paladin_crusader'); g.state.enemies = [mkFoe('t1', C.x + 1, C.z)]; pal.skillCds = [9, 9, 0, 9];
+    assert.equal(g.pilotCastSlot(2).ok, true);
+    assert.equal(pal.buffs.thorns?.val, 0.3);
+    const fx = g.state.effects.find(e => e.type === 'livefx' && e.fxId === 'nature/thorn-aegis-burst-iso');
+    assert.ok(fx && fx.casterAnchored && fx.reachWorld === 3.6, 'thorn burst is caster-anchored and drawn to the 3.6-tile radius');
+    assert.ok(hasLiveFx('nature/thorn-aegis-iso') && hasLiveFx('holy/divine-shield-aura-iso'), 'follow modules registered');
+  }
+  // 7) 審判巨錘:特效錨在目標身上;傷害/暈眩/嘲諷都以目標為圓心 4.5 格
+  {
+    const sk = SPEC_BY_ID.paladin_crusader.skills[3];
+    assert.equal(sk.radius, 4.5); assert.equal(sk.tauntRadius, 4.5); assert.equal(sk.delay, 0.39);
+    const { g, pal } = arena1('paladin_crusader'); pal.skillCds = [9, 9, 9, 0];
+    const tgt = mkFoe('tg', C.x + 3, C.z), inR = mkFoe('in', C.x + 3 + 4.4, C.z), outR = mkFoe('out', C.x + 3 + 4.7, C.z), behind = mkFoe('bh', C.x - 1.0, C.z);
+    g.state.enemies = [tgt, inR, outR, behind];
+    assert.equal(g.pilotCastSlot(3).ok, true);
+    const fx = g.state.effects.find(e => e.type === 'livefx' && e.fxId === 'melee/judgment-hammer-iso');
+    assert.ok(fx && !fx.casterAnchored, 'hammer effect is not caster-anchored');
+    const aimed = [tgt, inR, outR, behind].find(e => e.x === fx.x && e.z === fx.z);
+    assert.ok(aimed, 'hammer effect is anchored on an enemy (the aimed target)');
+    assert.equal(fx.reachWorld, 4.5, 'shock wave drawn to the skill radius');
+    for (const e of [tgt, inR, outR, behind]) {
+      const d = Math.hypot(e.x - aimed.x, e.z - aimed.z);
+      assert.equal(e.hp < 5000, d <= 4.5, `${e.id}: hit ⇔ within 4.5 of where the hammer lands (d=${d.toFixed(2)})`);
+      assert.equal(e.tauntBy === pal.id, d <= 4.5, `${e.id}: taunt uses the same centre and radius`);
+    }
+  }
+  // 8) 2026-11-24 武器類型(使用者:「聖騎士只能裝備錘 劍類是給狂戰士」):
+  //    聖騎士長槍橫掃一格只剩震地掃(byWeaponType 只有 blunt,沒裝/不認得 → 也是震地掃);弧光斬給狂戰士(熔岩震地第 1 招,id 沿用 whirlwind_q);
+  //    招式名稱不帶裝備名;職業武器限制;精鐵武器類型打造時就固定、名字 = 精鐵 + 類型
+  {
+    const sk = SPEC_BY_ID.paladin_crusader.skills[1];
+    const ARC = '弧光斬', BLUNT = '震地掃';
+    // 每把武器都有固定類型,類型都有中文名;每個職業的初始武器自己拿得動;精鐵武器五種類型、名字 = 精鐵 + 類型
+    for (const [id, it] of Object.entries(EQUIPMENT)) if (it.slot === 'weapon') {
+      assert.ok(it.wtype && WEAPON_TYPES[it.wtype], `${id} has a named weapon type`);
+      for (const cid of Object.keys(CLASS_STARTER)) assert.equal(weaponTypeOf(id, cid), it.wtype, `${id}: type does not depend on who holds it`);
+    }
+    for (const [cid, set] of Object.entries(CLASS_STARTER)) assert.ok(canWield(set.weapon, cid), `${cid} can wield its starter weapon`);
+    assert.deepEqual(CLASS_WEAPON_TYPES.paladin, ['blunt']); assert.deepEqual(CLASS_WEAPON_TYPES.berserker, ['sword']);
+    assert.equal(CLASS_STARTER.paladin.weapon, 'paladin_hammer'); assert.equal(EQUIPMENT.paladin_hammer.name, '戰錘'); assert.equal(EQUIPMENT.paladin_hammer.look.weapon, 'hammer');
+    assert.equal(EQUIPMENT.berserk_axe.name, '長劍'); assert.equal(EQUIPMENT.berserk_axe.wtype, 'sword');
+    assert.equal(EQUIPMENT.paladin_sword, undefined, 'the paladin sword is retired'); assert.equal(EQUIPMENT.craft_weapon, undefined, 'no untyped craft weapon any more');
+    assert.deepEqual(Object.values(CRAFT_WEAPON_ITEMS).map(id => EQUIPMENT[id].name), ['精鐵長劍', '精鐵戰錘', '精鐵長弓', '精鐵法杖', '精鐵匕首']);
+    assert.equal(gearItemView({ itemId: 'craft_hammer', grade: 5 }).name, '精鐵戰錘 Ⅴ', 'grade numeral is appended to the typed name');
+    for (const [cid, types] of Object.entries(CLASS_WEAPON_TYPES)) for (const [t, item] of Object.entries(CRAFT_WEAPON_ITEMS)) assert.equal(canWield(item, cid), types.includes(t), `${cid} ${types.includes(t) ? 'can' : 'cannot'} wield ${item}`);
+    assert.ok(!canWield('berserk_axe', 'paladin') && !canWield('craft_sword', 'paladin'), 'paladins cannot take swords');
+    assert.ok(!canWield('paladin_hammer', 'berserker') && !canWield('craft_hammer', 'berserker'), 'berserkers cannot take hammers');
+    assert.ok(canWield('craft_helm', 'paladin'), 'armour is not class-restricted');
+    // 聖騎士:任何情況都是震地掃(用遊戲裡不存在的測試武器證明看的是類型)
+    const ph = (itemId) => ({ classId: 'paladin', spec: 'paladin_crusader', skillLevel: 5, gear: itemId ? { weapon: { uid: 'x', itemId } } : {} });
+    const TEST = { t_mace: 'blunt', t_blade: 'sword', t_bow: 'bow' };
+    for (const [id, wtype] of Object.entries(TEST)) EQUIPMENT[id] = { id, name: id, slot: 'weapon', wtype, classId: null, tier: 'starter', stats: {}, look: {} };
+    try {
+      for (const [id, wtype] of Object.entries(TEST)) { assert.equal(heroWeaponType(ph(id)), wtype); assert.equal(skillFor(ph(id), sk).name, BLUNT, `paladin + ${wtype} → ${BLUNT}`); }
+    } finally { for (const id of Object.keys(TEST)) delete EQUIPMENT[id]; }
+    for (const id of ['paladin_hammer', 'craft_hammer', null, 'mystery']) {
+      const v = skillFor(ph(id), sk);
+      assert.equal(v.name, BLUNT, `paladin (${id}) → ${BLUNT}`); assert.equal(v.fxId, 'melee/iron-sweep-iso'); assert.ok(hasLiveFx(v.fxId));
+      assert.deepEqual([v.id, v.slot, v.cd, v.unlockLv], ['spear_sweep', 1, 9, 2], `${id}: id/slot/cd/unlock unchanged`);
+    }
+    assert.equal(skillFor(ph('paladin_hammer'), sk).weaponType, 'blunt', 'byWeaponType still keyed by type (blunt)');
+    // 狂戰士:熔岩震地第 1 招 = 弧光斬(id/冷卻/解鎖沿用旋風斬)
+    const bsk0 = SPEC_BY_ID.berserker_quake.skills[0];
+    assert.deepEqual([bsk0.id, bsk0.slot, bsk0.cd, bsk0.unlockLv, bsk0.name, bsk0.kind, bsk0.arcDeg, bsk0.radius, bsk0.fxId], ['whirlwind_q', 0, 9, 0, ARC, 'arc', 150, 2.6, 'melee/steel-arc-iso']);
+    assert.ok(bsk0.knockback > 0 && bsk0.mult > 1.5, 'arc: more damage than the old whirlwind (150%) + knockback');
+    assert.ok(hasLiveFx('melee/steel-arc-iso') && hasLiveFx('melee/holy-arc-iso'), 'steel arc registered; holy arc file still registered');
+    assert.ok(!SPECS.some(sp => sp.skills.some(k => k.fxId === 'melee/holy-arc-iso' || Object.values(k.byWeaponType || {}).some(o => o.fxId === 'melee/holy-arc-iso'))), 'no skill uses holy-arc-iso any more');
+    // 招式名稱與說明不帶裝備名(任何武器、任何流派)
+    const EQUIP_WORDS = ['聖騎士劍', '精鐵', '聖劍', '戰錘', '長劍'];
+    for (const sp of SPECS) for (const base of sp.skills) for (const it of [null, ...Object.keys(EQUIPMENT).filter(k => EQUIPMENT[k].slot === 'weapon')]) {
+      const v = skillFor({ classId: sp.classId, spec: sp.id, gear: it ? { weapon: { itemId: it } } : {} }, base);
+      for (const w of EQUIP_WORDS) assert.ok(!v.name.includes(w) && !(v.desc || '').includes(w), `${v.id} (${it}) name/desc has no equipment name "${w}"`);
+    }
+    const { g, pal } = arena1('paladin_crusader');
+    assert.equal(weaponItemOf(pal), 'paladin_hammer', 'paladin starts with the 戰錘');
+    assert.equal(g.pilotSkills().slots[1].name, BLUNT, 'pilot bar shows 震地掃');
+    // 職業武器限制:倉庫裡的劍穿不上(原物留在倉庫),錘穿得上
+    g.state.gearStorage.push({ uid: 'gx-sword', itemId: 'craft_sword', grade: 3 }, { uid: 'gx-ham', itemId: 'craft_hammer', grade: 3 });
+    const sw = g.equipFromStorage(pal.id, 'gx-sword');
+    assert.equal(sw.ok, false, 'paladin cannot equip a sword'); assert.ok(/錘/.test(sw.message), sw.message);
+    assert.equal(weaponItemOf(pal), 'paladin_hammer'); assert.ok(g.state.gearStorage.some(x => x.uid === 'gx-sword'), 'refused sword stays in storage');
+    assert.equal(g.equipFromStorage(pal.id, 'gx-ham').ok, true); assert.equal(weaponItemOf(pal), 'craft_hammer');
+    pal.skillCds = [9, 0, 9, 9]; pal.x = C.x; pal.z = C.z;
+    const n2 = mkFoe('n2', C.x + 1.0, C.z), far = mkFoe('n3', C.x + 2.3, C.z); g.state.enemies = [n2, far];
+    const shakeSeq = g.state.shake?.seq || 0, stopSeq = g.state.hitstop?.seq || 0;
+    assert.equal(g.pilotCastSlot(1).ok, true);
+    assert.ok(g.state.effects.some(e => e.type === 'skillName' && e.text === BLUNT), 'blunt move name floats');
+    assert.ok(g.state.effects.some(e => e.type === 'livefx' && e.fxId === 'melee/iron-sweep-iso'));
+    // 打擊感:鏡頭震動＋停格,排在砸地那一刻(delay = 技能 delay)
+    const bsk = heroSkills(pal)[1];
+    assert.ok(g.state.shake?.seq > shakeSeq && g.state.shake.amp === bsk.impactFeel.amp && Math.abs(g.state.shake.delay - bsk.delay) < 1e-9, 'slam shake is queued for the impact frame');
+    assert.ok(g.state.hitstop?.seq > stopSeq && g.state.hitstop.ms === bsk.impactFeel.stop && Math.abs(g.state.hitstop.delay - bsk.delay) < 1e-9, 'slam hit-stop is queued for the impact frame');
+    assert.ok(n2.hp < 5000 && n2.statuses.stunned && n2.buffs.vuln?.val === 0.15, 'blunt move: damage + stagger + armor break');
+    assert.equal(far.hp, 5000, 'blunt move is short range (1.9)');
+    // 卸下武器 → 還是震地掃;存檔來回不影響
+    assert.equal(g.unequipGear(pal.id, 'weapon').ok, true);
+    assert.equal(heroSkills(pal)[1].name, BLUNT, 'unequipped → still 震地掃');
+    const re = createGame(g.serialize()); const pal2 = re.state.hunters.find(h => h.id === pal.id);
+    assert.equal(heroSkills(pal2)[1].id, 'spear_sweep');
+    // 新招募的聖騎士拿戰錘
+    const rg = createGame(); rg.state.gold = 1e6; rg.state.capacity = 99;
+    const pv = rg.state.visitors?.find(v => v.classId === 'paladin');
+    assert.ok(pv, 'the seeded visitors include a paladin');
+    assert.equal(rg.recruit(pv.id).ok, true); const nh = rg.state.hunters.at(-1); assert.equal(nh.classId, 'paladin'); assert.equal(nh.gear.weapon.itemId, 'paladin_hammer', 'new paladin recruit holds the 戰錘');
+  }
+  // 9) 狂戰士弧光斬:AI 朝怪最密的方向揮、弧內才打得到、會擊退;舊存檔(旋風斬時代,id whirlwind_q)照常載入
+  {
+    const g = createGame(); g.state.spawnTimer = -999; g.state.regionSpawn = {}; g.state.wanderers = [];
+    const bz = g.state.hunters.find(h => h.classId === 'berserker'); g.state.hunters = [bz];
+    Object.assign(bz, { x: C.x, z: C.z, hp: bz.maxHp, satiety: 100, stamina: 100, mood: 100, task: null, route: [], inTown: false, skillLevel: 5, spec: 'berserker_quake', statuses: {}, buffs: {} });
+    assert.equal(heroSkills(bz)[0].name, '弧光斬'); assert.equal(weaponItemOf(bz), 'berserk_axe'); assert.equal(EQUIPMENT[weaponItemOf(bz)].look.weapon, 'sword', 'berserker still holds a sword');
+    // 目標在右邊(1 隻),左邊擠了 3 隻 → AI 朝左揮,右邊那隻打不到
+    const lone = mkFoe('r1', C.x + 1.6, C.z), l1 = mkFoe('l1', C.x - 1.6, C.z), l2 = mkFoe('l2', C.x - 1.4, C.z + 0.8), l3 = mkFoe('l3', C.x - 1.4, C.z - 0.8);
+    g.state.enemies = [lone, l1, l2, l3];
+    bz.skillCds = [0, 9, 9, 9];
+    assert.equal(g.pilotStart(bz.id).ok, true); bz.skillCds = [0, 9, 9, 9];
+    // pilot 施放也走 bestAimForSkill(opts.ai 預設):對準最密的一群
+    assert.equal(g.pilotCastSlot(0).ok, true);
+    assert.ok(g.state.effects.some(e => e.type === 'livefx' && e.fxId === 'melee/steel-arc-iso'), 'steel arc fx plays');
+    for (let i = 0; i < 6; i++) g.tick(0.05);
+    assert.ok([l1, l2, l3].every(e => e.hp < 5000), 'the dense group on the left is hit');
+    assert.equal(lone.hp, 5000, 'the lone foe behind the arc is not hit');
+    assert.ok(Math.hypot(l1.x - C.x, l1.z - C.z) > 1.6 + 0.2, 'arc knocks back');
+    // 舊存檔:技能冷卻存在 skillCds(依格位),id 不變 → 讀進來第 1 招就是弧光斬,冷卻照帶
+    const raw = g.serialize(); raw.hunters[0].skillCds = [4.5, 0, 0, 0];
+    const re = createGame(raw), b2 = re.state.hunters.find(h => h.classId === 'berserker');
+    assert.equal(heroSkills(b2)[0].id, 'whirlwind_q'); assert.equal(heroSkills(b2)[0].name, '弧光斬');
+  }
+  // 10) 存檔遷移:聖騎士劍 → 戰錘;舊精鐵武器 → 身上的照職業類型、倉庫的 → 精鐵長劍;階級與強化照帶;拿著職業不能用的武器 → 放回倉庫
+  {
+    const base = createGame(), raw = JSON.parse(JSON.stringify(base.serialize()));
+    const byClass = c => raw.hunters.find(h => h.classId === c);
+    byClass('paladin').gear.weapon = { uid: 'o1', itemId: 'paladin_sword' };
+    byClass('paladin').weaponLevel = 0;
+    byClass('priest').gear.weapon = { uid: 'o2', itemId: 'craft_weapon', grade: 4 }; byClass('priest').weaponLevel = 6;
+    byClass('berserker').gear.weapon = { uid: 'o3', itemId: 'craft_weapon', grade: 2 };
+    byClass('assassin').gear.weapon = { uid: 'o4', itemId: 'paladin_hammer' };   // 舊存檔從倉庫硬穿的別職業武器
+    raw.wanderers.find(w => w.classId === 'paladin').gear.weapon = { uid: 'o5', itemId: 'craft_weapon', grade: 5 };
+    raw.gearStorage = [{ uid: 's1', itemId: 'craft_weapon', grade: 3 }, { uid: 's2', itemId: 'paladin_sword' }, { uid: 's3', itemId: 'craft_helm', grade: 2 }];
+    raw.gearStock = { ...raw.gearStock, weapon: { 1: 2, 2: 0, 3: 1, 4: 0, 5: 0 } }; delete raw.gearStock.sword;
+    const g = createGame(raw), H = c => g.state.hunters.find(h => h.classId === c);
+    assert.equal(H('paladin').gear.weapon.itemId, 'paladin_hammer', 'equipped paladin_sword → paladin_hammer');
+    assert.deepEqual([H('priest').gear.weapon.itemId, H('priest').gear.weapon.grade, H('priest').weaponLevel], ['craft_staff', 4, 6], 'equipped old craft weapon → the class type, grade and enhancement kept');
+    assert.deepEqual([H('berserker').gear.weapon.itemId, H('berserker').gear.weapon.grade], ['craft_sword', 2]);
+    assert.equal(g.state.wanderers.find(w => w.classId === 'paladin').gear.weapon.itemId, 'craft_hammer', 'wanderers migrate too');
+    assert.equal(g.state.wanderers.find(w => w.classId === 'paladin').gear.weapon.grade, 5);
+    assert.equal(H('assassin').gear.weapon.itemId, 'assn_dagger', 'a weapon the class cannot wield is replaced by the class starter');
+    assert.ok(g.state.gearStorage.some(x => x.itemId === 'paladin_hammer'), '... and the original goes back to storage');
+    // 倉庫:原本三件依序(舊精鐵武器沒有主人 → 精鐵長劍;聖騎士劍 → 戰錘),最後是刺客手上被退回的戰錘
+    assert.deepEqual(g.state.gearStorage.map(x => [x.itemId, x.grade || 1]), [['craft_sword', 3], ['paladin_hammer', 1], ['craft_helm', 2], ['paladin_hammer', 1]], 'stored old craft weapon (no owner) → 精鐵長劍; stored paladin_sword → 戰錘');
+    assert.deepEqual(g.state.gearStock.sword, { 1: 2, 2: 0, 3: 1, 4: 0, 5: 0 }, 'old weapon stock → 長劍 stock'); assert.equal(g.state.gearStock.weapon, undefined);
+    assert.ok(g.state.hunters.every(h => !h.gear.weapon || canWield(h.gear.weapon.itemId, h.classId)), 'after load nobody holds a weapon their class cannot wield');
+    assert.ok([H('priest'), H('paladin')].every(h => Number.isFinite(h.attack) && h.attack > 0));
+    // 再存再讀:不再變
+    const g2 = createGame(JSON.parse(JSON.stringify(g.serialize())));
+    assert.deepEqual(g2.state.hunters.map(h => h.gear.weapon?.itemId), g.state.hunters.map(h => h.gear.weapon?.itemId));
+    assert.deepEqual(g2.state.gearStorage.map(x => x.itemId), g.state.gearStorage.map(x => x.itemId));
+  }
+  // 11) 鍛造/自己買:每種類型一份配方一格庫存;獵人只買自己職業的類型;掉落的武器記號換成真的類型
+  {
+    const g = createGame(), s = g.state; s.time = 100; s.autoJunk = 'off'; Object.assign(s, { ore: 9999, wood: 9999 });
+    for (const r of RECIPES.filter(r => r.type === 'weapon')) assert.equal(g.craftEquipment(r.id).ok, true, `craft ${r.name}`);
+    assert.ok(RECIPES.filter(r => r.type === 'weapon').every(r => s.gearStock[r.id][1] === 1)); assert.equal(g.gearStockOf('weapon'), 5, 'gearStockOf(slot) sums every weapon recipe');
+    const forge = BUILDINGS.find(b => b.id === 'forge');
+    for (const h of s.hunters) { h.gold = 1000; }
+    const pal = s.hunters.find(h => h.classId === 'paladin'); s.hunters = [pal]; Object.assign(pal, { hp: pal.maxHp, satiety: 100, mood: 100, stamina: 100, task: null, route: [], lastTownVisit: 0 }, doorStand(forge, forge));
+    s.enemies = []; run(g, 5, true);
+    assert.equal(pal.gear.weapon.itemId, 'craft_hammer', 'paladin buys the 精鐵戰錘'); assert.equal(s.gearStock.hammer[1], 0); assert.equal(s.gearStock.sword[1], 1, 'swords stay in stock for berserkers');
+  }
+  console.log('PASS: paladin skills — shield mitigation on field/DoT/dungeon paths, prevented amount, expiry, follow visuals, thorn aegis, judgment hammer centre/radius, weapon types (paladin 震地掃 / berserker 弧光斬), class weapon limits, typed craft weapons and their save migration.');
 }

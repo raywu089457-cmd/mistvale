@@ -68,7 +68,7 @@ try {
       g.setAutoJunk('salvage');
       g.setRegionDensity('meadow', 1); g.setRegionDensity('snow', 3);
       g.setSetting('quality', 'low'); g.setSetting('fps', 60); g.setSetting('shadows', false); g.setSetting('shake', false); g.setSetting('uiScale', 1);
-      s.gearStock.weapon[3] = 4;
+      s.gearStock.sword[3] = 4;
       s.gearStorage.push({ uid: 'e2e1', itemId: 'craft_chest', grade: 3 });
       s.codex = { sprout: 15, yeti: 4 };
       s.wanderKills = 77;
@@ -85,7 +85,7 @@ try {
         hall: s.buildings.hall, forge: s.buildings.forge,
         craftFood: s.craftTargets.food, tradeStandingOre: s.tradeStanding.ore, autoJunk: s.autoJunk,
         densityMeadow: s.regionDensity.meadow, densitySnow: s.regionDensity.snow,
-        settings: { ...s.settings }, gearStockW3: s.gearStock.weapon[3],
+        settings: { ...s.settings }, gearStockW3: s.gearStock.sword[3],
         wanderKills: s.wanderKills, promoted: s.counts.promoted, autoJunkCount: s.counts.autoJunk,
         h0Name: s.hunters[0].name, h0Gender: s.hunters[0].gender, h0Level: s.hunters[0].level,
         difficulty: s.difficulty, bestFloor: s.dungeon.bestFloor, startFloor: s.dungeon.startFloor, dgAuto: s.dungeon.auto,
@@ -214,7 +214,7 @@ try {
         hall: s.buildings.hall, forge: s.buildings.forge,
         craftFood: s.craftTargets.food, tradeStandingOre: s.tradeStanding.ore, autoJunk: s.autoJunk,
         densityMeadow: s.regionDensity.meadow, densitySnow: s.regionDensity.snow,
-        settings: { ...s.settings }, gearStockW3: s.gearStock.weapon[3],
+        settings: { ...s.settings }, gearStockW3: s.gearStock.sword[3],
         gearStorageLen: s.gearStorage.length, gearStorage0: s.gearStorage[0]?.grade || 1,
         wanderKills: s.wanderKills, promoted: s.counts.promoted, autoJunkCount: s.counts.autoJunk,
         h0Name: s.hunters[0].name, h0Gender: s.hunters[0].gender, h0Level: s.hunters[0].level,

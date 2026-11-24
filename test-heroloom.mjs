@@ -117,7 +117,7 @@ test('every class recipe is valid: part ids exist, palette variants exist', () =
 });
 
 test('weapon part matches the weapon type; the unarmed traveler has none', () => {
-  const want = { bow: 'bow', staff: 'staff', holystaff: 'staff', sword: 'sword', axe: 'sword', dagger: 'dagger' };
+  const want = { bow: 'bow', staff: 'staff', holystaff: 'staff', sword: 'sword', axe: 'sword', dagger: 'dagger', hammer: 'hammer' };   // hammer: 2026-11-24 聖騎士戰錘
   for (const classId of HEROLOOM_CLASSES) {
     const look = heroloomLook({ classId });
     if (classId === 'traveler') {
@@ -191,7 +191,7 @@ test('af tables are heroloom frame times in 50 ms ticks', () => {
 
 test('resolveAction finds a weapon-specific row for every class/kit', () => {
   const d = heroloomData();
-  const kits = { archer: 'bow', sorcerer: 'staff', priest: 'holystaff', paladin: 'sword', berserker: 'axe', assassin: 'dagger', traveler: null, darkknight: 'sword', warrior: 'sword' };
+  const kits = { archer: 'bow', sorcerer: 'staff', priest: 'holystaff', paladin: 'hammer', berserker: 'axe', assassin: 'dagger', traveler: null, darkknight: 'sword', warrior: 'sword' };
   for (const [classId, wt] of Object.entries(kits)) {
     for (const name of ['attack', 'skill', 'hurt', 'walk', 'idle']) {
       const key = resolveAction(d, name, wt);

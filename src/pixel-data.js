@@ -74,7 +74,14 @@ export const PRODUCTS={food:{name:'香烤麵包',building:'restaurant',need:'sat
 export const GEAR_SLOTS=['helm','chest','belt','legs','boots','gloves'];
 export const EQUIP_SLOTS=['weapon',...GEAR_SLOTS];
 export const RECIPES=[
-  {id:'weapon',name:'精鐵武器',type:'weapon',slotName:'武器',price:85,cost:{ore:12,wood:6},bonus:7},
+  // 2026-11-24 鍛造武器分類型(使用者:「維持原本武器名字 精鐵長劍不改變 以此類推」):一個武器類型一份配方、一格庫存、一件物品(item),
+  // 類型在打造時就決定、寫在名字裡,換人拿或放倉庫都不變;五把的售價/材料/攻擊完全相同(= 原本的「精鐵武器」)。
+  // wtype = 武器類型(CLASS_WEAPON_TYPES);獵人自己買只買自己職業能拿的類型。舊存檔的 gearStock.weapon 併到長劍(見 pixel-game restore)。
+  {id:'sword',name:'精鐵長劍',type:'weapon',wtype:'sword',item:'craft_sword',slotName:'武器',price:85,cost:{ore:12,wood:6},bonus:7},
+  {id:'hammer',name:'精鐵戰錘',type:'weapon',wtype:'blunt',item:'craft_hammer',slotName:'武器',price:85,cost:{ore:12,wood:6},bonus:7},
+  {id:'bow',name:'精鐵長弓',type:'weapon',wtype:'bow',item:'craft_bow',slotName:'武器',price:85,cost:{ore:12,wood:6},bonus:7},
+  {id:'staff',name:'精鐵法杖',type:'weapon',wtype:'staff',item:'craft_staff',slotName:'武器',price:85,cost:{ore:12,wood:6},bonus:7},
+  {id:'dagger',name:'精鐵匕首',type:'weapon',wtype:'dagger',item:'craft_dagger',slotName:'武器',price:85,cost:{ore:12,wood:6},bonus:7},
   {id:'helm',name:'頭盔',type:'helm',slotName:'頭盔',price:90,cost:{cloth:4,ore:6},bonus:2,hp:6,def:2},
   {id:'chest',name:'胸甲',type:'chest',slotName:'胸甲',price:140,cost:{ore:10,leather:6},bonus:3,hp:22,def:3},
   {id:'belt',name:'腰帶',type:'belt',slotName:'腰帶',price:70,cost:{leather:4},bonus:1,hp:4,def:1},
@@ -82,6 +89,10 @@ export const RECIPES=[
   {id:'boots',name:'靴子',type:'boots',slotName:'靴子',price:70,cost:{leather:4},bonus:1,hp:4,def:1},
   {id:'gloves',name:'手套',type:'gloves',slotName:'手套',price:60,cost:{cloth:3,leather:2},bonus:1,hp:4,def:1},
 ];
+/** 配方 → 打造出來的物品 id(防具 = craft_<格>)。 */
+export const recipeItemId=r=>r&&(r.item||('craft_'+r.id));
+/** 某一格的所有配方(武器格有五份)。 */
+export const recipesForSlot=slot=>RECIPES.filter(r=>r.type===slot);
 // 2026-11-16 裝備階級(Ⅰ–Ⅴ):鐵匠鋪 Lv.N 才能鍛造第 N 階(最高 5)。獵人回村時,庫存裡有比自己身上更高階、又買得起的,就換新的
 // ——Kairosoft 村莊經營的主要收入循環:設施升級 → 店裡賣更好的裝備 → 冒險者把賺來的錢花回村裡。
 // 以前每格只能買一次,14 天模擬每位獵人身上閒置 2000 金。
@@ -116,7 +127,7 @@ export function gearAt(recipe,tier=1){
 export const EQUIPMENT={
   // 弓箭手(森林遊俠):短髮、綠布上衣、棕皮褲靴、綠披風、獵弓
 
-  archer_bow:{id:'archer_bow',name:'獵弓',slot:'weapon',classId:'archer',tier:'starter',price:40,sell:16,salvage:{wood:3,leather:1},stats:{atk:0,hp:0,def:0},look:{weapon:'bow'}},
+  archer_bow:{id:'archer_bow',name:'獵弓',slot:'weapon',wtype:'bow',classId:'archer',tier:'starter',price:40,sell:16,salvage:{wood:3,leather:1},stats:{atk:0,hp:0,def:0},look:{weapon:'bow'}},
   archer_hood:{id:'archer_hood',name:'遊俠兜帽',slot:'helm',classId:'archer',tier:'starter',price:22,sell:9,salvage:{cloth:2},stats:{atk:0,hp:0,def:0},look:{}},
   archer_vest:{id:'archer_vest',name:'遊俠皮甲',slot:'chest',classId:'archer',tier:'starter',price:34,sell:14,salvage:{leather:2,cloth:1},stats:{atk:0,hp:0,def:0},look:{top:'tunic',cape:'cape'}},
   archer_belt:{id:'archer_belt',name:'箭袋腰帶',slot:'belt',classId:'archer',tier:'starter',price:16,sell:6,salvage:{leather:1},stats:{atk:0,hp:0,def:0},look:{}},
@@ -124,7 +135,7 @@ export const EQUIPMENT={
   archer_boots:{id:'archer_boots',name:'遊俠長靴',slot:'boots',classId:'archer',tier:'starter',price:20,sell:8,salvage:{leather:2},stats:{atk:0,hp:0,def:0},look:{shoes:'boots'}},
   archer_gloves:{id:'archer_gloves',name:'遊俠手套',slot:'gloves',classId:'archer',tier:'starter',price:18,sell:7,salvage:{cloth:1,leather:1},stats:{atk:0,hp:0,def:0},look:{}},
   // 魔法師:銀長髮、紫尖帽長袍、法杖
-  sorc_staff:{id:'sorc_staff',name:'紫杉法杖',slot:'weapon',classId:'sorcerer',tier:'starter',price:45,sell:18,salvage:{wood:4,ore:1},stats:{atk:0,hp:0,def:0},look:{weapon:'staff'}},
+  sorc_staff:{id:'sorc_staff',name:'紫杉法杖',slot:'weapon',wtype:'staff',classId:'sorcerer',tier:'starter',price:45,sell:18,salvage:{wood:4,ore:1},stats:{atk:0,hp:0,def:0},look:{weapon:'staff'}},
   sorc_hat:{id:'sorc_hat',name:'尖頂法師帽',slot:'helm',classId:'sorcerer',tier:'starter',price:26,sell:10,salvage:{cloth:3},stats:{atk:0,hp:0,def:0},look:{hat:'wizard'}},
   sorc_robe:{id:'sorc_robe',name:'秘法長袍',slot:'chest',classId:'sorcerer',tier:'starter',price:40,sell:16,salvage:{cloth:3,leather:1},stats:{atk:0,hp:0,def:0},look:{top:'robe',cape:'cape'}},
   sorc_cord:{id:'sorc_cord',name:'秘法腰繩',slot:'belt',classId:'sorcerer',tier:'starter',price:16,sell:6,salvage:{cloth:1},stats:{atk:0,hp:0,def:0},look:{}},
@@ -132,7 +143,7 @@ export const EQUIPMENT={
   sorc_boots:{id:'sorc_boots',name:'旅法靴',slot:'boots',classId:'sorcerer',tier:'starter',price:20,sell:8,salvage:{leather:2},stats:{atk:0,hp:0,def:0},look:{shoes:'boots'}},
   sorc_gloves:{id:'sorc_gloves',name:'秘法手套',slot:'gloves',classId:'sorcerer',tier:'starter',price:18,sell:7,salvage:{cloth:2},stats:{atk:0,hp:0,def:0},look:{}},
   // 祭司:金長髮、白袍、聖光杖
-  priest_staff:{id:'priest_staff',name:'聖光杖',slot:'weapon',classId:'priest',tier:'starter',price:45,sell:18,salvage:{wood:3,ore:2},stats:{atk:0,hp:0,def:0},look:{weapon:'staff'}},
+  priest_staff:{id:'priest_staff',name:'聖光杖',slot:'weapon',wtype:'staff',classId:'priest',tier:'starter',price:45,sell:18,salvage:{wood:3,ore:2},stats:{atk:0,hp:0,def:0},look:{weapon:'staff'}},
   priest_band:{id:'priest_band',name:'祭司髮帶',slot:'helm',classId:'priest',tier:'starter',price:22,sell:9,salvage:{cloth:2},stats:{atk:0,hp:0,def:0},look:{hat:'band'}},
   priest_robe:{id:'priest_robe',name:'白袍',slot:'chest',classId:'priest',tier:'starter',price:40,sell:16,salvage:{cloth:3},stats:{atk:0,hp:0,def:0},look:{top:'robe',cape:'cape'}},
   priest_sash:{id:'priest_sash',name:'祈禱腰帶',slot:'belt',classId:'priest',tier:'starter',price:16,sell:6,salvage:{cloth:1},stats:{atk:0,hp:0,def:0},look:{}},
@@ -140,7 +151,8 @@ export const EQUIPMENT={
   priest_sandals:{id:'priest_sandals',name:'布靴',slot:'boots',classId:'priest',tier:'starter',price:18,sell:7,salvage:{cloth:2},stats:{atk:0,hp:0,def:0},look:{shoes:'boots'}},
   priest_gloves:{id:'priest_gloves',name:'祝禱手套',slot:'gloves',classId:'priest',tier:'starter',price:18,sell:7,salvage:{cloth:2},stats:{atk:0,hp:0,def:0},look:{}},
   // 聖騎士:藍布白甲、頭盔、圓盾、紅披風、劍
-  paladin_sword:{id:'paladin_sword',name:'聖騎士劍',slot:'weapon',classId:'paladin',tier:'starter',price:55,sell:22,salvage:{ore:3,wood:2},stats:{atk:0,hp:0,def:0},look:{weapon:'sword'}},
+  // 2026-11-24 聖騎士只用錘(使用者:「聖騎士只能裝備錘 劍類是給狂戰士」):聖騎士劍 paladin_sword 退役,舊存檔裡的一律換成這把(LEGACY_GEAR_IDS)。
+  paladin_hammer:{id:'paladin_hammer',name:'戰錘',slot:'weapon',wtype:'blunt',classId:'paladin',tier:'starter',price:55,sell:22,salvage:{ore:3,wood:2},stats:{atk:0,hp:0,def:0},look:{weapon:'hammer'}},
   paladin_helm:{id:'paladin_helm',name:'騎士頭盔',slot:'helm',classId:'paladin',tier:'starter',price:30,sell:12,salvage:{ore:2,cloth:1},stats:{atk:0,hp:0,def:0},look:{hat:'helmet'}},
   paladin_plate:{id:'paladin_plate',name:'聖騎士胸甲',slot:'chest',classId:'paladin',tier:'starter',price:48,sell:19,salvage:{ore:3,cloth:2},stats:{atk:0,hp:0,def:0},look:{top:'armor',shield:'buckler',cape:'cape'}},
   paladin_belt:{id:'paladin_belt',name:'騎士腰帶',slot:'belt',classId:'paladin',tier:'starter',price:18,sell:7,salvage:{leather:1},stats:{atk:0,hp:0,def:0},look:{}},
@@ -148,7 +160,7 @@ export const EQUIPMENT={
   paladin_boots:{id:'paladin_boots',name:'騎士戰靴',slot:'boots',classId:'paladin',tier:'starter',price:24,sell:10,salvage:{leather:2},stats:{atk:0,hp:0,def:0},look:{shoes:'boots'}},
   paladin_gloves:{id:'paladin_gloves',name:'騎士手甲',slot:'gloves',classId:'paladin',tier:'starter',price:22,sell:9,salvage:{cloth:1,leather:1},stats:{atk:0,hp:0,def:0},look:{}},
   // 狂戰士:紅髮獸皮、無頭盔、斧(外觀用劍部件)
-  berserk_axe:{id:'berserk_axe',name:'狂戰士斧',slot:'weapon',classId:'berserker',tier:'starter',price:50,sell:20,salvage:{ore:3,wood:2},stats:{atk:0,hp:0,def:0},look:{weapon:'sword'}},
+  berserk_axe:{id:'berserk_axe',name:'長劍',slot:'weapon',wtype:'sword',classId:'berserker',tier:'starter',price:50,sell:20,salvage:{ore:3,wood:2},stats:{atk:0,hp:0,def:0},look:{weapon:'sword'}},
   berserk_helm:{id:'berserk_helm',name:'狼皮頭飾',slot:'helm',classId:'berserker',tier:'starter',price:24,sell:10,salvage:{leather:2},stats:{atk:0,hp:0,def:0},look:{}},
   berserk_vest:{id:'berserk_vest',name:'獸皮背心',slot:'chest',classId:'berserker',tier:'starter',price:36,sell:14,salvage:{leather:3},stats:{atk:0,hp:0,def:0},look:{top:'tunic'}},
   berserk_belt:{id:'berserk_belt',name:'粗皮腰帶',slot:'belt',classId:'berserker',tier:'starter',price:16,sell:6,salvage:{leather:1},stats:{atk:0,hp:0,def:0},look:{}},
@@ -156,7 +168,7 @@ export const EQUIPMENT={
   berserk_boots:{id:'berserk_boots',name:'戰士皮靴',slot:'boots',classId:'berserker',tier:'starter',price:20,sell:8,salvage:{leather:2},stats:{atk:0,hp:0,def:0},look:{shoes:'boots'}},
   berserk_gloves:{id:'berserk_gloves',name:'狼皮手套',slot:'gloves',classId:'berserker',tier:'starter',price:18,sell:7,salvage:{leather:1,cloth:1},stats:{atk:0,hp:0,def:0},look:{}},
   // 刺客:馬尾黑布、涼鞋、匕首
-  assn_dagger:{id:'assn_dagger',name:'暗影匕首',slot:'weapon',classId:'assassin',tier:'starter',price:48,sell:19,salvage:{ore:2,leather:1},stats:{atk:0,hp:0,def:0},look:{weapon:'dagger'}},
+  assn_dagger:{id:'assn_dagger',name:'暗影匕首',slot:'weapon',wtype:'dagger',classId:'assassin',tier:'starter',price:48,sell:19,salvage:{ore:2,leather:1},stats:{atk:0,hp:0,def:0},look:{weapon:'dagger'}},
   assn_band:{id:'assn_band',name:'黑頭巾',slot:'helm',classId:'assassin',tier:'starter',price:22,sell:9,salvage:{cloth:2},stats:{atk:0,hp:0,def:0},look:{hat:'band'}},
   assn_vest:{id:'assn_vest',name:'潛行皮甲',slot:'chest',classId:'assassin',tier:'starter',price:34,sell:14,salvage:{leather:2,cloth:1},stats:{atk:0,hp:0,def:0},look:{top:'tunic',cape:'cape'}},
   assn_belt:{id:'assn_belt',name:'暗袋腰帶',slot:'belt',classId:'assassin',tier:'starter',price:16,sell:6,salvage:{leather:1},stats:{atk:0,hp:0,def:0},look:{}},
@@ -165,7 +177,14 @@ export const EQUIPMENT={
   assn_gloves:{id:'assn_gloves',name:'暗影手套',slot:'gloves',classId:'assassin',tier:'starter',price:18,sell:7,salvage:{cloth:1,leather:1},stats:{atk:0,hp:0,def:0},look:{}},
 
   // 鐵匠鋪升級件(tier craft):數值沿用 RECIPES,外觀用通用鐵甲部件
-  craft_weapon:{id:'craft_weapon',name:'精鐵武器',slot:'weapon',classId:null,tier:'craft',price:85,sell:38,salvage:{ore:6,wood:3},stats:{atk:7,hp:0,def:0},look:{}},
+  // 2026-11-24 精鐵武器分成五個類型(配方見 RECIPES):名字 = 精鐵 + 類型,外觀照類型畫(錘沒有圖時退回劍)。
+  // recipe = 對應的 RECIPES id(gearItemView 用它算第 2 階以上的數值)。縮圖由 pipeline/scripts/heroloom/gear-icons.mjs 依 look.weapon 產生。
+  // 舊的 craft_weapon 讀檔時換成這五件之一(migrateGearId)。
+  craft_sword:{id:'craft_sword',name:'精鐵長劍',slot:'weapon',classId:null,tier:'craft',price:85,sell:38,salvage:{ore:6,wood:3},stats:{atk:7,hp:0,def:0},wtype:'sword',recipe:'sword',look:{weapon:'sword'}},
+  craft_hammer:{id:'craft_hammer',name:'精鐵戰錘',slot:'weapon',classId:null,tier:'craft',price:85,sell:38,salvage:{ore:6,wood:3},stats:{atk:7,hp:0,def:0},wtype:'blunt',recipe:'hammer',look:{weapon:'hammer'}},
+  craft_bow:{id:'craft_bow',name:'精鐵長弓',slot:'weapon',classId:null,tier:'craft',price:85,sell:38,salvage:{ore:6,wood:3},stats:{atk:7,hp:0,def:0},wtype:'bow',recipe:'bow',look:{weapon:'bow'}},
+  craft_staff:{id:'craft_staff',name:'精鐵法杖',slot:'weapon',classId:null,tier:'craft',price:85,sell:38,salvage:{ore:6,wood:3},stats:{atk:7,hp:0,def:0},wtype:'staff',recipe:'staff',look:{weapon:'staff'}},
+  craft_dagger:{id:'craft_dagger',name:'精鐵匕首',slot:'weapon',classId:null,tier:'craft',price:85,sell:38,salvage:{ore:6,wood:3},stats:{atk:7,hp:0,def:0},wtype:'dagger',recipe:'dagger',look:{weapon:'dagger'}},
   craft_helm:{id:'craft_helm',name:'精鐵頭盔',slot:'helm',classId:null,tier:'craft',price:90,sell:21,salvage:{cloth:2,ore:3},stats:{atk:0,hp:6,def:2},look:{hat:'helmet'}},
   craft_chest:{id:'craft_chest',name:'精鐵胸甲',slot:'chest',classId:null,tier:'craft',price:140,sell:38,salvage:{ore:5,leather:3},stats:{atk:0,hp:22,def:3},look:{top:'armor'}},
   craft_belt:{id:'craft_belt',name:'精鐵腰帶',slot:'belt',classId:null,tier:'craft',price:70,sell:10,salvage:{leather:2},stats:{atk:0,hp:4,def:1},look:{}},
@@ -174,11 +193,45 @@ export const EQUIPMENT={
   craft_gloves:{id:'craft_gloves',name:'精鐵手套',slot:'gloves',classId:null,tier:'craft',price:60,sell:10,salvage:{cloth:2,leather:1},stats:{atk:0,hp:4,def:1},look:{}},
 };
 // 新招募獵人的初始七件套(武器 + 六格防具)。物品一建立就穿在身上,不是背包道具。
+// 武器類型(2026-11-24):技能依「武器類型」變招(見 pixel-skills skillFor),不看是哪一把武器;每個職業只能拿自己的類型。
+// 每把武器都有固定的 wtype(包括鐵匠鋪的精鐵武器:打造時就決定類型,見 RECIPES)。
+export const WEAPON_TYPES=Object.freeze({sword:'劍',blunt:'錘',bow:'弓',staff:'杖',dagger:'匕首'});
+// 職業 → 能拿的武器類型(第一個 = 預設類型)。聖騎士只用錘、狂戰士用劍;其他職業照目前畫的武器。
+export const CLASS_WEAPON_TYPES=Object.freeze({paladin:Object.freeze(['blunt']),berserker:Object.freeze(['sword']),archer:Object.freeze(['bow']),sorcerer:Object.freeze(['staff']),priest:Object.freeze(['staff']),assassin:Object.freeze(['dagger'])});
+/** 這把武器(物品 id)在這個職業手上的武器類型;不認得 → null。 */
+export function weaponTypeOf(itemId,classId){   // classId 保留:舊介面;2026-11-24 起每把武器的類型都固定
+  const it=itemId&&EQUIPMENT[itemId];if(!it||it.slot!=='weapon')return null;
+  return it.wtype||null;
+}
+/** 這個職業能不能拿這件裝備(只限制武器類型;防具不限)。 */
+export function canWield(itemId,classId){
+  const it=itemId&&EQUIPMENT[itemId];if(!it)return false;
+  if(it.slot!=='weapon')return true;
+  const t=weaponTypeOf(itemId,classId),ok=CLASS_WEAPON_TYPES[classId];
+  return !!t&&(!ok||ok.includes(t));
+}
+// 武器類型 → 鐵匠鋪的精鐵武器物品 id。
+export const CRAFT_WEAPON_ITEMS=Object.freeze(Object.fromEntries(RECIPES.filter(r=>r.type==='weapon').map(r=>[r.wtype,r.item])));
+/** 這個職業能拿的精鐵武器(預設類型);不認得的職業 → 精鐵長劍。 */
+export const craftWeaponFor=classId=>CRAFT_WEAPON_ITEMS[CLASS_WEAPON_TYPES[classId]?.[0]]||CRAFT_WEAPON_ITEMS.sword;
+// 退役物品 id → 現在的物品 id(讀檔時換掉;階級 grade 照帶)。2026-11-24:聖騎士劍 → 戰錘。
+export const LEGACY_GEAR_IDS=Object.freeze({paladin_sword:'paladin_hammer'});
+// 舊「精鐵武器」craft_weapon(拿在誰手上就算誰的類型)在 2026-11-24 拆成五個固定類型的物品。
+// 拿在獵人/流浪英雄手上的 → 換成那個職業的類型;倉庫裡沒有主人的(classId 給 null)→ 精鐵長劍。
+export const LEGACY_CRAFT_WEAPON='craft_weapon';
+/** 讀檔用:舊物品 id → 現在的物品 id。classId = 拿著它的職業(倉庫/庫存給 null)。 */
+export function migrateGearId(id,classId=null){
+  if(typeof id!=='string')return id;
+  if(id===LEGACY_CRAFT_WEAPON)return classId?craftWeaponFor(classId):CRAFT_WEAPON_ITEMS.sword;
+  return LEGACY_GEAR_IDS[id]||id;
+}
+export const currentGearId=id=>migrateGearId(id,null);
+
 export const CLASS_STARTER={
   archer:{weapon:'archer_bow',helm:'archer_hood',chest:'archer_vest',belt:'archer_belt',legs:'archer_legs',boots:'archer_boots',gloves:'archer_gloves'},
   sorcerer:{weapon:'sorc_staff',helm:'sorc_hat',chest:'sorc_robe',belt:'sorc_cord',legs:'sorc_wraps',boots:'sorc_boots',gloves:'sorc_gloves'},
   priest:{weapon:'priest_staff',helm:'priest_band',chest:'priest_robe',belt:'priest_sash',legs:'priest_legs',boots:'priest_sandals',gloves:'priest_gloves'},
-  paladin:{weapon:'paladin_sword',helm:'paladin_helm',chest:'paladin_plate',belt:'paladin_belt',legs:'paladin_legs',boots:'paladin_boots',gloves:'paladin_gloves'},
+  paladin:{weapon:'paladin_hammer',helm:'paladin_helm',chest:'paladin_plate',belt:'paladin_belt',legs:'paladin_legs',boots:'paladin_boots',gloves:'paladin_gloves'},
   berserker:{weapon:'berserk_axe',helm:'berserk_helm',chest:'berserk_vest',belt:'berserk_belt',legs:'berserk_legs',boots:'berserk_boots',gloves:'berserk_gloves'},
   assassin:{weapon:'assn_dagger',helm:'assn_band',chest:'assn_vest',belt:'assn_belt',legs:'assn_legs',boots:'assn_sandals',gloves:'assn_gloves'},
 };
@@ -192,7 +245,9 @@ export const DIFFICULTIES=[{id:0,name:'初級',mult:1,atk:1,rebirths:0},{id:1,na
 // 取得管道: starter = 新獵人初始套裝(招募即穿);craft = 鐵匠鋪製作 / 獵人與流浪英雄到鐵匠鋪購買 /
 //          首領討伐(45%) / 地下城每 2 層 / 章節委託(指定件)。
 export const GEAR_SELL_RATE=0.4;
-export const GEAR_CRAFT_POOL=['craft_weapon','craft_helm','craft_chest','craft_belt','craft_legs','craft_boots','craft_gloves'];
+// 'craft_weapon' 在掉落表/委託獎勵裡是「某一把精鐵武器」的記號(不是物品):掉落時由 pixel-game rollGearDrop 用同一個亂數決定類型
+// (不多抽亂數,其他掉落的結果不變),委託獎勵給村裡獵人最多人能拿的類型。武器在掉落表的比重維持 1/7。
+export const GEAR_CRAFT_POOL=[LEGACY_CRAFT_WEAPON,'craft_helm','craft_chest','craft_belt','craft_legs','craft_boots','craft_gloves'];
 export const GEAR_STARTER_POOL=Object.values(EQUIPMENT).filter(item=>item.tier==='starter').map(item=>item.id);
 // chance = 每次觸發機率;every = 地下城每幾層給一件;quest = 章節索引 → 指定裝備。
 export const GEAR_DROP={
@@ -215,7 +270,7 @@ export function gearItemView(inst){
   const grade=gearGradeOf(inst);if(!grade)return base;
   const key=base.id+'@'+grade;if(GEAR_VIEW.has(key))return GEAR_VIEW.get(key);
   if(grade===1){const v={...base,grade:1,numeral:GEAR_TIERS[0].numeral};GEAR_VIEW.set(key,v);return v;}
-  const r=gearAt(base.slot,grade),value=Object.entries(r.cost).reduce((n,[k,v])=>n+v*(MATERIALS[k]?.price||0),0);
+  const r=gearAt(base.recipe||base.slot,grade),value=Object.entries(r.cost).reduce((n,[k,v])=>n+v*(MATERIALS[k]?.price||0),0);
   const view={...base,grade,numeral:r.numeral,name:`${base.name} ${r.numeral}`,price:r.price,sell:Math.round(value*GEAR_CRAFT_SELL_RATE),
     salvage:Object.fromEntries(Object.entries(r.cost).map(([k,v])=>[k,Math.ceil(v/2)])),
     stats:base.slot==='weapon'?{atk:r.bonus,hp:0,def:0}:{atk:0,hp:r.hp||0,def:r.def||0}};

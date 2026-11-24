@@ -51,7 +51,7 @@ assets/heroloom/
 ├── README.md               # vendor 說明（免費樣本包；完整版 998 parts）
 ├── maker.html              # 廠商 Character Maker：只在 assets/ 留存，不進 build（§0）
 ├── parts/<slot>/<part>[.<layer>].png
-│   └── 46 張分層圖，每張都是整張 512×448 sheet（8 欄 × 8 列）
+│   └── 48 張分層圖（46 張 vendor + 自製 `weapon/hammer{,.back}`），每張都是整張 512×448 sheet（8 欄 × 8 列）
 ├── icons/<slot>/<part>.png # 23 張 32×32 選單小圖（body/face 沒有 icon）
 └── runtime/js/paperdoll.js # vendor 執行期（可出貨，但遊戲用自己 src/heroloom*.js）
 ```
@@ -139,11 +139,11 @@ assets/heroloom/
 | `shield` | ✘ | `cloth` | buckler |
 | `bottom` | ✘ | `cloth` | pants / skirt |
 | `shoes` | ✘ | `leather` | boots / sandals |
-| `weapon` | ✘ | —（`null` 不可換色） | sword / staff / dagger / bow（各有 main/back） |
+| `weapon` | ✘ | —（`null` 不可換色） | sword / staff / dagger / bow（各有 main/back）／**hammer**（自製聖騎士戰錘，main/back，見 §4.1） |
 | `face` | ✔ | `eye` | eyes |
 | `acc` | ✘ | `cloth` | glasses、beard（`colorFrom: "hair"`：鬍子跟頭髮同色） |
 
-- 25 個 part id、46 張分層圖（差額就是 back/front/head/under 多層）。
+- 26 個 part id（25 個 vendor + 自製 `weapon/hammer`）、48 張分層圖（差額就是 back/front/head/under 多層）。
 - 必選 = `body` + `face`；`bake()` 沒給時自動補每個 required slot 的第一個 part。
 - `colorFrom` 讓該 part 跟著別的 slot 的色階換色（目前只有 `acc/beard` → `hair`）。
 
@@ -200,7 +200,7 @@ const sheet = await doll.bake({ parts: { hair: "long", top: "robe", hat: "wizard
   提供 frame 取樣（`frameAt` 等價邏輯）與鏡像/錨點換算。不碰 canvas、不碰 DOM，`test-heroloom.mjs` 直接 import。
 - [`src/heroloom-hero.js`](../src/heroloom-hero.js)：瀏覽器端 provider，**與 `src/paperdoll-hero.js` 的 `createDollHero` 相容**：
   同樣吃 `opts = { trackImage, makeCanvas, base, cap, onEvict, onReady }`、同樣提供 `status()` / `setSpec()` / `compose()` 這一組介面，
-  讓 `src/pixel-world.js` 的英雄繪製分支可以整組換掉而不動呼叫端。差別：Heroloom 的圖是 46 張整張 sheet + 執行期 bake，
+  讓 `src/pixel-world.js` 的英雄繪製分支可以整組換掉而不動呼叫端。差別：Heroloom 的圖是 48 張整張 sheet + 執行期 bake，
   `base` 讀 `PIXEL_ASSETS.heroloomBase`（`media/heroloom/`），資料檔是 `character.json`（不是 `paperdoll.json`）。
 - 逃生口：`?doll=0`（也吃 `off/no/sheet/none`）→ 完全回到原本烘好的 hero sheet；Heroloom 沒載到（404/逾時）也自動 fallback。
   遊戲預設走哪一條由 Lead 決定；實驗期間兩種都要能跑。
@@ -212,8 +212,8 @@ const sheet = await doll.bake({ parts: { hair: "long", top: "robe", hat: "wizard
   並注入 `window.PIXEL_ASSETS.heroloomBase = "media/heroloom/"`；沒這包時字串不出現，呼叫端 fallback。
   - 兩種輸出目錄都支援：repo 內的 `dist/`（一般 checkout）與 `../../outputs/`（`work/` 下的 worktree，寫 `outputs/暮影村.html`），
     跟 `paperdollBase` / `paperdollDv2Base` / `monsterDollBase` 用的是同一段 `mediaDir` 邏輯。
-  - 出貨檔案清單：`media/heroloom/character.json` + `media/heroloom/parts/**`（46 張）+ `media/heroloom/icons/**`（23 張）
-    + `runtime/js/paperdoll.js` + `LICENSE.txt` + `README.md` = 73 檔（74 扣掉 `maker.html`）。
+  - 出貨檔案清單：`media/heroloom/character.json` + `media/heroloom/parts/**`（48 張）+ `media/heroloom/icons/**`（23 張）
+    + `runtime/js/paperdoll.js` + `LICENSE.txt` + `README.md` = 75 檔（76 扣掉 `maker.html`）。
   - 分層圖不內嵌、不轉 webp、不改檔名：換色靠精確 RGB 比對（§2.4），轉檔會破壞它。
 
 ## 4. 怎麼重建/更新素材
@@ -234,10 +234,10 @@ node tools/checks/heroloom-assets.mjs
 
 它會逐項 PASS/FAIL（依賴 0 套件、不開圖檔，PNG 尺寸直接讀 IHDR）：
 
-- 74 檔齊全（46 張 part sheet、23 張 icon、character.json/LICENSE/README/maker/runtime 五個核心檔、沒有多餘檔）
+- 76 檔齊全（48 張 part sheet、23 張 icon、character.json/LICENSE/README/maker/runtime 五個核心檔、沒有多餘檔）
 - 每張 part PNG 是 512×448（= `columns × cell` 與 `動作數 × cell` 推出來的），每張 icon 是 32×32
 - `character.json`：cell [64,56]、columns 8、foot 在格內、faces right、8 個動作 row 0–7 不重複、frames/ms/loop 合理
-- 22 層 / 12 slots / 每個 layer path 都存在、46 張圖全部被 spec 引用（沒有孤兒圖）
+- 22 層 / 12 slots / 每個 layer path 都存在、48 張圖全部被 spec 引用（沒有孤兒圖）
 - anchors 陣列長度 == frames、head/hand 在格內、weaponAngle/smear 型別
 - palettes 每列 6 個 hex、variant 數 skin4/hair7/cloth7/leather3/eye5、looks 的 part/顏色都存在
 - LICENSE.txt 有 `YOU MAY NOT` 與「不得當素材包轉散布 / 不得 AI 訓練 / 不得 NFT」條文
@@ -252,15 +252,32 @@ build（整合完成後）：
 node build.mjs
 ```
 
-驗收：輸出目錄的 `media/heroloom/character.json` 在、`media/heroloom/parts/**` 46 張 PNG 在、HTML 裡有
+驗收：輸出目錄的 `media/heroloom/character.json` 在、`media/heroloom/parts/**` 48 張 PNG 在、HTML 裡有
 `window.PIXEL_ASSETS.heroloomBase="media/heroloom/"`。build 與 `npm test` 跨 agent 序列化，跑之前先確認沒人正在 build
 （build 會寫 `../../outputs/暮影村.html`）。
+
+### 4.1 自製部件：聖騎士戰錘（`weapon/hammer`）
+
+`assets/heroloom/parts/weapon/hammer.png`（main）+ `hammer.back.png`（back）不是 vendor 檔，是程式畫的（2026-11-24，授權 §0 允許修改/加自製部件給本專案用）。
+要重生/改圖不要手改 PNG，改腳本再跑：
+
+```bash
+python pipeline/scripts/heroloom/make_hammer.py     # 重生 hammer.png / hammer.back.png（需 Pillow + numpy，會讀 sword 兩張 sheet 決定哪格放哪層）
+python pipeline/scripts/heroloom/preview_hammer.py  # 聖騎士全套 × 劍/錘對照 → output/hammer-weapon/compare.png、grip-check.png
+```
+
+- 畫法：27×10 的小模板（約 16 px 長木柄 + 金色柄尾/護環 + 8×7 核心的鋼色錘頭，兩端打擊面較亮、中間小金十字；握點靠柄尾，手前露出約 14 px 木柄），調色盤只用 sword 圖已有的顏色（墨線 `#150d1b`、鋼 4 階、金 3 階、木 3 階）。
+  每格用該格 anchor 的 `hand` 當握柄支點、`weaponAngle` 旋轉（最近鄰、無反鋸齒），錘頭朝 `weaponAngle` 方向。
+- 層分配與 sword 一致：sword 在 main 的格放 main；`smear: true` 的格加揮擊殘影（attack 第 2 格在 back、第 3 格在 main，同 sword）；
+  sword 空的格 hammer 也空（目前每個有效格都有武器）。
+- 這是 vendor 包外的自製檔：`tools/checks/heroloom-assets.mjs` 的檔數/張數已計入（76 檔 / 48 張），從 vendor 重新複製 pack 時不要把它洗掉。
+- 職業預設（聖騎士只拿錘、劍歸狂戰士）在 `src/heroloom.js` 的 `CLASS_LOOK`，不在這包素材裡。
 
 ## 5. 已知限制 / 風險
 
 - **只有右向**：左向是整張鏡像；沒有真正的上/下動作列。要四方向得靠遊戲端挑動作/鏡像，細節由 `src/heroloom.js` 決定。
 - **精確換色**：不在 6 色色階裡的顏色不會換（墨線、金屬、眼睛高光都是固定色）。要新增色階只能改 vendor 圖或另外做 tint。
-- **品項少**：免費樣本包只有 25 個 part id / 46 張分層圖，裝備外觀變化有限；完整版（998 parts，九包）是另一份授權，不能直接混進來。
+- **品項少**：免費樣本包只有 25 個 vendor part id / 46 張分層圖（另加自製 hammer 2 張），裝備外觀變化有限；完整版（998 parts，九包）是另一份授權，不能直接混進來。
 - **bake 成本 / 記憶體**：每個 recipe 一張 512×448 canvas；快取一定要有上限，避免每隻獵人每套裝備都留一張。
 - **maker.html 不出貨**：`media/heroloom/` 不該出現它（授權 §0）；如果哪天要放出來給玩家玩，先確認授權（目前不行）。
 - 授權是**一人/一團隊一份**：這個 repo 以外的專案不能直接引用 `assets/heroloom/`。

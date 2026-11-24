@@ -1,7 +1,7 @@
 // 2026-11-15 裝備物品化測試:目錄完整性、初始套裝、卸下/出售/分解/倉庫、外觀連動、存檔遷移。
 import assert from 'node:assert/strict';
 import { createGame } from './src/pixel-game.js';
-import { EQUIPMENT, CLASS_STARTER, EQUIP_SLOTS, GEAR_SLOTS, CLASSES, MATERIALS, RECIPES, GEAR_DROP, GEAR_SELL_RATE, GEAR_CRAFT_POOL, GEAR_STARTER_POOL } from './src/pixel-data.js';
+import { EQUIPMENT, CLASS_STARTER, EQUIP_SLOTS, GEAR_SLOTS, CLASSES, MATERIALS, RECIPES, GEAR_DROP, GEAR_SELL_RATE, GEAR_CRAFT_POOL, GEAR_STARTER_POOL, craftWeaponFor, CRAFT_WEAPON_ITEMS, LEGACY_CRAFT_WEAPON } from './src/pixel-data.js';
 import { heroloomLook, CLASS_LOOK } from './src/heroloom.js';
 
 let passed = 0;
@@ -142,7 +142,7 @@ const g3 = createGame(oldSave);
 for (const h of g3.state.hunters) {
   ok(!!h.gear, `${h.classId} migrated hunter has gear`);
   for (const slot of EQUIP_SLOTS) ok(!!h.gear[slot], `${h.classId}.${slot} migrated starter gear exists`);
-  eq(h.gear.weapon.itemId, 'craft_weapon', 'old equipment.weapon=true migrates to the crafted weapon item (same +7 atk)');
+  eq(h.gear.weapon.itemId, craftWeaponFor(h.classId), 'old equipment.weapon=true migrates to the crafted weapon of the class type (same +7 atk)');
   for (const slot of GEAR_SLOTS) eq(h.gear[slot].itemId, 'craft_' + slot, `old armor=true → craft ${slot} (v2 rule: all six armour pieces)`);
   ok(EQUIP_SLOTS.every(slot => h.equipment[slot] === true), 'migrated hunter has every craft flag');
 }
@@ -189,10 +189,11 @@ eq(g4.state.gearStorage.at(-1).itemId, 'paladin_plate', 'the replaced starter ch
     if (it.tier === 'starter') {
       eq(it.sell, Math.round(it.price * GEAR_SELL_RATE), `${it.id} starter sell = round(price*0.4)`);
     } else {
-      const value = materialValue(recipes[it.slot].cost);
+      const recipe = recipes[it.recipe || it.slot];   // 2026-11-24 精鐵武器五種類型各有自己的配方(it.recipe)
+      const value = materialValue(recipe.cost);
       eq(it.sell, Math.round(value * 0.8), `${it.id} craft sell = round(materialValue*0.8)`);
       const want = {};
-      for (const [k, q] of Object.entries(recipes[it.slot].cost)) want[k] = Math.ceil(q / 2);
+      for (const [k, q] of Object.entries(recipe.cost)) want[k] = Math.ceil(q / 2);
       eq(it.salvage, want, `${it.id} craft salvage = ceil(cost/2)`);
       ok(it.sell > materialValue(it.salvage) * 0.75, `${it.id} selling beats salvaging for crafted gear`);
     }
@@ -202,22 +203,25 @@ eq(g4.state.gearStorage.at(-1).itemId, 'paladin_plate', 'the replaced starter ch
   const strength = st => st.atk * 2 + st.hp + st.def * 4;
   for (const cls of Object.keys(CLASS_STARTER)) {
     for (const slot of EQUIP_SLOTS) {
-      const starter = EQUIPMENT[CLASS_STARTER[cls][slot]], craft = EQUIPMENT['craft_' + slot];
+      const starter = EQUIPMENT[CLASS_STARTER[cls][slot]], craft = EQUIPMENT[slot === 'weapon' ? craftWeaponFor(cls) : 'craft_' + slot];
       ok(strength(craft.stats) > strength(starter.stats), `${slot}: craft gear beats ${cls} starter`);
     }
   }
   // 取得管道:pools 的 id 都存在、分級正確;任務指定件存在;掉落機率合理
+  // 2026-11-24 'craft_weapon' 是「某一把精鐵武器」的記號(掉落/委託時換成五種類型之一),其餘是真的物品
+  const isCraft = id => id === LEGACY_CRAFT_WEAPON ? Object.values(CRAFT_WEAPON_ITEMS).every(w => EQUIPMENT[w] && EQUIPMENT[w].tier === 'craft') : !!(EQUIPMENT[id] && EQUIPMENT[id].tier === 'craft');
   eq(GEAR_CRAFT_POOL.length, 7, 'seven crafted pieces in the craft pool');
-  ok(GEAR_CRAFT_POOL.every(id => EQUIPMENT[id] && EQUIPMENT[id].tier === 'craft'), 'craft pool only holds crafted items');
+  ok(GEAR_CRAFT_POOL.every(isCraft), 'craft pool only holds crafted items (or the any-craft-weapon marker)');
+  eq(EQUIPMENT[LEGACY_CRAFT_WEAPON], undefined, 'the marker is not an item');
   eq(GEAR_STARTER_POOL.length, Object.keys(CLASS_STARTER).length * 7, 'starter pool has every starter piece');
   ok(GEAR_STARTER_POOL.every(id => EQUIPMENT[id] && EQUIPMENT[id].tier === 'starter'), 'starter pool only holds starter items');
   for (const [kind, rule] of Object.entries(GEAR_DROP)) {
-    if (rule.pool) ok(rule.pool.every(id => EQUIPMENT[id]), `${kind} drop pool ids all exist`);
+    if (rule.pool) ok(rule.pool.every(id => EQUIPMENT[id] || id === LEGACY_CRAFT_WEAPON), `${kind} drop pool ids all exist`);
     if (rule.chance != null) ok(rule.chance > 0 && rule.chance < 1, `${kind} drop chance is a real probability`);
   }
   eq(GEAR_DROP.dungeon.every, 2, 'dungeon chest every 2 floors');
   for (const [idx, id] of Object.entries(GEAR_DROP.quest)) {
-    ok(EQUIPMENT[id] && EQUIPMENT[id].tier === 'craft', `quest #${idx} rewards an existing crafted item`);
+    ok(isCraft(id), `quest #${idx} rewards an existing crafted item`);
   }
   // 遊戲端確實在對應時機發裝備(原始碼檢查):掉落→倉庫、首領/地下城/委託三個鉤子
   const fs = await import('node:fs');

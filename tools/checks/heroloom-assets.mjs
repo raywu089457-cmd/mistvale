@@ -6,13 +6,13 @@
 // broken copy / edited spec / mis-sized sheet fails here before a build ever runs.
 //
 // What it checks:
-//   1  pack file census: exactly 74 files (46 part sheets, 23 icons, 5 core files)
+//   1  pack file census: exactly 76 files (48 part sheets, 23 icons, 5 core files)
 //   2  every part PNG: 8-byte signature + IHDR says 512x448 (columns*cell.w x actions*cell.h)
 //   3  every icon PNG: signature + IHDR says 32x32
 //   4  character.json: cell [64,56], columns 8, foot inside the cell, faces "right"
 //   5  actions: 8 rows 0..7, frames 1..columns, ms > 0, loop is boolean
 //   6  layers: 22 entries, every referenced slot exists, layer names known, draw order slots complete
-//   7  slots/parts: every layer path in character.json exists on disk, and all 46 sheets are used
+//   7  slots/parts: every layer path in character.json exists on disk, and all 48 sheets are used
 //   8  anchors: one array per action, length == frames, head/hand inside the cell
 //   9  palettes: 6 hex colours per row, variant counts skin4/hair7/cloth7/leather3/eye5
 //  10  looks: part ids and colour variants exist (a look is a ready-made recipe)
@@ -33,9 +33,9 @@ const PACK = process.argv[2] ? path.resolve(process.cwd(), process.argv[2]) : pa
 const SPEC_FILE = path.join(PACK, 'character.json');
 const BUILD_FILE = path.join(ROOT, 'build.mjs');
 
-const PART_COUNT = 46;
+const PART_COUNT = 48;
 const ICON_COUNT = 23;
-const FILE_COUNT = 74; // 46 parts + 23 icons + character.json + LICENSE.txt + README.md + maker.html + runtime/js/paperdoll.js
+const FILE_COUNT = 76; // 48 parts + 23 icons + character.json + LICENSE.txt + README.md + maker.html + runtime/js/paperdoll.js
 const LAYER_COUNT = 22;
 const SLOT_NAMES = ['back', 'cape', 'hair', 'hat', 'body', 'top', 'shield', 'bottom', 'shoes', 'weapon', 'face', 'acc'];
 const LAYER_NAMES = ['main', 'back', 'front', 'head', 'under'];

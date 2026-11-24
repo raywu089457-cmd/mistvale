@@ -1025,6 +1025,42 @@ test('provider: opts.outfits=false never requests or uses a sheet', async () => 
   }
 });
 
+// 2026-11-24 聖騎士戰錘:hammer 是可退回的部件(PART_FALLBACK weapon.hammer → sword)。
+// 圖載不到或 character.json 沒有 hammer,整包照常 ready、不丟例外、不畫空手,也不讓遊戲的 trackImage 記成載入失敗。
+test('provider: a missing or failing hammer part falls back to the sword', async () => {
+  const paladin = { classId: 'paladin', gender: 'm', equipment: {}, gear: { weapon: { uid: 'w', itemId: 'paladin_hammer' } } };
+  for (const mode of ['absent-from-spec', 'image-fails']) {
+    const spec = makeProviderSpec();
+    if (mode === 'image-fails') spec.slots.weapon.parts.hammer = { layers: { main: 'parts/weapon-hammer-main.png', back: 'parts/weapon-hammer-back.png' } };
+    const partImage = fakeImage(512, 448, sheetRgba());
+    const assets = (url) => {
+      const u = String(url);
+      if (u.includes('weapon-hammer')) return { ok: false };
+      if (u.startsWith('media/heroloom/parts/')) return { ok: true, image: partImage };
+      return { ok: false };
+    };
+    const fakes = installBrowserFakes(spec, assets);
+    const doll = createDollHero({ makeCanvas, base: 'media/heroloom/', loadTimeoutMs: 3000, outfits: false, trackImage: (img) => fakes.tracked.push(img) });
+    try {
+      doll.setSpec('hero');
+      assert.equal(await until(() => doll.status().ready), true, `${mode}: pack did not become ready`);
+      const st = doll.status();
+      assert.equal(st.failed, null, `${mode}: pack must not fail`);
+      assert.deepEqual(st.missingParts, mode === 'image-fails' ? ['weapon.hammer'] : [], `${mode}: missing parts`);
+      assert.equal(doll.look(paladin).parts.weapon, 'hammer', `${mode}: the look still asks for the hammer`);
+      const c = doll.compose(paladin, { action: 'attack', tick: 3, dir: 'side' });
+      assert.ok(c, `${mode}: paladin composes (sword drawn instead of the hammer)`);
+      if (mode === 'image-fails') {
+        assert.ok(fakes.requested.some((u) => u.includes('weapon-hammer')), 'the hammer image was requested');
+        assert.ok(fakes.tracked.every((img) => !String(img.src || '').includes('weapon-hammer')), 'a failing optional part is not reported to trackImage');
+      }
+    } finally {
+      doll.dispose();
+      fakes.restore();
+    }
+  }
+});
+
 /* ------------------------------------------------------------------------- */
 /* 9. Real art report (never fails when the sheets are absent)                */
 /* ------------------------------------------------------------------------- */

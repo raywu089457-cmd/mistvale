@@ -81,6 +81,13 @@ import * as fx_76 from "./fx/status/poisoned.js";
 import * as fx_77 from "./fx/status/sleep.js";
 import * as fx_78 from "./fx/status/slowed.js";
 import * as fx_79 from "./fx/status/stunned.js";
+import * as local_0 from "../pixelfx-local/fx/holy/divine-shield-aura-iso.js";
+import * as local_1 from "../pixelfx-local/fx/nature/thorn-aegis-iso.js";
+import * as local_2 from "../pixelfx-local/fx/nature/thorn-aegis-burst-iso.js";
+import * as local_3 from "../pixelfx-local/fx/melee/judgment-hammer-iso.js";
+import * as local_4 from "../pixelfx-local/fx/melee/holy-arc-iso.js";
+import * as local_5 from "../pixelfx-local/fx/melee/iron-sweep-iso.js";
+import * as local_6 from "../pixelfx-local/fx/melee/steel-arc-iso.js";
 export const LIVE_FX_MODS = Object.freeze({
   "impacts/hit-spark-iso": fx_0,
   "impacts/blade-hit-iso": fx_1,
@@ -162,4 +169,11 @@ export const LIVE_FX_MODS = Object.freeze({
   "status/sleep": fx_77,
   "status/slowed": fx_78,
   "status/stunned": fx_79,
+  "holy/divine-shield-aura-iso": local_0,
+  "nature/thorn-aegis-iso": local_1,
+  "nature/thorn-aegis-burst-iso": local_2,
+  "melee/judgment-hammer-iso": local_3,
+  "melee/holy-arc-iso": local_4,
+  "melee/iron-sweep-iso": local_5,
+  "melee/steel-arc-iso": local_6,
 });

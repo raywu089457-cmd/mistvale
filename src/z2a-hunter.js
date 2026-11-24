@@ -1,8 +1,8 @@
 // z2a-hunter.js — Z2A(圖鑑規格 v2 的 f、g、j 節):獵人卡(C 視窗內容)、名冊卡、新獵人到訪暗帶(D)的 HTML。
 // 只產生字串;狀態(游標位置、哪張子頁籤)放在這裡的 hc／vb,事件接線在 pixel-ui.js 的 doAction。
 import {tipAttr,tipGradeName} from './ui-tip.js';
-import {GEAR_SLOTS,EQUIP_SLOTS,MATERIALS,GEAR_TIER_MAX,GEAR_TIERS,gearItemView} from './pixel-data.js';
-import {specsOf,specOf,SPEC_SWITCH_LV,SCHOOL_COLORS,STATUS_DEFS,skillSlotMult,skillSlotCd} from './pixel-skills.js';
+import {GEAR_SLOTS,EQUIP_SLOTS,MATERIALS,GEAR_TIER_MAX,GEAR_TIERS,gearItemView,canWield} from './pixel-data.js';
+import {specsOf,specOf,heroSkills,SPEC_SWITCH_LV,SCHOOL_COLORS,STATUS_DEFS,skillSlotMult,skillSlotCd} from './pixel-skills.js';
 let C=null;   // { esc, fmt, iconHTML, portrait, game:()=>game, RARITIES, CLASSES, TRAITS }
 export const initHunterUI=ctx=>{C=ctx;};
 
@@ -85,7 +85,7 @@ function skillPanel(h){const s=C.game().state,lv=h.skillLevel||0,cost=C.game().s
  const switchHint=!s.buildings.academy?'<span class="no">建造學院並學至 Lv.1 後開放免費切換</span>':lv<SPEC_SWITCH_LV?`<span class="no">戰鬥技能 Lv.${SPEC_SWITCH_LV} 後可免費隨時切換流派</span>`:'<span class="ok">學院已開放 · 免費隨時切換</span>';
  const specPills=spList.map(sp=>{const on=sp.id===curSp.id;
   return `<button type="button" class="pixel-button z2-spec-btn${on?' on':''}${!on&&!canSwitch?' locked':''}" data-action="setHunterSpec" data-id="${h.id}" data-spec="${sp.id}" style="--spec:${sp.color}" aria-pressed="${on}"${!on&&!canSwitch?' aria-disabled="true"':''}>${!on&&!canSwitch?'<i class="hv-lock" aria-hidden="true"></i>':''}<i class="z2-spec-dot" aria-hidden="true"></i><span>${C.esc(sp.name)}</span></button>`;}).join('');
- const skCards=curSp.skills.map(sk=>{
+ const skCards=heroSkills(h).map(sk=>{   // 依武器類型的變招(長槍橫掃:劍 → 弧光斬、鈍器 → 震地掃)
   const unl=lv>=sk.unlockLv,cd=skillSlotCd(h,sk),col=SCHOOL_COLORS[sk.school]||curSp.color;
   const stId=sk.status||sk.selfStatus,stDef=stId?STATUS_DEFS[stId]:null;
   const awake=sk.slot===3&&(h.rebirths||0)>=1;
@@ -111,7 +111,7 @@ function gearRow(h,slot){const it=itemIn(h,slot),s=C.game().state,I=C.iconHTML,t
    +`<div class="z2-row-b"><b class="z2-row-n"${t?` data-grade="${TIER_GRADE[t]||'superior'}"`:''}>${C.esc(it.name)}</b><small class="z2-row-d">${desc}</small>${t?`<small class="z2-row-w"><span class="ok">${t<GEAR_TIER_MAX?'有更高階庫存時會自己換新':'已是最高階 Ⅴ'}</span></small>`:''}<div class="gear-btns">`
    +gearBtn('gearUnequip',h.id,slot,'卸下')+gearBtn('gearSell',h.id,slot,'出售','red')+gearBtn('gearSalvage',h.id,slot,'分解')
    +`</div></div></div>`;}
- const cands=(s.gearStorage||[]).map(g=>{const i=gearItemView(g);return i&&i.slot===slot?{uid:g.uid,it:i}:null;}).filter(Boolean);
+ const cands=(s.gearStorage||[]).map(g=>{const i=gearItemView(g);return i&&i.slot===slot&&canWield(g.itemId,h.classId)?{uid:g.uid,it:i}:null;}).filter(Boolean);   // 2026-11-24 只列這個職業拿得動的武器
  const body=cands.length?cands.map(c=>`<button type="button" class="pixel-button z2-rowbtn gear-cand" data-action="gearEquip" data-id="${h.id}" data-uid="${c.uid}" data-zb="olive" aria-label="穿上${C.esc(c.it.name)}"><span>穿上 · ${C.esc(c.it.name)}</span></button>`).join(''):`<small class="z2-row-w">倉庫沒有可穿的${SLOT_LABEL[slot]}</small>`;
  return `<div class="z2-row gear-slot empty" data-slot="${slot}"><i class="z2-row-ic" aria-hidden="true">${I(slot==='weapon'?'swords':'def',true)}</i>`
   +`<div class="z2-row-b"><b class="z2-row-n">未穿戴</b><small class="z2-row-d">${SLOT_LABEL[slot]} · 沒有數值加成</small><div class="gear-btns">${body}</div></div></div>`;}

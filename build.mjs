@@ -110,8 +110,9 @@ try{assetScript+=`window.PIXEL_ASSETS=window.PIXEL_ASSETS||{};window.PIXEL_ASSET
  // 舊預烘 vfx-sheets 與 hero *-fx 表已全數移除，改由實時 CQ pixelfx 引擎 (src/pixelfx-runtime.js) 繪製。
  // 例外(2026-11-23 使用者:「把原本箭特效放回去」):弓箭手的箭仍用原本的 pixelfx 表 ——
  // 飛行中的箭 arrow / 疾風箭雨 gale-arrow、命中火花 hit-spark-iso;只打包這三張(pixel-world.js drawShotArrows / drawArrowHit)。
+ // 2026-11-23「箭體飛行特效去掉空氣特效」:飛行用 *-bare 表(風切線已剝掉,pipeline/scripts/pixelfx/strip_arrow_air.py 產生)。
  {const dir=path.join(root,'assets/vfx-sheets'),shelf={};
-  for(const id of ['arrow','gale-arrow','hit-spark-iso']){
+  for(const id of ['arrow-bare','gale-arrow-bare','hit-spark-iso']){
    try{shelf[id]={img:await media(path.join(dir,id+'.png'),`vfx-sheets/${id}.png`),meta:JSON.parse(await fs.readFile(path.join(dir,id+'.json'),'utf8'))};}
    catch(e){console.warn('missing vfx sheet',id);}}
   put('vfxSheets',JSON.stringify(shelf));}
