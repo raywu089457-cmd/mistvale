@@ -367,11 +367,12 @@ export function createLiveFxPool({ mobile = false, onDirty = null, onRelease = n
     const bb = back ? b.bbB : b.bbF;
     if (!bb) return false;
     const cvs = back ? b.cvB : b.cvF;
-    const k = ISO_PX * scale * b.tune;
+    const sc = Number.isFinite(p?.s) ? p.s : scale;
+    const k = ISO_PX * sc * b.tune;
     const shiftX = b.aheadPx ? -Math.cos(b.aim) * b.aheadPx * k : 0;
     const shiftY = b.aheadPx ? -Math.sin(b.aim) * 0.5 * b.aheadPx * k : 0;
     const ax = Math.round(p.x + shiftX);
-    const ay = Math.round(p.y - b.dy * scale + shiftY);
+    const ay = Math.round(p.y - b.dy * sc + shiftY);
     const bw = bb.x1 - bb.x0 + 1, bh = bb.y1 - bb.y0 + 1;
     if (b.flipX) {
       ctx.save();
@@ -404,13 +405,19 @@ export function createLiveFxPool({ mobile = false, onDirty = null, onRelease = n
     if (!blasts.length) return;
     ctx.save();
     ctx.imageSmoothingEnabled = false;
-    // Depth sort front layers by world depth (x + z), with `over` effects always on top.
-    const sorted = blasts.filter(b => b.delay <= 0 && b.bbF).sort((a, b) => (a.over - b.over) || ((a.x + a.z) - (b.x + b.z)));
-    for (const b of sorted) {
+    // Depth sort front layers back-to-front by 3D viewZ (or x+z in 2D), with `over` effects always on top.
+    const items = [];
+    for (const b of blasts) {
+      if (b.delay > 0 || !b.bbF) continue;
       const p = worldToScreen(b.x, b.z);
-      if (blitLayer(ctx, b, false, p, scale)) {
-        drawnCount++; seenIds.add(b.id);
-        lastDraw = { id: b.id, layer: 'front', x: Math.round(p.x), y: Math.round(p.y), t: +b.fx.t.toFixed(2) };
+      items.push({ b, p, sort: Number.isFinite(p?.vz) ? -p.vz : (b.x + b.z) });
+    }
+    items.sort((a, q) => (a.b.over - q.b.over) || (a.sort - q.sort));
+    for (const it of items) {
+      const p = worldToScreen(it.b.x, it.b.z);
+      if (blitLayer(ctx, it.b, false, p, scale)) {
+        drawnCount++; seenIds.add(it.b.id);
+        lastDraw = { id: it.b.id, layer: 'front', x: Math.round(p.x), y: Math.round(p.y), t: +it.b.fx.t.toFixed(2) };
       }
     }
     ctx.restore();
