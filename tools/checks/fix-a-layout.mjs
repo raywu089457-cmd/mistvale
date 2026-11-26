@@ -3,7 +3,7 @@
 //       Esc、點外面、清單內「關閉」都能收
 //   B7  離線戰報:「收下戰報」鈕不用捲就在視窗內、點得到(四種視窗)
 //   缺口 8  難度色帶「初級」#difficulty-name 與任務標題 #hv-quest-title 不重疊;任務追蹤 #hv-quest 不蓋色帶按鈕
-//   缺口 20 手機任務追蹤 #hv-quest 與日期標籤 #day-clock 熱區不重疊
+//   缺口 20 手機任務追蹤 #hv-quest 與日期標籤 #day-clock 熱區不重疊(2026-11-26 日期標籤隨日夜拿掉,元素不存在時這項自動略過)
 //   缺口 12 手機/橫向放置列 #placement:不是滿寬實心橫條(寬 ≤ 視窗 70%),不蓋 #reopen-left、#pause-label、縮放鈕、行動徽章、頁籤列
 import * as L from './fix-a-lib.mjs';
 const srv = await L.startServer(); const browser = await L.launch();

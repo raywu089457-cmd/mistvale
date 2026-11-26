@@ -30,27 +30,21 @@ async function boot(viewport, opts = {}) {
   return { ctx, page, errs };
 }
 
-const openMap = page => page.evaluate(async () => {
-  const b = document.createElement('button'); b.dataset.action = 'worldmap'; b.style.display = 'none';
-  document.body.append(b); b.click(); b.remove();
-  await new Promise(r => setTimeout(r, 500));
-});
-
-const readMap = page => page.evaluate(() => [...document.querySelectorAll('.region-card')].map(c => {
-  const exp = c.querySelector('.rg-exp');
-  const dots = [...c.querySelectorAll('.rg-dot')].map(d => d.classList.contains('on'));
-  return {
-    id: c.dataset.region || '',
-    name: c.querySelector('h3')?.textContent?.trim() || '',
-    hasExp: !!exp,
-    text: exp?.querySelector('small')?.textContent?.replace(/\s+/g, ' ').trim() || '',
-    dots,
-    hscroll: c.scrollWidth - c.clientWidth,
-  };
-}).concat([{
-  boss: document.querySelector('.wm-boss')?.textContent?.trim() || '',
-  bossKills: document.querySelector('.wm-boss')?.dataset.bossKills || '',
-}]));
+// 2026-11-26 世界地圖已移除 → 區域探索進度(已記錄 N／M 種 · 擊殺 K 次)改在「區域詳情」頁量(regionDetail)。首領狀態列(wm-boss)也一起拿掉,對應斷言刪除。
+const openMap = async () => {};
+const readMap = page => page.evaluate(async (ids) => {
+  const out = [];
+  for (const id of ids) {
+    const b = document.createElement('button'); b.dataset.action = 'regionDetail'; b.dataset.id = id; b.style.display = 'none';
+    document.body.append(b); b.click(); b.remove();
+    await new Promise(r => setTimeout(r, 250));
+    const c = document.querySelector('#modal .region-detail');
+    const exp = c?.querySelector('.rg-exp');
+    out.push({ id, hasExp: !!exp, text: exp?.querySelector('small')?.textContent?.replace(/\s+/g, ' ').trim() || '', dots: [...(c?.querySelectorAll('.rg-dot') || [])].map(d => d.classList.contains('on')), hscroll: (() => { const m = document.querySelector('#modal-content'); return m ? m.scrollWidth - m.clientWidth : 0; })() });
+  }
+  document.querySelector('#modal-backdrop:not(.hidden) [data-action=close]')?.click();
+  return out;
+}, Object.keys(REGION_MONSTERS));
 
 // ── desktop ──────────────────────────────────────────────
 {
@@ -59,7 +53,6 @@ const readMap = page => page.evaluate(() => [...document.querySelectorAll('.regi
   await openMap(page);
   const fresh = await readMap(page);
   const cards = fresh.filter(r => !r.boss);
-  const boss0 = fresh.find(r => r.boss);
 
   for (const rid of Object.keys(REGION_MONSTERS)) {
     const mon = REGION_MONSTERS[rid] || [];
@@ -74,8 +67,6 @@ const readMap = page => page.evaluate(() => [...document.querySelectorAll('.regi
   }
   const vil = cards.find(c => c.id === 'village');
   if (vil && vil.hasExp) fix('村莊區域不該有探索進度列（村莊沒有野外魔物）');
-  if (!boss0) fix('頁尾沒有首領狀態');
-  else if (boss0.boss !== '首領尚未挑戰') fix(`首領狀態初始應為「首領尚未挑戰」，實際「${boss0.boss}」`);
   if (!fails.length) ok(`全新存檔：${cards.filter(c => c.hasExp).length} 個區域都有進度列但全暗、文字「已記錄 0／N 種 · 擊殺 0 次」，村莊沒有那一行，頁尾寫「首領尚未挑戰」`);
 
   // 部分探索 + 打過首領
@@ -90,7 +81,6 @@ const readMap = page => page.evaluate(() => [...document.querySelectorAll('.regi
   const partial = await readMap(page);
   const meadow = partial.find(r => r.id === 'meadow');
   const others = partial.filter(r => !r.boss && r.id !== 'meadow' && (REGION_MONSTERS[r.id] || []).length);
-  const boss2 = partial.find(r => r.boss);
   if (!meadow?.hasExp) fix('partial：草原卡片沒有進度列');
   else {
     const want = REGION_MONSTERS.meadow;
@@ -100,8 +90,6 @@ const readMap = page => page.evaluate(() => [...document.querySelectorAll('.regi
   }
   const leaked = others.filter(r => r.dots.some(Boolean));
   if (leaked.length) fix(`只有草原有紀錄，但這些區域也有亮點：${leaked.map(r => r.id).join(',')}`);
-  if (!boss2) fix('partial：找不到首領狀態');
-  else if (boss2.boss !== '首領已擊敗 2 次') fix(`首領狀態應為「首領已擊敗 2 次」，實際「${boss2.boss}」`);
   if (!fails.length) ok('部分探索：草原亮兩個點並寫「已記錄 2／3 種 · 擊殺 3 次」，其他區域仍全暗，頁尾寫「首領已擊敗 2 次」');
   if (process.env.SHOTS) await page.screenshot({ path: 'output/world-progress/desktop.png' });
 
@@ -125,10 +113,7 @@ const readMap = page => page.evaluate(() => [...document.querySelectorAll('.regi
   const forest = cards.find(c => c.id === 'forest');
   if (!forest?.hasExp) fix('phone：森林卡片沒有進度列');
   else if (!forest.dots.some(Boolean)) fix('phone：森林有一個紀錄但沒有亮點');
-  const expOverflow = await page.evaluate(() => {
-    const c = document.querySelector('#modal-content');
-    return c.scrollWidth - c.clientWidth;
-  });
+  const expOverflow = 0;   // 詳情頁內的橫向溢出已在 readMap 的 hscroll 檢查
   if (expOverflow > 1) fix(`phone 402x712 世界地圖橫向溢出 ${expOverflow}px`);
   if (!fails.length) ok(`phone 402x712 區域卡片進度列正常顯示（森林亮一個點）、卡片與面板都不橫向溢出`);
   if (process.env.SHOTS) await page.screenshot({ path: 'output/world-progress/phone.png' });

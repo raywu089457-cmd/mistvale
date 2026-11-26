@@ -2,7 +2,7 @@
 import { createRequire } from 'node:module';
 const require = createRequire('C:/Users/ray/AppData/Roaming/npm/node_modules/');
 const { chromium } = require('playwright');
-const URL = 'http://100.79.149.0:5024/?preview=1';
+const URL = process.env.TARGET || 'http://100.79.149.0:5024/?preview=1';
 let fails = 0, oks = 0;
 const fix = (m) => { fails++; console.log('FIX ' + m); };
 const ok = (m) => { oks++; console.log('ok  ' + m); };
@@ -15,18 +15,17 @@ await page.goto(URL, { waitUntil: 'commit', timeout: 120000 });
 await page.waitForFunction(() => globalThis.__mistvaleGame && !document.querySelector('#loading'), null, { timeout: 180000 });
 await page.waitForTimeout(1000);
 const click = async (sel) => { await page.evaluate((s) => document.querySelector(s)?.click(), sel); await page.waitForTimeout(420); };
+const openCodex = async () => { await page.evaluate(() => { const b = document.createElement('button'); b.dataset.action = 'codex'; b.style.display = 'none'; document.body.append(b); b.click(); b.remove(); }); await page.waitForTimeout(600); };   // 世界地圖已移除:圖鑑改用 data-action=codex(指令面板也有)
 const scrollTop = () => page.evaluate(() => document.querySelector('#modal-content').scrollTop);
 const setScroll = (v) => page.evaluate((y) => { document.querySelector('#modal-content').scrollTop = y; }, v);
 
-await click('[data-action="worldmap"]');
-await click('.wm-foot [data-action="codex"]');
+await openCodex();
 if (await scrollTop() !== 0) fix('剛打開圖鑑不是在最上面');
 await setScroll(1800);
 if (await scrollTop() < 1500) fix('圖鑑捲不到底部（測試前提不成立）');
 await page.keyboard.press('Escape');
 await page.waitForTimeout(420);
-await click('[data-action="worldmap"]');
-await click('.wm-foot [data-action="codex"]');
+await openCodex();
 const reopened = await scrollTop();
 if (reopened !== 0) fix(`重新打開圖鑑還停在第 ${reopened}px（應該回到最上面）`);
 else ok('重新打開圖鑑會回到最上面');

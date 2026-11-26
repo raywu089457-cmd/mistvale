@@ -39,12 +39,8 @@ async function boot(viewport, opts = {}) {
 const openCodex = async page => {
   return page.evaluate(async () => {
     document.querySelector('#modal-backdrop')?.classList.add('hidden');
-    const b = document.createElement('button'); b.dataset.action = 'worldmap'; b.style.display = 'none';
+    const b = document.createElement('button'); b.dataset.action = 'codex'; b.style.display = 'none';
     document.body.append(b); b.click(); b.remove();
-    await new Promise(r => setTimeout(r, 450));
-    const btn = document.querySelector('.wm-foot [data-action="codex"]');
-    if (!btn) return false;
-    btn.click();
     await new Promise(r => setTimeout(r, 900));
     return true;
   });
@@ -80,7 +76,7 @@ const readCodex = page => page.evaluate(() => {
 // ── desktop ──────────────────────────────────────────────
 {
   const { ctx, page, errs } = await boot({ width: 1440, height: 900 });
-  if (!(await openCodex(page))) fix('世界地圖頁尾找不到「魔物圖鑑」按鈕（.wm-foot [data-action="codex"]）');
+  if (!(await openCodex(page))) fix('打不開魔物圖鑑（data-action=codex）');
   let cx = await readCodex(page);
 
   if (cx.type !== 'codex') fix(`按下圖鑑按鈕後開啟的是 ${cx.type || '(沒有)'}`);

@@ -99,7 +99,7 @@ const hudInfo = page => page.evaluate(() => {
     // 三顆浮動鈕不能被 HUD 蓋住
     const covered = await page.evaluate(() => {
       const out = [];
-      for (const a of ['worldmap', 'pause', 'speed']) {
+      for (const a of ['pause', 'speed']) {
         const b = document.querySelector(`[data-action="${a}"]`);
         if (!b) { out.push(`${a}:missing`); continue; }
         const r = b.getBoundingClientRect();
@@ -185,7 +185,7 @@ const hudInfo = page => page.evaluate(() => {
     if (h.units.length !== 3) fix(`手機 HUD 顯示 ${h.units.length} 位獵人（應為 3）`);
     const covered = await page.evaluate(() => {
       const out = [];
-      for (const a of ['worldmap', 'pause', 'speed']) {
+      for (const a of ['pause', 'speed']) {
         const b = document.querySelector(`[data-action="${a}"]`);
         if (!b) { out.push(`${a}:missing`); continue; }
         const r = b.getBoundingClientRect();

@@ -70,7 +70,7 @@ for (const name of only) {
         const o = {}; const g = document.querySelector('#gold'), cs = getComputedStyle(g);
         o.font = parseFloat(cs.fontSize); o.tre = P.R(document.querySelector('#topbar .treasury'));
         o.plus = [...document.querySelectorAll('#topbar .treasury .res-plus')].map(e => ({ k: e.dataset.plus, vis: P.vis(e), r: P.R(e), before: getComputedStyle(e, '::before').content }));
-        const others = ['#topbar .hv-tr1', '#topbar .hv-tr2', '#topbar #day-clock'].map(s => [s, P.R(document.querySelector(s))]);
+        const others = ['#topbar .hv-tr1', '#topbar .hv-tr2', '#topbar #region-badge'].map(s => [s, P.R(document.querySelector(s))]);
         o.overlap = others.filter(([s, q]) => q && P.inter(o.tre, q)).map(([s]) => s);
         o.sizes = ['#gold', '#gems', '#wood', '#ore'].map(s => parseFloat(getComputedStyle(document.querySelector(s)).fontSize));
         const small = []; for (const e of document.querySelectorAll('#topbar *,#hv-left *,.hv-actions *')) { if (!P.vis(e) || !(e.childNodes.length && [...e.childNodes].some(n => n.nodeType === 3 && n.textContent.trim()))) continue; const fs0 = parseFloat(getComputedStyle(e).fontSize); if (fs0 < 12) small.push(P.name(e) + ':' + fs0); } o.small = small;
@@ -225,7 +225,7 @@ for (const name of only) {
         await page.evaluate(() => document.querySelector('#left-panel [data-action=toggleLeft]')?.click()); await settle(page, 300);
         // R7 招募／難度／首領
         await L.act(page, 'recruit'); await settle(page, 700);
-        const rc = await ev(page, P => { const c = document.querySelector('#modal-content'), m = document.querySelector('#modal'); if (!c) return null; const cr = P.R(c); const bs = [...c.querySelectorAll('[data-action=recruitVisitor]')].filter(P.vis).map(e => P.R(e)); const tb = P.R(document.querySelector('#bottom-bar')); const lim = m.dataset.mode === 'C' ? innerHeight : tb.t; return { n: bs.length, hidden: bs.filter(q => q.b > Math.min(cr.b, lim) + 1 || q.t < cr.t - 1).length }; });
+        const rc = await ev(page, P => { const c = document.querySelector('#modal-content'), m = document.querySelector('#modal'); if (!c) return null; const cr = P.R(c); const bs = [...c.querySelectorAll('[data-action=recruitWanderer]')].filter(P.vis).map(e => P.R(e)); const tb = P.R(document.querySelector('#bottom-bar')); const lim = m.dataset.mode === 'C' ? innerHeight : tb.t; return { n: bs.length, hidden: bs.filter(q => q.b > Math.min(cr.b, lim) + 1 || q.t < cr.t - 1).length }; });
         if (!rc || !rc.n) fix(`${label} L(前置)招募面板沒有招募鈕`); else if (rc.hidden) fix(`${label} L(R7)橫向招募主按鈕 ${rc.hidden}/${rc.n} 顆被切掉／在頁籤列下(要捲才看到)`); else ok(`${label} L 招募主按鈕看得到`);
         await shot(page, `l-recruit-${name}`); await closeAll(page);
         await L.act(page, 'difficulty'); await settle(page, 600);

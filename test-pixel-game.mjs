@@ -1,15 +1,20 @@
 import { vdir4, dirSuffix, leftRow, rows4, fromScreen, toScreen, quantize4, quantize4Stable, facingOk, screenAngle, DIR4_CENTER_DEG, QUADRANT_OFFSET_DEG, FACING_HYSTERESIS_DEG } from './src/dir4.js';
 import fs from 'node:fs';
 import assert from 'node:assert/strict';
-import { createGame, inspectSave, OFFLINE, AUTO_TRAIN, ENEMIES, MOUNT_SPEED_MULT, isRideable, hunterGender, GENDERS, nameGender, NAME_GENDER } from './src/pixel-game.js';
+import { createGame, inspectSave, OFFLINE, AUTO_TRAIN, ENEMIES, MOUNT_SPEED_MULT, isRideable, hunterGender, GENDERS, nameGender, NAME_GENDER, affinityNeed, recruitChance, affinityStart } from './src/pixel-game.js';
 import { doorStand, buildingSolid } from './src/landscape-layout.js';
 import { blockCenter, VILLAGE_BOUNDS } from './src/village-grid.js';
-import { BUILDINGS, CLASSES, MATERIALS, MERCHANT, PROMOTE, PRODUCTS, RECIPES, RARITIES, PILOT_ATTACK, AI_ATTACK_LOCK, KITE, GEAR_TIER_MAX, gearAt, EQUIPMENT, CLASS_STARTER, EQUIP_SLOTS, GEAR_SLOTS, gearItemView, dungeonGearGrade, GEAR_DROP, craftWeaponFor, recipeItemId } from './src/pixel-data.js';
+import { AFFINITY, BUILDINGS, CLASSES, MATERIALS, MERCHANT, PROMOTE, PRODUCTS, RECIPES, RARITIES, PILOT_ATTACK, AI_ATTACK_LOCK, KITE, GEAR_TIER_MAX, gearAt, EQUIPMENT, CLASS_STARTER, EQUIP_SLOTS, GEAR_SLOTS, gearItemView, dungeonGearGrade, GEAR_DROP, craftWeaponFor, recipeItemId } from './src/pixel-data.js';
 // 2026-11-24 鍛造武器分類型:某職業能買/能拿的武器配方 id(sword/hammer/bow/staff/dagger)
 const wRecipe = classId => RECIPES.find(r => r.item === craftWeaponFor(classId)).id;
 import { WORLD, regionAt, regionEdge, regionCenter, regionContains, walkable, RING_ROAD, onRingRoad, inVillage, randomRegionPoint } from './src/overworld.js';
 import { MONSTER_RANGED, MONSTER_SPEED_MULT, MONSTER_ATTACK_RATE, REGION_DENSITY, DIFFICULTIES } from './src/pixel-data.js';
 import { pickHeroLine, CHATTER_LINES } from './src/hero-chatter.js';
+import { REALTIME } from './src/pixel-data.js';
+import { isRealNight, localDayIndex, agoText, waitText, playTimeText } from './src/real-clock.js';
+// 2026-11-26 拿掉日夜:「隔天」類規則看真實時間 → 測試一律注入時鐘(不看 Date.now,結果可重現)
+const T0 = Date.UTC(2026, 10, 26, 4, 0, 0);   // 固定起點(毫秒)
+function fakeClock(start = T0) { const c = { t: start, now: () => c.t, add: ms => { c.t += ms; } }; return c; }
 import { REGION_MONSTERS, MONSTER_NAME, MONSTER_LORE } from './src/lore.js';
 
 function run(game, seconds, quiet = false, inspect = null) {
@@ -39,13 +44,28 @@ function assertFiniteEconomy(s) {
 
 const g = createGame();
 assert.equal(g.state.version, 4); assert.equal(g.state.hunters.length, CLASSES.length); assert.equal(new Set(g.state.hunters.map(h => h.classId)).size, CLASSES.length);   // 2026-10-28 使用者:開局預設各職業一隻
-assert.equal(g.state.gold, 1500); assert.equal(g.state.capacity, Math.max(8, CLASSES.length + 2)); assert.equal(g.state.visitors.length, 3);
+assert.equal(g.state.gold, 1500); assert.equal(g.state.capacity, Math.max(8, CLASSES.length + 2));
+// 2026-11-25 旅人/訪客取消:沒有 state.visitors;流浪英雄每個職業一位,都帶起始好感度(依 id 雜湊),至少一位是普通稀有度(第 1 章開局就做得到)
+assert.equal(g.state.visitors, undefined, 'no visitor board any more');
+assert.equal(g.state.wanderers.length, CLASSES.length);
+assert.ok(g.state.wanderers.every(w => w.affinity >= AFFINITY.start[0] && w.affinity <= AFFINITY.start[1] && w.affinity === affinityStart(w.id) && w.recruitRetryAt === 0), 'wanderers start with a hashed affinity');
+assert.ok(g.state.wanderers.some(w => w.rarity === 'normal'), 'the opening always has a normal-rarity wanderer');
 assert.ok(g.state.hunters.every(h => h.gold === 100 && h.level >= 3 && h.level <= 5));
 assert.equal(g.recruit('__proto__').ok, false); assert.equal(g.recruit('missing').ok, false);
-const visitor = { ...g.state.visitors[0] }, goldBeforeRecruit = g.state.gold;
-assert.equal(g.recruit(visitor.id).ok, true); assert.equal(g.state.gold, goldBeforeRecruit - visitor.cost);
-assert.equal(g.state.hunters.at(-1).rarity, visitor.rarity); assert.equal(g.state.hunters.at(-1).trait, visitor.trait); assert.equal(g.state.hunters.at(-1).classId, visitor.classId);
-assert.notEqual(g.state.visitors[0].id, visitor.id); assert.equal(g.state.quest.complete, true);
+{ // 邀請流浪英雄:好感度到門檻 = 100%、扣「職業 × 稀有度」金幣;加入後保留職業/稀有度/特性/等級/經驗/裝備(同一批物品實例)/個人金幣/背包
+  const w = g.state.wanderers.find(x => x.rarity === 'normal'); w.affinity = affinityNeed(w.rarity); w.level = 7; w.xp = 3; w.gold = 345; w.inventory.ore = 6; w.skillLevel = 1;
+  const gearUids = Object.values(w.gear).filter(Boolean).map(i => i.uid), cost = Math.round(CLASSES.find(c => c.id === w.classId).cost * RARITIES.find(r => r.id === w.rarity).mult);
+  const q = g.recruitQuote(w.id); assert.equal(q.chance, 1); assert.equal(q.ok, true); assert.equal(q.cost, cost); assert.equal(q.need, AFFINITY.need.normal);
+  const goldBeforeRecruit = g.state.gold, nW = g.state.wanderers.length;
+  assert.equal(g.recruit(w.id).ok, true); assert.equal(g.state.gold, goldBeforeRecruit - cost);
+  const h = g.state.hunters.at(-1);
+  assert.equal(h.name, w.name); assert.equal(h.classId, w.classId); assert.equal(h.rarity, w.rarity); assert.equal(h.trait, w.trait); assert.equal(h.level, 7); assert.equal(h.xp, 3); assert.equal(h.skillLevel, 1);
+  assert.equal(h.gold, 345, 'the wanderer keeps their own purse'); assert.equal(h.inventory.ore, 6, 'and their backpack');
+  assert.deepEqual(Object.values(h.gear).filter(Boolean).map(i => i.uid), gearUids, 'same gear instances move over');
+  assert.ok(/^h\d+$/.test(h.id) && h.hp === h.maxHp && h.affinity === undefined);
+  assert.ok(!g.state.wanderers.includes(w), 'the wanderer leaves the field'); assert.equal(g.state.wanderers.length, Math.max(AFFINITY.min, nW - 1));
+  assert.equal(g.state.recruited, 1); assert.equal(g.state.quest.complete, true);
+}
 assert.equal(g.claimQuest().ok, true); assert.equal(g.claimQuest().ok, false);
 assert.equal(g.craft('food', 2).ok, true); assert.equal(g.state.stocks.food, 50); assert.equal(g.state.counts.foodCrafted, 20); assert.equal(g.claimQuest().ok, true);
 assert.equal(g.craft('__proto__').ok, false); assert.equal(g.craft('food', -1).ok, false); assert.equal(g.craft('food', 0.5).ok, false);
@@ -61,26 +81,25 @@ assert.equal(g.setTradeRequest('ore', -1).ok, false); assert.equal(g.setTradeReq
   assert.equal(pg.state.hunters.length, CLASSES.length, 'the opening party has one hero per class');
   assert.deepEqual(pg.state.hunters.map(h => h.classId), CLASSES.map(c => c.id), 'opening party follows the class list order');
   assert.deepEqual(pg.state.wanderers.map(w => w.classId), CLASSES.map(c => c.id), 'wanderers cover every class too');
-  assert.ok(!pg.state.visitors.some(v => v.classId === 'priest' && v.rarity === 'rare' && v.trait === 'brave' && v.cost === Math.round(PRIEST.cost * RARITY.rare.mult)), 'a class you already own is not force-offered');
-  const pv = { ...pg.state.visitors[0] }; assert.equal(pg.recruit(pv.id).ok, true);
-  const ph = pg.state.hunters.at(-1); assert.equal(ph.classId, pv.classId, 'the recruited visitor joins with its own class');
-  assert.ok(!pg.state.visitors.some(v => v.id === pv.id), 'the recruited visitor leaves the board');
-  assert.equal(pg.recruit('priest').ok, true, 'priest can also be hired by class id'); assert.equal(pg.state.hunters.at(-1).classId, 'priest');
+  const pw = pg.state.wanderers.find(w => w.classId === 'priest'); pw.affinity = 100; assert.equal(pg.recruit(pw.id).ok, true);
+  const ph = pg.state.hunters.at(-1); assert.equal(ph.classId, 'priest', 'the invited wandering priest joins with its own class');
+  assert.ok(!pg.state.wanderers.some(w => w.id === pw.id), 'the recruited wanderer leaves the field');
+  assert.equal(pg.recruit('priest').ok, true, 'priest can also be hired by class id (dev/test path)'); assert.equal(pg.state.hunters.at(-1).classId, 'priest');
   const ph2 = pg.state.hunters.at(-1); ph2.level = 12;
   const pgLoad = createGame(pg.serialize()), lp = pgLoad.state.hunters.find(h => h.id === ph2.id);
   assert.ok(lp && lp.classId === 'priest' && lp.level === 12 && lp.range === PRIEST.range, 'a recruited priest survives save/load');
   assert.equal(pgLoad.state.hunters.length, CLASSES.length + 2);
-  assert.deepEqual(pgLoad.state.visitors.map(v => v.classId), pg.state.visitors.map(v => v.classId), 'owning a priest stops the forced offer');
-  // 舊存檔:訪客裡沒有祭司、流浪英雄裡有一位舊版近戰射程(1.75)的固定流浪祭司
+  assert.equal(pgLoad.state.visitors, undefined);
+  // 舊存檔:有訪客欄(2026-11-25 起不讀)、流浪英雄裡有一位舊版近戰射程(1.75)的固定流浪祭司
   const old = createGame().serialize();
   // 模擬「改版前」的存檔:隊伍裡還沒有祭司(新版開局已經每個職業一隻)
   old.hunters = old.hunters.filter(h => h.classId !== 'priest');
-  old.visitors = old.visitors.map(v => ({ ...v, classId: 'berserker' })); old.wanderers[0] = { ...old.wanderers[0], classId: 'priest', range: 1.75 };
+  old.visitors = [{ id: 'v1', classId: 'berserker', rarity: 'rare', trait: 'swift', cost: 130 }]; old.wanderers[0] = { ...old.wanderers[0], classId: 'priest', range: 1.75 };
   const migrated = createGame(old);
-  assert.equal(migrated.state.visitors[0].classId, 'priest', 'old saves get the priest offered on load');
+  assert.equal(migrated.state.visitors, undefined, 'old visitor boards are dropped on load');
   assert.equal(migrated.state.wanderers[0].classId, 'priest'); assert.equal(migrated.state.wanderers[0].range, PRIEST.range, 'the old melee wandering priest becomes ranged');
   // 野外 AI:祭司站在射程內遠遠出手(聖光球),不會走到近戰距離才打;普攻間隔 1.4 秒(快手 ×0.9)
-  const pc = createGame(); pc.recruit('priest'); const pr = pc.state.hunters.at(-1); pc.state.hunters = [pr];   // 直接指定職業招募（開局已經有祭司，訪客第一位不再是祭司）
+  const pc = createGame(); pc.recruit('priest'); const pr = pc.state.hunters.at(-1); pc.state.hunters = [pr];   // 直接指定職業招募(開發／測試用路徑)
   pr.satiety = pr.mood = pr.stamina = 100; pr.hp = pr.maxHp;
   assert.equal(pc.exploreRegion('meadow').ok, true);
   const shots = [], timers = []; let lastAt = null;
@@ -809,11 +828,265 @@ assert.equal(arena.startDungeon(arena.state.arena.hunterIds).ok, false); run(are
   assert.equal(g.sellMaterial('nope', 10).ok, false);
   st.buildings.trading = 0; st.herb = 500; assert.equal(g.sellMaterial('herb', 50).ok, false, 'needs a trading post');
 }
-{ // 2026-11-18 每天換一位訪客(輪流換一格,其他兩格不動)
-  const g = createGame(), st = g.state; st.enemies = []; const before = st.visitors.map(v => v.id), day0 = st.day;
-  while (st.day === day0) { st.enemies = []; st.spawnTimer = 0; g.tick(0.1); }
-  const after = st.visitors.map(v => v.id), changed = after.filter((id, i) => id !== before[i]).length;
-  assert.equal(after.length, 3); assert.equal(changed, 1, 'exactly one visitor slot changes on a new day'); assert.notEqual(after[st.day % 3], before[st.day % 3]);
+{ // 2026-11-25 被招募走的流浪英雄會補回一位(state.wandererDue;缺祭司先補祭司);沒人被招募、或池子被清空(測試/作弊)都不會自己長
+  // 2026-11-26 拿掉日夜:「隔天」改成真實時間 REALTIME.wandererEvery(遊戲時間跑多快、有沒有暫停都不影響)
+  const quietTick = (gm, sec = 1) => { for (let i = 0; i < sec * 10; i++) { gm.state.enemies = []; gm.state.spawnTimer = 0; gm.tick(0.1); } };
+  const clk = fakeClock(), g = createGame(null, { now: clk.now }), st = g.state; st.enemies = []; st.gold = 1e5; st.capacity = 99;
+  st.hunters = st.hunters.filter(h => h.classId !== 'priest'); st.wanderers = st.wanderers.filter(w => w.classId !== 'priest');
+  assert.equal(st.wanderers.length, CLASSES.length - 1); assert.equal(st.wandererNextAt, null, 'nothing owed → no timer');
+  const w0 = st.wanderers[0]; w0.affinity = 100; assert.equal(g.recruit(w0.id).ok, true);
+  assert.equal(st.wanderers.length, CLASSES.length - 2); assert.equal(st.wandererDue, 1, 'one replacement is owed');
+  assert.equal(st.wandererNextAt, T0 + REALTIME.wandererEvery, 'the replacement is due one real interval after the recruit');
+  { const back = createGame(g.serialize(), { now: clk.now }).state; assert.equal(back.wandererDue, 1, 'the debt survives save/load'); assert.equal(back.wandererNextAt, st.wandererNextAt, 'so does its real-time due date'); }
+  const before = st.wanderers.map(w => w.id);
+  quietTick(g, 600);   // 10 分鐘「遊戲時間」,真實時間一點都沒過 → 不補(以前的換日在這裡會補)
+  assert.equal(st.wanderers.length, CLASSES.length - 2, 'game time alone (no real time) does not bring the replacement');
+  clk.add(REALTIME.wandererEvery - 1); quietTick(g); assert.equal(st.wanderers.length, CLASSES.length - 2, 'one millisecond early → still waiting');
+  st.paused = true; clk.add(1); g.tick(1); assert.equal(st.wanderers.length, CLASSES.length - 2, 'a paused game does not step');
+  st.paused = false; quietTick(g);
+  assert.equal(st.wanderers.length, CLASSES.length - 1, 'the replacement arrives once the real interval has passed (also after a pause)'); assert.equal(st.wandererDue, 0); assert.equal(st.wandererNextAt, null);
+  const fresh = st.wanderers.find(w => !before.includes(w.id));
+  assert.equal(fresh.classId, 'priest', 'a missing priest is offered first (old visitor guarantee)');
+  assert.equal(fresh.affinity, affinityStart(fresh.id)); assert.ok(st.log.some(l => l.text.includes(fresh.name) && l.text.includes('好感度')));
+  const n = st.wanderers.length; clk.add(REALTIME.wandererEvery * 3); quietTick(g); assert.equal(st.wanderers.length, n, 'nothing owed → no arrival');
+  const eClk = fakeClock(), e = createGame(null, { now: eClk.now }); e.state.wanderers = []; eClk.add(REALTIME.wandererEvery * 3); quietTick(e); assert.equal(e.state.wanderers.length, 0, 'an emptied pool does not regrow by itself');
+  // 欠兩位、離開很久:回來第一步補齊,但一次間隔一位的節奏照算(錯過的全部補上),不會超過 AFFINITY.pool
+  { const c2 = fakeClock(), g2 = createGame(null, { now: c2.now }), s2 = g2.state; s2.gold = 1e5; s2.capacity = 99; s2.wanderers = s2.wanderers.slice(0, 5);
+    for (const w of s2.wanderers.slice(0, 2)) { w.affinity = 100; assert.equal(g2.recruit(w.id).ok, true); }
+    assert.equal(s2.wandererDue, 1, 'below the minimum the pool refills at once; the rest is owed'); assert.equal(s2.wanderers.length, AFFINITY.min);
+    s2.wandererDue = 3; c2.add(REALTIME.wandererEvery * 1.5); quietTick(g2);
+    assert.equal(s2.wanderers.length, AFFINITY.min + 1, 'after 1.5 intervals exactly one has come'); assert.equal(s2.wandererNextAt, T0 + REALTIME.wandererEvery * 2);
+    c2.add(REALTIME.wandererEvery * 50); quietTick(g2);
+    assert.equal(s2.wanderers.length, AFFINITY.pool, 'a long absence fills up to the pool cap, not beyond'); assert.equal(s2.wandererDue, 0); assert.equal(s2.wandererNextAt, null); }
+  // 招募後少於 AFFINITY.min 立刻補(算在欠的人數裡)
+  const m = createGame(), ms = m.state; ms.gold = 1e5; ms.capacity = 99; ms.wanderers = ms.wanderers.slice(0, AFFINITY.min);
+  const mw = ms.wanderers[0]; mw.affinity = 100; assert.equal(m.recruit(mw.id).ok, true);
+  assert.equal(ms.wanderers.length, AFFINITY.min, 'the pool never drops below the minimum'); assert.equal(ms.wandererDue, 0);
+}
+{ // 2026-11-25 招募好感度:門檻(稀有度越低越低)與成功率的純函式
+  assert.equal(affinityNeed('normal'), AFFINITY.need.normal); assert.equal(affinityNeed('__proto__'), 100); assert.equal(affinityNeed('nope'), 100);
+  assert.ok(affinityNeed('normal') < affinityNeed('rare') && affinityNeed('rare') < affinityNeed('superior') && affinityNeed('superior') < affinityNeed('heroic'), 'lower rarity needs less affinity');
+  const N = AFFINITY.need.rare, R = AFFINITY.ramp;
+  assert.equal(recruitChance({ rarity: 'rare', affinity: N }), 1); assert.equal(recruitChance({ rarity: 'rare', affinity: 100 }), 1);
+  assert.equal(recruitChance({ rarity: 'rare', affinity: N - R }), 0); assert.equal(recruitChance({ rarity: 'rare', affinity: 0 }), 0); assert.equal(recruitChance({ rarity: 'rare' }), 0);
+  assert.ok(Math.abs(recruitChance({ rarity: 'rare', affinity: N - R / 2 }) - 0.5) < 1e-9, 'chance rises linearly inside the ramp');
+  for (let i = 0; i < 50; i++) { const a = affinityStart('w' + i); assert.ok(Number.isInteger(a) && a >= AFFINITY.start[0] && a <= AFFINITY.start[1]); }
+}
+{ // 2026-11-25 好感度從村莊服務來:付費服務 +service、賣完 miss、自己沒錢(基本服務)不變;交易所賣出 +trade;背包滿了交易所卻不收 refuse;鐵匠鋪買到裝備 +gear;獵人沒有好感度
+  const restaurant = BUILDINGS.find(b => b.id === 'restaurant'), market = BUILDINGS.find(b => b.id === 'trading'), forge = BUILDINGS.find(b => b.id === 'forge');
+  const setup = () => { const g = createGame(), st = g.state; st.enemies = []; st.hunters = st.hunters.slice(0, 1); const w = st.wanderers[0]; st.wanderers = [w];
+    for (const k of MATERIAL_KEYS_T) { w.inventory[k] = 0; st.tradeRequests[k] = 0; } Object.assign(w, { satiety: 100, stamina: 100, mood: 100, task: null, route: [], gold: 500, affinity: 50, lastTownVisit: st.time }); w.hp = w.maxHp; return { g, st, w }; };
+  const until = (g, cond, sec = 60) => { for (let i = 0; i < sec * 10 && !cond(); i++) { g.state.enemies = []; g.state.spawnTimer = 0; g.tick(0.1); } assert.ok(cond(), 'condition reached'); };
+  { const { g, st, w } = setup(); Object.assign(w, doorStand(restaurant, restaurant)); w.satiety = 10;
+    until(g, () => w.servedVisit.includes('food')); assert.equal(w.affinity, 50 + AFFINITY.service, 'a paid meal raises affinity');
+    const h = st.hunters[0]; assert.equal(h.affinity, undefined, 'hunters have no affinity'); }
+  { const { g, st, w } = setup(); Object.assign(w, doorStand(restaurant, restaurant)); w.satiety = 10; st.stocks.food = 0; const basic0 = st.counts.basicServices;
+    until(g, () => w.servedVisit.includes('food')); assert.equal(w.affinity, 50 + AFFINITY.miss, 'sold out → disappointed'); assert.ok(st.counts.basicServices > basic0); }
+  { const { g, w } = setup(); Object.assign(w, doorStand(restaurant, restaurant)); w.satiety = 10; w.gold = 0;
+    until(g, () => w.servedVisit.includes('food')); assert.equal(w.affinity, 50, 'a broke wanderer on the free basic meal neither gains nor loses'); }
+  { const { g, st, w } = setup(); Object.assign(w, doorStand(market, market)); w.satiety = 10; w.inventory.ore = 5; g.setTradeRequest('ore', 10);
+    until(g, () => w.tradedVisit); assert.equal(w.affinity, 50 + AFFINITY.trade, 'selling loot at the exchange raises affinity'); assert.equal(w.inventory.ore, 0); }
+  { const { g, st, w } = setup(); w.satiety = 10; w.inventory.ore = 20;   // 背包 ≥ TRADE_BAG(14)、沒有任何收購量
+    until(g, () => w.inTown); assert.equal(w.affinity, 50 + AFFINITY.refuse, 'a full bag the exchange will not buy costs a little affinity'); }
+  // 2026-11-26 流浪英雄不再「出門 110 秒、鐵匠鋪有貨」就回村(打到快沒血才回),所以這裡用「餓了回村」帶他進村,順路逛鐵匠鋪
+  { const { g, st, w } = setup(); Object.assign(w, doorStand(forge, forge)); w.lastTownVisit = -1000; w.gold = 5000; st.gearStock.chest[1] = 1; w.satiety = 10;
+    until(g, () => w.task === 'shop'); const a0 = w.affinity;
+    until(g, () => w.shoppedVisit); assert.equal(st.gearStock.chest[1], 0); assert.equal(w.affinity, a0 + AFFINITY.gear, 'buying gear at the forge raises affinity'); }
+  { const { g, w } = setup(); w.affinity = 99; Object.assign(w, doorStand(restaurant, restaurant)); w.satiety = 10;
+    until(g, () => w.servedVisit.includes('food')); assert.equal(w.affinity, 100, 'affinity is capped at 100'); }
+}
+{ // 2026-11-25 邀請:好感度太低(0%)直接擋、不扣錢不冷卻;未滿門檻照成功率擲骰,婉拒不收金幣、好感 fail、冷卻內不能再邀(存讀檔保留),冷卻過了可以;倒下的不能邀;獵人 id 不能邀
+  // 2026-11-26:冷卻從「明天」改成真實時間 REALTIME.recruitRetry
+  const clk = fakeClock(), g = createGame(null, { now: clk.now }), st = g.state; st.gold = 1e5; st.capacity = 99; st.enemies = [];
+  const w = st.wanderers.find(x => x.rarity === 'normal'), floor = affinityNeed('normal') - AFFINITY.ramp;
+  w.affinity = floor - 1; const g0 = st.gold;
+  let r = g.recruit(w.id); assert.equal(r.ok, false); assert.ok(r.message.includes('好感度還不夠')); assert.equal(st.gold, g0); assert.equal(w.recruitRetryAt, 0); assert.equal(w.affinity, floor - 1);
+  assert.equal(g.recruitQuote(w.id).why, '好感度不足'); assert.equal(g.recruitQuote(w.id).ok, false);
+  w.affinity = floor + 0.001;   // 成功率約 0.007% → 一定被婉拒(亂數固定)
+  const q = g.recruitQuote(w.id); assert.ok(q.chance > 0 && q.chance < 0.001 && q.ok);
+  r = g.recruit(w.id); assert.equal(r.ok, false); assert.equal(r.declined, true); assert.equal(st.gold, g0, 'a declined invitation costs no gold');
+  assert.ok(Math.abs(w.affinity - (floor + 0.001 + AFFINITY.fail)) < 1e-9); assert.equal(w.recruitRetryAt, T0 + REALTIME.recruitRetry); assert.equal(st.counts.recruitDeclined, 1);
+  assert.ok(st.wanderers.includes(w) && st.log.some(l => l.text.includes('婉拒')));
+  w.affinity = 100; const cq = g.recruitQuote(w.id); assert.equal(cq.cooldown, true); assert.equal(cq.ok, false); assert.equal(cq.retryIn, REALTIME.recruitRetry); assert.equal(cq.why, '剛婉拒過');
+  r = g.recruit(w.id); assert.equal(r.ok, false); assert.ok(r.message.includes('分鐘後再來邀請'), r.message); assert.equal(st.gold, g0);
+  const back = createGame(g.serialize(), { now: clk.now }), bw = back.state.wanderers.find(x => x.id === w.id);
+  assert.equal(bw.affinity, 100); assert.equal(bw.recruitRetryAt, T0 + REALTIME.recruitRetry); assert.equal(back.state.counts.recruitDeclined, 1); assert.equal(back.recruit(w.id).ok, false, 'cooldown survives save/load');
+  for (let i = 0; i < 6000; i++) { st.enemies = []; st.spawnTimer = 0; g.tick(0.1); }   // 10 分鐘遊戲時間:冷卻看真實時間,沒過就是沒過
+  assert.equal(g.recruitQuote(w.id).cooldown, true, 'game time does not shorten the real-time cooldown');
+  clk.add(REALTIME.recruitRetry - 1000); assert.equal(g.recruitQuote(w.id).retryIn, 1000);
+  clk.add(1000); assert.equal(g.recruitQuote(w.id).cooldown, false); assert.equal(g.recruit(w.id).ok, true, 'after the real-time cooldown the invitation can be repeated');
+  { const c3 = fakeClock(), s3 = createGame(null, { now: c3.now }).serialize(); s3.wanderers[0].recruitRetryAt = T0 + 365 * 86400e3;   // 存檔裡的冷卻遠在未來(時鐘被調過/換裝置)→ 夾在一次冷卻內
+    assert.equal(createGame(s3, { now: c3.now }).state.wanderers[0].recruitRetryAt, T0 + REALTIME.recruitRetry);
+    s3.wanderers[0].recruitRetryAt = T0 - 1; assert.equal(createGame(s3, { now: c3.now }).state.wanderers[0].recruitRetryAt, 0, 'an expired cooldown is cleared'); }
+  const down = st.wanderers[0]; down.affinity = 100; down.hp = 0; assert.equal(g.recruit(down.id).ok, false); assert.equal(g.recruitQuote(down.id).why, '倒下中');
+  const poor = st.wanderers[1]; poor.affinity = 100; st.gold = 5; assert.equal(g.recruit(poor.id).ok, false); assert.ok(g.recruitQuote(poor.id).why.includes('金幣'));
+  assert.equal(g.recruit(st.hunters[0].id).ok, false, 'a hunter id is not a recruit target'); assert.equal(g.recruitQuote(st.hunters[0].id), null);
+}
+{ // 2026-11-25 舊存檔:有 visitors、流浪英雄沒有好感度 → 讀得進來;visitors 丟掉;好感度 = AFFINITY.legacy;壞值夾住;流浪英雄太少補到 AFFINITY.min
+  const raw = createGame().serialize();
+  raw.visitors = [{ id: 'v3', classId: 'archer', rarity: 'heroic', trait: 'swift', cost: 211 }, { id: 'v4', classId: 'traveler', rarity: 'rare', trait: 'brave', cost: 90 }];
+  for (const w of raw.wanderers) { delete w.affinity; delete w.recruitRetryDay; delete w.recruitRetryAt; }
+  delete raw.wandererDue; delete raw.counts.recruitDeclined;
+  raw.wanderers[1].affinity = 250; raw.wanderers[2].affinity = 'x'; raw.wanderers[3].recruitRetryDay = 1e9; raw.wanderers[4].affinity = -3;
+  assert.equal(inspectSave(JSON.stringify(raw)).ok, true, 'old save still previews');
+  for (const input of [raw, JSON.stringify(raw)]) {
+    const g = createGame(input), st = g.state;
+    assert.equal(st.visitors, undefined, 'visitor board dropped'); assert.equal(st.wandererDue, 0);
+    assert.equal(st.wanderers[0].affinity, AFFINITY.legacy); assert.equal(st.wanderers[1].affinity, 100); assert.equal(st.wanderers[2].affinity, AFFINITY.legacy); assert.equal(st.wanderers[4].affinity, 0);
+    assert.ok(st.wanderers.every(w => w.recruitRetryDay === undefined && Number.isFinite(w.recruitRetryAt) && w.recruitRetryAt >= 0), 'old day-based cooldown is converted, not kept');
+    assert.ok(st.wanderers[3].recruitRetryAt <= g.realNow() + REALTIME.recruitRetry, 'a huge old cooldown is capped to one real-time cooldown');
+    // 舊存檔的普通流浪英雄有機會、稀有以上還要照顧幾趟
+    const n = st.wanderers.find(w => w.rarity === 'normal' && w.affinity === AFFINITY.legacy);
+    if (n) assert.ok(g.recruitQuote(n.id).chance > 0);
+    const s2 = createGame(g.serialize()).state; assert.deepEqual(s2.wanderers.map(w => w.affinity), st.wanderers.map(w => w.affinity), 'affinity round-trips');
+  }
+  const few = createGame().serialize(); few.wanderers = few.wanderers.slice(0, 2).map(w => { const { affinity, ...rest } = w; return rest; });
+  const fg = createGame(few); assert.equal(fg.state.wanderers.length, AFFINITY.min, 'old saves keep at least the minimum pool');
+  assert.ok(fg.state.wanderers.slice(2).every(w => w.affinity === affinityStart(w.id)), 'topped-up wanderers start fresh');
+}
+{ // 2026-11-25 離線:好感度照取樣期速率外推(服務以剩下的庫存為上限,買不到算斷貨);被招募走的人在外推跳過的天數裡補回
+  const make = stock => { const g = createGame(), st = g.state; for (const k of Object.keys(st.stocks)) st.stocks[k] = stock; for (const w of st.wanderers) w.affinity = 50; return g; };
+  const mean = g => g.state.wanderers.reduce((n, w) => n + w.affinity, 0) / g.state.wanderers.length;
+  const rich = make(5000), snapR = rich.offlineSnapshot(); rich.simulate(OFFLINE.sample); const sampledR = mean(rich); rich.offlineFinish(snapR, 2 * 3600);
+  assert.ok(sampledR > 50 && mean(rich) > sampledR, `well-stocked village: affinity keeps rising offline (${sampledR.toFixed(1)} → ${mean(rich).toFixed(1)})`);
+  const poor = make(0), snapP = poor.offlineSnapshot(); poor.simulate(OFFLINE.sample); const sampledP = mean(poor); poor.offlineFinish(snapP, 2 * 3600);
+  assert.ok(sampledP < 50 && mean(poor) < sampledP, `sold-out village: affinity keeps falling offline (${sampledP.toFixed(1)} → ${mean(poor).toFixed(1)})`);
+  for (const g of [rich, poor]) assert.ok(g.state.wanderers.every(w => Number.isFinite(w.affinity) && w.affinity >= 0 && w.affinity <= 100));
+  // 2026-11-26:被招募走的人照真實時間補——存檔時欠 2 位,關掉遊戲 1 小時再回來 → 讀檔、離線結算後 2 位都到了
+  const dc = fakeClock(), due = createGame(null, { now: dc.now }), ds0 = due.state; ds0.wanderers = ds0.wanderers.slice(0, 4); ds0.wandererDue = 2;
+  due.tick(0.1); assert.equal(ds0.wandererNextAt, T0 + REALTIME.wandererEvery, 'a debt without a due date gets one');
+  const saved = due.serialize(); dc.add(3600e3);
+  const back = createGame(saved, { now: dc.now }), ds = back.state; assert.equal(ds.wanderers.length, 4, 'loading alone does not change the pool');
+  const snapD = back.offlineSnapshot(); back.simulate(OFFLINE.sample); back.offlineFinish(snapD, 3600);
+  assert.equal(ds.wanderers.length, 6, 'owed wanderers arrive for the real time spent away'); assert.equal(ds.wandererDue, 0); assert.equal(ds.wandererNextAt, null);
+}
+{ // 2026-11-26 拿掉日夜的存檔遷移:舊存檔的 day、wandererDue(沒有到期時間)、recruitRetryDay、affLast.day、settings.night 都讀得進來並換成真實時間
+  const clk = fakeClock(), raw = createGame(null, { now: clk.now }).serialize();
+  raw.time = 240 * 4 + 60; raw.day = 5;   // 舊的第 5 天,這一天還剩 180 秒
+  raw.wandererDue = 1; delete raw.wandererNextAt; raw.settings = { ...raw.settings, night: false };
+  for (const w of raw.wanderers) { delete w.recruitRetryAt; w.recruitRetryDay = 0; }
+  raw.wanderers[0].recruitRetryDay = 6;   // 「明天才能再邀」
+  raw.wanderers[1].recruitRetryDay = 5;   // 今天就能邀(已過)
+  raw.wanderers[2].affLast = { kind: 'trade', delta: 2, item: null, name: null, day: 5 };
+  raw.wanderers[3].affLast = { kind: 'svc', delta: 3, item: 'food', name: 'x', day: 3 };
+  raw.wanderers[4].affLast = { kind: 'trade', delta: 2, item: null, name: null, day: 6 };   // 比舊的今天還晚 → 壞值丟掉
+  assert.equal(inspectSave(JSON.stringify(raw)).ok, true, 'an old save with day fields still previews');
+  assert.equal(inspectSave(JSON.stringify(raw)).summary.time, raw.time, 'the preview reports game time instead of a day');
+  const g = createGame(raw, { now: clk.now }), st = g.state;
+  assert.equal(st.day, undefined, 'no more state.day'); assert.equal(g.serialize().day, undefined, 'new saves have no day field');
+  assert.equal(st.settings.night, undefined, 'the night setting is dropped');
+  assert.equal(st.wandererNextAt, T0 + 180e3, 'an owed wanderer is due when the old day would have ended (here 180 s)');
+  assert.equal(st.wanderers[0].recruitRetryAt, T0 + 180e3, '"try again tomorrow" becomes the rest of the old day in real time');
+  assert.equal(st.wanderers[1].recruitRetryAt, 0, 'an already expired old cooldown is cleared');
+  assert.ok(st.wanderers.every(w => !('recruitRetryDay' in w)), 'the old field is not kept');
+  assert.deepEqual(st.wanderers[2].affLast, { kind: 'trade', delta: 2, item: null, name: null, at: T0 }, 'an affLast from the old "today" is dated now');
+  assert.deepEqual(st.wanderers[3].affLast, { kind: 'svc', delta: 3, item: 'food', name: PRODUCTS.food.name, at: T0 - 2 * 240e3 }, 'older ones move back one old day (240 s) per day');
+  assert.equal(st.wanderers[4].affLast, undefined, 'a day after the old today is invalid');
+  // 舊存檔的到期時間就算比一個間隔還久也夾住;沒欠人就沒有到期時間
+  const raw2 = createGame(null, { now: clk.now }).serialize(); raw2.time = 0; raw2.wandererDue = 2; delete raw2.wandererNextAt;
+  assert.equal(createGame(raw2, { now: clk.now }).state.wandererNextAt, T0 + Math.min(REALTIME.wandererEvery, 240e3));
+  raw2.wandererNextAt = T0 + 1e12; assert.equal(createGame(raw2, { now: clk.now }).state.wandererNextAt, T0 + REALTIME.wandererEvery, 'a far-future due date is capped');
+  raw2.wandererDue = 0; assert.equal(createGame(raw2, { now: clk.now }).state.wandererNextAt, null);
+}
+{ // 2026-11-26 real-clock.js:真實的晚上、本機日曆日、「多久以前」「還要多久」「遊戲時間」文字
+  const at = (h, m = 0, d = 26) => new Date(2026, 10, d, h, m).getTime();   // 本機時間
+  assert.equal(isRealNight(at(12)), false); assert.equal(isRealNight(at(18, 59)), false); assert.equal(isRealNight(at(19)), true);
+  assert.equal(isRealNight(at(2)), true); assert.equal(isRealNight(at(5, 59)), true); assert.equal(isRealNight(at(6)), false);
+  assert.equal(localDayIndex(at(23, 59)) + 1, localDayIndex(at(0, 1, 27)), 'local midnight changes the day');
+  assert.equal(localDayIndex(at(0, 0)), localDayIndex(at(23, 59)));
+  const now = at(12);
+  assert.equal(agoText(now - 30e3, now), ''); assert.equal(agoText(now - 5 * 60e3, now), '5 分鐘前 '); assert.equal(agoText(now - 3 * 3600e3, now), '3 小時前 ');
+  assert.equal(agoText(at(20, 0, 25), now), '昨天 '); assert.equal(agoText(at(9, 0, 23), now), '3 天前 ');
+  assert.equal(agoText(at(23, 50, 25), at(0, 10)), '20 分鐘前 ', 'just past midnight is not "yesterday"');
+  assert.equal(agoText(now + 60e3, now), '', 'a future time shows no prefix'); assert.equal(agoText(NaN, now), ''); assert.equal(agoText(undefined, now), '');
+  assert.equal(waitText(REALTIME.recruitRetry), '3 分鐘'); assert.equal(waitText(61e3), '2 分鐘'); assert.equal(waitText(1500), '2 秒'); assert.equal(waitText(0), '0 秒');
+  assert.equal(playTimeText(0), '0 分鐘'); assert.equal(playTimeText(59 * 60 + 59), '59 分鐘'); assert.equal(playTimeText(2 * 3600 + 5 * 60), '2 小時 5 分'); assert.equal(playTimeText('x'), '0 分鐘');
+  // 核心不直接呼叫 Date.now:注入的時鐘就是 game.realNow();setClock 可以換掉
+  const c = fakeClock(), g = createGame(null, { now: c.now }); assert.equal(g.realNow(), T0); c.add(5); assert.equal(g.realNow(), T0 + 5);
+  g.setClock(() => 42); assert.equal(g.realNow(), 42); g.setClock(() => NaN); assert.ok(Math.abs(g.realNow() - Date.now()) < 5000, 'a broken clock falls back to Date.now');
+  // 遊戲核心與畫面都不再有遊戲內日夜
+  const gameSrc = fs.readFileSync(new URL('./src/pixel-game.js', import.meta.url), 'utf8'), worldSrc = fs.readFileSync(new URL('./src/pixel-world.js', import.meta.url), 'utf8');
+  const uiSrc = fs.readFileSync(new URL('./src/pixel-ui.js', import.meta.url), 'utf8'), htmlSrc = fs.readFileSync(new URL('./src/pixel-index.html', import.meta.url), 'utf8');
+  assert.ok(!/state\.day\b/.test(gameSrc), 'pixel-game.js has no state.day'); assert.ok(!/Date\.now\(\)\s*[;)]/.test(gameSrc.replace("() => Date.now()", '').replace('return Number.isFinite(v) ? v : Date.now();', '').replace("clock = typeof fn === 'function' ? fn : () => Date.now();", '')), 'the sim core reads real time only through the injected clock');
+  assert.ok(!/nightLayer|NIGHT_WINDOWS|setNight|__mistvaleNight|function setTime/.test(worldSrc), 'no night overlay, night lights or day phase in the renderer');
+  assert.ok(!/day-clock|paintDayClock|setTime\(|setNight/.test(uiSrc) && !/day-clock/.test(htmlSrc), 'no day clock HUD and no world day phase calls');
+}
+{ // 2026-11-25 UX:w.affLast = 最近一次好感度變化 { kind, delta, item, name, at }(招募卡顯示「上次為什麼升/降」;2026-11-26 起 at = 真實時間毫秒,取代遊戲天數 day)
+  const restaurant = BUILDINGS.find(b => b.id === 'restaurant'), market = BUILDINGS.find(b => b.id === 'trading'), forge = BUILDINGS.find(b => b.id === 'forge');
+  const clk = fakeClock(), now = clk.now;   // 時鐘固定不動 → 每一筆的 at 都是 T0
+  const setup = (aff = 50) => { const g = createGame(null, { now }), st = g.state; st.enemies = []; st.hunters = st.hunters.slice(0, 1); const w = st.wanderers[0]; st.wanderers = [w];
+    for (const k of MATERIAL_KEYS_T) { w.inventory[k] = 0; st.tradeRequests[k] = 0; } Object.assign(w, { satiety: 100, stamina: 100, mood: 100, task: null, route: [], gold: 500, affinity: aff, lastTownVisit: st.time }); w.hp = w.maxHp; return { g, st, w }; };
+  const until = (g, cond, sec = 60) => { for (let i = 0; i < sec * 10 && !cond(); i++) { g.state.enemies = []; g.state.spawnTimer = 0; g.tick(0.1); } assert.ok(cond(), 'condition reached'); };
+  const plain = (kind, delta, at) => ({ kind, delta, item: null, name: null, at });
+  assert.ok(createGame().state.wanderers.every(w => w.affLast === undefined), 'nothing happened yet → no affLast');
+  // 遊戲實際跑出來的每一種
+  { const { g, st, w } = setup(); Object.assign(w, doorStand(restaurant, restaurant)); w.satiety = 10;
+    until(g, () => w.servedVisit.includes('food'));
+    assert.deepEqual(w.affLast, { kind: 'svc', delta: AFFINITY.service, item: 'food', name: PRODUCTS.food.name, at: T0 }, 'paid service'); }
+  { const { g, st, w } = setup(); Object.assign(w, doorStand(restaurant, restaurant)); w.satiety = 10; st.stocks.food = 0;
+    until(g, () => w.servedVisit.includes('food'));
+    assert.deepEqual(w.affLast, { kind: 'miss', delta: AFFINITY.miss, item: 'food', name: PRODUCTS.food.name, at: T0 }, 'sold out'); }
+  { const { g, st, w } = setup(); const prev = plain('trade', 2, T0 - 5); w.affLast = { ...prev }; Object.assign(w, doorStand(restaurant, restaurant)); w.satiety = 10; w.gold = 0;
+    until(g, () => w.servedVisit.includes('food')); assert.deepEqual(w.affLast, prev, 'could not afford (basic service, delta 0) → affLast untouched'); }
+  { const { g, st, w } = setup(); Object.assign(w, doorStand(market, market)); w.satiety = 10; w.inventory.ore = 5; g.setTradeRequest('ore', 10);
+    until(g, () => w.tradedVisit); assert.deepEqual(w.affLast, plain('trade', AFFINITY.trade, T0), 'exchange bought loot'); }
+  { const { g, st, w } = setup(); w.satiety = 10; w.inventory.ore = 20;
+    until(g, () => w.inTown); assert.deepEqual(w.affLast, plain('refuse', AFFINITY.refuse, T0), 'full bag refused'); }
+  { const { g, st, w } = setup(); Object.assign(w, doorStand(forge, forge)); w.lastTownVisit = -1000; w.gold = 5000; st.gearStock.chest[1] = 1; w.satiety = 10;   // 餓了回村、順路逛鐵匠鋪(見上)
+    until(g, () => w.shoppedVisit); const a = w.affLast, slot = EQUIP_SLOTS.find(s => w.gear[s]?.itemId === a?.item);
+    assert.equal(a.kind, 'gear'); assert.equal(a.delta, AFFINITY.gear); assert.equal(a.at, T0); assert.ok(slot, 'item = the bought gear item id');
+    assert.equal(a.name, gearItemView(w.gear[slot]).name, 'name = the gear display name'); }
+  { const g = createGame(null, { now }), st = g.state; st.gold = 1e5; st.capacity = 99; st.enemies = [];
+    const w = st.wanderers.find(x => x.rarity === 'normal'); w.affinity = affinityNeed('normal') - AFFINITY.ramp + 0.001;   // 成功率約 0.007% → 一定婉拒
+    assert.equal(g.recruit(w.id).declined, true); assert.equal(w.affLast.kind, 'fail'); assert.ok(Math.abs(w.affLast.delta - AFFINITY.fail) < 1e-9);
+    assert.equal(w.affLast.item, null); assert.equal(w.affLast.name, null); assert.equal(w.affLast.at, T0); }
+  // 夾在 0–100:真正加減的量;夾完是 0 不覆蓋
+  { const { g, st, w } = setup(99); Object.assign(w, doorStand(restaurant, restaurant)); w.satiety = 10;
+    until(g, () => w.servedVisit.includes('food')); assert.equal(w.affinity, 100); assert.ok(Math.abs(w.affLast.delta - 1) < 1e-9, 'delta is the amount actually applied'); }
+  { const { g, st, w } = setup(100); const prev = plain('gear', 5, T0 - 5); Object.assign(prev, { item: 'x' }); w.affLast = prev; Object.assign(w, doorStand(restaurant, restaurant)); w.satiety = 10;
+    until(g, () => w.servedVisit.includes('food')); assert.equal(w.affinity, 100); assert.equal(w.affLast, prev, 'capped at 100 → previous affLast kept'); }
+  { const { g, st, w } = setup(0); w.satiety = 10; w.inventory.ore = 20;
+    until(g, () => w.inTown); assert.equal(w.affinity, 0); assert.equal(w.affLast, undefined, 'already 0 → a refusal does not write affLast'); }
+  // 存讀檔來回;招募成獵人不帶過去
+  { const { g, st, w } = setup(); Object.assign(w, doorStand(restaurant, restaurant)); w.satiety = 10; until(g, () => w.servedVisit.includes('food'));
+    for (const input of [g.serialize(), JSON.stringify(g.serialize())]) assert.deepEqual(createGame(input, { now }).state.wanderers.find(x => x.id === w.id).affLast, w.affLast, 'affLast round-trips');
+    st.gold = 1e5; st.capacity = 99; w.affinity = 100; assert.equal(g.recruit(w.id).ok, true);
+    const h = st.hunters.at(-1); assert.equal(h.name, w.name); assert.equal(h.affLast, undefined, 'a recruited hunter does not carry affLast');
+    assert.ok(createGame(g.serialize()).state.hunters.every(x => x.affLast === undefined)); }
+  // 讀檔過濾:kind 不認得 / delta 非有限或 0 / at 不是有限正數(舊存檔:day 不是 1..舊的今天的整數)/ 該帶物品卻沒有 → 丟掉;名稱重算或過濾;不帶物品的 kind 清掉 item/name
+  { const load = v => { const raw = createGame(null, { now }).serialize(); raw.wanderers[0].affLast = v; return createGame(raw, { now }).state.wanderers[0].affLast; };
+    const gearId = EQUIPMENT[Object.keys(EQUIPMENT)[0]].id, at = T0 - 60e3;
+    assert.equal(load(undefined), undefined, 'old saves load without it'); assert.equal(load(null), undefined); assert.equal(load('svc'), undefined);
+    assert.equal(load({ kind: 'bribe', delta: 3, item: null, name: null, at }), undefined, 'unknown kind');
+    for (const delta of [NaN, Infinity, -Infinity, '3', 0, null]) assert.equal(load({ kind: 'trade', delta, item: null, name: null, at }), undefined, `bad delta ${delta}`);
+    for (const a of [0, -1, NaN, Infinity, '1', null]) assert.equal(load({ kind: 'trade', delta: 2, item: null, name: null, at: a }), undefined, `bad at ${a}`);
+    for (const d of [0, -1, 1.5, 2, '1', undefined]) assert.equal(load({ kind: 'trade', delta: 2, item: null, name: null, day: d }), undefined, `bad legacy day ${d}`);   // 新存檔 time 0 → 舊的今天是第 1 天
+    assert.deepEqual(load({ kind: 'trade', delta: 2, item: null, name: null, at: T0 + 9e9 }), plain('trade', 2, T0), 'a future time is clamped to now');
+    assert.equal(load({ kind: 'svc', delta: 3, item: '__proto__', name: 'x', at }), undefined, 'svc needs a real product');
+    assert.equal(load({ kind: 'gear', delta: 5, item: 'nope', name: 'x', at }), undefined, 'gear needs a real item');
+    assert.deepEqual(load({ kind: 'svc', delta: 3, item: 'bed', name: '<img onerror=x>', at }), { kind: 'svc', delta: 3, item: 'bed', name: PRODUCTS.bed.name, at }, 'product name is recomputed');
+    assert.deepEqual(load({ kind: 'trade', delta: 2, item: 'food', name: '<b>', at }), plain('trade', 2, at), 'no-item kinds drop item/name');
+    assert.deepEqual(load({ kind: 'offline', delta: -500, item: null, name: null, at }), plain('offline', -100, at), 'delta clamped to ±100');
+    const gl = load({ kind: 'gear', delta: 5, item: gearId, name: '<b>"Sword"</b>', at }); assert.equal(gl.item, gearId); assert.equal(gl.name, 'bSword/b', 'gear name is filtered');
+    assert.equal(load({ kind: 'gear', delta: 5, item: gearId, name: 42, at }).name, EQUIPMENT[Object.keys(EQUIPMENT)[0]].name, 'missing gear name falls back to the item name');
+    const objIn = createGame().serialize(); objIn.wanderers[0].affLast = { kind: 'trade', delta: NaN, item: null, name: null, at }; assert.equal(createGame(objIn).state.wanderers[0].affLast, undefined, 'NaN delta via object input'); }
+  // 離線:有外推 → 整段離線的淨變化寫成 offline(一位一次);沒有外推(離線 ≤ 取樣)→ 保留取樣期真的發生的那一筆
+  { const g = createGame(null, { now }), st = g.state; for (const k of Object.keys(st.stocks)) st.stocks[k] = 5000; for (const w of st.wanderers) w.affinity = 50;
+    const ids = st.wanderers.map(w => w.id), snap = g.offlineSnapshot(); g.simulate(OFFLINE.sample); g.offlineFinish(snap, 2 * 3600);
+    const moved = st.wanderers.filter(w => ids.includes(w.id) && Math.abs(w.affinity - 50) > 1e-9); assert.ok(moved.length > 0, 'some affinity moved offline');
+    for (const w of moved) { assert.equal(w.affLast.kind, 'offline'); assert.ok(Math.abs(w.affLast.delta - (w.affinity - 50)) < 1e-9, 'delta = net change while away');
+      assert.equal(w.affLast.item, null); assert.equal(w.affLast.name, null); assert.equal(w.affLast.at, T0); }
+    for (const w of st.wanderers.filter(x => !ids.includes(x.id))) assert.notEqual(w.affLast?.kind, 'offline', 'arrivals during the skipped time get no offline entry');
+    assert.deepEqual(createGame(g.serialize(), { now }).state.wanderers.find(w => w.id === moved[0].id).affLast, moved[0].affLast, 'offline entry round-trips');
+    const s = createGame(), ss = s.state; for (const k of Object.keys(ss.stocks)) ss.stocks[k] = 5000; for (const w of ss.wanderers) w.affinity = 50;
+    const sn = s.offlineSnapshot(); s.simulate(OFFLINE.sample); s.offlineFinish(sn, OFFLINE.sample - 1);
+    assert.ok(ss.wanderers.every(w => w.affLast?.kind !== 'offline'), 'no extrapolation → no offline entry'); }
+}
+{ // 2026-11-25 第 1 章(邀請 1 位流浪英雄)開局就做得到:玩家不操作,4 分鐘(以前的「第一天」)內就有人好感度到門檻(實測約 50–110 秒)
+  const g = createGame(), st = g.state; let readyAt = null;
+  while (st.time < 240 && readyAt == null) { g.tick(0.5); if (st.wanderers.some(w => g.recruitQuote(w.id).ok && g.recruitQuote(w.id).chance >= 1)) readyAt = st.time; }
+  assert.ok(readyAt != null && readyAt < 240, `a wanderer is ready to join within the first 4 minutes (${readyAt}s)`);
+  const w = st.wanderers.find(x => g.recruitQuote(x.id).chance >= 1); assert.equal(g.recruit(w.id).ok, true); assert.equal(st.quest.complete, true);
 }
 { // 2026-11-18 晉升:村莊金幣＋星晶把稀有度升一階,能力跟著變,傳說就封頂
   const g = createGame(), st = g.state, h = st.hunters[0]; h.rarity = 'normal'; st.gold = 50000; st.gems = 300;
@@ -907,7 +1180,7 @@ assert.equal(bad.state.gold, 0); assert.equal(bad.state.ore, 120); assert.equal(
 run(bad, 30, false, assertFiniteEconomy); assert.equal(createGame('{oops').state.gold, 1500); assert.equal(createGame({ version: 1 }).state.gold, 1500);
 const paused = createGame(); paused.state.paused = true; const beforePause = JSON.stringify(paused.serialize()); paused.tick(10); assert.equal(JSON.stringify(paused.serialize()), beforePause);
 paused.state.paused = false; paused.state.speed = 2; paused.tick(2); assert.ok(Math.abs(paused.state.time - 4) < 1e-8); paused.tick(NaN); paused.tick(-1); assert.ok(Math.abs(paused.state.time - 4) < 1e-8);
-const deterministicA = createGame(), deterministicB = createGame(); run(deterministicA, 90); run(deterministicB, 90); assert.deepEqual(deterministicA.serialize(), deterministicB.serialize());
+const detNow = () => Date.UTC(2026, 10, 26, 4), deterministicA = createGame(null, { now: detNow }), deterministicB = createGame(null, { now: detNow }); run(deterministicA, 90); run(deterministicB, 90); assert.deepEqual(deterministicA.serialize(), deterministicB.serialize());
 const sameObject = loaded.state; loaded.reset(); assert.equal(loaded.state, sameObject); assert.equal(loaded.state.gold, 1500); assert.equal(loaded.state.hunters.length, CLASSES.length);
 
 const quests = createGame(); quests.recruit(CLASSES[0].id); assert.equal(quests.claimQuest().ok, true); quests.craft('food', 2); assert.equal(quests.claimQuest().ok, true);
@@ -1223,7 +1496,8 @@ assert.ok(Math.hypot(ah.x - lx, ah.z - lz) > 0.1, 'AI hunter walks again once th
     const g = createGame(); g.state.gold = 99999; assert.equal(g.recruit(classId).ok, true);
     const h = g.state.hunters.at(-1); g.state.hunters = [h]; g.state.wanderers = [];
     Object.assign(h, { x: C.x, z: C.z, huntRegion: 'meadow', inTown: false, rallying: false, route: [], task: null, targetId: null, attackTimer: 0.5 });
-    const proto = g.state.enemies.find(e => e.regionId === 'meadow');
+    // 2026-11-25 固定用鼴鼠當模板(原本取草原第一隻;開局亂數序列改了之後變成較快的公羊,測的是後撤行為、不是魔物種類)
+    const proto = g.state.enemies.find(e => e.regionId === 'meadow' && e.type === 'mole') || g.state.enemies.find(e => e.regionId === 'meadow');
     g.state.enemies = foeOffsets.map(([dx, dz], i) => ({ ...proto, id: `kite${i}`, x: C.x + dx, z: C.z + dz, hp: 99999, maxHp: 99999, rewarded: false, attackTimer: 9 }));
     return { g, h };
   };
@@ -1332,7 +1606,8 @@ assert.ok(Math.hypot(ah.x - lx, ah.z - lz) > 0.1, 'AI hunter walks again once th
   {
     const g = createGame(); g.state.hunters = []; const w = g.state.wanderers[0]; g.state.wanderers = [w];
     Object.assign(w, { classId: 'archer', range: RANGE.archer, speed: CLASSES.find(c => c.id === 'archer').speed, huntRegion: 'meadow', regionId: 'meadow', x: C.x, z: C.z, task: null, route: [], regionCheckAt: 1e9, attackTimer: 0.5, satiety: 100, stamina: 100, mood: 100 });
-    const proto = g.state.enemies.find(e => e.regionId === 'meadow');
+    // 2026-11-25 固定用鼴鼠當模板(原本取草原第一隻;開局亂數序列改了之後變成較快的公羊,測的是後撤行為、不是魔物種類)
+    const proto = g.state.enemies.find(e => e.regionId === 'meadow' && e.type === 'mole') || g.state.enemies.find(e => e.regionId === 'meadow');
     g.state.enemies = [{ ...proto, id: 'wkite', x: C.x + 1.4, z: C.z, hp: 99999, maxHp: 99999, rewarded: false, attackTimer: 9 }];
     const d0 = nearest(g, w); let maxD = d0, saw = false;
     for (let i = 0; i < 25; i++) { g.state.spawnTimer = 0; g.state.regionSpawn = {}; w.hp = w.maxHp; w.satiety = w.stamina = w.mood = 100; g.tick(0.1); maxD = Math.max(maxD, nearest(g, w)); if (w.status === '後撤中') saw = true;
@@ -1355,7 +1630,7 @@ assert.ok(Math.hypot(ah.x - lx, ah.z - lz) > 0.1, 'AI hunter walks again once th
 
   // 9) 挨打的魔物會反擊遠遠放箭的遠程(PROVOKE):原本在主動攻擊範圍外,挨打後會追過來
   {
-    const { g, h } = setup('archer', [[6.8, 0]]); const e = g.state.enemies[0]; e.type = 'cactus'; e.attackTimer = 9;   // 仙人掌主動範圍 4 格
+    const { g, h } = setup('archer', [[6.8, 0]]); const e = g.state.enemies[0]; e.type = 'cactus'; e.attackTimer = 9; Object.assign(e, { wanderX: e.x, wanderZ: e.z, wanderUntil: 1e9 });   // 仙人掌主動範圍 4 格;2026-11-25 閒晃點釘在原地(原本隨機閒晃點會讓牠走到路邊卡住,結果跟開局亂數序列有關)
     h.attackTimer = 9; tickKeep(g, h, 10); const idleD = nearest(g, h);
     e.hitAt = g.state.time; const before = nearest(g, h); tickKeep(g, h, 10, () => { h.attackTimer = 9; });
     assert.ok(idleD > 4, 'an unprovoked cactus ignores the far archer');
@@ -1644,10 +1919,10 @@ run(manual, 30, false, assertFiniteEconomy);
 {
   // 離線掛機:前 OFFLINE.sample 秒真的模擬,其餘外推;最多 8 小時;金幣守恆(獵人錢包花光就沒了)
   const g = createGame(); for (const h of g.state.hunters) h.huntRegion = 'meadow'; run(g, 20);
-  const day0 = g.state.day, k0 = g.state.totalKills, snap = g.offlineSnapshot(); g.simulate(OFFLINE.sample);
+  const t0 = g.state.time, k0 = g.state.totalKills, snap = g.offlineSnapshot(); g.simulate(OFFLINE.sample);
   const sum = g.offlineFinish(snap, 10 * 3600);
   assert.equal(sum.seconds, OFFLINE.max, 'offline progress is capped at 8 hours'); assert.equal(sum.capped, true);
-  assert.ok(g.state.day > day0 + 100 && g.state.totalKills > k0 + 1000, `8 hours of hunting happened (day ${g.state.day}, kills ${g.state.totalKills})`);
+  assert.ok(Math.abs(g.state.time - t0 - OFFLINE.max) < 1 && g.state.totalKills > k0 + 1000, `8 hours of hunting happened (game time +${Math.round(g.state.time - t0)} s, kills ${g.state.totalKills})`);
   assertFiniteEconomy(g.state); assert.ok(sum.levels.length > 0, 'hunters level up while offline');
   // 2026-11-17 起收購另外外推(一般委託買滿就停,賣給流浪英雄的錢不再無上限地流出)→ 這裡全部開持續收購
   // 2026-11-18:收購外推本來就不是「取樣期 × 倍率」:持續收購照「撿到的量」買(可多於取樣期剛好賣掉的量),付款照「誰撿的」分(不是取樣期誰剛好回村賣)
@@ -1998,7 +2273,8 @@ run(manual, 30, false, assertFiniteEconomy);
 {
   const g = createGame(), s = g.state;
   s.gold = 1e6; s.capacity = s.hunters.length;   // 名額已滿
-  assert.equal(g.recruit(s.visitors[0].id).ok, false, 'full roster refuses recruit');
+  const cand = s.wanderers[0]; cand.affinity = 100;
+  assert.equal(g.recruit(cand.id).ok, false, 'full roster refuses recruit'); assert.equal(g.recruitQuote(cand.id).why, '名額已滿');
   const h = s.hunters[1], id = h.id, n0 = s.hunters.length;
   // 穿一件第 3 階鐵匠鋪胸甲(升級件帶 grade),確認物品實例原封不動回倉庫
   s.gearStorage.push({ uid: 'gX1', itemId: 'craft_chest', grade: 3 }); assert.equal(g.equipFromStorage(id, 'gX1').ok, true);
@@ -2024,7 +2300,7 @@ run(manual, 30, false, assertFiniteEconomy);
   assert.ok(s.shots.every(x => x.ownerId !== id) && s.shots.length === 1);
   assert.ok(s.log[0].text.includes(`「${h.name}」離開了村莊`));
   // 騰出的名額可以招募
-  assert.equal(g.recruit(s.visitors[0].id).ok, true, 'freed slot lets a visitor join');
+  assert.equal(g.recruit(cand.id).ok, true, 'freed slot lets a wanderer join');
   assert.equal(g.dismissHunter(id).ok, false, 'unknown id refused');
   run(g, 5, false, assertFiniteEconomy);   // 送別後繼續跑不會壞
   // 存讀檔:人數、倉庫物品(uid 會重新配號,所以比 itemId/grade)、隊伍名單都一致
@@ -2129,7 +2405,7 @@ run(manual, 30, false, assertFiniteEconomy);
   assert.equal(L.state.seed, createGame(JSON.parse(JSON.stringify(clean))).state.seed, 'renaming does not consume random numbers');
   const L2 = createGame(L.serialize()); assert.deepEqual(L2.state.wanderers.map(w => w.name), L.state.wanderers.map(w => w.name), 'stable on the next load');
 }
-console.log(`PASS: ${CLASSES.length} hunters / ${CLASSES.length} classes, seeded visitors, conservation of personal and village gold, paid and emergency services, bounded trading, crafting and gear purchases, upgrades, training, skills, rebirth, difficulty gates, hunting, field boss, death/revival, dungeon combat and save continuation, NPC arena, navigation, malformed saves, pause, deterministic simulation, all ${questChain.length} quests and legacy (rev 1, rev 2) quest-save migration. Natural 60s: ${combat.state.totalKills} total kills; ${combat.state.counts.services} services.`);
+console.log(`PASS: ${CLASSES.length} hunters / ${CLASSES.length} classes, wanderer recruitment by affinity, conservation of personal and village gold, paid and emergency services, bounded trading, crafting and gear purchases, upgrades, training, skills, rebirth, difficulty gates, hunting, field boss, death/revival, dungeon combat and save continuation, NPC arena, navigation, malformed saves, pause, deterministic simulation, all ${questChain.length} quests and legacy (rev 1, rev 2) quest-save migration. Natural 60s: ${combat.state.totalKills} total kills; ${combat.state.counts.services} services.`);
 
 { // 2026-11-18 野外掉落(初始件)與首領寶箱的舊件照「自動整理」處理:自動賣出時倉庫不會有初始裝備;放進倉庫時照舊收著
   const starters = g => g.state.gearStorage.filter(x => EQUIPMENT[x.itemId]?.tier === 'starter').length;
@@ -2474,7 +2750,7 @@ console.log(`PASS: ${CLASSES.length} hunters / ${CLASSES.length} classes, seeded
 // Save export / import validation, round-trip fidelity, legacy migration, and wanderer sanitization.
 {
   const g = createGame(), s = g.state;
-  s.gold = 45678; s.gems = 321; s.wood = 987; s.ore = 654; s.time = 240 * 11 + 65; s.day = 12;
+  s.gold = 45678; s.gems = 321; s.wood = 987; s.ore = 654; s.time = 240 * 11 + 65;
   s.speed = 3; s.region = 'snow'; s.visitedRegions = ['village', 'meadow', 'forest', 'snow'];
   s.buildings.hall = 4; s.buildings.forge = 4; s.buildings.house = 3; s.buildings.dungeon = 2; s.buildings.training = 2; s.buildings.academy = 2; s.buildings.enhancement = 2;
   s.stocks.food = 77; s.stocks.drink = 66;
@@ -2482,7 +2758,7 @@ console.log(`PASS: ${CLASSES.length} hunters / ${CLASSES.length} classes, seeded
   g.setTradeRequest('ore', 120); g.setTradeStanding('ore', true);
   g.setAutoJunk('salvage');
   g.setRegionDensity('meadow', 1); g.setRegionDensity('snow', 3);
-  g.setSetting('quality', 'low'); g.setSetting('dpr', '1'); g.setSetting('fps', 60); g.setSetting('shadows', false); g.setSetting('night', false); g.setSetting('shake', false); g.setSetting('uiScale', 1.15);
+  g.setSetting('quality', 'low'); g.setSetting('dpr', '1'); g.setSetting('fps', 60); g.setSetting('shadows', false); g.setSetting('night', false); assert.equal(s.settings.night, undefined, 'the removed night setting is ignored'); g.setSetting('shake', false); g.setSetting('uiScale', 1.15);
   s.gearStock.sword[3] = 2; s.gearStock.chest[4] = 1;
   s.gearStorage.push({ uid: 'custom1', itemId: 'craft_chest', grade: 4 }, { uid: 'custom2', itemId: 'craft_sword', grade: 3 });
   s.codex = { sprout: 42, yeti: 9 };
@@ -2510,7 +2786,7 @@ console.log(`PASS: ${CLASSES.length} hunters / ${CLASSES.length} classes, seeded
   const info = inspectSave(bomJson);
   assert.equal(info.ok, true, 'inspectSave accepts exported JSON with BOM');
   assert.equal(info.summary.version, 4); assert.equal(info.summary.migrated, false);
-  assert.equal(info.summary.day, 12); assert.equal(info.summary.gold, 45678); assert.equal(info.summary.gems, 321);
+  assert.equal(info.summary.time, 240 * 11 + 65); assert.equal(info.summary.day, undefined); assert.equal(info.summary.gold, 45678); assert.equal(info.summary.gems, 321);
   assert.equal(info.summary.hall, 4); assert.equal(info.summary.bestFloor, 14); assert.equal(info.summary.hunters, s.hunters.length);
   assert.equal(info.summary.savedAt, 1795130000000);
 
@@ -2530,7 +2806,7 @@ console.log(`PASS: ${CLASSES.length} hunters / ${CLASSES.length} classes, seeded
   assert.equal(loaded.ok, true, 'loadSave succeeds on valid exported JSON');
   assert.equal(target.state, sameRef, 'loadSave preserves game.state object identity');
   const ts = target.state;
-  assert.equal(ts.gold, 45678); assert.equal(ts.gems, 321); assert.equal(ts.day, 12); assert.equal(ts.speed, 3); assert.equal(ts.region, 'snow');
+  assert.equal(ts.gold, 45678); assert.equal(ts.gems, 321); assert.equal(ts.time, 240 * 11 + 65); assert.equal(ts.speed, 3); assert.equal(ts.region, 'snow');
   assert.equal(ts.buildings.hall, 4); assert.equal(ts.buildings.forge, 4); assert.equal(ts.buildings.dungeon, 2);
   assert.equal(ts.stocks.food, 77); assert.equal(ts.craftTargets.food, 40); assert.equal(ts.craftTargets.bandage, 25);
   assert.equal(ts.tradeRequests.ore, 120); assert.equal(ts.tradeStanding.ore, true); assert.equal(ts.autoJunk, 'salvage');
@@ -2776,7 +3052,7 @@ console.log(`PASS: ${CLASSES.length} hunters / ${CLASSES.length} classes, seeded
   const { WEAPON_TYPES, weaponTypeOf, CLASS_WEAPON_TYPES, canWield, CRAFT_WEAPON_ITEMS } = await import('./src/pixel-data.js');
   const { hasLiveFx } = await import('./src/pixelfx-runtime.js');
   const C = regionCenter('meadow');
-  const protoE = createGame().state.enemies.find(e => e.regionId === 'meadow');
+  const protoE = (() => { const es = createGame().state.enemies; return es.find(e => e.regionId === 'meadow' && e.type === 'mole') || es.find(e => e.regionId === 'meadow'); })();   // 釘在鼴鼠:開局流浪英雄改動會讓亂數換一隻原型
   const mkFoe = (id, x, z, hp = 5000, atk = 60) => ({ ...protoE, id, x, z, hp, maxHp: hp, attack: atk, attackTimer: 0, rewarded: false, statuses: {}, buffs: {}, engaged: false, slotFor: null, tauntBy: null });
   // 一位手動操控中的聖騎士(AI 不動他),身邊一隻會打人的魔物;回傳第一下打中時扣的血
   const arena1 = (spec = 'paladin_aegis') => {
@@ -2957,8 +3233,8 @@ console.log(`PASS: ${CLASSES.length} hunters / ${CLASSES.length} classes, seeded
     assert.equal(heroSkills(pal2)[1].id, 'spear_sweep');
     // 新招募的聖騎士拿戰錘
     const rg = createGame(); rg.state.gold = 1e6; rg.state.capacity = 99;
-    const pv = rg.state.visitors?.find(v => v.classId === 'paladin');
-    assert.ok(pv, 'the seeded visitors include a paladin');
+    const pv = rg.state.wanderers.find(w => w.classId === 'paladin');
+    assert.ok(pv, 'the opening wanderers include a paladin'); pv.affinity = 100;
     assert.equal(rg.recruit(pv.id).ok, true); const nh = rg.state.hunters.at(-1); assert.equal(nh.classId, 'paladin'); assert.equal(nh.gear.weapon.itemId, 'paladin_hammer', 'new paladin recruit holds the 戰錘');
   }
   // 9) 狂戰士弧光斬:AI 朝怪最密的方向揮、弧內才打得到、會擊退;舊存檔(旋風斬時代,id whirlwind_q)照常載入
@@ -3049,4 +3325,54 @@ console.log(`PASS: ${CLASSES.length} hunters / ${CLASSES.length} classes, seeded
   assert.ok(d1 > 0, 'skill deals damage');
   assert.ok(Math.abs(d5 / d1 - 1.2) < 0.02, `academy Lv.5 skill damage is ~1.2x Lv.1 (got ${(d5 / d1).toFixed(3)})`);
   console.log('PASS: academy level scales hunter skill damage (+5% per level above 1).');
+}
+{ // 2026-11-26 使用者:「角色常常打一半就回城…要確保他狀態全滿下能打怪打到快沒血才回村」
+  // 舊版:背包 14 份(出門 12 秒後)就回村賣、出門 60 秒且鐵匠鋪有貨就回村買裝備、自主狩獵 40% 血就回、出門時飽食/體力/心情只補到 62
+  //   → 8 天模擬裡 78–85% 的返村時生命還 ≥ 50%(中位數 78–90%)。現在野外回村的理由只有:生命低(含被圍住的看情勢撤退)、生活需求見底(< 20)、背包真的滿(≥ 45)。
+  // 這裡只看外部可見的狀態(不靠 traceReturns),舊版跑這段會紅。
+  const { regionCenter } = await import('./src/overworld.js');
+  const restaurant = BUILDINGS.find(b => b.id === 'restaurant'), mealDoor = doorStand(restaurant, restaurant);
+  const ALLOWED = ev => ev.hp < 0.5 || ev.need < 21 || ev.bag >= 45 || (ev.danger && ev.hp < 0.78);
+  const watchReturns = (g, seconds, units, each) => {
+    const events = [];
+    for (let i = 0; i < seconds * 10; i++) {
+      const before = units().map(u => ({ u, out: !u.inTown && u.hp > 0 && !u.task }));
+      g.tick(0.1); each?.(i);
+      for (const { u, out } of before) if (out && u.inTown && u.hp > 0 && u.task !== 'dungeon' && u.task !== 'arena') {
+        const danger = g.state.enemies.some(e => e.hp > 0 && Math.hypot(e.x - u.x, e.z - u.z) < 6);
+        events.push({ name: u.name, hp: u.hp / u.maxHp, need: Math.min(u.satiety, u.stamina, u.mood), bag: Object.values(u.inventory).reduce((n, v) => n + v, 0), danger, t: g.state.time });
+      }
+    }
+    return events;
+  };
+  const tempt = g => {   // 舊版會讓獵人提早回村的誘因全開:交易所大量收購、鐵匠鋪每種裝備都有貨、獵人很有錢
+    const s = g.state; s.gold = 1e6; for (const k of MATERIAL_KEYS_T) s.tradeRequests[k] = 5000;
+    s.buildings.forge = Math.max(1, s.buildings.forge); for (const r of RECIPES) s.gearStock[r.id] = { 1: 50, 2: 0, 3: 0, 4: 0, 5: 0 };
+  };
+  { // 全隊自主狩獵 8 分鐘:每一次從野外回村都要有正當理由,而且大多是血量低
+    const g = createGame(), s = g.state; tempt(g);
+    for (const h of s.hunters) { h.hp = h.maxHp; h.satiety = h.stamina = h.mood = 100; h.gold = 5000; }
+    const ev = watchReturns(g, 480, () => s.hunters, () => { s.gold = Math.max(s.gold, 1e5); });
+    assert.ok(ev.length >= 8, `hunters came home ${ev.length} times`);
+    const bad = ev.filter(e => !ALLOWED(e));
+    assert.equal(bad.length, 0, `field returns without a reason (hp ≥ 50%, needs ≥ 21, bag < 45, no danger): ${bad.map(e => `${e.name} hp ${Math.round(e.hp * 100)}% need ${Math.round(e.need)} bag ${e.bag} t${Math.round(e.t)}`).join('; ')}`);
+    const hp = ev.map(e => e.hp).sort((a, b) => a - b), med = hp[hp.length >> 1];
+    assert.ok(med < 0.55, `median HP when coming home is low (old rules: ~85%) (${Math.round(med * 100)}%)`);
+    console.log(`PASS: hunters hunt until HP is low (${ev.length} returns, median HP ${Math.round(med * 100)}%).`);
+  }
+  { // 回村時把生活需求補滿:飽食 70(舊門檻 62 不會補)也會去吃,出門時接近全滿
+    const g = createGame(), h = isolate(g); Object.assign(h, mealDoor); h.satiety = 70; h.gold = 500;
+    const food0 = g.state.stocks.food; run(g, 16, true);   // 先在村裡待機 3.6–8.4 秒(AUTO_HUNT.dwell),出門前才去吃
+    assert.equal(g.state.stocks.food, food0 - 1, 'a hunter at 70 satiety buys a meal before heading out'); assert.ok(h.satiety > 85, `topped up above the town line (${h.satiety.toFixed(1)})`);
+  }
+  { // 流浪英雄同一套:全滿、有錢、鐵匠鋪有貨 → 不會出門 110 秒就為了買裝備回村
+    const g = createGame(), s = g.state; tempt(g);
+    const w = s.wanderers[0]; s.wanderers = [w];
+    Object.assign(w, { satiety: 100, stamina: 100, mood: 100, gold: 5000, task: null, inTown: false, lastTownVisit: s.time }); w.hp = w.maxHp;
+    const c = regionCenter(w.huntRegion); Object.assign(w, { x: c.x, z: c.z, route: [] });
+    const ev = watchReturns(g, 200, () => [w]);
+    const bad = ev.filter(e => !ALLOWED(e));
+    assert.equal(bad.length, 0, `wanderer field returns without a reason: ${bad.map(e => `hp ${Math.round(e.hp * 100)}% need ${Math.round(e.need)} t${Math.round(e.t)}`).join('; ')}`);
+    console.log(`PASS: wanderers also hunt until HP is low (${ev.length} returns in 200 s).`);
+  }
 }

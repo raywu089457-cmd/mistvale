@@ -21,6 +21,7 @@
 | `src/overworld.js` | 世界 94×89(2026-11-18 擴張,七區面積各 ×2,`worldRevision` 5)、七個狩獵區、生態域、環形道路 |
 | `src/concept-ground.js` / `concept-props.js` | 概念圖對齊的地面與道具 |
 | `src/lore.js` / `hero-chatter.js` | 魔物名稱與設定、獵人對話 |
+| `src/real-clock.js` | 2026-11-26 拿掉遊戲內白天黑夜後的真實時間小工具：`isRealNight`（本機 19:00–05:59，只給台詞／環境音／標題夜景）、`agoText`／`waitText`／`playTimeText`（畫面文字）。遊戲規則的真實時間在 `pixel-game.js`：`REALTIME`（pixel-data）、`createGame(save, { now })` 可注入時鐘、`game.realNow()`／`setClock`；`state.day` 已不存在 |
 | `src/asset-loading.js` | `trackImage`：**新增任何 `new Image` 都要包它**，否則讀取畫面閘門失效 |
 | `src/dir4.js` | 動畫 4 方向規則（2026-11-15：可斜走，動畫方向 = 畫面向量的 90° 象限）：`quantize4`（一次性）/`quantize4Stable`（走路，10° 遲滯）、`facingOk`（check_facing 判準）、常數 `QUADRANT_OFFSET_DEG`/`FACING_HYSTERESIS_DEG`、sheet 選列 `dirSuffix`/`leftRow`；`pixel-world.js`（朝向/選列）用。`stairStep`（舊 4 軸階梯）遊戲已不用 |
 | `assets/mounts.json` | 騎乘坐騎表（物種 → 坐/站、四方向鞍點；`pipeline/scripts/dv2fmt/gen_mounts.py` 產生，build 內嵌成 `PIXEL_ASSETS.mounts`）。遊戲欄位 `h.mount`、`game.setMount`、`MOUNT_SPEED_MULT` 在 `pixel-game.js`；規格 [PAPERDOLL.md](PAPERDOLL.md) §20 |
@@ -36,7 +37,7 @@
 - `npm run verify` / `verify:quick`（`tools/verify.mjs`）一鍵驗收
 - 瀏覽器檢查（沒有 playwright 時）：`node tools/cdp-run.mjs <劇本.json>` 直接驅動本機 Chrome；範例 `tools/checks/building-upgrade.cdp.json`（建築面板 6 種情境）
 - 平衡定案值與目標：[BALANCE.md](BALANCE.md)（改數值前後都要跑 10 個 seed）
-- 平衡／節奏：`node tools/progression-sim.mjs [天數]` 用貪婪玩家策略無頭跑一局，每天一行（金幣、各材料、獵人等級、死亡、委託章節、建築等級、地下城層數），結尾列死因與各魔物擊倒數；`node tools/dungeon-balance.mjs` 看地下城層數
+- 平衡／節奏：`node tools/progression-sim.mjs [分鐘=80｜2h｜14d]` 用貪婪玩家策略無頭跑一局，每 4 分鐘（240 遊戲秒，舊的「一天」）一行（金幣、各材料、獵人等級、死亡、委託章節、建築等級、地下城層數），結尾列死因與各魔物擊倒數；`node tools/dungeon-balance.mjs` 看地下城層數
 - 經濟（2026-11-16）：交易所行商 `merchantQuote/buyMaterials`（`MERCHANT` 在 pixel-data，收購價 6 倍、交易所 Lv.5 降到 4 倍；建設卡「補料升級」）；服務售價 `servicePrice` 隨設施等級 +25%/級；建築升級成本每級 ×`UPGRADE_GROWTH`（1.75）；委託 22 章（`QUEST_REVISION` 3，`migrateQuest` 轉版本 1／2 舊存檔；2026-11-18 在 Lv.65 與轉世之間補 4 章後期委託）；地下城自動續戰有體力/勝算檢查（`dgForecast`），出發層會降到打得過的層（`dgSafeStart`），已打過的樓層獎勵減少（`DG_REPEAT`）；裝備 Ⅰ–Ⅴ 階（`GEAR_TIERS`；2026-11-17 起是鐵匠鋪升級件物品實例上的 `grade`，數值/名稱/售價/分解一律經過 `gearItemView`；鐵匠鋪等級解鎖）；獵人照周圍威脅提早返村（`shouldRetreat`），返村與出征都走環形道路（`homeRoute`/`ringWaypoints`）
 - `npm run build`＝esbuild 打成單檔 `暮影村.html`；push main＝Pages 部署
 - PWA：`pwa/sw.js`（網路優先、只存成功回應）；改快取要同步升版號

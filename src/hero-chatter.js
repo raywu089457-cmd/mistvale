@@ -1,6 +1,6 @@
 // hero-chatter.js — 英雄對話框的台詞(2026-10-30 使用者:「顯示英雄當下心情或要做的事情,說話內容要有趣簡短,玩家覺得這是活人」)。
 // pickHeroLine(h, ctx) 依「急迫需求 → 正在做的事 → 職業/特性/閒聊」挑一句;只決定說什麼,何時說、畫在哪由 pixel-world.js 管。
-// ctx = { wanderer: 是不是流浪英雄, night: 是否夜晚, rnd: 0–1 亂數, last: 上一句(不連續講同一句) }
+// ctx = { wanderer: 是不是流浪英雄, night: 是否真實的晚上(玩家本機時間,real-clock.js isRealNight;2026-11-26 起遊戲內沒有日夜), rnd: 0–1 亂數, last: 上一句(不連續講同一句) }
 // 台詞原則:一句 4–12 字、口語、有個性;{region} 會換成要去的狩獵區名。
 
 const NEED = {

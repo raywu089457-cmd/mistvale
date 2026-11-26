@@ -36,12 +36,12 @@ export const CLASSES = [
  {id:'archer',name:'弓箭手',tag:'遠程 / 連射',color:'#3fa7a0',hp:96,attack:18,defense:2,speed:HERO_SPEED,range:RANGED_RANGE,cost:160,desc:'背著大箭袋的輕裝射手，疾風箭雨可同時射穿三個目標。'},
  {id:'assassin',name:'刺客',tag:'近戰 / 暗殺',color:'#7a6a9c',hp:100,attack:23,defense:2,speed:HERO_SPEED,range:1.2,cost:160,desc:'披著兜帽的刺客，以匕首連刺快速解決魔物，暗影衝刺可重創單一目標。'},   // 2026-10-24 使用者要刺客回來:PixelLab 3d3020ce(assets/heroes/assassin,8 向走路＋攻擊/技能列),數值是新訂的
  // 2026-10-27 使用者要祭司能正常招募:原本只在 WANDER_ONLY 當流浪英雄(已移除)。放在最後 → 開局 5 人仍是前 5 職業,
- // 祭司由 offerNewClass 保證出現在招募欄第一位。素材是白袍金杖、法杖發光球(Bible §priest、assets/heroes/priest 攻擊列),
+ // 祭司:村裡和流浪英雄都沒有祭司時,下一位補來的流浪英雄先補祭司(wandererClassPick)。素材是白袍金杖、法杖發光球(Bible §priest、assets/heroes/priest 攻擊列),
  // 所以改成遠程施法(原本的「紅斗篷短刃近戰」是舊素材的設定);pixel-world.js 早就把 priest 當遠程(後座/蓄力光)。
  // 數值:遠程化後下修生命/攻擊/防禦,定位在弓箭手與法師之間、以自療換輸出。
  {id:'priest',name:'祭司',tag:'遠程 / 恢復',color:'#b3434a',hp:104,attack:17,defense:3,speed:HERO_SPEED,range:RANGED_RANGE,cost:175,desc:'白袍金杖的祭司，從遠處擲出聖光球攻擊魔物，暗癒禱言會自動替射程內生命比例最低的隊友補血（先挑村裡招募的獵人）。'},
 ];
-// 注意:CLASSES 的長度決定訪客與流浪英雄的擲骰映射(newVisitor / newWanderer),增減職業會讓決定性模擬整個重排。
+// 注意:CLASSES 的長度決定流浪英雄的擲骰映射(newWanderer),增減職業會讓決定性模擬整個重排。
 // 招牌技能(真的遊戲機制):戰鬥中冷卻好就放,放完 lock 秒內不普攻(播完技能動畫)。
 // kind:multi = 同時打 targets 個最近的魔物;aoe = 打目標與其 radius 內的魔物;single = 單體高倍率;heal = 回復自己;
 // allyHeal = 不必在戰鬥中,冷卻好就替射程內「生命比例最低」的隊友補血(先挑招募的獵人,沒有才看流浪英雄;滿血的不補)。
@@ -55,6 +55,20 @@ export const SKILLS={
  priest:{name:'暗癒禱言',kind:'allyHeal',cd:10,heal:.28,lock:.7,fx:'holy',below:.9},   // 2026-10-30 使用者:牧師改成自動替範圍內 HP 最少的隊友補血,優先招募英雄
 };
 export const RARITIES=[{id:'normal',name:'普通',color:'#d3cab2',mult:1},{id:'rare',name:'稀有',color:'#6fbe8b',mult:1.08},{id:'superior',name:'超級稀有',color:'#6caeee',mult:1.18},{id:'heroic',name:'英雄',color:'#c184e1',mult:1.32},{id:'legendary',name:'傳說',color:'#efb955',mult:1.5}];
+// 2026-11-25 招募改成「流浪英雄的好感度」(使用者:取消旅人自願上門,所有流浪英雄都能招募,成功率看好感度;稀有度越低門檻越低)。
+// 好感度 0–100,存在每位流浪英雄身上(w.affinity)。村莊把他照顧好就上升、讓他白跑一趟就下降(規則與數字見 docs/BALANCE.md「招募好感度」):
+//   need[稀有度]:好感度到這個數字 = 100% 接受邀請;ramp:門檻以下 ramp 點內成功率線性從 0% 升到 100%(再低就是 0%,按鈕鎖住)
+//   service:每買到一份付費服務(餐點/飲品/床鋪/繃帶);trade:在交易所賣出材料(一趟算一次);gear:在鐵匠鋪買到一件裝備
+//   miss:想買的服務賣完了(村莊沒貨);refuse:背包滿了回村、交易所卻不收;fail:邀請被婉拒(另外 REALTIME.recruitRetry 真實時間內不能再邀)
+//   start:新來的流浪英雄(開局與之後補來的)起始好感度範圍(依 id 雜湊,不擲骰);legacy:舊存檔沒有好感度的流浪英雄一律從這裡開始
+//   pool:上限。每招募走一位就欠一位(state.wandererDue),每 REALTIME.wandererEvery 真實時間補來一位(缺祭司先補祭司、再補缺的職業),補到 pool 為止;沒被招募走就不會自己變多
+//   min:任何時候至少這麼多位(招募後低於 min 立刻補,不用等)
+export const AFFINITY={need:{normal:30,rare:55,superior:80,heroic:90,legendary:95},ramp:15,service:3,trade:2,gear:5,miss:-2,refuse:-1,fail:-8,start:[10,22],legacy:25,pool:6,min:4};
+// 2026-11-26 使用者:「拿掉白天黑夜機制,其他任何需要白天黑夜作為條件的機制都直接用真實世界時間取代」。
+// 遊戲裡不再有「第 N 天」與日夜;原本「隔天」的規則改用真實時間(毫秒,跟遊戲速度、暫停無關;關掉遊戲也照算,回來時一次補齊)。
+//   wandererEvery:被招募走的流浪英雄,每隔這麼久補回一位(原本是遊戲換日 = 1× 時 4 分鐘,維持同樣節奏)
+//   recruitRetry:邀請被婉拒後,這麼久之內不能再邀同一位(原本是「明天再邀」= 1× 時平均 2、最多 4 分鐘)
+export const REALTIME={wandererEvery:4*60e3,recruitRetry:3*60e3};
 // 2026-11-18 晉升:村莊金幣＋星晶把獵人的稀有度往上升一階(後期金幣、星晶的出口;只改 h.rarity,存檔格式不變)。
 // key = 升上去的那一階。普通 → 傳說全程 40,500 金＋735 星晶(星晶跟金幣約 1:50,兩種一起用完)。
 export const PROMOTE={rare:{gold:1500,gems:30},superior:{gold:4000,gems:75},heroic:{gold:10000,gems:180},legendary:{gold:25000,gems:450}};

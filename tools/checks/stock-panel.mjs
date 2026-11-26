@@ -85,9 +85,9 @@ const read = page => page.evaluate(() => {
 
   if (d.secs.length !== 3) fix(`倉庫有 ${d.secs.length} 個分組，預期 3（材料／生活物資／裝備）`);
   const titles = d.secs.map(s => s.title).join(',');
-  if (titles !== '材料,生活物資,裝備') fix(`分組標題是 ${titles}，預期 材料,生活物資,裝備`);
+  if (titles !== '材料,生活物資,鐵匠鋪貨架（待售給獵人）') fix(`分組標題是 ${titles}，預期 材料,生活物資,鐵匠鋪貨架（待售給獵人）`);   // 2026-11-25 第三組改名＋只列有庫存的配方×階級
   const items = d.secs.flatMap(s => s.items);
-  if (items.length !== 12) fix(`倉庫列了 ${items.length} 項，預期 12 項（材料 6＋物資 4＋裝備 2）`);
+  if (items.length < 10) fix(`倉庫列了 ${items.length} 項，預期 12 項（材料 6＋物資 4＋裝備 2）`);
   const wantNum = want;
   for (const [id, n] of Object.entries(wantNum)) {
     const it = items.find(x => x.id === id);

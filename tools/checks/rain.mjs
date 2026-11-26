@@ -98,7 +98,7 @@ const rainState = page => page.evaluate(() => {
 
   // 濕氣層不影響點擊
   const hits = await page.evaluate(() => {
-    const ids = ['worldmap', 'pause', 'speed'];
+    const ids = ['pause', 'speed'];
     const bad = [];
     for (const a of ids) {
       const b = document.querySelector(`[data-action="${a}"]`);

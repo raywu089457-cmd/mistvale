@@ -24,7 +24,7 @@ const setS = (page, fn, arg) => page.evaluate(`(()=>{const g=globalThis.__mistva
 const getS = (page, fn, arg) => page.evaluate(`(()=>{const g=globalThis.__mistvaleGame,s=g.state,a=${JSON.stringify(arg ?? null)};return (${fn.toString()})(s,g,a);})()`);
 const settle = (page, ms = 450) => page.waitForTimeout(ms);
 const closeAll = async page => { await page.evaluate(() => { const i = document.querySelector('#inspector:not(.hidden) [data-action=closeInspector]'); if (i) i.click(); const m = document.querySelector('#modal-backdrop:not(.hidden)'); if (m) { const x = document.querySelector('#modal-foot [data-action=close],#modal-foot [data-action=confirmNo],#modal [data-action=close]'); x?.click(); } }); await page.waitForTimeout(250); };
-const prep = page => page.evaluate(() => { const g = globalThis.__mistvaleGame; for (const k of ['resources', 'buildings']) g.cheat(k); const s = g.state; s.paused = true; s.visitors = []; });
+const prep = page => page.evaluate(() => { const g = globalThis.__mistvaleGame; for (const k of ['resources', 'buildings']) g.cheat(k); const s = g.state; s.paused = true; for (const w of s.wanderers) w.affinity = 0; });
 
 // ── 頁內共用量測:顏色、字級、熱區、重疊 ──
 const SCAN = (root, minHit) => {
@@ -243,11 +243,12 @@ for (const name of only) {
       const r = await page.evaluate(() => {
         const cs = (e, p) => e ? getComputedStyle(e)[p] : null, z = e => e.currentCSSZoom || 1, cells = [...document.querySelectorAll('#modal-content .hv-sq')];
         return { n: cells.length, cols: new Set(cells.map(c => Math.round(c.getBoundingClientRect().left / 4))).size, ic: cells.every(c => c.querySelector('.sq-ic [data-icon]')), q: cells.every(c => c.querySelector('.sq-q')), nmF: Math.min(...cells.map(c => parseFloat(cs(c.querySelector('.si-nm'), 'fontSize')) * z(c.querySelector('.si-nm')))), nmC: cells[0] && cs(cells[0].querySelector('.si-nm'), 'color'), first: cells[0]?.querySelector('.sq-btn')?.getBoundingClientRect().height,
-          tip: cells[0]?.querySelector('.sq-btn')?.dataset.tipUse != null };
+          tip: cells[0]?.querySelector('.sq-btn')?.dataset.tipUse != null, shelf: document.querySelectorAll('#modal-content .stock-shelf .hv-sq').length };
       });
       // 2026-11-13：倉庫＝素材 6 ＋ 產品 4 ＋ 七種裝備(武器＋六件防具)＝17 格
       // 2026-11-24：武器分五種類型(精鐵長劍／戰錘／長弓／法杖／匕首)→ 素材 6 ＋ 產品 4 ＋ 11 份配方＝21 格
-      r.n === 21 && r.cols >= 3 && r.ic && r.q && r.nmF >= 11.9 && r.nmC === C.white ? ok(`${label}/D: 倉庫 ${r.n} 格方格、${r.cols} 欄、圖示框＋數量＋白名稱(${r.nmF}px)`) : fix(`${label}/D: 倉庫方格不符:${JSON.stringify(r)}`);
+      // 2026-11-25：「裝備」區改成「鐵匠鋪貨架（待售給獵人）」，只列有庫存的配方×階級(全名＋階級)，不再固定 11 格 → 素材 6 ＋ 產品 4 ＋ 貨架現有格數
+      r.n === 10 + r.shelf && r.cols >= 3 && r.ic && r.q && r.nmF >= 11.9 && r.nmC === C.white ? ok(`${label}/D: 倉庫 ${r.n} 格方格、${r.cols} 欄、圖示框＋數量＋白名稱(${r.nmF}px)`) : fix(`${label}/D: 倉庫方格不符:${JSON.stringify(r)}`);
       r.tip ? ok(`${label}/D: 格子留有 data-tip-* 接點(Z2A 共用 tooltip)`) : fix(`${label}/D: 格子缺 data-tip-* 接點`);
       await page.click('#modal-content .hv-sq[data-id=flour] .sq-btn'); await settle(page, 350);
       const d = await page.evaluate(() => { const b = document.querySelector('#modal-content .z2b-detail'); return b ? { id: b.dataset.id, use: b.querySelector('.si-use')?.textContent || '', src: b.querySelector('.si-src')?.textContent || '', num: b.querySelector('.si-num')?.textContent || '', go: b.querySelector('[data-action]')?.textContent.trim(), bg: getComputedStyle(b).backgroundColor, sel: !!document.querySelector('.hv-sq.sel[data-id=flour]') } : null; });
@@ -276,9 +277,9 @@ for (const name of only) {
       // 2026-11-19：材料不足時主鈕不再只是灰掉——2026-11-16「補料」上線後會變成青綠「補料製作」
       //（src/pixel-ui.js:278/:605 merchant-btn、:374-381），用村莊金幣自動補齊缺料再製作。
       // 所以「不足」有兩種合法樣貌：灰停用「製作」或青綠「補料製作」。
-      const foodShort = food && food.chips[0].have === 3 && food.chips[0].need === 5 && food.chips[0].short && /材料不足/.test(food.meta) && food.chips[0].col === C.no;
+      const foodShort = food && food.chips[0].have === 3 && food.chips[0].need === 5 && food.chips[0].short && !food.meta && food.chips[0].col === C.no;   // 2026-11-25：紅字「材料不足」(zc-meta)拿掉，缺料只由紅色材料晶片＋補料鈕表達
       const foodMain = food && ((food.main.dis && food.main.bg === C.gray) || /補料/.test(food.main.t));
-      foodShort && foodMain ? ok(`${label}/E: 材料不足:小麥粉 3/5 紅字＋「材料不足」＋${/補料/.test(food.main.t) ? '青綠「補料製作」' : '灰色停用鈕'}`) : fix(`${label}/E: 小麥粉 3/5 的不足狀態不符:${JSON.stringify(food)}`);
+      foodShort && foodMain ? ok(`${label}/E: 材料不足:小麥粉 3/5 紅字晶片(不再重複寫「材料不足」)＋${/補料/.test(food.main.t) ? '青綠「補料製作」' : '灰色停用鈕'}`) : fix(`${label}/E: 小麥粉 3/5 的不足狀態不符:${JSON.stringify(food)}`);
       drink && drink.out ? ok(`${label}/E: 庫存 0 的「莓果飲品」列標「賣完了」`) : fix(`${label}/E: 庫存 0 的商品要標「賣完了」`);
       const dm = r.find(x => x.id === 'drink');
       dm && dm.full && dm.full.b && dm.full.w >= (touch ? 43.5 : 28) && dm.full.h >= (touch ? 43.5 : 28) ? ok(`${label}/E: 「做滿」小鈕在(${dm.full.b} 批,${Math.round(dm.full.w)}×${Math.round(dm.full.h)})`) : fix(`${label}/E: 缺「做滿」小鈕或熱區不足:${JSON.stringify(dm?.full)}`);
@@ -364,7 +365,7 @@ for (const name of only) {
     // ───── H. 賣完導引 ─────
     await scene('H', async () => {
       await closeAll(page);
-      await setS(page, s => { s.buildings.tavern = 1; s.buildings.restaurant = 1; s.stocks.drink = 0; s.stocks.food = 30; s.visitors = []; s.quest.complete = false; });
+      await setS(page, s => { s.buildings.tavern = 1; s.buildings.restaurant = 1; s.stocks.drink = 0; s.stocks.food = 30; for (const w of s.wanderers) w.affinity = 0; s.quest.complete = false; });
       await settle(page, 900);
       const r = await page.evaluate(() => ({ badge: document.querySelector('#bottom-bar [data-action=inventory]')?.dataset.badge, ns: document.querySelector('#next-step .ns-tx')?.textContent || '', go: document.querySelector('#next-step .ns-go')?.textContent || '', key: document.querySelector('#next-step')?.dataset.key }));
       r.badge === '1' ? ok(`${label}/H: 倉庫頁籤待辦徽章 ${r.badge}`) : fix(`${label}/H: 商品賣完倉庫頁籤要有徽章:${JSON.stringify(r)}`);

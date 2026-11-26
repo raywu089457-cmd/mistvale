@@ -15,7 +15,7 @@
 //     * 連不上伺服器不再 SKIP 當作通過，改成結束碼 2。
 //   桌機沒有被手機規則影響這件事，由 hv-measure（桌機熱區）與 build-grid／panel-headers 的桌機斷言各自守住。
 // 實測畫面：390x844 / 430x932 / 320x720，逐一開 hud／左側委託面板／settings／build／hunters／派遣／trade／craft／
-//   difficulty／worldmap／委託／新手說明／招募／地下城／競技場／首領／建築資訊抽屜／移動建築放置列／手動操控面板，
+//   difficulty／委託／新手說明／招募／地下城／競技場／首領／建築資訊抽屜／移動建築放置列／手動操控面板，
 //   列出小於 44 的 [data-action]/[data-pilot] 與同一層互相重疊的可見按鈕。幾何重疊全量計算，其中「一顆是 sticky/fixed
 //   橫條、另一顆是捲到它下面的列」的另列成 COVERED（會印出來並計數，不算失敗：那是黏在底部的固定鈕，不是兩顆都按得到）。
 import path from 'node:path';
@@ -95,7 +95,6 @@ if (runBrowser) {
           { name: 'trade', run: () => act('trade') },
           { name: 'craft', run: () => act('craft') },
           { name: 'difficulty', run: () => act('difficulty') },
-          { name: 'worldmap', run: () => act('worldmap') },
           { name: 'quests', run: () => act('quests') },
           { name: 'help', run: () => act('help') },
           { name: 'recruit', run: () => act('recruit') },

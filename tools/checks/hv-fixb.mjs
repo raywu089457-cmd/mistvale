@@ -183,15 +183,11 @@ if (sceneNeeded) for (const v of VIEWS) {
     const cardsOf = (sel) => page.evaluate(sel => [...document.querySelectorAll('#modal-content ' + sel)].map(c => { const cr = c.getBoundingClientRect(); const bs = [...c.querySelectorAll('button')].map(b => { const r = b.getBoundingClientRect(); return { w: r.width, h: r.height, f: r.width / cr.width }; }); const big = bs.filter(b => b.f >= .85), small = bs.filter(b => b.f < .85); return { big: big.length, small: small.length, minS: small.length ? Math.min(...small.map(b => Math.min(b.w, b.h))) : 99, maxS: small.length ? Math.max(...small.map(b => Math.max(b.w, b.h))) : 0 }; }), sel);
     const lim = v.phone ? 43.5 : 31.5;
     // Z2B(2026-11-12 圖鑑 e/f 節):交易列=方格(一顆滿寬金棕膠囊＋2×2 步進鈕,步進鈕不再是 ≤48 的小圖示鈕);製作卡=清單列(.zc-row:右側一顆金棕「製作」＋小鈕「做滿」,沒有滿寬鈕)
-    for (const [scene, sel, label] of [['trade', '.trade-row', '交易列'], ['craft', '.zc-row', '製作卡'], ['worldmap', '.region-card', '區域卡']]) {
+    for (const [scene, sel, label] of [['trade', '.trade-row', '交易列'], ['craft', '.zc-row', '製作卡']]) {
       await reset(page); await act(page, scene); await page.waitForTimeout(500);
       const cs = await cardsOf(sel);
       if (scene === 'craft') { chk(cs.length > 0 && cs.every(c => c.big === 0 && c.small >= 1 && c.minS >= lim), T(label) + `: ${cs.length} 列清單,每列右側金棕動作鈕＋小鈕(≥${lim}px)`, T(label) + `: 清單列按鈕結構不對(滿寬 ${[...new Set(cs.map(c => c.big))].join('/')}、小鈕 ${[...new Set(cs.map(c => c.small))].join('/')}、最小 ${Math.min(...cs.map(c => c.minS))})`); if (v.w === 1440 || v.w === 390) await shot(page, `${scene}-${v.w}x${v.h}`); continue; }
-      if (scene === 'worldmap') {   // Z2C:區域卡改成清單列(.z2c-row):收合時只有「整列主鈕(展開詳情)＋前往/回村」兩顆看得到,「詳情」鈕收在展開區(寬 0),沒有滿寬鈕
-        const rr = await page.evaluate(sel => [...document.querySelectorAll('#modal-content ' + sel)].map(c => { const bs = [...c.querySelectorAll('button')].map(b => { const r = b.getBoundingClientRect(); return { a: b.dataset.action, w: r.width, h: r.height }; }).filter(b => b.w > 0 && b.h > 0); return { acts: bs.map(b => b.a).sort().join(), min: bs.length ? Math.min(...bs.map(b => Math.min(b.w, b.h))) : 0 }; }), sel);
-        chk(rr.length > 0 && rr.every(r => /^(regionRow,regionTravel|regionRow,regionView)$/.test(r.acts) && r.min >= lim), T(label) + `: ${rr.length} 列清單,每列 整列主鈕＋前往/回村 兩顆(≥${lim}px),詳情收在展開區`, T(label) + `: 區域清單列按鈕結構不對(${[...new Set(rr.map(r => r.acts))].join(' | ')}、最小 ${Math.min(...rr.map(r => r.min))})`);
-        if (v.w === 1440 || v.w === 390) await shot(page, `${scene}-${v.w}x${v.h}`); continue;
-      }
+
     // 2026-11-19：交易列每張卡的滿寬鈕數量會隨「有沒有庫存可賣」與「手機窄卡」變動，所以不能算顆數：
     //   每張卡必須剛好 1 顆金棕主鈕 tradeStep d=10 ＋ 1 顆持續收購開關 tradeStanding；
     //   其餘滿寬鈕只允許 matSell（賣給行商，有庫存才出現）與 tradeStep d=1（手機 113px 窄卡時「＋」自己佔滿第二列，才不會 <44px）。
@@ -221,11 +217,11 @@ if (sceneNeeded) for (const v of VIEWS) {
     await reset(page); await act(page, 'regionDetail', 'meadow'); await page.waitForTimeout(500);
     // Z1:區域詳情的 前往(橄欖綠)＋返回地圖(紅)住在 C 視窗底部按鈕列;「在地圖上定位」留在內容裡(金棕清單動作)
     const rd = await page.evaluate(() => { const f = document.querySelector('#modal-foot'), fr = f.getBoundingClientRect(), bs = [...f.querySelectorAll('button')].map(b => { const r = b.getBoundingClientRect(), bg = getComputedStyle(b).backgroundColor; return { w: r.width, vis: r.top >= fr.top - .5 && r.bottom <= fr.bottom + .5, red: bg === 'rgb(88, 104, 16)', cancel: bg === 'rgb(141, 57, 37)' }; }); return { n: bs.length, red: bs.filter(b => b.red).length, cancel: bs.filter(b => b.cancel).length, vis: bs.every(b => b.vis), redWidest: true }; });
-    chk(rd.n >= 2 && rd.red === 1 && rd.cancel === 1, T('區域詳情') + ': 底部按鈕列 = 一顆橄欖綠主動作(前往)＋一顆紅(返回)', T('區域詳情') + `: 主按鈕結構不對（按鈕 ${rd.n}、橄欖綠 ${rd.red}、紅 ${rd.cancel}）`);
+    chk(rd.n >= 2 && rd.red === 1 && rd.cancel === 1, T('區域詳情') + ': 底部按鈕列 = 一顆橄欖綠主動作(前往)＋一顆紅(返回立牌;世界地圖已移除,詳情改從區域立牌進入)', T('區域詳情') + `: 主按鈕結構不對（按鈕 ${rd.n}、橄欖綠 ${rd.red}、紅 ${rd.cancel}）`);
     chk(rd.vis, T('區域詳情') + ': 按鈕列一屏內看得到', T('區域詳情') + ': 按鈕列在視窗外');
     if (v.h <= 520) {
       await reset(page); await act(page, 'recruit'); await page.waitForTimeout(500);
-      const rc = await page.evaluate(() => { const c = document.querySelector('#modal-content'), cr = c.getBoundingClientRect(); const bs = [...c.querySelectorAll('.visitor-card button')]; return { n: bs.length, vis: bs.every(b => { const r = b.getBoundingClientRect(); return r.top >= cr.top - .5 && r.bottom <= cr.bottom + .5; }) }; });
+      const rc = await page.evaluate(() => { const c = document.querySelector('#modal-content'), cr = c.getBoundingClientRect(); const bs = [...c.querySelectorAll('.rc-card .rc-go')]; return { n: bs.length, vis: bs.every(b => { const r = b.getBoundingClientRect(); return r.top >= cr.top - .5 && r.bottom <= cr.bottom + .5; }) }; });
       chk(rc.n > 0 && rc.vis, T('招募卡') + ': 橫向全部「邀請加入」鈕一屏內看得到', T('招募卡') + ': 橫向招募卡的按鈕要捲動才看得到');
     }
   }

@@ -978,7 +978,6 @@ body.hud-modal #bottom-bar button:not([data-action]),body.hud-modal #bottom-bar 
   #modal[data-type=inventory] .encounter-banner p,
   #modal[data-type=dispatch] .modal-intro,
   #modal[data-type=difficulty] .modal-intro{font-size:var(--fs-small);line-height:1.75}
-  #modal[data-type=worldmap] .modal-note{font-size:var(--fs-small);line-height:1.7}
   /* dungeon / arena / dispatch: party cards */
   #modal[data-type=dungeon] .party-pick span,
   #modal[data-type=arena] .party-pick span,
@@ -997,15 +996,7 @@ body.hud-modal #bottom-bar button:not([data-action]),body.hud-modal #bottom-bar 
   /* help: heading 12px, body 11px */
   #modal[data-type=help] .help-card h3{font-size:var(--fs-body)}
   #modal[data-type=help] .help-card p{font-size:var(--fs-small);line-height:1.75}
-  /* worldmap: header, region cards, buttons */
-  #modal[data-type=worldmap] .world-map-header{font-size:var(--fs-small)}
-  #modal[data-type=worldmap] .world-map-header .pixel-button{font-size:var(--fs-small)}
-  #modal[data-type=worldmap] .region-card small{font-size:var(--fs-small)}
-  #modal[data-type=worldmap] .region-card p{font-size:var(--fs-small);line-height:1.65}
-  #modal[data-type=worldmap] .region-card .pixel-button{font-size:var(--fs-small)}
   /* 前往… was squeezed into a one-character column: give the travel button its own row */
-  #modal[data-type=worldmap] .region-card>div{flex-wrap:wrap;justify-content:flex-end;gap:6px}
-  #modal[data-type=worldmap] .region-card .pixel-button.gold{flex:1 0 100%;white-space:nowrap}
   /* dispatch: region subtitle was cut off: let it wrap instead of clipping */
   #modal[data-type=dispatch] .region-pick small{font-size:var(--fs-small);white-space:normal;overflow:visible;text-overflow:clip;line-height:1.4}
   #modal[data-type=dispatch] .region-pick em{font-size:var(--fs-small)}
@@ -1867,23 +1858,7 @@ html{font-variant-numeric:tabular-nums;font-feature-settings:'tnum' 1}
   .next-step .ns-tx{font-size:12px}
 }
 
-/* ===== T134：頂部晝夜時鐘（第 N 天 · 白天/夜晚 · 這半天的進度） ===== */
-.day-clock{display:flex;align-items:center;gap:6px;padding:4px 8px;border:1px solid #5c4a2c;border-radius:2px;background:#2a1b0eb8;color:#e8d7a4;font:600 12px/1.15 var(--font-num);white-space:nowrap}
-.day-clock .dc-dot{width:9px;height:9px;border-radius:50%;background:#f2c96a;box-shadow:0 0 6px #f2c96a99;flex:0 0 auto}
-.day-clock.night .dc-dot{background:#93a9dd;box-shadow:0 0 7px #93a9dd99}
-.day-clock .dc-tx{display:flex;flex-direction:column;line-height:1.1}
-.day-clock .dc-tx b{font-weight:700;color:#efe2c0}
-.day-clock .dc-tx small{font-weight:600;color:#b9c8a4;font-size:11px}
-.day-clock.night .dc-tx small{color:#a9b7d8}
-.day-clock .dc-bar{display:block;width:34px;height:3px;background:#3a2a1a;overflow:hidden;flex:0 0 auto}
-.day-clock .dc-bar i{display:block;height:100%;width:0;background:linear-gradient(90deg,#c9902f,#f4cf7c);transition:width .35s linear}
-.day-clock.night .dc-bar i{background:linear-gradient(90deg,#5f74a8,#a8bce8)}
-@media(max-width:760px){
-  .day-clock{padding:3px 6px;gap:5px}
-  .day-clock .dc-bar{display:none}
-  .day-clock .dc-tx b{font-size:11px}
-  .day-clock .dc-tx small{font-size:10px}
-}
+/* T134 頂部晝夜時鐘(.day-clock)已隨遊戲內日夜一起拿掉(2026-11-26) */
 
 /* ===== T138：面板橫幅統一（icon + 標題 + 說明），標題層級低於 modal 標題 ===== */
 .encounter-banner{min-height:92px;align-items:center}

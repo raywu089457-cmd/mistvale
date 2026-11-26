@@ -176,7 +176,7 @@ const readToasts = page => page.evaluate(() => [...document.querySelectorAll('#t
     const list = [...document.querySelectorAll('#toasts .toast')].map(t => t.getBoundingClientRect());
     const vw = innerWidth;
     const covered = [];
-    for (const a of ['worldmap', 'pause', 'speed']) {
+    for (const a of ['pause', 'speed']) {
       const b = document.querySelector(`[data-action="${a}"]`);
       if (!b) continue;
       const r = b.getBoundingClientRect();

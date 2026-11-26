@@ -60,7 +60,7 @@ try {
       const g = globalThis.__mistvaleGame, s = g.state;
       s.paused = true;
       s.gold = 34567; s.gems = 234; s.wood = 789; s.ore = 456;
-      s.time = 240 * 8 + 90; s.day = 9; s.speed = 2; s.region = 'snow';
+      s.time = 240 * 8 + 90; s.speed = 2; s.region = 'snow';   // 遊戲時間 33 分 30 秒(2026-11-26 起沒有「第 N 天」)
       s.buildings.hall = 4; s.buildings.forge = 3; s.buildings.house = 3; s.buildings.dungeon = 2; s.buildings.training = 2;
       s.stocks.food = 88;
       g.setCraftTarget('food', 50);
@@ -81,7 +81,7 @@ try {
       s.arena.hunterIds = s.hunters.slice(1, 4).map(h => h.id);
       g.setDispatchTeam(2, { ids: [s.hunters[0].id, s.hunters[1].id], region: 'snow' });
       return {
-        gold: s.gold, gems: s.gems, day: s.day, speed: s.speed, region: s.region,
+        gold: s.gold, gems: s.gems, time: s.time, speed: s.speed, region: s.region,
         hall: s.buildings.hall, forge: s.buildings.forge,
         craftFood: s.craftTargets.food, tradeStandingOre: s.tradeStanding.ore, autoJunk: s.autoJunk,
         densityMeadow: s.regionDensity.meadow, densitySnow: s.regionDensity.snow,
@@ -182,7 +182,7 @@ try {
       p: document.querySelector('#modal .hv-confirm p')?.textContent.trim() || '',
       ask: document.querySelector('#modal .z2b-ask')?.textContent.trim() || '',
     }));
-    if (!conf.open || conf.type !== 'confirm' || !conf.p.includes('第 9 天') || !conf.p.includes('34,567') || !conf.ask.includes('確定要匯入')) {
+    if (!conf.open || conf.type !== 'confirm' || !conf.p.includes('遊戲時間 33 分鐘') || !conf.p.includes('34,567') || !conf.ask.includes('確定要匯入')) {
       fix(`desktop import confirm preview unexpected: ${JSON.stringify(conf)}`);
     } else {
       ok(`desktop import confirm preview accurate ("${conf.p.slice(0, 48)}…")`);
@@ -210,7 +210,7 @@ try {
         modalHidden: document.querySelector('#modal-backdrop').classList.contains('hidden'),
         modalType: document.querySelector('#modal')?.dataset.type || '',
         piloting: document.body.classList.contains('piloting'),
-        gold: s.gold, gems: s.gems, day: s.day, speed: s.speed, region: s.region,
+        gold: s.gold, gems: s.gems, time: s.time, speed: s.speed, region: s.region,
         hall: s.buildings.hall, forge: s.buildings.forge,
         craftFood: s.craftTargets.food, tradeStandingOre: s.tradeStanding.ore, autoJunk: s.autoJunk,
         densityMeadow: s.regionDensity.meadow, densitySnow: s.regionDensity.snow,
@@ -223,13 +223,13 @@ try {
         team2: { ids: [...s.dispatchTeams[2].ids], region: s.dispatchTeams[2].region },
         lsGold: ls?.gold, lsHall: ls?.buildings?.hall, lsWanderKills: ls?.wanderKills,
         hudGold: document.querySelector('#gold')?.textContent.trim(),
-        hudDay: document.querySelector('#day-num')?.textContent.trim(),
+        dayClock: !!document.querySelector('#day-clock'),
       };
     });
     const mismatches = [];
     if (!afterImp.modalHidden) mismatches.push(`modal still open (${afterImp.modalType})`);
     if (afterImp.piloting) mismatches.push('pilot mode not cleared');
-    for (const k of ['gold', 'gems', 'day', 'speed', 'region', 'hall', 'forge', 'craftFood', 'tradeStandingOre', 'autoJunk', 'densityMeadow', 'densitySnow', 'gearStockW3', 'wanderKills', 'promoted', 'autoJunkCount', 'h0Name', 'h0Gender', 'h0Level', 'difficulty', 'bestFloor', 'startFloor', 'dgAuto', 'arWins']) {
+    for (const k of ['gold', 'gems', 'time', 'speed', 'region', 'hall', 'forge', 'craftFood', 'tradeStandingOre', 'autoJunk', 'densityMeadow', 'densitySnow', 'gearStockW3', 'wanderKills', 'promoted', 'autoJunkCount', 'h0Name', 'h0Gender', 'h0Level', 'difficulty', 'bestFloor', 'startFloor', 'dgAuto', 'arWins']) {
       if (afterImp[k] !== expected[k]) mismatches.push(`${k}: got ${afterImp[k]}, want ${expected[k]}`);
     }
     if (JSON.stringify(afterImp.settings) !== JSON.stringify(expected.settings)) mismatches.push('settings mismatch');
@@ -238,7 +238,7 @@ try {
     if (JSON.stringify(afterImp.team2) !== JSON.stringify(expected.team2)) mismatches.push('team2 mismatch');
     if (afterImp.gearStorageLen !== 1 || afterImp.gearStorage0 !== 3) mismatches.push('gearStorage mismatch');
     if (afterImp.lsGold !== expected.gold || afterImp.lsHall !== expected.hall || afterImp.lsWanderKills !== expected.wanderKills) mismatches.push('localStorage not persisted');
-    if (afterImp.hudGold !== '34,567' || afterImp.hudDay !== '第 9 天') mismatches.push(`HUD mismatch (${afterImp.hudGold}, ${afterImp.hudDay})`);
+    if (afterImp.hudGold !== '34,567' || afterImp.dayClock) mismatches.push(`HUD mismatch (${afterImp.hudGold}, day clock ${afterImp.dayClock})`);
     if (mismatches.length) fix(`desktop import state mismatches: ${mismatches.join('; ')}`);
     else ok('desktop import restored all state, cleared pilot, updated HUD & persisted to localStorage');
 
@@ -247,9 +247,9 @@ try {
     await L.boot(page, srv.url);
     const afterReload = await page.evaluate(() => {
       const s = globalThis.__mistvaleGame.state;
-      return { gold: s.gold, day: s.day, hall: s.buildings.hall, h0Name: s.hunters[0].name, wanderKills: s.wanderKills, settingsQ: s.settings.quality, densitySnow: s.regionDensity.snow };
+      return { gold: s.gold, time: s.time, hall: s.buildings.hall, h0Name: s.hunters[0].name, wanderKills: s.wanderKills, settingsQ: s.settings.quality, densitySnow: s.regionDensity.snow };
     });
-    if (afterReload.gold < expected.gold || afterReload.day !== expected.day || afterReload.hall !== expected.hall || afterReload.h0Name !== expected.h0Name || afterReload.wanderKills < expected.wanderKills || afterReload.settingsQ !== 'low' || afterReload.densitySnow !== 3) {
+    if (afterReload.gold < expected.gold || afterReload.time < expected.time || afterReload.hall !== expected.hall || afterReload.h0Name !== expected.h0Name || afterReload.wanderKills < expected.wanderKills || afterReload.settingsQ !== 'low' || afterReload.densitySnow !== 3) {
       fix(`desktop reload did not preserve imported save: ${JSON.stringify(afterReload)}`);
     } else {
       ok('desktop reload preserved imported save from localStorage');

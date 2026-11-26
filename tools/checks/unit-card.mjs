@@ -263,7 +263,7 @@ async function clickHunter(page) {
     if (c.barTop != null && c.rect.bottom > c.barTop - 2) fix(`phone 小卡壓到底欄：卡片底 ${c.rect.bottom.toFixed(1)} > 底欄頂 ${c.barTop.toFixed(1)}`);
     if (c.actions.some(a => a.box.w < 20 || a.box.h < 20)) fix(`phone 小卡按鈕太小 ${JSON.stringify(c.actions.map(a => [a.a, Math.round(a.box.w), Math.round(a.box.h)]))}`);
     // 底欄三顆浮動鈕（地圖／暫停／速度）仍要可以命中
-    const floaters = await page.evaluate(() => ['worldmap', 'pause', 'speed'].map(a => {
+    const floaters = await page.evaluate(() => ['pause', 'speed'].map(a => {
       const b = document.querySelector(`[data-action="${a}"]`); if (!b) return { a, ok: false };
       const r = b.getBoundingClientRect(); const el = document.elementFromPoint(r.left + r.width / 2, r.top + r.height / 2);
       return { a, ok: !!el && !!el.closest(`[data-action="${a}"]`) };

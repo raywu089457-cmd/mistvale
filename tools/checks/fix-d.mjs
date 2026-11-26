@@ -67,9 +67,9 @@ const fresh = async (page, url, { levels = true } = {}) => { await L.boot(page, 
 }
 
 // ═════ B. 面板開著的 toast ═════
-const PANELS = [['build'], ['hunters'], ['trade'], ['craft'], ['dungeon'], ['arena'], ['quests'], ['worldmap'], ['settings'], ['inspector'], ['hunterdetail']];
+const PANELS = [['build'], ['hunters'], ['trade'], ['craft'], ['dungeon'], ['arena'], ['quests'], ['settings'], ['inspector'], ['hunterdetail']];
 // Z1:C 置中視窗(委託、世界地圖、設定、建築詳情、獵人詳情)開著時 toast 出現在視窗上方的遮罩區(單行、最新一則),不蓋標題;A 抽屜(Z2D 起)出現在抽屜上方、不蓋標題列
-const C_PANELS = new Set(['quests', 'worldmap', 'settings', 'inspector', 'hunterdetail']);
+const C_PANELS = new Set(['quests', 'settings', 'inspector', 'hunterdetail']);
 const openPanel = async (page, name) => {
   if (name === 'inspector') { await L.act(page, 'selectBuilding', 'forge'); }
   else if (name === 'hunterdetail') { const id = await page.evaluate(() => globalThis.__mistvaleGame.state.hunters[0].id); await L.act(page, 'hunter', id); }

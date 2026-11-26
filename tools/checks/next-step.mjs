@@ -1,6 +1,6 @@
 // next-step.mjs — T132：「下一步建議」
 //   * 只由 state 推導，條件消失就自己收起來；面板／單位小卡開著時不顯示。
-//   * 優先序：委託可領 > 有買得起的訪客 > 獵人夠了可進地下城 > 可蓋新建築 > 地下城缺人 > 全員待機。
+//   * 優先序：委託可領 > 有願意加入(好感度到門檻)且買得起的流浪英雄 > 獵人夠了可進地下城 > 可蓋新建築 > 地下城缺人 > 全員待機。
 //   * 點一下要能走到對應面板。
 // 2026-11-11 改寫（獵魔村風格第三階段）：舊版找「貼在底欄上方、置中的 #next-step 條」，點下去直接開面板。新版：
 //   * 建議條搬到左側任務追蹤下方的 #hv-advisor（小頭像＋兩行字，仍是 #next-step 按鈕）；位置斷言改成
@@ -40,19 +40,18 @@ const setup = (page, kind) => page.evaluate(async kind => {
   const g = globalThis.__mistvaleGame, s = g.state;
   s.paused = true;
   s.quest = { index: 0, claimed: false, complete: false };
-  s.visitors = [];
+  s.wanderers.forEach(w => { w.affinity = 0; w.recruitRetryAt = 0; w.hp = w.maxHp; });   // 2026-11-25 招募＝邀請好感度到門檻的流浪英雄
   s.gold = 0; s.wood = 0; s.ore = 0; s.herb = 0; s.cloth = 0; s.flour = 0; s.leather = 0;
   s.buildings = { hall: 1, house: 1, dungeon: 0 };
   s.dungeon = { ...s.dungeon, active: false, cooldown: 0, hunterIds: [] };
   s.hunters.forEach(h => { h.task = 'hunt'; h.hp = h.maxHp; });
+  // 2026-11-25:領獎(claimQuest)會重算進度(第 1 章＝recruited ≥ 1),只改 complete 領不到 → 一起把 recruited 設成 1(其他情境歸 0)。HEAD 上這條本來就紅
+  s.recruited = kind === 'quest' ? 1 : 0;
   if (kind === 'quest') s.quest = { index: 0, claimed: false, complete: true };
   if (kind === 'visitor') {
     s.gold = 900;
-    // Z2A:閒著時「新」旅人到會自動彈出「新的獵人」暗帶 → 先開著面板把旅人換上去(算已見過、不彈),再關掉,留下的就是左側的顧問提示
-    { const b = document.createElement('button'); b.dataset.action = 'settings'; b.style.display = 'none'; document.body.append(b); b.click(); b.remove(); }
-    s.visitors = [{ id: 'nv1', classId: 'archer', rarity: 'rare', trait: 'swift', cost: 120 }];
-    await new Promise(r => setTimeout(r, 150));
-    document.querySelector('#modal [data-action=close], #modal-foot [data-action=close]')?.click();
+    // 2026-11-25:旅人與「新的獵人」暗帶取消 → 讓一位流浪英雄好感度到 100(必定接受邀請)
+    s.wanderers[0].affinity = 100;
   }
   if (kind === 'dungeon') {
     s.buildings = { hall: 2, house: 1, dungeon: 1 };
@@ -91,7 +90,8 @@ const readPill = page => page.evaluate(() => {
 
   // 委託可領：由左側任務追蹤標示（.ready＋「獎勵可以領取了」），建議條不重複；點任務追蹤開委託面板
   await setup(page, 'quest');
-  await page.waitForTimeout(600);
+  // 開機後頭幾幀很慢(實測 fps 7):固定等 600ms 有時還沒重畫 → 等到亮起(最多 3 秒),沒亮下面照樣報錯
+  await page.waitForFunction(() => document.querySelector('#hv-quest')?.classList.contains('ready'), null, { timeout: 3000 }).catch(() => {});
   const qd = await page.evaluate(() => {
     const q = document.querySelector('#hv-quest');
     return { ready: !!q?.classList.contains('ready'), goal: q?.querySelector('#hv-quest-goal')?.textContent || '', aria: q?.getAttribute('aria-label') || '', advisor: !!document.querySelector('#hv-advisor #next-step') };
@@ -109,7 +109,7 @@ const readPill = page => page.evaluate(() => {
   await page.waitForTimeout(300);
 
   const cases = [
-    ['visitor', '有 1 位旅人願意加入', 'visitor', 'hunters'],
+    ['visitor', '有流浪英雄願意加入了', 'visitor', 'recruit'],
     ['dungeon', '位獵人待機，可以派去地下城', 'dungeon', 'dungeon'],
   ];
   for (const [kind, want, wantKey, wantModal] of cases) {
@@ -128,10 +128,10 @@ const readPill = page => page.evaluate(() => {
     await page.evaluate(() => document.querySelector('#next-step').click());
     await page.waitForTimeout(500);
     const dlg = await page.evaluate(() => ({ type: document.querySelector('#modal')?.dataset.type || '', say: document.querySelector('#modal .hv-dlg-say')?.textContent || '', go: document.querySelector('#modal [data-action="nextStepGo"]')?.dataset.act || '' }));
-    if (kind === 'visitor') {   // Z2A:旅人提示直接開「新的獵人」D 暗帶(邀請／稍後)，不再先出對話框再接長清單
-      if (dlg.type !== 'visitors') fix(`情境 ${kind}：點旅人提示開的是 ${dlg.type || '(沒有)'}，應為 visitors(新的獵人暗帶)`);
-      const band = await page.evaluate(() => ({ mode: document.querySelector('#modal')?.dataset.mode, btns: [...document.querySelectorAll('.z2-band-btns button')].map(b => b.textContent.trim()).join('|') }));
-      if (band.mode !== 'D' || band.btns !== '邀請|稍後') fix(`情境 ${kind}：暗帶模式 ${band.mode}／按鈕 ${band.btns}（應 D／邀請|稍後）`);
+    if (kind === 'visitor') {   // 2026-11-25:招募提示直接開名冊的「招募」子頁籤,看得到那位願意加入的流浪英雄、邀請鈕可按
+      if (dlg.type !== 'recruit') fix(`情境 ${kind}：點招募提示開的是 ${dlg.type || '(沒有)'}，應為 recruit(招募子頁籤)`);
+      const rc = await page.evaluate(() => ({ cards: document.querySelectorAll('#modal-content .rc-card').length, go: document.querySelectorAll('#modal-content [data-action=recruitWanderer]:not([aria-disabled=true])').length }));
+      if (!rc.cards || rc.go !== 1) fix(`情境 ${kind}：招募頁 ${rc.cards} 張卡、可按的邀請鈕 ${rc.go} 個（應 ≥1 張卡、恰好 1 個可按）`);
     } else if (dlg.type !== 'advisor') fix(`情境 ${kind}：點顧問提示開的是 ${dlg.type || '(沒有)'}，應先展開 advisor 對話框`);
     else {
       if (!dlg.say.includes(want)) fix(`情境 ${kind}：對話框沒寫出建議「${want}」（${dlg.say.slice(0, 30)}）`);
@@ -145,7 +145,7 @@ const readPill = page => page.evaluate(() => {
     await page.keyboard.press('Escape');
     await page.waitForTimeout(300);
   }
-  if (!fails.length) ok('委託（任務追蹤）／訪客／地下城三種情境的文字與按鈕都對，顧問提示→對話框→主按鈕才開對應面板');
+  if (!fails.length) ok('委託（任務追蹤）／招募／地下城三種情境的文字與按鈕都對，顧問提示→對話框→主按鈕才開對應面板');
 
   // 全員待機 → 建議派去生態區
   await setup(page, 'hunt');
@@ -154,14 +154,19 @@ const readPill = page => page.evaluate(() => {
   if (!hunt) fix('情境 hunt：沒有出現建議條');
   else {
     if (!hunt.text.includes('生態區')) fix(`情境 hunt：文字是「${hunt.text}」，應提到生態區`);
-    if (hunt.act !== 'worldmap') fix(`情境 hunt：data-act 是 ${hunt.act}，應為 worldmap`);
+    if (hunt.act !== 'hunters') fix(`情境 hunt：data-act 是 ${hunt.act}，應為 hunters(名冊內有派遣；世界地圖已移除)`);
   }
 
-  // 沒有任何該做的事 → 不出現
+  // 沒有任何該做的事 → 不出現(2026-11-25:第 1 章還沒人願意加入時,最後備案是說明好感度怎麼來的 visitor-wait;換到第 2 章就該完全不出現)
   await setup(page, 'none');
   await page.waitForTimeout(600);
   const none = await readPill(page);
-  if (none) fix(`情境 none：明明沒事可做仍顯示「${none.text}」`);
+  if (none && none.key !== 'visitor-wait') fix(`情境 none（第 1 章）：明明沒事可做仍顯示「${none.text}」`);
+  if (none && !none.text.includes('好感')) fix(`情境 none（第 1 章）：等待提示沒提到好感度（${none.text}）`);
+  await page.evaluate(() => { const s = globalThis.__mistvaleGame.state; s.quest = { index: 1, claimed: false, complete: false, progress: 0, target: 1 }; s.buildings.restaurant = 0; });
+  await page.waitForTimeout(600);
+  const none2 = await readPill(page);
+  if (none2 && /好感/.test(none2.text)) fix(`情境 none（第 2 章）：第 1 章做完後不該再出現好感度等待提示（${none2.text}）`);
 
   // 開面板時收起
   await setup(page, 'visitor');
@@ -221,7 +226,7 @@ const readPill = page => page.evaluate(() => {
     const p = el.getBoundingClientRect(), bb = document.querySelector('#bottom-bar').getBoundingClientRect();
     const qb = document.querySelector('#hv-quest').getBoundingClientRect().bottom;
     const covered = [];
-    for (const a of ['worldmap', 'pause', 'speed', 'boss', 'help', 'zoomIn', 'zoomOut']) {
+    for (const a of ['pause', 'speed', 'boss', 'help', 'zoomIn', 'zoomOut']) {
       const b = document.querySelector(`[data-action="${a}"]`);
       if (!b) continue;
       const br = b.getBoundingClientRect();
@@ -258,4 +263,4 @@ if (fails.length) {
   process.exit(1);
 }
 for (const o of oks) console.log('ok  ' + o);
-console.log('PASS next step: 左側任務追蹤下方的顧問提示會說「現在最該做的一件事」（委託可領由任務追蹤顯示／旅人可招募／可進地下城／可蓋新建築／派去生態區），文字與按鈕跟著 state 換、點一下展開對話框再開對應面板、面板開著時自動收起、手機 ≥44px 不擋浮動鈕');
+console.log('PASS next step: 左側任務追蹤下方的顧問提示會說「現在最該做的一件事」（委託可領由任務追蹤顯示／流浪英雄願意加入／可進地下城／可蓋新建築／派去生態區），文字與按鈕跟著 state 換、點一下展開對話框再開對應面板、面板開著時自動收起、手機 ≥44px 不擋浮動鈕');

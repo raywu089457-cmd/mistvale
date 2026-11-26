@@ -52,7 +52,7 @@ The public game API used by `pixel-ui.js` and the tests. Most mutators return `{
 - `state` (line 1334): the plain game state object (resources, hunters, buildings, enemies, log).
 - `villageNav()` (line 1335): returns the village walk-grid and path function, for tests.
 - `tick(dt)` (line 1336): advances the simulation by dt seconds in 0.1 s steps.
-- `recruit(classId)` (line 1341): hires a visitor or class into the roster for village gold.
+- `recruit(id)` (line 1341, may have drifted): invites a wanderer by id (success chance from affinity, see `recruitQuote(id)` / `recruitChance` / `AFFINITY`); a class id is the dev/test direct-hire path.
 - `getUpgradeCost(buildingId)` (line 1317): returns the cost object for that building's next level.
 - `construct(buildingId)` (line 1351): builds an unbuilt building if the spot is valid and paid.
 - `upgrade(buildingId)` (line 1358): raises a built building one level, capped by the hall level.

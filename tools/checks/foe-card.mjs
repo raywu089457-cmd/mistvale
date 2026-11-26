@@ -185,7 +185,7 @@ async function clickFoe(page) {
       const el = document.querySelector('#unit-card');
       if (!el) return [];
       const r = el.getBoundingClientRect(), out = [];
-      for (const a of ['worldmap', 'pause', 'speed']) {
+      for (const a of ['pause', 'speed']) {
         const b = document.querySelector(`#bottom-bar [data-action="${a}"], [data-action="${a}"]`);
         if (!b) continue;
         const br = b.getBoundingClientRect();

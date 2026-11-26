@@ -19,7 +19,7 @@ const require = createRequire('C:/Users/ray/AppData/Roaming/npm/node_modules/');
 const { chromium } = require('playwright');
 
 const URL = process.env.TARGET || 'http://100.79.149.0:5024/?preview=1';
-const ACTIONS = ['build', 'hunters', 'recruit', 'trade', 'craft', 'dispatchHunters', 'dungeon', 'arena', 'quests', 'inventory', 'difficulty', 'settings', 'help', 'boss', 'worldmap', 'codex'];
+const ACTIONS = ['build', 'hunters', 'recruit', 'trade', 'craft', 'dispatchHunters', 'dungeon', 'arena', 'quests', 'inventory', 'difficulty', 'settings', 'help', 'boss', 'codex'];
 const fails = [], oks = [];
 const fix = m => fails.push(m);
 const ok = m => oks.push(m);
@@ -31,14 +31,7 @@ const openModal = (page, act) => page.evaluate(async a => {
   const close = document.querySelector('#modal [data-action="close"]');
   if (close) close.click();
   await new Promise(r => setTimeout(r, 120));
-  if (a === 'codex') {
-    const wm = document.createElement('button'); wm.dataset.action = 'worldmap'; wm.style.display = 'none';
-    document.body.append(wm); wm.click(); wm.remove();
-    await new Promise(r => setTimeout(r, 300));
-    const cx = document.querySelector('#modal [data-action="codex"]');
-    if (!cx) return false;
-    cx.click();
-  } else {
+  {   // 世界地圖已移除:圖鑑直接用 data-action=codex 開
     const b = document.createElement('button'); b.dataset.action = a; b.style.display = 'none';
     document.body.append(b); b.click(); b.remove();
   }
@@ -132,7 +125,7 @@ const measure = page => page.evaluate(() => {
   await page.waitForTimeout(1600);
   await page.evaluate(() => { globalThis.__mistvaleGame.state.paused = true; });
   const bad = [];
-  for (const a of ['build', 'inventory', 'worldmap', 'codex']) {
+  for (const a of ['build', 'inventory', 'codex']) {
     const opened = await openModal(page, a);
     if (!opened) { bad.push(`${a}: 打不開`); continue; }
     const m = await measure(page);
@@ -155,7 +148,7 @@ const measure = page => page.evaluate(() => {
     if (process.env.SHOTS && a === 'codex') await page.screenshot({ path: 'output/panel-headers/phone-codex.png' });
   }
   if (bad.length) for (const b of bad) fix(b);
-  else ok('phone 402x712 抽查 build／inventory／worldmap／codex 都有頂部標題與圖示、44px 關閉鈕、10px 內距、沒有橫幅插畫、沒有橫向溢出');
+  else ok('phone 402x712 抽查 build／inventory／codex 都有頂部標題與圖示、44px 關閉鈕、10px 內距、沒有橫幅插畫、沒有橫向溢出');
   if (errs.length) fix(`phone 頁面錯誤：${errs.slice(0, 2).join(' | ')}`);
   await ctx.close();
 }

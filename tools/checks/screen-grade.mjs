@@ -160,7 +160,7 @@ const samplePair = (page, onB64, offB64, pts) => page.evaluate(async ({ on, off,
     const g = document.querySelector('#screen-grade');
     const cs = getComputedStyle(g), r = g.getBoundingClientRect();
     const covered = [];
-    for (const a of ['worldmap', 'pause', 'speed']) {
+    for (const a of ['pause', 'speed']) {
       const b = document.querySelector(`[data-action="${a}"]`);
       if (!b) continue;
       const br = b.getBoundingClientRect();

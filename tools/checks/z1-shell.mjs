@@ -21,8 +21,8 @@ const VIEWS = {
   small: { w: 360, h: 640, mobile: true }, pad: { w: 768, h: 1024, mobile: true },
 };
 const only = (process.env.VIEWS || Object.keys(VIEWS).join(',')).split(',');
-const A_TYPES = ['build', 'hunters', 'inventory', 'craft', 'trade', 'dungeon', 'arena', 'dispatch', 'recruit'];
-const C_TYPES = ['quests', 'settings', 'help', 'worldmap', 'difficulty', 'boss', 'region', 'codex', 'confirm', 'hunter', 'offline'];
+const A_TYPES = ['build', 'hunters', 'inventory', 'equipstore', 'craft', 'trade', 'dungeon', 'arena', 'dispatch', 'recruit'];
+const C_TYPES = ['quests', 'settings', 'help', 'difficulty', 'boss', 'region', 'codex', 'confirm', 'hunter', 'offline'];
 const ROLE = { red: 'rgb(141, 57, 37)', olive: 'rgb(88, 104, 16)', gold: 'rgb(144, 104, 24)', gray: 'rgb(80, 80, 80)' };
 
 const PAGE = () => {
@@ -96,7 +96,7 @@ for (const name of only) {
   for (const t of [...A_TYPES, ...C_TYPES]) {
     trace(label + ' panel ' + t);
     const wantMode = A_TYPES.includes(t) ? 'A' : 'C';
-    if (t === 'recruit') await page.evaluate(() => { const g = globalThis.__mistvaleGame; g.state.gold = 99999; });
+    if (t === 'recruit') await page.evaluate(() => { const g = globalThis.__mistvaleGame; g.state.gold = 99999; for (const w of g.state.wanderers) { w.affinity = 100; w.recruitRetryAt = 0; } });   // 2026-11-25 招募＝邀請好感度到門檻的流浪英雄
     await openType(page, t);
     const g = await ev(page, P => {
       const bd = document.querySelector('#modal-backdrop'), m = document.querySelector('#modal'), bar = document.querySelector('#bottom-bar');
@@ -133,16 +133,16 @@ for (const name of only) {
       }
       if (!g.xVis || (!landscape && Math.abs(g.xr.w - g.xr.h) > 1)) fix(`${label}/C: ${t} A 抽屜要有圓形 X`);
       if (g.kids.length) fix(`${label}/C: ${t} A 抽屜不該有底部按鈕列(${g.kids.map(k => k.t).join(',')})`);
-      const wantSub = { dungeon: 'dungeon,arena', arena: 'dungeon,arena', inventory: 'inventory,craft', craft: 'inventory,craft' }[t];
+      const wantSub = { dungeon: 'dungeon,arena', arena: 'dungeon,arena', inventory: 'inventory,equipstore,craft', equipstore: 'inventory,equipstore,craft', craft: 'inventory,equipstore,craft' }[t];
       if (wantSub && g.sub.join() !== wantSub) fix(`${label}/G: ${t} 子頁籤應為 ${wantSub},實際 ${g.sub.join('/') || '無'}`);
-      const wantTabHL = { arena: 'dungeon', craft: 'inventory', dispatch: 'hunters', recruit: 'hunters' }[t] || t;
+      const wantTabHL = { arena: 'dungeon', craft: 'inventory', equipstore: 'inventory', dispatch: 'hunters', recruit: 'hunters' }[t] || t;
       if (g.tab !== wantTabHL) fix(`${label}/G: ${t} 開著時頁籤高亮應為 ${wantTabHL},實際 ${g.tab}`);
     } else {
       const area = v.h - g.bar.h - 32;
       const maxH = landscape ? v.h - 24 : Math.min(760, v.h - g.bar.h - 32);
       if (!g.coverBar || g.bdZ <= 32) fix(`${label}/D: ${t} C 遮罩要蓋住頁籤列(elementFromPoint=${g.coverBar},z=${g.bdZ})`);
       if (!/rgba\(0, 0, 0, 0\.55\)/.test(g.bgColor)) fix(`${label}/D: ${t} 遮罩應 rgba(0,0,0,.55),實際 ${g.bgColor}`);
-      const wantW = t === 'hunter' ? (landscape ? Math.min(720, v.w * 0.94) : Math.min(404, v.w * 0.85)) /* Z2A:獵人卡 C 視窗 = min(85%,404px)、橫向 min(720px,94%),見 ui-hv.css [data-type=hunter] */ : landscape ? (t === 'worldmap' ? v.w - 24 : t === 'confirm' ? 320 : Math.min(720, v.w * 0.92)) : portraitPhone ? (t === 'worldmap' ? v.w * 0.94 : (t === 'confirm' ? Math.min(320, v.w * 0.85) : v.w * 0.85)) : (t === 'worldmap' ? Math.min(880, v.w * 0.94) : t === 'confirm' ? 320 : Math.min(560, v.w * 0.85));
+      const wantW = t === 'hunter' ? (landscape ? Math.min(720, v.w * 0.94) : Math.min(404, v.w * 0.85)) /* Z2A:獵人卡 C 視窗 = min(85%,404px)、橫向 min(720px,94%),見 ui-hv.css [data-type=hunter] */ : landscape ? (t === 'confirm' ? 320 : Math.min(720, v.w * 0.92)) : portraitPhone ? (t === 'confirm' ? Math.min(320, v.w * 0.85) : v.w * 0.85) : (t === 'confirm' ? 320 : Math.min(560, v.w * 0.85));
       if (Math.abs(g.m.w - wantW) > 2.5) fix(`${label}/D: ${t} C 視窗寬 ${g.m.w.toFixed(0)} 應 ${wantW.toFixed(0)}`);
       if (g.m.h > maxH + 1.5) fix(`${label}/D: ${t} C 視窗高 ${g.m.h.toFixed(0)} 超過上限 ${maxH.toFixed(0)}`);
       if (Math.abs((g.m.l + g.m.r) / 2 - v.w / 2) > 1.5) fix(`${label}/D: ${t} C 視窗沒有水平置中(中心 ${((g.m.l + g.m.r) / 2).toFixed(1)})`);
@@ -297,8 +297,10 @@ for (const name of only) {
     const d2 = await ev(page, P => { const b = document.querySelector('#modal-content [data-action=startDungeon]'); return { bg: P.bg(b), dis: b.disabled }; });
     if (!d2.dis && d2.bg !== ROLE.olive) fix(`${label}/F: 地下城「出發」啟用時要橄欖綠 #586810,實際 ${d2.bg}`);
     await closeAll(page);
+    await page.evaluate(() => { const g = globalThis.__mistvaleGame; g.state.gold = Math.max(g.state.gold, 99999); for (const w of g.state.wanderers) { w.affinity = 100; w.recruitRetryAt = 0; } });
     await L.act(page, 'recruit'); await settle(page);
-    const r = await ev(page, P => { const b = document.querySelector('#modal-content [data-action=recruitVisitor]:not(:disabled)'); return b ? P.bg(b) : null; });
+    const r = await ev(page, P => { const b = document.querySelector('#modal-content [data-action=recruitWanderer]:not(:disabled)'); return b ? P.bg(b) : null; });
+    if (r == null) fix(`${label}/F: 招募頁找不到可按的「邀請」鈕(流浪英雄好感度 100、金幣足夠)`);
     if (r && r !== ROLE.olive) fix(`${label}/F: 招募「邀請加入」要橄欖綠(確認動作),實際 ${r}`);
     await closeAll(page);
   }
@@ -306,13 +308,13 @@ for (const name of only) {
   trace(label + ' G');
   // ───── G. 舊入口、數字鍵、指令面板、子頁籤、徽章 ─────
   if (name === 'desktop' || name === 'phone') {
-    const wantType = { build: 'build', hunters: 'hunters', trade: 'trade', craft: 'craft', dungeon: 'dungeon', arena: 'arena', quests: 'quests', inventory: 'inventory', recruit: 'recruit', difficulty: 'difficulty', settings: 'settings', help: 'help', worldmap: 'worldmap', boss: 'boss' };
+    const wantType = { build: 'build', hunters: 'hunters', trade: 'trade', craft: 'craft', dungeon: 'dungeon', arena: 'arena', quests: 'quests', inventory: 'inventory', recruit: 'recruit', difficulty: 'difficulty', settings: 'settings', help: 'help', boss: 'boss' };
     for (const [a, t] of Object.entries(wantType)) { await L.act(page, a); await settle(page, 300); const ty = await page.evaluate(() => document.querySelector('#modal-backdrop').classList.contains('hidden') ? null : document.querySelector('#modal').dataset.type); if (ty !== t) fix(`${label}/G: data-action=${a} 應打開 ${t},實際 ${ty}`); await closeAll(page); }
     for (const [k, t] of Object.entries({ 1: 'build', 2: 'dungeon', 3: 'hunters', 4: 'inventory', 5: 'trade', 6: 'arena', 7: 'quests', 8: 'craft' })) { await page.keyboard.press(k); await settle(page, 300); const ty = await page.evaluate(() => document.querySelector('#modal-backdrop').classList.contains('hidden') ? null : document.querySelector('#modal').dataset.type); if (ty !== t) fix(`${label}/G: 數字鍵 ${k} 應打開 ${t},實際 ${ty}`); await closeAll(page); }
     if (name === 'desktop') {
       await page.keyboard.press('Control+k'); await settle(page, 250);
       const rows = await page.evaluate(() => [...document.querySelectorAll('#cmdk .cmdk-row')].map(r => r.dataset.type));
-      const need = ['worldmap', 'build', 'hunters', 'recruit', 'trade', 'inventory', 'craft', 'dungeon', 'arena', 'quests', 'codex', 'difficulty', 'settings', 'help'];
+      const need = ['build', 'hunters', 'recruit', 'trade', 'inventory', 'craft', 'dungeon', 'arena', 'quests', 'codex', 'difficulty', 'settings', 'help'];
       if (need.some(n => !rows.includes(n))) fix(`${label}/G: 指令面板缺項 ${need.filter(n => !rows.includes(n)).join(',')}`);
       await page.keyboard.press('Escape'); await settle(page, 150);
       for (const n of ['arena', 'craft', 'quests']) { await page.keyboard.press('Control+k'); await settle(page, 150); await page.evaluate(n => document.querySelector(`#cmdk .cmdk-row[data-type=${n}]`)?.click(), n); await settle(page, 300); const ty = await page.evaluate(() => document.querySelector('#modal').dataset.type); if (ty !== n) fix(`${label}/G: 指令面板 ${n} 開到 ${ty}`); await closeAll(page); }

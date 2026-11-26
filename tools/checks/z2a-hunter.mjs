@@ -5,8 +5,8 @@
 //   B. 現有動作都還能做:修煉(底部橄欖綠,與紅色關閉並排)、學習技能／強化裝備／轉世(各在子頁籤清單列,金棕小鈕;條件不足＝灰＋鎖頭、點了不生效)。
 //   C. 名冊(A 抽屜):稀有度字在卡頂、稀有度邊框與漸層底、名字在立繪下方、整張卡本體可點(沒有右上「i」徽章、tabindex=0)、
 //      點卡片直接開獵人卡、關閉獵人卡後回到名冊(焦點回原卡)、定位鈕還在、手機 4 欄／桌機 6 欄;標題列子頁籤「名冊｜招募」,招募清單完整。
-//   D. 新獵人暗帶(D):旅人提示 → 「新的獵人」標題(2026-11-19 unslop:拿掉斜體與驚嘆號)、最多 2 張稀有度立繪卡(選中的放大約 1.4 倍、點選切換)、一行說明、邀請(橄欖綠)＋稍後(紅);邀請真的加入獵人並扣款、稍後不再自動彈;
-//      新旅人「到」的時候(閒著、付得起)自動彈出,面板開著時不彈;「看全部旅人」進名冊的招募清單。
+//   D. 招募(2026-11-25 取代「新的獵人」暗帶):有流浪英雄好感度到門檻 → 顧問招募提示 → 直接開名冊的「招募」子頁籤;每位流浪英雄一張卡,到門檻的排第一、邀請鈕橄欖綠;
+//      好感度不夠的停用寫「再 +N 好感」;邀請＝那位流浪英雄加入(保留職業/稀有度/等級/名字)並扣款;金幣不足停用＋鎖頭;不會自動彈出面板。
 //   E. tooltip:點(觸控)／hover(滑鼠)／鍵盤焦點裝備格出現迷你視窗(品級色名稱、圖示格、數值列、藍／紅／金條列),點別處與 Esc 關閉(Esc 先關 tooltip 再關視窗);共用元件 __mistvaleTip 給任何 data-tip 元素用。
 //   F. 名字(UX #15):流浪英雄與村裡獵人不同名(開局、之後招募、之後多一位流浪英雄都一樣)。
 //   G. 頁面沒有 console／page error。
@@ -261,76 +261,60 @@ for (const name of only) {
     await closeAll(page);
     // 招募子頁籤
     await L.act(page, 'hunters'); await settle(page, 300);
-    const C3 = await ev(page, async (P) => { const t = [...document.querySelectorAll('#modal-subtabs .z1-subtab')].find(x => /招募/.test(x.textContent)); const vis = P.vis(t), hit = t && P.hitsSelf(t), r = P.R(t); t.click(); await P.wait(250); const m = document.querySelector('#modal'); return { vis, hit, r, type: m.dataset.type, mode: m.dataset.mode, cards: document.querySelectorAll('#modal-content .visitor-card').length, want: P.G().state.visitors.length, on: [...document.querySelectorAll('#modal-subtabs .z1-subtab.on')].map(x => x.textContent.trim()) }; });
+    const C3 = await ev(page, async (P) => { const t = [...document.querySelectorAll('#modal-subtabs .z1-subtab')].find(x => /招募/.test(x.textContent)); const vis = P.vis(t), hit = t && P.hitsSelf(t), r = P.R(t); t.click(); await P.wait(250); const m = document.querySelector('#modal'); return { vis, hit, r, type: m.dataset.type, mode: m.dataset.mode, cards: document.querySelectorAll('#modal-content .rc-card').length, want: P.G().state.wanderers.length, on: [...document.querySelectorAll('#modal-subtabs .z1-subtab.on')].map(x => x.textContent.trim()) }; });
     if (C3.type !== 'recruit' || C3.cards !== C3.want || C3.cards < 1 || C3.on.join() !== '招募' || !C3.vis || !C3.hit) fix(`${label} 招募子頁籤：${JSON.stringify(C3)}`); else ok(`${label} 招募子頁籤：點了進招募清單(${C3.cards} 張完整卡)、子頁籤高亮「招募」`);
     if (touch && (C3.r.w < 43.5 || C3.r.h < 43.5)) fix(`${label} 招募子頁籤熱區 ${Math.round(C3.r.w)}×${Math.round(C3.r.h)}<44`);
     await closeAll(page);
 
-    // ═══ D. 新獵人暗帶 ═══
-    await page.evaluate(() => { globalThis.__mistvaleGame.state.gold = 5000; });
-    await L.act(page, 'build'); await settle(page, 300);   // 面板開著時換上旅人 → 算「已見過」不自動彈,之後旅人提示才會出現在顧問位置
-    await page.evaluate(() => { const s = globalThis.__mistvaleGame.state; s.visitors = [{ id: 'zv1', classId: 'archer', rarity: 'rare', trait: 'swift', cost: 120 }, { id: 'zv2', classId: 'paladin', rarity: 'legendary', trait: 'stout', cost: 400 }, { id: 'zv3', classId: 'sorcerer', rarity: 'normal', trait: 'brave', cost: 90 }]; });
-    await settle(page, 300); await closeAll(page); await settle(page, 900);
+    // ═══ D. 招募＝邀請流浪英雄(2026-11-25:旅人與「新的獵人」暗帶取消,成功率看好感度) ═══
+    // 一位流浪英雄好感度到門檻(必定接受)、其他人 0 → 顧問出招募提示 → 點了直接開名冊的「招募」子頁籤
+    await page.evaluate(() => { const g = globalThis.__mistvaleGame, s = g.state; s.gold = 5000; s.capacity = Math.max(s.capacity, s.hunters.length + 4); s.wanderers.forEach((w, i) => { w.recruitRetryAt = 0; w.hp = w.maxHp; w.affinity = i === 0 ? g.recruitQuote(w.id).need : 0; }); });
+    await settle(page, 900);
     const D0 = await ev(page, async (P) => { const el = document.querySelector('#hv-advisor #next-step'); return { has: !!el, key: el?.dataset.key, text: el?.textContent.replace(/\s+/g, ' ').trim().slice(0, 40), modalOpen: !document.querySelector('#modal-backdrop').classList.contains('hidden') }; });
-    if (!D0.has || D0.key !== 'visitor') fix(`${label} 新獵人：旅人提示沒出現(${JSON.stringify(D0)})`);
+    if (D0.modalOpen) fix(`${label} 招募：有人好感度到門檻時自動彈出了面板(旅人暗帶已取消,不該自己彈)`);
+    if (!D0.has || D0.key !== 'visitor') fix(`${label} 招募：招募提示沒出現(${JSON.stringify(D0)})`);
     else {
       await page.evaluate(() => document.querySelector('#hv-advisor #next-step').click()); await settle(page, 500);
       const D = await ev(page, (P) => {
-        const m = document.querySelector('#modal'), bd = document.querySelector('#modal-backdrop'), band = document.querySelector('.z2-band'), out = { type: m.dataset.type, mode: m.dataset.mode, bdMode: bd.dataset.mode, advisor: !!document.querySelector('.hv-dlg'), has: !!band };
-        if (!band) return out;
-        const t = band.querySelector('.z2-band-t'); out.title = t.textContent; out.italic = getComputedStyle(t).fontStyle; out.titleFs = parseFloat(getComputedStyle(t).fontSize);
-        const cards = [...band.querySelectorAll('.z2-vcard')]; out.cards = cards.map(c => ({ id: c.dataset.id, on: c.classList.contains('on'), pressed: c.getAttribute('aria-pressed'), r: P.R(c), rarity: c.dataset.rarity, rar: c.querySelector('.z2-vr')?.textContent, name: c.querySelector('.z2-vn')?.textContent, border: getComputedStyle(c).borderTopColor, grad: /gradient/.test(getComputedStyle(c, '::before').backgroundImage), hit: P.hitsSelf(c) }));
-        out.p = band.querySelector('.z2-band-p')?.textContent.replace(/\s+/g, ' ') || ''; out.pR = P.R(band.querySelector('.z2-band-p'));
-        const btns = [...band.querySelectorAll('.z2-band-btns button')]; out.btns = btns.map(b => ({ a: b.dataset.action, t: b.textContent.trim(), bg: getComputedStyle(b).backgroundColor, r: P.R(b), hit: P.hitsSelf(b), aria: b.getAttribute('aria-disabled'), id: b.dataset.id }));
-        out.mr = P.R(m); out.vw = innerWidth; out.vh = innerHeight; out.bdBg = getComputedStyle(bd).backgroundColor; out.all = band.querySelector('.z2-band-all')?.textContent || ''; out.allR = P.R(band.querySelector('.z2-band-all'));
-        out.bandR = P.R(band); out.hudHidden = null; out.fs = Math.min(...[...band.querySelectorAll('*')].filter(e => P.vis(e) && [...e.childNodes].some(n => n.nodeType === 3 && n.textContent.trim())).map(e => parseFloat(getComputedStyle(e).fontSize)));
+        const m = document.querySelector('#modal'), s = P.G().state, out = { type: m.dataset.type, mode: m.dataset.mode, band: !!document.querySelector('.z2-band'), want: s.wanderers.length };
+        const cards = [...document.querySelectorAll('#modal-content .rc-card')]; out.n = cards.length;
+        const ready = cards.find(c => { const b = c.querySelector('[data-action=recruitWanderer]'); return b && !b.disabled; });
+        out.readyId = ready?.dataset.id; out.first = cards[0]?.dataset.id; out.wantId = s.wanderers[0].id;
+        const b = ready?.querySelector('[data-action=recruitWanderer]'); if (b) { out.bg = getComputedStyle(b).backgroundColor; out.r = P.R(b); out.hit = P.hitsSelf(b); out.t = b.textContent.trim(); }
+        const loc = ready?.querySelector('[data-action=locateWanderer]'); if (loc) { out.locR = P.R(loc); out.locHit = P.hitsSelf(loc); }
+        out.locked = cards.filter(c => c.querySelector('[data-action=recruitWanderer]')?.getAttribute('aria-disabled') === 'true').map(c => c.querySelector('[data-action=recruitWanderer]').textContent.trim());
+        out.intro = document.querySelector('#modal-content .rc-intro')?.textContent || '';
+        out.fs = Math.min(...cards.flatMap(c => [...c.querySelectorAll('*')]).filter(e => P.vis(e) && [...e.childNodes].some(n => n.nodeType === 3 && n.textContent.trim())).map(e => parseFloat(getComputedStyle(e).fontSize)));
         return out;
       });
       const df = [];
-      if (D.type !== 'visitors' || D.mode !== 'D' || D.bdMode !== 'D') df.push(`旅人提示應開 D 暗帶(type ${D.type} mode ${D.mode})`); if (D.advisor) df.push('還是舊的「旅人願意加入」對話框');
-      if (D.has) {
-        if (D.title !== '新的獵人' || D.italic !== 'normal') df.push(`標題「${D.title}」字體 ${D.italic}(應正體「新的獵人」)`);
-        if (D.cards.length !== 2) df.push(`立繪卡 ${D.cards.length} 張(應最多 2 張)`);
-        else { const on = D.cards.filter(c => c.on), off = D.cards.filter(c => !c.on); if (on.length !== 1 || on[0].pressed !== 'true') df.push('應有 1 張選中'); else { const ratio = on[0].r.w / off[0].r.w; if (ratio < 1.25 || ratio > 1.55) df.push(`選中卡寬是另一張的 ${ratio.toFixed(2)} 倍(應約 1.4)`); } for (const c of D.cards) { if (!c.grad || !c.rar || !c.name) df.push('立繪卡缺漸層底／稀有度字／名稱'); if (!c.hit) df.push('立繪卡被蓋住'); if (touch && (c.r.w < 43.5 || c.r.h < 43.5)) df.push(`立繪卡熱區 ${Math.round(c.r.w)}×${Math.round(c.r.h)}`); } if (D.cards[0].border === D.cards[1].border) df.push('兩張卡的稀有度邊框同色(測試資料是 稀有／傳說)'); }
-        if (!D.p || D.p.length < 6) df.push('缺一行說明'); const bi = D.btns.find(b => b.a === 'recruitVisitor'), bl = D.btns.find(b => b.a === 'visitorLater');
-        if (!bi || !bl || bi.t !== '邀請' || bl.t !== '稍後' || bi.bg !== RGB.olive || bl.bg !== RGB.red) df.push(`鈕應為 邀請(橄欖綠)＋稍後(紅)：${JSON.stringify(D.btns.map(b => [b.t, b.bg]))}`); else { if (!bi.hit || !bl.hit) df.push('邀請／稍後被蓋住'); if (bi.r.h < 43.5 || bl.r.h < 43.5 || bi.r.w < 100 || bl.r.w < 100) df.push(`鈕尺寸 ${Math.round(bi.r.w)}×${Math.round(bi.r.h)}／${Math.round(bl.r.w)}×${Math.round(bl.r.h)}`); if (Math.abs(bi.r.t - bl.r.t) > 1 && !landscape) df.push('邀請與稍後沒有並排'); }
-        if (Math.abs(D.mr.w - D.vw) > 2) df.push(`暗帶寬 ${Math.round(D.mr.w)} 應滿寬 ${D.vw}`); if (D.mr.t < 0 || D.mr.b > D.vh) df.push(`暗帶超出畫面 ${Math.round(D.mr.t)}–${Math.round(D.mr.b)}`); if (D.bdBg !== 'rgba(0, 0, 0, 0.56)') df.push(`遮罩 ${D.bdBg} 應為 rgba(0,0,0,.56)`); if (D.fs < 11.95) df.push(`暗帶字 ${D.fs}px <12`);
-        if (!/全部旅人/.test(D.all)) df.push('缺「看全部旅人」(完整清單的入口)'); else if (touch && D.allR.h < 43.5) df.push('「看全部旅人」熱區 <44');
-      }
-      if (df.length) for (const m of df) fix(`${label} 新獵人暗帶：${m}`); else ok(`${label} 新獵人暗帶：旅人提示直接開 D 暗帶(滿寬、遮罩 .56)、「新的獵人」、2 張稀有度立繪卡(選中約 1.4 倍)、一行說明、邀請(綠)＋稍後(紅)、看全部旅人`);
-      if (SHOTS) await page.screenshot({ path: `${SHOTS}/${name}-band.png` });
-      // 點選切換
-      const D2 = await ev(page, async (P) => { const off = [...document.querySelectorAll('.z2-vcard:not(.on)')][0], id = off.dataset.id; off.click(); await P.wait(200); const on = document.querySelector('.z2-vcard.on'); const btn = document.querySelector('[data-action=recruitVisitor]'); return { swapped: on?.dataset.id === id, btnOk: btn?.dataset.id === id, still: document.querySelector('#modal').dataset.type }; });
-      if (!D2.swapped || !D2.btnOk || D2.still !== 'visitors') fix(`${label} 新獵人暗帶：點另一張卡沒有切換選中 ${JSON.stringify(D2)}`); else ok(`${label} 新獵人暗帶：點另一張卡切換選中(邀請鈕跟著換成那位)`);
-      // 稍後:關掉、不加人、不再自動彈
-      const D3 = await ev(page, async (P) => { const g = P.G(), n0 = g.state.hunters.length; document.querySelector('[data-action=visitorLater]').click(); await P.wait(300); const closed = document.querySelector('#modal-backdrop').classList.contains('hidden'); await P.wait(1200); return { closed, n: g.state.hunters.length - n0, reopened: !document.querySelector('#modal-backdrop').classList.contains('hidden') }; });
-      if (!D3.closed || D3.n !== 0 || D3.reopened) fix(`${label} 新獵人暗帶：稍後應關閉、不加人、不再自動彈出 ${JSON.stringify(D3)}`); else ok(`${label} 新獵人暗帶：稍後＝關閉、沒加人、不會再自動彈出`);
-      // 邀請:加入獵人、扣款、關閉、任務條件還成立
-      await page.evaluate(() => document.querySelector('#hv-advisor #next-step')?.click()); await settle(page, 400);
-      const D4 = await ev(page, async (P) => { const g = P.G(), s = g.state, n0 = s.hunters.length, g0 = s.gold, rec0 = s.recruited; const b = document.querySelector('[data-action=recruitVisitor]'); const vid = b.dataset.id, v = s.visitors.find(x => x.id === vid); const cost = v.cost, cls = v.classId, rar = v.rarity; b.click(); await P.wait(300); const nh = s.hunters[s.hunters.length - 1]; return { dn: s.hunters.length - n0, dg: g0 - s.gold, cost, rec: s.recruited - rec0, closed: document.querySelector('#modal-backdrop').classList.contains('hidden'), cls: nh?.classId === cls, rar: nh?.rarity === rar, quest: s.hunters.length >= 6, newVisitor: !s.visitors.some(x => x.id === vid) }; });
-      if (D4.dn !== 1 || D4.dg !== D4.cost || D4.rec !== 1 || !D4.closed || !D4.cls || !D4.rar || !D4.newVisitor) fix(`${label} 新獵人暗帶：邀請沒有正確加入 ${JSON.stringify(D4)}`); else ok(`${label} 新獵人暗帶：邀請＝加入該位(職業/稀有度一致)、扣 ${D4.cost} 金幣、recruited+1、暗帶關閉、該位旅人被換成新的`);
-      // 邀請不足:灰＋鎖頭、點了不加人
-      const D5 = await ev(page, async (P) => { const g = P.G(), s = g.state; s.gold = 10; s.visitors = [{ id: 'zq1', classId: 'archer', rarity: 'rare', trait: 'swift', cost: 120 }, { id: 'zq2', classId: 'paladin', rarity: 'normal', trait: 'stout', cost: 150 }]; await P.wait(200); P.act('nextStep', null, { key: 'visitor' }); await P.wait(300); const b = document.querySelector('[data-action=recruitVisitor]'); const n0 = s.hunters.length; const out = { aria: b?.getAttribute('aria-disabled'), bg: b && getComputedStyle(b).backgroundColor, lock: !!b?.querySelector('.hv-lock'), text: document.querySelector('.z2-band-p')?.textContent || '' }; b?.click(); await P.wait(200); out.dn = s.hunters.length - n0; out.open = !document.querySelector('#modal-backdrop').classList.contains('hidden'); return out; });
-      if (D5.aria !== 'true' || D5.bg !== RGB.gray || !D5.lock || D5.dn !== 0 || !/還缺/.test(D5.text) || !D5.open) fix(`${label} 新獵人暗帶：金幣不足時 邀請 應灰＋鎖頭＋寫還缺多少、點了不加人 ${JSON.stringify(D5)}`); else ok(`${label} 新獵人暗帶：金幣不足時 邀請 灰＋鎖頭、說明寫「還缺 n 金幣」、點了不加人`);
-      await closeAll(page);
-      // 看全部旅人 → 招募清單
-      await page.evaluate(() => { const s = globalThis.__mistvaleGame.state; s.gold = 5000; });
-      await ev(page, async (P) => { P.act('nextStep', null, { key: 'visitor' }); await P.wait(300); document.querySelector('.z2-band-all')?.click(); await P.wait(300); });
-      const D6 = await page.evaluate(() => ({ type: document.querySelector('#modal').dataset.type, mode: document.querySelector('#modal').dataset.mode, n: document.querySelectorAll('#modal-content .visitor-card').length, want: globalThis.__mistvaleGame.state.visitors.length }));
-      if (D6.type !== 'recruit' || D6.mode !== 'A' || D6.n !== D6.want || !D6.n) fix(`${label} 新獵人暗帶：「看全部旅人」應進名冊的招募清單 ${JSON.stringify(D6)}`); else ok(`${label} 新獵人暗帶：「看全部旅人」進名冊的招募清單(${D6.n} 張)`);
+      if (D.type !== 'recruit' || D.mode !== 'A' || D.band) df.push(`招募提示應開名冊的招募子頁籤(type ${D.type} mode ${D.mode} 暗帶 ${D.band})`);
+      if (D.n !== D.want || !D.n) df.push(`招募卡 ${D.n} 張，流浪英雄 ${D.want} 位(每位一張)`);
+      if (D.readyId !== D.wantId || D.first !== D.wantId) df.push(`好感度到門檻的那位應可邀請且排第一(可按 ${D.readyId}、第一張 ${D.first}、應 ${D.wantId})`);
+      if (D.bg !== RGB.olive || !/邀請/.test(D.t || '')) df.push(`邀請鈕應橄欖綠並寫「邀請」：${D.bg}「${D.t}」`);
+      if (!D.hit || (touch && D.r && (D.r.h < 43.5 || D.r.w < 43.5))) df.push(`邀請鈕被蓋住或熱區太小 ${D.r && Math.round(D.r.w)}×${D.r && Math.round(D.r.h)}`);
+      if (!D.locR || !D.locHit || (touch && (D.locR.h < 43.5 || D.locR.w < 43.5))) df.push(`定位(頭像)鈕不見、被蓋住或熱區太小 ${JSON.stringify(D.locR)}`);
+      if (!D.locked.length || !D.locked.every(t => /再 \+\d+ 好感/.test(t))) df.push(`好感度 0 的卡應停用並寫「再 +N 好感」：${JSON.stringify(D.locked)}`);
+      if (!/好感/.test(D.intro)) df.push('說明列沒提到好感度');
+      if (D.fs < 10.95) df.push(`招募卡字 ${D.fs}px <11`);
+      if (df.length) for (const m of df) fix(`${label} 招募：${m}`); else ok(`${label} 招募：提示直接開招募子頁籤(${D.n} 張卡,每位流浪英雄一張)、到門檻的那位排第一可邀請(橄欖綠)、好感度不夠的停用寫「再 +N 好感」、頭像可定位`);
+      if (SHOTS) await page.screenshot({ path: `${SHOTS}/${name}-recruit.png` });
+      // 邀請:加入獵人、保留職業／稀有度／等級、扣款、recruited+1、那位從名單消失、留在招募頁
+      const D4 = await ev(page, async (P) => { const g = P.G(), s = g.state, n0 = s.hunters.length, g0 = s.gold, rec0 = s.recruited; const b = [...document.querySelectorAll('#modal-content [data-action=recruitWanderer]')].find(x => !x.disabled && x.getAttribute('aria-disabled') !== 'true'); const wid = b.dataset.id, w = s.wanderers.find(x => x.id === wid), q = g.recruitQuote(wid); const keep = [w.classId, w.rarity, w.level, w.name].join(); b.click(); await P.wait(400); const nh = s.hunters[s.hunters.length - 1]; return { dn: s.hunters.length - n0, dg: g0 - s.gold, cost: q.cost, rec: s.recruited - rec0, same: [nh?.classId, nh?.rarity, nh?.level, nh?.name].join() === keep, gone: !s.wanderers.some(x => x.id === wid), type: document.querySelector('#modal').dataset.type, card: !!document.querySelector(`.rc-card[data-id="${wid}"]`) }; });
+      if (D4.dn !== 1 || D4.dg !== D4.cost || D4.rec !== 1 || !D4.same || !D4.gone || D4.card || D4.type !== 'recruit') fix(`${label} 招募：邀請沒有正確加入 ${JSON.stringify(D4)}`); else ok(`${label} 招募：邀請＝那位流浪英雄加入(職業/稀有度/等級/名字一致)、扣 ${D4.cost} 金幣、recruited+1、卡片消失、留在招募頁`);
+      // 金幣不足:灰＋鎖頭＋「缺 N 金」、點了不加人
+      const D5 = await ev(page, async (P) => { const g = P.G(), s = g.state; s.gold = 10; const w = s.wanderers[0]; w.affinity = 100; w.recruitRetryAt = 0; P.act('recruit'); await P.wait(400); const b = document.querySelector(`#modal-content [data-action=recruitWanderer][data-id="${w.id}"]`); const n0 = s.hunters.length; const out = { aria: b?.getAttribute('aria-disabled'), dis: b?.getAttribute('aria-disabled') === 'true', lock: !!b?.querySelector('.hv-lock'), text: b?.textContent.trim() || '' }; b?.click(); await P.wait(200); out.dn = s.hunters.length - n0; return out; });
+      if (D5.aria !== 'true' || !D5.dis || !D5.lock || D5.dn !== 0 || !/缺/.test(D5.text)) fix(`${label} 招募：金幣不足時 邀請 應停用＋鎖頭＋寫缺多少、點了不加人 ${JSON.stringify(D5)}`); else ok(`${label} 招募：金幣不足時 邀請 停用＋鎖頭、寫「${D5.text}」、點了不加人`);
       await closeAll(page);
     }
-    // 自動彈出:新旅人到(閒著、付得起)才彈;面板開著時不彈
-    const D7 = await ev(page, async (P) => { const g = P.G(), s = g.state; const vis = () => !document.querySelector('#modal-backdrop').classList.contains('hidden') && document.querySelector('#modal').dataset.type === 'visitors';
-      s.gold = 5000; await P.wait(400); const idle0 = vis(); s.visitors.push({ id: 'zauto1', classId: 'archer', rarity: 'heroic', trait: 'swift', cost: 200 }); await P.wait(700); const popped = vis(); const typ = document.querySelector('#modal').dataset.type; document.querySelector('[data-action=visitorLater]')?.click(); await P.wait(200);
-      P.act('build'); await P.wait(300); s.visitors.push({ id: 'zauto2', classId: 'paladin', rarity: 'heroic', trait: 'swift', cost: 200 }); await P.wait(700); const duringModal = vis(); const stillBuild = document.querySelector('#modal').dataset.type === 'build'; document.querySelector('#modal [data-action=close]')?.click(); await P.wait(500); const afterClose = vis();
-      return { idle0, popped, typ, duringModal, stillBuild, afterClose }; });
-    if (D7.idle0 || !D7.popped || D7.duringModal || !D7.stillBuild || D7.afterClose) fix(`${label} 新獵人暗帶：自動彈出規則不對 ${JSON.stringify(D7)}(應：閒著新旅人到才彈、面板開著不彈、之後也不補彈)`); else ok(`${label} 新獵人暗帶：新旅人到時自動彈出；面板開著時到的不彈、關掉後也不補彈`);
+    // 不自動彈出:閒著時有人好感度到門檻,也只出顧問提示,不彈面板
+    const D7 = await ev(page, async (P) => { const g = P.G(), s = g.state; s.gold = 5000; for (const w of s.wanderers) w.affinity = 0; await P.wait(400); const idle0 = !document.querySelector('#modal-backdrop').classList.contains('hidden'); s.wanderers[0].affinity = 100; await P.wait(900); const popped = !document.querySelector('#modal-backdrop').classList.contains('hidden'); return { idle0, popped }; });
+    if (D7.idle0 || D7.popped) fix(`${label} 招募：不該自動彈出面板 ${JSON.stringify(D7)}`); else ok(`${label} 招募：有人好感度到門檻時不自動彈面板(只出顧問提示)`);
     await closeAll(page);
 
     // ═══ F. 名字 ═══
     const F = await ev(page, async (P) => { const g = P.G(), s = g.state; const dup = () => { const hn = s.hunters.map(h => h.name), wn = (s.wanderers || []).map(w => w.name); return { hunters: hn.length, dupAmongHunters: hn.length - new Set(hn).size, dupAcross: wn.filter(n => hn.includes(n)), dupAmongWanderers: wn.length - new Set(wn).size }; };
-      const start = dup(); for (let i = 0; i < 6; i++) g.cheat('wanderer'); s.gold = 99999; for (let i = 0; i < 6; i++) { const v = s.visitors[0]; if (v) g.recruit(v.id); } for (let i = 0; i < 4; i++) g.cheat('wanderer'); const end = dup(); return { start, end, nW: (s.wanderers || []).length }; });
+      const start = dup(); for (let i = 0; i < 6; i++) g.cheat('wanderer'); s.gold = 99999; for (let i = 0; i < 6; i++) { const v = s.wanderers[0]; if (v) { v.affinity = 100; v.recruitRetryAt = 0; v.hp = v.maxHp; s.capacity = Math.max(s.capacity, s.hunters.length + 1); g.recruit(v.id); } } for (let i = 0; i < 4; i++) g.cheat('wanderer'); const end = dup(); return { start, end, nW: (s.wanderers || []).length }; });
     if (F.start.dupAcross.length || F.start.dupAmongHunters || F.end.dupAcross.length || F.end.dupAmongHunters || F.end.dupAmongWanderers) fix(`${label} 名字重複：${JSON.stringify(F)}`); else ok(`${label} 名字：開局與之後(多 10 位流浪英雄＋招募 6 位獵人)，流浪英雄與村裡獵人都沒有同名(${F.end.hunters} 獵人／${F.nW} 流浪英雄)`);
 
     if (errs.length) fix(`${label} 頁面錯誤：${[...new Set(errs)].slice(0, 3).join(' | ')}`); else ok(`${label} 沒有 console／page error`);
@@ -341,4 +325,4 @@ await browser.close(); srv.stop();
 for (const m of oks) console.log('ok ' + m);
 for (const m of fails) console.log(' - ' + m);
 if (fails.length) { console.log(`FAIL z2a-hunter: ${fails.length} 個問題`); process.exit(1); }
-console.log(`PASS z2a-hunter: ${oks.length} 項 ok(獵人卡、動作、tooltip、名冊、新獵人暗帶、名字)`);
+console.log(`PASS z2a-hunter: ${oks.length} 項 ok(獵人卡、動作、tooltip、名冊、招募、名字)`);

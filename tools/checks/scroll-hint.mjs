@@ -20,12 +20,7 @@ const openPanel = (page, act) => page.evaluate(async a => {
   const close = document.querySelector('#modal [data-action="close"]');
   if (close) close.click();
   await new Promise(r => setTimeout(r, 120));
-  if (a === 'codex') {
-    const wm = document.createElement('button'); wm.dataset.action = 'worldmap'; wm.style.display = 'none';
-    document.body.append(wm); wm.click(); wm.remove();
-    await new Promise(r => setTimeout(r, 300));
-    document.querySelector('#modal [data-action="codex"]').click();
-  } else {
+  {   // 世界地圖已移除:圖鑑直接用 data-action=codex 開
     const b = document.createElement('button'); b.dataset.action = a; b.style.display = 'none';
     document.body.append(b); b.click(); b.remove();
   }

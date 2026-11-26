@@ -1,4 +1,4 @@
-// 區域全景插畫檢查：地圖卡片與地區詳情都要有 PixelLab 全景圖，且真的載入。
+// 區域全景插畫檢查：地區詳情都要有 PixelLab 全景圖，且真的載入。
 import { createRequire } from 'node:module';
 const require = createRequire('C:/Users/ray/AppData/Roaming/npm/node_modules/');
 const { chromium } = require('playwright');
@@ -14,41 +14,7 @@ async function run(label, viewport, isMobile) {
   await page.waitForFunction(() => globalThis.__mistvaleGame && !document.querySelector('#loading'), null, { timeout: 120000 });
   await page.waitForTimeout(1200);
 
-  await page.evaluate(() => {
-    const el = document.createElement('button');
-    el.dataset.action = 'worldmap';
-    document.body.append(el);
-    el.click();
-    el.remove();
-  });
-  await page.waitForTimeout(700);
-
-  // Z2C:世界地圖改成每區一行,全景圖放在展開後的詳情區 → 先把每一行展開再量
-  await page.evaluate(() => document.querySelectorAll('#modal .region-card .z2c-row-main').forEach((b) => b.click()));
-  await page.waitForTimeout(200);
-  const cards = await page.evaluate(() => [...document.querySelectorAll('#modal .region-card')].map((c) => {
-    const art = c.querySelector('.region-art');
-    if (!art) return { id: c.dataset.region, art: false };
-    const cs = getComputedStyle(art);
-    return {
-      id: c.dataset.region,
-      art: true,
-      h: Math.round(art.getBoundingClientRect().height),
-      bg: /px-region-([a-z]+)\.(webp|png)/.exec(cs.backgroundImage)?.[1] || '',
-      loaded: cs.backgroundImage.startsWith('url(') && cs.backgroundImage.length > 30,
-    };
-  }));
-
-  if (cards.length !== 8) fails.push(`${label}: 區域卡片應 8 張，實際 ${cards.length}`);
-  for (const c of cards) {
-    if (!c.art) fails.push(`${label}: ${c.id} 沒有 .region-art`);
-    else {
-      if (!c.loaded) fails.push(`${label}: ${c.id} 全景圖未設定`);
-      if (c.h < 40) fails.push(`${label}: ${c.id} 全景圖高度只有 ${c.h}px`);
-      if (c.bg && c.bg !== c.id) fails.push(`${label}: ${c.id} 載到別區的圖（${c.bg}）`);
-    }
-  }
-
+  // 2026-11-26 世界地圖已移除:區域卡片那一段整段拿掉,只留區域詳情頁的全景圖(詳情由 regionInfo／regionDetail 開啟)
   // 地區詳情：卡片上的「查看」只是把鏡頭移過去，真正的詳情頁由 regionInfo 開啟
   await page.evaluate(() => {
     const b = document.createElement('button');

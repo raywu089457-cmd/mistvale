@@ -1,5 +1,5 @@
 // hud-badges.mjs — T129：底部分頁的待處理徽章
-//   * 可領取委託、可升級建設、可招募訪客、可製作項目 → 按鈕右上角數字徽章。
+//   * 可領取委託、可升級建設、願意加入的流浪英雄、可製作項目 → 按鈕右上角數字徽章。
 //   * 徽章用 CSS ::after 畫：按鈕尺寸不能變（出現／消失都不能推擠版面）。
 //   * 數字要對得上真正的判斷邏輯：建設徽章要等於建設面板裡「不是 .tight 且沒滿級」的卡片數。
 // Usage: node tools/checks/hud-badges.mjs      (game server on 5024 expected)
@@ -57,7 +57,7 @@ const readBadges = page => page.evaluate(actions => {
     s.gold = 0; s.wood = 0; s.ore = 0; s.herb = 0; s.cloth = 0; s.flour = 0; s.leather = 0;
     s.food = 0; s.drink = 0; s.bed = 0;
     s.quest = { ...(s.quest || {}), complete: false };
-    s.visitors = [];
+    for (const w of s.wanderers) { w.affinity = 0; w.recruitRetryAt = 0; }   // 2026-11-25 招募＝邀請流浪英雄(好感度到門檻才算)
   });
   await page.waitForTimeout(900);
   const empty = await readBadges(page);
@@ -67,13 +67,13 @@ const readBadges = page => page.evaluate(actions => {
   if (leaked.length) fix(`沒有徽章卻畫出 ::after 內容：${leaked.map(a => a + '=' + empty[a].content).join(',')}`);
   if (!noisy.length && !leaked.length) ok('空資源／沒有可領取委託時，底部分頁沒有任何徽章（::after 為 none）');
 
-  // 給資源、可領取委託、有買得起的訪客
+  // 給資源、可領取委託、有一位好感度到門檻、買得起的流浪英雄
   await page.evaluate(() => {
     const g = globalThis.__mistvaleGame, s = g.state;
     s.gold = 9000; s.wood = 400; s.ore = 400; s.herb = 400; s.cloth = 400; s.flour = 400; s.leather = 400;
     s.buildings = { hall: 3, house: 2, trade: 1, craft: 1, dungeon: 1, arena: 1, quests: 1 };
     s.quest = { ...(s.quest || {}), complete: true };
-    s.visitors = [{ id: 'vx', classId: 'archer', rarity: 'normal', trait: 'swift', cost: 100 }];
+    s.wanderers.forEach((w, i) => { w.affinity = i === 0 ? 100 : 0; w.recruitRetryAt = 0; w.hp = w.maxHp; });
   });
   // 重新繪製：切一下暫停再開（paint 會跑）
   await page.waitForTimeout(900);
@@ -81,7 +81,7 @@ const readBadges = page => page.evaluate(actions => {
 
   if (rich.quests?.badge !== '1') fix(`有可領取委託時 quests 徽章是 ${rich.quests?.badge}，預期 1`);
   if (!/1 件獎勵可領取/.test(rich.quests?.aria || '')) fix(`quests 的 aria-label 沒寫件數：${rich.quests?.aria}`);
-  if (rich.hunters?.badge !== '1') fix(`有一位買得起的訪客時 hunters 徽章是 ${rich.hunters?.badge}，預期 1`);
+  if (rich.hunters?.badge !== '1') fix(`有一位願意加入、買得起的流浪英雄時 hunters 徽章是 ${rich.hunters?.badge}，預期 1`);
   if (rich.trade?.badge !== '') fix(`交易不該有徽章，實際 ${rich.trade?.badge}`);
   if (rich.inventory?.badge !== '' || rich.dungeon?.badge !== '') fix(`倉庫／地下城不該有徽章（製作、競技場日常可做不算待處理），實際 ${rich.inventory?.badge}/${rich.dungeon?.badge}`);
 
@@ -96,7 +96,7 @@ const readBadges = page => page.evaluate(actions => {
   await page.waitForTimeout(250);
   const wantBadge = affordable > 9 ? '9+' : String(affordable);
   if (rich.build?.badge !== wantBadge) fix(`建設徽章是 ${rich.build?.badge || '(空)'}，但建設面板有 ${affordable} 棟「未建造且買得起」（預期 ${wantBadge || '(空)'}）`);
-  if (!fails.length) ok(`資源充足時：委託 1、訪客 1、建設 ${rich.build?.badge || '(無新可蓋)'}（= 建設面板 ${affordable} 棟未建造且買得起），交易與製作不掛徽章`);
+  if (!fails.length) ok(`資源充足時：委託 1、願意加入 1、建設 ${rich.build?.badge || '(無新可蓋)'}（= 建設面板 ${affordable} 棟未建造且買得起），交易與製作不掛徽章`);
 
   // 徽章不能改變按鈕尺寸
   const shifted = ACTIONS.filter(a => empty[a] && rich[a] && (Math.abs(empty[a].w - rich[a].w) > 0.6 || Math.abs(empty[a].h - rich[a].h) > 0.6));
@@ -151,4 +151,4 @@ if (fails.length) {
   process.exit(1);
 }
 for (const o of oks) console.log('ok  ' + o);
-console.log('PASS hud badges: 底部分頁的「待處理」徽章（委託可領取／有買得起的訪客／有買得起的新建築）數字與真正的判斷邏輯一致、日常升級與製作不掛徽章、徽章不改變按鈕尺寸、有徽章仍可正常開啟面板，手機不超出畫面');
+console.log('PASS hud badges: 底部分頁的「待處理」徽章（委託可領取／有願意加入且買得起的流浪英雄／有買得起的新建築）數字與真正的判斷邏輯一致、日常升級與製作不掛徽章、徽章不改變按鈕尺寸、有徽章仍可正常開啟面板，手機不超出畫面');

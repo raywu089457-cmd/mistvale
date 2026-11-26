@@ -66,7 +66,7 @@ function overlap(r, o) { return r.left < o.right && r.right > o.left && r.top < 
     return {
       placement: { left: pr.left, top: pr.top, right: pr.right, bottom: pr.bottom, width: pr.width, height: pr.height, hidden: p.classList.contains('hidden') },
       topbar: box('#topbar'), bottom: box('#bottom-bar'),
-      hits: ['[data-action=worldmap]', '[data-action=pause]', '[data-action=speed]'].map(hit),
+      hits: ['[data-action=pause]', '[data-action=speed]'].map(hit),
       cancel: c ? { ok: !!cat && (cat === c || c.contains(cat)), got: cat ? (cat.id || cat.className || cat.tagName || '?').toString().slice(0, 40) : 'null' } : { missing: true },
       inspector: { ...ib, display: insEl ? getComputedStyle(insEl).display : 'none' },
       bandHits,

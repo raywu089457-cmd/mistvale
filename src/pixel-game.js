@@ -3,7 +3,7 @@ import {createVillageNav} from './village-nav.js';
 import {WORLD,REGIONS,RING_ORDER,walkable,inVillage,regionAt,regionContains,regionEdge,regionCenter,randomRegionPoint,wildAt,nearestRingRoad,ringRoadPath,ringPointAt,onRingRoad,ringRoadDistance,ringRoadFar,RING_ROAD_HALF,RING_ROAD} from './overworld.js';
 import {VILLAGE_BOUNDS,EXITS,blockAt,BUILDING_NUDGE,BUILDING_SLOTS,blockCenter} from './village-grid.js';
 import {sfx} from './sfx.js';
-import { SKILLS, BUILDINGS, CLASSES, RARITIES, PROMOTE, TRAITS, MATERIALS, PRODUCTS, RECIPES, GEAR_SLOTS, EQUIP_SLOTS, GEAR_TIERS, GEAR_TIER_MAX, gearAt, DIFFICULTIES, CAMP, HUNT_ZONE, PILOT_ATTACK, PILOT_ORB, MERCHANT, TRADE_RESERVE, AI_ATTACK_LOCK, KITE, PROVOKE, MONSTER_RANGED, LEGACY_LAYOUT_V14, LEGACY_LAYOUT_V15, LEGACY_LAYOUT_V16, ART_LAYOUT_HISTORY, REGION_DENSITY, DEFAULT_REGION_DENSITY, MONSTER_POP, MONSTER_SPEED_MULT, MONSTER_ATTACK_RATE, EQUIPMENT, CLASS_STARTER, GEAR_DROP, gearItemView, gearGradeOf, dungeonGearGrade, recipeItemId, recipesForSlot, canWield, migrateGearId, craftWeaponFor, LEGACY_CRAFT_WEAPON, CRAFT_WEAPON_ITEMS, CLASS_WEAPON_TYPES, WEAPON_TYPES, academySkillMult } from './pixel-data.js';
+import { SKILLS, BUILDINGS, CLASSES, RARITIES, PROMOTE, TRAITS, AFFINITY, MATERIALS, PRODUCTS, RECIPES, GEAR_SLOTS, EQUIP_SLOTS, GEAR_TIERS, GEAR_TIER_MAX, gearAt, DIFFICULTIES, CAMP, HUNT_ZONE, PILOT_ATTACK, PILOT_ORB, MERCHANT, TRADE_RESERVE, AI_ATTACK_LOCK, KITE, PROVOKE, MONSTER_RANGED, LEGACY_LAYOUT_V14, LEGACY_LAYOUT_V15, LEGACY_LAYOUT_V16, ART_LAYOUT_HISTORY, REGION_DENSITY, DEFAULT_REGION_DENSITY, MONSTER_POP, MONSTER_SPEED_MULT, MONSTER_ATTACK_RATE, EQUIPMENT, CLASS_STARTER, GEAR_DROP, gearItemView, gearGradeOf, dungeonGearGrade, recipeItemId, recipesForSlot, canWield, migrateGearId, craftWeaponFor, LEGACY_CRAFT_WEAPON, CRAFT_WEAPON_ITEMS, CLASS_WEAPON_TYPES, WEAPON_TYPES, academySkillMult, REALTIME } from './pixel-data.js';
 import { SPECS, SPEC_BY_ID, STATUS_DEFS, SPEC_SWITCH_LV, SCHOOL_COLORS, defaultSpecOf, specsOf, specOf, unlockedSkills, heroSkills, skillSlotMult as skillSlotMultBase, skillSlotCd, heroWeaponType } from './pixel-skills.js';
 
 const mapById = list => Object.assign(Object.create(null), Object.fromEntries(list.map(item => [item.id, item])));
@@ -116,7 +116,8 @@ export const ENEMIES = {
 };
 const QUESTS = [
   // 第 1 章原本是「村莊有 6 位獵人」,但開局就有 CLASSES.length(7)位 → 一開局就完成。改成「招募 1 位旅人」(state.recruited,開局 0)。
-  { title: '迎接新的獵人', description: '打開招募，邀請 1 位前來投靠的旅人加入村莊', target: 1, reward: { gold: 150, flour: 30 }, metric: s => s.recruited },
+  // 2026-11-25 旅人取消:改成邀請 1 位流浪英雄(好感度夠就會答應;普通稀有度的門檻最低,開局約 1–2 分鐘就有人願意)。
+  { title: '迎接新的獵人', description: '打開招募，邀請 1 位有好感的流浪英雄', target: 1, reward: { gold: 150, flour: 30 }, metric: s => s.recruited },
   { title: '餐廳的第一爐麵包', description: '在餐廳累計製作 20 份餐點', target: 20, reward: { gold: 200, herb: 30, cloth: 30 }, metric: s => s.counts.foodCrafted },
   { title: '建立戰利品循環', description: '透過交易所向獵人收購 10 份材料', target: 10, reward: { gold: 250, ore: 25 }, metric: s => s.counts.traded },
   { title: '鐵匠爐火', description: '把鐵匠鋪升至 2 級', target: 2, reward: { gold: 300, ore: 40 }, metric: s => s.buildings.forge },
@@ -195,7 +196,8 @@ const TRAIN = { cost: level => 20 + level * 10, levels: bLv => 1 + 0.25 * (Math.
 // 2026-11-18 獵人自己修煉(docs/BALANCE.md「滿裝獵人自己修煉」):七格都是最高階、鍛造屋沒東西可賣的獵人,回村辦完事用多的個人金幣修煉一次。
 //   reserve:修煉後錢包至少留這麼多。設施全滿時吃喝睡療傷一輪 92 金(46 × 2),500 金 ≈ 5 趟,一路沒收入也付得起
 //   perVisit:每趟回村(或地下城每層休整)最多幾次;offlineVisitSec:離線外推時多久算回村一趟(第 24–31 天實測每位獵人約 45 秒回村一趟)
-export const AUTO_TRAIN = { reserve: 500, perVisit: 1, offlineVisitSec: 45 };
+//   2026-11-26 獵人打到快沒血/背包滿才回村後,回村間隔變長:第 10–15 天(seed 6/9)兩次出門的間隔中位數 64 秒 → 103–114 秒(×1.7),所以 45 → 75
+export const AUTO_TRAIN = { reserve: 500, perVisit: 1, offlineVisitSec: 75 };
 // 這一世累積的經驗(Lv.1 起算):離線外推用
 const lifetimeXp = h => { let n = h.xp || 0; for (let l = 1; l < h.level; l++) n += xpNeeded(l); return n; };
 // 離線收益:最多算 8 小時;前 sample 秒真的模擬,其餘照這段的速率外推(見 offlineFinish)。
@@ -223,10 +225,52 @@ export function hunterGender(id) {
   return (x >>> 7) & 1 ? 'f' : 'm';
 }
 export const isRideable = sp => typeof sp === 'string' && RIDEABLE.includes(sp) && own(ENEMIES, sp);
+// ── 2026-11-25 招募好感度(AFFINITY 在 pixel-data.js;規則見 docs/BALANCE.md「招募好感度」) ──
+// 純函式,遊戲(recruit/recruitQuote)、介面(招募卡、徽章、顧問提示)與測試共用同一份公式。
+// 需要的好感度:稀有度越低越低;不認得的稀有度當最高門檻
+export const affinityNeed = rarity => own(AFFINITY.need, rarity) ? AFFINITY.need[rarity] : 100;
+// 接受邀請的機率 0–1:好感度 ≥ 門檻 = 1;門檻以下 ramp 點內線性下降;再低 = 0
+export function recruitChance(w) {
+  const need = affinityNeed(w?.rarity), aff = Number(w?.affinity) || 0;
+  if (aff >= need) return 1;
+  return Math.max(0, Math.min(1, (aff - (need - AFFINITY.ramp)) / AFFINITY.ramp));
+}
+// 新來的流浪英雄起始好感度:依 id 雜湊落在 AFFINITY.start 範圍內(不擲骰 → 亂數序列不變,同一個 id 永遠同一個值)
+export function affinityStart(id) {
+  let x = 0x9e3779b9; const t = String(id ?? '');
+  for (let i = 0; i < t.length; i++) { x ^= t.charCodeAt(i); x = Math.imul(x, 0x85ebca6b) >>> 0; x ^= x >>> 13; }
+  const [lo, hi] = AFFINITY.start; return lo + ((x >>> 0) % (hi - lo + 1));
+}
+// 2026-11-25 UX:最近一次好感度變化(w.affLast,見 addAffinity)。只有這幾種 kind;svc/miss/gear 一定帶物品,其他 item/name 一律 null。
+const AFF_LAST_KINDS = new Set(['svc', 'miss', 'trade', 'refuse', 'gear', 'fail', 'offline']), AFF_ITEM_KINDS = new Set(['svc', 'miss', 'gear']);
+function affItemName(kind, item, name) {
+  if (kind === 'svc' || kind === 'miss') return own(PRODUCTS, item) ? PRODUCTS[item].name : null;
+  if (kind === 'gear') return (typeof name === 'string' && name) || (own(EQUIP, item) ? EQUIP[item].name : null);
+  return null;
+}
+// 讀檔:kind 不認得、delta 不是有限非零數、時間不對、該帶物品的物品不存在 → 整筆丟掉(回 undefined);名稱一律重算或過濾
+// 2026-11-26 拿掉日夜:時間從遊戲天數 day 改成真實時間 at(毫秒)。
+//   at:有限正數;比現在還晚(換裝置/時鐘倒退)就夾到現在。
+//   舊存檔只有 day(1..舊的今天 oldDay 的整數)→ 換算 at = now − (oldDay − day) × 一個舊遊戲日(1× 時 240 秒);day 不合法照舊丟掉。
+const OLD_DAY_SEC = 240;   // 舊的「一天」= 240 遊戲秒;只用在讀舊存檔的換算
+function sanitizeAffLast(v, now, oldDay) {
+  if (!v || typeof v !== 'object' || !AFF_LAST_KINDS.has(v.kind)) return undefined;
+  const delta = v.delta;
+  if (typeof delta !== 'number' || !Number.isFinite(delta) || delta === 0) return undefined;
+  let at;
+  if (v.at !== undefined) { if (typeof v.at !== 'number' || !Number.isFinite(v.at) || v.at <= 0) return undefined; at = Math.min(v.at, now); }
+  else { const day = v.day; if (!Number.isInteger(day) || day < 1 || day > oldDay) return undefined; at = now - (oldDay - day) * OLD_DAY_SEC * 1000; }
+  if (!AFF_ITEM_KINDS.has(v.kind)) return { kind: v.kind, delta: clamp(delta, -100, 100), item: null, name: null, at };
+  const okItem = v.kind === 'gear' ? own(EQUIP, v.item) : own(PRODUCTS, v.item);
+  if (!okItem) return undefined;
+  const saved = v.kind === 'gear' && typeof v.name === 'string' ? v.name.replace(/[<>&"'`\x00-\x1f]/g, '').slice(0, 32) : '';
+  return { kind: v.kind, delta: clamp(delta, -100, 100), item: v.item, name: affItemName(v.kind, v.item, saved), at };
+}
 
-const DEFAULT_SETTINGS = { quality: 'high', dpr: 'auto', fps: 30, shadows: true, night: true, shake: true, uiScale: 'auto' };
+// 2026-11-26 拿掉日夜:「夜晚變暗」(night)設定一起拿掉;舊存檔的 settings.night 讀檔時直接丟掉
+const DEFAULT_SETTINGS = { quality: 'high', dpr: 'auto', fps: 30, shadows: true, shake: true, uiScale: 'auto' };
 // Additional dynamic counter keys written during gameplay that are not initialized in fresh().
-const EXTRA_COUNT_KEYS = ['autoJunk', 'autoJunkGold', 'gemsBought', 'gemsBoughtGold', 'matSold', 'matSoldGold', 'merchantBuys', 'promoted', 'skills', 'tradeGold', 'wandererPurchases'];
+const EXTRA_COUNT_KEYS = ['autoJunk', 'autoJunkGold', 'gemsBought', 'gemsBoughtGold', 'matSold', 'matSoldGold', 'merchantBuys', 'promoted', 'skills', 'tradeGold', 'wandererPurchases', 'recruitDeclined'];
 // Legacy class IDs removed on 2026-10-24 (ranger/witchhunter -> archer) and 2026-11-22 (traveler -> berserker).
 const normalizeClassId = id => (id === 'ranger' || id === 'witchhunter') ? 'archer' : id === 'traveler' ? 'berserker' : id;
 // Validate a JSON string or object save payload and return a dry-run preview without touching live state.
@@ -277,7 +321,7 @@ export function inspectSave(input) {
     summary: {
       version: source.version,
       migrated: source.version !== 4,
-      day: ps.day,
+      time: ps.time,   // 遊戲時間(模擬秒);2026-11-26 起沒有「第 N 天」
       gold: ps.gold,
       gems: ps.gems,
       hunters: ps.hunters.length,
@@ -303,14 +347,17 @@ function normalizeSettings(raw) {
     if (['auto', '1', '1.5', '2'].includes(String(raw.dpr))) s.dpr = String(raw.dpr);
     if (raw.fps === 60 || raw.fps === 30) s.fps = raw.fps;
     if (typeof raw.shadows === 'boolean') s.shadows = raw.shadows;
-    if (typeof raw.night === 'boolean') s.night = raw.night;
     if (typeof raw.shake === 'boolean') s.shake = raw.shake;
     if (raw.uiScale === 'auto') s.uiScale = 'auto'; else if (Number.isFinite(raw.uiScale)) s.uiScale = [1, 1.15, 1.3, 1.5].reduce((a, b) => Math.abs(b - raw.uiScale) < Math.abs(a - raw.uiScale) ? b : a);   /* 2026-11-11:介面只放大不縮小,舊的 0.75/0.85 落到 1 */   // '自動' 或級距(0.75/0.85/1/1.15/1.3/1.5)；舊存檔的數字(0.95、1.4…)夾到最近級距，其他一律 'auto'
   }
   return s;
 }
-export function createGame(saved = null) {
+// opts.now:真實時間的時鐘(回傳毫秒,預設 Date.now)。2026-11-26 起「隔天」類規則(流浪英雄補人、婉拒冷卻、好感度上次變化的時間)
+//   都看真實時間;核心不直接呼叫 Date.now,測試與 progression-sim 注入自己的時鐘就能完全重現。
+export function createGame(saved = null, opts = {}) {
   const state = {};
+  let clock = typeof opts?.now === 'function' ? opts.now : () => Date.now();
+  const realNow = () => { const v = Number(clock()); return Number.isFinite(v) ? v : Date.now(); };
   // 2026-11-24 學院等級加成(C3):所有技能傷害倍率都經過這一個入口(地圖、地下城、競技場、預估共用);流浪英雄不算。
   const skillSlotMult = (h, sk) => skillSlotMultBase(h, sk) * ((state.wanderers || []).includes(h) ? 1 : academySkillMult(state.buildings?.academy));
   let rects = [], roads = [], ponds = [], nav = { nodes: [], edges: [], thru: null }, vnav = null;
@@ -805,7 +852,7 @@ export function createGame(saved = null) {
   // 玩家指令永遠優先:exploreRegion/dispatchHunters/dispatchTeam/setRally 會把 autoHunt 清掉(變成玩家指定的 huntRegion);
   // 召回後先在村裡待 recallHold 秒才會再自己出門。autoHunt/autoReadyAt 是暫態:讀檔時 restore() 不讀它們(huntRegion 本來也不讀),
   // 讀檔後一律從「待在村裡、稍後自己決定」開始 → 存檔格式不變、舊存檔不用遷移。
-  const AUTO_HUNT = { dwell: 6, recallHold: 180, retreatHp: 0.4 };
+  const AUTO_HUNT = { dwell: 6, recallHold: 180, retreatHp: 0.3 };   // retreatHp:2026-11-26 0.4 → 0.3(打到快沒血才回村;看情勢撤退 shouldRetreat 照舊保護被圍的人)
   // 「這組打不打得動」:comfort vs threat → easy(輕鬆)/ok(可行)/hard(危險)。地圖詳細資訊的 fit() 與獵人自主挑區共用這一條。
   // atkMult:魔物攻擊倍率(帶難度的 atk,實際生出來的魔物就是這麼強)。
   const foeAtkMult = () => DIFFICULTIES[state.difficulty]?.atk ?? 1;
@@ -903,7 +950,7 @@ export function createGame(saved = null) {
   // 待機中的獵人:時間到、不缺東西就自己出門。回傳 true = 已出發(或先去辦事)。
   function autoHuntStep(h) {
     if (h.task || !h.inTown || state.time < (h.autoReadyAt ?? 0)) return false;
-    if (needProduct(h, true)) { returnToTown(h); return true; }   // 出門前先把飯吃了、覺睡了
+    if (needProduct(h, true)) { returnToTown(h, 'prep'); return true; }   // 出門前先把飯吃了、覺睡了
     const rid = autoHuntRegion(h);
     if (!rid) { h.autoReadyAt = state.time + 30; return false; }   // 沒有打得動的區:隔一陣子再看
     h.huntRegion = rid; h.autoHunt = true;
@@ -929,6 +976,7 @@ export function createGame(saved = null) {
   function depart(h) {
     // 有狩獵區(玩家指令,或自主狩獵挑好的)才出村;否則留在村內待機,稍後由 autoHuntStep 自己決定。
     if (!h.huntRegion) { idleInTown(h); return; }
+    traceReturn(h, '@depart');
     h.task = null; h.serviceProduct = null; h.serviceStarted = false; h.destination = null; h.inTown = false; h.targetId = null; h.rallying = false; h.status = '出征中'; h.lastTownVisit = state.time;
     const region = REGIONS.find(r => r.id === h.huntRegion);
     // 集結點(玩家指定的)照原樣走;否則先沿環村道路走,再切進目的地
@@ -957,26 +1005,98 @@ export function createGame(saved = null) {
     h.hp = h.maxHp; state.hunters.push(h); idleInTown(h); return h;
   }
 
-  // 新職業上架:名單裡還沒有這個職業的獵人(也沒有這個職業的訪客),就把招募欄第一位換成它(稀有;新舊存檔都適用)。
-  // 2026-10-27 祭司(priest)從流浪限定改成可招募 → 這裡指向 priest;下次有新職業再換 id。
-  function offerNewClass() {
-    const c = CLASS.priest; if (!c || !state.visitors?.length) return;
-    if (state.hunters.some(h => h.classId === c.id) || state.visitors.some(v => v.classId === c.id)) return;
-    state.visitors[0] = { id: id('v'), classId: c.id, rarity: 'rare', trait: 'brave', cost: Math.round(c.cost * RARITY.rare.mult) };
+  // ── 2026-11-25 招募 = 邀請流浪英雄(使用者:取消旅人自願上門;所有流浪英雄都能招募,成功率看好感度) ──
+  // 舊的訪客(state.visitors、每天換一位、保證有祭司)整套拿掉;讀到舊存檔的 visitors 直接丟掉。
+  // 好感度 w.affinity(0–100)只有流浪英雄有:村莊把他照顧好就升(付費服務、交易所收購、鐵匠鋪買到裝備),
+  //   讓他白跑一趟就降(想買的服務賣完、背包滿了交易所卻不收);邀請被婉拒也會降。門檻與數字在 pixel-data AFFINITY。
+  // 離線取樣期:每位流浪英雄的好感度變化依來源記進帳本 dgLedger.aff(svc = 付費服務、other = 交易所、loss = 扣分),
+  //   offlineFinish 照速率外推(服務那份以剩下的庫存為上限,買不到的份數改算斷貨扣分)。裝備是一次性的(庫存離線不補),不外推。
+  // 2026-11-25 UX:w.affLast = 最近一次好感度變化 { kind, delta, item, name, at }(招募卡顯示「上次為什麼升/降」;at = 真實時間毫秒,2026-11-26 以前是遊戲天數 day)。
+  //   kind:svc 買到付費服務、miss 想買的服務賣完(item = PRODUCTS 鍵)、gear 買到裝備(item = 裝備 itemId、name = 含階級的顯示名)、
+  //   trade 交易所收購、refuse 背包滿交易所不收、fail 婉拒邀請、offline 離線期間淨變化(offlineFinish 寫)。
+  //   delta = 夾在 0–100 之後真正加減的量;夾完是 0(已滿/已見底)就不覆蓋。招募成獵人時不帶過去(joinFromWanderer 只複製指定欄位)。
+  function addAffinity(w, delta, kind, item = null, name = null) {
+    if (!w || !delta || !(state.wanderers || []).includes(w)) return;
+    const before = Number(w.affinity) || 0;
+    w.affinity = clamp(before + delta, 0, 100);
+    const applied = w.affinity - before;
+    if (applied) w.affLast = { kind, delta: applied, item: item ?? null, name: affItemName(kind, item, name), at: realNow() };
+    if (dgLedger && kind !== 'gear') { const A = dgLedger.aff || (dgLedger.aff = {}), a = A[w.id] || (A[w.id] = { svc: 0, other: 0, loss: 0 }); a[delta < 0 ? 'loss' : kind === 'svc' ? 'svc' : 'other'] += delta; }
   }
-  // 2026-11-18 每天換掉一位訪客(輪流換第 day%3 格):原本只有招募後才補人,三位都太貴/不想要時招募頁好幾天不變。
-  // 離線外推跳過的天數不換(只在逐步模擬的換日時換);名冊滿了也照換,之後有名額就有新面孔。
-  function newDayVisitor() {
-    if (!state.visitors || state.visitors.length < 3) return;
-    state.visitors[state.day % 3] = newVisitor(state.visitors.filter((_, i) => i !== state.day % 3).map(v => v.classId)); offerNewClass();
+  // 新來的流浪英雄挑職業:村裡和野外都沒有祭司 → 先補祭司(沿用舊訪客「一定找得到祭司」的保證);
+  // 否則從野外還沒有的職業裡抽(職業多樣);七個職業都在野外了才全部開放。
+  function wandererClassPick() {
+    const inField = new Set((state.wanderers || []).map(w => w.classId)), inTown = new Set(state.hunters.map(h => h.classId));
+    if (CLASS.priest && !inField.has('priest') && !inTown.has('priest')) return 'priest';
+    const missing = CLASSES.filter(c => !inField.has(c.id)), pool = missing.length ? missing : CLASSES;
+    return pool[Math.floor(random() * pool.length)].id;
   }
-  // 2026-11-20 訪客職業不重複:同一批三張卡全是同一個職業就沒有選擇可言(截圖上三張一模一樣的刺客)。
-  // 傳入 exclude(其他兩格已有的職業)就只從剩下的職業抽;職業用完才會全部開放。
-  function newVisitor(exclude = []) {
-    const pool = CLASSES.filter(c => !exclude.includes(c.id)), use = pool.length ? pool : CLASSES;
-    const c = use[Math.floor(random() * use.length)], roll = random();
-    const rarity = roll < 0.55 ? 'normal' : roll < 0.82 ? 'rare' : roll < 0.94 ? 'superior' : roll < 0.99 ? 'heroic' : 'legendary';
-    return { id: id('v'), classId: c.id, rarity, trait: TRAITS[Math.floor(random() * TRAITS.length)].id, cost: Math.round(c.cost * RARITY[rarity].mult) };
+  function wandererArrives(quiet = false) {
+    const w = newWanderer(wandererClassPick()); state.wanderers.push(w);
+    if (!quiet) log(`${RARITY[w.rarity].name}${CLASS[w.classId].name} ${w.name} 來到暮影村附近狩獵，可以在「招募」看到他對村莊的好感度。`, 'info');
+    return w;
+  }
+  // 補人:每招募走一位就欠一位(state.wandererDue);還欠著、而且野外少於 AFFINITY.pool 位 → 來一位新面孔(從起始好感度開始)。
+  //   2026-11-26 拿掉日夜:原本「每天換日來一位」改成真實時間——state.wandererNextAt(毫秒)到了就來一位,
+  //   之後每 REALTIME.wandererEvery 再來一位,直到不欠為止(不欠 → null)。暫停或關掉遊戲時真實時間照走,
+  //   回來第一步(線上 tick 或離線 simulate)就把錯過的一次補齊(還是受 wandererDue 與 AFFINITY.pool 限制)。
+  //   只補「被招募走的」:測試或作弊清空流浪英雄不會自己長回來。
+  function replaceWanderer() {
+    if (!(state.wandererDue > 0)) return;
+    if ((state.wanderers || []).length < AFFINITY.pool) { state.wandererDue--; wandererArrives(); }
+    else state.wandererDue = 0;   // 池子已經滿了(例如作弊多叫了幾位)→ 不用再補
+  }
+  function realTimeStep() {
+    if (!(state.wandererDue > 0)) { state.wandererNextAt = null; return; }
+    const now = realNow();
+    if (!Number.isFinite(state.wandererNextAt)) { state.wandererNextAt = now + REALTIME.wandererEvery; return; }
+    while (state.wandererDue > 0 && now >= state.wandererNextAt) { replaceWanderer(); state.wandererNextAt += REALTIME.wandererEvery; }
+    if (!(state.wandererDue > 0)) state.wandererNextAt = null;
+  }
+  // 任何時候至少 AFFINITY.min 位:招募後不足就立刻補(算在欠的人數裡);讀檔時不足也補(舊規則,不寫日誌)
+  function topUpWanderers() { while (state.wanderers.length < AFFINITY.min) { wandererArrives(true); if (state.wandererDue > 0) state.wandererDue--; } }
+  const wandererCost = w => Math.round((CLASS[w.classId]?.cost ?? 0) * (RARITY[w.rarity]?.mult ?? 1));
+  const retryWait = ms => ms >= 60e3 ? `${Math.ceil(ms / 60e3)} 分鐘` : `${Math.max(1, Math.ceil(ms / 1e3))} 秒`;   // 跟 real-clock.js waitText 同一個寫法
+  // 招募卡/徽章/顧問提示/recruit() 共用的唯讀判斷(不擲骰、不改狀態)
+  function recruitQuoteOf(w) {
+    const need = affinityNeed(w.rarity), chance = recruitChance(w), cost = wandererCost(w), affinity = Math.floor(Number(w.affinity) || 0);
+    // 婉拒冷卻(2026-11-26):w.recruitRetryAt = 真實時間毫秒,現在還沒到就不能邀;retryIn = 還要等幾毫秒(介面顯示用)
+    const retryIn = Math.max(0, (Number(w.recruitRetryAt) || 0) - realNow());
+    const full = state.hunters.length >= state.capacity, down = !(w.hp > 0), cooldown = retryIn > 0, broke = state.gold < cost;
+    const why = full ? '名額已滿' : down ? '倒下中' : cooldown ? '剛婉拒過' : chance <= 0 ? '好感度不足' : broke ? `還缺 ${cost - state.gold} 金幣` : '';
+    return { id: w.id, need, floor: Math.max(0, need - AFFINITY.ramp), affinity, chance, cost, full, down, cooldown, retryIn, broke, ok: !why, why };
+  }
+  // 流浪英雄加入村莊:變成獵人,保留職業、稀有度、特性、等級與經驗、技能/強化等級、身上的裝備(同一批物品實例)、
+  //   個人金幣與背包材料(他自己賺的,帶進村裡繼續花);生命補滿。原本的 id 換成獵人 id(w → h),所有指向舊 id 的東西清掉。
+  function joinFromWanderer(w) {
+    state.wanderers.splice(state.wanderers.indexOf(w), 1);
+    for (const e of state.enemies) if (e.slotFor === w.id) { e.slotFor = null; e.engaged = false; }
+    if (Array.isArray(state.shots)) state.shots = state.shots.filter(s => s.ownerId !== w.id);
+    const h = newHunter(w.classId, door('house'));
+    Object.assign(h, { name: w.name, gender: w.gender, rarity: w.rarity, trait: w.trait, level: w.level, xp: w.xp, rebirths: w.rebirths || 0, skillLevel: w.skillLevel || 0, weaponLevel: w.weaponLevel || 0, gold: Math.max(0, Math.round(w.gold || 0)) });
+    for (const key of MATERIAL_KEYS) h.inventory[key] = Math.max(0, Math.floor(w.inventory?.[key] || 0));
+    for (const key of ['satiety', 'stamina', 'mood']) h[key] = clamp(Number(w[key]) || 0, 0, 100);
+    if (w.gear && typeof w.gear === 'object') h.gear = w.gear;
+    syncGear(h); h.hp = h.maxHp;
+    return h;
+  }
+  function recruitWanderer(w) {
+    const q = recruitQuoteOf(w), c = CLASS[w.classId];
+    if (q.full) return result(false, '獵人名額已滿，升級獵人小屋可以增加 2 個名額。');
+    if (q.down) return result(false, `${w.name} 倒下了，等他站起來再邀請。`);
+    if (q.cooldown) return result(false, `${w.name} 剛婉拒過邀請，${retryWait(q.retryIn)}後再來邀請。`);
+    if (q.chance <= 0) return result(false, `${w.name} 對村莊的好感度還不夠（${q.affinity}／${q.need}）。讓他在村裡吃住、買到東西，好感度就會上升。`);
+    if (q.broke) return result(false, `招募需要 ${q.cost} 村莊金幣。`);
+    // 好感度未滿門檻:照成功率擲一次;滿門檻(100%)不擲骰
+    if (q.chance < 1 && random() >= q.chance) {
+      addAffinity(w, AFFINITY.fail, 'fail'); w.recruitRetryAt = realNow() + REALTIME.recruitRetry; state.counts.recruitDeclined = (state.counts.recruitDeclined || 0) + 1;
+      log(`${w.name} 婉拒了邀請（成功率 ${Math.round(q.chance * 100)}%），過 ${retryWait(REALTIME.recruitRetry)}再試試。`, 'warning');
+      return { ...result(false, `${w.name} 婉拒了邀請（好感度 ${AFFINITY.fail}），${retryWait(REALTIME.recruitRetry)}後才能再邀請。沒有收金幣。`), declined: true };
+    }
+    state.gold -= q.cost; const h = joinFromWanderer(w); state.recruited++; state.wandererDue = (state.wandererDue || 0) + 1;
+    if (!Number.isFinite(state.wandererNextAt)) state.wandererNextAt = realNow() + REALTIME.wandererEvery;   // 補人的計時從被招募走那一刻開始
+    log(`${RARITY[h.rarity].name}${c.name} ${h.name} 被村莊的款待打動，帶著 ${h.gold} 枚個人金幣加入村莊。`, 'success');
+    topUpWanderers(); refreshQuest(); return result(true, `${h.name} 已加入隊伍。`);
   }
 
   // 流浪英雄:自己在野外打怪,不聽玩家指揮。招募後變成 hunters,才會等玩家派指令。
@@ -1048,6 +1168,7 @@ export function createGame(saved = null) {
     const rarity = roll < 0.6 ? 'normal' : roll < 0.9 ? 'rare' : 'superior';
     const region = REGIONS[1 + Math.floor(random() * Math.max(1, REGIONS.length - 1))] || REGIONS[1];
     const p = safePoint({ x: region.x - 4 + random() * 8, z: region.z - 4 + random() * 8 });
+    // 特性固定「勇敢」(2026-11-25 招募改成邀請流浪英雄時試過隨機特性:會多擲一次骰、流浪英雄變弱,離線/線上 1 小時錢包比從 0.45 掉到 0.38,先不改)
     const w = { id: id('w'), name: freeName(Math.floor(random() * NAMES.length)), classId: c.id, rarity, trait: 'brave', level: 3 + Math.floor(random() * 6), xp: 0,
       rebirths: 0, skillLevel: 0, weaponLevel: 0, equipment: emptyEquipment(), gear: null, inventory: Object.fromEntries(MATERIAL_KEYS.map(key => [key, 0])),
       gold: WANDER_START_GOLD, satiety: 100, stamina: 100, mood: 100,
@@ -1055,6 +1176,7 @@ export function createGame(saved = null) {
       status: '遊蕩中', targetId: null, attackTimer: random() * 0.6, route: [], reviveTimer: 0, facingX: 0, facingZ: 0, facingAt: 0,
       task: null, destination: null, inTown: false, serviceProduct: null, actionTimer: 0, lastTownVisit: state.time,
       tradedVisit: false, shoppedVisit: false, servedVisit: [] };
+    w.affinity = affinityStart(w.id); w.recruitRetryAt = 0;   // 招募好感度(見 addAffinity);起始值依 id 雜湊,不擲骰
     w.huntRegion = bestRegionFor(w).id;
     w.gender = nameGender(w.name) ?? hunterGender(w.id);   // 流浪英雄也跟名字走(外觀用);不擲骰
     giveStarterGear(w);                  // 流浪英雄也是「新角色」,同樣穿著該職業初始裝備
@@ -1062,17 +1184,42 @@ export function createGame(saved = null) {
     return w;
   }
 
-  function needProduct(h, inTown = false) {
-    if (h.hp < h.maxHp * (inTown ? 0.78 : 0.28)) return 'bandage';
-    const threshold = inTown ? 62 : 36;
-    if (h.satiety < threshold) return 'food';
-    if (h.stamina < threshold) return 'bed';
-    if (h.mood < threshold) return 'drink';
+  // ── 補給門檻(2026-11-26 使用者:「角色常常打一半就回城…要確保他狀態全滿下能打怪打到快沒血才回村」) ──
+  // 舊門檻:村裡 < 62 才補、野外 < 36 就回 → 獵人帶著 62–70 的飽食出門,戰鬥中每秒掉 0.95,約 40 秒就因為「餓了」掉頭(血還有九成)。
+  // 現在:村裡低於 town(85)/ 生命低於 townHp(90%)都補 → 出門時接近全滿;野外要低於 field(20)才回村,
+  //   而且正在打(戰鬥中/後撤中)時先把眼前這隻打完,除非已經低於 urgent(8,快到「餓/累到攻擊打折」的 15 以下)。
+  //   生命門檻不變:野外 < 28%(fieldHp)回村療傷;自主狩獵的 AUTO_HUNT.retreatHp 也從 40% 降到 30%。
+  // 全滿(85+)出門到 field(20):戰鬥中約 68 秒、趕路時(×0.42)更久 —— 比「血從滿打到 30%」的一趟(實測中位數約 30–45 秒)長,
+  //   所以一般是血量決定什麼時候回村;很少受傷的強獵人才會因為餓/累回村(那時也已經打了一整趟)。
+  // skip:這趟已經補過的商品(村內行程逐項補,不會卡在第一項)。純函式,不擲骰。
+  const FIELD_DRAIN = 0.6;
+  const NEED = { town: 85, townHp: 0.9, field: 20, fieldHp: 0.28, urgent: 8 };
+  function needProduct(h, inTown = false, skip = null) {
+    const ok = p => !skip || !skip.includes(p);
+    if (h.hp < h.maxHp * (inTown ? NEED.townHp : NEED.fieldHp) && ok('bandage')) return 'bandage';
+    const threshold = inTown ? NEED.town : NEED.field;
+    if (h.satiety < threshold && ok('food')) return 'food';
+    if (h.stamina < threshold && ok('bed')) return 'bed';
+    if (h.mood < threshold && ok('drink')) return 'drink';
     return null;
+  }
+  // 野外該不該為了生活需求回村:生命不夠一定回;餓/累/心情低時,正在打的這一隻先打完(除非已經低於 urgent)。回傳商品 id 或 null。
+  const NEED_OF = { food: 'satiety', bed: 'stamina', drink: 'mood' };
+  const fieldBusy = u => u.status === '戰鬥中' || u.status === '後撤中';
+  function fieldNeed(u) {
+    const np = needProduct(u);
+    if (!np || np === 'bandage') return np;
+    return fieldBusy(u) && u[NEED_OF[np]] >= NEED.urgent ? null : np;
   }
   // 持續收購的金庫保留額(pixel-data TRADE_RESERVE):隨大廳等級成長;一般委託不受限(可花到 0)
   // 背包裝到這麼多份材料(而且交易所買得起)就回村賣;離線外推也用它估「一趟賣多少、多久回村一次」
   const TRADE_BAG = 14;
+  // 2026-11-26:野外「背包滿了回村賣」改成真的裝滿(BAG_FULL 份)才回。以前 14 份、出門 12 秒就能觸發 → 8 天模擬裡 72% 的返村是這條,
+  //   回村時生命中位數 83–94%(使用者看到的「打一半就回城」主因)。回村時照樣先去交易所賣(nextTownTask),材料流量由擊倒數決定,只是一次賣得多。
+  //   60 是 15 天 5 seed 掃 45/60/100/不限 的結果:100 與不限時村莊只在獵人回來療傷時才收得到礦石,1–3 個 seed 卡在委託第 18 章(地下城 32 層);
+  //   45/60 章節時程與改前相同(第 12–14 天全破)。中後期獵人在「輕鬆」區幾乎不掉血,這時多半是背包滿才回村 —— 但一趟已經是 60 份戰利品、約 1 分鐘的戰鬥。
+  //   TRADE_BAG 仍是流浪英雄「背包有貨卻賣不掉」的好感度判定與離線外推的趟數估計。
+  const BAG_FULL = 60;
   function tradeReserve() { return TRADE_RESERVE.base + TRADE_RESERVE.perHall * Math.max(0, (state.buildings.hall || 1) - 1); }
   // 這項材料現在村莊可以花多少金幣收購:持續收購只能花保留額以上的部分
   function tradeBudget(key) { return Math.max(0, state.gold - (state.tradeStanding?.[key] ? tradeReserve() : 0)); }
@@ -1103,8 +1250,8 @@ export function createGame(saved = null) {
   //   讀檔、復活、地下城結束也會走 returnToTown → 這裡,那些不算「辦完事」(讀檔時 state 還沒還原完,不能動錢)
   function nextTownTask(h, errandDone = false) {
     if (!h.tradedVisit && tradeAvailable(h)) { goToBuilding(h, 'trading', 'trade'); return; }
-    const product = needProduct(h, true);
-    if (product && !h.servedVisit.includes(product)) {
+    const product = needProduct(h, true, h.servedVisit);
+    if (product) {
       h.serviceProduct = product; h.serviceStarted = false; goToBuilding(h, PRODUCTS[product].building, 'service'); return;
     }
     if (!h.shoppedVisit && gearAvailable(h)) { goToBuilding(h, 'forge', 'shop'); return; }
@@ -1113,8 +1260,17 @@ export function createGame(saved = null) {
   }
   const townErrandDone = h => nextTownTask(h, true);
 
+  // 返村原因追蹤(2026-11-26,只給測試/平衡工具):game.traceReturns() 開啟後,每次獵人/流浪英雄決定回村都記一筆
+  //   { who, id, why, t, away, hp, sat, sta, mood, gold, bag, auto, region }。不進存檔、不擲骰、不改任何遊戲欄位。
+  let returnTrace = null;
+  function traceReturn(u, why) {
+    if (!returnTrace) return;
+    returnTrace.push({ who: state.wanderers.includes(u) ? 'w' : 'h', id: u.id, why, t: state.time, away: state.time - (u.lastTownVisit ?? state.time), field: !u.inTown,
+      hp: u.hp / Math.max(1, u.maxHp), sat: u.satiety, sta: u.stamina, mood: u.mood, gold: u.gold, bag: MATERIAL_KEYS.reduce((n, k) => n + (u.inventory?.[k] || 0), 0), auto: !!u.autoHunt, region: u.huntRegion });
+    if (returnTrace.length > 20000) returnTrace.splice(0, 10000);
+  }
   // 自主狩獵的這一趟到回村為止:清掉自己挑的區,辦完事再重新挑(可能已經升級、能去更難的區)。玩家指定的 huntRegion 不動。
-  function returnToTown(h) { if (h.autoHunt) { h.autoHunt = false; h.huntRegion = null; } h.inTown = true; h.tradedVisit = false; h.shoppedVisit = false; h.servedVisit = []; h.targetId = null; nextTownTask(h); }
+  function returnToTown(h, why = 'other') { traceReturn(h, why); if (h.autoHunt) { h.autoHunt = false; h.huntRegion = null; } h.inTown = true; h.tradedVisit = false; h.shoppedVisit = false; h.servedVisit = []; h.targetId = null; nextTownTask(h); }
 
   // 村內辦事:吃飯/喝飲料/睡覺/療傷、賣材料、買裝備。獵人與流浪英雄共用,
   // 做完各自的下一步不同(獵人等玩家指令、流浪英雄自己回去打怪) → 由呼叫者傳 next 進來。
@@ -1135,16 +1291,20 @@ export function createGame(saved = null) {
   // 流浪英雄的村內行程:賣材料 → 吃飯/喝飲料/睡覺/療傷 → 買裝備 → 回狩獵區。
   function wandererNextTownTask(w) {
     if (!w.tradedVisit && tradeAvailable(w)) { goToBuilding(w, 'trading', 'trade'); return; }
-    const product = needProduct(w, true);
-    if (product && !w.servedVisit.includes(product)) { w.serviceProduct = product; w.serviceStarted = false; goToBuilding(w, PRODUCTS[product].building, 'service'); return; }
+    const product = needProduct(w, true, w.servedVisit);
+    if (product) { w.serviceProduct = product; w.serviceStarted = false; goToBuilding(w, PRODUCTS[product].building, 'service'); return; }
     if (!w.shoppedVisit && gearAvailable(w)) { goToBuilding(w, 'forge', 'shop'); return; }
     wandererDepart(w);
   }
-  function wandererReturnToTown(w) {
+  function wandererReturnToTown(w, why = 'other') {
+    traceReturn(w, why);
     w.inTown = true; w.tradedVisit = false; w.shoppedVisit = false; w.servedVisit = []; w.targetId = null; w.status = '返村中';
+    // 好感度:背包裝滿戰利品回村,交易所卻不收(沒有收購量或村莊付不起)→ 小扣分
+    if (MATERIAL_KEYS.reduce((n, k) => n + (w.inventory[k] || 0), 0) >= TRADE_BAG && !tradeAvailable(w)) addAffinity(w, AFFINITY.refuse, 'refuse');
     wandererNextTownTask(w);
   }
   function wandererDepart(w) {
+    traceReturn(w, '@depart');
     w.task = null; w.serviceProduct = null; w.serviceStarted = false; w.destination = null; w.inTown = false; w.targetId = null; w.status = '出征中'; w.lastTownVisit = state.time;
     route(w, ringWaypoints({ x: w.x, z: w.z }, regionEdge(w.huntRegion) ?? REGIONS[1]));
   }
@@ -1160,7 +1320,7 @@ export function createGame(saved = null) {
       // 離線取樣期:記下收購量與付給誰,offlineFinish 另外依「剩餘收購量/持續收購/村莊金幣」外推,不照速率無上限地乘
       if (dgLedger) for (const T of tradeBooks()) { T.qty[key] = (T.qty[key] || 0) + amount; T.cost += price; T.gold[h.id] = (T.gold[h.id] || 0) + price; if (!wandererOf(h)) T.hunterCost += price; }
     }
-    if (quantity) { state.counts.traded += quantity; effect('loot', h, { text: `收購 ${quantity}`, color: '#e4c97b' }); tradeLog(h, quantity, coins); }
+    if (quantity) { state.counts.traded += quantity; effect('loot', h, { text: `收購 ${quantity}`, color: '#e4c97b' }); tradeLog(h, quantity, coins); addAffinity(h, AFFINITY.trade, 'trade'); }   // 流浪英雄賣得掉戰利品 → 好感度(獵人沒有這個欄位,addAffinity 自己略過)
     if (dgLedger) for (const T of tradeBooks()) T.visits++;
     h.tradedVisit = true;
   }
@@ -1189,6 +1349,7 @@ export function createGame(saved = null) {
       if (previous) stashReplaced(previous);
       h.gear[slot] = newGearItem(recipeItemId(recipe), g.tier);
       syncGear(h); state.counts.gearSold++; state.counts.gearIncome += g.price; if (upgrade) state.counts.gearUpgrades++;
+      addAffinity(h, AFFINITY.gear, 'gear', h.gear[slot].itemId, gearItemOf(h.gear[slot])?.name);   // 流浪英雄在鐵匠鋪買到裝備 → 好感度(一次性,離線不外推)
       // 離線外推:裝備是一次性的(庫存離線不會補),取樣期買的不能乘上倍率重複算(見 offlineFinish)
       if (dgLedger) { const w = !!wandererOf(h); dgLedger.gearPay[w ? 'wanderPay' : 'hunterPay'] += g.price; if (w) dgLedger.gearWander += g.price; else dgLedger.gear[h.id] = (dgLedger.gear[h.id] || 0) + g.price; }
       log(`${h.name} 花費 ${g.price} 金幣${upgrade ? '換上' : '購買'}${gearItemOf(h.gear[slot])?.name || g.name}。`, 'success'); effect('upgrade', h);
@@ -1214,7 +1375,9 @@ export function createGame(saved = null) {
   function dropAmount(amount) { const m = DIFFICULTIES[state.difficulty]?.mult ?? 1; return Math.max(0, Math.round(amount * (1 + (m - 1) / 2))); }
   function servicePrice(productId) { const p = PRODUCTS[productId]; return p ? Math.round(p.price * (1 + 0.25 * Math.max(0, (state.buildings[p.building] || 1) - 1))) : 0; }
   function beginService(h) {
-    const p = PRODUCTS[h.serviceProduct], price = servicePrice(h.serviceProduct), paid = state.stocks[h.serviceProduct] > 0 && h.gold >= price;
+    const p = PRODUCTS[h.serviceProduct], price = servicePrice(h.serviceProduct), inStock = state.stocks[h.serviceProduct] > 0, paid = inStock && h.gold >= price;
+    // 流浪英雄好感度:買到付費服務 +service(kind svc);賣完了(村莊沒貨)miss;自己錢不夠改用基本服務 → 不加不減(不是村莊的錯,affLast 也不動)
+    if (paid) addAffinity(h, AFFINITY.service, 'svc', h.serviceProduct); else if (!inStock) addAffinity(h, AFFINITY.miss, 'miss', h.serviceProduct);
     h.serviceStarted = true; h.actionTimer = paid ? 3.2 : 5.2; h.serviceDuration = h.actionTimer;
     h.status = ({ food: '用餐中', drink: '飲用中', bed: '休息中', bandage: '休養中' })[h.serviceProduct];
     if (paid) { effect('loot', buildingPoint(p.building), { text: `+${price}`, color: '#efcd82' }); h.gold -= price; state.gold += price; payLedger(h, price); state.stocks[h.serviceProduct]--; state.counts.services++; state.counts.serviceIncome += price;
@@ -1976,7 +2139,7 @@ export function createGame(saved = null) {
     log(`流浪英雄 ${w.name} 被${ENEMY_NAME[by?.type] || '魔物'}打倒，在野外倒地不起。`, 'warning');
   }
   // 最近倒下的紀錄(難度面板用):不進存檔,重開遊戲就清空;切換難度也清空,才看得出「這個難度」的風險
-  const DOWN_WINDOW = 240;   // 一個遊戲日
+  const DOWN_WINDOW = 240;   // 最近 240 遊戲秒(1× = 4 分鐘;2026-11-26 以前叫「一個遊戲日」)
   const recentDowns = [];
   function died(h, by) {
     h.hp = 0; h.reviveTimer = 8; h.status = '復活中'; h.targetId = null; h.route = []; h.mount = null;   // 倒地自動下坐騎
@@ -1991,7 +2154,7 @@ export function createGame(saved = null) {
 
   function revive(h) {
     Object.assign(h, door('sanctuary')); h.hp = Math.round(h.maxHp * 0.65); h.reviveTimer = 0; h.task = null; h.satiety = Math.max(h.satiety, 45); h.stamina = Math.max(h.stamina, 45);
-    effect('heal', h); returnToTown(h);
+    effect('heal', h); returnToTown(h, 'revive');
   }
 
   // 各生態區出怪:每區 3 隻新怪(小/中/大)＋ 1 隻舊怪保留(權重用重複項調整)。生命＝難度 mult × 該區 risk,攻擊＝難度 atk × 該區 risk。
@@ -2096,12 +2259,13 @@ export function createGame(saved = null) {
   // svc(2026-11-18):取樣期付費服務(餐點/飲品/床鋪/繃帶)賣了幾份、收多少、誰付的 → 外推時以「剩下的庫存」為上限另算(庫存離線不會補)
   // away(2026-11-18):每位獵人取樣期在地下城/競技場(不在野外)的秒數 → 野外速率以「在野外的獵人秒數」為單位外推
   const newLedger = () => ({ wins: 0, res: {}, gold: {}, xp: {}, gear: {}, gearWander: 0, gearPay: { hunterPay: 0, wanderPay: 0 }, trade: { qty: {}, cost: 0, hunterCost: 0, gold: {}, got: {}, gotBy: {}, visits: 0 },
-    svc: { qty: {}, gold: {}, by: {} }, away: {} });
+    svc: { qty: {}, gold: {}, by: {} }, away: {}, aff: {} });
   // 離線取樣的基準點(offlineSnapshot 與暖機結束時各記一次);offWarm = 還在暖機中的 snapshot(simulate 跑過 OFFLINE.warm 秒就記下 snap.win)
   let offWarm = null;
   function offlineMark() {
     return { res: Object.fromEntries(RESOURCE_KEYS.map(k => [k, state[k]])), stocks: { ...state.stocks }, kills: state.totalKills, wanderKills: state.wanderKills || 0, bestFloor: state.dungeon.bestFloor, counts: { ...state.counts },
-      hunters: Object.fromEntries(state.hunters.map(h => [h.id, { xp: lifetimeXp(h), gold: h.gold, level: h.level, rebirths: h.rebirths }])), time: state.time };
+      hunters: Object.fromEntries(state.hunters.map(h => [h.id, { xp: lifetimeXp(h), gold: h.gold, level: h.level, rebirths: h.rebirths }])), time: state.time,
+      aff: Object.fromEntries((state.wanderers || []).map(w => [w.id, Number(w.affinity) || 0])) };   // 流浪英雄好感度起點 → offlineFinish 算「離線期間淨變化」(affLast kind offline)
   }
   function ledgerGot(a, key, n) { if (!dgLedger || !(n > 0)) return; for (const T of tradeBooks()) { T.got[key] = (T.got[key] || 0) + n; T.gotBy[a.id] = (T.gotBy[a.id] || 0) + n * MATERIALS[key].price; } }
   // 收購帳有兩本:trade = 速率窗(扣錢包/金庫的野外速率用)、tradeAll = 整段取樣(收購外推用;暖機時沒有另外一本 → 同一本)
@@ -2212,7 +2376,7 @@ export function createGame(saved = null) {
     for (const h of state.hunters.filter(h => d.hunterIds.includes(h.id))) {
       h.task = null;
       if (h.hp <= 0) { h.task = 'revive'; h.reviveTimer = Math.max(3, h.reviveTimer); h.status = '復活中'; }
-      else returnToTown(h);
+      else returnToTown(h, 'dungeon');
     }
   }
   // 樓層獎勵(2026-11-17):出發體檢(dgSafeStart)讓弱隊從淺層出發、自動續戰一路爬,每趟都把 1..N 層全額再領一次 → 14 天模擬 3/5 個種子建築全滿、獵人 Lv.100。
@@ -2426,7 +2590,7 @@ export function createGame(saved = null) {
     if (won) { a.wins++; state.gold += a.reward; state.gems += gems; } else a.losses++;
     a.xpEach = 0;   // 2026-11-24 結算卡顯示實際發出去的經驗(隊伍裡最多的一位;Lv.100 不拿經驗 → 0),不要在 UI 重算
     for (const h of state.hunters.filter(h => a.hunterIds.includes(h.id))) {
-      h.task = null; h.hp = h.maxHp; if (won) { h.gold += 25; const xp = h.level >= 100 ? 0 : 80 + Math.min(ARENA_CAP, a.wins) * 30; a.xpEach = Math.max(a.xpEach, xp); gainXp(h, xp); } returnToTown(h);   // 模擬戰的傷不帶出場:賽後回滿生命(見 ARENA_COOLDOWN)
+      h.task = null; h.hp = h.maxHp; if (won) { h.gold += 25; const xp = h.level >= 100 ? 0 : 80 + Math.min(ARENA_CAP, a.wins) * 30; a.xpEach = Math.max(a.xpEach, xp); gainXp(h, xp); } returnToTown(h, 'arena');   // 模擬戰的傷不帶出場:賽後回滿生命(見 ARENA_COOLDOWN)
     }
     log(`競技場模擬對戰${won ? `獲勝（第 ${a.wins} 勝），村莊獲得 ${a.reward} 金幣${gems ? `與 ${gems} 星晶` : ''}` : '落敗，隊伍已安全撤回'}。`, won ? 'success' : 'warning');
   }
@@ -2722,8 +2886,8 @@ export function createGame(saved = null) {
   function step(dt) {
     if (pilotStep(dt)) { /* 手動模式:只跑環境與其他單位 */ }
     stepShots(dt); landHits();
-    const prevDay = state.day; state.time += dt; state.day = Math.floor(state.time / 240) + 1;
-    if (state.day > prevDay) newDayVisitor();
+    state.time += dt;
+    realTimeStep();   // 2026-11-26:「隔天」類規則改看真實時間(流浪英雄補人)
     state.healCooldown = Math.max(0, state.healCooldown - dt); state.expedition.cooldown = Math.max(0, state.expedition.cooldown - dt); state.dungeon.cooldown = Math.max(0, state.dungeon.cooldown - dt); state.arena.cooldown = Math.max(0, state.arena.cooldown - dt);
     runCraftTargets(dt);   // 持續製作:每秒把低於目標庫存的物資用現有材料補齊
     // 定時生怪:每個狩獵區都有自己的族群。主狩獵區與其他區的上限、補怪間隔見 REGION_DENSITY。
@@ -2741,7 +2905,9 @@ export function createGame(saved = null) {
       if (h.hp <= 0) { if (h.mount) h.mount = null;   // 倒地(含地下城/競技場)一律下坐騎
         if (h.task !== 'dungeon' && h.task !== 'arena') { if (h.task !== 'revive') died(h); h.reviveTimer = Math.max(0, h.reviveTimer - dt); if (h.reviveTimer === 0) revive(h); } continue; }
       if (h.task === 'dungeon' || h.task === 'arena') { walk(h, dt); h.stamina = Math.max(0, h.stamina - dt * 0.2); continue; }
-      const consumption = (h.task ? 0.3 : (h.huntRegion&&(h.status==='出征中'||h.status==='搜尋中'||(h.status||'').startsWith('前往'))) ? 0.42 : 1) * (h.trait === 'frugal' ? 0.85 : 1);
+      // 2026-11-26:在野外打獵(有狩獵區、不在村裡)的消耗 1 → FIELD_DRAIN(0.6):全滿出門約 110 秒的戰鬥才會餓到 NEED.field,
+      //   比「血從滿打到 30%」長 → 回村的時機由生命決定(見 NEED)。村裡待機仍是 1;趕路 0.42、村內辦事 0.3 不變。
+      const consumption = (h.task ? 0.3 : (h.huntRegion&&(h.status==='出征中'||h.status==='搜尋中'||(h.status||'').startsWith('前往'))) ? 0.42 : (h.huntRegion && !h.inTown) ? FIELD_DRAIN : 1) * (h.trait === 'frugal' ? 0.85 : 1);
       h.satiety = Math.max(0, h.satiety - dt * 0.95 * consumption); h.stamina = Math.max(0, h.stamina - dt * 0.76 * consumption); h.mood = Math.max(0, h.mood - dt * 0.55 * consumption * (h.trait === 'cheerful' ? 0.5 : 1));
       // 手動操控:移動、出手都交給玩家(pilotStep),AI 不要再動這位獵人 —— 不然 AI 會照自己的路線／狩獵區
       // 把人拉走,搖桿推的方向就變成在和 AI 搶。需求消耗照常算,只跳過決策與走動。
@@ -2776,17 +2942,22 @@ export function createGame(saved = null) {
         } } }
       if (h.task === 'trade' || h.task === 'shop' || h.task === 'service') { runTownTask(h, dt, townErrandDone); continue; }
       const bagSize = MATERIAL_KEYS.reduce((sum, key) => sum + h.inventory[key], 0);
-      if (needProduct(h) || (bagSize >= TRADE_BAG && tradeAvailable(h) && state.time - h.lastTownVisit > 12) || (state.time - h.lastTownVisit > 60 && gearAvailable(h))) { returnToTown(h); continue; }
+      // 回村的理由只有:生命低(fieldNeed 的 bandage、autoHp、看情勢撤退)、生活需求真的見底(fieldNeed)、背包真的滿了(BAG_FULL)。
+      // 2026-11-26 拿掉「出門 60 秒、鐵匠鋪有裝備就回村買」:回村辦事時本來就會逛鐵匠鋪(nextTownTask),不用為了它中斷一趟狩獵。
+      { const np = fieldNeed(h); if (np) { returnToTown(h, np); continue; } }
+      // 已經在村裡(待機、召回、讀檔)就照舊:背包有 TRADE_BAG 份、或鐵匠鋪有想買的裝備就順路去辦(不會中斷任何狩獵)
+      if (h.inTown ? bagSize >= TRADE_BAG : bagSize >= BAG_FULL && !fieldBusy(h)) { if (tradeAvailable(h) && state.time - h.lastTownVisit > 12) { returnToTown(h, 'bag'); continue; } }
+      if (h.inTown && state.time - h.lastTownVisit > 60 && gearAvailable(h)) { returnToTown(h, 'gear'); continue; }
       // 自己出來打獵的比較謹慎:血掉到 AUTO_HUNT.retreatHp 就回村療傷(玩家派出去的照原本 28% 才回)。
-      if (h.autoHunt && h.hp < h.maxHp * AUTO_HUNT.retreatHp) { returnToTown(h); continue; }
+      if (h.autoHunt && h.hp < h.maxHp * AUTO_HUNT.retreatHp) { returnToTown(h, 'autoHp'); continue; }
       // 看情勢撤退(玩家派的、自主的都適用):身邊魔物 RETREAT.window 秒內打得出的傷害 ≥ 剩餘血量就先回村。
-      if (shouldRetreat(h)) { returnToTown(h); continue; }
+      if (shouldRetreat(h)) { returnToTown(h, 'retreat'); continue; }
       // 沒有狩獵區:在村裡待一下,時間到就自己挑區出門(autoHuntStep);還沒到就待機(只自衛打眼前的魔物)。
       if (!h.huntRegion && !h.targetId && autoHuntStep(h)) continue;
       if (!h.huntRegion && !h.targetId) {
         const near = state.enemies.find(e => e.hp > 0 && distance(h, e) < 5);
         if (!near) {
-          if (!h.inTown && !h.route.length) returnToTown(h);
+          if (!h.inTown && !h.route.length) returnToTown(h, 'noRegion');
           else { h.status = '待機'; if (h.inTown && !h.route.length && random() < 0.004) route(h, [onRoadPoint(safePoint({ x: VILLAGE_BOUNDS.minX + 3 + random() * (VILLAGE_BOUNDS.maxX - VILLAGE_BOUNDS.minX - 6), z: VILLAGE_BOUNDS.minZ + 3 + random() * (VILLAGE_BOUNDS.maxZ - VILLAGE_BOUNDS.minZ - 6) }))]); walk(h, dt); }
           continue;
         }
@@ -3016,12 +3187,15 @@ export function createGame(saved = null) {
       // 2026-11-23:流浪英雄也會被聖騎士套上聖盾(castSkill 的 allies 含流浪英雄),但以前這裡從不倒數 buff → 聖盾永久有效。
       // 只倒數 buff;流浪英雄的異常狀態照舊不在這裡結算(行為不變,不屬於這次改動)。
       tickBuffs(w, dt);
+      // 2026-11-26 流浪英雄的野外消耗不套 FIELD_DRAIN(試過:15 天 5 seed 有 2 個卡在委託第 20 章 —— 流浪英雄回村變少,交易所收到的礦石跟著少);
+      //   他們本來就多半打到 <28% 才回村(8 天模擬 64–74% 是療傷),餓了回村的那幾趟也已經打了 60 秒以上。
       const consumption = (w.task ? 0.3 : 1) * (w.trait === 'frugal' ? 0.85 : 1);
       w.satiety = Math.max(0, w.satiety - dt * WANDER_CONSUME.satiety * consumption);
       w.stamina = Math.max(0, w.stamina - dt * WANDER_CONSUME.stamina * consumption);
       w.mood = Math.max(0, w.mood - dt * WANDER_CONSUME.mood * consumption);
       if (w.task === 'trade' || w.task === 'shop' || w.task === 'service') { runTownTask(w, dt, wandererNextTownTask); continue; }
-      if (needProduct(w) || (state.time - w.lastTownVisit > 110 && gearAvailable(w))) { wandererReturnToTown(w); continue; }
+      // 流浪英雄跟獵人同一套(2026-11-26):生命低或生活需求真的見底才回村;不再「出門 110 秒、鐵匠鋪有貨就回村」(回村辦事時照樣會逛鐵匠鋪)
+      { const np = fieldNeed(w); if (np) { wandererReturnToTown(w, np); continue; } }
       // 每隔一段時間重新評估:變強了就可以換到更硬的區域
       if (state.time > (w.regionCheckAt ?? 0)) { w.regionCheckAt = state.time + 45; const pick = bestRegionFor(w); if (pick.id !== w.huntRegion) { w.huntRegion = pick.id; w.route = []; } }
       const region = REGIONS.find(r => r.id === w.huntRegion) || REGIONS[1];
@@ -3087,17 +3261,16 @@ export function createGame(saved = null) {
   function fresh() {
     recentDowns.length = 0;
     for (const key of Object.keys(state)) delete state[key];
-    Object.assign(state, { version: 4, layoutRevision: 3, worldRevision: 5, region: 'meadow', visitedRegions:['village','meadow'], gold: 1500, wood: 160, ore: 120, herb: 60, cloth: 60, flour: 80, leather: 50, gems: 20, day: 1, time: 0, paused: false, speed: 1, difficulty: 0, kills: 0, totalKills: 0, bossKills: 0, codex: {}, recruited: 0, hunters: [], enemies: [], buildings: Object.fromEntries(BUILDINGS.map(b => [b.id, UNBUILT.has(b.id) ? 0 : 1])), layout: Object.fromEntries(BUILDINGS.map(b => [b.id, { x: b.x, z: b.z }])), stocks: { food: 30, drink: 30, bed: 30, bandage: 30 }, craftTargets: Object.fromEntries(PRODUCT_KEYS.map(k => [k, 0])), gearStock: emptyGearStock(), gearStorage: [], gearSeq: 1, tradeRequests: { wood: 30, ore: 40, herb: 30, cloth: 30, flour: 40, leather: 30 }, tradeStanding: Object.fromEntries(MATERIAL_KEYS.map(k => [k, false])), autoJunk: 'sell', counts: { crafted: 0, foodCrafted: 0, traded: 0, gearCrafted: 0, weaponsCrafted: 0, gearSold: 0, gearUpgrades: 0, gearIncome: 0, services: 0, basicServices: 0, serviceIncome: 0, dungeonWins: 0, rebirths: 0, deaths: 0, trained: 0, hunterGold: 0, hunterPay: 0, wanderGold: 0, wanderPay: 0 }, effects: [], log: [], quest: { index: 0, claimed: false }, questRevision: QUEST_REVISION, questFinalPaid: false, expedition: { active: false, bossHp: 0, bossMaxHp: 1150, cooldown: 0, elapsed: 0 }, dungeon: { active: false, floor: 1, bestFloor: 0, wave: 0, enemyHp: 0, enemyMaxHp: 0, time: 0, hunterIds: [], reward: {}, cooldown: 0, phase: '待命', attackTimer: 1, foes: [], events: [], auto: false, startFloor: 0, rest: 0 }, healCooldown: 0, capacity: Math.max(8, CLASSES.length + 2), spawnTimer: 0, seed: 918273, nextId: 0, rally: null, dispatchTeams: defaultDispatchTeams(), regionDensity: normalizeRegionDensity(null), settings: { ...DEFAULT_SETTINGS } });
+    Object.assign(state, { version: 4, layoutRevision: 3, worldRevision: 5, region: 'meadow', visitedRegions:['village','meadow'], gold: 1500, wood: 160, ore: 120, herb: 60, cloth: 60, flour: 80, leather: 50, gems: 20, time: 0, paused: false, speed: 1, difficulty: 0, kills: 0, totalKills: 0, bossKills: 0, codex: {}, recruited: 0, wandererDue: 0, wandererNextAt: null, hunters: [], enemies: [], buildings: Object.fromEntries(BUILDINGS.map(b => [b.id, UNBUILT.has(b.id) ? 0 : 1])), layout: Object.fromEntries(BUILDINGS.map(b => [b.id, { x: b.x, z: b.z }])), stocks: { food: 30, drink: 30, bed: 30, bandage: 30 }, craftTargets: Object.fromEntries(PRODUCT_KEYS.map(k => [k, 0])), gearStock: emptyGearStock(), gearStorage: [], gearSeq: 1, tradeRequests: { wood: 30, ore: 40, herb: 30, cloth: 30, flour: 40, leather: 30 }, tradeStanding: Object.fromEntries(MATERIAL_KEYS.map(k => [k, false])), autoJunk: 'sell', counts: { crafted: 0, foodCrafted: 0, traded: 0, gearCrafted: 0, weaponsCrafted: 0, gearSold: 0, gearUpgrades: 0, gearIncome: 0, services: 0, basicServices: 0, serviceIncome: 0, dungeonWins: 0, rebirths: 0, deaths: 0, trained: 0, hunterGold: 0, hunterPay: 0, wanderGold: 0, wanderPay: 0 }, effects: [], log: [], quest: { index: 0, claimed: false }, questRevision: QUEST_REVISION, questFinalPaid: false, expedition: { active: false, bossHp: 0, bossMaxHp: 1150, cooldown: 0, elapsed: 0 }, dungeon: { active: false, floor: 1, bestFloor: 0, wave: 0, enemyHp: 0, enemyMaxHp: 0, time: 0, hunterIds: [], reward: {}, cooldown: 0, phase: '待命', attackTimer: 1, foes: [], events: [], auto: false, startFloor: 0, rest: 0 }, healCooldown: 0, capacity: Math.max(8, CLASSES.length + 2), spawnTimer: 0, seed: 918273, nextId: 0, rally: null, dispatchTeams: defaultDispatchTeams(), regionDensity: normalizeRegionDensity(null), settings: { ...DEFAULT_SETTINGS } });
     rebuildNavigation();
-    state.visitors = [];
     state.arena = { active: false, wins: 0, losses: 0, enemyHp: 0, enemyMaxHp: 0, time: 0, hunterIds: [], cooldown: 0, phase: '待命', attackTimer: 1, opponent: '暮林訓練隊', reward: 0 };
     // 2026-10-28:開局每個職業各一隻(職業數變動時自動跟著長)
     CLASSES.forEach((c, i) => newHunter(c.id, {x:CAMP.x+i*.55-1.6,z:CAMP.z+Math.sin(i)*.35}, i));
-    for (let i = 0; i < 3; i++) state.visitors.push(newVisitor(state.visitors.map(v => v.classId)));
-    offerNewClass();
     // 流浪英雄的職業由 newWanderer 從 CLASSES 擲骰(祭司已是正式職業,不再固定塞一位流浪祭司)。
     // 2026-10-28:流浪英雄也改成每個職業各一隻(沒指定職業時仍隨機)
     state.wanderers = []; for (const c of CLASSES) state.wanderers.push(newWanderer(c.id));
+    // 2026-11-25 第 1 章(邀請 1 位流浪英雄)要開局就做得到:至少一位是門檻最低的「普通」(七位全是稀有以上時把第一位改成普通;不擲骰)
+    if (!state.wanderers.some(w => w.rarity === 'normal')) { const w0 = state.wanderers[0]; w0.rarity = 'normal'; updateStats(w0); w0.hp = w0.maxHp; }
     state.wanderKills = 0;
     for (let i = 0; i < 10 * MONSTER_POP; i++) { const m = mixOf('meadow'); spawn(m[Math.floor(random() * m.length)], null, 'meadow'); }  // 開局草原就有 20 隻
     // 其他狩獵區各 10 隻;*不*預先下載牠們的 sheet(21 隻要 5.6 MB)——真的畫到或進區時才載。
@@ -3132,9 +3305,17 @@ export function createGame(saved = null) {
     state.region=REGIONS.some(r=>r.id===source.region&&r.id!=='village')?source.region:'meadow';
     state.visitedRegions=[...new Set(['village','meadow',...(Array.isArray(source.visitedRegions)?source.visitedRegions.filter(id=>REGIONS.some(r=>r.id===id)):[])])];
     for (const key of RESOURCE_KEYS) state[key] = integer(source[key], state[key], 0, 1e7);
-    state.time = number(source.time, 0, 0, 240 * 99999); state.day = Math.floor(state.time / 240) + 1;
+    state.time = number(source.time, 0, 0, 240 * 99999);
+    // 2026-11-26 拿掉日夜:狀態裡不再有遊戲天數 day;舊存檔的 day 不讀。舊的「今天」只拿來換算舊欄位(婉拒冷卻、好感度上次變化、補人時間)。
+    const oldDay = Math.floor(state.time / OLD_DAY_SEC) + 1, oldDayLeftMs = (OLD_DAY_SEC - state.time % OLD_DAY_SEC) * 1000, loadNow = realNow();
     state.paused = source.paused === true; state.speed = integer(source.speed, 1, 1, 3); state.seed = integer(source.seed, 918273, 0, 4294967295); state.nextId = integer(source.nextId, state.nextId, state.nextId, 1e9);
     for (const key of ['totalKills', 'bossKills', 'recruited', 'wanderKills']) state[key] = integer(source[key], 0, 0, 1e7);
+    state.wandererDue = integer(source.wandererDue, 0, 0, 50);   // 2026-11-25 被招募走、還沒補來的流浪英雄人數(舊存檔沒有 → 0)
+    // 下一位補來的真實時間(2026-11-26):沒欠人 → null;存檔裡的值比「現在 + 間隔」還晚(換裝置/時鐘倒退)就夾回來;
+    //   舊存檔(只有 wandererDue、沒有這欄)→ 照舊規則「到下一次換日」:現在 + 這一個舊遊戲日剩下的秒數(最多一個間隔)
+    state.wandererNextAt = !(state.wandererDue > 0) ? null
+      : Number.isFinite(source.wandererNextAt) ? Math.min(source.wandererNextAt, loadNow + REALTIME.wandererEvery)
+      : loadNow + Math.min(REALTIME.wandererEvery, oldDayLeftMs);
     if (source.wanderDowns != null) state.wanderDowns = integer(source.wanderDowns, 0, 0, 1e7);
     // T126:圖鑑擊殺紀錄（舊存檔沒有這個欄位）
     state.codex = source.codex && typeof source.codex === 'object'
@@ -3216,16 +3397,13 @@ export function createGame(saved = null) {
           h.serviceDuration = number(raw.serviceDuration, 3.2, 0.1, 8); h.actionTimer = number(raw.actionTimer, 0.1, 0, h.serviceDuration); h.serviceGain = number(raw.serviceGain, 0, 0, 100);
           h.status = ({ food: '用餐中', drink: '飲用中', bed: '休息中', bandage: '休養中' })[raw.serviceProduct]; h.tradedVisit = raw.tradedVisit === true; h.shoppedVisit = raw.shoppedVisit === true;
           h.servedVisit = Array.isArray(raw.servedVisit) ? [...new Set(raw.servedVisit.filter(key => own(PRODUCTS, key)))] : [];
-        } else if (raw.inTown || needProduct(h)) returnToTown(h); else depart(h);
+        } else if (raw.inTown || needProduct(h)) returnToTown(h, 'load'); else depart(h);
       }
     }
     const rebirths = state.hunters.reduce((n, h) => n + h.rebirths, 0);
     state.difficulty = integer(source.difficulty, 0, 0, DIFFICULTIES.length - 1); if (DIFFICULTIES[state.difficulty].rebirths > rebirths) state.difficulty = 0;
     state.counts.rebirths = Math.max(state.counts.rebirths, rebirths);
-    if (Array.isArray(source.visitors)) {
-      const visitors = source.visitors.filter(v => v && own(CLASS, normalizeClassId(v.classId)) && own(RARITY, v.rarity)).slice(0, 3).map(v => { const cid = normalizeClassId(v.classId); return { id: id('v'), classId: cid, rarity: v.rarity, trait: TRAITS.some(t => t.id === v.trait) ? v.trait : 'brave', cost: Math.round(CLASS[cid].cost * RARITY[v.rarity].mult) }; });
-      while (visitors.length < 3) visitors.push(newVisitor(visitors.map(v => v.classId))); state.visitors = visitors; offerNewClass();
-    }
+    // 2026-11-25 旅人/訪客取消:舊存檔的 source.visitors 不讀(直接丟掉);招募改成邀請流浪英雄(好感度在下面還原)。
     // 4 組派遣隊伍:舊存檔沒有就補上;名單裡已不存在的獵人自動剔除。
     state.dispatchTeams = normalizeTeams(source.dispatchTeams);
     // Sanitize saved wanderers (cap count, clamp stats, prevent invalid rarity crashes and XSS in names).
@@ -3243,6 +3421,13 @@ export function createGame(saved = null) {
       base.rebirths = integer(w.rebirths, 0, 0, 20);
       base.skillLevel = integer(w.skillLevel, 0, 0, 5);
       base.gold = integer(w.gold, WANDER_START_GOLD, 0, 1e7);
+      // 招募好感度(2026-11-25):舊存檔沒有 → 一律 AFFINITY.legacy(中段起點:普通的已經有機會,稀有以上還要村莊多照顧幾趟)
+      base.affinity = number(w.affinity, AFFINITY.legacy, 0, 100);
+      // 婉拒冷卻(2026-11-26 改真實時間 recruitRetryAt):最多夾到 現在 + REALTIME.recruitRetry;已經過了 → 0。
+      //   舊存檔的 recruitRetryDay(「明天才能再邀」)還沒到 → 換成「這一個舊遊戲日剩下的時間」(也夾在一次冷卻內);舊欄位本身丟掉
+      { const at = Number.isFinite(w.recruitRetryAt) ? w.recruitRetryAt : Number.isFinite(w.recruitRetryDay) && w.recruitRetryDay > oldDay ? loadNow + oldDayLeftMs : 0;
+        const capped = Math.min(at, loadNow + REALTIME.recruitRetry); base.recruitRetryAt = capped > loadNow ? capped : 0; }
+      { const last = sanitizeAffLast(w.affLast, loadNow, oldDay); if (last) base.affLast = last; }   // 最近一次好感度變化(2026-11-25);舊存檔沒有 → 不寫
       for (const key of MATERIAL_KEYS) base.inventory[key] = integer(w.inventory?.[key], 0, 0, 1e5);
       for (const key of ['satiety', 'stamina', 'mood']) base[key] = number(w[key], 100, 0, 100);
       if (!oldMap) {
@@ -3266,7 +3451,7 @@ export function createGame(saved = null) {
       base.huntRegion = !oldMap && REGIONS.some(r => r.id === w.huntRegion && r.id !== 'village') ? w.huntRegion : bestRegionFor(base).id;
       return base;
     }) : [];
-    while (state.wanderers.length < 4) state.wanderers.push(newWanderer());
+    topUpWanderers();   // 至少 AFFINITY.min(4)位;補來的照 wandererClassPick 挑職業(缺祭司先補祭司)
     dedupeWandererNames();
     // 委託:章節表改過版,舊存檔的 index 要對照到新表(規則見 migrateQuest)。
     { const q = migrateQuest(source); state.quest = { index: q.index, claimed: q.claimed }; state.questRevision = QUEST_REVISION; state.questFinalPaid = q.finalPaid; }
@@ -3346,21 +3531,29 @@ export function createGame(saved = null) {
   fresh(); restore(saved);
   return {
     state,
+    // 2026-11-26 真實時間的時鐘(介面算婉拒冷卻、「多久以前」用同一個;測試可換掉)
+    realNow,
+    setClock(fn) { clock = typeof fn === 'function' ? fn : () => Date.now(); },
     villageNav: () => vnav,   // 測試用:村內可走格與路徑(鋪面、建築與障礙算好的那一份)
+    traceReturns(on = true) { returnTrace = on ? (returnTrace || []) : null; return returnTrace; },   // 測試/平衡工具:返村原因紀錄(見 traceReturn)
     tick(dt) {
       if (state.paused || !Number.isFinite(dt) || dt <= 0) return;
       let remaining = Math.min(dt, 30) * number(state.speed, 1, 1, 3);
       while (remaining > 1e-7) { const size = Math.min(0.1, remaining); step(size); remaining -= size; }
     },
-    recruit(classId) {
-      const visitorIndex = state.visitors.findIndex(v => v.id === classId), visitor = visitorIndex >= 0 ? state.visitors[visitorIndex] : null;
-      const c = CLASS[visitor?.classId ?? classId]; if (!c) return result(false, '找不到這個獵人職業或訪客。');
+    // 招募(2026-11-25):傳流浪英雄的 id → 照好感度邀請(見 recruitWanderer;婉拒時回傳 declined: true、不收金幣)。
+    // 傳職業 id(例如 'priest')= 開發／測試用的直接招募:付職業原價、新獵人 Lv.1;介面沒有任何按鈕會走這條路。
+    recruit(targetId) {
+      const w = (state.wanderers || []).find(v => v.id === targetId);
+      if (w) return recruitWanderer(w);
+      const c = own(CLASS, targetId) ? CLASS[targetId] : null; if (!c) return result(false, '找不到這位流浪英雄。');
       if (state.hunters.length >= state.capacity) return result(false, '獵人名額已滿，升級獵人小屋可以增加 2 個名額。');
-      const cost = visitor?.cost ?? c.cost; if (state.gold < cost) return result(false, `招募需要 ${cost} 村莊金幣。`);
-      state.gold -= cost; const h = newHunter(c.id, door('house')); state.recruited++;
-      if (visitor) { h.rarity = visitor.rarity; h.trait = visitor.trait; updateStats(h); h.hp = h.maxHp; state.visitors[visitorIndex] = newVisitor(state.visitors.filter((_, i) => i !== visitorIndex).map(v => v.classId)); }
+      if (state.gold < c.cost) return result(false, `招募需要 ${c.cost} 村莊金幣。`);
+      state.gold -= c.cost; const h = newHunter(c.id, door('house')); state.recruited++;
       log(`${RARITY[h.rarity].name}${c.name} ${h.name} 加入村莊，帶著 100 枚個人金幣。`, 'success'); refreshQuest(); return result(true, `${h.name} 已加入隊伍。`);
     },
+    // 招募卡的唯讀資料:好感度、門檻、成功率、費用、能不能按(why = 鎖住的原因)。找不到 → null
+    recruitQuote(wandererId) { const w = (state.wanderers || []).find(v => v.id === wandererId); return w ? recruitQuoteOf(w) : null; },
     // T127：招募卡要預覽「請進來會是什麼體質」。重用 updateStats，不另外複製一份公式；
     // 等級 1、無裝備、無轉世，跟 newHunter() 剛建立的狀態一致。
     visitorPreview(v) {
@@ -3800,7 +3993,7 @@ export function createGame(saved = null) {
     //   挑「每秒傷害」(攻擊 ÷ 出手間隔)最高、生命 ≥35%、沒在地下城／復活中的三人。
     // 下一場競技場對手的生命／攻擊(面板顯示用,跟 startArena 同一條公式)
     // 首領面板預覽:在目前生態區召喚時的生命與獎勵(跟 spawn / 擊倒結算同一套倍率)
-    // 最近一個遊戲日倒下幾次、最常倒在哪、最常被誰打倒
+    // 最近 DOWN_WINDOW 遊戲秒(1× = 4 分鐘)倒下幾次、最常倒在哪、最常被誰打倒
     downReport() {
       const list = recentDowns.filter(d => d.at <= state.time && state.time - d.at <= DOWN_WINDOW);
       const top = key => { const n = {}; let best = null; for (const d of list) { const v = d[key]; if (!v) continue; n[v] = (n[v] || 0) + 1; if (!best || n[v] > n[best]) best = v; } return best; };
@@ -3867,6 +4060,7 @@ export function createGame(saved = null) {
       // 野外(非地下城)的淨變化;交易所收購另外算(下面「收購外推」),所以材料扣掉收購進來的份數、金幣加回付出去的收購款
       const field = k => (state[k] - w.res[k]) - (L.res[k] || 0) - (T.qty[k] || 0) + (k === 'gold' ? T.cost : 0);
       if (f > 0) {
+        const affPre = new Map();   // 外推前每位流浪英雄的好感度(⑤-2 填;沒有 snap.aff 起點時用)
         // ① 先量完速率窗的各項變化(下面跑地下城、外推都會改 state)
         const sumVals = o => Object.values(o || {}).reduce((n, v) => n + v, 0);
         const svcAll = sumVals(S.gold), gearAll = L.gearPay.hunterPay + L.gearPay.wanderPay;
@@ -3932,6 +4126,12 @@ export function createGame(saved = null) {
         state.gold = Math.max(0, Math.round(village));
         state.counts.services += sold; state.counts.serviceIncome += svcPaid; state.counts.basicServices = (state.counts.basicServices || 0) + Math.round(basic);
         state.counts.hunterPay = (state.counts.hunterPay || 0) + hunterSvc; state.counts.wanderPay = (state.counts.wanderPay || 0) + wanderSvc;
+        // ⑤-2 流浪英雄好感度(2026-11-25):速率窗裡每人的好感度變化照 f 外推(流浪英雄的統計都照 f,見 OFFLINE_WANDER_COUNTS);
+        //   付費服務那份乘上「外推期間買得到的比例」(庫存離線不補),買不到的份數改算斷貨扣分;裝備一次性,帳本本來就沒記
+        { const want = sold + basic, shareAll = want > 0 ? sold / want : 1;
+          for (const wd of state.wanderers || []) { affPre.set(wd.id, Number(wd.affinity) || 0); const a = L.aff?.[wd.id]; if (!a) continue;
+            const d = (a.svc * shareAll + a.other + a.loss) * f + (a.svc / AFFINITY.service) * (1 - shareAll) * AFFINITY.miss * f;
+            wd.affinity = clamp((Number(wd.affinity) || 0) + d, 0, 100); } }
         // ⑥ 裝備:外推期間每位獵人至少回村一趟 → 照線上規則(gearOffer:買得起、身上已有升級件要留 GEAR_RESERVE)逛一次鍛造屋;庫存買完就沒了
         //   還在地下城的小隊不算:他們在 ② 照實打的時候,每層休整已經買過了(floorCleared)
         if (rest >= OFFLINE_SHOP_MIN && state.buildings.forge > 0) for (const h of pool) {
@@ -3979,7 +4179,16 @@ export function createGame(saved = null) {
         // ⑦ 自動修煉:外推期間每 offlineVisitSec 秒算回村一趟,照線上規則一次一次練(條件、學費、保留額都走 autoTrainReady / payTraining;學費照實從錢包轉給村莊)。
         //   放在所有錢包入帳之後;還在地下城的隊員 trainBlock 會擋下;不寫日誌,學費算進離線戰報的「付給村莊」
         for (const h of pool) for (let n = Math.floor(restField(h) / AUTO_TRAIN.offlineVisitSec) * AUTO_TRAIN.perVisit; n > 0 && autoTrainReady(h); n--) payTraining(h, trainQuote(h));
-        state.time += Math.max(0, rest - dgT); state.day = Math.floor(state.time / 240) + 1;
+        state.time += Math.max(0, rest - dgT);
+        // 2026-11-26:流浪英雄補人看真實時間,離線那段在真實世界早就過完了 → 取樣的第一步(realTimeStep)已經補齊;這裡再檢查一次(不會重複補)
+        realTimeStep();
+        // 好感度「上次變化」(affLast):有外推時,改成整段離線(取樣 + 外推)的淨變化,一位只寫一次;淨變化是 0 就保留取樣期最後一筆。
+        //   起點 = 離線開始時的好感度(snap.aff);取樣期才來的流浪英雄用外推前的值;外推期間新來的(兩者都沒有)不寫
+        for (const wd of state.wanderers || []) {
+          const from = snap.aff && own(snap.aff, wd.id) ? snap.aff[wd.id] : affPre.get(wd.id); if (from === undefined) continue;
+          const net = (Number(wd.affinity) || 0) - from;
+          if (Math.abs(net) > 1e-9) wd.affLast = { kind: 'offline', delta: net, item: null, name: null, at: realNow() };
+        }
         state.healCooldown = Math.max(0, state.healCooldown - rest);
         for (const k of ['expedition', 'dungeon', 'arena']) state[k].cooldown = Math.max(0, state[k].cooldown - rest);
       }
@@ -4148,7 +4357,7 @@ export function createGame(saved = null) {
       try {
         fresh();
         if (!restore(check.data)) throw new Error('restore rejected');
-        return { ...result(true, `已匯入存檔（第 ${state.day} 天 · 獵人 ${state.hunters.length} 位）。`), summary: check.summary };
+        return { ...result(true, `已匯入存檔（獵人 ${state.hunters.length} 位）。`), summary: check.summary };
       } catch {
         fresh();
         restore(backup);
@@ -4266,6 +4475,9 @@ export function createGame(saved = null) {
             const pick = CLASSES.find(c => !have.has(c.id)) || CLASSES[Math.floor(random() * CLASSES.length)];
             s2.wanderers.push(newWanderer(pick.id));
             return result(true, `多一位流浪英雄：${pick.name}`); }
+        case 'affinity':   // 2026-11-25 招募好感度:所有流浪英雄好感度 +50(最多 100)、清掉婉拒冷卻
+          for (const w of s2.wanderers || []) { w.affinity = Math.min(100, (Number(w.affinity) || 0) + 50); w.recruitRetryAt = 0; }
+          return result(true, '所有流浪英雄好感度 +50');
         case 'all':
           { const out = ['resources', 'levels', 'buildings', 'quest', 'heal'].map(k => this.cheat(k).message);
             return result(true, '一次套用：' + out.join('／')); }

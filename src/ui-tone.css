@@ -372,15 +372,10 @@
 /* ===== HUD 打磨（T150）：1024x768／1920x1080 =====
    桌機小視窗介面縮放 85%（#game-ui zoom），底欄標籤、自動儲存、操作提示、事件訊息宣告 12px 實際只剩 10.2px。
    一律 ÷ 縮放換回畫面上的 12px；大螢幕（縮放 >1）維持原本 12px×縮放，不縮小。#topbar 在 zoom 外，用原本的 px。
-   日夜鐘：「第 N 天」「白天」原本上下兩行，旁邊 34px 的進度條軌道跟底色幾乎同色，只剩 1px 的填色像一個孤立的「.」。
-   改成同一行「第 N 天 · 白天」（分隔點用偽元素，不會單獨換行），進度條補上看得見的軌道與外框。 */
+   （日夜鐘的樣式 2026-11-26 隨遊戲內日夜一起拿掉。） */
 @media(min-width:761px) and (min-height:521px){
   #bottom-bar>button b,#bottom-bar #save-label,.map-hint,.notice-feed div:not(.empty-state){font-size:max(12px,calc(12px / var(--ui-scale,1)))}
   #bottom-bar #save-label{color:var(--gold-sand);letter-spacing:.5px}
-  .day-clock .dc-tx{flex-direction:row;align-items:baseline;white-space:nowrap;line-height:1.2}
-  .day-clock .dc-tx small{font-size:12px}
-  .day-clock .dc-tx small::before{content:'·';margin:0 5px;color:var(--parchment-faint)}
-  .day-clock .dc-bar{height:4px;background:var(--ink-darkest);box-shadow:0 0 0 1px var(--panel-edge)}
 }
 /* 操作提示字放大後變寬，會貼到左下事件訊息（訊息最寬 (250+410)px×縮放）。提示往右挪到訊息與右下縮放鈕之間：
    1024（85%）可放的中心 680–760px、1440（115%）895–1105px、1920（130%）1010–1540px。 */

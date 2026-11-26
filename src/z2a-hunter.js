@@ -158,26 +158,4 @@ export function hunterDetailHTML(h){
   +`<button type="button" class="pixel-button z2-train-btn${t.ok?'':' locked'}" data-action="train" data-id="${h.id}" data-foot="primary"${t.ok?'':' aria-disabled="true"'}>修煉${t.ok?'':`<small class="z2-train-why">${t.why}</small>`}</button></div>`;   // 2026-11-16:鎖住時按鈕上直接寫原因(要先蓋修煉地／金幣不足),不必捲到資訊頁底找
 }
 
-// ───────── 新獵人到訪暗帶(規格 j) ─────────
-export const vb={pick:'',later:new Set(),seen:null};   // 選中的訪客、按過「稍後」的訪客 id、已經見過的訪客 id(用來只在「新到」時自動彈出)
-const RANK={legendary:4,heroic:3,superior:2,rare:1,normal:0};
-export function bandVisitors(){const s=C.game().state,list=[...(s.visitors||[])];
- list.sort((a,b)=>((s.gold>=b.cost)-(s.gold>=a.cost))||(RANK[b.rarity]-RANK[a.rarity])||(a.cost-b.cost));return list.slice(0,2);}
-export function visitorBandHTML(){
- const s=C.game().state,list=bandVisitors(),all=(s.visitors||[]).length;
- if(!list.length)return `<div class="z2-band"><h3 class="z2-band-t">新的獵人</h3><p class="z2-band-p">現在沒有旅人，等一下再來看看。</p><div class="z2-band-btns"><button type="button" class="pixel-button" data-action="close" data-zb="red">關閉</button></div></div>`;
- let pick=list.find(v=>v.id===vb.pick);if(!pick){pick=list[0];vb.pick=pick.id;}
- const c=C.CLASSES.find(x=>x.id===pick.classId),r=C.RARITIES.find(x=>x.id===pick.rarity),t=C.TRAITS.find(x=>x.id===pick.trait),pv=C.game().visitorPreview(pick),afford=s.gold>=pick.cost,short=pick.cost-s.gold;
- const cards=list.map(v=>{const cc=C.CLASSES.find(x=>x.id===v.classId),rr=C.RARITIES.find(x=>x.id===v.rarity),on=v.id===pick.id;
-  return `<button type="button" class="z2-vcard${on?' on':''}" data-action="visitorPick" data-id="${v.id}" data-rarity="${v.rarity}" aria-pressed="${on}" aria-label="${C.esc(cc?.name||'')}（${rr?.name||''}）" style="--rarity:${rr?.color}"><em class="z2-vr">${rr?.name||''}</em><img src="${C.portrait({id:v.id,classId:v.classId,rarity:v.rarity})}" alt=""><b class="z2-vn">${C.esc(cc?.name||'')}</b></button>`;}).join('');
- return `<div class="z2-band" role="group" aria-label="新的獵人到訪"><h3 class="z2-band-t">新的獵人</h3><div class="z2-vcards">${cards}</div>`
-  +`<p class="z2-band-p"><b style="color:${r?.color}">${r?.name||''}</b> ${C.esc(c?.name||'')} · ${C.esc(t?.name||'')}：${C.esc(t?.desc||'')}<br><span class="z2-band-s">攻擊 ${pv.attack} · 防禦 ${pv.defense} · 生命 ${pv.maxHp} · ${afford?`加入需要 ${C.fmt(pick.cost)} 金幣`:`<span class="no">還缺 ${C.fmt(short)} 金幣</span>`}</span></p>`
-  +`<div class="z2-band-btns"><button type="button" class="pixel-button${afford?'':' locked'}" data-action="recruitVisitor" data-id="${pick.id}" data-zb="olive"${afford?'':' aria-disabled="true"'}>${afford?'':'<i class="hv-lock" aria-hidden="true"></i>'}邀請</button><button type="button" class="pixel-button" data-action="visitorLater" data-zb="red">稍後</button></div>`
-  +(all>list.length||all>1?`<button type="button" class="z2-band-all" data-action="recruit">看全部旅人（${all}）</button>`:'')+`</div>`;
-}
-// 新訪客「到」的那一刻(不是每幀都有):回傳要不要自動彈出暗帶。第一次呼叫只記下現有的訪客;之後出現沒見過的 id、付得起、玩家閒著才彈。
-export function visitorArrival(busy){const s=C.game().state,vs=s.visitors||[];
- if(!vb.seen){vb.seen=new Set(vs.map(v=>v.id));return false;}
- const fresh=vs.filter(v=>!vb.seen.has(v.id));for(const v of vs)vb.seen.add(v.id);
- // 2026-11-16:獵人名額滿了就不彈「新的獵人」(按邀請也招不進來);旅人照樣記成已看過,之後有名額也不會補彈舊的
- return !busy&&(s.hunters||[]).length<(s.capacity||0)&&fresh.some(v=>s.gold>=v.cost&&!vb.later.has(v.id));}
+// 新獵人到訪暗帶(規格 j)2026-11-25 隨旅人/訪客一起取消:招募改成名冊「招募」頁邀請流浪英雄(好感度,見 pixel-ui.js recruitHTML)。

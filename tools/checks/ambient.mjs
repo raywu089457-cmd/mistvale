@@ -1,7 +1,8 @@
 // ambient.mjs — T108：環境音層。風聲底噪要跟著區域與日夜換，靜音要收掉，背景分頁要停。
 //   * 第一次手勢前不建 AudioContext（瀏覽器自動播放政策）。
 //   * 區域換 → 底噪換（village / meadow / forest / taiga / snow / mountain / desert）。
-//   * 相位 >.55 且 <.95 → 夜間（蟲鳴／貓頭鷹），音量比白天低。
+//   * 夜間（蟲鳴／貓頭鷹）音量比白天低。2026-11-26 起遊戲內沒有日夜:白天/晚上看玩家本機的真實時間
+//     (19:00–05:59 算晚上,src/real-clock.js);這裡在頁面裡給 Date.now 加位移來撥時鐘。
 //   * 靜音 → 底噪收掉；解除靜音 → 回來。
 //   * 稀疏點綴不能把 voices 疊爆。
 // Usage: node tools/checks/ambient.mjs        (game server on 5024; TARGET overrides)
@@ -23,6 +24,14 @@ page.on('pageerror', e => errs.push(String(e).slice(0, 200)));
 await page.goto(URL, { waitUntil: 'commit', timeout: 120000 });
 await page.waitForFunction(() => globalThis.__mistvaleGame && !document.querySelector('#loading'), null, { timeout: 180000 });
 await page.waitForTimeout(1200);
+// 2026-11-26:夜晚看本機真實時間 → 先把頁面時鐘撥到下午,第 2–3 節才不會因為跑檢查的時刻而變成夜間。
+// 不用 Playwright 的 page.clock:裝上去遊戲主迴圈會停(遊戲時間不前進、環境音不開)。改成在頁面裡給 Date.now 加位移(時鐘照走)。
+const setLocalHour = h => page.evaluate(h => {
+  const real = globalThis.__realDateNow ??= Date.now.bind(Date);
+  const d = new Date(real()); d.setHours(h, 0, 0, 0); const off = d.getTime() - real();
+  Date.now = () => real() + off;
+}, h);
+await setLocalHour(14);
 
 const ambient = () => page.evaluate(() => globalThis.__mistvaleAmbient ? globalThis.__mistvaleAmbient.state() : null);
 const sfxState = () => page.evaluate(() => globalThis.__mistvaleSfx ? globalThis.__mistvaleSfx.state() : 'none');
@@ -39,7 +48,7 @@ else ok(`手勢前沒有底噪（AudioContext ${st0}、armed=false）`);
 // 2. 第一次手勢 → 開始播（目前的區域；preview 預設在狩獵區）
 await page.evaluate(() => document.querySelector('#bottom-bar [data-action="hunters"]')?.click());
 await page.waitForTimeout(700);
-await setTime(36);   // 0.15 = 下午
+await setTime(36);   // 遊戲時間不再決定日夜(本機時鐘已固定在 14:00)
 await page.waitForTimeout(600);
 const region0 = await page.evaluate(() => globalThis.__mistvaleGame.state.region);
 const v = await ambient();
@@ -47,7 +56,7 @@ if (!v) fix('沒有 __mistvaleAmbient 除錯鉤子');
 else {
   if (!v.playing) fix('第一次手勢後沒有環境音');
   if (v.bed !== region0) fix(`${region0} 的底噪是 ${v.bed || '(空)'}，預期 ${region0}`);
-  if (v.night) fix(`相位 0.15 不該是夜間（night=${v.night}）`);
+  if (v.night) fix(`本機 14:00 不該是夜間（night=${v.night}）`);
   if (!(v.target > 0.02)) fix(`底噪音量 ${v.target} 太小，聽不到`);
   if (v.target > 0.1) fix(`底噪音量 ${v.target} 太大，會蓋過事件音`);
   else ok(`底噪 ${v.bed} playing，目標音量 ${v.target}（白天）`);
@@ -62,17 +71,19 @@ for (const id of ['forest', 'snow']) {
   else ok(`切到 ${id} 底噪換過（gain ${a.gain}）`);
 }
 
-// 4. 夜晚：相位 .7 → night，音量比白天低
+// 4. 夜晚：真實時間 23:00 → night，音量比白天低(14:00 是白天);遊戲時間不影響
 await setRegion('meadow');
-await setTime(36);
+await setLocalHour(14);
+await setTime(168);   // 以前的「夜晚」相位:現在不該變成夜間
 await page.waitForTimeout(900);
 const dayA = await ambient();
-await setTime(168);   // .7
+if (dayA && dayA.night) fix(`真實時間 14:00 卻是夜間（遊戲時間不該再決定日夜）`);
+await setLocalHour(23);
 await page.waitForTimeout(900);
 const nightA = await ambient();
 if (!nightA) fix('夜間取不到環境音狀態');
 else {
-  if (!nightA.night) fix(`相位 0.7 應該是夜間（night=${nightA.night}）`);
+  if (!nightA.night) fix(`真實時間 23:00 應該是夜間（night=${nightA.night}）`);
   if (dayA && !(nightA.target < dayA.target + 0.001)) fix(`夜間音量 ${nightA.target} 沒有比白天 ${dayA.target} 低`);
   else ok(`夜間目標音量 ${nightA && nightA.target}（白天 ${dayA && dayA.target}）`);
 }

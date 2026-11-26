@@ -198,38 +198,7 @@ async function runView(name, v) {
   await page.evaluate(() => { const g = globalThis.__mistvaleGame; g.state.expedition.active = false; g.state.enemies = g.state.enemies.filter(e => e.type !== 'boss'); g.state.expedition.cooldown = 0; });
   await page.waitForTimeout(300);
 
-  // ── 6 世界地圖
-  await open(page, 'worldmap');
-  const wm = await L.ev(page, (L) => { const c = document.querySelector('#modal-content'), cv = c.querySelector('#world-map-canvas'), rows = c.querySelector('.z2c-rows'); if (!cv || !rows) return { none: true };
-    const r0 = L.R(cv), cr = L.R(c); rows.scrollTop = 120; const r1 = L.R(cv);
-    return { canvas: r0, moved: Math.abs(r1.t - r0.t) > .5, cw: cv.width, ch: cv.height, contentScroll: c.scrollHeight - c.clientHeight, contentTop: cr.t, rowN: rows.querySelectorAll('.z2c-row').length,
-      verdicts: [...rows.querySelectorAll('.z2c-row')].map(r => r.querySelector('.z2c-v')?.textContent), go: [...rows.querySelectorAll('.z2c-go')].map(b => ({ t: b.textContent.trim(), h: L.R(b).h, w: L.R(b).w, z: b.dataset.zbr, act: !!b.closest('.z2c-row')?.classList.contains('active') })), over: c.scrollWidth > c.clientWidth + 2,
-      rowsRect: L.R(rows), modal: L.R(document.querySelector('#modal')) }; });
-  if (wm.none) fix(`${tag}: 世界地圖沒有 #world-map-canvas／.z2c-rows`);
-  else {
-    if (wm.moved) fix(`${tag}: 區域列捲動時小地圖跟著動(沒有固定在頂端)`);
-    if (wm.contentScroll > 2) fix(`${tag}: 世界地圖視窗內容整體還在捲(${wm.contentScroll}px)`);
-    if (Math.abs(wm.cw - wm.canvas.w) > 2 || Math.abs(wm.ch - wm.canvas.h) > 2) fix(`${tag}: R4 小地圖畫布像素 ${wm.cw}×${wm.ch} ≠ 顯示 ${wm.canvas.w}×${wm.canvas.h}(字會被縮放看不清)`);
-    if (wm.canvas.h < 100 || wm.canvas.w < 100) fix(`${tag}: 小地圖太小 ${wm.canvas.w}×${wm.canvas.h}`);
-    if (wm.canvas.b > wm.modal.b) fix(`${tag}: 小地圖超出視窗`);
-    if (wm.rowN < 8) fix(`${tag}: 區域列只有 ${wm.rowN}`);
-    if (wm.verdicts.filter(x => ['輕鬆', '可行', '危險'].includes(x)).length < 7) fix(`${tag}: 野外區域列缺判定標籤 ${wm.verdicts}`);
-    if (wm.go.some(b => b.h < min - .5)) fix(`${tag}: 「前往」鈕高 ${wm.go.map(b => b.h)} < ${min}`);
-    // 2026-11-19 unslop:八列各一顆金棕等於八個強調 → 只有「目前所在區域」那一列是金棕,其餘 ghost
-    { const gold = wm.go.slice(1).filter(b => b.z === 'gold'); if (gold.length !== 1 || !gold[0].act) fix(`${tag}: 「前往」應只有目前區域一顆金棕(其餘 ghost) ${wm.go.map(b => b.z)}`); }
-    if (wm.over) fix(`${tag}: 世界地圖水平溢出`);
-    // 點行展開
-    await page.evaluate(() => { document.querySelector('#modal-content .z2c-rows').scrollTop = 0; });
-    const ex = await page.evaluate(() => { const rows = [...document.querySelectorAll('#modal-content .z2c-row')], r = rows[1]; r.querySelector('.z2c-row-main').click(); return { open: r.classList.contains('open'), more: r.querySelector('.z2c-more').getBoundingClientRect().height }; });
-    if (!ex.open || ex.more < 10) fix(`${tag}: 點區域列沒有展開 ${JSON.stringify(ex)}`);
-    // 前往
-    const before = await page.evaluate(() => globalThis.__mistvaleGame.state.region);
-    await page.evaluate(() => { document.querySelector('#modal-content .z2c-rows').scrollTop = 0; });
-    await tap(page, '#modal-content .z2c-row:nth-child(3) .z2c-go', touch); await page.waitForTimeout(1500);
-    const after = await page.evaluate(() => globalThis.__mistvaleGame.state.region);
-    if (after === before && (await modalType(page)) === 'worldmap') fix(`${tag}: 按「前往」沒有生效(region ${before})`);
-    if (await modalType(page)) { await L.act(page, 'close'); await page.waitForTimeout(200); }
-  }
+  // ── 6 世界地圖:2026-11-26 使用者拿掉全景地圖(主世界地圖 modal 與 HUD 鈕、M 鍵),這一節(小地圖畫布、區域列、前往鈕)整段移除;前往/詳情改從場上區域立牌(density)進入,見 hv-fixb。
 
   // ── 7 派遣
   await page.evaluate(() => { const g = globalThis.__mistvaleGame; g.cheat('heal'); for (const h of g.state.hunters) { h.level = 1; h.attack = 5; h.defense = 0; h.task = null; } });
@@ -272,7 +241,7 @@ async function runView(name, v) {
     if ((await modalType(page)) === 'result') { await L.act(page, 'resultOk'); await page.waitForTimeout(200); }
   }
   if (errs.length) fix(`${tag}: console/page error ${errs[0]}`);
-  console.log(tag, 'done', JSON.stringify({ hudBtn: hud.x?.r.h, map: wm.canvas && [wm.canvas.w, wm.canvas.h], boss: boss && boss.r && [boss.r.l, boss.r.t, boss.r.r, boss.r.b].map(Math.round) }));
+  console.log(tag, 'done', JSON.stringify({ hudBtn: hud.x?.r.h, boss: boss && boss.r && [boss.r.l, boss.r.t, boss.r.r, boss.r.b].map(Math.round) }));
   await ctx.close();
 }
 async function resultInfo(page) {

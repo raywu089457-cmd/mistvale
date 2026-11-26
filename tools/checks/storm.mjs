@@ -1,6 +1,6 @@
 // storm.mjs — T137：陣雨時偶爾打雷（閃光＋悶雷）
 //   * 閃光用時間函數決定（每 23 秒一格、偶數格又在下雨才打）→ 可重現、可測。
-//   * 閃光層必須 pointer-events:none、在夜色之上（不然夜裡打雷會被正片疊底壓暗）。
+//   * 閃光層必須 pointer-events:none、z-index ≥ 3（在濕氣層之上；2026-11-26 起沒有夜色覆蓋層了，門檻照舊）。
 //   * 雷聲要跟著閃光次數觸發，乾天不能無故打雷。
 // Usage: node tools/checks/storm.mjs
 //        $env:SHOTS='1'; node tools/checks/storm.mjs
@@ -82,7 +82,6 @@ const triggerStorm = async page => {
     return {
       pe: cs.pointerEvents, z: parseInt(cs.zIndex) || 0, pos: cs.position,
       rect: { w: Math.round(r.width), h: Math.round(r.height) },
-      nightZ: parseInt(getComputedStyle(document.body.children[0]).zIndex || '0') || 0,
       top: (() => { const e = document.elementFromPoint(innerWidth / 2, innerHeight / 2); return e ? (e.id || e.tagName) : 'null'; })(),
     };
   });
@@ -91,9 +90,9 @@ const triggerStorm = async page => {
     if (layer.pe !== 'none') fix(`閃光層 pointer-events=${layer.pe}，會吃掉點擊`);
     if (layer.pos !== 'fixed') fix(`閃光層 position=${layer.pos}`);
     if (Math.abs(layer.rect.w - 1440) > 1 || Math.abs(layer.rect.h - 900) > 1) fix(`閃光層沒有鋪滿畫面：${JSON.stringify(layer.rect)}`);
-    if (layer.z < 3) fix(`閃光層 z-index=${layer.z}，夜裡會被夜色（z-index 2）壓暗`);
+    if (layer.z < 3) fix(`閃光層 z-index=${layer.z}，會被 z-index 2 的濕氣層壓住`);
     if (!String(layer.top).startsWith('world')) fix(`畫面中央的點擊被 ${layer.top} 接走（應為 world）`);
-    if (!fails.length) ok(`閃光層鋪滿畫面、pointer-events:none、z-index ${layer.z}（在夜色之上）、點擊穿透`);
+    if (!fails.length) ok(`閃光層鋪滿畫面、pointer-events:none、z-index ${layer.z}、點擊穿透`);
   }
 
   // 雷聲：sfx 記錄裡要出現 thunder
@@ -148,4 +147,4 @@ if (fails.length) {
   process.exit(1);
 }
 for (const o of oks) console.log('ok  ' + o);
-console.log('PASS storm: 陣雨時偶爾打雷（閃光鋪滿畫面、在夜色之上、點擊穿透、半秒淡掉），同時播雷聲；乾天不會打雷，手機也有');
+console.log('PASS storm: 陣雨時偶爾打雷（閃光鋪滿畫面、z-index ≥ 3、點擊穿透、半秒淡掉），同時播雷聲；乾天不會打雷，手機也有');
