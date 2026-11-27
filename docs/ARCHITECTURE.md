@@ -18,7 +18,7 @@
 | `src/village-grid.js` | 村莊 4×4 棋盤：建築位置、街道、村界、出入口（改版面只改這裡） |
 | `src/landscape-layout.js` | 道路、柵欄、池塘、碰撞（`buildingSolid`、`onPaved`、`doorStand`） |
 | `src/village-nav.js` | 村內 8 方向 A*，0.5 格解析度 |
-| `src/overworld.js` | 世界 94×89(2026-11-18 擴張,七區面積各 ×2,`worldRevision` 5)、七個狩獵區、生態域、環形道路 |
+| `src/overworld.js` | 世界 94×89(2026-11-18 擴張,七區面積各 ×2,`worldRevision` 5)、七個狩獵區、生態域、區域立牌位置 `regionSignSpot`(2026-11-26 環村道路已拿掉;`PERIMETER` 只剩區域幾何、`VILLAGE_LOOP` 只是繞村導航線) |
 | `src/concept-ground.js` / `concept-props.js` | 概念圖對齊的地面與道具 |
 | `src/lore.js` / `hero-chatter.js` | 魔物名稱與設定、獵人對話 |
 | `src/real-clock.js` | 2026-11-26 拿掉遊戲內白天黑夜後的真實時間小工具：`isRealNight`（本機 19:00–05:59，只給台詞／環境音／標題夜景）、`agoText`／`waitText`／`playTimeText`（畫面文字）。遊戲規則的真實時間在 `pixel-game.js`：`REALTIME`（pixel-data）、`createGame(save, { now })` 可注入時鐘、`game.realNow()`／`setClock`；`state.day` 已不存在 |

@@ -1,21 +1,22 @@
 // foothills-edge.mjs — T68: the 鐵脊山麓 (mountain) / 向陽草原 (meadow) border on the right of the
-// village must be a straight line from the ring-road corner at screen angle 0 to the right world edge,
+// village must be a straight line from the PERIMETER corner at screen angle 0 to the right world edge,
+// (2026-11-26: the ring road itself was removed; PERIMETER is its old centre line, kept only as region geometry)
 // with meadow on the -z side and mountain on the +z side. Plain node, no browser.
 // Usage: node tools/checks/foothills-edge.mjs   (exit 0 = the border holds, 1 = FIX line printed)
 import {
-  WORLD, REGIONS, RING_ROAD, ringRoadDistance, biomeAt, regionAt, regionContains, wildAt,
+  WORLD, REGIONS, PERIMETER, perimeterDistance, biomeAt, regionAt, regionContains, wildAt,
 } from '../../src/overworld.js';
 import { VILLAGE_BOUNDS } from '../../src/village-grid.js';
 
 const VC = { x: (VILLAGE_BOUNDS.minX + VILLAGE_BOUNDS.maxX) / 2, z: (VILLAGE_BOUNDS.minZ + VILLAGE_BOUNDS.maxZ) / 2 };
-// screen angle 0 = the old meadow/mountain ray (the direction the ring road corner sits on)
+// screen angle 0 = the old meadow/mountain ray (the direction the PERIMETER corner sits on)
 const DIR = { x: Math.SQRT1_2, z: -Math.SQRT1_2 };
 
-// smallest positive ray/segment crossing of VC + t*DIR against the closed ring road
+// smallest positive ray/segment crossing of VC + t*DIR against the closed PERIMETER loop
 function rayRingT() {
   let best = Infinity;
-  for (let i = 0; i < RING_ROAD.length; i++) {
-    const a = RING_ROAD[i], b = RING_ROAD[(i + 1) % RING_ROAD.length];
+  for (let i = 0; i < PERIMETER.length; i++) {
+    const a = PERIMETER[i], b = PERIMETER[(i + 1) % PERIMETER.length];
     const ex = b.x - a.x, ez = b.z - a.z;
     const den = DIR.x * ez - DIR.z * ex;
     if (Math.abs(den) < 1e-12) continue;
@@ -31,10 +32,10 @@ let bad = 0;
 const fix = (msg) => { bad++; console.log(`FIX ${msg}`); };
 
 const t = rayRingT();
-if (!Number.isFinite(t)) { fix('the screen-angle-0 ray never reaches the ring road'); process.exit(1); }
+if (!Number.isFinite(t)) { fix('the screen-angle-0 ray never reaches the PERIMETER'); process.exit(1); }
 const C = { x: VC.x + DIR.x * t, z: VC.z + DIR.z * t };
-const cornerDist = ringRoadDistance(C.x, C.z);
-if (cornerDist >= 0.01) fix(`road corner is ${cornerDist.toFixed(3)} away from the ring road (want < 0.01) at ${C.x.toFixed(2)},${C.z.toFixed(2)}`);
+const cornerDist = perimeterDistance(C.x, C.z);
+if (cornerDist >= 0.01) fix(`road corner is ${cornerDist.toFixed(3)} away from the PERIMETER (want < 0.01) at ${C.x.toFixed(2)},${C.z.toFixed(2)}`);
 
 const ABOVE = C.z - 0.4, BELOW = C.z + 0.4;   // -z = meadow side, +z = mountain side
 const AGREE = (x, z, id) => {
@@ -71,4 +72,4 @@ for (const r of REGIONS.filter(q => !['village', 'meadow', 'mountain'].includes(
 }
 
 if (bad) { console.log(`\n${bad} check(s) fail the foothills edge`); process.exit(1); }
-console.log(`PASS: foothills/meadow border runs straight from the ring-road corner (${C.x.toFixed(2)},${C.z.toFixed(2)}) to x=${WORLD.maxX.toFixed(2)}; ${pairs} land pairs flip at z=${C.z.toFixed(2)}.`);
+console.log(`PASS: foothills/meadow border runs straight from the PERIMETER corner (${C.x.toFixed(2)},${C.z.toFixed(2)}) to x=${WORLD.maxX.toFixed(2)}; ${pairs} land pairs flip at z=${C.z.toFixed(2)}.`);

@@ -1,5 +1,5 @@
 import {getRoads,roadStyle,onRoad,PALISADE,villagePonds as pondsOf,doorFoot} from './landscape-layout.js';
-import {RING_ROAD,onRingRoad} from './overworld.js';
+import {regionSignSpot} from './overworld.js';
 import { BUILDINGS, CLASSES, RARITIES, MONSTER_RANGED, SKILLS } from './pixel-data.js';
 import {dollActionTick,dollDirName,advanceNoSkip,hurtChain,trackAttackStamp,dollAttackVariant,dollVictoryAction,dollLifeAction,getSlot as dollSlot} from './paperdoll-hero.js';   // DV2 的出招對時/逐格播放 helper(動作時間點照舊);英雄美術本體已換成 HeroLoom
 import {createDollHero} from './heroloom-hero.js';   // 預設:HeroLoom 紙娃娃英雄(docs/HEROLOOM.md);?doll=0 回烘好的 sheet
@@ -865,6 +865,7 @@ let renderDprMax=Math.max(1,dprCap||autoDpr());   // 畫布解析度上限(devic
   const HOME0=(()=>iso((VILLAGE_BOUNDS.minX+VILLAGE_BOUNDS.maxX)/2,(VILLAGE_BOUNDS.minZ+VILLAGE_BOUNDS.maxZ)/2))();   // 村莊中心(初始鏡頭)
   let cam={...HOME0},target={...HOME0},pointer=null,hover=null,lastSource=null,pinchDistance=0,homeFraming=false;
   const uiLabels=[],hits=[],pointers=new Map(),previousPositions=new Map();
+  const buildingBoxes=new Map();   // 驗收用(tools/checks/region-signs.mjs):每棟建築這一幀實際畫出的可見範圍(畫面座標)與前後順序 depth=x+z
   const decorations=[];let roads=getRoads(),landscapeKey='',terrainRevision=0,lastPatternRev=-1;
   // 地面畫布解析度:桌機 4 px/單位、手機 2(跟建築圖集同一個清晰度)。繪圖座標範圍由世界大小算出(含延伸海岸 EXT 格與四周各 7 的餘裕)。
   const GROUND_RES=((globalThis.screen?.width||0)>=1024&&!globalThis.matchMedia?.('(pointer:coarse)').matches)?4:2;
@@ -1002,8 +1003,7 @@ let renderDprMax=Math.max(1,dprCap||autoDpr());   // 畫布解析度上限(devic
         for(let i=0;i<=n;i++){const u=i/n,w=(i===0||i===n)?0:wob(r,u*L),x=r.a.x+dx*u+nx*w,z=r.a.z+dz*u+nz*w;i?c.lineTo(x,z):c.moveTo(x,z);}c.stroke();};
       const mask=makeCanvas(W,H),mc=mask.getContext('2d'),tex=makeCanvas(W,H),tc=tex.getContext('2d');
       for(const [kind,pat,edge] of [['trail',roadPattern,'rgba(96,70,36,.8)'],['stone',plazaPattern,'rgba(110,98,80,.85)']]){
-        // 環村道路(kind:'ring')用跟村內一樣的石板材質
-        const list=roads.filter(r=>(r.kind==='stone')===(kind==='stone'));if(!list.length)continue;   // 環村道路(kind:'ring')走土路材質,跟村內石板區隔開
+        const list=roads.filter(r=>(r.kind==='stone')===(kind==='stone'));if(!list.length)continue;   // 2026-11-26:環村道路(kind:'ring',土路)已拿掉;村外沒有路
         gc.save();iso2(gc);gc.lineCap=gc.lineJoin='round';gc.strokeStyle=edge;for(const r of list)trace(gc,r,.28);gc.restore();   // 路緣暗邊
         {const sc=[];for(let z=WORLD.minZ;z<WORLD.maxZ;z++)for(let x=WORLD.minX;x<WORLD.maxX;x++)if(biomeAt(x,z)==='snow')sc.push(x,z);gc.save();gc.clip(cellPath(sc,.5));iso2(gc);gc.lineCap=gc.lineJoin='round';gc.strokeStyle='rgba(176,188,201,1)';for(const r of list)trace(gc,r,.28);gc.restore();}  // 雪地路緣:淡藍灰,不是土色暗邊
         mc.setTransform(1,0,0,1,0,0);mc.clearRect(0,0,W,H);iso2(mc);mc.lineCap=mc.lineJoin='round';mc.strokeStyle='#000';for(const r of list)trace(mc,r,0);
@@ -1029,12 +1029,9 @@ let renderDprMax=Math.max(1,dprCap||autoDpr());   // 畫布解析度上限(devic
     // 村中央的雕像(廣場 0,0 正中):村莊收攏成棋盤時被拿掉,現在放回來。
     // 廣場只有 4.4×3.6,雕像畫 3.2 個單位寬(約 1.5 個英雄高),不會壓到旁邊的街。
     {const plaza=blockCenter(0,0);decorations.push({type:'monument',x:plaza.x,z:plaza.z,size:1});}
-    // 每個狩獵區正中央的木頭立牌(怪物數量等級);點擊由 hits 的 region:<id> 交給 UI 開切換畫面。
-    {const dry=(x,z)=>{const b=biomeAt(x,z);return b!=='ocean'&&b!=='river'&&b!=='ice'&&b!=='bridge'&&b!=='village';};
-      const spot=r=>{if(dry(r.x,r.z)&&!onRingRoad(r.x,r.z,.8))return {x:r.x,z:r.z};
-        for(let rad=1.5;rad<=14;rad+=1.5)for(let k=0;k<16;k++){const a=k/16*Math.PI*2,x=r.x+Math.cos(a)*rad,z=r.z+Math.sin(a)*rad;if(dry(x,z)&&!onRingRoad(x,z,.8))return {x,z};}
-        return {x:r.x,z:r.z};};
-      for(const r of REGIONS) if(r.id!=='village'){const q=spot(r);decorations.push({type:'signpost',regionSign:true,regionId:r.id,x:q.x,z:q.z,size:1});}}
+    // 每個狩獵區的木頭立牌(怪物數量等級);點擊由 hits 的 region:<id> 交給 UI 開切換畫面。
+    // 2026-11-26 使用者:「怪物區域立牌移動到該區域圍欄旁邊」—— 位置 = overworld 的 regionSignSpot(圍籬外 1.8 格、這區貼著村莊那一段的中間、避開出村口)。
+    for(const r of REGIONS) if(r.id!=='village'){const q=regionSignSpot(r.id)||{x:r.x,z:r.z};decorations.push({type:'signpost',regionSign:true,regionId:r.id,x:q.x,z:q.z,size:1});}
     decorations.sort((a,b)=>a.x+a.z-b.x-b.z);
     globalThis.__mistvaleDecorations=[...decorations];  // 除錯用:讀街上/場景裡的裝飾(NPC)名單
     buildVillageLayer();
@@ -1421,6 +1418,7 @@ let renderDprMax=Math.max(1,dprCap||autoDpr());   // 畫布解析度上限(devic
     // 點屋頂或上半部不會選到,也不會像「用圖片中心」那樣落在門旁邊的牆上。
     {const bb=spriteBounds(b.id);
      const bx0=rect.x+bb.x0*rect.w,bx1=rect.x+bb.x1*rect.w,by1=rect.y+bb.y1*rect.h;
+     buildingBoxes.set(b.id,{id:b.id,x:bx0,y:rect.y+bb.y0*rect.h,w:bx1-bx0,h:by1-(rect.y+bb.y0*rect.h),depth:layout.x+layout.z});
      // 互動範圍 = 建築「最下面那一排」整條(門與台階都在這裡,不管門偏左、偏右或在中間),
      // 選取圈畫在這條的中線、再往下一點(= 門口前的地面)。用圖片可見範圍算,不用佈局座標(那是獵人站位)。
      const cx2=(bx0+bx1)/2,bw=Math.max(30*scale,(bx1-bx0)*0.9),bh=Math.max(34*scale,Math.min((by1-rect.y)*0.34,64*scale));
@@ -1554,7 +1552,7 @@ let renderDprMax=Math.max(1,dprCap||autoDpr());   // 畫布解析度上限(devic
       line(g,p.x-5*s,p.y-8*s,p.x+5*s,p.y-4*s,'#c69d65',s);return;
     }
     if(d.type==='signpost'){
-      // 2026-10-30:每個狩獵區中央的木頭立牌,牌面用羅馬數字顯示這一區的怪物數量等級(I/II/III),點它開切換畫面。
+      // 2026-10-30:每個狩獵區的木頭立牌(2026-11-26 起立在村莊圍籬外、這一區那一側),牌面用羅馬數字顯示這一區的怪物數量等級(I/II/III),點它開切換畫面。
       if(d.regionSign){
         const s=scale,bd=signLevel(d),art=regionSignArt(),band=bd===1?'#5f8f4a':bd===2?'#c98a2e':'#b03a2a';
         if(art){   // 素材版:一根木樁＋奶油色板面,羅馬數字畫在板面中央
@@ -1709,7 +1707,6 @@ let renderDprMax=Math.max(1,dprCap||autoDpr());   // 畫布解析度上限(devic
       wp=parts.find(p=>p.id==='weapon');
     let weaponSheet='';if(wp){weaponSheet=wp.sheet;if(look.weapon==='fine'){const fine=`${cls}-weapon-fine`;if(heroSheets[fine]?.meta)weaponSheet=fine;}}
     return{bodySheet,weaponSheet,bodyBakesWeapon:!wp,equipped:{weapon:!!h.equipment?.weapon,armor:gearWorn(h)>0,slots:GEAR_SLOTS_W.map(s=>!!h.equipment?.[s])}};};
-  globalThis.__mistvaleRing=()=>({points:RING_ROAD,onRoad:(x,z,extra=0)=>onRingRoad(x,z,extra)});   // 驗收用:環村道路
   globalThis.__mistvaleDoors=()=>BUILDINGS.map(b=>{const p=state.layout?.[b.id]||b,d=doorFoot(b,p);return {id:b.id,x:d.x,z:d.z};});   // 驗收用:各棟門口的 world 座標
   globalThis.__mistvaleHits=()=>hits.map(h=>({id:h.id,x:h.x,y:h.y,w:h.w,h:h.h}));  // 驗收用:畫出來的點擊框(check_zorder.mjs)
   globalThis.__mistvaleDecor=()=>decorations.map(d=>({type:d.type,x:d.x,z:d.z,size:d.size||1,walk:!!d.walk,cls:d.cls,vdir:d.vdir}));  // 驗收用:擺設清單(check_placement.mjs)
@@ -2042,7 +2039,10 @@ let renderDprMax=Math.max(1,dprCap||autoDpr());   // 畫布解析度上限(devic
     if(armed&&ad.stamp!==(h.atkAt??-99)&&h.atkX!=null){
       ad.stamp=h.atkAt??-99;
       // 有蓄力(畫面上先演了 0.3 秒)就沿用蓄力時鎖定的方向,整段攻擊同一列;沒有蓄力才用出手那刻的位置算
-      if(ad.mode!=='windup'){ad.dir=moveDir(h.atkX-h.x,h.atkZ-h.z,ad.dir);ad.sx=sideOf(h,h.atkX,h.atkZ,ad.sx);}
+      // 2026-11-26:例外 —— 出手點不在蓄力方向的象限(含 10° 遲滯)裡,代表出手的對象不是蓄力時盯的那隻
+      // (祭司普通治療朝隊友、技能改瞄別群),這時改用出手點算,不然會朝反方向出手(check_facing heroCombatBad)。
+      const atkFits=ad.mode==='windup'&&facingOk(h.atkX-h.x,h.atkZ-h.z,VDIR_TO_DIR4[ad.dir]);
+      if(!atkFits){ad.dir=moveDir(h.atkX-h.x,h.atkZ-h.z,ad.dir);ad.sx=sideOf(h,h.atkX,h.atkZ,ad.sx);}
       ad.mode='strike';
     }
     const vMove=vdir;   // 移動方向(走路列用)
@@ -2526,7 +2526,7 @@ let renderDprMax=Math.max(1,dprCap||autoDpr());   // 畫布解析度上限(devic
   function render(){
     if(glr){glr.begin(canvas.width,canvas.height);if(glGroundSeen!==groundGen){glGroundSeen=groundGen;glr.invalidate(ground);glr.invalidate(villageLayer);}}
     DPRK=canvas.width/width;if(canvas.style.transform)canvas.style.transform='';for(const c of [bg,sg,spg,ssc,bgc,fsc,rdc,cmp]){c.setTransform(DPRK,0,0,DPRK,0,0);c.imageSmoothingEnabled=false;}
-    screen.imageSmoothingEnabled=false;g.imageSmoothingEnabled=false;hits.length=0;uiLabels.length=0;screenTexts.length=0;
+    screen.imageSmoothingEnabled=false;g.imageSmoothingEnabled=false;hits.length=0;buildingBoxes.clear();uiLabels.length=0;screenTexts.length=0;
     const gx=camPxX()+R(-groundOrigin.x*scale),gy=camPxY()+R(-groundOrigin.y*scale);
     // 鏡頭、縮放、畫布大小、地形、村莊都沒變 = 靜止;連續兩幀靜止才錄製,之後每幀直接複製快取
     // 建築的等級與位置也要算進去:地面重算可能要等貼圖載完才會跑,不能只靠 terrainRevision
@@ -2814,7 +2814,7 @@ let renderDprMax=Math.max(1,dprCap||autoDpr());   // 畫布解析度上限(devic
       .filter(cls=>heroSheets[cls]&&heroSheets[cls].meta.kind!=='part');   // 零件表不是角色，不要叫進村
     return list.filter(cls=>spawnVillager(cls));
   }
-  resize();render();return{update,resize:responsiveResize,project,assetsReady,warmupAssets,textFont,textSize,focus:(id)=>{homeFraming=false;focus(id);},/* 驗收用:建築與地區立牌的可點範圍 */enemyFacing:()=>[...drawnFacing.entries()].filter(([k])=>k.startsWith('enemy:')).map(([k,v])=>({id:k.slice(6),f:v.f,act:v.act||null,t:v.t})),hitRects:()=>hits.filter(h=>BUILDINGS.some(h2=>h2.id===h.id)).map(h=>({id:h.id,x:h.x,y:h.y,w:h.w,h:h.h})),unitRects:()=>hits.filter(h=>String(h.id).startsWith('hunter:')).map(h=>({id:String(h.id).slice(7),x:h.x,y:h.y,w:h.w,h:h.h})),foeRects:()=>hits.filter(h=>String(h.id).startsWith('foe:')).map(h=>({id:String(h.id).slice(4),x:h.x,y:h.y,w:h.w,h:h.h})),signRects:()=>hits.filter(h=>String(h.id).startsWith('region:')).map(h=>({id:h.id,x:h.x,y:h.y,w:h.w,h:h.h})),buildingScale:id=>effectiveScale(id),/* T113：相機中心的世界座標（村莊環境音只在看得到村莊時響） */cameraXZ:()=>{const r=viewRect();const p=unproject(r.left+r.width/2,r.top+r.height/2);return{x:p.x,z:p.z};},lookAt:(x,z,v)=>{homeFraming=false;if(v)scale=Math.max(zoomFloor(),Math.min(ZOOM_MAX,v));target=iso(x,z);cam={...target};},zoomTo:(v)=>{homeFraming=false;scale=Math.max(zoomFloor(),Math.min(ZOOM_MAX,v));},getScale:()=>scale,panState:()=>({inertia:inertia?{vx:inertia.vx,vy:inertia.vy}:null,lastTapT}),setSelected,zoomBy,placeMode,setQuality,setFollow:(fn,opts)=>{followFn=typeof fn==='function'?fn:null;followOpts=(followFn&&opts&&typeof opts==='object')?opts:{};},dirFromScreen,followInfo:()=>followFn?(followOpts.centerBody?{centerBody:true,snap:!!followOpts.snap}:{centerBody:false,snap:!!followOpts.snap}):null,setShadows:(v)=>{shadowsOn=v!==false;compValid=false;},shake,hitStop:(ms)=>{if(!hitStopAllowed()||!(ms>0))return 0;hitStopUntil=performance.now()+ms;hitStopSeq++;hitStopPainted=-2;hitStopCount++;return ms;},unproject,
+  resize();render();return{update,resize:responsiveResize,project,assetsReady,warmupAssets,textFont,textSize,focus:(id)=>{homeFraming=false;focus(id);},/* 驗收用:建築與地區立牌的可點範圍 */enemyFacing:()=>[...drawnFacing.entries()].filter(([k])=>k.startsWith('enemy:')).map(([k,v])=>({id:k.slice(6),f:v.f,act:v.act||null,t:v.t})),hitRects:()=>hits.filter(h=>BUILDINGS.some(h2=>h2.id===h.id)).map(h=>({id:h.id,x:h.x,y:h.y,w:h.w,h:h.h})),unitRects:()=>hits.filter(h=>String(h.id).startsWith('hunter:')).map(h=>({id:String(h.id).slice(7),x:h.x,y:h.y,w:h.w,h:h.h})),foeRects:()=>hits.filter(h=>String(h.id).startsWith('foe:')).map(h=>({id:String(h.id).slice(4),x:h.x,y:h.y,w:h.w,h:h.h})),buildingBoxes:()=>[...buildingBoxes.values()].map(b=>({...b})),signRects:()=>hits.filter(h=>String(h.id).startsWith('region:')).map(h=>({id:h.id,x:h.x,y:h.y,w:h.w,h:h.h})),buildingScale:id=>effectiveScale(id),/* T113：相機中心的世界座標（村莊環境音只在看得到村莊時響） */cameraXZ:()=>{const r=viewRect();const p=unproject(r.left+r.width/2,r.top+r.height/2);return{x:p.x,z:p.z};},lookAt:(x,z,v)=>{homeFraming=false;if(v)scale=Math.max(zoomFloor(),Math.min(ZOOM_MAX,v));target=iso(x,z);cam={...target};},zoomTo:(v)=>{homeFraming=false;scale=Math.max(zoomFloor(),Math.min(ZOOM_MAX,v));},getScale:()=>scale,panState:()=>({inertia:inertia?{vx:inertia.vx,vy:inertia.vy}:null,lastTapT}),setSelected,zoomBy,placeMode,setQuality,setFollow:(fn,opts)=>{followFn=typeof fn==='function'?fn:null;followOpts=(followFn&&opts&&typeof opts==='object')?opts:{};},dirFromScreen,followInfo:()=>followFn?(followOpts.centerBody?{centerBody:true,snap:!!followOpts.snap}:{centerBody:false,snap:!!followOpts.snap}):null,setShadows:(v)=>{shadowsOn=v!==false;compValid=false;},shake,hitStop:(ms)=>{if(!hitStopAllowed()||!(ms>0))return 0;hitStopUntil=performance.now()+ms;hitStopSeq++;hitStopPainted=-2;hitStopCount++;return ms;},unproject,
     setDpr:(v)=>{dprCap=v==='auto'||v==null?null:Math.max(1,Math.min(3,Number(v)||autoDpr()));renderDprMax=Math.max(1,Math.min(dprCap||autoDpr(),globalThis.devicePixelRatio||1));resize();compValid=false;render();},
     dispose,drawDungeonStrip,spawnVillager,spawnClassVillagers,setPartsVisible:(v)=>{partsVisible=v!==false;},getPartsVisible:()=>partsVisible,landscapeStats:()=>({roads:roads.length,terrainRevision,
     decor:decorations.map(d=>({type:d.type,x:d.x,z:d.z,region:d.regionId||null}))})};

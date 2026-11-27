@@ -55,7 +55,7 @@ for (const name of only) {
   const errs = []; page.on('pageerror', e => errs.push('pageerror ' + String(e).slice(0, 160))); page.on('console', m => { if (m.type() === 'error') errs.push('console ' + m.text().slice(0, 160)); });
   await L.boot(page, url);
   await page.evaluate(() => { const g = globalThis.__mistvaleGame; for (const k of ['resources', 'buildings', 'heal']) g.cheat(k); g.state.paused = true; });
-  const wantTab = landscape ? 58 : portraitPhone ? [68, 71] : 72;
+  const wantTab = landscape ? 46 : portraitPhone ? [66, 71] : 72;   // 2026-11-27 主畫面減量第二輪:橫向 58→46、手機直向 70→66
 
   trace(label + ' A');
   // ───── A. 頁籤列 ─────
@@ -255,7 +255,7 @@ for (const name of only) {
     if (name === 'phone') {
       if (q.ir.b > q.br.t - 15) fix(`${label}/I: R2 模擬下方安全區 34px,建築詳情底 ${q.ir.b.toFixed(0)} 要在頁籤列頂 ${q.br.t.toFixed(0)} 上方 ≥16`);
       if (q.foot.some(r => r.b > q.br.t)) fix(`${label}/I: R2 底部按鈕被頁籤列蓋到`);
-      if (Math.abs(q.br.h - (70 + 34)) > 1.5) fix(`${label}/I: 頁籤列高要含安全區(70+34),實際 ${q.br.h}`);
+      if (Math.abs(q.br.h - (66 + 34)) > 1.5) fix(`${label}/I: 頁籤列高要含安全區(66+34),實際 ${q.br.h}`);
     } else {
       if (q.ir.l < 47 - 0.5 || q.ir.r > v.w - 47 + 0.5) fix(`${label}/I: R3 建築詳情要在左右安全區 47px 內(${q.ir.l.toFixed(0)}–${q.ir.r.toFixed(0)})`);
     }

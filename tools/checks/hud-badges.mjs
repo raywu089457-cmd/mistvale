@@ -18,6 +18,11 @@ const fix = m => fails.push(m);
 const ok = m => oks.push(m);
 if (process.env.SHOTS) fs.mkdirSync('output/hud-badges', { recursive: true });
 
+
+// 徽章由 paint() 每 ≥400ms 才重畫一次（暫停時畫格 10fps、無頭瀏覽器載入重時只剩 4–24fps），
+// 改完 state 後固定等 900ms 在忙碌機器上會讀到還沒重畫的舊值 → 用「等條件成立」取代固定延遲。
+const settle = (page, cond, arg) => page.waitForFunction(cond, arg, { timeout: 15000, polling: 50 }).catch(() => {});
+
 const browser = await chromium.launch({ executablePath: 'C:/Program Files/Google/Chrome/Application/chrome.exe', args: ['--headless=new', '--mute-audio'] });
 
 async function boot(viewport, opts = {}) {
@@ -59,7 +64,8 @@ const readBadges = page => page.evaluate(actions => {
     s.quest = { ...(s.quest || {}), complete: false };
     for (const w of s.wanderers) { w.affinity = 0; w.recruitRetryAt = 0; }   // 2026-11-25 招募＝邀請流浪英雄(好感度到門檻才算)
   });
-  await page.waitForTimeout(900);
+  await settle(page, () => ['build', 'dungeon', 'hunters', 'inventory', 'trade', 'quests'].every(a => !(document.querySelector(`#bottom-bar [data-action="${a}"], .hv-tr2 [data-action="${a}"]`)?.dataset.badge)));
+  await page.waitForTimeout(450);   // 再多給一輪 paint，確認不會又冒出來
   const empty = await readBadges(page);
   const noisy = ACTIONS.filter(a => empty[a] && empty[a].badge !== '');
   if (noisy.length) fix(`資源與委託都清空後仍有徽章：${noisy.map(a => a + '=' + empty[a].badge).join(',')}`);
@@ -75,8 +81,8 @@ const readBadges = page => page.evaluate(actions => {
     s.quest = { ...(s.quest || {}), complete: true };
     s.wanderers.forEach((w, i) => { w.affinity = i === 0 ? 100 : 0; w.recruitRetryAt = 0; w.hp = w.maxHp; });
   });
-  // 重新繪製：切一下暫停再開（paint 會跑）
-  await page.waitForTimeout(900);
+  // 等 paint 把新狀態畫出來（委託、願意加入、建設徽章都有值）
+  await settle(page, () => ['quests', 'hunters', 'build'].every(a => document.querySelector(`#bottom-bar [data-action="${a}"], .hv-tr2 [data-action="${a}"]`)?.dataset.badge));
   const rich = await readBadges(page);
 
   if (rich.quests?.badge !== '1') fix(`有可領取委託時 quests 徽章是 ${rich.quests?.badge}，預期 1`);
@@ -129,7 +135,7 @@ const readBadges = page => page.evaluate(actions => {
     s.gold = 9000; s.wood = 400; s.ore = 400; s.herb = 400; s.cloth = 400; s.flour = 400; s.leather = 400;
     s.quest = { ...(s.quest || {}), complete: true };
   });
-  await page.waitForTimeout(900);
+  await settle(page, () => document.querySelector('.hv-tr2 [data-action="quests"]')?.dataset.badge);
   const rows = await readBadges(page);
   const withBadge = ACTIONS.filter(a => rows[a] && rows[a].badge !== '');
   if (!withBadge.length) fix('phone 402x712 資源充足時一個徽章都沒有');

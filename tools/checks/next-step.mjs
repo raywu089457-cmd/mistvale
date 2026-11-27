@@ -230,6 +230,7 @@ const readPill = page => page.evaluate(() => {
       const b = document.querySelector(`[data-action="${a}"]`);
       if (!b) continue;
       const br = b.getBoundingClientRect();
+      if (!br.width || !br.height) continue;   // 2026-11-27 主畫面減量:窄螢幕/觸控上「?」收進設定、整顆不顯示,不算被蓋住
       const top = document.elementFromPoint(br.x + br.width / 2, br.y + br.height / 2);
       if (!(top === b || b.contains(top))) covered.push(a);
     }

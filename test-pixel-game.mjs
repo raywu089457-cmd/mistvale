@@ -7,7 +7,8 @@ import { blockCenter, VILLAGE_BOUNDS } from './src/village-grid.js';
 import { AFFINITY, BUILDINGS, CLASSES, MATERIALS, MERCHANT, PROMOTE, PRODUCTS, RECIPES, RARITIES, PILOT_ATTACK, AI_ATTACK_LOCK, KITE, GEAR_TIER_MAX, gearAt, EQUIPMENT, CLASS_STARTER, EQUIP_SLOTS, GEAR_SLOTS, gearItemView, dungeonGearGrade, GEAR_DROP, craftWeaponFor, recipeItemId } from './src/pixel-data.js';
 // 2026-11-24 鍛造武器分類型:某職業能買/能拿的武器配方 id(sword/hammer/bow/staff/dagger)
 const wRecipe = classId => RECIPES.find(r => r.item === craftWeaponFor(classId)).id;
-import { WORLD, regionAt, regionEdge, regionCenter, regionContains, walkable, RING_ROAD, onRingRoad, inVillage, randomRegionPoint } from './src/overworld.js';
+import { WORLD, REGIONS, regionAt, regionEdge, regionCenter, regionContains, walkable, VILLAGE_LOOP, inVillage, randomRegionPoint } from './src/overworld.js';
+import { EXITS } from './src/village-grid.js';
 import { MONSTER_RANGED, MONSTER_SPEED_MULT, MONSTER_ATTACK_RATE, REGION_DENSITY, DIFFICULTIES } from './src/pixel-data.js';
 import { pickHeroLine, CHATTER_LINES } from './src/hero-chatter.js';
 import { REALTIME } from './src/pixel-data.js';
@@ -431,7 +432,8 @@ assert.ok(idleOut.size >= 4, `most hunters head out by themselves (${idleOut.siz
 assert.ok(idle.state.hunters.every(h => !h.huntRegion || h.autoHunt), 'Self-chosen hunts are marked autoHunt (no player order was given)');
 assert.ok(idle.state.counts.services > 0, 'Hunters visibly use town services within 60 seconds');
 { // 自己挑的區一定是「輕鬆」的(跟地圖面板的 fit 同一條公式);玩家派令優先、召回後先待在村裡
-  const g = createGame(); run(g, 30);
+  // 2026-11-26:30 → 45 秒。第一位自己出門大約在第 30 秒(先吃飯、休息),剛好卡在邊界;拿掉環村道路後魔物閒晃點的亂數抽法變了,整局亂數序列跟著位移就差那一兩秒。
+  const g = createGame(); run(g, 45);
   for (const h of g.state.hunters) if (h.autoHunt) assert.equal(g.regionInfo(h.huntRegion).fit([h.id]).verdict, 'easy', `${h.classId} picked an easy region`);
   const a = g.state.hunters.find(h => h.autoHunt); assert.ok(a, 'someone is hunting on their own');
   assert.equal(g.dispatchHunters('forest', [a.id]).ok, true); assert.equal(a.huntRegion, 'forest'); assert.equal(a.autoHunt, false, 'a player order replaces the self-chosen hunt');
@@ -444,7 +446,7 @@ assert.ok(idle.state.counts.services > 0, 'Hunters visibly use town services wit
   for (const k of ['hunterGold', 'hunterPay', 'wanderGold', 'wanderPay']) delete old.counts[k];
   const re = createGame(old); assert.ok(['hunterGold', 'hunterPay', 'wanderGold', 'wanderPay'].every(k => re.state.counts[k] === 0), 'old saves get zeroed income ledgers');
   run(re, 60); assert.ok(re.state.totalKills > 0 && re.state.counts.hunterGold > 0, 'hunters from an old save hunt on their own');
-  const out = createGame(); run(out, 30); assert.ok(out.state.hunters.some(h => h.autoHunt && !h.inTown));
+  const out = createGame(); run(out, 45); assert.ok(out.state.hunters.some(h => h.autoHunt && !h.inTown));   // 45 秒:同上(第一位約第 30 秒才出門)
   const mid = createGame(out.serialize()); run(mid, 60, false, assertFiniteEconomy);
   assert.ok(mid.state.hunters.some(h => h.autoHunt), 'a save taken mid-hunt resumes hunting after load');
 }
@@ -538,7 +540,7 @@ assert.ok(idle.state.counts.services > 0, 'Hunters visibly use town services wit
     assert.equal(g.autoHuntPick(h.id), 'mountain', 'hunters away in the dungeon do not crowd a field region');
   }
 }
-{ // 2026-11-17 野外存活:看情勢撤退、返村走環路、趕路時不離開環路去追自己區的魔物
+{ // 2026-11-17 野外存活:看情勢撤退;2026-11-26 拿掉環村道路後:出村/返村挑危險區最少的路、趕路時不離開路線去追自己區的魔物
   const foe = (type, x, z, attack, regionId) => ({ id: 'e-t-' + type + x.toFixed(2), type, x, z, hp: 999, maxHp: 999, attack, attackTimer: 9, age: 0, regionId, homeX: x, homeZ: z });
   const field = (hpFrac, foes) => {
     const g = createGame(), h = isolate(g), c = regionCenter('meadow');
@@ -551,37 +553,49 @@ assert.ok(idle.state.counts.services > 0, 'Hunters visibly use town services wit
   { const { h } = field(0.9, pack); assert.equal(h.task, null, 'a healthy hunter (above the town-heal line) stays to fight'); }
   { const { h } = field(0.6, c => [foe('mole', c.x + 1.2, c.z, 3, 'meadow')]); assert.equal(h.task, null, 'a weak monster does not scare a 60% hunter home'); }
   { const { h } = field(0.6, () => []); assert.equal(h.task, null, 'no monsters around → keeps hunting'); }
-  // 返村路線:從各區隨機位置回村,離開出發區之後走環村道路(或村裡/村口那一小段),不直線穿過別的狩獵區。
-  // 舊版(直線走向門口)在草原/霜杉/雪原邊上會切過隔壁區 10+ 格(平均 2.2 格/趟,最多 14.5 格)。
-  let seed = 7, offSum = 0, offMax = 0, trips = 0; const rnd = () => (seed = (seed * 1103515245 + 12345) >>> 0) / 4294967296;
+  // 2026-11-26 拿掉環村道路:路線不再有安全走廊,改量「走在比基準更危險的狩獵區」的長度(× 危險度差)。
+  const RISK = Object.fromEntries(REGIONS.map(r => [r.id, r.id === 'village' ? 0 : r.risk]));
+  const riskyWalk = (route, start, risk, ownId) => {   // 回傳 { excess: Σ 長度×危險度差, worst: 最大危險度差 }
+    let excess = 0, worst = 0, prev = start;
+    for (const p of route) { const n = Math.max(1, Math.ceil(Math.hypot(p.x - prev.x, p.z - prev.z) / 0.25)), step = Math.hypot(p.x - prev.x, p.z - prev.z) / n;
+      for (let i = 1; i <= n; i++) { const x = prev.x + (p.x - prev.x) * i / n, z = prev.z + (p.z - prev.z) * i / n; if (inVillage(x, z)) continue; const rid = regionAt(x, z).id; if (rid === ownId) continue;
+        const d = Math.max(0, RISK[rid] - risk); excess += d * step; if (d > 0 && step > 0) worst = Math.max(worst, d); } prev = p; }
+    return { excess, worst };
+  };
+  // 返村路線:從各區隨機位置回村,不走進比自己所在區更危險的區(以前靠環村道路;直線走向門口會切過隔壁的高階區)。
+  let seed = 7, exSum = 0, exMax = 0, trips = 0; const rnd = () => (seed = (seed * 1103515245 + 12345) >>> 0) / 4294967296;
   for (const rid of ['meadow', 'forest', 'taiga', 'snow', 'mountain', 'desert', 'birch']) for (let k = 0; k < 12; k++) {
     const g = createGame(), h = isolate(g), c = randomRegionPoint(rid, rnd);
     Object.assign(h, { x: c.x, z: c.z, inTown: false, huntRegion: rid, status: '出征中' }); h.hp = Math.round(h.maxHp * 0.2); g.state.enemies = [];
     g.tick(0.1); assert.equal(h.status, '返村中', `${rid}: badly hurt hunter returns`); assert.ok(h.route.length > 0, `${rid}: has a route home`);
-    let off = 0, prev = { x: h.x, z: h.z };
-    for (const p of h.route) { const n = Math.ceil(Math.hypot(p.x - prev.x, p.z - prev.z) / 0.25); for (let i = 1; i <= n; i++) { const x = prev.x + (p.x - prev.x) * i / n, z = prev.z + (p.z - prev.z) * i / n; if (!inVillage(x, z) && !regionContains(rid, x, z) && !onRingRoad(x, z, 0.5)) off += Math.hypot(p.x - prev.x, p.z - prev.z) / n; } prev = p; }
-    offSum += off; offMax = Math.max(offMax, off); trips++;
+    assert.ok(inVillage(h.route.at(-1).x, h.route.at(-1).z), `${rid}: the way home ends inside the village`);
+    const { excess, worst } = riskyWalk(h.route, { x: h.x, z: h.z }, RISK[rid], rid);
+    assert.ok(worst <= 0.16, `${rid}: the way home never crosses a much harder region (worst +${worst.toFixed(2)})`);
+    exSum += excess; exMax = Math.max(exMax, excess); trips++;
   }
-  // 出征路線(ringWaypoints):以前把環路「截斷」在 12 點,往草原/白樺花原會在半路離開環路、直線切過鐵脊山麓等別區 27–29 格
+  assert.ok(exSum / trips < 0.3 && exMax < 1.6, `the way home avoids harder regions (avg ${(exSum / trips).toFixed(2)}, max ${exMax.toFixed(2)} tile×risk)`);
+  // 出征路線:從村裡出發,挑對的出村口與繞法 —— 新人去草原走北門經過白樺花原(+0.1)幾格,不會東門出去穿過鐵脊山麓(+0.65)
+  const gateUsed = {};
   for (const rid of ['meadow', 'forest', 'taiga', 'snow', 'mountain', 'desert', 'birch']) {
     const g = createGame(), h = g.state.hunters[0]; assert.equal(g.dispatchHunters(rid, [h.id]).ok, true);
-    let off = 0, prev = { x: h.x, z: h.z };
-    for (const p of h.route) { const n = Math.ceil(Math.hypot(p.x - prev.x, p.z - prev.z) / 0.25); for (let i = 1; i <= n; i++) { const x = prev.x + (p.x - prev.x) * i / n, z = prev.z + (p.z - prev.z) * i / n; if (!inVillage(x, z) && !regionContains(rid, x, z) && !onRingRoad(x, z, 0.5)) off += Math.hypot(p.x - prev.x, p.z - prev.z) / n; } prev = p; }
-    assert.ok(off < 4, `departing to ${rid} follows the ring road instead of cutting across other regions (${off.toFixed(1)} tiles off-road)`);
+    const { excess, worst } = riskyWalk(h.route, { x: h.x, z: h.z }, RISK[rid], null);
+    assert.ok(worst <= 0.16 && excess < 1.2, `departing to ${rid} does not cut across harder regions (worst +${worst.toFixed(2)}, ${excess.toFixed(2)} tile×risk)`);
+    const firstOut = h.route.find(p => !inVillage(p.x, p.z));
+    gateUsed[rid] = EXITS.reduce((b, e) => Math.hypot(e.out.x - firstOut.x, e.out.z - firstOut.z) < Math.hypot(b.out.x - firstOut.x, b.out.z - firstOut.z) ? e : b).id;
   }
-  assert.ok(offSum / trips < 1.5 && offMax < 8,`the way home stays on the ring road outside the start region (avg ${(offSum / trips).toFixed(2)}, max ${offMax.toFixed(1)} tiles off-road)`);
-  // 趕路經過別區(站在環路上)時,不離開環路去追 SIGHT 內自己區的魔物;進了自己的區才開打
+  assert.deepEqual(gateUsed, { meadow: 'north', forest: 'west', taiga: 'west', snow: 'south', mountain: 'east', desert: 'south', birch: 'north' }, 'each region leaves by the gate on its own (or the safer neighbouring) side');
+  // 趕路經過別區(沿圍籬繞)時,不離開路線去追 SIGHT 內自己區的魔物;進了自己的區才開打
   let spot = null;
-  for (const p of RING_ROAD) {
+  for (const p of VILLAGE_LOOP) {
     if (!regionContains('mountain', p.x, p.z)) continue;
-    for (let a = 0; a < 24 && !spot; a++) for (const r of [6, 8, 10]) { const q = { x: p.x + Math.cos(a * Math.PI / 12) * r, z: p.z + Math.sin(a * Math.PI / 12) * r }; if (regionContains('meadow', q.x, q.z) && !onRingRoad(q.x, q.z, 1) && walkable(q.x, q.z)) { spot = { p, q }; break; } }
+    for (let a = 0; a < 24 && !spot; a++) for (const r of [6, 8, 10]) { const q = { x: p.x + Math.cos(a * Math.PI / 12) * r, z: p.z + Math.sin(a * Math.PI / 12) * r }; if (regionContains('meadow', q.x, q.z) && walkable(q.x, q.z)) { spot = { p, q }; break; } }
     if (spot) break;
   }
-  assert.ok(spot, 'found a ring-road spot in the mountain sector with meadow ground in sight');
+  assert.ok(spot, 'found a fence-side spot in the mountain sector with meadow ground in sight');
   { const g = createGame(), h = isolate(g); g.state.spawnTimer = 0; g.state.regionSpawn = {};
     Object.assign(h, { x: spot.p.x, z: spot.p.z, inTown: false, huntRegion: 'meadow', status: '前往向陽草原', targetId: null });
     g.state.enemies = [foe('mole', spot.q.x, spot.q.z, 3, 'meadow')]; g.tick(0.1);
-    assert.equal(h.targetId, null, 'a hunter passing another region on the ring road does not cut across it to chase a meadow monster'); }
+    assert.equal(h.targetId, null, 'a hunter passing another region along the fence does not cut across it to chase a meadow monster'); }
   { const g = createGame(), h = isolate(g), c = regionCenter('meadow'); g.state.spawnTimer = 0; g.state.regionSpawn = {};
     Object.assign(h, { x: c.x, z: c.z, inTown: false, huntRegion: 'meadow', status: '搜尋中', targetId: null });
     g.state.enemies = [foe('mole', c.x + 7, c.z, 3, 'meadow')]; g.tick(0.1);
@@ -1671,17 +1685,25 @@ run(manual, 30, false, assertFiniteEconomy);
   assert.equal(h.hp, h.maxHp, 'no damage before the projectile lands');
   for (let i = 0; i < 12; i++) { keep(); g.tick(0.1); }
   assert.ok(h.hp < h.maxHp, `damage lands with the projectile (${h.hp}/${h.maxHp})`);
-  // 環村道路上:同一隻魔物就在 4 格外,也不出手
-  const road = RING_ROAD.find(p => regionContains('meadow', p.x, p.z) && regionContains('meadow', p.x + 0.1, p.z + 3.5) && !onRingRoad(p.x + 0.1, p.z + 3.5, 0.6));
-  assert.ok(road, 'found a ring-road point in the meadow');
-  Object.assign(h, { x: road.x, z: road.z, hp: h.maxHp }); g.state.effects = [];
-  Object.assign(g.state.enemies[0], { x: road.x + 0.1, z: road.z + 3.5, attackTimer: 0 });
+  // 2026-11-26 拿掉環村道路(以前站在路上不會被瞄準):站在北門外的手動操控獵人,白樺花原的魔物照樣丟過來
+  const gate = EXITS.find(e => e.id === 'north').out, spotM = { x: gate.x + 0.1, z: gate.z - 3.5 };
+  assert.ok(regionContains('birch', gate.x, gate.z) && regionContains('birch', spotM.x, spotM.z), 'the ground right outside the north gate is birch-meadow terrain (no road strip)');
+  Object.assign(h, { x: gate.x, z: gate.z, hp: h.maxHp }); g.state.effects = [];
+  Object.assign(g.state.enemies[0], { x: spotM.x, z: spotM.z, regionId: 'birch', attackTimer: 0 });
   for (let i = 0; i < 30; i++) { keep(); g.tick(0.1); }
-  assert.equal(h.hp, h.maxHp, 'a hunter walking on the ring road is never attacked');
-  assert.ok(!g.state.effects.some(e => e.type === 'mshot' || e.type === 'hit'), 'no monster attack is aimed at the road');
-  // 自然遊玩 40 秒:魔物不在路上(生怪避開、走路與推擠都不上路)
+  assert.ok(h.hp < h.maxHp, `a hunter standing just outside a gate is attacked by that region's monsters (${h.hp}/${h.maxHp})`);
+  // 獵人退進村裡:魔物不跟進村、也不再瞄準村內的人
+  const inside = { x: gate.x, z: gate.z + 2.5 }; assert.ok(inVillage(inside.x, inside.z));
+  Object.assign(h, { x: inside.x, z: inside.z, hp: h.maxHp }); g.state.effects = []; for (let i = 0; i < 30; i++) { keep(); g.tick(0.1); }
+  assert.equal(h.hp, h.maxHp, 'inside the fence the hunter is safe');
+  assert.ok(!inVillage(g.state.enemies[0].x, g.state.enemies[0].z), 'the monster stays outside the village');
+  // 自然遊玩:魔物從不進村;閒晃點可以一路到圍籬邊(以前離村界 3.4 格內、環路上都不去)
   const n = createGame(); for (const u of n.state.hunters) u.huntRegion = 'meadow'; run(n, 40);
-  assert.ok(n.state.enemies.every(e => !onRingRoad(e.x, e.z, 0.3)), 'monsters stay off the ring road');
+  assert.ok(n.state.enemies.every(e => !inVillage(e.x, e.z)), 'monsters never step inside the village');
+  { let sd = 3, near = 0; const r2 = () => (sd = (sd * 1103515245 + 12345) >>> 0) / 4294967296;
+    for (let k = 0; k < 400; k++) { const p = randomRegionPoint('birch', r2, 1.1), dx = Math.max(VILLAGE_BOUNDS.minX - p.x, 0, p.x - VILLAGE_BOUNDS.maxX), dz = Math.max(VILLAGE_BOUNDS.minZ - p.z, 0, p.z - VILLAGE_BOUNDS.maxZ);
+      assert.ok(!inVillage(p.x, p.z)); if (Math.hypot(dx, dz) < 3.4) near++; }
+    assert.ok(near > 0, `monster wander points reach the fence (${near}/400 within 3.4 tiles)`); }
 }
 {
   // 地下城:自動續戰一層接一層、可以選起始層、魔物先打前排
@@ -1905,6 +1927,30 @@ run(manual, 30, false, assertFiniteEconomy);
   // 自動挑隊:舊規則(血量比例 → 攻擊)會挑三個法師;現在用推薦
   g.setDungeonAuto(true); assert.equal(g.startDungeon().ok, true);
   assert.deepEqual([...d.hunterIds].sort(), [...rec.ids].sort(), 'startDungeon(null) takes the recommended party');
+}
+{
+  // 2026-11-26 dungeonReach:任一支三人隊能推進到第幾層 —— 跟推薦隊伍同一段計算(dgReach),預設用滿血估;唯讀、不擲骰
+  const sv = createGame().serialize(); sv.seed = 5; sv.buildings.dungeon = 1;
+  const cls = ['sorcerer', 'sorcerer', 'sorcerer', 'paladin', 'archer', 'priest'];
+  sv.hunters = cls.map((c, i) => { const b = sv.hunters[i % sv.hunters.length]; return { ...b, name: b.name + (i + 1), classId: c, level: 20, xp: 0 }; });
+  const g = createGame(sv), hs = g.state.hunters; for (const h of hs) h.hp = h.maxHp; g.state.dungeon.bestFloor = 20;
+  const glass = hs.filter(h => h.classId === 'sorcerer').map(h => h.id), rec = g.recommendDungeonParty();
+  const snap = JSON.stringify(g.serialize()), rnd = Math.random; Math.random = () => { throw new Error('dungeonReach must not roll'); };
+  let reach, glassReach; try { reach = g.dungeonReach(rec.ids); glassReach = g.dungeonReach(glass); } finally { Math.random = rnd; }
+  assert.equal(JSON.stringify(g.serialize()), snap, 'dungeonReach changes nothing');
+  assert.equal(reach.ok, true); assert.equal(reach.floor, rec.floor, 'full HP: same number as the recommendation');
+  assert.ok(glassReach.ok && glassReach.floor < reach.floor, `glass cannons ${glassReach.floor} < balanced ${reach.floor}`);
+  // 殘血(例如在地下城裡打到一半):預設照滿血估,不會因為現在的傷勢被低估;rested:false 才用現在的生命
+  //   (平衡隊有祭司,補血追得上承傷 → 殘血也估得一樣深;沒有補師的三法師才看得出差別)
+  for (const h of hs) h.hp = Math.ceil(h.maxHp * 0.2);
+  assert.equal(g.dungeonReach(rec.ids).floor, reach.floor, 'rested by default');
+  assert.equal(g.dungeonReach(glass).floor, glassReach.floor, 'rested by default (no healer)');
+  assert.ok(g.dungeonReach(glass, null, { rested: false }).floor < glassReach.floor, 'current HP when asked');
+  const team = rec.ids.map(id => hs.find(h => h.id === id));
+  // 不是 3 位不同的存活獵人 → ok:false
+  assert.equal(g.dungeonReach(rec.ids.slice(0, 2)).ok, false);
+  assert.equal(g.dungeonReach([rec.ids[0], rec.ids[0], rec.ids[1]]).ok, false);
+  team[0].hp = 0; assert.equal(g.dungeonReach(rec.ids).ok, false);
 }
 {
   // 英雄對話框:每句都短;需求優先;倒下說倒下的話

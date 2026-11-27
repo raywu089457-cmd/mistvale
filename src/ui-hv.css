@@ -3419,3 +3419,119 @@ html body #modal-content .gear-tiers .pixel-button{flex:1 1 0;min-width:0;min-he
   html body #modal-content .zc-row.gc-row>.z2b-act.gc-act{width:150px}
 }
 html body #modal[data-type=density] #modal-content .density-detail{display:flex;width:100%;min-height:44px;margin-top:8px;align-items:center;justify-content:center}
+
+/* ── 2026-11-27 主畫面減量(使用者:「主畫面介面太擁擠」)──────────────────────────
+   原則:東西都還在、點得到,只是「沒事就不佔畫面」。邏輯在 pixel-ui.js 的 calmHudPaint / calmHintInit / nextStepPaint。 */
+/* 自動儲存字樣:只在儲存失敗(.warn,請匯出存檔)時才出現 */
+html body #topbar #save-label:not(.warn){display:none!important}
+/* 村莊消息:最多 2 行,新消息出現後 10 秒自己收起(下一則新消息會再出現) */
+html body #notice-feed>*:nth-child(n+3){display:none!important}
+html body #notice-feed.nf-quiet{display:none!important}
+/* 區域狀態列:換區域後 8 秒淡出 */
+html body #topbar #region-badge{transition:opacity .6s}
+html body #topbar #region-badge.rb-quiet{opacity:0;pointer-events:none}
+/* 競技場鈕:還沒蓋修煉地不顯示(蓋好才出現) */
+html body .hv-actions .hv-act.act-hide{display:none!important}
+/* 地圖操作提示:只教一次(7 秒或第一次拖曳/滾輪後淡出,之後每次開遊戲都不再出現) */
+html body #game-ui .map-hint{transition:opacity .6s}
+html body #game-ui .map-hint.mh-gone{opacity:0;visibility:hidden}
+/* 顧問提示:看過 10 秒後縮成頭像小圖(滑過/聚焦會展開;點下去仍開同一個顧問對話框) */
+html body #hv-advisor.calm:not(:hover):not(:focus-within) .next-step{grid-template-columns:44px!important;width:44px!important;column-gap:0!important}
+html body #hv-advisor.calm:not(:hover):not(:focus-within) .next-step :is(.ns-tx,.ns-go){display:none!important}
+html body #hv-advisor.calm:not(:hover):not(:focus-within) .next-step .ns-ic{width:44px!important;height:44px!important;position:relative}
+html body #hv-advisor.calm:not(:hover):not(:focus-within) .next-step .ns-ic::after{content:"";position:absolute;right:2px;top:2px;width:8px;height:8px;background:var(--hv-gold);box-shadow:0 0 0 1px #000;border-radius:1px}
+/* 窄螢幕/觸控:右上「?」收進設定(設定 > 操控與教學 > 玩法說明;Ctrl+K 指令面板也有) */
+@media(pointer:coarse),(max-width:760px){html body #topbar .hv-help{display:none!important}}
+
+/* ═══ 2026-11-27 主畫面減量 第二輪(手機直向／橫向／窄視窗:≤760 寬 或 ≤520 高)═══════════════════════════
+   1 任務追蹤:收成貼內容大小的小卡(自己的底、不再整欄漸層),顧問頭像並排在標題旁,目標那行看過 10 秒收成「0/1」小牌
+   2 右欄「獵人／召喚首領」:獵人鈕跟底部頁籤重複 → 藏起來,待命人數改成頁籤上的小牌;召喚首領搬到右下工具列(只剩圖示)
+   3 觸控:縮放 ＋／－ 藏起來(雙指縮放還在),留「回村」跟「村務面板」
+   4 頂欄:徽記只留色帶(44 高)、資源 2×2,頂欄從 82~90 高降到 44~50
+   5 橫向:頁籤列 58 → 46(圖示在字左邊) */
+.hq-prog{display:none}
+@media(max-width:760px),(max-height:520px){
+  :root{--hv-top-left-h:44px;--hv-left-top:calc(env(safe-area-inset-top,0px) + 56px);--hv-lp-top:calc(var(--hv-left-top) + 56px)}
+  /* 4 頂欄左側:徽記色帶 + 資源 2×2 */
+  html body #topbar .hv-crest>i[data-icon]{display:none!important}
+  html body #topbar .hv-crest{height:44px!important;min-height:44px!important}
+  html body #topbar .hv-crest .hv-crest-band{height:44px;justify-content:center}
+  html body #topbar .treasury{display:grid!important;grid-template-columns:auto auto!important;grid-auto-rows:22px;column-gap:8px!important;align-content:center;height:44px!important;min-height:44px!important}
+  html body #topbar .treasury .res-row{height:22px}
+  /* 1 任務追蹤小卡 */
+  html body #hv-left{display:flex!important;flex-direction:row!important;flex-wrap:wrap;align-items:flex-start!important;gap:2px 4px!important;width:fit-content!important;max-width:min(300px,calc(100vw - 2 * var(--hv-gut) - 96px))!important;
+    padding:2px 4px 2px 2px;background:rgba(14,10,20,.74);border:1px solid rgba(107,94,80,.6);border-radius:2px;box-shadow:0 2px 0 rgba(0,0,0,.35)}
+  html body #hv-left::before{display:none!important}
+  html body #hv-left>#hv-quest{width:auto!important;flex:1 1 0!important;min-width:0}
+  html body #hv-left .hq-head{flex-wrap:nowrap;gap:6px}
+  html body #hv-left .hq-title{white-space:nowrap;overflow:hidden;text-overflow:ellipsis;max-width:150px}
+  html body #hv-left .hq-prog{display:inline-block;font:700 12px/1 var(--font-num);color:var(--hv-ink,#14110f);background:var(--hv-gold);padding:2px 5px;border-radius:2px;white-space:nowrap}
+  html body #hv-left .hq-prog:empty{display:none}
+  html body #hv-left.q-calm:not(:hover):not(:focus-within) .hq-goal{display:none!important}
+  html body #hv-left.q-calm:not(:hover):not(:focus-within) #hv-quest{min-height:44px;justify-content:center}
+  html body #hv-advisor{flex:0 0 auto}
+  html body #hv-advisor:not(.calm){flex:1 1 100%}
+  html body #notice-feed{flex:1 1 100%}
+  /* 2 獵人鈕(跟頁籤重複)藏起來;頁籤上放待命人數小牌 */
+  html body .hv-actions .hv-act[data-act=hunters]{display:none!important}
+  html body #bottom-bar>button .tab-n{display:grid!important;place-items:center;position:absolute;left:6px;top:5px;min-width:18px;height:16px;padding:0 4px;font:700 11px/1 var(--font-num);font-style:normal;border-radius:2px;color:#14110f;background:var(--hv-gold);box-shadow:0 0 0 1px #000}
+  html body #bottom-bar>button .tab-n.is-away{background:#8fd16a}
+  html body #bottom-bar>button .tab-n.is-down{background:#e0604a;color:#fff}
+  /* 2 召喚首領(與競技場)搬到右下工具列左邊,只剩圖示 */
+  html body .hv-actions{top:auto!important;bottom:calc(var(--hv-tab-h) + env(safe-area-inset-bottom,0px) + 12px)!important;right:calc(var(--hv-gut) + 96px)!important;flex-direction:row!important;gap:4px!important}
+  html body .hv-actions .hv-act{width:44px!important;height:44px!important;min-width:44px!important;min-height:44px!important;padding:0!important;justify-content:center!important;gap:0!important;
+    background:rgba(20,17,15,.45)!important;border:1px solid rgba(74,65,56,.8)!important;border-radius:2px!important}
+  html body .hv-actions .hv-act :is(.ha-l1,.ha-l2){display:none!important}
+  html body .hv-actions .hv-act [data-icon]{margin:0!important;width:26px!important;height:26px!important}
+  html body .hv-actions .hv-act [data-icon] :is(canvas,img){width:26px!important;height:26px!important}
+  /* 3 工具列:橫排貼右下 */
+  html body #game-ui .view-tools{flex-direction:row!important;right:var(--hv-gut)!important}
+}
+/* 3 觸控裝置:雙指縮放已經有,＋／－ 不顯示 */
+@media(pointer:coarse){html body #game-ui .view-tools>[data-action=zoomIn],html body #game-ui .view-tools>[data-action=zoomOut]{display:none!important}}
+/* 滑鼠的窄視窗(695×800):工具列有 4 顆,行動鈕往左讓 */
+@media((max-width:760px),(max-height:520px)) and (pointer:fine){html body .hv-actions{right:calc(var(--hv-gut) + 192px)!important}}
+/* 5 橫向矮視窗:頁籤列 46 高、圖示在字左邊 */
+@media(max-height:520px){
+  :root{--hv-tab-h:46px}
+  html body #bottom-bar>button{flex-direction:row!important;gap:8px!important;padding:0 6px!important}
+  html body #bottom-bar>button [data-icon],html body #bottom-bar>button [data-icon] :is(canvas,img){width:24px!important;height:24px!important}
+  html body #bottom-bar>button b{font-size:13px!important;letter-spacing:.04em}
+  html body #bottom-bar>button kbd{display:none!important}
+  html body #bottom-bar>button .tab-n{top:50%;transform:translateY(-50%)}
+  html body #bottom-bar button[data-badge]:not([data-badge=""])::after{top:2px!important;left:calc(50% + 14px)!important}
+}
+/* 窄手機直向(≤440 寬):資源 2×2(數字維持 16px)要塞得進 168px、人數鈕收成 44 寬(圖示在上、6/8 在下),右上圖示列才不被擠出畫面 */
+@media(max-width:440px){
+  html body #topbar .treasury .res-row{width:82px!important;grid-template-columns:16px 1fr 18px!important;column-gap:3px!important}
+  html body #topbar .treasury .res-row:has(.res-plus){min-width:0!important}
+  html body #topbar .treasury [data-icon],html body #topbar .treasury [data-icon] :is(canvas,img){width:16px!important;height:16px!important}
+  html body #topbar .treasury b{font-size:16px!important;letter-spacing:0}
+  html body #topbar .treasury .res-plus{flex-basis:18px;width:18px}
+  html body #topbar .treasury{column-gap:4px!important}
+  html body #topbar .hv-crest:not(#z2d){width:54px!important}
+  html body #topbar .population{width:44px!important;min-width:44px!important;padding:0!important;flex-direction:column!important;justify-content:center!important;gap:0!important}
+  html body #topbar .population [data-icon],html body #topbar .population [data-icon] :is(canvas,img){width:20px!important;height:20px!important}
+  html body #topbar .population #population{font-size:12px!important;line-height:14px!important}
+}
+/* 更窄(360/375 寬):2×2 放不下 16px 數字 → 資源回到直排 4 列(跟改版前一樣),任務小卡往下讓 */
+@media(max-width:384px){
+  :root{--hv-left-top:calc(env(safe-area-inset-top,0px) + 98px);--hv-top-left-h:84px}
+  html body #topbar .treasury{display:flex!important;flex-direction:column!important;height:auto!important;min-height:44px!important;padding:0 4px!important}
+  html body #topbar .treasury .res-row{width:104px!important;grid-template-columns:18px 1fr 30px!important;column-gap:6px!important;height:20px!important}
+  html body #topbar .treasury .res-plus{flex-basis:22px;width:22px}
+  html body #topbar .treasury [data-icon],html body #topbar .treasury [data-icon] :is(canvas,img){width:18px!important;height:18px!important}
+}
+/* 手機直向頁籤列 70 → 66(圖示 28 + 字仍放得下,熱區 ≥44) */
+@media(max-width:760px) and (min-height:521px){:root{--hv-tab-h:66px}}
+/* 直向手機:工具列維持右側一欄(出征小隊 HUD、獵人小卡都是照「右邊留 44 寬一欄」排的),召喚首領／競技場疊在它上面 */
+@media(max-width:760px) and (min-height:521px){
+  html body #game-ui .view-tools{flex-direction:column!important}
+  html body .hv-actions{flex-direction:column!important;right:var(--hv-gut)!important;bottom:calc(var(--hv-tab-h) + env(safe-area-inset-bottom,0px) + 12px + 92px + 8px)!important}
+}
+@media(max-width:760px) and (min-height:521px) and (pointer:fine){
+  html body .hv-actions{bottom:calc(var(--hv-tab-h) + env(safe-area-inset-bottom,0px) + 12px + 188px + 8px)!important}
+}
+/* 手動操控選角清單開著時,召喚首領／競技場鈕(現在在右下)也先藏起來,跟縮放鈕一樣 */
+html body:not(.piloting):has(#pilotlab) .hv-actions{visibility:hidden!important;pointer-events:none!important}
+html body #hv-advisor.calm:not(:hover):not(:focus-within) .next-step{height:44px!important;min-height:44px!important;overflow:hidden}

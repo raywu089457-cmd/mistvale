@@ -39,16 +39,17 @@ function ringPhi(x,z){
  // 所以區的「逆時針順序」不會被打亂,只有邊界形狀改變。
  phi+=.088*Math.sin(phi*3+r*.055+1.3)+.05*Math.sin(phi*7-r*.115)+.026*Math.sin(phi*13+r*.23+2.1);
  return mod(phi,TAU);}
-// ── 環村道路(2026-10-28) ───────────────────────────────────────────────
-// 沿著圍籬外側一圈的封閉道路,四個出村口各有短引道接上來。
-// 英雄出村→別的狩獵區一律先走這條路(見 pixel-game 的 ringWaypoints),而且**路上的獵物不會被魔物鎖定**
-// (pixel-game 的索敵會跳過 onRingRoad 的位置),所以移動途中不會被路邊的怪騷擾。
-export const RING_ROAD_OFFSET = 3.4;     // 離村界多遠(留一段草地把道路跟圍籬分開)
-export const RING_ROAD_HALF = 1.05;      // 道路半寬(格)
-export const RING_ROAD = (() => {
-  // 矩形外擴 o，四角用「半徑 o 的四分之一圓」收邊：整圈每個點都離村界 o 格，
-  // 不會像切角那樣把斜線切進村莊的角落（實測切角會在角落變成 0 距離）。
-  const b = VILLAGE_BOUNDS, o = RING_ROAD_OFFSET;
+// ── 村界外的兩圈「圍村線」(只是幾何,不畫、不是道路) ─────────────────────────
+// 2026-11-26 使用者:「移除環村道路,怪物可以自由漫遊到村莊出入口攻擊玩家」。以前圍籬外 3.4 格有一條環村道路,
+// 是魔物進不去、也不會鎖定路上獵物的安全走廊;現在道路、安全走廊都拿掉了,地面一路是旁邊那一區的地形直到圍籬。
+// 留下兩圈純幾何的線:
+//  - PERIMETER(離村界 3.4 格 = 舊環路的中心線,點完全相同):只拿來定區界(下面草原/山麓的直線交界 FOOTHILLS_EDGE
+//    就是從它的角落出發),所以拿掉道路後七個狩獵區的形狀、存檔裡的座標與 regionId 全部不變。
+//  - VILLAGE_LOOP(離村界 2 格):英雄出村/回村時沿圍籬繞到目的地的導航線(pixel-game 的 travelPlan),
+//    路上會經過別的狩獵區 —— 沒有安全走廊了,所以 travelPlan 會挑「比目的地危險的區」走最少的那一側。
+function loopAround(o) {
+  // 矩形外擴 o,四角用「半徑 o 的四分之一圓」收邊:整圈每個點都離村界 o 格。
+  const b = VILLAGE_BOUNDS;
   const x0 = b.minX - o, x1 = b.maxX + o, z0 = b.minZ - o, z1 = b.maxZ + o;
   const arc = (cx, cz, a0) => {
     const pts = [];
@@ -65,23 +66,24 @@ export const RING_ROAD = (() => {
     return pts;
   };
   const pts = [];
-  // 上邊（z0）由左往右 → 右上圓角 → 右邊 → 右下 → 下邊 → 左下 → 左邊 → 左上
+  // 上邊(z0)由左往右 → 右上圓角 → 右邊 → 右下 → 下邊 → 左下 → 左邊 → 左上
   pts.push(...edge(b.minX, z0, b.maxX, z0), ...arc(b.maxX, b.minZ, -Math.PI / 2));
   pts.push(...edge(x1, b.minZ, x1, b.maxZ), ...arc(b.maxX, b.maxZ, 0));
   pts.push(...edge(b.maxX, z1, b.minX, z1), ...arc(b.minX, b.maxZ, Math.PI / 2));
   pts.push(...edge(x0, b.maxZ, x0, b.minZ), ...arc(b.minX, b.minZ, Math.PI));
   return pts;
-})();
-// 環路的外框:點在外框外超過 limit 格,離環路一定超過 limit 格,不用逐段算距離(2026-11-18 魔物變兩倍,這是模擬裡最熱的一段)。
-const RING_BOX={minX:Math.min(...RING_ROAD.map(p=>p.x)),maxX:Math.max(...RING_ROAD.map(p=>p.x)),minZ:Math.min(...RING_ROAD.map(p=>p.z)),maxZ:Math.max(...RING_ROAD.map(p=>p.z))};
-export function ringRoadFar(x,z,limit){return x<RING_BOX.minX-limit||x>RING_BOX.maxX+limit||z<RING_BOX.minZ-limit||z>RING_BOX.maxZ+limit;}
-// T68: straight meadow/mountain border on the right. Its west end is the first ring-road point hit by
+}
+export const PERIMETER_OFFSET = 3.4;
+export const PERIMETER = loopAround(PERIMETER_OFFSET);
+export const VILLAGE_LOOP_OFFSET = 2;
+export const VILLAGE_LOOP = loopAround(VILLAGE_LOOP_OFFSET);
+// T68: straight meadow/mountain border on the right. Its west end is the first PERIMETER point hit by
 // the screen-angle-0 ray from the village centre (the same direction that used to be the border).
 const FOOTHILLS_EDGE=(()=>{
  const d=ringDir(0);   // 草原的起始畫面角固定是 0
  let best=Infinity;
- for(let i=0;i<RING_ROAD.length;i++){
-  const a=RING_ROAD[i],b=RING_ROAD[(i+1)%RING_ROAD.length];
+ for(let i=0;i<PERIMETER.length;i++){
+  const a=PERIMETER[i],b=PERIMETER[(i+1)%PERIMETER.length];
   const ex=b.x-a.x,ez=b.z-a.z,den=d.x*ez-d.z*ex;
   if(Math.abs(den)<1e-12)continue;
   const qx=a.x-VC.x,qz=a.z-VC.z;
@@ -110,7 +112,7 @@ const RING_START=(()=>{
 function ringIndex(x,z){
  const phi=ringPhi(x,z);let k=RING_START.length-1;while(k>0&&phi<RING_START[k])k--;
  // T68: the meadow/mountain border east of the village is a straight line, not the noisy ray.
- // It starts at the ring-road corner on the screen-angle-0 side and runs east to the world edge;
+ // It starts at the PERIMETER corner on the screen-angle-0 side and runs east to the world edge;
  // meadow stays on the -z side, mountain on the +z side.
  if((k===0||k===6)&&x>=FOOTHILLS_EDGE.x)return z>FOOTHILLS_EDGE.z?6:0;
  return k;}
@@ -154,16 +156,17 @@ export function biomeAt(x,z){
 export function regionAt(x,z){return inVillage(x,z)?REGIONS[0]:REGIONS.find(r=>r.id===RING_ORDER[ringIndex(x,z)])||REGIONS[1];}
 // 點是否在某個狩獵區的地形內(村內、世界外不算)。
 export function regionContains(id,x,z){return wildAt(x,z)&&RING_ORDER[ringIndex(x,z)]===id;}
-// 區內隨機一點(離村莊的圍籬至少 1.2 格、在世界以內)。隨機數由呼叫者給(遊戲用自己的亂數,方便重現)。
-export function randomRegionPoint(id,rnd=Math.random){
- const PAD=3.4;   // 離村莊圍籬至少這麼多格(不要貼著村界生怪,玩家一走出門就撞到)
- const CLEAR=1.3; // 生怪點四周留一點實地,不要卡在只有一格寬的海岸邊角(走不出去)
+// 區內隨機一點(離村界至少 pad 格、在世界以內)。隨機數由呼叫者給(遊戲用自己的亂數,方便重現)。
+// pad 預設 3.4:生怪、獵人搜尋點不要貼著村界(玩家一走出門就撞到剛生出來的怪)。
+// 2026-11-26 拿掉環村道路:魔物閒晃用較小的 pad(pixel-game 的 WANDER_PAD),會自己晃到圍籬邊與出村口。
+export function randomRegionPoint(id,rnd=Math.random,pad=3.4){
+ const PAD=pad;
+ const CLEAR=1.3; // 取樣點四周留一點實地,不要卡在只有一格寬的海岸邊角(走不出去)
  for(let i=0;i<400;i++){
   const x=WORLD.minX+1+rnd()*(WORLD.maxX-WORLD.minX-2),z=WORLD.minZ+1+rnd()*(WORLD.maxZ-WORLD.minZ-2);
   const nearVillage=x>VILLAGE_BOUNDS.minX-PAD&&x<VILLAGE_BOUNDS.maxX+PAD&&z>VILLAGE_BOUNDS.minZ-PAD&&z<VILLAGE_BOUNDS.maxZ+PAD;
   const clear=walkable(x-CLEAR,z)&&walkable(x+CLEAR,z)&&walkable(x,z-CLEAR)&&walkable(x,z+CLEAR);
-  // 環村道路上不生怪(2026-10-28):安全走廊上站著一隻怪會很怪
-  if(!nearVillage&&clear&&!onRingRoad(x,z,1.4)&&regionContains(id,x,z))return {x,z};}
+  if(!nearVillage&&clear&&regionContains(id,x,z))return {x,z};}
  return regionCenter(id);}
 export const BIOME_PALETTE={village:'#719b55',meadow:'#8caf5d',forest:'#356b3d',taiga:'#527c68',snow:'#d9e8df',mountain:'#a09e91',desert:'#e0bb73',birch:'#9fbd67',river:'#3395bd',ice:'#94cbd3',bridge:'#a77b50',ocean:'#3d7488'};
 
@@ -172,20 +175,20 @@ function segDist(x, z, a, b) {
   const t = len ? Math.max(0, Math.min(1, ((x - a.x) * dx + (z - a.z) * dz) / len)) : 0;
   return Math.hypot(x - a.x - t * dx, z - a.z - t * dz);
 }
-// 到環村道路的距離(格)
-export function ringRoadDistance(x, z) {
+// 到 PERIMETER(區界用的那一圈)的距離(格);tools/checks/foothills-edge.mjs 用來驗草原/山麓交界的起點。
+export function perimeterDistance(x, z) {
   let best = Infinity;
-  for (let i = 0; i < RING_ROAD.length; i++) {
-    const d = segDist(x, z, RING_ROAD[i], RING_ROAD[(i + 1) % RING_ROAD.length]);
+  for (let i = 0; i < PERIMETER.length; i++) {
+    const d = segDist(x, z, PERIMETER[i], PERIMETER[(i + 1) % PERIMETER.length]);
     if (d < best) best = d;
   }
   return best;
 }
-// 環上離 (x,z) 最近的一點(回傳索引,之後沿著索引走)
-export function nearestRingRoad(x, z) {
+// 圍村導航線上離 (x,z) 最近的一點(回傳小數索引與距離,之後沿索引走)
+export function nearestLoop(x, z) {
   let best = Infinity, index = 0;
-  for (let i = 0; i < RING_ROAD.length; i++) {
-    const a = RING_ROAD[i], b = RING_ROAD[(i + 1) % RING_ROAD.length];
+  for (let i = 0; i < VILLAGE_LOOP.length; i++) {
+    const a = VILLAGE_LOOP[i], b = VILLAGE_LOOP[(i + 1) % VILLAGE_LOOP.length];
     const dx = b.x - a.x, dz = b.z - a.z, len = dx * dx + dz * dz;
     const t = len ? Math.max(0, Math.min(1, ((x - a.x) * dx + (z - a.z) * dz) / len)) : 0;
     const px = a.x + t * dx, pz = a.z + t * dz, d = Math.hypot(x - px, z - pz);
@@ -193,15 +196,51 @@ export function nearestRingRoad(x, z) {
   }
   return { index, distance: best };
 }
-// 是否站在環村道路上(含額外容差)
-export function onRingRoad(x, z, extra = 0) { return !ringRoadFar(x, z, RING_ROAD_HALF + extra) && ringRoadDistance(x, z) <= RING_ROAD_HALF + extra; }
-// 環上第 index 個點(自動取整與繞回)
-export function ringPointAt(index) { const n = RING_ROAD.length; return { ...RING_ROAD[mod(Math.round(index), n)] }; }
-// 從 a 沿著環走到索引 b 的路徑點(走較短的一側)
-export function ringRoadPath(a, b) {
-  const n = RING_ROAD.length, ia = Math.round(a), ib = Math.round(b);
-  const fwd = mod(ib - ia, n), back = n - fwd, dir = fwd <= back ? 1 : -1, steps = Math.min(fwd, back);
-  const out = [];
-  for (let k = 1; k <= steps; k++) out.push({ ...RING_ROAD[mod(ia + dir * k, n)] });
+// 導航線上第 index 個點(自動取整與繞回)
+export function loopPointAt(index) { const n = VILLAGE_LOOP.length; return { ...VILLAGE_LOOP[mod(Math.round(index), n)] }; }
+// 從索引 a 沿導航線往 dir(+1 / -1)走到索引 b 的路徑點(不含起點,含終點)
+export function loopPath(a, b, dir) {
+  const n = VILLAGE_LOOP.length, ia = mod(Math.round(a), n), ib = mod(Math.round(b), n);
+  const steps = dir > 0 ? mod(ib - ia, n) : mod(ia - ib, n), out = [];
+  for (let k = 1; k <= steps; k++) out.push({ ...VILLAGE_LOOP[mod(ia + dir * k, n)] });
   return out;
+}
+// ── 地區立牌的位置(2026-11-26 使用者:「怪物區域立牌移動到該區域圍欄旁邊」) ──────────────────────
+// 以前立在每區正中央(擠在魔物群裡,點不到、看不清)。現在立在村莊圍籬外 SIGN_OFFSET 格、這一區貼著村莊的那一段的正中間:
+// 沿村界四邊每 0.25 格取樣,只留「屬於這一區」、離出村口(該邊正中央)至少 SIGN_GATE_CLEAR 格、離村莊四角至少 SIGN_CORNER_CLEAR 格的點,
+// 取最長的一段連續點的中點。結果是固定的(不看存檔),畫面(pixel-world)與檢查(tools/checks/region-signs.mjs)共用這一份。
+// SIGN_OFFSET 2.6:1.8 的時候南邊的赤金沙地立牌會往上疊到旅館門口、北邊的會被建築屋頂蓋住(遊玩縮放 2.2 實測)。
+// SIGN_PREFER:中點會被前排建築擋住的區,改取「靠出村口那一端往內 0.5 格」—— 白樺花原那一段正好在強化工坊與鐵匠鋪的屋頂後面
+// (output/no-ringroad/probe-signs.mjs 掃過整段:只有兩端看得到)。
+export const SIGN_OFFSET = 2.6, SIGN_GATE_CLEAR = 4.5, SIGN_CORNER_CLEAR = 1.5;
+const SIGN_PREFER = { birch: 'gate' };
+const signCache = new Map();
+export function regionSignSpot(id) {
+  if (signCache.has(id)) return signCache.get(id);
+  const b = VILLAGE_BOUNDS, o = SIGN_OFFSET, midX = (b.minX + b.maxX) / 2, midZ = (b.minZ + b.maxZ) / 2;
+  // 四邊:沿邊的座標範圍、出村口在沿邊座標上的位置、沿邊座標 → 世界點
+  const sides = [
+    { side: 'north', lo: b.minX, hi: b.maxX, gate: midX, pt: u => ({ x: u, z: b.minZ - o }) },
+    { side: 'east', lo: b.minZ, hi: b.maxZ, gate: midZ, pt: u => ({ x: b.maxX + o, z: u }) },
+    { side: 'south', lo: b.minX, hi: b.maxX, gate: midX, pt: u => ({ x: u, z: b.maxZ + o }) },
+    { side: 'west', lo: b.minZ, hi: b.maxZ, gate: midZ, pt: u => ({ x: b.minX - o, z: u }) },
+  ];
+  let best = null;
+  for (const s of sides) {
+    let run = null;
+    const close = () => { if (run && (!best || run.len > best.len)) best = run; run = null; };
+    for (let u = s.lo + SIGN_CORNER_CLEAR; u <= s.hi - SIGN_CORNER_CLEAR + 1e-9; u += 0.25) {
+      const p = s.pt(u);
+      if (Math.abs(u - s.gate) >= SIGN_GATE_CLEAR && regionContains(id, p.x, p.z)) {
+        if (!run) run = { a: u, b: u, len: 0, s };
+        run.b = u; run.len = run.b - run.a;
+      } else close();
+    }
+    close();
+  }
+  let u = best ? (best.a + best.b) / 2 : 0;
+  if (best && SIGN_PREFER[id] === 'gate') u = Math.abs(best.a - best.s.gate) < Math.abs(best.b - best.s.gate) ? Math.min(best.b, best.a + 0.5) : Math.max(best.a, best.b - 0.5);
+  const spot = best ? { ...best.s.pt(u), side: best.s.side } : null;
+  signCache.set(id, spot);
+  return spot;
 }

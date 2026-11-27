@@ -1,6 +1,6 @@
 import {getRoads,onPaved,doorStand,PALISADE,villagePonds,inPond,buildingSolid,statueSolid} from './landscape-layout.js';
 import {createVillageNav} from './village-nav.js';
-import {WORLD,REGIONS,RING_ORDER,walkable,inVillage,regionAt,regionContains,regionEdge,regionCenter,randomRegionPoint,wildAt,nearestRingRoad,ringRoadPath,ringPointAt,onRingRoad,ringRoadDistance,ringRoadFar,RING_ROAD_HALF,RING_ROAD} from './overworld.js';
+import {WORLD,REGIONS,RING_ORDER,walkable,inVillage,regionAt,regionContains,regionEdge,regionCenter,randomRegionPoint,wildAt,nearestLoop,loopPath,loopPointAt,VILLAGE_LOOP} from './overworld.js';
 import {VILLAGE_BOUNDS,EXITS,blockAt,BUILDING_NUDGE,BUILDING_SLOTS,blockCenter} from './village-grid.js';
 import {sfx} from './sfx.js';
 import { SKILLS, BUILDINGS, CLASSES, RARITIES, PROMOTE, TRAITS, AFFINITY, MATERIALS, PRODUCTS, RECIPES, GEAR_SLOTS, EQUIP_SLOTS, GEAR_TIERS, GEAR_TIER_MAX, gearAt, DIFFICULTIES, CAMP, HUNT_ZONE, PILOT_ATTACK, PILOT_ORB, MERCHANT, TRADE_RESERVE, AI_ATTACK_LOCK, KITE, PROVOKE, MONSTER_RANGED, LEGACY_LAYOUT_V14, LEGACY_LAYOUT_V15, LEGACY_LAYOUT_V16, ART_LAYOUT_HISTORY, REGION_DENSITY, DEFAULT_REGION_DENSITY, MONSTER_POP, MONSTER_SPEED_MULT, MONSTER_ATTACK_RATE, EQUIPMENT, CLASS_STARTER, GEAR_DROP, gearItemView, gearGradeOf, dungeonGearGrade, recipeItemId, recipesForSlot, canWield, migrateGearId, craftWeaponFor, LEGACY_CRAFT_WEAPON, CRAFT_WEAPON_ITEMS, CLASS_WEAPON_TYPES, WEAPON_TYPES, academySkillMult, REALTIME } from './pixel-data.js';
@@ -478,13 +478,10 @@ export function createGame(saved = null, opts = {}) {
     if (text) log(`自動補貨：${text} 份。`, 'info');
   }
   const buildingPoint = buildingId => state.layout[buildingId];
-  // 環村道路是魔物進不去的安全走廊(2026-10-30 使用者:「路上的怪不會主動攻擊路上走路的英雄,踏出道路邊界才會」):
-  // 魔物不在路上生、不走上路(閒晃、追擊、等空位、被推開都一樣);已經在路上的(舊存檔)只准往離開道路的方向走。
-  // 2026-11-16 離線模擬加速:onRingRoad(p.x,p.z,ROAD_PAD) 就是 ringRoadDistance(p) <= RING_ROAD_HALF+ROAD_PAD,
-  // 原本進入第二個條件時會再把 ringRoadDistance(p) 算一次;這裡先算一次距離重複使用。
-  // 比較式、短路順序、浮點運算完全相同。
-  const ROAD_PAD = 0.35, ROAD_PAD_LIMIT = RING_ROAD_HALF + ROAD_PAD,
-    roadOk = (from, p) => { if (ringRoadFar(p.x, p.z, ROAD_PAD_LIMIT)) return true; const d = ringRoadDistance(p.x, p.z); return d > ROAD_PAD_LIMIT || d > ringRoadDistance(from.x, from.z); };
+  // 2026-11-26 使用者:「移除環村道路,怪物可以自由漫遊到村莊出入口攻擊玩家」。以前的環村道路是魔物進不去、
+  // 也不鎖定路上獵物的安全走廊(roadOk / onRingRoad),現在整段拿掉:魔物在自己的狩獵區裡哪裡都能走,一路到圍籬邊與出村口;
+  // 唯一的禁區是村界以內(regionContains 本來就不含村莊)。魔物閒晃的目標點離村界只留 WANDER_PAD 格。
+  const WANDER_PAD = 1.1, FLEE_AGGRO = 0.5;
   // 2026-10-31 使用者:「怪物在可行走區域邊緣不能來回抖動」。
   // 以前整步被擋就直接不動(或立刻換一個亂數目標,下一格又被擋),貼著海岸/區域邊界的魔物就會一格走一格回。
   // 改成:整步不行就試單一軸(沿著邊界滑),兩個軸都不行才判定走不動,並讓呼叫端停一段時間再換目標。
@@ -650,40 +647,84 @@ export function createGame(saved = null, opts = {}) {
     return vnav.nearestOpen(p.x, p.z) ?? p;
   }
 
-  // 2026-10-28:跨區移動一律先沿「環村道路」走,再從最靠近目的地的位置切進地形。
-  // waypoints = 環上最近的點 → 沿環(走較短的一側) → 目的地。
-  // 這條路同時是安全走廊:魔物索敵會跳過站在環上的獵物(pixel-game 的 onRingRoad 檢查)。
-  // 從野外上環路的位置。2026-11-18 地圖變大後,區的外緣離「最近的環路點」常常隔著別的區(實測直線最多切過隔壁區 19 格):
-  // 直線走得到(全程在自己區裡)才用最近點;否則先朝自己區靠村的那一段走,從那裡上環路。
-  function ringEntry(from) {
-    const near = nearestRingRoad(from.x, from.z), rid = regionAt(from.x, from.z)?.id;
-    if (!rid || rid === 'village' || !regionContains(rid, from.x, from.z)) return near;
-    const p = ringPointAt(near.index), n = Math.ceil(distance(from, p) / 0.5);
+  // ── 村外的路線(2026-11-26 拿掉環村道路後重寫) ──────────────────────────────────────────────
+  // 以前跨區移動一律走環村道路(安全走廊,路上不會被打)。現在沒有路、也沒有安全走廊,出村/回村/換區都會經過別的狩獵區,
+  // 所以路線要挑「比自己該在的區更危險的地方走得最少」的那一條:
+  //   候選 = (在村裡:從四個出村口任一個出去;在野外:從目前位置出發)
+  //          × (直線過去 | 先走到圍村導航線 VILLAGE_LOOP(離村界 2 格)、沿線往左或往右繞、再切到目的地)
+  //   成本 = 路長 + 每走一格「比 risk 危險的區」加 TRAVEL_RISK_W × 危險度差(自己所在的區不加,村裡不能直線穿過)。
+  // 例:新人去向陽草原 → 北門出、沿圍籬經過白樺花原(+0.1)幾格,而不是東門出去穿過鐵脊山麓(+0.65);
+  //     白霜雪原的獵人受傷回村 → 走赤金沙地那一側進南門(比雪原安全),不繞鐵脊山麓進東門。
+  // 純函式:不擲骰、不寫任何欄位。
+  const TRAVEL_RISK_W = 40;
+  const RISK_OF = Object.fromEntries(REGIONS.map(r => [r.id, r.id === 'village' ? 0 : (r.risk || 1)]));
+  const LOOP_RISK = VILLAGE_LOOP.map(p => RISK_OF[regionAt(p.x, p.z).id] ?? 1);
+  const LOOP_N = VILLAGE_LOOP.length;
+  const loopIdx = k => ((k % LOOP_N) + LOOP_N) % LOOP_N;
+  // 直線 a→b 的額外成本(危險區);直線會穿過村莊 → Infinity(那種走法只能從出村口進出)
+  function lineExtra(a, b, risk, ownId) {
+    const L = distance(a, b), n = Math.max(1, Math.ceil(L / 0.5)), step = L / n;
+    let extra = 0;
     for (let i = 1; i <= n; i++) {
-      const x = from.x + (p.x - from.x) * i / n, z = from.z + (p.z - from.z) * i / n;
-      if (regionContains(rid, x, z) || onRingRoad(x, z, 0.5)) continue;
-      const edge = regionEdge(rid);
-      return { index: nearestRingRoad(edge.x, edge.z).index, distance: near.distance };
+      const x = a.x + (b.x - a.x) * i / n, z = a.z + (b.z - a.z) * i / n;
+      if (inVillage(x, z)) return Infinity;
+      const rid = regionAt(x, z).id;
+      if (rid !== ownId) extra += TRAVEL_RISK_W * Math.max(0, (RISK_OF[rid] ?? 1) - risk) * step;
     }
-    return near;
+    return extra;
   }
-  function ringWaypoints(from, target) {
-    if (!target) return [];
-    const a = ringEntry(from), b = nearestRingRoad(target.x, target.z);
-    const ring = ringRoadPath(a.index, b.index);
-    // 隔一個點取一個,最後一個環上點一定要留(2026-11-17 修正:以前是 ring.length = 12「截斷」而不是取樣,
-    // 遠一點的目的地會在半路離開環路、直線切過別的狩獵區 —— Lv.1 新人要去草原卻穿過鐵脊山麓被岩塊怪打死)。
-    const pts = ring.filter((_, i) => i % 2 === 0 || i === ring.length - 1);
-    return [ringPointAt(a.index), ...pts, { x: target.x, z: target.z }];
+  function loopLegCost(ia, ib, dir, risk) {
+    const a = loopIdx(Math.round(ia)), b = loopIdx(Math.round(ib)), steps = dir > 0 ? loopIdx(b - a) : loopIdx(a - b);
+    let cost = 0, k = a;
+    for (let s = 0; s < steps; s++) { const nk = loopIdx(k + dir); cost += distance(VILLAGE_LOOP[k], VILLAGE_LOOP[nk]) * (1 + TRAVEL_RISK_W * Math.max(0, LOOP_RISK[nk] - risk)); k = nk; }
+    return cost;
   }
-  // 返村路線(2026-11-17):先走到最近的環村道路,沿環走到「沿環最近」的出村口,再進村走到門口。
-  // 以前直接從野外直線走向門口,會穿過別的狩獵區(受傷的獵人在半路被別區的魔物打死)。走不通就退回直線。
+  // from → to(村外的點)的最佳路線:{ cost, pts }(pts 是給 route() 的路線點,最後一點是 to)
+  function travelPlan(from, to, risk) {
+    const ownId = inVillage(from.x, from.z) ? null : regionAt(from.x, from.z).id;
+    const starts = ownId ? [{ at: { x: from.x, z: from.z }, pre: [], cost: 0 }]
+      : GATES.map(g => ({ at: { ...g.out }, pre: [{ ...g.out }], cost: distance(from, g.out) }));
+    // 在野外、而且貼著別區的邊(例:草原東端貼著山麓的直線交界):往村莊直走會擦過隔壁區 → 多一個「先退回自己區的中心」的走法
+    if (ownId && ownId !== 'village') { const c = regionCenter(ownId); if (c && distance(from, c) > 1) starts.push({ at: c, pre: [{ ...c }], cost: distance(from, c) + lineExtra(from, c, risk, ownId) }); }
+    const exitIdx = nearestLoop(to.x, to.z).index, exitPt = loopPointAt(exitIdx);
+    let best = null;
+    const consider = (cost, pts) => { if (Number.isFinite(cost) && (!best || cost < best.cost)) best = { cost, pts }; };
+    for (const s of starts) {
+      consider(s.cost + distance(s.at, to) + lineExtra(s.at, to, risk, ownId), [...s.pre, { x: to.x, z: to.z }]);
+      // 上導航線的位置:最近的一點;在野外時再加「自己區靠村那一段」(regionEdge),直線上線會切過別區時用它
+      const entries = [nearestLoop(s.at.x, s.at.z).index];
+      if (ownId && ownId !== 'village') { const e = regionEdge(ownId); if (e) entries.push(nearestLoop(e.x, e.z).index); }
+      const tail = distance(exitPt, to) + lineExtra(exitPt, to, risk, ownId);
+      for (const ei of entries) {
+        const entryPt = loopPointAt(ei), head = s.cost + distance(s.at, entryPt) + lineExtra(s.at, entryPt, risk, ownId);
+        if (!Number.isFinite(head)) continue;
+        for (const dir of [1, -1]) {
+          const cost = head + loopLegCost(ei, exitIdx, dir, risk) + tail;
+          if (best && cost >= best.cost) continue;
+          // 隔一個點取一個(直線段都在村外、不會切過村莊的角),最後一個導航點一定要留
+          const leg = loopPath(ei, exitIdx, dir), pts = leg.filter((_, i) => i % 2 === 1 || i === leg.length - 1);
+          consider(cost, [...s.pre, entryPt, ...pts, { x: to.x, z: to.z }]);
+        }
+      }
+    }
+    return best;
+  }
+  // 出村/換區:走到 rid 區靠村的那一段(regionEdge),踩進該區就算到了(呼叫端判斷)
+  function fieldWaypoints(from, rid) {
+    const to = regionEdge(rid) ?? regionEdge('meadow');
+    const plan = travelPlan(from, to, RISK_OF[rid] ?? 1);
+    return plan ? plan.pts : [{ x: to.x, z: to.z }];
+  }
+  // 返村路線:挑「從目前位置出發、繞最少危險區」的那個出村口進村,再走到門口。risk = 目前所在區(打得動這區,就不怕更簡單的區)。
   function homeRoute(h, buildingId) {
-    const near = ringEntry(h), n = RING_ROAD.length;
-    let gate = null, best = Infinity;
-    for (const g of GATES) { const k = Math.abs(nearestRingRoad(g.out.x, g.out.z).index - near.index) % n, steps = Math.min(k, n - k); if (steps < best) { best = steps; gate = g; } }
-    // 已經在環路內側、出村口比環路還近(例如剛出門):直接進村,不要先繞去環路再回頭
-    if (gate && distance(h, gate.out) > near.distance && route(h, [...ringWaypoints(h, gate.out), door(buildingId, gate.out)])) return;
+    const here = regionAt(h.x, h.z).id, risk = RISK_OF[here] ?? 1, target = door(buildingId);
+    let best = null;
+    for (const g of GATES) {
+      const plan = travelPlan(h, g.out, risk); if (!plan) continue;
+      const cost = plan.cost + distance(g.out, target);
+      if (!best || cost < best.cost) best = { cost, pts: plan.pts, gate: g };
+    }
+    if (best && route(h, [...best.pts, door(buildingId, best.gate.out)])) return;
     route(h, [door(buildingId, h)]);
   }
   function route(h, points) {
@@ -963,7 +1004,7 @@ export function createGame(saved = null, opts = {}) {
     if (state.time < (u.routeRetryAt ?? 0)) return;   // 找不到路就隔幾秒再試,不要每一幀都重算
     if (!regionContains(rid, u.x, u.z)) {
       u.status = '前往' + (REGIONS.find(r => r.id === rid)?.name ?? '狩獵區');
-      if (!u.route.length && !route(u, ringWaypoints({ x: u.x, z: u.z }, regionEdge(rid) ?? { x: u.x, z: u.z }))) u.routeRetryAt = state.time + 4;
+      if (!u.route.length && !route(u, fieldWaypoints({ x: u.x, z: u.z }, rid))) u.routeRetryAt = state.time + 4;
       return;
     }
     u.status = '搜尋中';
@@ -979,9 +1020,9 @@ export function createGame(saved = null, opts = {}) {
     traceReturn(h, '@depart');
     h.task = null; h.serviceProduct = null; h.serviceStarted = false; h.destination = null; h.inTown = false; h.targetId = null; h.rallying = false; h.status = '出征中'; h.lastTownVisit = state.time;
     const region = REGIONS.find(r => r.id === h.huntRegion);
-    // 集結點(玩家指定的)照原樣走;否則先沿環村道路走,再切進目的地
+    // 集結點(玩家指定的)照原樣走;否則照 travelPlan 挑最安全的出村口與繞法(見上)
     if (state.rally) { route(h, [state.rally]); return; }
-    route(h, ringWaypoints({ x: h.x, z: h.z }, region ? regionEdge(region.id) : regionEdge('meadow')));
+    route(h, fieldWaypoints({ x: h.x, z: h.z }, region ? region.id : 'meadow'));
   }
 
   // 普攻間隔(秒,未含快手特性):野外 AI 與地下城共用。遠程施法較慢;祭司介於弓箭手與法師之間。
@@ -1306,7 +1347,7 @@ export function createGame(saved = null, opts = {}) {
   function wandererDepart(w) {
     traceReturn(w, '@depart');
     w.task = null; w.serviceProduct = null; w.serviceStarted = false; w.destination = null; w.inTown = false; w.targetId = null; w.status = '出征中'; w.lastTownVisit = state.time;
-    route(w, ringWaypoints({ x: w.x, z: w.z }, regionEdge(w.huntRegion) ?? REGIONS[1]));
+    route(w, fieldWaypoints({ x: w.x, z: w.z }, w.huntRegion || 'meadow'));
   }
 
   function trade(h) {
@@ -1687,7 +1728,6 @@ export function createGame(saved = null, opts = {}) {
       const q = { x: unit.x + ux * step, z: unit.z + uz * step };
       if (blocked(q) || inVillage(q.x, q.z)) break;
       if (unit.regionId && !regionContains(unit.regionId, q.x, q.z)) break;
-      if (!roadOk(unit, q)) break;
       unit.x = q.x; unit.z = q.z;
     }
   }
@@ -2187,7 +2227,6 @@ export function createGame(saved = null, opts = {}) {
       let best = null, bestD = -1;
       for (let i = 0; i < 6; i++) {
         const c = randomRegionPoint(region.id, random);
-        if (onRingRoad(c.x, c.z, ROAD_PAD + 0.5)) continue;   // 不在環村道路上生怪
         let d = 1e9;
         for (const e of alive) d = Math.min(d, Math.hypot(e.x - c.x, e.z - c.z));
         if (d > bestD) { bestD = d; best = c; }
@@ -2337,8 +2376,9 @@ export function createGame(saved = null, opts = {}) {
   // 出發體檢(2026-11-17):以前只有「續戰下一層」跟「波間」會估,剛出發那層完全不估 → 冷卻一好就從最高紀錄 +1 層重新出發,
   // 自動挑的小隊(先挑血量比例最高的)常是等級低的旅人,估計承傷是生命的 3–15 倍也照進,同一層一天連倒好幾次(progression-sim seed 3/5)。
   // 現在出發時從想去的那層往下找,找到「估得過」(跟自動續戰同一套 DG_FIT_RISK / DG_FIT_TIME)的最深一層才出發;第 1 層是底線。
-  function dgFitStart(party, floor) { const f = dgForecast(party, floor); return f.risk <= DG_FIT_RISK && f.secs <= DG_TIME_LIMIT * DG_FIT_TIME; }
-  function dgSafeStart(party, want) { let f = want; while (f > 1 && !dgFitStart(party, f)) f--; return f; }
+  // hpOf(2026-11-26):dungeonReach 用「滿血」估(換人比較時兩隊同一條件);其餘呼叫照舊用現在的生命
+  function dgFitStart(party, floor, hpOf = h => h.hp) { const f = dgForecast(party, floor, 1, hpOf); return f.risk <= DG_FIT_RISK && f.secs <= DG_TIME_LIMIT * DG_FIT_TIME; }
+  function dgSafeStart(party, want, hpOf = h => h.hp) { let f = want; while (f > 1 && !dgFitStart(party, f, hpOf)) f--; return f; }
   // ── 推薦隊伍(2026-11-17) ── 職業組合差很多(Lv.20、自動續戰 600 秒:聖騎+弓手+祭司 第 9 層、三法師 第 2–3 層),
   // 但自動挑隊只看血量比例與攻擊、UI 選人也沒有提示 → 用上面同一套預估,把候選人的每個三人組合都估一遍:
   //   出發層 = dgSafeStart(隊伍, 想去的層);能推進到 = 從出發層往上,dgFitStart 估得過就再上一層(跟自動續戰一樣碰到第一層估不過就停),
@@ -2349,15 +2389,21 @@ export function createGame(saved = null, opts = {}) {
   // 純計算:不擲骰、不動 random、不改 state(UI 按鈕與 startDungeon(null) 共用)。
   const DG_REC_POOL = 12, DG_REC_AHEAD = 10;
   const dgRecEligible = h => h.hp > 0 && h.task !== 'revive' && h.task !== 'arena' && h.hp >= h.maxHp * DG_FIT_MIN_HP;
+  const dgRecCap = want => Math.min(100, Math.max(want, state.dungeon.bestFloor + 1) + DG_REC_AHEAD);
+  // 一支隊伍的「出發層／能推進到」(dgRecommend 與 dungeonReach 共用同一段)
+  function dgReach(party, want, cap, hpOf = h => h.hp) {
+    const start = dgSafeStart(party, want, hpOf);
+    let reach = 0;
+    if (dgFitStart(party, start, hpOf)) { reach = start; while (reach < cap && dgFitStart(party, reach + 1, hpOf)) reach++; }
+    return { start, reach };
+  }
   function dgRecommend(want) {
     const pool = state.hunters.filter(dgRecEligible).sort((a, b) => b.level - a.level || b.attack - a.attack || (a.id < b.id ? -1 : a.id > b.id ? 1 : 0)).slice(0, DG_REC_POOL);
     if (pool.length < 3) return null;
-    const cap = Math.min(100, Math.max(want, state.dungeon.bestFloor + 1) + DG_REC_AHEAD);
+    const cap = dgRecCap(want);
     let best = null;
     for (let i = 0; i < pool.length - 2; i++) for (let j = i + 1; j < pool.length - 1; j++) for (let k = j + 1; k < pool.length; k++) {
-      const party = [pool[i], pool[j], pool[k]], start = dgSafeStart(party, want);
-      let reach = 0;
-      if (dgFitStart(party, start)) { reach = start; while (reach < cap && dgFitStart(party, reach + 1)) reach++; }
+      const party = [pool[i], pool[j], pool[k]], { start, reach } = dgReach(party, want, cap);
       // risk < 0 = 補血追得上承傷:打越久估得越「安全」→ 會偏好攻擊低的人;一律當 0,改由總攻擊(打得快)決定
       const risk = Math.max(0, dgForecast(party, Math.max(1, reach)).risk), attack = party.reduce((n, h) => n + h.attack, 0);
       if (!best || reach > best.reach || (reach === best.reach && (risk < best.risk || (risk === best.risk && attack > best.attack)))) best = { party, start, reach, risk, attack };
@@ -2820,7 +2866,7 @@ export function createGame(saved = null, opts = {}) {
   // 手動操控法師的魔法球:沿直線飛,每一步掃「魔物到這段路徑的距離 ≤ 作用半徑」,每隻只打一次(穿透),飛完射程就消失。
   // 命中時才扣血、才出命中特效與傷害數字(位置在魔物身上)。王不算(手動出手本來就不瞄準王)。
   // 遠程魔物的飛行物:丟出去時記下來,飛到的那一刻才扣血(不存檔;讀檔時還在飛的就算了)。
-  // 目標已倒下、進了地下城／競技場就作廢;走上環村道路的不躲(已經丟出去了)。
+  // 目標已倒下、進了地下城／競技場就作廢。
   const pendingHits = [];
   function landHits() {
     for (let i = pendingHits.length - 1; i >= 0; i--) {
@@ -2924,7 +2970,7 @@ export function createGame(saved = null, opts = {}) {
           const ally = attackHealTarget(h);
           const combatSafeRatio = h.spec === 'priest_shadow' ? 0.6 : 0.78;
           const nearFoe = (!ally || ally.hp / Math.max(1, ally.maxHp) >= combatSafeRatio)
-            && !h.task && !inVillage(h.x, h.z) && !onRingRoad(h.x, h.z)
+            && !h.task && !inVillage(h.x, h.z)
             && state.enemies.find(e => e.hp > 0 && !e.rewarded && distance(h, e) <= h.range && (wildAt(h.x, h.z) || distance(h, e) <= 1.9));
           if (ally && !(nearFoe && pickCombatSkill(h, nearFoe))) { basicHeal(h, ally); continue; }
         }
@@ -2967,7 +3013,6 @@ export function createGame(saved = null, opts = {}) {
         if (h.huntRegion && regionContains(h.huntRegion, h.x, h.z)) { h.rallying = false; h.route = []; }
         else { walk(h, dt); if (!h.route.length) h.rallying = false; continue; }
       }
-      const onRoad = onRingRoad(h.x, h.z);   // 走在環村道路上:不攔路邊的怪(路上本來就不會被打),也不站在路上出手
       // 2026-11-16 離線模擬加速:原本每個獵人每 tick 先 filter 出 available(=只打自己狩獵區的魔物;路上被攔截也會還手)
       // 再 find / filter+sort,每 tick 配置 1~3 個陣列。這裡改成同一份判定式的單迴圈掃描(不配置陣列):
       // 判定式、候選順序(state.enemies 順序)、同距離取較前者(穩定排序)都與原本完全相同。
@@ -2978,7 +3023,7 @@ export function createGame(saved = null, opts = {}) {
       let target = null;   // = available.find(e => e.id === h.targetId && (expActive || inHuntRegion || distance(h, e) <= SIGHT * 1.6))
       for (const e of state.enemies) {
         if (e.id !== h.targetId) continue;
-        if (!(e.hp > 0 && (e.regionId === h.huntRegion || e.type === 'boss' || (distance(h, e) < 4 && !onRoad)))) continue;
+        if (!(e.hp > 0 && (e.regionId === h.huntRegion || e.type === 'boss' || distance(h, e) < 4))) continue;
         if (!(expActive || inHuntRegion || distance(h, e) <= SIGHT * 1.6)) continue;
         target = e; break;
       }
@@ -2986,15 +3031,16 @@ export function createGame(saved = null, opts = {}) {
         target = null;   // = available.find(e => e.type === 'boss')(首領不佔近身名額,所以探險時直接打王)
         if (expActive) for (const e of state.enemies) if (e.hp > 0 && e.type === 'boss') { target = e; break; }
         if (!target) {   // = available.filter(inHuntRegion ? 同區 : distance <= SIGHT).sort(距離)[0]
-          // 2026-11-17:還在「別的狩獵區」裡趕路(沿環路經過)時,不要遠遠看到自己區的魔物就離開環路直線衝過去 ——
+          // 2026-11-17:還在「別的狩獵區」裡趕路(沿圍籬繞過去)時,不要遠遠看到自己區的魔物就離開路線直線衝過去 ——
           // 那條直線會穿過路過的那一區(Lv.1 去草原的新人在鐵脊山麓被岩塊怪圍死)。先照路線走進自己的區,近身(<4)才還手。
+          // 2026-11-26 拿掉環村道路後,路過別區時近身(<4)的魔物一樣還手(以前站在路上不會被打、也不出手)。
           const passing = !inHuntRegion && !!h.huntRegion && !inVillage(h.x, h.z);
           let bestD = Infinity;
           for (const e of state.enemies) {
             if (!(e.hp > 0)) continue;
             const same = e.regionId === h.huntRegion;
             let d;
-            if ((!same || passing) && e.type !== 'boss') { d = distance(h, e); if (!(d < 4) || onRoad) continue; }
+            if ((!same || passing) && e.type !== 'boss') { d = distance(h, e); if (!(d < 4)) continue; }
             if (inHuntRegion) { if (!same) continue; if (d === undefined) d = distance(h, e); }
             else { if (d === undefined) d = distance(h, e); if (!(d <= SIGHT)) continue; }
             if (d < bestD) { bestD = d; target = e; }
@@ -3003,7 +3049,7 @@ export function createGame(saved = null, opts = {}) {
         h.targetId = target?.id ?? null;
       }
       // 先走進戰鬥空地再開打(不在柵欄邊、出村口遠遠放箭),戰鬥才會在開闊處、看得清楚。
-      if (target && !inVillage(h.x,h.z) && !onRoad && distance(h, target) <= h.range && (wildAt(h.x, h.z) || distance(h, target) <= 1.9)) {
+      if (target && !inVillage(h.x,h.z) && distance(h, target) <= h.range && (wildAt(h.x, h.z) || distance(h, target) <= 1.9)) {
         h.status = '戰鬥中'; h.route = [];
         if (specOf(h).skills[0]?.kind !== 'allyHeal') tickSlotCds(h, dt);
         // 遠程被近身 → 先拉開距離(只在目前所在的狩獵區裡走,不進村、不出區;近戰職業 kiteStep 直接 false)
@@ -3043,13 +3089,15 @@ export function createGame(saved = null, opts = {}) {
     for (const e of state.enemies) if (e.hp > 0 && e.engaged && e.slotFor) slots.set(e.slotFor, (slots.get(e.slotFor) || 0) + 1);
     const fieldOk = p => regionContains(p.regionId, p.x, p.z) && !blocked(p);
     // 2026-11-16 離線模擬加速:每個 tick 只建一次獵物快照。獵人位置在上面那段獵人迴圈才
-    // 會動,流浪英雄的迴圈則在這之後;敵人迴圈期間兩者的 hp/位置都不變,
-    // 所以整段逐敵重算 filter/onRingRoad 的結果完全相同,只是把 (敵人數 × 獵物數) 次 onRingRoad
-    // 降到每個 tick 一次。onRingRoad 只看座標,因此每 tick 每隻獵物算一次即可。
+    // 會動,流浪英雄的迴圈則在這之後;敵人迴圈期間兩者的 hp/位置都不變。
+    // 2026-11-26 拿掉環村道路:不再有「站在路上不算獵物」;村外(含出村口外)的英雄、手動操控的那位都會被鎖定。
     const prey = state.hunters.filter(h => h.hp > 0 && !inVillage(h.x,h.z) && h.task !== 'dungeon' && h.task !== 'arena');
     for (const w of state.wanderers || []) if (w.hp > 0) prey.push(w);
-    const preyOnRoad = new Array(prey.length), preyRanged = new Array(prey.length);
-    for (let i = 0; i < prey.length; i++) { const q = prey[i]; preyOnRoad[i] = onRingRoad(q.x, q.z); preyRanged[i] = isRanged(q); }
+    // 返村中(受傷撤退、回村辦事)的英雄低調趕路:魔物對他們的主動攻擊範圍乘 FLEE_AGGRO。
+    // 2026-11-26 拿掉環村道路時加的 —— 以前回村路的後半段在安全走廊上;現在整段都在狩獵區裡,不減的話 5 seed 56 分鐘
+    // 獵人倒下 1 → 13 次(幾乎都是「返村中」被路邊的雪人哨兵/沙蠍打倒,詳見 BALANCE.md)。走到魔物身邊(範圍的一半內)照樣會挨打,出村口也一樣。
+    const preyRanged = new Array(prey.length), preyFleeing = new Array(prey.length);
+    for (let i = 0; i < prey.length; i++) { preyRanged[i] = isRanged(prey[i]); preyFleeing[i] = prey[i].status === '返村中'; }
     for (const enemy of state.enemies) {
       if (enemy.hp <= 0) continue;
       enemy.age += dt;
@@ -3081,31 +3129,29 @@ export function createGame(saved = null, opts = {}) {
       const rng = MONSTER_RANGED[enemy.type], aggro = Math.max(AGGRO[enemy.type] ?? 6, rng ? rng.range + 1 : 0);
       // 挨打後(PROVOKE.time 秒內)對遠程獵物的範圍放大到 PROVOKE.aggro:遠遠放箭的人也會被追;近戰獵物照原本的範圍。
       const provoked = state.time - (enemy.hitAt ?? -99) < PROVOKE.time, provokedReach = Math.max(aggro, PROVOKE.aggro);
-      // 走在環村道路上的獵物不算目標:出村趕路時不會被路邊的怪追(安全走廊)
       // 原本是 prey.filter(...).sort(...)[0]:取距離最近的獵物,同距離時取快照中較前面的(排序穩定)。
       // 下面這個單迴圈不配置陣列、距離只算一次,結果完全相同(strict < 讓第一個最小值勝出)。
       let target = null, bestD = Infinity, isTaunted = false;
       if (enemy.tauntBy && state.time < (enemy.tauntUntil || 0)) {
         const ti = prey.findIndex(q => q.id === enemy.tauntBy);
-        if (ti >= 0 && !preyOnRoad[ti] && regionContains(enemy.regionId || state.region, prey[ti].x, prey[ti].z)) {
+        if (ti >= 0 && regionContains(enemy.regionId || state.region, prey[ti].x, prey[ti].z)) {
           target = prey[ti]; bestD = distance(enemy, target); isTaunted = true;
         }
       }
       if (!target) {
         for (let i = 0; i < prey.length; i++) {
-          if (preyOnRoad[i]) continue;
           const q = prey[i], d = distance(enemy, q);
-          if (d > (provoked && preyRanged[i] ? provokedReach : aggro)) continue;
+          if (d > (preyFleeing[i] ? aggro * FLEE_AGGRO : provoked && preyRanged[i] ? provokedReach : aggro)) continue;
           if (d < bestD) { bestD = d; target = q; }
         }
       }
       if(!target || !regionContains(enemy.regionId||state.region,target.x,target.z)){enemy.engaged=false;
         // 閒晃:沒有獵人時在自己的狩獵區裡慢慢走到隨機一點、停一下再換點(不會只站在原地)。
         const rid=enemy.regionId;
-        if(rid&&(enemy.wanderX==null||state.time>enemy.wanderUntil)){const w=randomRegionPoint(rid,random);enemy.wanderX=w.x;enemy.wanderZ=w.z;enemy.wanderUntil=state.time+5+random()*6;}
+        if(rid&&(enemy.wanderX==null||state.time>enemy.wanderUntil)){const w=randomRegionPoint(rid,random,WANDER_PAD);enemy.wanderX=w.x;enemy.wanderZ=w.z;enemy.wanderUntil=state.time+5+random()*6;}
         const home={x:enemy.wanderX??enemy.homeX??enemy.x,z:enemy.wanderZ??enemy.homeZ??enemy.z},dd=distance(enemy,home);
         if(dd>.3 && spdMult > 0){const step=Math.min(ENEMIES[enemy.type].speed*MONSTER_SPEED_MULT*spdMult*dt*.45,dd);
-          const moved=moveEnemy(enemy,home.x,home.z,step,q=>!blocked(q)&&lineClear(enemy,q)&&roadOk(enemy,q)&&(!rid||regionContains(rid,q.x,q.z)));
+          const moved=moveEnemy(enemy,home.x,home.z,step,q=>!blocked(q)&&lineClear(enemy,q)&&(!rid||regionContains(rid,q.x,q.z)));
           if(!moved)enemy.wanderUntil=state.time+1.5;}   // 走不動:停 1.5 秒再換目標(以前是下一格立刻重抽,貼邊時會左右抖)
         continue;
       }
@@ -3118,7 +3164,7 @@ export function createGame(saved = null, opts = {}) {
             const delta = Math.min(ENEMIES[enemy.type].speed * MONSTER_SPEED_MULT * spdMult * dt, d - rng.range * 0.85);
             // 目標在自己的狩獵區外(獵人站在隔壁區)就不要再沿邊界滑過去 —— 以前會貼著邊界左右來回。
             if (regionContains(enemy.regionId || state.region, target.x, target.z))
-              moveEnemy(enemy, target.x, target.z, delta, q => q.x > WORLD.minX + 1 && q.x < WORLD.maxX - 1 && regionContains(enemy.regionId || state.region, q.x, q.z) && !blocked(q) && roadOk(enemy, q) && lineClear(enemy, q));
+              moveEnemy(enemy, target.x, target.z, delta, q => q.x > WORLD.minX + 1 && q.x < WORLD.maxX - 1 && regionContains(enemy.regionId || state.region, q.x, q.z) && !blocked(q) && lineClear(enemy, q));
           }
         } else if (enemy.attackTimer === 0) {
           enemy.attackTimer = rng.every / MONSTER_ATTACK_RATE;
@@ -3139,17 +3185,17 @@ export function createGame(saved = null, opts = {}) {
         const base = Math.atan2(vz, vx), slot = ((enemy.id.charCodeAt(enemy.id.length - 1) + enemy.id.length) % 5) - 2;
         const ang = base + slot * (Math.PI / 5), wx = target.x + Math.cos(ang) * 4.2, wz = target.z + Math.sin(ang) * 4.2;
         const wd = Math.hypot(wx - enemy.x, wz - enemy.z);
-        if (wd > .3 && spdMult > 0) { const st = Math.min(ENEMIES[enemy.type].speed * MONSTER_SPEED_MULT * spdMult * .8 * dt, wd); moveEnemy(enemy, wx, wz, st, q => fieldOk({ ...q, regionId: enemy.regionId || state.region }) && roadOk(enemy, q) && lineClear(enemy, q)); }
+        if (wd > .3 && spdMult > 0) { const st = Math.min(ENEMIES[enemy.type].speed * MONSTER_SPEED_MULT * spdMult * .8 * dt, wd); moveEnemy(enemy, wx, wz, st, q => fieldOk({ ...q, regionId: enemy.regionId || state.region }) && lineClear(enemy, q)); }
         continue;
       }
       enemy.engaged = d <= reach; if (enemy.engaged && !mine) { enemy.slotFor = target.id; if (enemy.type !== 'boss') slots.set(target.id, (slots.get(target.id) || 0) + 1); }
       if (d > reach) {
         if (spdMult > 0) {
           const delta = Math.min(ENEMIES[enemy.type].speed * MONSTER_SPEED_MULT * spdMult * dt, d - reach * 0.8);
-          // 魔物只在自己的狩獵區內追,出了區就不跟;也不追上環村道路。
+          // 魔物只在自己的狩獵區內追,出了區就不跟(村界以內也不是任何區,進不了村)。
           // 目標在區外(獵人站在隔壁區邊界)就站著等,不要沿邊界滑來滑去(那就是「貼邊來回抖」)。
           if (regionContains(enemy.regionId || state.region, target.x, target.z))
-            moveEnemy(enemy, target.x, target.z, delta, q => regionContains(enemy.regionId || state.region, q.x, q.z) && !blocked(q) && roadOk(enemy, q) && lineClear(enemy, q));
+            moveEnemy(enemy, target.x, target.z, delta, q => regionContains(enemy.regionId || state.region, q.x, q.z) && !blocked(q) && lineClear(enemy, q));
         }
       } else if (enemy.attackTimer === 0) {
         enemy.attackTimer = (enemy.type === 'boss' ? 1.5 : 1.8) / MONSTER_ATTACK_RATE;
@@ -3166,14 +3212,14 @@ export function createGame(saved = null, opts = {}) {
     }
     state.enemies = state.enemies.filter(e => e.hp > 0);
     // 分散站位:同一場戰鬥的魔物、獵人不疊在同一點(畫面才看得清誰在打誰)。只推開、不改目標。
-    const spread = (list, minD, avoidRoad = false) => { for (let i = 0; i < list.length; i++) for (let j = i + 1; j < list.length; j++) {
+    const spread = (list, minD) => { for (let i = 0; i < list.length; i++) for (let j = i + 1; j < list.length; j++) {
       const a = list[i], b = list[j], dx = b.x - a.x, dz = b.z - a.z, d = Math.hypot(dx, dz); if (d >= minD) continue;
       const ux = d > 1e-4 ? dx / d : Math.cos(i * 2.4 + j), uz = d > 1e-4 ? dz / d : Math.sin(i * 2.4 + j), push = Math.min(1.2 * dt, (minD - d) / 2);   // 直線推開(可斜)
       for (const [o, sign] of [[a, -1], [b, 1]]) { const q = { x: o.x + ux * push * sign, z: o.z + uz * push * sign };
-        if (!blocked(q) && !inVillage(q.x, q.z) && (!avoidRoad || roadOk(o, q)) && (!o.regionId || regionContains(o.regionId, q.x, q.z))) Object.assign(o, q); } } };
+        if (!blocked(q) && !inVillage(q.x, q.z) && (!o.regionId || regionContains(o.regionId, q.x, q.z))) Object.assign(o, q); } } };
     // 2026-10-31:只推開「交戰中」的魔物。以前全部魔物都推,閒晃的魔物被推開又走回自己的閒晃點,
     // 貼在邊界時剛好變成來回抖動(實測抖動事件 100% 都是 idle 的魔物)。
-    spread(state.enemies.filter(e => e.engaged), 2.6, true);
+    spread(state.enemies.filter(e => e.engaged), 2.6);
     spread(state.hunters.filter(h => h.hp > 0 && h.status === '戰鬥中'), 2.0);
     // 流浪英雄:還沒加入村莊的英雄。有自己的錢包與生活需求,會自己挑「打得起」的狩獵區,
     // 缺東西會自己走回村莊買(吃飯/喝飲料/睡覺/療傷/賣材料/買裝備),買完再自己回去打怪。
@@ -3201,7 +3247,7 @@ export function createGame(saved = null, opts = {}) {
       const region = REGIONS.find(r => r.id === w.huntRegion) || REGIONS[1];
       if (!regionContains(region.id, w.x, w.z)) {      // 還沒進自己的狩獵區 → 先走到區的邊緣
         w.status = '前往' + region.name;
-        if (!w.route.length) route(w, ringWaypoints({ x: w.x, z: w.z }, regionEdge(region.id)));
+        if (!w.route.length) route(w, fieldWaypoints({ x: w.x, z: w.z }, region.id));
         walk(w, dt); continue;
       }
       w.regionId = region.id;
@@ -3217,7 +3263,7 @@ export function createGame(saved = null, opts = {}) {
         searchStep(w, region.id); walk(w, dt); continue;
       }
       const d = distance(w, target); w.facingX = target.x; w.facingZ = target.z; w.facingAt = state.time;
-      if (d <= w.range && !onRingRoad(w.x, w.z)) {   // 站在環村道路上不出手(路上是安全走廊,要先踏出道路)
+      if (d <= w.range) {
         w.route = [];
         if (kiteStep(w, dt, region.id)) { w.status = '後撤中'; continue; }   // 遠程流浪英雄被近身:先拉開距離(只在自己的狩獵區裡)
         w.status = '戰鬥中';
@@ -3956,7 +4002,18 @@ export function createGame(saved = null, opts = {}) {
       return { ok: true, ids: best.party.map(h => h.id), floor: best.reach, start: best.start, risk: best.risk,
         message: best.reach > 0 ? `推薦：${names}（${d.auto ? '' : '開自動續戰'}可安全推進到第 ${best.reach} 層）` : `推薦：${names}（目前連第 1 層都有風險，先練等或休養）` };
     },
-    // 2026-11-17 UI 用(唯讀):通過第 floor 層會拿到的獎勵 → { first, village:{gold,ore,gems}, gold, xp }(gold/xp 是每位獵人);floorCleared 同一支公式
+    // 2026-11-26 任一支三人隊「能安全推進到第幾層」(唯讀、不擲骰、不改 state):跟推薦隊伍同一段計算(dgReach),
+    //   但預設用滿血估(rested)→ 正在地下城裡殘血的小隊和村裡滿血的人可以公平比較(「現在這隊 vs 推薦隊伍」,docs/BALANCE.md「地下城小隊換人」)。
+    //   startFloor 省略 = 最高紀錄 +1;往上最多估到 max(出發層, 最高紀錄 +1) + DG_REC_AHEAD 層(跟推薦隊伍同一個上限)。
+    //   → { ok, floor(能推進到第幾層,0 = 連出發層都估不過), start };不是 3 位不同的存活獵人 → ok:false
+    dungeonReach(hunterIds, startFloor = null, { rested = true } = {}) {
+      const d = state.dungeon, want = clamp(Math.floor(number(startFloor, d.bestFloor + 1, 1, 100)), 1, d.bestFloor + 1);
+      const party = (hunterIds || []).map(hid => state.hunters.find(h => h.id === hid)).filter(Boolean);
+      if (party.length !== 3 || new Set(party).size !== 3 || party.some(h => h.hp <= 0)) return { ok: false, floor: 0, start: want };
+      const r = dgReach(party, want, dgRecCap(want), rested ? h => h.maxHp : h => h.hp);
+      return { ok: true, floor: r.reach, start: r.start };
+    },
+    // 2026-11-17 UI 用(唯讀):通過第 floor 層會拿到的獎勵 →{ first, village:{gold,ore,gems}, gold, xp }(gold/xp 是每位獵人);floorCleared 同一支公式
     dungeonReward(floor) { const f = clamp(Math.floor(number(floor, 1, 1, 100)), 1, 100); return dgFloorReward(f, f > state.dungeon.bestFloor); },
     retreatDungeon() { if (!state.dungeon.active) return result(false, '地下城小隊不在探險中。'); endDungeon(false, true); return result(true, '小隊撤退，正返回村莊。'); },
     setDungeonAuto(on) { state.dungeon.auto = !!on; return result(true, on ? '自動續戰：打完一層會直接挑戰下一層。' : '自動續戰已關閉：打完這一層就回村。'); },
@@ -4228,7 +4285,7 @@ export function createGame(saved = null, opts = {}) {
       state.region=region.id;state.rally=null;if(!state.visitedRegions.includes(region.id))state.visitedRegions.push(region.id);
       state.enemies=state.enemies.filter(e=>e.type==='boss'||e.regionId!==region.id);const mix=mixOf(region.id);preloadMix(mix);for(let i=0;i<12*MONSTER_POP;i++)spawn(mix[Math.floor(random()*mix.length)],null,region.id);
       // 給「所有」存活獵人下指令(正在村內辦事的也先記下,辦完就出發),不要漏掉。
-      for(const h of state.hunters)if(h.hp>0){h.huntRegion=region.id;h.autoHunt=false;h.targetId=null;if(!h.task){h.rallying=true;h.status='出征中';route(h,ringWaypoints({x:h.x,z:h.z},regionEdge(region.id)));}}
+      for(const h of state.hunters)if(h.hp>0){h.huntRegion=region.id;h.autoHunt=false;h.targetId=null;if(!h.task){h.rallying=true;h.status='出征中';route(h,fieldWaypoints({x:h.x,z:h.z},region.id));}}
       log(`已派遣獵人前往${region.name}。隊伍會經由橋樑穿越河流。`,'success');return result(true,`出發探索${region.name}！`);
     },
     dispatchHunters(regionId = null, hunterIds = null) {
@@ -4247,7 +4304,7 @@ export function createGame(saved = null, opts = {}) {
       let n = 0;
       for (const h of state.hunters) if (h.hp > 0 && (!chosen || chosen.has(h.id))) {
         h.huntRegion = region.id; h.autoHunt = false; h.targetId = null;   // 玩家派令優先:自主狩獵的也改聽指令
-        if (!h.task) { h.rallying = true; h.status = '出征中'; route(h, ringWaypoints({ x: h.x, z: h.z }, regionEdge(region.id))); }
+        if (!h.task) { h.rallying = true; h.status = '出征中'; route(h, fieldWaypoints({ x: h.x, z: h.z }, region.id)); }
         n++;
       }
       if (!n) return result(false, chosen ? '選到的獵人目前都不能出征（可能已倒下）。' : '目前沒有可以出征的獵人。');

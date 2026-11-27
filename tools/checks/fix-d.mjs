@@ -60,7 +60,7 @@ const fresh = async (page, url, { levels = true } = {}) => { await L.boot(page, 
     if (after.settings) await closeAll(page);
   }
   // 視窗關掉後 HUD 回來(右側圖示又看得到)
-  const back = await ev(page, P => ['#pause', '.hv-actions button', '.view-tools button'].every(s => { const e = document.querySelector(s); return P.vis(e); }));
+  const back = await ev(page, P => ['#pause', '.hv-actions [data-act=boss]', '.view-tools button'].every(s => { const e = document.querySelector(s); return P.vis(e); }));
   if (!back) fix('land: 關掉建築詳情後右側 HUD(暫停鈕/行動徽章/縮放鈕)沒有恢復顯示');
   if (errs.length) fix(`land/A: 頁面錯誤 ${errs[0]}`);
   await ctx.close();

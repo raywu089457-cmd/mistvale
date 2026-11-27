@@ -9,10 +9,13 @@
 //   length     minutes of play (80 = the old 20 days); "2h" = hours; "15d" = old days (×4 min)
 //   --seed N   start the game's RNG at N (default: the game's own fixed seed) — run several seeds before trusting a number
 //   --summary  print only one compact line for the end (for multi-seed tables)
+//   --no-dg-swap / --old-invest  the dungeon-party upkeep before 2026-11-26 (never swap a stale auto-continue party /
+//              academy+enhancement only for the top 6 by level); both together = the old player, byte for byte
 // Nothing under src/ is touched; this only drives the public game API.
 import { createGame } from '../src/pixel-game.js';
 import { BUILDINGS, PRODUCTS, MATERIALS, DIFFICULTIES, EQUIPMENT, MERCHANT, RECIPES, craftWeaponFor } from '../src/pixel-data.js';
 import { writeFileSync } from 'node:fs';
+import { VILLAGE_BOUNDS, EXITS } from '../src/village-grid.js';
 
 const LEN_ARG = String(process.argv[2] || '');
 const MINUTES = (() => { const m = /^(\d+(?:\.\d+)?)([mhd]?)$/i.exec(LEN_ARG); if (!m) return 80; const n = Number(m[1]); const u = m[2].toLowerCase(); return u === 'h' ? n * 60 : u === 'd' ? n * 4 : n; })();
@@ -26,6 +29,11 @@ const saveOut = arg('--save');   // --sell: sell surplus materials to the mercha
 const SELL = process.argv.includes('--sell');   // --promote: once every building is Lv.5, spend gold above 2,000 on 晉升 (highest-level hunter first, cheapest step)
 const PROMOTE_ON = process.argv.includes('--promote');   // --stay-easy: never raise difficulty
 const IDLE = process.argv.includes('--idle');   // --idle: only claim quests and recruit (2026-11-25 recruit-affinity check: what affinity does when the village is neglected)
+// 2026-11-26 dungeon party upkeep (see policy): --no-dg-swap = never retreat a stale auto-continue party; --old-invest = academy/enhancement only
+// for the top 6 by level (the policy before 2026-11-26). Both flags reproduce the old player for before/after tables.
+const NO_DG_SWAP = process.argv.includes('--no-dg-swap'), OLD_INVEST = process.argv.includes('--old-invest');
+const DG_SWAP_MARGIN = 3;   // swap only when the recommended party is forecast to go at least this many floors deeper
+let nextDgCheck = 0, dgSwaps = 0;
 const T0 = Date.UTC(2026, 10, 26, 4);   // 固定的真實時鐘起點:模擬秒數 = 真實秒數(速度 1×),結果可重現
 let simState = null;
 const g = createGame(null, { now: () => T0 + (simState ? simState.time : 0) * 1000 });
@@ -85,6 +93,20 @@ function policy() {
     if (r.ok) { ev(`up ${u.id}→${s.buildings[u.id]}`); break; }
   }
   // dungeon, boss when possible
+  // 2026-11-26 re-pick a stale auto-continue party (docs/BALANCE.md「地下城小隊換人」): an auto-continue run never ends while each next floor
+  //   passes the forecast, so the party picked at minute 0 (Lv.4–5) could stay in for the whole session while field hunters out-level it.
+  //   A player checking the dungeon panel would retreat and press 推薦隊伍 → once a minute, take the game's own recommendation
+  //   (recommendDungeonParty) and compare how deep each party is forecast to go (dungeonReach: same forecast, both at full HP so the
+  //   party mid-floor is not penalised for its current wounds); retreat only when the recommended party reaches DG_SWAP_MARGIN+ floors
+  //   deeper (no flapping). startDungeon(null) below then re-picks with the same recommendation.
+  if (!NO_DG_SWAP && s.dungeon.active && s.dungeon.auto && g.recommendDungeonParty && g.dungeonReach && s.time >= nextDgCheck) {
+    nextDgCheck = s.time + 60;
+    const d = s.dungeon, rec = g.recommendDungeonParty(d.bestFloor + 1);
+    if (rec.ok && [...rec.ids].sort().join() !== [...d.hunterIds].sort().join()) {
+      const cur = g.dungeonReach(d.hunterIds).floor, better = g.dungeonReach(rec.ids).floor;
+      if (better >= cur + DG_SWAP_MARGIN) { const r = g.retreatDungeon(); if (r.ok) { dgSwaps++; ev(`dungeon swap at f${d.floor}: reach ${cur} → ${better}`); } }
+    }
+  }
   if (s.buildings.dungeon && !s.dungeon.active && s.dungeon.cooldown <= 0) { g.setDungeonAuto(true); const r = g.startDungeon(); if (r.ok) ev(`dungeon start f${s.dungeon.floor}`); }
   if (!s.expedition.active && s.expedition.cooldown <= 0 && s.time >= DAY) { const r = g.expedition(); if (r.ok) ev('boss expedition'); }
   if (SELL && g.sellMaterial) for (const k of Object.keys(MATERIALS)) while ((s[k] || 0) >= 150) if (!g.sellMaterial(k, 50).ok) break;
@@ -105,12 +127,27 @@ function policy() {
   if (!SAFE_DIFF) { const R = s.hunters.reduce((n, h) => n + (h.rebirths || 0), 0), top = [...DIFFICULTIES].reverse().find(d => d.rebirths <= R); if (top && top.id > s.difficulty) { const r = g.setDifficulty(top.id); if (r.ok) ev(`difficulty → ${top.name}`); } }
   // academy/enhancement: a player spreads training over the active roster (lowest first), keeping a 400-gold reserve.
   // (Old policy only trained the top 3 above 600 gold, so the skill/weapon quest chapters lagged for the sim, not for players.)
-  const roster = s.hunters.filter(h => h.hp > 0 && h.level >= 5).sort((a, b) => b.level - a.level).slice(0, 6);
+  // 2026-11-26: the dungeon party is part of the active roster even when field hunters out-level it (a player trains the party they send
+  //   into the dungeon); before, only the top 6 by level, so a stale auto-continue party got no skill/weapon levels (--old-invest = old rule).
+  const top6 = s.hunters.filter(h => h.hp > 0 && h.level >= 5).sort((a, b) => b.level - a.level).slice(0, 6);
+  const dgParty = OLD_INVEST ? [] : s.hunters.filter(h => h.hp > 0 && h.level >= 5 && s.dungeon.hunterIds?.includes(h.id));
+  const roster = [...dgParty, ...top6.filter(h => !dgParty.includes(h))];
   if (s.buildings.academy) for (const h of [...roster].sort((a, b) => (a.skillLevel || 0) - (b.skillLevel || 0)).slice(0, 2)) { const c = 80 + (h.skillLevel || 0) * 50; if (s.gold > c + 400) g.learnSkill(h.id); }
   if (s.buildings.enhancement) for (const h of [...roster].filter(h => h.equipment?.weapon).sort((a, b) => (a.weaponLevel || 0) - (b.weaponLevel || 0)).slice(0, 2)) { const c = 60 + (h.weaponLevel || 0) * 30; if (s.gold > c + 400) g.enhance(h.id); }
 }
 
 let t = 0, nextPolicy = 0, lastSeg = 1;
+// 2026-11-26 拿掉環村道路:記下每次倒下的位置 —— gate = 離出村口 6 格內、edge = 離村界 8 格內、field = 更遠(獵人 h / 流浪英雄 w)
+let lastWDead = new Set(), lastHDead = new Set();
+const downWhere = { h: { gate: 0, edge: 0, field: 0 }, w: { gate: 0, edge: 0, field: 0 } }, downStatus = { h: {}, w: {} };
+function whereDown(kind, p) {
+  if (!Number.isFinite(p.x)) return;
+  const VB = VILLAGE_BOUNDS, gateD = Math.min(...EXITS.map(e => Math.hypot(p.x - e.out.x, p.z - e.out.z)));
+  const edgeD = Math.hypot(Math.max(VB.minX - p.x, 0, p.x - VB.maxX), Math.max(VB.minZ - p.z, 0, p.z - VB.maxZ));
+  downWhere[kind][gateD <= 6 ? 'gate' : edgeD <= 8 ? 'edge' : 'field']++;
+  const st = String(p.status || '?').replace(/^前往.*/, '前往'); downStatus[kind][st] = (downStatus[kind][st] || 0) + 1;
+}
+const downLine = () => `downs hunters gate/edge/field ${downWhere.h.gate}/${downWhere.h.edge}/${downWhere.h.field} ${JSON.stringify(downStatus.h)} | wanderers ${s.wanderDowns || 0} gate/edge/field ${downWhere.w.gate}/${downWhere.w.edge}/${downWhere.w.field} ${JSON.stringify(downStatus.w)}`;
 let firstRecruit = null, firstReady = null;   // 2026-11-25: game seconds until the first recruit / until any wanderer first reaches 100% acceptance
 const ARENA_TRACE = process.argv.includes('--arena-trace'); let arenaRun = null;   // --arena-trace: print each arena fight (wins before, result, fight seconds, lowest party HP%)
 const t0 = Date.now();
@@ -140,11 +177,17 @@ while (s.time < END_SEC) {
     deaths++; const h = s.hunters.find(x => x.id === id), p = prevOf.get(id) || {};   // p = what the hunter was doing one second before dying
     const key = `${p.task || 'field'}:${p.region || '-'}:lv${Math.min(30, Math.floor((p.level ?? h.level) / 5) * 5)}+`;
     deathWhere[key] = (deathWhere[key] || 0) + 1;
-    deathLog.push(`${minNow()}m ${h.name} ${h.classId} lv${p.level ?? h.level} ${p.auto ? 'auto' : 'ordered'}:${p.region || '-'} status=${p.status || '?'} gear=${Object.values(h.equipment || {}).filter(Boolean).length}/7`);
+    deathLog.push(`${minNow()}m ${h.name} ${h.classId} lv${p.level ?? h.level} ${p.auto ? 'auto' : 'ordered'}:${p.region || '-'} status=${p.status || '?'} gear=${Object.values(h.equipment || {}).filter(Boolean).length}/7 hp${h.maxHp} ${(s.log || []).find(l => l.text.includes(h.name) && l.text.includes('倒'))?.text.replace(/，.*/, '') || ''} diff ${s.difficulty}`);
   }
   lastDead = deadNow;
   if (ARENA_TRACE) { const A = s.arena; if (A.active && A.phase === '對戰中') { arenaRun ??= { w: A.wins, t: 0, min: 1, p: (() => { const P = s.hunters.filter(h => A.hunterIds.includes(h.id)); return ' dps ' + Math.round(P.reduce((n, h) => n + h.attack / ((h.classId === 'sorcerer' ? 1.6 : h.classId === 'priest' ? 1.4 : 1.1) * (h.trait === 'swift' ? 0.9 : 1)), 0)) + ' hp ' + P.map(h => h.maxHp).join('/') + ' def ' + P.map(h => h.defense).join('/') + ' foe ' + A.enemyMaxHp; })() }; arenaRun.t++; for (const h of s.hunters.filter(h => A.hunterIds.includes(h.id))) arenaRun.min = Math.min(arenaRun.min, h.hp / h.maxHp); } else if (arenaRun && !A.active) { console.log('arena ' + minNow() + 'm w' + arenaRun.w + ' ' + A.phase + ' t' + arenaRun.t + 's minHp ' + Math.round(arenaRun.min * 100) + '% lv ' + s.hunters.filter(h => A.hunterIds.includes(h.id)).map(h => h.level).join('/') + arenaRun.p); arenaRun = null; } }
-  for (const h of s.hunters) if (h.hp > 0) prevOf.set(h.id, { task: h.task, region: h.huntRegion, level: h.level, auto: h.autoHunt, status: h.status });
+  for (const id of deadNow) if (!lastHDead.has(id)) { const p = prevOf.get(id); if (p) whereDown('h', p); }
+  lastHDead = deadNow;
+  const wDeadNow = new Set((s.wanderers || []).filter(w => w.hp <= 0).map(w => w.id));
+  for (const id of wDeadNow) if (!lastWDead.has(id)) { const p = prevOf.get(id); if (p) whereDown('w', p); }
+  lastWDead = wDeadNow;
+  for (const h of s.hunters) if (h.hp > 0) prevOf.set(h.id, { task: h.task, region: h.huntRegion, level: h.level, auto: h.autoHunt, status: h.status, x: h.x, z: h.z });
+  for (const w of s.wanderers || []) if (w.hp > 0) prevOf.set(w.id, { region: w.huntRegion, level: w.level, status: w.status, x: w.x, z: w.z });
   if (seg() !== lastSeg) { lastSeg = seg(); rows.push(snap()); }
 }
 if (rows.at(-1).min !== minNow()) rows.push(snap());   // 結尾那一刻(長度不是 4 分鐘的倍數時)
@@ -175,15 +218,17 @@ const returnTable = () => {
 if (SUMMARY) {
   returnTable();
   console.log(recruitLine());
+  console.log(downLine());
   writeSave();
   const r = rows.at(-1), dayOf = q => rows.find(x => x.quest >= q)?.min ?? '-';
-  console.log(`seed ${SEED ?? 'default'} | ${r.min}m gold ${r.gold} gems ${s.gems} promo ${s.counts.promoted || 0} gemBuy ${s.counts.gemsBought || 0} rar ${['normal','rare','superior','heroic','legendary'].map(k => s.hunters.filter(h => h.rarity === k).length).join('/')} wood ${r.wood} ore ${r.ore} | lv ${r.lvMin}/${r.lvMed}/${r.lvMax} hg ${r.hGold} | dead ${r.deaths} | Q${r.quest} (Q8@${dayOf(8)}m Q12@${dayOf(12)}m Q16@${dayOf(16)}m) done[${Object.entries(claimDay).filter(([c]) => c >= 15).map(([c, d]) => `${c}@${d}m`).join(' ')}] floor ${r.floor} bLv ${r.b} | store ${(()=>{const by={};for(const it of s.gearStorage||[]){const k=EQUIPMENT[it.itemId]?.tier||"?";by[k]=(by[k]||0)+1;}return (s.gearStorage||[]).length+" "+JSON.stringify(by);})()} | rebirths ${s.counts.rebirths || 0} diff ${DIFFICULTIES[s.difficulty]?.name} | arena ${s.arena?.wins || 0}W/${s.arena?.losses || 0}L | merchant ${s.counts.merchantBuys || 0} svc ${s.counts.serviceIncome} gear ${s.counts.gearIncome ?? '-'} up ${s.counts.gearUpgrades ?? '-'} forge ${s.buildings.forge}`);
+  console.log(`seed ${SEED ?? 'default'} | ${r.min}m gold ${r.gold} gems ${s.gems} promo ${s.counts.promoted || 0} gemBuy ${s.counts.gemsBought || 0} rar ${['normal','rare','superior','heroic','legendary'].map(k => s.hunters.filter(h => h.rarity === k).length).join('/')} wood ${r.wood} ore ${r.ore} | lv ${r.lvMin}/${r.lvMed}/${r.lvMax} hg ${r.hGold} | dead ${r.deaths} | Q${r.quest} (Q8@${dayOf(8)}m Q12@${dayOf(12)}m Q16@${dayOf(16)}m) done[${Object.entries(claimDay).filter(([c]) => c >= 15).map(([c, d]) => `${c}@${d}m`).join(' ')}] floor ${r.floor} bLv ${r.b} | store ${(()=>{const by={};for(const it of s.gearStorage||[]){const k=EQUIPMENT[it.itemId]?.tier||"?";by[k]=(by[k]||0)+1;}return (s.gearStorage||[]).length+" "+JSON.stringify(by);})()} | rebirths ${s.counts.rebirths || 0} diff ${DIFFICULTIES[s.difficulty]?.name} | arena ${s.arena?.wins || 0}W/${s.arena?.losses || 0}L | merchant ${s.counts.merchantBuys || 0} svc ${s.counts.serviceIncome} gear ${s.counts.gearIncome ?? '-'} up ${s.counts.gearUpgrades ?? '-'} forge ${s.buildings.forge} dgSwap ${dgSwaps}`);
   process.exit(0);
 }
 for (const r of rows) console.log(fmt(r));
 console.log(recruitLine());
 console.log('deaths by task:region:level:', JSON.stringify(deathWhere));
 for (const l of deathLog) console.log('  death ' + l);
+console.log(downLine());
 console.log('codex (kills by type):', JSON.stringify(s.codex));
 console.log('counts:', JSON.stringify(s.counts));
 returnTable();
