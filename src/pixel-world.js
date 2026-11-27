@@ -2669,6 +2669,7 @@ let renderDprMax=Math.max(1,dprCap||autoDpr());   // 畫布解析度上限(devic
   // T106:驗收用 —— 停格狀態(次數、被跳過的重畫幀數、還剩幾毫秒)。
   globalThis.__mistvaleHitstop=()=>({seq:hitStopSeq,count:hitStopCount,skipped:hitStopSkipped,frozen:performance.now()<hitStopUntil,left:+Math.max(0,hitStopUntil-performance.now()).toFixed(1)});
   globalThis.__mistvaleHD2D=()=>hd2d?hd2d.stats():{mode:glr?'gl2d':'2d'};
+  globalThis.__mistvaleMesh3D=v=>hd2d?(v===undefined?hd2d.meshStats():hd2d.setMesh3D(v)):null;   // 除錯/效能對照:開關真 3D 建築與物件(關掉 = 回到立牌)
   const fxScreenPoint=(x,z)=>hd2d?hd2d.setEntity3D(x,z,0,1.25):screenPoint(x,z);
   function render(){
     userScale=scale;

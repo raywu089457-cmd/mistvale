@@ -601,7 +601,7 @@ const BUILDERS = {
     m.with(15, MAT_GLOW, () => { m.poly([Fz.f(0.9, PLINTH_H + 0.3, 0.14), Fz.f(1.4, PLINTH_H + 0.3, 0.14), Fz.f(1.15, PLINTH_H + 0.95, 0.14)], PAL.fireL, Fz.f(1.1, 1, -1)); });
     windowOn(m, Fx, 0.2, 1.6, 0.55, 0.55);
     hangSign(m, faceMap(wb, '-x'), 1.1, 1.95, 0.7, 0.5, PAL.timberL, p => { m.with(6, MAT_LIT, () => m.hexa([p(-0.22, 0.15, -0.06), p(0.22, 0.15, -0.06), p(0.16, 0.33, -0.06), p(-0.2, 0.33, -0.06), p(-0.22, 0.15, 0.06), p(0.22, 0.15, 0.06), p(0.16, 0.33, 0.06), p(-0.2, 0.33, 0.06)], PAL.iron)); });
-    gableRoof(m, { x0: wb.x0, z0: wb.z0, x1: wb.x1, z1: wb.z1, yE: y1, yR: y1 + 2.15, axis: 'z', gable: PAL.stone });
+    gableRoof(m, { x0: wb.x0, z0: wb.z0, x1: wb.x1, z1: wb.z1, yE: y1, yR: y1 + 2.15, axis: 'z', over: 0.26, gable: PAL.stone });   // 簷口收短:北邊圍籬外的白樺區立牌就在旁邊
     const ch = chimney(m, 1.45, -1.05, PLINTH_H, y1 + 3.3, 0.95);
     // 鐵砧(樹墩上)+ 武器架
     m.with(11, MAT_LIT, () => {

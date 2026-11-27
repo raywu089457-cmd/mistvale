@@ -1617,6 +1617,12 @@ export function createHD2DRenderer(canvas, { onLost = () => {}, onRestored = () 
 
     focalPx = (cssH * 0.5) / TAN_HALF_FOV;
     camDist = focalPx / (WORLD_TO_LOGICAL * curScale);
+    {
+      const sceneTargetH = qualityHigh ? (isCoarseDevice ? 320 : 400) : 260;
+      meshDensity = (Math.min(sceneTargetH, cssH * 2) / cssH) * WORLD_TO_LOGICAL * curScale;
+      const want = meshLod ? meshDensity >= MESH_LOD_OFF : meshDensity >= MESH_LOD_ON;
+      if (want !== meshLod) { meshLod = want; smapDirty = true; }
+    }
 
     const cb = Math.cos(camYaw), sb = Math.sin(camYaw);
     const cp = Math.cos(camPitch), sp = Math.sin(camPitch);
@@ -1857,6 +1863,11 @@ export function createHD2DRenderer(canvas, { onLost = () => {}, onRestored = () 
   // ============================================================================
   const MESH3D_OFF = /[?&]mesh3d=0\b/.test(globalThis.location?.search || '');
   let meshOn = !MESH3D_OFF, meshReady = false;
+  // 遠景退回立牌(LOD):網格畫在低解析場景 FBO 裡,拉太遠時一棟房子只剩十幾個像素、會糊成一團;
+  // 那時改回原本的 2D 立牌(全解析度畫)。門檻用「場景每世界單位幾個像素」,上下留遲滯避免在門檻附近閃。
+  let meshLod = true, meshDensity = 0;
+  const MESH_LOD_ON = 5.0, MESH_LOD_OFF = 4.3;
+  const meshLive = () => meshOn && meshReady && meshLod;
   let meshProg = null, smapProg = null, meshU = null, smapU = null;
   let protoVao = null, protoBuf = null, decorVao = null, decorBuf = null;
   let sceneDepthRb = null, smapFbo = null, smapTex = null, smapSize = 0;
@@ -1985,7 +1996,7 @@ export function createHD2DRenderer(canvas, { onLost = () => {}, onRestored = () 
     meshStat.buildings = bldList.length;
   }
   function setGhost(kind, x, z, s = 1) {
-    ghost = meshOn && meshReady && BUILDING_KINDS.has(kind) ? { kind, x, z, y: terrainHeight(x, z), s } : null;
+    ghost = meshLive() && BUILDING_KINDS.has(kind) ? { kind, x, z, y: terrainHeight(x, z), s } : null;
   }
   // 陰影圖的正交投影:涵蓋所有網格的範圍(地圖物件 + 建築)
   function updateSunMat() {
@@ -2063,7 +2074,7 @@ export function createHD2DRenderer(canvas, { onLost = () => {}, onRestored = () 
     gl.disable(gl.DEPTH_TEST);
     meshStat.smapRenders++;
   }
-  const meshActive = () => meshOn && meshReady && (decorCount > 0 || bldList.length > 0 || !!ghost);
+  const meshActive = () => meshLive() && (decorCount > 0 || bldList.length > 0 || !!ghost);
   function bindSmapUniforms(prog, U) {
     const on = meshActive() ? 1 : 0;
     if (U) { gl.uniformMatrix4fv(U.uSunMat, false, sunMat); gl.uniform4f(U.uSmapP, 1 / Math.max(1, smapSize), smapBias, on, 0); }
@@ -2102,7 +2113,7 @@ export function createHD2DRenderer(canvas, { onLost = () => {}, onRestored = () 
   }
   // 建築在畫面上的範圍(CSS px):把模型輪廓點投影到螢幕取外框。每幀快取。
   function meshRect(id) {
-    if (!meshOn || !meshReady) return null;
+    if (!meshLive()) return null;
     if (rectCache.has(id)) return rectCache.get(id);
     const b = bldById.get(id), P = b && protos.get(b.kind);
     let out = null;
@@ -3082,14 +3093,14 @@ export function createHD2DRenderer(canvas, { onLost = () => {}, onRestored = () 
     isHD2D: true,
     gl, canvas, ctx, begin, composite, present, release, invalidate: release,
     // 真 3D 建築與地圖物件
-    get has3D() { return meshOn && meshReady; },
+    get has3D() { return meshLive(); },
     setMeshScene,
     setGhost,
     meshRect,
     meshAnchor,
-    isMeshDecor: d => meshOn && meshReady && !!d && MESH_DECOR.has(d.type) && !d.walk && !d.regionSign,
+    isMeshDecor: d => meshLive() && !!d && MESH_DECOR.has(d.type) && !d.walk && !d.regionSign,
     setMesh3D(v) { meshOn = !!v; smapDirty = true; return meshOn && meshReady; },   // 除錯/效能對照用
-    meshStats: () => ({ ...meshStat, on: meshOn, ready: meshReady, smapSize, decorCount }),
+    meshStats: () => ({ ...meshStat, on: meshOn, ready: meshReady, lod: meshLod, density: +meshDensity.toFixed(2), smapSize, decorCount }),
     get lost() { return lost || gl.isContextLost(); },
     // 3D World & Camera API
     terrainHeight,
@@ -3133,7 +3144,7 @@ export function createHD2DRenderer(canvas, { onLost = () => {}, onRestored = () 
     stats: () => ({
       mode: 'hd2d-webgl2', lost, draws, instances: inst, shadows3D: shadow3DList.n,
       textures: reg.size, mb: +(bytes / 1048576).toFixed(1), uploads,
-      sceneRes: [sceneW, sceneH], yawDeg: Math.round((camYaw * 180) / Math.PI), mesh3D: meshOn && meshReady,
+      sceneRes: [sceneW, sceneH], yawDeg: Math.round((camYaw * 180) / Math.PI), mesh3D: meshLive(),
       pitchDeg: Math.round((camPitch * 180) / Math.PI),
       renderer: gl.getParameter(gl.RENDERER),
     }),
