@@ -3440,4 +3440,7 @@ body:has(#left-panel:not(.hidden)) #game-ui #hd2d-cam,
 body:has(#unit-card) #game-ui #hd2d-cam,
 body:has(#pilotlab) #game-ui #hd2d-cam,
 body:has(#run-hud:not(.hidden)) #game-ui #hd2d-cam{visibility:hidden!important}
-@media(max-width:760px),(max-height:520px){html body #game-ui #hd2d-cam{display:none!important}}
+@media(max-width:760px) and (min-height:580px){
+  html body #game-ui #hd2d-cam{bottom:calc(var(--hv-tab-h) + env(safe-area-inset-bottom,0px) + 12px)!important;gap:3px!important}
+}
+@media(max-height:579px){html body #game-ui #hd2d-cam{display:none!important}}

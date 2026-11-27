@@ -1225,7 +1225,7 @@ let renderDprMax=Math.max(1,dprCap||autoDpr());   // 畫布解析度上限(devic
   const clampCam=()=>{target.x=Math.max(CAM_X0,Math.min(CAM_X1,target.x));target.y=Math.max(CAM_Y0,Math.min(CAM_Y1,target.y));};
   // T141：手機手感——拖曳甩動慣性、雙擊縮放、雙指縮放釘住指間的世界點
   let inertia=null;   // {vx,vy} 螢幕像素/毫秒，放手後指數衰減
-  let lastTapT=0,lastTapX=0,lastTapY=0,orbitDrag=null,pinchAngle=null;
+  let lastTapT=0,lastTapX=0,lastTapY=0,orbitDrag=null,pinchAngle=null,pinchMidY=null;
   const camKeys=new Set();
   const onCamKeyDown=e=>{
     if(e.target?.matches?.('input,textarea,select,[contenteditable]'))return;
@@ -1262,19 +1262,26 @@ let renderDprMax=Math.max(1,dprCap||autoDpr());   // 畫布解析度上限(devic
     if(hd2d&&(e.button===2||e.button===1||(e.button===0&&(e.altKey||e.shiftKey)))){
       e.preventDefault?.();try{canvas.setPointerCapture?.(e.pointerId);}catch{}
       orbitDrag={id:e.pointerId,x:e.clientX,y:e.clientY};inertia=null;canvas.style.cursor='all-scroll';return;}
-    if(e.button!==undefined&&e.button!==0&&e.button!==1)return;try{canvas.setPointerCapture?.(e.pointerId);}catch{}   /* 取得到就鎖住指標;某些情況(合成事件、已被取消的指標)會拋錯,不能讓它中斷後面的手勢初始化 */pointers.set(e.pointerId,{x:e.clientX,y:e.clientY});if(pointers.size===2){const pts=[...pointers.values()];pinchDistance=Math.hypot(pts[0].x-pts[1].x,pts[0].y-pts[1].y);pinchAngle=Math.atan2(pts[1].y-pts[0].y,pts[1].x-pts[0].x);pointer=null;return;}pointer={id:e.pointerId,x:e.clientX,y:e.clientY,startX:e.clientX,startY:e.clientY,moved:false,t:performance.now(),vx:0,vy:0};inertia=null;canvas.style.cursor=placing?'crosshair':'grabbing';}
+    if(e.button!==undefined&&e.button!==0&&e.button!==1)return;try{canvas.setPointerCapture?.(e.pointerId);}catch{}   /* 取得到就鎖住指標;某些情況(合成事件、已被取消的指標)會拋錯,不能讓它中斷後面的手勢初始化 */pointers.set(e.pointerId,{x:e.clientX,y:e.clientY});if(pointers.size===2){const pts=[...pointers.values()];pinchDistance=Math.hypot(pts[0].x-pts[1].x,pts[0].y-pts[1].y);pinchAngle=Math.atan2(pts[1].y-pts[0].y,pts[1].x-pts[0].x);pinchMidY=(pts[0].y+pts[1].y)/2;pointer=null;return;}pointer={id:e.pointerId,x:e.clientX,y:e.clientY,startX:e.clientX,startY:e.clientY,moved:false,t:performance.now(),vx:0,vy:0};inertia=null;canvas.style.cursor=placing?'crosshair':'grabbing';}
   function move(e){markInput();
     if(orbitDrag&&orbitDrag.id===e.pointerId){
       const dx=e.clientX-orbitDrag.x,dy=e.clientY-orbitDrag.y;orbitDrag.x=e.clientX;orbitDrag.y=e.clientY;
       hd2d?.orbitBy(-dx*0.0068,dy*0.0046,true);return;}
+    const prevPt=pointers.get(e.pointerId);
     hover=unproject(e.clientX,e.clientY);hoverBuilding=e.pointerType==='mouse'&&!pointer?hoverIdAt(hover.sx,hover.sy):null;if(pointers.has(e.pointerId))pointers.set(e.pointerId,{x:e.clientX,y:e.clientY});
-    if(pointers.size===2){const pts=[...pointers.values()],dist=Math.hypot(pts[0].x-pts[1].x,pts[0].y-pts[1].y),ang=Math.atan2(pts[1].y-pts[0].y,pts[1].x-pts[0].x);
-      if(hd2d&&pinchAngle!==null){let da=ang-pinchAngle;if(da>Math.PI)da-=Math.PI*2;else if(da<-Math.PI)da+=Math.PI*2;if(Math.abs(da)<0.45)hd2d.orbitBy(da,0,true);}
-      if(pinchDistance&&dist>0){zoomAt((pts[0].x+pts[1].x)/2,(pts[0].y+pts[1].y)/2,dist/pinchDistance);}pinchDistance=dist;pinchAngle=ang;return;}
+    if(pointers.size===2){const pts=[...pointers.values()],dist=Math.hypot(pts[0].x-pts[1].x,pts[0].y-pts[1].y),ang=Math.atan2(pts[1].y-pts[0].y,pts[1].x-pts[0].x),midY=(pts[0].y+pts[1].y)/2;
+      if(hd2d){
+        let dYaw=0,dPitch=0;
+        if(pinchAngle!==null){let da=ang-pinchAngle;if(da>Math.PI)da-=Math.PI*2;else if(da<-Math.PI)da+=Math.PI*2;if(Math.abs(da)<0.45)dYaw=da;}
+        // 雙指同向平行上下滑動（間距變化小時）＝ 平滑調整 3D 俯仰角（如 Google Maps 3D 手勢）
+        if(pinchMidY!==null&&pinchDistance&&Math.abs(dist-pinchDistance)<Math.abs(midY-pinchMidY)*1.35){dPitch=(midY-pinchMidY)*0.0055;}
+        if(dYaw||dPitch)hd2d.orbitBy(dYaw,dPitch,true);
+      }
+      if(pinchDistance&&dist>0&&(!hd2d||pinchMidY===null||Math.abs(dist-pinchDistance)>=Math.abs(midY-pinchMidY)*0.65)){zoomAt((pts[0].x+pts[1].x)/2,midY,dist/pinchDistance);}pinchDistance=dist;pinchAngle=ang;pinchMidY=midY;return;}
     if(!pointer||pointer.id!==e.pointerId)return;const dx=e.clientX-pointer.x,dy=e.clientY-pointer.y;if(Math.hypot(e.clientX-pointer.startX,e.clientY-pointer.startY)>5)pointer.moved=true;
     if(!followFn){if(hd2d)hd2d.panByScreen(dx,dy);else{target.x-=dx/scale;target.y-=dy/scale;cam={...target};clampCam();}}
     const nowMs=performance.now(),dtMs=Math.max(1,nowMs-(pointer.t||nowMs));pointer.vx=(e.clientX-pointer.x)/dtMs;pointer.vy=(e.clientY-pointer.y)/dtMs;pointer.t=nowMs;pointer.x=e.clientX;pointer.y=e.clientY;}   // 跟隨角色時不讓拖曳把鏡頭拉走(下一幀就會被拉回來,只會抖一下)
-  function up(e){if(orbitDrag&&orbitDrag.id===e.pointerId){orbitDrag=null;canvas.style.cursor=placing?'crosshair':'grab';return;}const p=pointer;const wasTouch=(e.pointerType==='touch');pointers.delete(e.pointerId);pinchDistance=0;pinchAngle=null;pointer=null;if(p&&p.moved&&wasTouch&&!followFn){inertia={vx:p.vx||0,vy:p.vy||0};}if(p&&!p.moved&&wasTouch&&!placing){const nowMs=performance.now();const near=Math.hypot(e.clientX-lastTapX,e.clientY-lastTapY)<28;if(nowMs-lastTapT<320&&near){lastTapT=0;inertia=null;zoomAt(e.clientX,e.clientY,scale>=ZOOM_MAX*0.98?1/1.25:1.25);canvas.style.cursor=placing?'crosshair':'grab';return;}lastTapT=nowMs;lastTapX=e.clientX;lastTapY=e.clientY;}canvas.style.cursor=placing?'crosshair':'grab';if(!p||p.moved)return;const q=unproject(e.clientX,e.clientY);if(placing){onPlace(placing,R(q.x*2)/2,Math.round(q.z*2)/2);return;}for(let i=hits.length-1;i>=0;i--){const hit=hits[i];if(q.sx>=hit.x&&q.sx<=hit.x+hit.w&&q.sy>=hit.y&&q.sy<=hit.y+hit.h){onSelect(hit.id);return;}}onSelect(null);}
+  function up(e){if(orbitDrag&&orbitDrag.id===e.pointerId){orbitDrag=null;canvas.style.cursor=placing?'crosshair':'grab';return;}const p=pointer;const wasTouch=(e.pointerType==='touch');pointers.delete(e.pointerId);pinchDistance=0;pinchAngle=null;pinchMidY=null;pointer=null;if(p&&p.moved&&wasTouch&&!followFn){inertia={vx:p.vx||0,vy:p.vy||0};}if(p&&!p.moved&&wasTouch&&!placing){const nowMs=performance.now();const near=Math.hypot(e.clientX-lastTapX,e.clientY-lastTapY)<28;if(nowMs-lastTapT<320&&near){lastTapT=0;inertia=null;zoomAt(e.clientX,e.clientY,scale>=ZOOM_MAX*0.98?1/1.25:1.25);canvas.style.cursor=placing?'crosshair':'grab';return;}lastTapT=nowMs;lastTapX=e.clientX;lastTapY=e.clientY;}canvas.style.cursor=placing?'crosshair':'grab';if(!p||p.moved)return;const q=unproject(e.clientX,e.clientY);if(placing){onPlace(placing,R(q.x*2)/2,Math.round(q.z*2)/2);return;}for(let i=hits.length-1;i>=0;i--){const hit=hits[i];if(q.sx>=hit.x&&q.sx<=hit.x+hit.w&&q.sy>=hit.y&&q.sy<=hit.y+hit.h){onSelect(hit.id);return;}}onSelect(null);}
   function wheel(e){e.preventDefault();markInput();zoomAt(e.clientX,e.clientY,e.deltaY<0?1.1:1/1.1);}
   canvas.addEventListener('pointerdown',down);canvas.addEventListener('pointermove',move);canvas.addEventListener('pointerup',up);canvas.addEventListener('pointercancel',up);canvas.addEventListener('wheel',wheel,{passive:false});canvas.addEventListener('pointerleave',()=>{hoverBuilding=null;});canvas.style.cursor='grab';
 

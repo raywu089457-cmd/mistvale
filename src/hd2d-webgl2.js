@@ -1931,8 +1931,9 @@ export function createHD2DRenderer(canvas, { onLost = () => {}, onRestored = () 
     gl.disable(gl.CULL_FACE);
   }
 
+  const isCoarseDevice = !!(globalThis.matchMedia?.('(pointer:coarse)')?.matches);
   function ensureSceneFbo() {
-    const targetH = qualityHigh ? 400 : 300;
+    const targetH = qualityHigh ? (isCoarseDevice ? 320 : 400) : 260;
     const sw = Math.max(160, Math.round(targetH * (W / Math.max(1, H))));
     const sh = Math.max(120, targetH);
     if (sceneColorTex && sceneW === sw && sceneH === sh) return;
