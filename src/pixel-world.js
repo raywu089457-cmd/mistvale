@@ -2149,7 +2149,8 @@ let renderDprMax=Math.max(1,dprCap||autoDpr());   // 畫布解析度上限(devic
       // 有蓄力(畫面上先演了 0.3 秒)就沿用蓄力時鎖定的方向,整段攻擊同一列;沒有蓄力才用出手那刻的位置算
       // 2026-11-26:例外 —— 出手點不在蓄力方向的象限(含 10° 遲滯)裡,代表出手的對象不是蓄力時盯的那隻
       // (祭司普通治療朝隊友、技能改瞄別群),這時改用出手點算,不然會朝反方向出手(check_facing heroCombatBad)。
-      const atkFits=ad.mode==='windup'&&facingOk(h.atkX-h.x,h.atkZ-h.z,VDIR_TO_DIR4[ad.dir]);
+      // HD-2D 可 360° 轉鏡頭:ad.dir 是在鏡頭座標(camDirVec/rotDir)算的,判斷也要先轉到鏡頭座標(預設 45° 時兩者相同)
+      const atkFits=ad.mode==='windup'&&camFacingOk(h.atkX-h.x,h.atkZ-h.z,VDIR_TO_DIR4[ad.dir]);
       if(!atkFits){ad.dir=moveDir(h.atkX-h.x,h.atkZ-h.z,ad.dir);ad.sx=sideOf(h,h.atkX,h.atkZ,ad.sx);}
       ad.mode='strike';
     }
