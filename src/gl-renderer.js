@@ -24,6 +24,7 @@ function parseColor(s){if(typeof s!=='string')return null;let c=colorCache.get(s
   c=parseFast(s.trim());
   if(!c){try{colorProbe||=document.createElement('canvas').getContext('2d');colorProbe.fillStyle='#010203';colorProbe.fillStyle=s;const n=colorProbe.fillStyle;c=n==='#010203'&&s.trim().toLowerCase()!=='#010203'?null:parseFast(n)||(n==='transparent'?[0,0,0,0]:null);}catch{c=null;}}
   if(colorCache.size>4096)colorCache.clear();colorCache.set(s,c);return c;}
+export { parseColor as parseColorForGL };
 
 const VS=`#version 300 es
 layout(location=0) in vec4 aM;layout(location=1) in vec4 aT;layout(location=2) in vec4 aUV;layout(location=3) in vec4 aC;layout(location=4) in vec4 aF;

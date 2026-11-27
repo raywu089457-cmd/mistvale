@@ -3535,3 +3535,28 @@ html body #hv-advisor.calm:not(:hover):not(:focus-within) .next-step .ns-ic::aft
 /* 手動操控選角清單開著時,召喚首領／競技場鈕(現在在右下)也先藏起來,跟縮放鈕一樣 */
 html body:not(.piloting):has(#pilotlab) .hv-actions{visibility:hidden!important;pointer-events:none!important}
 html body #hv-advisor.calm:not(:hover):not(:focus-within) .next-step{height:44px!important;min-height:44px!important;overflow:hidden}
+
+/* ═══ HD-2D 3D 鏡頭控制列（左下方，與右下 .view-tools 同一套炭黑黃銅語彙）═══ */
+html body #game-ui #hd2d-cam{position:fixed!important;left:var(--hv-gut)!important;right:auto!important;top:auto!important;bottom:calc(var(--hv-tab-h) + env(safe-area-inset-bottom,0px) + 26px)!important;
+  display:flex!important;flex-direction:row!important;align-items:center;gap:4px!important;z-index:8;background:none!important;border:0!important;box-shadow:none!important;padding:0!important;margin:0!important}
+html body #game-ui #hd2d-cam.hidden{display:none!important}
+html body #game-ui #hd2d-cam>button{width:var(--hv-hit)!important;height:var(--hv-hit)!important;min-width:var(--hv-hit)!important;min-height:var(--hv-hit)!important;display:grid!important;place-items:center!important;
+  background:rgba(20,17,15,.52)!important;border:1px solid rgba(110,94,76,.85)!important;border-radius:2px!important;font:700 13px/1 var(--font-num)!important;color:var(--hv-text)!important;text-shadow:var(--hv-outline)!important;position:relative;cursor:pointer}
+html body #game-ui #hd2d-cam>button:hover{background:rgba(48,40,32,.9)!important;border-color:var(--hv-gold)!important}
+html body #game-ui #hd2d-cam>button.on{border-color:rgba(230,180,60,.85)!important;color:var(--hv-gold)!important}
+html body #game-ui #hd2d-cam>button:active{transform:translateY(1px)!important}
+@media(hover:hover) and (pointer:fine){
+  html body #game-ui #hd2d-cam [data-tip]:hover::after,html body #game-ui #hd2d-cam [data-tip]:focus-visible::after{top:auto!important;bottom:calc(100% + 6px)!important;left:0!important;right:auto!important;transform:none!important}
+}
+body.hud-modal #game-ui #hd2d-cam,
+body.piloting #game-ui #hd2d-cam,
+body:has(#inspector:not(.hidden)) #game-ui #hd2d-cam,
+body:has(#placement:not(.hidden)) #game-ui #hd2d-cam,
+body:has(#left-panel:not(.hidden)) #game-ui #hd2d-cam,
+body:has(#unit-card) #game-ui #hd2d-cam,
+body:has(#pilotlab) #game-ui #hd2d-cam,
+body:has(#run-hud:not(.hidden)) #game-ui #hd2d-cam{visibility:hidden!important}
+@media(max-width:760px) and (min-height:580px){
+  html body #game-ui #hd2d-cam{bottom:calc(var(--hv-tab-h) + env(safe-area-inset-bottom,0px) + 12px)!important;gap:3px!important}
+}
+@media(max-height:579px){html body #game-ui #hd2d-cam{display:none!important}}
