@@ -1492,7 +1492,34 @@ let renderDprMax=Math.max(1,dprCap||autoDpr());   // 畫布解析度上限(devic
     if(!out)return {x0:0,x1:1,y0:0,y1:1};
     spriteBoundsCache.set(id,out);return out;
   }
-  function drawBuilding(b){const layout=state.layout?.[b.id]||b;let p=screenPoint(layout.x,layout.z);const level=getLevel(b.id),s=selected===b.id;
+  // 2026-11-27 真 3D 建築(HD-2D 預設):模型由 hd2d-webgl2 的網格 pass 畫,這裡只算點擊框、名牌、選取圈與煙囪位置。
+  // 畫面範圍 = 模型輪廓投影到螢幕的外框(取代立牌圖片的矩形),後面的互動規則跟立牌版一樣。
+  const BUILDING_MESH_SCALE=.87;   // 模型以實心佔地(4.6×3.8)建模;縮到跟原本立牌一樣大(立牌統一寬 66 邏輯單位 ≈ 4.0×3.3 的佔地)
+  function building3DScale(){let mx=0,mx1=0;for(const b of BUILDINGS)if((state.buildings||{})[b.id]){const w=conceptBuildingWidth(b.id);mx=Math.max(mx,w*(state.layout?.[b.id]?.s??1));mx1=Math.max(mx1,w);}return BUILDING_MESH_SCALE*(mx1?mx/mx1:1);}   // 跟 uniformBuildingWidth 一樣:改一棟的大小 = 全部一起變
+  function drawBuilding3D(b){const layout=state.layout?.[b.id]||b,p=screenPoint(layout.x,layout.z),level=getLevel(b.id),s=selected===b.id;
+    const occ3d=hd2d.isOccluded3D(layout.x,layout.z,2.5,3.4);
+    if(!level){   // 空地(3D 施工地基):互動點與名牌跟立牌版同一套位置
+      if(!occ3d){uiLabels.push({id:b.id,name:b.name,level:0,built:false,x:p.x,y:p.y-36*scale,box:{x:p.x-26*scale,y:p.y-40*scale,w:52*scale,h:50*scale},show:userScale>1.12||s});
+        const dw=Math.max(40*scale,52*scale*.55),dh=Math.max(32*scale,42*scale*.5);hits.push({id:b.id,x:p.x-dw/2,y:p.y+10*scale-dh,w:dw,h:dh});}
+      return;}
+    const rect=hd2d.meshRect(b.id);if(!rect)return;
+    if(b.id==='forge'){const a=hd2d.meshAnchor(b.id,'chimney');if(a&&!a.behind)smokeSpot={x:a.x,y:a.y,wx:layout.x,wz:layout.z,ps:scale};}
+    let selRing=null;
+    if(!occ3d){const bx0=rect.x,bx1=rect.x+rect.w,by1=rect.y+rect.h;
+      buildingBoxes.set(b.id,{id:b.id,x:bx0,y:rect.y,w:rect.w,h:rect.h,depth:layout.x+layout.z});
+      const cx2=(bx0+bx1)/2,bw=Math.max(30*scale,rect.w*0.9),bh=Math.max(34*scale,Math.min(rect.h*0.34,64*scale));
+      hits.push({id:b.id,x:cx2-bw/2,y:by1-bh+4*scale,w:bw,h:bh});
+      const pw=Math.max(28*scale,bw*0.62),ph=Math.max(22*scale,bh*0.45);
+      hits.push({id:b.id,x:cx2-pw/2,y:by1+3*scale-ph*.45,w:pw,h:ph});
+      selRing={x:cx2,y:by1+5*scale};}
+    if(s&&selRing)ring(selRing,17,'#ffdc7b');
+    if(occ3d)return;
+    uiLabels.push({id:b.id,name:b.name,level,built:true,x:rect.x+rect.w/2,y:rect.y+rect.h*.18,box:{x:rect.x,y:rect.y,w:rect.w,h:rect.h},show:userScale>1.12||s});
+    const products={restaurant:'food',inn:'bed',tavern:'drink',clinic:'bandage'},pid=products[b.id];
+    const stock=pid?(state.stocks?.[pid]??state.stock?.[pid]??state.products?.[pid]??state.inventory?.[pid]):null;
+    if(pid&&stock===0){textLabel('!',p.x+27*scale,p.y-45*scale,{size:9,color:'#ffda87'});}
+  }
+  function drawBuilding(b){if(hd2d?.has3D)return drawBuilding3D(b);const layout=state.layout?.[b.id]||b;let p=screenPoint(layout.x,layout.z);const level=getLevel(b.id),s=selected===b.id;
     const occ3d=hd2d?hd2d.isOccluded3D(layout.x,layout.z,2.5,3.4):false;
     let selRing=null;   // 選取圈:畫在門口前的地面(畫完建築才知道門口在哪,所以先記下來)
     if(!level){
@@ -1571,7 +1598,7 @@ let renderDprMax=Math.max(1,dprCap||autoDpr());   // 畫布解析度上限(devic
   // 手畫的像素羅馬數字(I/II/III):有襯線才認得出來,不用字型,遠近都清楚。cx=板面中心、y0=板面頂端、h=板面高。
   function drawRoman(cx,y0,h,n){const bw=h*0.42,gap=h*0.18,bar=h*0.66,th=h*0.15,span=n*bw+(n-1)*gap,x0=cx-span/2,top=y0+(h-bar)/2;
     for(let i=0;i<n;i++){const bx=x0+i*(bw+gap);pixel(g,bx,top,bw,th,'#4a2f14');pixel(g,bx+(bw-th*1.3)/2,top+th,th*1.3,bar-th*2,'#4a2f14');pixel(g,bx,top+bar-th,bw,th,'#4a2f14');}}
-  function drawDecoration(d){if(d.hd2dProp&&!detailLod.length)return;const p=screenPoint(d.x,d.z);if(p.behind||p.x<-120||p.x>width+120||p.y<-90||p.y>height+280){if(globalThis.__mistvaleNpcLog&&d.type==='npc')globalThis.__mistvaleNpcLog.push({cls:d.cls,x:d.x,z:d.z,culled:true});return;}
+  function drawDecoration(d){if(d.hd2dProp&&!detailLod.length)return;if(hd2d?.isMeshDecor(d))return;/* 樹、岩石、柵欄、遺跡…已是真 3D 網格 */const p=screenPoint(d.x,d.z);if(p.behind||p.x<-120||p.x>width+120||p.y<-90||p.y>height+280){if(globalThis.__mistvaleNpcLog&&d.type==='npc')globalThis.__mistvaleNpcLog.push({cls:d.cls,x:d.x,z:d.z,culled:true});return;}
     const before=detailUse.draw1x+detailUse.draw2x;drawDecorationArt(d,p);
     if(detailUse.draw1x+detailUse.draw2x===before&&!(d.type==='monument'&&atlasCell('monument')))procUse[d.type]=(procUse[d.type]||0)+1;}
   function drawDecorationArt(d,p){
@@ -2686,6 +2713,8 @@ let renderDprMax=Math.max(1,dprCap||autoDpr());   // 畫布解析度上限(devic
     // 鏡頭、縮放、畫布大小、地形、村莊都沒變 = 靜止;連續兩幀靜止才錄製,之後每幀直接複製快取
     // 建築的等級與位置也要算進去:地面重算可能要等貼圖載完才會跑,不能只靠 terrainRevision
     const bsig=BUILDINGS.map(b=>{const p=state.layout?.[b.id]||b;return JSON.stringify([getLevel(b.id),state.buildings?.[b.id]??null,p]);}).join('|');
+    if(hd2d?.has3D)hd2d.setMeshScene(bsig,()=>{const k=building3DScale();return BUILDINGS.map(b=>{const p=state.layout?.[b.id]||b,lv=getLevel(b.id)>0;return{id:b.id,kind:lv?b.id:'plot',x:p.x,z:p.z,s:lv?k:BUILDING_MESH_SCALE};});},
+      terrainRevision+':'+decorations.length,()=>decorations);   // key 沒變就不重建(建造、升級、搬動建築、重生地形時才會)
     // 選取的建築(光圈)與畫質設定也會改變靜態層的畫法,所以一起算進去
     const vk=[camPxX(),camPxY(),scale,width,height,canvas.width,terrainRevision,terrainPatternRev,villageReady,detailLod.length,atlasLod.length,sharedAtlas?.size||0,bsig,selected,quality].join('|'),settled=!glr&&vk===lastViewKey;lastViewKey=vk;   // GL 模式不走靜止快取
     // 地面+海洋+村莊(HD-2D 模式由 WebGL2 光線追蹤著色器直接畫真 3D 地形、岩壁、海面與天空,不再貼 2D 大平面!)
@@ -2941,7 +2970,7 @@ let renderDprMax=Math.max(1,dprCap||autoDpr());   // 畫布解析度上限(devic
     if(placing&&hover){
       const blk=blockAt(hover.x,hover.z),snap=blk&&blk.use!=='plaza'?blk:hover;
       const s0=scale;const p=hd2d?hd2d.setEntity3D(snap.x,snap.z,0,2.5):screenPoint(snap.x,snap.z);
-      if(!p.behind){if(p.s)scale=p.s;try{const sp=atlasCell(placing)||buildingSprite(placing),w=conceptBuildingWidth(placing);ring(p,30,'#d8ebac');drawSprite(sp,p,w,w*sp.height/sp.width,9,.55);textLabel(PLACE_HINT_COARSE?'點擊放置 · 點取消鈕結束':'點擊放置 · ESC 取消',p.x,p.y+22,{color:'#e6edbf'});}finally{scale=s0;}}
+      if(!p.behind){if(p.s)scale=p.s;try{const sp=atlasCell(placing)||buildingSprite(placing),w=conceptBuildingWidth(placing);ring(p,30,'#d8ebac');if(hd2d?.has3D)hd2d.setGhost(placing,snap.x,snap.z,building3DScale());else drawSprite(sp,p,w,w*sp.height/sp.width,9,.55);textLabel(PLACE_HINT_COARSE?'點擊放置 · 點取消鈕結束':'點擊放置 · ESC 取消',p.x,p.y+22,{color:'#e6edbf'});}finally{scale=s0;}}
       hd2d?.setOverlay2D();
     }
     // 地名:拉遠才顯示,畫在戰鬥空地外緣(北邊)而不是空地中央。

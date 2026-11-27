@@ -8,6 +8,7 @@
 import { WORLD, REGIONS, inWorld, biomeAt } from './overworld.js';   // 2026-11-27:環村道路(RING_ROAD/onRingRoad)已拿掉,這裡不再畫路面
 import { VILLAGE_BOUNDS, EXITS, EXIT_GAP } from './village-grid.js';
 import { tagPattern, parseColorForGL } from './gl-renderer.js';
+import { buildModel, bakeStatic, MESH_DECOR, BUILDING_KINDS } from './hd2d-meshes.js';   // 2026-11-27:建築與地圖物件改成真 3D 低多邊形
 
 const TAU = Math.PI * 2;
 const WORLD_TO_LOGICAL = 9 * Math.SQRT2; // 1.0 3D world unit = 12.727922 Mistvale sprite logical px
@@ -426,6 +427,25 @@ function buildWorldData(ponds = []) {
 // ============================================================================
 // SHADERS: FIGHTER-JET 3D RAYMARCHED WORLD + MISTVALE HD-2D FUSION
 // ============================================================================
+// 建築/物件真 3D 的太陽陰影圖(白皮書 §5):從太陽方向正交投影一張深度圖,地形與網格都拿來判斷有沒有被擋到。
+// 影子用的太陽仰角比打光的太陽高一點(30°):打光維持黃昏低角度,影子長度跟以前的立牌剪影影子差不多,不會一棟房子蓋掉半個村。
+const SMAP_GLSL = `
+uniform sampler2D uSmap;
+uniform mat4 uSunMat;
+uniform vec4 uSmapP;   // x = 1/size, y = 深度偏移, z = on(1/0)
+float smapVis(vec3 wp) {
+  if (uSmapP.z < 0.5) return 1.0;
+  vec3 p = (uSunMat * vec4(wp, 1.0)).xyz;
+  if (p.x <= 0.002 || p.x >= 0.998 || p.y <= 0.002 || p.y >= 0.998 || p.z >= 1.0) return 1.0;
+  float t = uSmapP.x * 0.75, z = p.z - uSmapP.y, v = 0.0;
+  v += (z > texture(uSmap, p.xy + vec2(-t, -t)).r) ? 0.0 : 0.25;
+  v += (z > texture(uSmap, p.xy + vec2( t, -t)).r) ? 0.0 : 0.25;
+  v += (z > texture(uSmap, p.xy + vec2(-t,  t)).r) ? 0.0 : 0.25;
+  v += (z > texture(uSmap, p.xy + vec2( t,  t)).r) ? 0.0 : 0.25;
+  return v;
+}
+`;
+
 const QUAD_VS = `#version 300 es
 out vec2 vUV;
 void main() {
@@ -464,6 +484,7 @@ uniform float uHasVillage;
 uniform int uPointCount;
 uniform vec4 uPointPos[12]; // (wx, wy, wz, radius)
 uniform vec3 uPointCol[12]; // RGB radiance
+${SMAP_GLSL}
 
 const float MAP_MIN_X = ${MAP_MIN_X.toFixed(4)};
 const float MAP_MIN_Z = ${MAP_MIN_Z.toFixed(4)};
@@ -834,6 +855,9 @@ vec3 shadeLand(vec3 hp, vec3 rd, float hitT, float bayer, out float isCliff) {
   float ndl = max(0.0, dot(N, uSunDir));
   float cSh = cloudShadowAt(hp);
   float shMask = min(bakedSh > 0.45 ? 1.0 : bakedSh * 1.65, cSh);
+  // 3D 建築/樹木投在地上的影子(陰影圖,邊緣用 Bayer 抖動)
+  float meshVis = smapVis(hp + N * 0.10);
+  if (meshVis < 0.99) shMask = min(shMask, (meshVis > bayer * 0.9 + 0.05) ? 1.0 : 0.30);
 
   // Preserve readability on flat village plaza while giving 3D hills/cliffs rich contrast
   vec3 shCol = baseCol * vec3(0.56, 0.53, 0.72);
@@ -1003,6 +1027,7 @@ void main() {
 
   fragColor = vec4(col, 1.0);
   fragMeta = vec4(zHi, zLo, matClass, hBand);
+  gl_FragDepth = normZ;   // 跟 3D 網格共用深度緩衝:網格與地形互相正確遮擋
 }`;
 
 // Blit Pass into Composite MRT: NEAREST upscale + Fighter-Jet 1px Depth-Crease Cliff Inking + 16-bit Depth Forward
@@ -1020,27 +1045,44 @@ float unpackZ(vec4 m) {
   return (m.r * 255.0 * 256.0 + m.g * 255.0) / 65535.0 * ${MAX_VIEW_Z.toFixed(4)};
 }
 
+bool isMesh(vec4 m) { return m.b > 0.40 && m.b < 0.50; }   // 3D 網格(建築/物件)的材質類別 = 0.45
+
 void main() {
   vec3 col = texture(uSceneColor, vUV).rgb;
   vec4 mC = texture(uSceneMeta, vUV);
   float zC = unpackZ(mC);
+  vec4 mL = texture(uSceneMeta, vUV - vec2(uSceneTexel.x, 0.0));
+  vec4 mR = texture(uSceneMeta, vUV + vec2(uSceneTexel.x, 0.0));
+  vec4 mU = texture(uSceneMeta, vUV + vec2(0.0, uSceneTexel.y));
+  vec4 mD = texture(uSceneMeta, vUV - vec2(0.0, uSceneTexel.y));
+  const vec3 INK = vec3(0.137, 0.094, 0.133);
 
-  // 1px dark silhouette & cliff-ridge crease inking (from VESPER WING BLIT_FRAG)
-  if (mC.b > 0.1) {
-    vec4 mL = texture(uSceneMeta, vUV - vec2(uSceneTexel.x, 0.0));
-    vec4 mR = texture(uSceneMeta, vUV + vec2(uSceneTexel.x, 0.0));
-    vec4 mU = texture(uSceneMeta, vUV + vec2(0.0, uSceneTexel.y));
-    vec4 mD = texture(uSceneMeta, vUV - vec2(0.0, uSceneTexel.y));
-    float maxJump = max(
-      max(unpackZ(mL) - zC, unpackZ(mR) - zC),
-      max(unpackZ(mU) - zC, unpackZ(mD) - zC)
-    );
-    bool skyEdge = (mL.b < 0.05 || mR.b < 0.05 || mU.b < 0.05 || mD.b < 0.05);
-    float thresh = max(1.8, zC * 0.055);
-    if (skyEdge || maxJump > thresh) {
-      col *= vec3(0.46, 0.40, 0.54);
-    } else if (mC.b > 0.85 && maxJump > thresh * 0.45) {
-      col *= vec3(0.74, 0.70, 0.80);
+  if (isMesh(mC)) {
+    // 白皮書 §5:網格內部的 1px 分件線(部件位元組不同)與深度摺線,只看右、上兩個鄰居,線才不會變 2px
+    float ct = max(0.9, zC * 0.02);
+    bool seam = (isMesh(mR) && (abs(mR.a - mC.a) > 0.002 || abs(unpackZ(mR) - zC) > ct)) ||
+                (isMesh(mU) && (abs(mU.a - mC.a) > 0.002 || abs(unpackZ(mU) - zC) > ct));
+    if (seam) col = mix(col, INK, 0.5);
+  } else {
+    // 網格外圍 1px 深色輪廓:畫在「後面那一格」(地形/天空/較遠的東西),不吃掉細小的物件
+    float th = max(0.9, zC * 0.025);
+    bool rim = (isMesh(mL) && zC - unpackZ(mL) > th) || (isMesh(mR) && zC - unpackZ(mR) > th) ||
+               (isMesh(mU) && zC - unpackZ(mU) > th) || (isMesh(mD) && zC - unpackZ(mD) > th);
+    if (rim) {
+      col = mix(col, INK, 0.88);
+    } else if (mC.b > 0.1) {
+      // 1px dark silhouette & cliff-ridge crease inking (from VESPER WING BLIT_FRAG)
+      float maxJump = max(
+        max(unpackZ(mL) - zC, unpackZ(mR) - zC),
+        max(unpackZ(mU) - zC, unpackZ(mD) - zC)
+      );
+      bool skyEdge = (mL.b < 0.05 || mR.b < 0.05 || mU.b < 0.05 || mD.b < 0.05);
+      float thresh = max(1.8, zC * 0.055);
+      if (skyEdge || maxJump > thresh) {
+        col *= vec3(0.46, 0.40, 0.54);
+      } else if (mC.b > 0.85 && maxJump > thresh * 0.45) {
+        col *= vec3(0.74, 0.70, 0.80);
+      }
     }
   }
 
@@ -1331,6 +1373,193 @@ void main() {
   }
 }`;
 
+// ============================================================================
+// 真 3D 低多邊形建築與地圖物件(白皮書 §5):三色階平面著色 + MRT meta(部件位元組)+ 跟地形共用深度
+// ============================================================================
+// 從 TERRAIN_FS 抽出共用函式(Bayer、地形取樣、雲影、分段霧),只有一份原始碼,兩邊一定一致
+function glslFn(src, sig) {
+  const i = src.indexOf(sig);
+  if (i < 0) throw new Error('glslFn: missing ' + sig);
+  let depth = 0;
+  for (let k = src.indexOf('{', i); k < src.length; k++) {
+    if (src[k] === '{') depth++;
+    else if (src[k] === '}' && --depth === 0) return src.slice(i, k + 1);
+  }
+  throw new Error('glslFn: unbalanced ' + sig);
+}
+const MESH_SHARED = ['float bayer4x4(', 'bool inHeightMap(', 'vec3 sampleTerrain(', 'vec4 sampleCloud(', 'float cloudShadowAt(', 'vec3 evalMistColor(', 'vec3 applySteppedMist(']
+  .map(sig => glslFn(TERRAIN_FS, sig)).join('\n\n');
+const MESH_NEAR = 0.3;
+
+const MESH_VS = `#version 300 es
+layout(location = 0) in vec3 aPos;
+layout(location = 1) in vec4 aNrm;   // Int8 normalized
+layout(location = 2) in vec4 aCol;   // Uint8 normalized:rgb + 部件位元組
+uniform vec4 uXf;    // (tx, ty, tz, scale)
+uniform vec2 uRot;   // (cos, sin) 繞 y 軸
+uniform vec3 uCamPos;
+uniform vec3 uCamRight;
+uniform vec3 uCamUp;
+uniform vec3 uCamBack;
+uniform vec2 uFullSize;
+uniform vec2 uPrincipal;
+uniform float uFocalPx;
+out vec3 vWP;
+out vec3 vN;
+out vec3 vCol;
+flat out float vPart;
+out float vViewZ;
+void main() {
+  vec3 lp = aPos * uXf.w;
+  vec3 wp = vec3(lp.x * uRot.x - lp.z * uRot.y, lp.y, lp.x * uRot.y + lp.z * uRot.x) + uXf.xyz;
+  vec3 n = aNrm.xyz;
+  vN = vec3(n.x * uRot.x - n.z * uRot.y, n.y, n.x * uRot.y + n.z * uRot.x);
+  vec3 d = wp - uCamPos;
+  float vx = dot(d, uCamRight), vy = dot(d, uCamUp), vz = -dot(d, uCamBack);
+  vWP = wp; vCol = aCol.rgb; vPart = aCol.a; vViewZ = vz;
+  // 跟 project3D / 地形光線同一套針孔投影(含主點偏移與鏡頭震動),只是寫成齊次座標讓 GPU 做透視除法
+  float cx = (2.0 * uPrincipal.x / uFullSize.x - 1.0) * vz + vx * uFocalPx * 2.0 / uFullSize.x;
+  float cy = (1.0 - 2.0 * uPrincipal.y / uFullSize.y) * vz + vy * uFocalPx * 2.0 / uFullSize.y;
+  const float N0 = ${MESH_NEAR.toFixed(2)}, F0 = ${MAX_VIEW_Z.toFixed(1)};
+  gl_Position = vec4(cx, cy, (F0 + N0) / (F0 - N0) * vz - 2.0 * F0 * N0 / (F0 - N0), vz);
+}`;
+
+const MESH_FS = `#version 300 es
+precision highp float;
+in vec3 vWP;
+in vec3 vN;
+in vec3 vCol;
+flat in float vPart;
+in float vViewZ;
+layout(location = 0) out vec4 fragColor;
+layout(location = 1) out vec4 fragMeta;
+uniform sampler2D uTerrainTex;
+uniform sampler2D uCloudTex;
+uniform vec3 uCamPos;
+uniform vec3 uSunDir;
+uniform float uTime;
+uniform float uGhost;
+uniform int uPointCount;
+uniform vec4 uPointPos[12];
+uniform vec3 uPointCol[12];
+const float MAP_MIN_X = ${MAP_MIN_X.toFixed(4)};
+const float MAP_MIN_Z = ${MAP_MIN_Z.toFixed(4)};
+const float MAP_WORLD = ${MAP_WORLD.toFixed(4)};
+const float TEXEL_WORLD = ${TEXEL_WORLD.toFixed(4)};
+const float H_MIN = ${H_MIN.toFixed(4)};
+const float H_SPAN = ${H_SPAN.toFixed(4)};
+const float MAX_VIEW_Z = ${MAX_VIEW_Z.toFixed(4)};
+${SMAP_GLSL}
+${MESH_SHARED}
+
+void main() {
+  ivec2 pix = ivec2(gl_FragCoord.xy);
+  float bayer = bayer4x4(pix);
+  if (uGhost > 0.5 && ((pix.x + pix.y) & 1) == 1) discard;   // 擺放預覽:棋盤格半透明
+  int pb = int(vPart * 255.0 + 0.5);
+  int mat = pb >> 5;
+  vec3 N = normalize(vN);
+  if (!gl_FrontFacing) N = -N;
+  vec3 base = vCol;
+  vec3 toP = vWP - uCamPos;
+  float dist = length(toP);
+  vec3 rd = toP / max(dist, 1e-4);
+  vec3 col;
+  if (mat == 1) {
+    // 自發光:窗戶燈光、爐火、火把(微微閃動,分兩階)
+    float fl = step(0.5, fract(uTime * 2.3 + floor(vWP.x * 1.7 + vWP.z * 1.3) * 0.37));
+    col = base * (0.93 + 0.07 * fl);
+  } else if (mat == 3) {
+    col = base;
+  } else {
+    float ndl = dot(N, uSunDir);
+    float vis = smapVis(vWP + N * 0.08);
+    if (cloudShadowAt(vWP) < 0.6) vis = 0.0;
+    vec3 ts = sampleTerrain(vWP.xz);
+    if (vWP.y < ts.x + 2.5 && ts.y < 0.45) vis = min(vis, ts.y * 1.65);   // 山的長影子也蓋在山腳的樹與石頭上
+    // 三色階:冷紫暗面 / 原色 / 暖亮面(跟地形 shadeLand 同一套階數,Bayer 抖動交界)
+    // 暗面:冷紫,但比地形的暗面淺(立面上的門窗要看得清楚);朝上的面(屋頂)吃到天光再亮一點
+    vec3 shCol = base * mix(vec3(0.68, 0.64, 0.86), vec3(0.80, 0.76, 0.92), clamp(N.y, 0.0, 1.0));
+    vec3 hiCol = min(vec3(1.0), base * vec3(1.16, 1.08, 0.95));
+    bool lit = ndl > 0.0 && vis > bayer * 0.9 + 0.05;
+    if (!lit) col = shCol;
+    else {
+      float st = floor(clamp((ndl - 0.06) / 0.55, 0.0, 1.0) * 2.0 + bayer * 0.75) / 2.0;
+      col = st < 0.25 ? mix(shCol, base, 0.6) : (st < 0.75 ? base : hiCol);
+    }
+    if (mat == 2) {
+      // 水晶、冰:偏亮 + 太陽反光點
+      col = mix(col, min(vec3(1.0), base * 1.12 + 0.06), 0.45);
+      if (dot(reflect(rd, N), uSunDir) > 0.82) col = vec3(0.93, 0.98, 1.0);
+    }
+    for (int i = 0; i < 12; i++) {
+      if (i >= uPointCount) break;
+      vec3 toL = uPointPos[i].xyz - vWP;
+      float rad = uPointPos[i].w;
+      float d2 = dot(toL, toL);
+      if (d2 < rad * rad) {
+        float dL = sqrt(d2);
+        float ndlP = dot(N, toL / max(0.01, dL));
+        if (ndlP < -0.2) continue;
+        float att = pow(1.0 - dL / rad, 1.55);
+        float qGlow = floor(att * max(0.25, ndlP) * 3.2 + bayer * 0.85) / 3.0;
+        if (qGlow > 0.01) col = min(vec3(1.0), col + base * uPointCol[i] * qGlow * 0.82 + uPointCol[i] * qGlow * 0.16);
+      }
+    }
+  }
+  col = applySteppedMist(col, rd, dist, vWP.y, bayer);
+  if (uGhost > 0.5) col = mix(col, vec3(0.86, 0.95, 0.66), 0.35);
+
+  float normZ = clamp(vViewZ / MAX_VIEW_Z, 0.0, 1.0);
+  float u16 = floor(normZ * 65535.0 + 0.5);
+  fragColor = vec4(col, 1.0);
+  fragMeta = vec4(floor(u16 / 256.0) / 255.0, mod(u16, 256.0) / 255.0, 0.45, vPart);
+  gl_FragDepth = normZ;
+}`;
+
+// 陰影圖:只寫深度
+const SMAP_VS = `#version 300 es
+layout(location = 0) in vec3 aPos;
+uniform vec4 uXf;
+uniform vec2 uRot;
+uniform mat4 uSunMat;
+void main() {
+  vec3 lp = aPos * uXf.w;
+  vec3 wp = vec3(lp.x * uRot.x - lp.z * uRot.y, lp.y, lp.x * uRot.y + lp.z * uRot.x) + uXf.xyz;
+  vec3 p = (uSunMat * vec4(wp, 1.0)).xyz;
+  gl_Position = vec4(p * 2.0 - 1.0, 1.0);
+}`;
+const SMAP_FS = `#version 300 es
+precision mediump float;
+void main() {}`;
+
+// 每一種地圖物件的大小(對齊原本 PROP_ATLAS 立牌的外框高度)與朝向
+const DECOR_SCALE = {
+  oak: 0.86, autumnOak: 0.86, birch: 0.76, pine: 0.86, snowpine: 0.86, cactus: 0.72, mushroom: 0.95,
+  boulders: 1.0, outcrop: 1.1, mossRock: 0.8, iceRocks: 0.85, ruins: 1.15, stump: 0.8, fallenLog: 0.8,
+  fenceRail: 1.0, snowDrift: 0.9, cliffLedge: 0.8, cave: 1.2, monument: 0.62,
+  barrels: 1, barrel: 1, crates: 1, well: 0.9, lantern: 1,
+};
+const FACE_CAMERA = new Set(['cave', 'ruins']);   // 有「正面」的物件:正面朝預設鏡頭(+x+z)
+function decorHash(x, z) {
+  let h = Math.imul(Math.round(x * 16) | 0, 73856093) ^ Math.imul(Math.round(z * 16) | 0, 19349663);
+  h = Math.imul(h ^ (h >>> 13), 1274126177);
+  return ((h ^ (h >>> 16)) >>> 0) / 4294967296;
+}
+function interleaveMesh(m) {
+  const buf = new ArrayBuffer(m.count * 20), f = new Float32Array(buf), b = new Int8Array(buf), u = new Uint8Array(buf);
+  for (let i = 0; i < m.count; i++) {
+    f[i * 5] = m.pos[i * 3]; f[i * 5 + 1] = m.pos[i * 3 + 1]; f[i * 5 + 2] = m.pos[i * 3 + 2];
+    for (let k = 0; k < 4; k++) { b[i * 20 + 12 + k] = m.nrm[i * 4 + k]; u[i * 20 + 16 + k] = m.col[i * 4 + k]; }
+  }
+  return buf;
+}
+// 影子用的太陽:方位跟打光的太陽一樣,仰角 30°
+const SHADOW_SUN = (() => {
+  const h = Math.hypot(SUN_DIR[0], SUN_DIR[2]) || 1, e = (30 * Math.PI) / 180;
+  return [(SUN_DIR[0] / h) * Math.cos(e), Math.sin(e), (SUN_DIR[2] / h) * Math.cos(e)];
+})();
+
 const SPRITE_FL = 24;   // 6 vec4 attributes per sprite instance
 const SHADOW_FL = 18;   // 18 floats per 3D ground shadow instance
 
@@ -1620,6 +1849,282 @@ export function createHD2DRenderer(canvas, { onLost = () => {}, onRestored = () 
   const pointColArr = new Float32Array(12 * 3);
   let pointLightCount = 0;
   let white = null;
+
+  // ============================================================================
+  // 真 3D 建築與地圖物件(白皮書 §5)
+  // 建築:每種一個原型(本地座標)放在同一個 VBO,每棟一次 draw(uniform 給位置)。
+  // 地圖物件:全部烘進一個世界座標的靜態 VBO,一次 draw。兩者都只在內容改變時重建,平常每幀零配置。
+  // ============================================================================
+  const MESH3D_OFF = /[?&]mesh3d=0\b/.test(globalThis.location?.search || '');
+  let meshOn = !MESH3D_OFF, meshReady = false;
+  let meshProg = null, smapProg = null, meshU = null, smapU = null;
+  let protoVao = null, protoBuf = null, decorVao = null, decorBuf = null;
+  let sceneDepthRb = null, smapFbo = null, smapTex = null, smapSize = 0;
+  const protos = new Map();          // kind → {first, count, min, max, hull, anchors}
+  let protoDirty = true;
+  let bldList = [], bldKey = null;   // [{id, kind, x, y, z, s}]
+  const bldById = new Map();
+  let decorKeySeen = null, decorCount = 0, decorBounds = null, decorDirty = true, decorItems = [];
+  let smapDirty = true;
+  const sunMat = new Float32Array(16);
+  let smapBias = 0.002;
+  let ghost = null;                  // {kind, x, y, z}
+  const rectCache = new Map();
+  let meshStat = { protos: 0, protoVerts: 0, decor: 0, decorVerts: 0, buildings: 0, smapRenders: 0, rebuilds: 0 };
+
+  function meshLoc(prog, names) {
+    const o = {};
+    for (const n of names) o[n] = gl.getUniformLocation(prog, n);
+    return o;
+  }
+  function initMeshes() {
+    meshReady = false;
+    meshProg = compileProgram(MESH_VS, MESH_FS);
+    smapProg = compileProgram(SMAP_VS, SMAP_FS);
+    meshU = meshLoc(meshProg, ['uXf', 'uRot', 'uCamPos', 'uCamRight', 'uCamUp', 'uCamBack', 'uFullSize', 'uPrincipal', 'uFocalPx',
+      'uSunDir', 'uTime', 'uGhost', 'uPointCount', 'uPointPos', 'uPointCol', 'uSunMat', 'uSmapP', 'uTerrainTex', 'uCloudTex', 'uSmap']);
+    smapU = meshLoc(smapProg, ['uXf', 'uRot', 'uSunMat']);
+    gl.useProgram(meshProg);
+    gl.uniform1i(meshU.uTerrainTex, 0);
+    gl.uniform1i(meshU.uCloudTex, 1);
+    gl.uniform1i(meshU.uSmap, 2);
+    gl.useProgram(terrainProg);
+    gl.uniform1i(gl.getUniformLocation(terrainProg, 'uSmap'), 6);
+    const mkVao = () => {
+      const vao = gl.createVertexArray(), buf = gl.createBuffer();
+      gl.bindVertexArray(vao);
+      gl.bindBuffer(gl.ARRAY_BUFFER, buf);
+      gl.enableVertexAttribArray(0); gl.vertexAttribPointer(0, 3, gl.FLOAT, false, 20, 0);
+      gl.enableVertexAttribArray(1); gl.vertexAttribPointer(1, 4, gl.BYTE, true, 20, 12);
+      gl.enableVertexAttribArray(2); gl.vertexAttribPointer(2, 4, gl.UNSIGNED_BYTE, true, 20, 16);
+      gl.bindVertexArray(null);
+      return [vao, buf];
+    };
+    [protoVao, protoBuf] = mkVao();
+    [decorVao, decorBuf] = mkVao();
+    sceneDepthRb = gl.createRenderbuffer();
+    // 陰影圖:手機 1536、桌機 2048(深度 24 位元)
+    smapSize = Math.min(isCoarseDevice ? 1536 : 2048, MAXT);
+    smapTex = gl.createTexture();
+    gl.bindTexture(gl.TEXTURE_2D, smapTex);
+    gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MIN_FILTER, gl.NEAREST);
+    gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MAG_FILTER, gl.NEAREST);
+    gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_WRAP_S, gl.CLAMP_TO_EDGE);
+    gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_WRAP_T, gl.CLAMP_TO_EDGE);
+    gl.texImage2D(gl.TEXTURE_2D, 0, gl.DEPTH_COMPONENT24, smapSize, smapSize, 0, gl.DEPTH_COMPONENT, gl.UNSIGNED_INT, null);
+    gl.bindTexture(gl.TEXTURE_2D, null);
+    smapFbo = gl.createFramebuffer();
+    gl.bindFramebuffer(gl.FRAMEBUFFER, smapFbo);
+    gl.framebufferTexture2D(gl.FRAMEBUFFER, gl.DEPTH_ATTACHMENT, gl.TEXTURE_2D, smapTex, 0);
+    gl.drawBuffers([gl.NONE]);
+    gl.readBuffer(gl.NONE);
+    const ok = gl.checkFramebufferStatus(gl.FRAMEBUFFER) === gl.FRAMEBUFFER_COMPLETE;
+    gl.bindFramebuffer(gl.FRAMEBUFFER, null);
+    if (!ok) throw new Error('HD2D shadow-map FBO incomplete');
+    uploadProtos();
+    decorDirty = true; smapDirty = true; decorKeySeen = null; bldKey = null;
+    meshReady = true;
+  }
+
+  // 建築原型:所有種類(含空地 plot)一次建好放進同一個 VBO
+  function uploadProtos() {
+    protos.clear();
+    const kinds = [...BUILDING_KINDS];
+    const models = kinds.map(k => [k, buildModel(k, 0)]).filter(([, m]) => m && m.count);
+    let total = 0;
+    for (const [, m] of models) total += m.count;
+    const buf = new ArrayBuffer(total * 20), u8 = new Uint8Array(buf);
+    let o = 0;
+    for (const [k, m] of models) {
+      u8.set(new Uint8Array(interleaveMesh(m)), o * 20);
+      protos.set(k, { first: o, count: m.count, min: m.min, max: m.max, hull: m.hull, anchors: m.anchors || {} });
+      o += m.count;
+    }
+    gl.bindBuffer(gl.ARRAY_BUFFER, protoBuf);
+    gl.bufferData(gl.ARRAY_BUFFER, buf, gl.STATIC_DRAW);
+    gl.bindBuffer(gl.ARRAY_BUFFER, null);
+    meshStat.protos = protos.size; meshStat.protoVerts = total;
+    protoDirty = false;
+  }
+  function uploadDecor() {
+    const items = [];
+    for (const d of decorItems) {
+      const kind = d.type, k = (DECOR_SCALE[kind] || 1) * (kind === 'fenceRail' ? 1 : (d.size || 1));
+      const h = decorHash(d.x, d.z);
+      let yaw = h * Math.PI * 2;
+      if (kind === 'fenceRail') yaw = (d.variant || 0) ? 0 : Math.PI / 2;
+      else if (FACE_CAMERA.has(kind)) yaw = -Math.PI / 4 + (h - 0.5) * 0.5;
+      else if (kind === 'monument') yaw = 0;
+      items.push({ kind, x: d.x, y: terrainHeight(d.x, d.z), z: d.z, yaw, scale: k, variant: kind === 'fenceRail' ? 0 : ((d.variant | 0) + Math.floor(h * 3)) % 3, size: d.size || 1 });
+    }
+    const baked = bakeStatic(items);
+    gl.bindBuffer(gl.ARRAY_BUFFER, decorBuf);
+    gl.bufferData(gl.ARRAY_BUFFER, baked.count ? interleaveMesh(baked) : new ArrayBuffer(20), gl.STATIC_DRAW);
+    gl.bindBuffer(gl.ARRAY_BUFFER, null);
+    decorCount = baked.count;
+    decorBounds = baked.count ? { min: baked.min, max: baked.max } : null;
+    meshStat.decor = baked.n; meshStat.decorVerts = baked.count;
+    decorDirty = false;
+  }
+  // pixel-world 每幀呼叫;key 沒變就什麼都不做
+  function setMeshScene(bKey, bFn, dKey, dFn) {
+    if (!meshReady) return;
+    if (bKey !== bldKey) {
+      bldKey = bKey;
+      bldList = (bFn() || []).filter(b => BUILDING_KINDS.has(b.kind)).map(b => ({ ...b, y: terrainHeight(b.x, b.z), s: b.s || 1 }));
+      bldById.clear();
+      for (const b of bldList) bldById.set(b.id, b);
+      smapDirty = true; meshStat.rebuilds++;
+    }
+    const dk = dKey + '#' + pondSig;
+    if (dk !== decorKeySeen) {
+      decorKeySeen = dk;
+      decorItems = (dFn() || []).filter(d => MESH_DECOR.has(d.type) && !d.walk && !d.regionSign);
+      uploadDecor(); smapDirty = true; meshStat.rebuilds++;
+    }
+    meshStat.buildings = bldList.length;
+  }
+  function setGhost(kind, x, z, s = 1) {
+    ghost = meshOn && meshReady && BUILDING_KINDS.has(kind) ? { kind, x, z, y: terrainHeight(x, z), s } : null;
+  }
+  // 陰影圖的正交投影:涵蓋所有網格的範圍(地圖物件 + 建築)
+  function updateSunMat() {
+    const f = [-SHADOW_SUN[0], -SHADOW_SUN[1], -SHADOW_SUN[2]];
+    let r = [f[2], 0, -f[0]];
+    const rl = Math.hypot(r[0], r[2]) || 1; r = [r[0] / rl, 0, r[2] / rl];
+    const u = [r[1] * f[2] - r[2] * f[1], r[2] * f[0] - r[0] * f[2], r[0] * f[1] - r[1] * f[0]];
+    const mn = [Infinity, Infinity, Infinity], mx = [-Infinity, -Infinity, -Infinity];
+    const addBox = (a, b) => {
+      for (let i = 0; i < 8; i++) {
+        const p = [(i & 1) ? b[0] : a[0], (i & 2) ? b[1] : a[1], (i & 4) ? b[2] : a[2]];
+        const q = [r[0] * p[0] + r[1] * p[1] + r[2] * p[2], u[0] * p[0] + u[1] * p[1] + u[2] * p[2], f[0] * p[0] + f[1] * p[1] + f[2] * p[2]];
+        for (let k = 0; k < 3; k++) { if (q[k] < mn[k]) mn[k] = q[k]; if (q[k] > mx[k]) mx[k] = q[k]; }
+      }
+    };
+    if (decorBounds) addBox(decorBounds.min, decorBounds.max);
+    for (const b of bldList) { const P = protos.get(b.kind); if (P) addBox([b.x + P.min[0] * b.s, b.y + P.min[1] * b.s, b.z + P.min[2] * b.s], [b.x + P.max[0] * b.s, b.y + P.max[1] * b.s, b.z + P.max[2] * b.s]); }
+    if (!Number.isFinite(mn[0])) return false;
+    // 地形(接收者)可能比所有網格更靠近太陽:深度範圍往太陽那邊多留一段
+    mn[0] -= 1; mn[1] -= 1; mn[2] -= 40; mx[0] += 1; mx[1] += 1; mx[2] += 2;
+    const sx = 1 / (mx[0] - mn[0]), sy = 1 / (mx[1] - mn[1]), sz = 1 / (mx[2] - mn[2]);
+    sunMat.set([
+      r[0] * sx, u[0] * sy, f[0] * sz, 0,
+      r[1] * sx, u[1] * sy, f[1] * sz, 0,
+      r[2] * sx, u[2] * sy, f[2] * sz, 0,
+      -mn[0] * sx, -mn[1] * sy, -mn[2] * sz, 1,
+    ]);
+    smapBias = 0.10 * sz + 1.5 / smapSize;   // 0.1 世界單位 + 1.5 個像素的深度偏移
+    return true;
+  }
+  function drawMeshes(U, withGhost) {
+    gl.uniform2f(U.uRot, 1, 0);
+    if (decorCount) {
+      gl.bindVertexArray(decorVao);
+      gl.uniform4f(U.uXf, 0, 0, 0, 1);
+      gl.drawArrays(gl.TRIANGLES, 0, decorCount);
+      draws++;
+    }
+    gl.bindVertexArray(protoVao);
+    for (const b of bldList) {
+      const P = protos.get(b.kind);
+      if (!P) continue;
+      gl.uniform4f(U.uXf, b.x, b.y, b.z, b.s);
+      gl.drawArrays(gl.TRIANGLES, P.first, P.count);
+      draws++;
+    }
+    if (withGhost && ghost) {
+      const P = protos.get(ghost.kind);
+      if (P) {
+        gl.uniform1f(U.uGhost, 1);
+        gl.uniform4f(U.uXf, ghost.x, ghost.y, ghost.z, ghost.s);
+        gl.drawArrays(gl.TRIANGLES, P.first, P.count);
+        gl.uniform1f(U.uGhost, 0);
+        draws++;
+      }
+    }
+    gl.bindVertexArray(null);
+  }
+  function renderShadowMap() {
+    smapDirty = false;
+    if (!updateSunMat()) return;
+    gl.activeTexture(gl.TEXTURE6); gl.bindTexture(gl.TEXTURE_2D, null);
+    gl.activeTexture(gl.TEXTURE2); gl.bindTexture(gl.TEXTURE_2D, null);
+    gl.bindFramebuffer(gl.FRAMEBUFFER, smapFbo);
+    gl.viewport(0, 0, smapSize, smapSize);
+    gl.disable(gl.BLEND);
+    gl.enable(gl.DEPTH_TEST);
+    gl.depthFunc(gl.LESS);
+    gl.depthMask(true);
+    gl.clearDepth(1);
+    gl.clear(gl.DEPTH_BUFFER_BIT);
+    gl.useProgram(smapProg);
+    gl.uniformMatrix4fv(smapU.uSunMat, false, sunMat);
+    drawMeshes(smapU, false);
+    gl.disable(gl.DEPTH_TEST);
+    meshStat.smapRenders++;
+  }
+  const meshActive = () => meshOn && meshReady && (decorCount > 0 || bldList.length > 0 || !!ghost);
+  function bindSmapUniforms(prog, U) {
+    const on = meshActive() ? 1 : 0;
+    if (U) { gl.uniformMatrix4fv(U.uSunMat, false, sunMat); gl.uniform4f(U.uSmapP, 1 / Math.max(1, smapSize), smapBias, on, 0); }
+    else {
+      gl.uniformMatrix4fv(gl.getUniformLocation(prog, 'uSunMat'), false, sunMat);
+      gl.uniform4f(gl.getUniformLocation(prog, 'uSmapP'), 1 / Math.max(1, smapSize), smapBias, on, 0);
+    }
+  }
+  function renderMeshPass() {
+    gl.enable(gl.DEPTH_TEST);
+    gl.depthFunc(gl.LEQUAL);
+    gl.depthMask(true);
+    gl.disable(gl.BLEND);
+    gl.disable(gl.CULL_FACE);
+    gl.useProgram(meshProg);
+    const U = meshU;
+    gl.uniform3fv(U.uCamPos, camPos);
+    gl.uniform3fv(U.uCamRight, camRight);
+    gl.uniform3fv(U.uCamUp, camUp);
+    gl.uniform3fv(U.uCamBack, camBack);
+    gl.uniform2f(U.uFullSize, cssW, cssH);
+    gl.uniform2f(U.uPrincipal, prinX, prinY);
+    gl.uniform1f(U.uFocalPx, focalPx);
+    gl.uniform3fv(U.uSunDir, SUN_DIR);
+    gl.uniform1f(U.uTime, elapsed);
+    gl.uniform1f(U.uGhost, 0);
+    gl.uniform1i(U.uPointCount, pointLightCount);
+    if (pointLightCount > 0) { gl.uniform4fv(U.uPointPos, pointPosArr); gl.uniform3fv(U.uPointCol, pointColArr); }
+    bindSmapUniforms(meshProg, U);
+    gl.activeTexture(gl.TEXTURE0); gl.bindTexture(gl.TEXTURE_2D, terrainTex);
+    gl.activeTexture(gl.TEXTURE1); gl.bindTexture(gl.TEXTURE_2D, cloudTex);
+    gl.activeTexture(gl.TEXTURE2); gl.bindTexture(gl.TEXTURE_2D, smapTex);
+    drawMeshes(U, true);
+    gl.disable(gl.DEPTH_TEST);
+    gl.activeTexture(gl.TEXTURE2); gl.bindTexture(gl.TEXTURE_2D, null);
+  }
+  // 建築在畫面上的範圍(CSS px):把模型輪廓點投影到螢幕取外框。每幀快取。
+  function meshRect(id) {
+    if (!meshOn || !meshReady) return null;
+    if (rectCache.has(id)) return rectCache.get(id);
+    const b = bldById.get(id), P = b && protos.get(b.kind);
+    let out = null;
+    if (P) {
+      let x0 = Infinity, y0 = Infinity, x1 = -Infinity, y1 = -Infinity, n = 0;
+      const H = P.hull;
+      for (let i = 0; i < H.length; i += 3) {
+        const q = project3D(b.x + H[i] * b.s, b.y + H[i + 1] * b.s, b.z + H[i + 2] * b.s, true);
+        if (q.behind) continue;
+        n++;
+        if (q.x < x0) x0 = q.x; if (q.x > x1) x1 = q.x; if (q.y < y0) y0 = q.y; if (q.y > y1) y1 = q.y;
+      }
+      if (n) out = { x: x0, y: y0, w: x1 - x0, h: y1 - y0 };
+    }
+    rectCache.set(id, out);
+    return out;
+  }
+  function meshAnchor(id, name) {
+    const b = bldById.get(id), P = b && protos.get(b.kind), a = P && P.anchors[name];
+    if (!a) return null;
+    return project3D(b.x + a[0] * b.s, b.y + a[1] * b.s, b.z + a[2] * b.s, true);
+  }
 
   function setPointLights(lights) {
     const n = Math.min(12, Array.isArray(lights) ? lights.length : 0);
@@ -1924,6 +2429,10 @@ export function createHD2DRenderer(canvas, { onLost = () => {}, onRestored = () 
     compFbo = gl.createFramebuffer();
     sceneW = sceneH = shadowW = shadowH = compW = compH = 0;
 
+    if (meshOn) {
+      try { initMeshes(); } catch (err) { meshReady = false; console.warn('[hd2d-webgl2] 3D meshes disabled:', err); }
+    }
+
     gl.enable(gl.BLEND);
     gl.blendFunc(gl.ONE, gl.ONE_MINUS_SRC_ALPHA);
     gl.disable(gl.DEPTH_TEST);
@@ -1958,6 +2467,13 @@ export function createHD2DRenderer(canvas, { onLost = () => {}, onRestored = () 
     gl.bindFramebuffer(gl.FRAMEBUFFER, sceneFbo);
     gl.framebufferTexture2D(gl.FRAMEBUFFER, gl.COLOR_ATTACHMENT0, gl.TEXTURE_2D, sceneColorTex, 0);
     gl.framebufferTexture2D(gl.FRAMEBUFFER, gl.COLOR_ATTACHMENT1, gl.TEXTURE_2D, sceneMetaTex, 0);
+    if (meshReady && sceneDepthRb) {
+      // 3D 網格與光線追蹤地形共用的深度緩衝(地形用 gl_FragDepth 寫入線性 viewZ)
+      gl.bindRenderbuffer(gl.RENDERBUFFER, sceneDepthRb);
+      gl.renderbufferStorage(gl.RENDERBUFFER, gl.DEPTH_COMPONENT24, sw, sh);
+      gl.bindRenderbuffer(gl.RENDERBUFFER, null);
+      gl.framebufferRenderbuffer(gl.FRAMEBUFFER, gl.DEPTH_ATTACHMENT, gl.RENDERBUFFER, sceneDepthRb);
+    }
     gl.drawBuffers([gl.COLOR_ATTACHMENT0, gl.COLOR_ATTACHMENT1]);
     gl.bindFramebuffer(gl.FRAMEBUFFER, null);
     sceneW = sw;
@@ -2241,6 +2757,8 @@ export function createHD2DRenderer(canvas, { onLost = () => {}, onRestored = () 
     frame++; draws = inst = 0;
     wantShadow = false;
     curIsWorld = 0; curMist = 0;
+    rectCache.clear();
+    ghost = null;
     if (!lost) {
       ensureSceneFbo();
       ensureShadowFbo();
@@ -2259,6 +2777,10 @@ export function createHD2DRenderer(canvas, { onLost = () => {}, onRestored = () 
 
   function present() {
     if (lost || gl.isContextLost()) return;
+
+    // Pass 0: 3D 網格的太陽陰影圖(只有建築/物件改變時才重畫)
+    const meshes = meshActive();
+    if (meshes && smapDirty) renderShadowMap();
 
     // Pass 1: Raymarch 3D Terrain, Cliffs, Ocean, Sky, Clouds & Horizon Mist into low-res pixel FBO
     gl.bindFramebuffer(gl.FRAMEBUFFER, sceneFbo);
@@ -2291,8 +2813,16 @@ export function createHD2DRenderer(canvas, { onLost = () => {}, onRestored = () 
     gl.activeTexture(gl.TEXTURE3); gl.bindTexture(gl.TEXTURE_2D, cloudTex);
     gl.activeTexture(gl.TEXTURE4); gl.bindTexture(gl.TEXTURE_2D, groundTex || white.tex);
     gl.activeTexture(gl.TEXTURE5); gl.bindTexture(gl.TEXTURE_2D, villageTex || white.tex);
+    bindSmapUniforms(terrainProg, null);
+    gl.activeTexture(gl.TEXTURE6); gl.bindTexture(gl.TEXTURE_2D, meshes ? smapTex : null);
+    if (meshReady) { gl.enable(gl.DEPTH_TEST); gl.depthFunc(gl.ALWAYS); gl.depthMask(true); }
     gl.drawArrays(gl.TRIANGLES, 0, 3);
+    gl.disable(gl.DEPTH_TEST);
     draws++;
+    gl.activeTexture(gl.TEXTURE6); gl.bindTexture(gl.TEXTURE_2D, null);
+
+    // Pass 1b: 真 3D 建築與地圖物件(同一張低解析場景 FBO,跟地形深度互相遮擋,寫入 meta 給立牌深度測試與描邊)
+    if (meshes) renderMeshPass();
 
     // Pass 2: Render 3D World-Space Sprite Silhouettes into Shadow FBO (if any)
     gl.enable(gl.BLEND);
@@ -2542,6 +3072,7 @@ export function createHD2DRenderer(canvas, { onLost = () => {}, onRestored = () 
   canvas.addEventListener('webglcontextrestored', () => {
     texMap = new WeakMap(); reg.clear(); bytes = 0;
     groundTex = villageTex = sceneColorTex = sceneMetaTex = shadowFboTex = compColorTex = compDepthTex = terrainTex = detailTex = maxMipTex = cloudTex = null;
+    meshReady = false; sceneDepthRb = smapTex = smapFbo = null;
     try { init(); lost = false; onRestored(); } catch (err) { console.error(err); }
   });
 
@@ -2550,6 +3081,15 @@ export function createHD2DRenderer(canvas, { onLost = () => {}, onRestored = () 
   return {
     isHD2D: true,
     gl, canvas, ctx, begin, composite, present, release, invalidate: release,
+    // 真 3D 建築與地圖物件
+    get has3D() { return meshOn && meshReady; },
+    setMeshScene,
+    setGhost,
+    meshRect,
+    meshAnchor,
+    isMeshDecor: d => meshOn && meshReady && !!d && MESH_DECOR.has(d.type) && !d.walk && !d.regionSign,
+    setMesh3D(v) { meshOn = !!v; smapDirty = true; return meshOn && meshReady; },   // 除錯/效能對照用
+    meshStats: () => ({ ...meshStat, on: meshOn, ready: meshReady, smapSize, decorCount }),
     get lost() { return lost || gl.isContextLost(); },
     // 3D World & Camera API
     terrainHeight,
@@ -2593,7 +3133,7 @@ export function createHD2DRenderer(canvas, { onLost = () => {}, onRestored = () 
     stats: () => ({
       mode: 'hd2d-webgl2', lost, draws, instances: inst, shadows3D: shadow3DList.n,
       textures: reg.size, mb: +(bytes / 1048576).toFixed(1), uploads,
-      sceneRes: [sceneW, sceneH], yawDeg: Math.round((camYaw * 180) / Math.PI),
+      sceneRes: [sceneW, sceneH], yawDeg: Math.round((camYaw * 180) / Math.PI), mesh3D: meshOn && meshReady,
       pitchDeg: Math.round((camPitch * 180) / Math.PI),
       renderer: gl.getParameter(gl.RENDERER),
     }),
