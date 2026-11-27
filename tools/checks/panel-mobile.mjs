@@ -93,7 +93,7 @@ for (const mode of ['A', 'C']) {
   const okW = mode === 'C' ? widths.filter(w => Math.abs(w - VW * 0.85) > 3 && Math.abs(w - VW * 0.94) > 3 && Math.abs(w - 320) > 3) : (widths.length > 1 ? widths : []);
   if (okW.length) fix(`${mode} 模式面板寬度不一致：${widths.join(' / ')}`);
   if (mode === 'A' && tops.length > 1) fix(`A 抽屜上緣不一致：${tops.join(' / ')}`);
-  if (maxBottom > VH - 66 - (mode === 'C' ? 15 : 0) + 1) fix(`${mode} 模式面板下緣 ${maxBottom} 蓋到頁籤列或太靠近（${VH}）`);
+  if (maxBottom > VH - 52 - (mode === 'C' ? 15 : 0) + 1) fix(`${mode} 模式面板下緣 ${maxBottom} 蓋到頁籤列或太靠近（${VH}）`);   // 2026-11-27 HUD 簡化:頁籤列 66 → 52
   if (!okW.length && (mode === 'C' || tops.length === 1)) ok(`${mode} 模式 ${g.length} 個面板版型一致：寬 ${widths.join('/')}px${mode === 'A' ? `、上緣都是 ${tops[0]}px` : '（85%／世界地圖 94%／確認框 320）'}`);
 }
 if (errs.length) fix(`頁面錯誤：${errs.slice(0, 2).join(' | ')}`);

@@ -55,27 +55,30 @@ for (const name of only) {
   const errs = []; page.on('pageerror', e => errs.push('pageerror ' + String(e).slice(0, 160))); page.on('console', m => { if (m.type() === 'error') errs.push('console ' + m.text().slice(0, 160)); });
   await L.boot(page, url);
   await page.evaluate(() => { const g = globalThis.__mistvaleGame; for (const k of ['resources', 'buildings', 'heal']) g.cheat(k); g.state.paused = true; });
-  const wantTab = landscape ? 46 : portraitPhone ? [66, 71] : 72;   // 2026-11-27 主畫面減量第二輪:橫向 58→46、手機直向 70→66
+  const wantTab = landscape ? 46 : 52;   // 2026-11-27 HUD 簡化:頁籤只留圖示,手機直向 66／桌機 72 → 52(橫向維持 46:熱區要 ≥44,bar 有 1px 上框)
 
   trace(label + ' A');
   // ───── A. 頁籤列 ─────
   {
     const g = await ev(page, P => {
       const bar = document.querySelector('#bottom-bar'), bs = [...bar.querySelectorAll(':scope>button')];
-      return { bar: P.R(bar), n: bs.length, acts: bs.map(b => b.dataset.action), labels: bs.map(b => b.querySelector('b')?.textContent), rects: bs.map(b => P.R(b)), fs: bs.map(b => getComputedStyle(b.querySelector('b')).fontSize), vw: innerWidth,
+      return { bar: P.R(bar), n: bs.length, acts: bs.map(b => b.dataset.action), labels: bs.map(b => b.querySelector('b')?.textContent), aria: bs.map(b => b.getAttribute('aria-label')), tip: bs.map(b => b.dataset.tip || ''), bRect: bs.map(b => P.R(b.querySelector('b'))), rects: bs.map(b => P.R(b)), fs: bs.map(b => getComputedStyle(b.querySelector('b')).fontSize), vw: innerWidth,
         icon: bs.map(b => P.R(b.querySelector('[data-icon]'))), color: bs.map(b => getComputedStyle(b.querySelector('b')).color) };
     });
     if (g.n !== 5 || g.acts.join() !== 'build,dungeon,hunters,inventory,trade') fix(`${label}/A: 頁籤列要 5 格 建設、地下城、獵人、倉庫、交易,實際 ${g.n} 格 ${g.acts.join('/')}`);
     else if (g.labels.join() !== '建設,地下城,獵人,倉庫,交易') fix(`${label}/A: 頁籤標籤 ${g.labels.join('/')}`);
     else ok(`${label}/A: 頁籤列 5 格 ${g.labels.join('、')}`);
+    // 2026-11-27 HUD 簡化:名稱不顯示,但 aria-label 要在(有徽章時是「名稱：N …」)、滑過提示(data-tip)含名稱、<b> 縮成 1px 只給螢幕閱讀器
+    if (g.aria.some((a, i) => !(a || '').startsWith(g.labels[i]))) fix(`${label}/A: 頁籤 aria-label ${g.aria.join('/')}`);
+    if (g.tip.some((t, i) => !t.startsWith(g.labels[i]))) fix(`${label}/A: 頁籤 data-tip 要含名稱:${g.tip.join('/')}`);
+    if (g.bRect.some(r => r.w > 2 || r.h > 2)) fix(`${label}/A: 頁籤文字標籤應視覺隱藏(只留圖示),<b> 尺寸 ${g.bRect.map(r => Math.round(r.w) + '×' + Math.round(r.h)).join(',')}`);
     const hh = g.bar.h - (await page.evaluate(() => { const p = document.createElement('div'); p.style.paddingBottom = 'var(--z1-sab)'; document.body.append(p); const v = parseFloat(getComputedStyle(p).paddingBottom) || 0; p.remove(); return v; }));
     const okH = Array.isArray(wantTab) ? hh >= wantTab[0] - 1 && hh <= wantTab[1] + 1 : Math.abs(hh - wantTab) <= 1.5;
     if (!okH) fix(`${label}/A: 頁籤列高 ${g.bar.h.toFixed(1)} 應為 ${wantTab}`);
     if (g.rects.some(r => r.h < 44 || r.w < 44)) fix(`${label}/A: 頁籤熱區 <44(${g.rects.map(r => Math.round(r.w) + '×' + Math.round(r.h)).join(',')})`);
     if (!portraitPhone && !landscape && g.rects.some(r => r.w > 150.5)) fix(`${label}/A: 桌機每格最寬 150,實際 ${Math.max(...g.rects.map(r => r.w)).toFixed(0)}`);
     if (g.bar.w < g.vw - 1) fix(`${label}/A: 頁籤列沒有滿寬(${g.bar.w})`);
-    if (g.fs.some(f => f !== '13px')) fix(`${label}/A: 標籤字級要 13px,實際 ${g.fs.join('/')}`);
-    if (!landscape) { const s = Math.min(...g.icon.map(r => r.w)); if (s < 35.5 || s > 40.5) fix(`${label}/A: 頁籤圖示 36–40px,實際 ${s}`); }
+    { const s = Math.min(...g.icon.map(r => r.w)), want = landscape ? 28 : 32; if (Math.abs(s - want) > 0.6) fix(`${label}/A: 頁籤圖示要 ${want}px,實際 ${s}`); }
     if (!g.rects.every(r => Math.abs(r.t - g.rects[0].t) < 0.6)) fix(`${label}/A: 頁籤沒有齊平`);
     // 選中:點「建設」→ 該格背景 #948973、沒有上凸、標籤深色
     await L.act(page, 'build'); await settle(page, 800);
@@ -255,7 +258,7 @@ for (const name of only) {
     if (name === 'phone') {
       if (q.ir.b > q.br.t - 15) fix(`${label}/I: R2 模擬下方安全區 34px,建築詳情底 ${q.ir.b.toFixed(0)} 要在頁籤列頂 ${q.br.t.toFixed(0)} 上方 ≥16`);
       if (q.foot.some(r => r.b > q.br.t)) fix(`${label}/I: R2 底部按鈕被頁籤列蓋到`);
-      if (Math.abs(q.br.h - (66 + 34)) > 1.5) fix(`${label}/I: 頁籤列高要含安全區(66+34),實際 ${q.br.h}`);
+      if (Math.abs(q.br.h - (52 + 34)) > 1.5) fix(`${label}/I: 頁籤列高要含安全區(52+34),實際 ${q.br.h}`);
     } else {
       if (q.ir.l < 47 - 0.5 || q.ir.r > v.w - 47 + 0.5) fix(`${label}/I: R3 建築詳情要在左右安全區 47px 內(${q.ir.l.toFixed(0)}–${q.ir.r.toFixed(0)})`);
     }

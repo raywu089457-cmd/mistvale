@@ -198,7 +198,7 @@ for (const name of only) {
         });
         const pct = r.stack / r.vh * 100;
         if (pct > 38) fix(`${label} L(R11)頂部堆疊占 ${pct.toFixed(0)}% 高(>38%)`); else ok(`${label} L 頂部堆疊 ${pct.toFixed(0)}%`);
-        if (r.acts.b > r.vt.t - 6) fix(`${label} L(R11)行動徽章(底 ${Math.round(r.acts.b)})壓到縮放鈕(頂 ${Math.round(r.vt.t)})`);
+        if (r.acts.b > r.vt.t + 1.5) fix(`${label} L(R11)行動徽章(底 ${Math.round(r.acts.b)})壓到縮放鈕(頂 ${Math.round(r.vt.t)})`);   // 2026-11-27 HUD 簡化:召喚首領／競技場與縮放鈕併成同一條膠囊,上下段貼在一起(只准重疊上框 1px)
         if (r.acts.w > 60) fix(`${label} L(R11)行動徽章寬 ${Math.round(r.acts.w)}px 太寬,壓地名(≤60)`);
         await shot(page, `l-stack-${name}`);
         // R12:建築詳情開著時 #hv-left 是否被蓋(C 視窗有遮罩 → 不算 bug,只量測)
