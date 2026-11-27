@@ -462,6 +462,9 @@ uniform vec4 uGroundBox;   // (GX0, GY0, GW_logical, GH_logical)
 uniform vec4 uVillageBox;  // (VBOX.x0, VBOX.y0, VBOX.w, VBOX.h)
 uniform float uHasGround;
 uniform float uHasVillage;
+uniform int uPointCount;
+uniform vec4 uPointPos[12]; // (wx, wy, wz, radius)
+uniform vec3 uPointCol[12]; // RGB radiance
 
 const float MAP_MIN_X = ${MAP_MIN_X.toFixed(4)};
 const float MAP_MIN_Z = ${MAP_MIN_Z.toFixed(4)};
@@ -848,6 +851,23 @@ vec3 shadeLand(vec3 hp, vec3 rd, float hitT, float bayer, out float isCliff) {
     else col = warmLit;
   }
 
+  // Octopath-style 3D Warm Lantern / Furnace / Sanctuary Crystal Point-Light Pools (Bayer-stepped!)
+  for (int i = 0; i < 12; i++) {
+    if (i >= uPointCount) break;
+    vec3 toL = uPointPos[i].xyz - hp;
+    float rad = uPointPos[i].w;
+    float d2 = dot(toL, toL);
+    if (d2 < rad * rad) {
+      float dL = sqrt(d2);
+      float att = pow(1.0 - dL / rad, 1.55);
+      float ndlP = max(0.30, dot(N, toL / max(0.01, dL)));
+      float qGlow = floor(att * ndlP * 3.2 + bayer * 0.85) / 3.0;
+      if (qGlow > 0.01) {
+        col = min(vec3(1.0), col + baseCol * uPointCol[i] * qGlow * 0.82 + uPointCol[i] * qGlow * 0.16);
+      }
+    }
+  }
+
   return applySteppedMist(col, rd, hitT, hp.y, bayer);
 }
 
@@ -986,11 +1006,12 @@ void main() {
   fragMeta = vec4(zHi, zLo, matClass, hBand);
 }`;
 
-// Post-Blit Pass: NEAREST upscale + Fighter-Jet 1px Depth-Crease Cliff Inking + HD-2D Sun Glow & Vignette
+// Blit Pass into Composite MRT: NEAREST upscale + Fighter-Jet 1px Depth-Crease Cliff Inking + 16-bit Depth Forward
 const BLIT_FS = `#version 300 es
 precision highp float;
 in vec2 vUV;
-out vec4 outColor;
+layout(location = 0) out vec4 outColor;
+layout(location = 1) out vec4 outDepth;
 
 uniform sampler2D uSceneColor;
 uniform sampler2D uSceneMeta;
@@ -1024,10 +1045,118 @@ void main() {
     }
   }
 
-  // Subtle Octopath HD-2D warm upper sun-haze & gentle corner vignette
+  outColor = vec4(col, 1.0);
+  outDepth = vec4(mC.r, mC.g, 0.0, 1.0);
+}`;
+
+// Final Octopath Traveler HD-2D Post-Process Pass:
+// Unified 3D+2D Depth Tilt-Shift Bokeh + Warm Golden Sunlight Bloom + Diagonal Sunbeam Veil + Rich Vignette
+const POST_FS = `#version 300 es
+precision highp float;
+in vec2 vUV;
+out vec4 outColor;
+
+uniform sampler2D uCompColor;
+uniform sampler2D uCompDepth;
+uniform vec2 uInvRes;
+uniform float uFocusZ;
+uniform float uDpr;
+uniform float uPitch;
+uniform float uPostFx;
+uniform vec2 uSunCorner; // screen UV corner where warm sun shafts enter
+
+float unpackZ(vec4 d) {
+  return (d.r * 255.0 * 256.0 + d.g * 255.0) / 65535.0 * ${MAX_VIEW_Z.toFixed(4)};
+}
+
+float calcCoC(vec4 d, vec2 uv, float deadZone) {
+  if (d.b > 0.5) return 0.0; // 2D UI overlay (HP bars, rings): always 100% sharp!
+  float z = unpackZ(d);
+  float rel = (z > uFocusZ)
+    ? (z - uFocusZ) / max(14.0, uFocusZ * 1.15)
+    : (uFocusZ - z) / max(10.0, uFocusZ * 0.62);
+  float zCoc = clamp((rel - deadZone) / 0.72, 0.0, 1.0);
+  // Subtle miniature diorama top/bottom tilt-shift band (stronger at low horizon pitch, gentle at standard pitch)
+  float edgeTilt = max(
+    smoothstep(0.89, 1.00, uv.y) * 0.42,
+    smoothstep(0.08, 0.00, uv.y) * 0.34
+  );
+  return clamp(max(zCoc, edgeTilt), 0.0, 1.0);
+}
+
+void main() {
+  ivec2 ip = ivec2(gl_FragCoord.xy);
+  vec3 baseCol = texelFetch(uCompColor, ip, 0).rgb;
+  if (uPostFx < 0.5) {
+    vec2 dv = vUV - 0.5;
+    float vg0 = clamp(1.0 - dot(dv, dv) * 0.38, 0.78, 1.0);
+    outColor = vec4(baseCol * mix(vec3(0.86, 0.80, 0.90), vec3(1.0), vg0), 1.0);
+    return;
+  }
+
+  vec4 dC = texelFetch(uCompDepth, ip, 0);
+  float zC = unpackZ(dC);
+  float deadZone = mix(0.18, 0.36, clamp((uPitch - 0.22) / 0.42, 0.0, 1.0));
+  float coc = calcCoC(dC, vUV, deadZone);
+
+  vec3 col = baseCol;
+  if (coc > 0.025) {
+    // 12-tap Golden-Angle Vogel Disc Depth-Aware Bokeh
+    float maxRad = coc * 4.4 * uDpr;
+    vec3 acc = baseCol * 1.35;
+    float wSum = 1.35;
+    const vec2 dirs[12] = vec2[12](
+      vec2( 0.2887,  0.0000), vec2(-0.3015,  0.2756), vec2( 0.0563, -0.4968),
+      vec2( 0.4408,  0.3712), vec2(-0.6295, -0.0725), vec2( 0.4534, -0.5318),
+      vec2( 0.0672,  0.7521), vec2(-0.6693,  0.4618), vec2( 0.8421, -0.1942),
+      vec2(-0.3211, -0.8562), vec2(-0.7945, -0.5410), vec2( 0.7618,  0.6478)
+    );
+    for (int i = 0; i < 12; i++) {
+      vec2 sUV = clamp(vUV + dirs[i] * maxRad * uInvRes, vec2(0.001), vec2(0.999));
+      vec4 dS = texture(uCompDepth, sUV);
+      float cocS = calcCoC(dS, sUV, deadZone);
+      float zS = unpackZ(dS);
+      // Reject sharp foreground sprites from bleeding into blurred background
+      float fgLeak = (zS + 2.0 < zC && cocS < coc * 0.45) ? 0.12 : 1.0;
+      float w = (0.45 + 0.55 * max(coc, cocS)) * fgLeak;
+      vec3 cS = texture(uCompColor, sUV).rgb;
+      // Boost bright bokeh highlights slightly (classic Octopath specular orb feel!)
+      float lumS = dot(cS, vec3(0.299, 0.587, 0.114));
+      w *= 1.0 + smoothstep(0.72, 0.98, lumS) * 0.65;
+      acc += cS * w;
+      wSum += w;
+    }
+    col = acc / wSum;
+  }
+
+  // Warm Golden Sunlight & Crystal Highlights Bloom (2-ring 8-tap wide soft glow)
+  if (dC.b < 0.5) {
+    vec3 bloom = vec3(0.0);
+    const vec2 bOff[8] = vec2[8](
+      vec2( 1.0,  0.0), vec2(-1.0,  0.0), vec2( 0.0,  1.0), vec2( 0.0, -1.0),
+      vec2( 0.707,  0.707), vec2(-0.707,  0.707), vec2( 0.707, -0.707), vec2(-0.707, -0.707)
+    );
+    vec2 r1 = 6.5 * uDpr * uInvRes;
+    vec2 r2 = 15.0 * uDpr * uInvRes;
+    for (int i = 0; i < 8; i++) {
+      vec3 c1 = texture(uCompColor, clamp(vUV + bOff[i] * r1, vec2(0.001), vec2(0.999))).rgb;
+      vec3 c2 = texture(uCompColor, clamp(vUV + bOff[i] * r2, vec2(0.001), vec2(0.999))).rgb;
+      float l1 = max(max(c1.r, c1.g), c1.b);
+      float l2 = max(max(c2.r, c2.g), c2.b);
+      bloom += c1 * smoothstep(0.76, 1.02, l1) * 0.085;
+      bloom += c2 * smoothstep(0.80, 1.04, l2) * 0.055;
+    }
+    col = min(vec3(1.0), col + bloom * vec3(1.06, 0.90, 0.68) * 0.42);
+  }
+
+  // Subtle Diagonal Golden Sunset Shaft Wash from sun corner + Cinematic Vignette
+  float sunCornerDist = length((vUV - uSunCorner) * vec2(1.0, 0.85));
+  float sunVeil = pow(clamp(1.0 - sunCornerDist * 0.92, 0.0, 1.0), 2.4) * 0.095;
+  col = min(vec3(1.0), col + vec3(1.0, 0.78, 0.46) * sunVeil);
+
   vec2 d = vUV - 0.5;
-  float vig = clamp(1.0 - dot(d, d) * 0.42, 0.76, 1.0);
-  col *= mix(vec3(0.86, 0.80, 0.90), vec3(1.0), vig);
+  float vig = clamp(1.0 - dot(d, d) * 0.58, 0.68, 1.0);
+  col *= mix(vec3(0.76, 0.68, 0.84), vec3(1.0), vig);
 
   outColor = vec4(col, 1.0);
 }`;
@@ -1148,7 +1277,8 @@ in vec4 vC;
 in vec4 vF;
 in vec4 vD;
 flat in int vU;
-out vec4 o;
+layout(location = 0) out vec4 o;
+layout(location = 1) out vec4 oDepth;
 
 vec4 tx(int i, vec2 uv) {
   switch (i) {
@@ -1187,7 +1317,19 @@ void main() {
   }
 
   t.rgb = mix(t.rgb, vF.rgb * t.a, vF.a);
-  o = t * vC;
+  vec4 outC = t * vC;
+  o = outC;
+  if (outC.a >= 0.48) {
+    if (vD.z > 0.5) {
+      float normZ = clamp(vD.x / ${MAX_VIEW_Z.toFixed(4)}, 0.0, 1.0);
+      float u16 = floor(normZ * 65535.0 + 0.5);
+      oDepth = vec4(floor(u16 / 256.0) / 255.0, mod(u16, 256.0) / 255.0, 0.0, 1.0);
+    } else {
+      oDepth = vec4(0.0, 0.0, 1.0, 1.0);
+    }
+  } else {
+    oDepth = vec4(0.0);
+  }
 }`;
 
 const SPRITE_FL = 24;   // 6 vec4 attributes per sprite instance
@@ -1466,14 +1608,35 @@ export function createHD2DRenderer(canvas, { onLost = () => {}, onRestored = () 
   // WEBGL2 RESOURCES & PIPELINES
   // ============================================================================
   let MAXU = 14, MAXT = 4096, lost = false;
-  let terrainProg, blitProg, shadowProg, spriteProg;
+  let terrainProg, blitProg, postProg, shadowProg, spriteProg;
   let emptyVao, spriteVao, spriteBuf, shadowVao, shadowBuf;
   let terrainTex, detailTex, maxMipTex, cloudTex, groundTex = null, villageTex = null;
   let hasGroundTex = false, hasVillageTex = false;
   let groundBox = [0, 0, 1, 1], villageBox = [0, 0, 1, 1];
   let sceneFbo = null, sceneColorTex = null, sceneMetaTex = null, sceneW = 0, sceneH = 0;
   let shadowFbo = null, shadowFboTex = null, shadowW = 0, shadowH = 0, shadowFboEntry = null;
+  let compFbo = null, compColorTex = null, compDepthTex = null, compW = 0, compH = 0;
+  let postFxOn = true;
+  const pointPosArr = new Float32Array(12 * 4);
+  const pointColArr = new Float32Array(12 * 3);
+  let pointLightCount = 0;
   let white = null;
+
+  function setPointLights(lights) {
+    const n = Math.min(12, Array.isArray(lights) ? lights.length : 0);
+    pointLightCount = n;
+    for (let i = 0; i < n; i++) {
+      const L = lights[i];
+      const wy = terrainHeight(L.x, L.z) + (L.lift ?? 1.45);
+      pointPosArr[i * 4 + 0] = L.x;
+      pointPosArr[i * 4 + 1] = wy;
+      pointPosArr[i * 4 + 2] = L.z;
+      pointPosArr[i * 4 + 3] = L.r || 6.0;
+      pointColArr[i * 3 + 0] = L.cr ?? 1.0;
+      pointColArr[i * 3 + 1] = L.cg ?? 0.78;
+      pointColArr[i * 3 + 2] = L.cb ?? 0.42;
+    }
+  }
 
   let texMap = new WeakMap();
   const reg = new Set();
@@ -1699,6 +1862,7 @@ export function createHD2DRenderer(canvas, { onLost = () => {}, onRestored = () 
 
     terrainProg = compileProgram(QUAD_VS, TERRAIN_FS);
     blitProg = compileProgram(QUAD_VS, BLIT_FS);
+    postProg = compileProgram(QUAD_VS, POST_FS);
     shadowProg = compileProgram(SHADOW3D_VS, SHADOW3D_FS(MAXU));
     spriteProg = compileProgram(SPRITE_VS, SPRITE_FS(MAXU));
 
@@ -1750,11 +1914,16 @@ export function createHD2DRenderer(canvas, { onLost = () => {}, onRestored = () 
     gl.uniform1i(gl.getUniformLocation(blitProg, 'uSceneColor'), 0);
     gl.uniform1i(gl.getUniformLocation(blitProg, 'uSceneMeta'), 1);
 
+    gl.useProgram(postProg);
+    gl.uniform1i(gl.getUniformLocation(postProg, 'uCompColor'), 0);
+    gl.uniform1i(gl.getUniformLocation(postProg, 'uCompDepth'), 1);
+
     uploadWorldTextures();
     white = { tex: mkTex(new Uint8Array([255, 255, 255, 255]), 0, 0, 1, 1, 1, 1, false), w: 1, h: 1, used: 0, bytes: 4 };
     sceneFbo = gl.createFramebuffer();
     shadowFbo = gl.createFramebuffer();
-    sceneW = sceneH = shadowW = shadowH = 0;
+    compFbo = gl.createFramebuffer();
+    sceneW = sceneH = shadowW = shadowH = compW = compH = 0;
 
     gl.enable(gl.BLEND);
     gl.blendFunc(gl.ONE, gl.ONE_MINUS_SRC_ALPHA);
@@ -1811,6 +1980,36 @@ export function createHD2DRenderer(canvas, { onLost = () => {}, onRestored = () 
     shadowW = W;
     shadowH = H;
     shadowFboEntry = { tex: shadowFboTex, w: W, h: H, used: 0 };
+  }
+
+  function ensureCompFbo() {
+    if (compColorTex && compW === W && compH === H) return;
+    if (compColorTex) gl.deleteTexture(compColorTex);
+    if (compDepthTex) gl.deleteTexture(compDepthTex);
+
+    compColorTex = gl.createTexture();
+    gl.bindTexture(gl.TEXTURE_2D, compColorTex);
+    gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MIN_FILTER, gl.LINEAR);
+    gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MAG_FILTER, gl.LINEAR);
+    gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_WRAP_S, gl.CLAMP_TO_EDGE);
+    gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_WRAP_T, gl.CLAMP_TO_EDGE);
+    gl.texImage2D(gl.TEXTURE_2D, 0, gl.RGBA8, W, H, 0, gl.RGBA, gl.UNSIGNED_BYTE, null);
+
+    compDepthTex = gl.createTexture();
+    gl.bindTexture(gl.TEXTURE_2D, compDepthTex);
+    gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MIN_FILTER, gl.NEAREST);
+    gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MAG_FILTER, gl.NEAREST);
+    gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_WRAP_S, gl.CLAMP_TO_EDGE);
+    gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_WRAP_T, gl.CLAMP_TO_EDGE);
+    gl.texImage2D(gl.TEXTURE_2D, 0, gl.RGBA8, W, H, 0, gl.RGBA, gl.UNSIGNED_BYTE, null);
+
+    gl.bindFramebuffer(gl.FRAMEBUFFER, compFbo);
+    gl.framebufferTexture2D(gl.FRAMEBUFFER, gl.COLOR_ATTACHMENT0, gl.TEXTURE_2D, compColorTex, 0);
+    gl.framebufferTexture2D(gl.FRAMEBUFFER, gl.COLOR_ATTACHMENT1, gl.TEXTURE_2D, compDepthTex, 0);
+    gl.drawBuffers([gl.COLOR_ATTACHMENT0, gl.COLOR_ATTACHMENT1]);
+    gl.bindFramebuffer(gl.FRAMEBUFFER, null);
+    compW = W;
+    compH = H;
   }
 
   // ============================================================================
@@ -2045,6 +2244,7 @@ export function createHD2DRenderer(canvas, { onLost = () => {}, onRestored = () 
     if (!lost) {
       ensureSceneFbo();
       ensureShadowFbo();
+      ensureCompFbo();
     }
   }
 
@@ -2079,6 +2279,11 @@ export function createHD2DRenderer(canvas, { onLost = () => {}, onRestored = () 
     gl.uniform4fv(gl.getUniformLocation(terrainProg, 'uVillageBox'), villageBox);
     gl.uniform1f(gl.getUniformLocation(terrainProg, 'uHasGround'), hasGroundTex ? 1 : 0);
     gl.uniform1f(gl.getUniformLocation(terrainProg, 'uHasVillage'), hasVillageTex ? 1 : 0);
+    gl.uniform1i(gl.getUniformLocation(terrainProg, 'uPointCount'), pointLightCount);
+    if (pointLightCount > 0) {
+      gl.uniform4fv(gl.getUniformLocation(terrainProg, 'uPointPos'), pointPosArr);
+      gl.uniform3fv(gl.getUniformLocation(terrainProg, 'uPointCol'), pointColArr);
+    }
 
     gl.activeTexture(gl.TEXTURE0); gl.bindTexture(gl.TEXTURE_2D, terrainTex);
     gl.activeTexture(gl.TEXTURE1); gl.bindTexture(gl.TEXTURE_2D, detailTex);
@@ -2105,8 +2310,8 @@ export function createHD2DRenderer(canvas, { onLost = () => {}, onRestored = () 
       gl.clear(gl.COLOR_BUFFER_BIT);
     }
 
-    // Pass 3: Blit 3D Scene to Main Canvas with NEAREST Pixel Upscale + 1px Cliff Crease Outlines
-    gl.bindFramebuffer(gl.FRAMEBUFFER, null);
+    // Pass 3: Blit 3D Scene into Unified Composite MRT (Color + 16-bit ViewZ) with 1px Cliff Crease Outlines
+    gl.bindFramebuffer(gl.FRAMEBUFFER, compFbo);
     gl.viewport(0, 0, W, H);
     gl.disable(gl.BLEND);
     gl.useProgram(blitProg);
@@ -2117,10 +2322,28 @@ export function createHD2DRenderer(canvas, { onLost = () => {}, onRestored = () 
     gl.drawArrays(gl.TRIANGLES, 0, 3);
     draws++;
 
-    // Pass 4: Composite 3D Ground Shadows + Depth-Tested Upright 2D Pixel Billboards & VFX
+    // Pass 4: Composite 3D Ground Shadows + Depth-Tested Upright 2D Pixel Billboards & VFX into compFbo
     gl.enable(gl.BLEND);
     gl.blendFunc(gl.ONE, gl.ONE_MINUS_SRC_ALPHA);
     drawSpriteBatch(mainList);
+
+    // Pass 5: Octopath Traveler HD-2D Post-Process (Unified 3D+2D Depth Tilt-Shift Bokeh + Golden Bloom + Sunveil + Vignette)
+    gl.bindFramebuffer(gl.FRAMEBUFFER, null);
+    gl.viewport(0, 0, W, H);
+    gl.disable(gl.BLEND);
+    gl.useProgram(postProg);
+    gl.bindVertexArray(emptyVao);
+    gl.uniform2f(gl.getUniformLocation(postProg, 'uInvRes'), 1 / W, 1 / H);
+    gl.uniform1f(gl.getUniformLocation(postProg, 'uFocusZ'), camDist);
+    gl.uniform1f(gl.getUniformLocation(postProg, 'uDpr'), dpr);
+    gl.uniform1f(gl.getUniformLocation(postProg, 'uPitch'), camPitch);
+    gl.uniform1f(gl.getUniformLocation(postProg, 'uPostFx'), postFxOn && qualityHigh ? 1.0 : 0.0);
+    const sunScreenX = SUN_DIR[0] * camRight[0] + SUN_DIR[2] * camRight[2];
+    gl.uniform2f(gl.getUniformLocation(postProg, 'uSunCorner'), 0.5 + sunScreenX * 0.48, 0.92);
+    gl.activeTexture(gl.TEXTURE0); gl.bindTexture(gl.TEXTURE_2D, compColorTex);
+    gl.activeTexture(gl.TEXTURE1); gl.bindTexture(gl.TEXTURE_2D, compDepthTex);
+    gl.drawArrays(gl.TRIANGLES, 0, 3);
+    draws++;
 
     for (let k = 0; k <= MAXU; k++) {
       gl.activeTexture(gl.TEXTURE0 + k);
@@ -2318,7 +2541,7 @@ export function createHD2DRenderer(canvas, { onLost = () => {}, onRestored = () 
   });
   canvas.addEventListener('webglcontextrestored', () => {
     texMap = new WeakMap(); reg.clear(); bytes = 0;
-    groundTex = villageTex = sceneColorTex = sceneMetaTex = shadowFboTex = terrainTex = detailTex = maxMipTex = cloudTex = null;
+    groundTex = villageTex = sceneColorTex = sceneMetaTex = shadowFboTex = compColorTex = compDepthTex = terrainTex = detailTex = maxMipTex = cloudTex = null;
     try { init(); lost = false; onRestored(); } catch (err) { console.error(err); }
   });
 
@@ -2351,6 +2574,9 @@ export function createHD2DRenderer(canvas, { onLost = () => {}, onRestored = () 
     getDepthTag,
     restoreDepthTag,
     castShadow3D,
+    setPointLights,
+    togglePostFx: () => { postFxOn = !postFxOn; return postFxOn; },
+    isPostFxOn: () => postFxOn,
     targetXZ: () => ({ x: camX, z: camZ }),
     camForwardXZ: () => {
       const cb = Math.cos(camYaw), sb = Math.sin(camYaw);

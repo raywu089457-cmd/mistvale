@@ -1242,6 +1242,7 @@ let renderDprMax=Math.max(1,dprCap||autoDpr());   // 畫布解析度上限(devic
       else if(e.key==='r'||e.key==='R'){camKeys.add('tiltD');}
       else if(e.key==='f'||e.key==='F'){camKeys.add('tiltU');}
       else if((e.key==='c'||e.key==='C')&&!e.ctrlKey&&!e.metaKey){hd2d?.resetAngle();}
+      else if((e.key==='v'||e.key==='V')&&!e.ctrlKey&&!e.metaKey&&hd2d){const on=hd2d.togglePostFx();const btn=document.querySelector('#hd2d-cam [data-action="camFx"]');if(btn){btn.classList.toggle('on',on);btn.setAttribute('aria-pressed',String(on));}}
     }
   };
   const onCamKeyUp=e=>{
@@ -2642,6 +2643,33 @@ let renderDprMax=Math.max(1,dprCap||autoDpr());   // 畫布解析度上限(devic
         glGroundSeen=groundGen;
         hd2d.syncGroundCanvases(ground,[GX0,GY0,GX1-GX0,GY1-GY0],villageReady?villageLayer:null,[VBOX.x0,VBOX.y0,VBOX.w,VBOX.h],PONDS);
       }
+      // 3D 村莊爐火、街燈與聖所水晶地面暖光暈染（歧路旅人式點光源）
+      if(quality){
+        const flk=0.90+0.12*Math.sin(elapsed*8.7)+0.05*Math.sin(elapsed*19.3);
+        const LIGHT_SPECS=[
+          ['forge',7.6,1.00*flk,0.56*flk,0.22*flk,1.5,1.2,1.2],
+          ['enhancement',6.0,1.00*flk,0.66*flk,0.28*flk,1.4,-1.0,1.2],
+          ['hall',7.2,1.00,0.82,0.46,1.8,0,1.8],
+          ['tavern',6.4,1.00,0.76,0.38,1.5,1.2,1.5],
+          ['restaurant',6.0,1.00,0.78,0.42,1.5,0.8,1.5],
+          ['inn',6.0,0.98,0.80,0.46,1.5,0.8,1.5],
+          ['sanctuary',6.2,0.38,0.88,1.00,1.6,0,1.5],
+          ['trading',5.4,0.98,0.80,0.44,1.4,0.8,1.4],
+          ['clinic',5.2,0.96,0.86,0.58,1.4,0,1.4],
+          ['academy',5.4,0.88,0.76,0.98,1.5,0,1.4],
+          ['bounty',5.0,0.98,0.78,0.42,1.4,0,1.3],
+        ];
+        const pLights=[];
+        const bossFoe=(state.enemies||[]).find(e=>e.type==='boss'&&e.hp>0);
+        if(bossFoe)pLights.push({x:bossFoe.x,z:bossFoe.z,r:8.5,cr:1.0,cg:0.38,cb:0.26,lift:2.0});
+        for(const [bid,rad,cr,cg,cb,lift,ox,oz] of LIGHT_SPECS){
+          if(pLights.length>=12)break;
+          if(!(getLevel(bid)>0))continue;
+          const bp=state.layout?.[bid]||BUILDINGS.find(q=>q.id===bid);
+          if(bp)pLights.push({x:bp.x+ox,z:bp.z+oz,r:rad,cr,cg,cb,lift});
+        }
+        hd2d.setPointLights(pLights);
+      }else hd2d.setPointLights([]);
       hd2d.begin(canvas.width,canvas.height,elapsed,quality);
     }else if(glr){glr.begin(canvas.width,canvas.height);if(glGroundSeen!==groundGen){glGroundSeen=groundGen;glr.invalidate(ground);glr.invalidate(villageLayer);}}
     DPRK=canvas.width/width;if(canvas.style.transform)canvas.style.transform='';for(const c of [bg,sg,spg,ssc,bgc,fsc,rdc,cmp]){c.setTransform(DPRK,0,0,DPRK,0,0);c.imageSmoothingEnabled=false;}
@@ -2837,10 +2865,34 @@ let renderDprMax=Math.max(1,dprCap||autoDpr());   // 畫布解析度上限(devic
       globalThis.__mistvaleSmoke={count:0,minY:null,spot:smokeSpot,last:[]};
     }
     hd2d?.setOverlay2D();
-    // Small ambient birds and bright drifting pollen keep the village alive.
-    if(quality){for(let i=0;i<12;i++){const x=((elapsed*(2+i%3)+i*79)%width),y=(i*47+Math.sin(elapsed*.5+i)*7)%(height);g.globalAlpha=.4;pixel(g,x,y,1,1,'#f2e9be');}g.globalAlpha=1;}
     const camCenterXZ=hd2d?hd2d.targetXZ():{x:(cam.x/PX+cam.y/PY)/2,z:(cam.y/PY-cam.x/PX)/2};
-    const cb=biomeAt(camCenterXZ.x,camCenterXZ.z);if(quality&&cb==='snow'&&!globalThis.matchMedia?.('(prefers-reduced-motion: reduce)').matches){for(let i=0;i<34;i++){const x=(i*59+Math.sin(elapsed*.4+i)*12+width)%width,y=(i*41+elapsed*(6+i%4))%height;pixel(g,x,y,i%4===0?2:1,1,'#eff5e7');}}
+    const cb=biomeAt(camCenterXZ.x,camCenterXZ.z);
+    // 歧路旅人式 3D 空間漂浮金色光塵／雪晶（具真實 3D 遠近透視、山體遮擋與散景光斑）
+    if(hd2d&&quality&&!globalThis.matchMedia?.('(prefers-reduced-motion: reduce)').matches){
+      const span=54,half=span/2,snowy=cb==='snow'||cb==='taiga';
+      const bx0=Math.floor((camCenterXZ.x-half)/span)*span,bz0=Math.floor((camCenterXZ.z-half)/span)*span;
+      for(let i=0;i<38;i++){
+        const rx=((i*37.7+Math.sin(elapsed*(0.35+(i%5)*0.08)+i*1.7)*2.6)%span+span)%span;
+        const rz=((i*23.3+Math.cos(elapsed*(0.31+(i%4)*0.07)+i*2.3)*2.6)%span+span)%span;
+        let mx=bx0+rx,mz=bz0+rz;
+        if(mx-camCenterXZ.x>half)mx-=span;else if(camCenterXZ.x-mx>half)mx+=span;
+        if(mz-camCenterXZ.z>half)mz-=span;else if(camCenterXZ.z-mz>half)mz+=span;
+        const cyc=((elapsed*(snowy?0.22:0.09)+i*0.173)%1+1)%1;
+        const lift=snowy?(28-cyc*26):(2.5+cyc*22+Math.sin(elapsed*0.9+i)*1.8);
+        const pr=hd2d.setEntity3D(mx,mz,lift,1.1);
+        if(pr.behind||pr.x<-20||pr.x>width+20||pr.y<-20||pr.y>height+20)continue;
+        const fade=Math.sin(cyc*Math.PI),twinkle=0.62+0.38*Math.sin(elapsed*3.4+i*2.1);
+        const sz=Math.max(1,Math.min(4,Math.round((i%5===0?2.1:1.3)*pr.s)));
+        g.globalAlpha=Math.min(0.88,fade*twinkle*(snowy?0.85:0.74));
+        const col=snowy?(i%3===0?'#dff6ff':'#ffffff'):(i%4===0?'#fff8dc':i%2===0?'#ffd97d':'#ffb86c');
+        pixel(g,pr.x-sz*0.5,pr.y-sz*0.5,sz,sz,col);
+      }
+      g.globalAlpha=1;
+      hd2d.setOverlay2D();
+    }else if(quality){
+      for(let i=0;i<12;i++){const x=((elapsed*(2+i%3)+i*79)%width),y=(i*47+Math.sin(elapsed*.5+i)*7)%(height);g.globalAlpha=.4;pixel(g,x,y,1,1,'#f2e9be');}g.globalAlpha=1;
+      if(cb==='snow'&&!globalThis.matchMedia?.('(prefers-reduced-motion: reduce)').matches){for(let i=0;i<34;i++){const x=(i*59+Math.sin(elapsed*.4+i)*12+width)%width,y=(i*41+elapsed*(6+i%4))%height;pixel(g,x,y,i%4===0?2:1,1,'#eff5e7');}}
+    }
     // T135:雨天——溫帶生態圈偶爾下雨（用 state.time 決定，同一個時間一定是同樣天氣）
     {
       const wetBe=['village','meadow','forest','birch','taiga','mountain'].includes(cb);
@@ -2968,6 +3020,8 @@ let renderDprMax=Math.max(1,dprCap||autoDpr());   // 畫布解析度上限(devic
     orbitBy:(dYaw,dPitch=0,snap=false)=>{markInput();homeFraming=false;hd2d?.orbitBy(dYaw,dPitch,snap);},
     cycleTilt:()=>{markInput();homeFraming=false;return hd2d?hd2d.cycleTilt():null;},
     resetAngle:()=>{markInput();hd2d?.resetAngle();},
+    togglePostFx:()=>hd2d?hd2d.togglePostFx():false,
+    isPostFxOn:()=>hd2d?hd2d.isPostFxOn():false,
     angleState:()=>hd2d?hd2d.angleState():null,
     isHD2D:()=>!!hd2d,
     setDpr:(v)=>{dprCap=v==='auto'||v==null?null:Math.max(1,Math.min(3,Number(v)||autoDpr()));renderDprMax=Math.max(1,Math.min(dprCap||autoDpr(),globalThis.devicePixelRatio||1));resize();compValid=false;render();},

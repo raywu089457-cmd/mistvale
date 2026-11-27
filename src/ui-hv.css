@@ -3427,6 +3427,7 @@ html body #game-ui #hd2d-cam.hidden{display:none!important}
 html body #game-ui #hd2d-cam>button{width:var(--hv-hit)!important;height:var(--hv-hit)!important;min-width:var(--hv-hit)!important;min-height:var(--hv-hit)!important;display:grid!important;place-items:center!important;
   background:rgba(20,17,15,.52)!important;border:1px solid rgba(110,94,76,.85)!important;border-radius:2px!important;font:700 13px/1 var(--font-num)!important;color:var(--hv-text)!important;text-shadow:var(--hv-outline)!important;position:relative;cursor:pointer}
 html body #game-ui #hd2d-cam>button:hover{background:rgba(48,40,32,.9)!important;border-color:var(--hv-gold)!important}
+html body #game-ui #hd2d-cam>button.on{border-color:rgba(230,180,60,.85)!important;color:var(--hv-gold)!important}
 html body #game-ui #hd2d-cam>button:active{transform:translateY(1px)!important}
 @media(hover:hover) and (pointer:fine){
   html body #game-ui #hd2d-cam [data-tip]:hover::after,html body #game-ui #hd2d-cam [data-tip]:focus-visible::after{top:auto!important;bottom:calc(100% + 6px)!important;left:0!important;right:auto!important;transform:none!important}
