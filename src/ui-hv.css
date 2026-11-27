@@ -1179,7 +1179,12 @@ html body #modal-content .region-detail:has(.region-detail-art)>.rd-head{margin:
 
 /* ===== FIX-A：互動與版面 bug（B1–B12、缺口 7/8/12/19/20）— 只有 FIX-A 代理改這段 ===== */
 /* 底部「堆疊」變數:手機/橫向的暫停標籤、放置提示、小隊 HUD、小卡、toast 都貼在頁籤列上方,彼此靠這些變數錯開 */
-html body{--fa-stack:calc(var(--fa-run,0px) + var(--fa-pl,0px) + var(--fa-uc,0px))}
+html body{--fa-stack:calc(var(--fa-run,0px) + var(--fa-pl,0px) + var(--fa-uc,0px) + var(--fa-cam,0px))}
+/* 2026-11-27 合併 HD-2D:直向手機的 3D 鏡頭列(#hd2d-cam,頁籤列上方 12px、高 44)看得到時,toast 疊在它上面(44 + 8),不蓋 ⟲／3D／⟳ 鈕。
+   條件跟 #hd2d-cam 被藏起來的那串一致(面板、操控、建築詳情、放置、小卡、出征 HUD 開著時鏡頭列不顯示,toast 回原位) */
+@media(max-width:760px) and (min-height:580px){
+  html body:has(#hd2d-cam:not(.hidden)):not(.hud-modal):not(.piloting):not(:has(#inspector:not(.hidden))):not(:has(#placement:not(.hidden))):not(:has(#left-panel:not(.hidden))):not(:has(#unit-card)):not(:has(#pilotlab)):not(:has(#run-hud:not(.hidden))){--fa-cam:52px}
+}
 @media(max-width:760px),(max-height:520px){html body:has(#pause-label:not(.hidden)){--fa-pause:34px}}
 @media(max-width:760px){
   html body:has(#placement:not(.hidden)){--fa-pl:56px}

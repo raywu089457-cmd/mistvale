@@ -8,6 +8,7 @@
 | `src/pixel-data.js` (144) | 資料：BUILDINGS、CLASSES、RARITIES、TRAITS、RECIPES、DIFFICULTIES、HUNT_ZONE、SAVE_KEY |
 | `src/pixel-game.js` | 模擬核心：`createGame`、獵人 AI、戰鬥、委託、存檔、離線結算 |
 | `src/pixel-world.js` | 像素渲染：`createPixelWorld`、地面/建築/角色繪製、`drawPortrait`、地圖 |
+| `src/hd2d-webgl2.js` | **預設繪製後端**（2026-11-27 合併 exp/hd2d-webgl2）：WebGL2 光線步進 3D 地形＋直立 2D 像素看板、360° 鏡頭（`rotDir`／`isOccluded3D`）、移軸景深；`?renderer=gl2d` 回平面 GL、`?renderer=2d` 回 Canvas 2D。地面貼圖直接用 pixel-world 的 2D 地面畫布（沒有環村道路）；村莊石台外一圈是 `APRON_H` 平地 |
 | `src/pixel-ui.js` (443) | 介面與 HUD、讀取畫面 |
 | `src/pixel-index.html` / `pixel-style.css` | 介面結構與樣式 |
 | `src/pixel-icons.js` | 圖示 canvas（`iconsReady`） |
